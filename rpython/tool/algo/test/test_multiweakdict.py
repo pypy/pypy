@@ -1,5 +1,5 @@
 import py, gc
-from pypy.tool.algo.multiweakdict import MultiWeakKeyDictionary
+from rpython.tool.algo.multiweakdict import MultiWeakKeyDictionary
 
 
 class A(object):

@@ -1,4 +1,4 @@
-from pypy.tool.algo.unionfind import UnionFind
+from rpython.tool.algo.unionfind import UnionFind
 
 
 def test_cleanup():

@@ -1,4 +1,4 @@
-from pypy.tool.algo.color import DependencyGraph
+from rpython.tool.algo.color import DependencyGraph
 
 
 def graph1():

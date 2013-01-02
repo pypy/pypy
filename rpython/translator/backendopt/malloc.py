@@ -1,5 +1,5 @@
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
-from pypy.tool.algo.unionfind import UnionFind
+from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.ootypesystem import ootype
 from rpython.translator import simplify

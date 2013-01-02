@@ -1,6 +1,6 @@
 import autopath
 import random
-from pypy.tool.algo.graphlib import *
+from rpython.tool.algo.graphlib import *
 
 def copy_edges(edges):
     result = {}

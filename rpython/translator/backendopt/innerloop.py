@@ -2,7 +2,7 @@
 This is optional support code for backends: it finds which cycles
 in a graph are likely to correspond to source-level 'inner loops'.
 """
-from pypy.tool.algo import graphlib
+from rpython.tool.algo import graphlib
 from rpython.flowspace.model import Variable
 from rpython.translator.backendopt.ssa import DataFlowFamilyBuilder
 

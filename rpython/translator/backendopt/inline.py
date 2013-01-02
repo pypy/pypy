@@ -4,7 +4,7 @@ from rpython.flowspace.model import (Variable, Constant, Block, Link,
     SpaceOperation, c_last_exception, FunctionGraph, mkentrymap)
 from rpython.rtyper.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr, normalizeptr
 from rpython.rtyper.ootypesystem import ootype
-from pypy.tool.algo import sparsemat
+from rpython.tool.algo import sparsemat
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.support import log, find_loop_blocks

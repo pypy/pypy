@@ -2,7 +2,7 @@
 import py
 from rpython.tool.uid import uid
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.tool.algo.unionfind import UnionFind
+from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import Block, Link, Variable, SpaceOperation
 from rpython.flowspace.model import Constant, checkgraph
 from rpython.annotator import model as annmodel

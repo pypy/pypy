@@ -1,5 +1,5 @@
 from rpython.translator.simplify import get_graph, get_funcobj
-from pypy.tool.algo.unionfind import UnionFind
+from rpython.tool.algo.unionfind import UnionFind
 
 
 class GraphAnalyzer(object):

@@ -1,4 +1,4 @@
-from pypy.tool.algo.fset import FSet, checktree, emptyset
+from rpython.tool.algo.fset import FSet, checktree, emptyset
 import random
 
 

@@ -9,7 +9,7 @@ class SemiSpaceGCTestDefines:
 
     def definestr_finalizer_order(cls):
         import random
-        from pypy.tool.algo import graphlib
+        from rpython.tool.algo import graphlib
 
         cls.finalizer_order_examples = examples = []
         if cls.large_tests_ok:

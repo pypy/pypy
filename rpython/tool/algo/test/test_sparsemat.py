@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool.algo.sparsemat import *
+from rpython.tool.algo.sparsemat import *
 
 
 def test_sparsemat1():

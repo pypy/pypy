@@ -1,5 +1,5 @@
 from rpython.flowspace.model import Variable, mkentrymap
-from pypy.tool.algo.unionfind import UnionFind
+from rpython.tool.algo.unionfind import UnionFind
 
 class DataFlowFamilyBuilder:
     """Follow the flow of the data in the graph.  Builds a UnionFind grouping

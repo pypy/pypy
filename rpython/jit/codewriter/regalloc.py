@@ -1,4 +1,4 @@
-from pypy.tool.algo import regalloc
+from rpython.tool.algo import regalloc
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.codewriter.flatten import ListOfKind
 

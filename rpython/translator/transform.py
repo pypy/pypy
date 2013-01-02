@@ -205,7 +205,7 @@ def cutoff_alwaysraising_block(self, block):
 def insert_ll_stackcheck(translator):
     from rpython.translator.backendopt.support import find_calls_from
     from rpython.rlib.rstack import stack_check
-    from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles_v
+    from rpython.tool.algo.graphlib import Edge, make_edge_dict, break_cycles_v
     rtyper = translator.rtyper
     graph = rtyper.annotate_helper(stack_check, [])
     rtyper.specialize_more_blocks()

@@ -1,7 +1,7 @@
 import sys
 from rpython.flowspace.model import Variable
-from pypy.tool.algo.color import DependencyGraph
-from pypy.tool.algo.unionfind import UnionFind
+from rpython.tool.algo.color import DependencyGraph
+from rpython.tool.algo.unionfind import UnionFind
 
 def perform_register_allocation(graph, consider_var, ListOfKind=()):
     """Perform register allocation for the Variables of the given 'kind'

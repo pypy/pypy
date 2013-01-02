@@ -21,7 +21,7 @@ from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
 from rpython.flowspace.argument import ArgumentsForTranslation
 from rpython.rlib.objectmodel import r_dict, Symbolic
-from pypy.tool.algo.unionfind import UnionFind
+from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper import extregistry
