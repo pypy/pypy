@@ -6,7 +6,7 @@ from pypy.interpreter.error import OperationError
 from rpython.rlib import rstring, runicode, rlocale, rarithmetic, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
-from pypy.tool import sourcetools
+from rpython.tool import sourcetools
 
 
 @specialize.argtype(1)
