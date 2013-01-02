@@ -409,7 +409,7 @@ class AssemblerARM(ResOpAssembler):
                 if code_inputarg:
                     code = ~code
                     code_inputarg = False
-                stackloc = frame_addr + get_fp_offset(int(code))
+                stackloc = force_index - get_fp_offset(int(code))
                 value = rffi.cast(rffi.LONGP, stackloc)[0]
                 if kind == AssemblerARM.DESCR_FLOAT:
                     assert WORD == 4
@@ -435,7 +435,7 @@ class AssemblerARM(ResOpAssembler):
                         value = vfp_registers[2*code]
                         value_hi = vfp_registers[2*code + 1]
                     else:
-                        value = allregisters[code]
+                        value = registers[code]
                 else:
                     value = registers[code]
             # store the loaded value into fail_boxes_<type>
@@ -644,7 +644,7 @@ class AssemblerARM(ResOpAssembler):
         self.mc.BL(target)
         # write tight data that describes the failure recovery
         if guardtok.is_guard_not_forced:
-            mc.writechar(chr(self.CODE_FORCED))
+            self.mc.writechar(chr(self.CODE_FORCED))
         self.write_failure_recovery_description(guardtok.descr,
                                 guardtok.failargs, guardtok.faillocs[1:])
         self.mc.write32(fail_index)
