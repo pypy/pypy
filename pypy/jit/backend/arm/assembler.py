@@ -325,7 +325,7 @@ class AssemblerARM(ResOpAssembler):
             vfp_registers = rffi.cast(rffi.LONGP, stack_pointer)
             registers = rffi.ptradd(vfp_registers, 2*len(r.all_vfp_regs))
             registers = rffi.cast(rffi.LONGP, registers)
-            return self.decode_registers_and_descr(self.cpu, mem_loc, frame_pointer,
+            return self.grab_frame_values(self.cpu, mem_loc, frame_pointer,
                                                     registers, vfp_registers)
         self.failure_recovery_code = [0, 0, 0, 0]
 
@@ -335,7 +335,7 @@ class AssemblerARM(ResOpAssembler):
                                                         llmemory.GCREF))
 
     @staticmethod
-    def decode_registers_and_descr(cpu, mem_loc, frame_pointer,
+    def grab_frame_values(cpu, mem_loc, frame_pointer,
                                                 registers, vfp_registers):
         # no malloc allowed here!!  xxx apart from one, hacking a lot
         #self.fail_ebp = allregisters[16 + ebp.value]
