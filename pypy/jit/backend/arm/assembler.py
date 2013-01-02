@@ -338,7 +338,7 @@ class AssemblerARM(ResOpAssembler):
     def grab_frame_values(cpu, mem_loc, frame_pointer,
                                                 registers, vfp_registers):
         # no malloc allowed here!!  xxx apart from one, hacking a lot
-        #self.fail_ebp = allregisters[16 + ebp.value]
+        force_index = rffi.cast(lltype.Signed, frame_pointer)
         num = 0
         deadframe = lltype.nullptr(jitframe.DEADFRAME)
         bytecode = rffi.cast(rffi.UCHARP, mem_loc)
@@ -361,8 +361,7 @@ class AssemblerARM(ResOpAssembler):
                         continue
                     if code == AssemblerARM.CODE_FORCED:
                         # resuming from a GUARD_NOT_FORCED
-                        xxx
-                        token = allregisters[16 + ebp.value]
+                        token = force_index
                         deadframe = (
                             cpu.assembler.force_token_to_dead_frame.pop(token))
                         deadframe = lltype.cast_opaque_ptr(
