@@ -494,7 +494,7 @@ class VirtualInfo(AbstractVirtualStructInfo):
     @specialize.argtype(1)
     def allocate(self, decoder, index):
         struct = decoder.allocate_with_vtable(self.known_class)
-        decoder.virtuals_cache[index] = struct
+        decoder.virtuals_cache.set_ptr(index, struct)
         return self.setfields(decoder, struct)
 
     def debug_prints(self):
@@ -510,7 +510,7 @@ class VStructInfo(AbstractVirtualStructInfo):
     @specialize.argtype(1)
     def allocate(self, decoder, index):
         struct = decoder.allocate_struct(self.typedescr)
-        decoder.virtuals_cache[index] = struct
+        decoder.virtuals_cache.set_ptr(index, struct)
         return self.setfields(decoder, struct)
 
     def debug_prints(self):
@@ -527,7 +527,7 @@ class VArrayInfo(AbstractVirtualInfo):
         length = len(self.fieldnums)
         arraydescr = self.arraydescr
         array = decoder.allocate_array(length, arraydescr)
-        decoder.virtuals_cache[index] = array
+        decoder.virtuals_cache.set_ptr(index, array)
         # NB. the check for the kind of array elements is moved out of the loop
         if arraydescr.is_array_of_pointers():
             for i in range(length):
@@ -561,7 +561,7 @@ class VRawBufferStateInfo(AbstractVirtualInfo):
     def allocate_int(self, decoder, index):
         length = len(self.fieldnums)
         buffer = decoder.allocate_raw_buffer(self.size)
-        decoder.virtuals_int_cache[index] = buffer
+        decoder.virtuals_cache.set_int(index, buffer)
         for i in range(len(self.offsets)):
             offset = self.offsets[i]
             descr = self.descrs[i]
@@ -587,7 +587,7 @@ class VArrayStructInfo(AbstractVirtualInfo):
     @specialize.argtype(1)
     def allocate(self, decoder, index):
         array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr)
-        decoder.virtuals_cache[index] = array
+        decoder.virtuals_cache.set_ptr(index, array)
         p = 0
         for i in range(len(self.fielddescrs)):
             for j in range(len(self.fielddescrs[i])):
@@ -604,7 +604,7 @@ class VStrPlainInfo(AbstractVirtualInfo):
     def allocate(self, decoder, index):
         length = len(self.fieldnums)
         string = decoder.allocate_string(length)
-        decoder.virtuals_cache[index] = string
+        decoder.virtuals_cache.set_ptr(index, string)
         for i in range(length):
             charnum = self.fieldnums[i]
             if not tagged_eq(charnum, UNINITIALIZED):
@@ -626,7 +626,7 @@ class VStrConcatInfo(AbstractVirtualInfo):
         # efficient.  Not sure we care.
         left, right = self.fieldnums
         string = decoder.concat_strings(left, right)
-        decoder.virtuals_cache[index] = string
+        decoder.virtuals_cache.set_ptr(index, string)
         return string
 
     def debug_prints(self):
@@ -642,7 +642,7 @@ class VStrSliceInfo(AbstractVirtualInfo):
     def allocate(self, decoder, index):
         largerstr, start, length = self.fieldnums
         string = decoder.slice_string(largerstr, start, length)
-        decoder.virtuals_cache[index] = string
+        decoder.virtuals_cache.set_ptr(index, string)
         return string
 
     def debug_prints(self):
@@ -659,7 +659,7 @@ class VUniPlainInfo(AbstractVirtualInfo):
     def allocate(self, decoder, index):
         length = len(self.fieldnums)
         string = decoder.allocate_unicode(length)
-        decoder.virtuals_cache[index] = string
+        decoder.virtuals_cache.set_ptr(index, string)
         for i in range(length):
             charnum = self.fieldnums[i]
             if not tagged_eq(charnum, UNINITIALIZED):
@@ -681,7 +681,7 @@ class VUniConcatInfo(AbstractVirtualInfo):
         # efficient.  Not sure we care.
         left, right = self.fieldnums
         string = decoder.concat_unicodes(left, right)
-        decoder.virtuals_cache[index] = string
+        decoder.virtuals_cache.set_ptr(index, string)
         return string
 
     def debug_prints(self):
@@ -698,7 +698,7 @@ class VUniSliceInfo(AbstractVirtualInfo):
     def allocate(self, decoder, index):
         largerstr, start, length = self.fieldnums
         string = decoder.slice_unicode(largerstr, start, length)
-        decoder.virtuals_cache[index] = string
+        decoder.virtuals_cache.set_ptr(index, string)
         return string
 
     def debug_prints(self):
@@ -707,6 +707,33 @@ class VUniSliceInfo(AbstractVirtualInfo):
             debug_print("\t\t", str(untag(i)))
 
 # ____________________________________________________________
+
+class AbstractVirtualCache(object):
+    pass
+
+def get_VirtualCache_class(suffix):
+    # we need to create two copy of this class, because virtuals_*_cache will
+    # be lists of different types (one for ResumeDataDirectReader and one for
+    # ResumeDataBoxReader)
+    class VirtualCache(AbstractVirtualCache):
+        def __init__(self, virtuals_ptr_cache, virtuals_int_cache):
+            self.virtuals_ptr_cache = virtuals_ptr_cache
+            self.virtuals_int_cache = virtuals_int_cache
+
+        def get_ptr(self, i):
+            return self.virtuals_ptr_cache[i]
+
+        def get_int(self, i):
+            return self.virtuals_int_cache[i]
+
+        def set_ptr(self, i, v):
+            self.virtuals_ptr_cache[i] = v
+
+        def set_int(self, i, v):
+            self.virtuals_int_cache[i] = v
+
+    VirtualCache.__name__ += suffix
+    return VirtualCache
 
 class AbstractResumeDataReader(object):
     """A base mixin containing the logic to reconstruct virtuals out of
@@ -718,9 +745,9 @@ class AbstractResumeDataReader(object):
     _mixin_ = True
     rd_virtuals = None
     virtuals_cache = None
-    virtuals_int_cache = None
-    virtual_default = None
+    virtual_ref_default = None
     virtual_int_default = None
+
 
     def _init(self, cpu, storage):
         self.cpu = cpu
@@ -731,24 +758,24 @@ class AbstractResumeDataReader(object):
         self._prepare_virtuals(storage.rd_virtuals)
         self._prepare_pendingfields(storage.rd_pendingfields)
 
-    def getvirtual(self, index):
+    def getvirtual_ref(self, index):
         # Returns the index'th virtual, building it lazily if needed.
         # Note that this may be called recursively; that's why the
         # allocate() methods must fill in the cache as soon as they
         # have the object, before they fill its fields.
         assert self.virtuals_cache is not None
-        v = self.virtuals_cache[index]
+        v = self.virtuals_cache.get_ptr(index)
         if not v:
             v = self.rd_virtuals[index].allocate(self, index)
-            ll_assert(v == self.virtuals_cache[index], "resume.py: bad cache")
+            ll_assert(v == self.virtuals_cache.get_ptr(index), "resume.py: bad cache")
         return v
 
     def getvirtual_int(self, index):
-        assert self.virtuals_int_cache is not None
-        v = self.virtuals_int_cache[index]
+        assert self.virtuals_cache is not None
+        v = self.virtuals_cache.get_int(index)
         if not v:
             v = self.rd_virtuals[index].allocate_int(self, index)
-            ll_assert(v == self.virtuals_int_cache[index], "resume.py: bad cache")
+            ll_assert(v == self.virtuals_cache.get_int(index), "resume.py: bad cache")
         return v
 
     def force_all_virtuals(self):
@@ -758,12 +785,12 @@ class AbstractResumeDataReader(object):
                 rd_virtual = rd_virtuals[i]
                 if rd_virtual is not None:
                     if rd_virtual.kind == REF:
-                        self.getvirtual(i)
+                        self.getvirtual_ref(i)
                     elif rd_virtual.kind == INT:
                         self.getvirtual_int(i)
                     else:
                         assert False
-        return self.virtuals_cache, self.virtuals_int_cache
+        return self.virtuals_cache
 
     def _prepare_virtuals(self, virtuals):
         if virtuals:
@@ -772,8 +799,8 @@ class AbstractResumeDataReader(object):
             # for REFs and one for INTs: but for each index, we are using
             # either one or the other, so we should think of a way to
             # "compact" them
-            self.virtuals_cache = [self.virtual_default] * len(virtuals)
-            self.virtuals_int_cache = [self.virtual_int_default] * len(virtuals)
+            self.virtuals_cache = self.VirtualCache([self.virtual_ref_default] * len(virtuals),
+                                                    [self.virtual_int_default] * len(virtuals))
 
     def _prepare_pendingfields(self, pendingfields):
         if pendingfields:
@@ -846,6 +873,7 @@ def rebuild_from_resumedata(metainterp, storage, virtualizable_info,
 
 class ResumeDataBoxReader(AbstractResumeDataReader):
     unique_id = lambda: None
+    VirtualCache = get_VirtualCache_class('BoxReader')
 
     def __init__(self, storage, metainterp):
         self._init(metainterp.cpu, storage)
@@ -1030,7 +1058,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             if kind == INT:
                 box = self.getvirtual_int(num)
             else:
-                box = self.getvirtual(num)
+                box = self.getvirtual_ref(num)
         elif tag == TAGINT:
             box = ConstInt(num)
         else:
@@ -1126,9 +1154,10 @@ def force_from_resumedata(metainterp_sd, storage, vinfo, ginfo):
 
 class ResumeDataDirectReader(AbstractResumeDataReader):
     unique_id = lambda: None
-    virtual_default = lltype.nullptr(llmemory.GCREF.TO)
+    virtual_ref_default = lltype.nullptr(llmemory.GCREF.TO)
     virtual_int_default = 0
     resume_after_guard_not_forced = 0
+    VirtualCache = get_VirtualCache_class('DirectReader')
     #             0: not a GUARD_NOT_FORCED
     #             1: in handle_async_forcing
     #             2: resuming from the GUARD_NOT_FORCED
@@ -1142,7 +1171,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             # special case for resuming after a GUARD_NOT_FORCED: we already
             # have the virtuals
             self.resume_after_guard_not_forced = 2
-            self.virtuals_cache, self.virtuals_int_cache = all_virtuals
+            self.virtuals_cache = all_virtuals
             # self.rd_virtuals can remain None, because virtuals_cache is
             # already filled
 
@@ -1339,7 +1368,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
                 return self.cpu.ts.NULLREF
             return self.consts[num].getref_base()
         elif tag == TAGVIRTUAL:
-            return self.getvirtual(num)
+            return self.getvirtual_ref(num)
         else:
             assert tag == TAGBOX
             if num < 0:

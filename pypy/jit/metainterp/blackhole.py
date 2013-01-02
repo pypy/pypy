@@ -1546,7 +1546,7 @@ def _handle_jitexception(blackholeinterp, jitexc):
     return blackholeinterp, lle
 
 def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
-                        all_virtuals=None):
+                        all_virtuals = None):
     from pypy.jit.metainterp.resume import blackhole_from_resumedata
     #debug_start('jit-blackhole')
     blackholeinterp = blackhole_from_resumedata(

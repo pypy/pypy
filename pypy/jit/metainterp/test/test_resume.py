@@ -228,9 +228,10 @@ def test_simple_read_tagged_ints():
 
 def test_prepare_virtuals():
     class FakeVinfo(object):
+        kind = REF
         def allocate(self, decoder, index):
             s = "allocated"
-            decoder.virtuals_cache[index] = s
+            decoder.virtuals_cache.set_ptr(index, s)
             return s
     class FakeStorage(object):
         rd_virtuals = [FakeVinfo(), None]
@@ -241,11 +242,14 @@ def test_prepare_virtuals():
         _already_allocated_resume_virtuals = None
         cpu = None
     reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage())
-    assert reader.force_all_virtuals() == ["allocated", reader.virtual_default]
+    cache = reader.force_all_virtuals()
+    assert cache.virtuals_ptr_cache == ["allocated", reader.virtual_ref_default]
 
 # ____________________________________________________________
 
 class FakeResumeDataReader(AbstractResumeDataReader):
+    VirtualCache = get_VirtualCache_class('Fake')
+    
     def allocate_with_vtable(self, known_class):
         return FakeBuiltObject(vtable=known_class)
     def allocate_struct(self, typedescr):
@@ -300,7 +304,8 @@ def test_virtualinfo():
     info.fieldnums = [tag(456, TAGINT)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    cache = reader.force_all_virtuals()
+    assert cache.virtuals_ptr_cache == [
         FakeBuiltObject(vtable=123, fielddescr1=tag(456, TAGINT))]
 
 def test_vstructinfo():
@@ -308,7 +313,8 @@ def test_vstructinfo():
     info.fieldnums = [tag(456, TAGINT)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    cache = reader.force_all_virtuals()
+    assert cache.virtuals_ptr_cache == [
         FakeBuiltObject(typedescr=124, fielddescr1=tag(456, TAGINT))]
 
 def test_varrayinfo():
@@ -317,7 +323,7 @@ def test_varrayinfo():
     info.fieldnums = [tag(456, TAGINT)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    assert reader.force_all_virtuals().virtuals_ptr_cache == [
         FakeBuiltObject(arraydescr=arraydescr, items=[tag(456, TAGINT)])]
 
 def test_vstrplaininfo():
@@ -325,7 +331,7 @@ def test_vstrplaininfo():
     info.fieldnums = [tag(60, TAGINT)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    assert reader.force_all_virtuals().virtuals_ptr_cache == [
         FakeBuiltObject(string=[60])]
 
 def test_vstrconcatinfo():
@@ -333,7 +339,7 @@ def test_vstrconcatinfo():
     info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    assert reader.force_all_virtuals().virtuals_ptr_cache == [
         FakeBuiltObject(strconcat=info.fieldnums)]
 
 def test_vstrsliceinfo():
@@ -341,7 +347,7 @@ def test_vstrsliceinfo():
     info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX), tag(30, TAGBOX)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    assert reader.force_all_virtuals().virtuals_ptr_cache == [
         FakeBuiltObject(strslice=info.fieldnums)]
 
 def test_vuniplaininfo():
@@ -349,7 +355,7 @@ def test_vuniplaininfo():
     info.fieldnums = [tag(60, TAGINT)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    assert reader.force_all_virtuals().virtuals_ptr_cache == [
         FakeBuiltObject(unistring=[60])]
 
 def test_vuniconcatinfo():
@@ -357,7 +363,7 @@ def test_vuniconcatinfo():
     info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    assert reader.force_all_virtuals().virtuals_ptr_cache == [
         FakeBuiltObject(uniconcat=info.fieldnums)]
 
 def test_vunisliceinfo():
@@ -365,7 +371,7 @@ def test_vunisliceinfo():
     info.fieldnums = [tag(10, TAGBOX), tag(20, TAGBOX), tag(30, TAGBOX)]
     reader = FakeResumeDataReader()
     reader._prepare_virtuals([info])
-    assert reader.force_all_virtuals() == [
+    assert reader.force_all_virtuals().virtuals_ptr_cache == [
         FakeBuiltObject(unislice=info.fieldnums)]
 
 # ____________________________________________________________
@@ -1116,7 +1122,7 @@ def test_virtual_adder_make_virtual():
 
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
-    assert len(reader.virtuals_cache) == 2
+    assert len(reader.virtuals_cache.virtuals_ptr_cache) == 2
     b2t = reader.decode_ref(modifier._gettagged(b2s))
     b4t = reader.decode_ref(modifier._gettagged(b4s))
     trace = metainterp.trace
@@ -1184,7 +1190,7 @@ def test_virtual_adder_make_varray():
     # resume
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
-    assert len(reader.virtuals_cache) == 1
+    assert len(reader.virtuals_cache.virtuals_ptr_cache) == 1
     b2t = reader.decode_ref(tag(0, TAGVIRTUAL))
     trace = metainterp.trace
     expected = [
@@ -1230,7 +1236,7 @@ def test_virtual_adder_make_vstruct():
     NULL = ConstPtr.value
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
-    assert len(reader.virtuals_cache) == 1
+    assert len(reader.virtuals_cache.virtuals_ptr_cache) == 1
     b2t = reader.decode_ref(tag(0, TAGVIRTUAL))
 
     trace = metainterp.trace
