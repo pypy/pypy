@@ -10,7 +10,7 @@ from rpython.translator.backendopt import all
 from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
-from pypy.tool.autopath import pypydir
+from rpython.tool.autopath import rpythondir
 from pypy.conftest import option
 
 
@@ -240,7 +240,7 @@ class TestStandalone(StandaloneTests):
 
     def test_separate_files(self):
         # One file in translator/c/src
-        fname = py.path.local(pypydir).join(
+        fname = py.path.local(rpythondir).join(
             'translator', 'c', 'src', 'll_strtod.c')
 
         # One file in (another) subdir of the temp directory

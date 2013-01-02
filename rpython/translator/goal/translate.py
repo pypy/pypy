@@ -12,7 +12,7 @@ import autopath
 import py
 # clean up early pypy/_cache
 try:
-    py.path.local(autopath.pypydir).join('_cache').remove()
+    py.path.local(autopath.rpythondir).join('_cache').remove()
 except Exception:
     pass
 

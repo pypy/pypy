@@ -12,7 +12,7 @@ from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
-from pypy.tool.autopath import pypydir
+from rpython.tool.autopath import rpythondir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 import py
@@ -122,7 +122,7 @@ elif _MINGW:
          ])
 else:
     USE_C_LIBFFI_MSVC = True
-    libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
+    libffidir = py.path.local(rpythondir).join('translator', 'c', 'src', 'libffi_msvc')
     if not _WIN64:
         asm_ifc = 'win32.c'
     else:

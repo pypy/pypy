@@ -1,5 +1,5 @@
 import py
-from pypy.tool.autopath import pypydir
+from rpython.tool.autopath import rpythondir
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import is_emulated_long
 import sys
 
 
-cdir = py.path.local(pypydir) / 'translator' / 'c'
+cdir = py.path.local(rpythondir) / 'translator' / 'c'
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],

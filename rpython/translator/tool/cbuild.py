@@ -1,7 +1,7 @@
 import py
 import sys
 
-from pypy.tool.autopath import pypydir
+from rpython.tool.autopath import rpythondir
 from rpython.translator.platform import host
 from rpython.tool.udir import udir
 
