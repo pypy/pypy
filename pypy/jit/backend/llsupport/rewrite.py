@@ -68,7 +68,7 @@ class GcRewriterAssembler(object):
             # ----------
             self.newops.append(op)
         # ---------- FINISH ----------
-        if self.newops[-1].getopnum() == rop.FINISH:
+        if len(self.newops) != 0 and self.newops[-1].getopnum() == rop.FINISH:
             self.handle_finish(self.newops.pop())
         # ----------
         return self.newops

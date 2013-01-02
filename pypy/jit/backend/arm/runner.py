@@ -23,15 +23,21 @@ class AbstractARMCPU(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
+        from pypy.jit.backend.llsupport import jitframe
+        self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
+                                                  self.get_failargs_limit())
+
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
-    def setup(self):
+    def get_failargs_limit(self):
         if self.opts is not None:
-            failargs_limit = self.opts.failargs_limit
+            return self.opts.failargs_limit
         else:
-            failargs_limit = 1000
-        self.assembler = AssemblerARM(self, failargs_limit=failargs_limit)
+            return 1000
+
+    def setup(self):
+        self.assembler = AssemblerARM(self, self.translate_support_code)
 
     def setup_once(self):
         self.assembler.setup_once()
@@ -51,24 +57,6 @@ class AbstractARMCPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                                 original_loop_token, log=log)
 
-    def get_latest_value_float(self, index):
-        return self.assembler.fail_boxes_float.getitem(index)
-
-    def get_latest_value_int(self, index):
-        return self.assembler.fail_boxes_int.getitem(index)
-
-    def get_latest_value_ref(self, index):
-        return self.assembler.fail_boxes_ptr.getitem(index)
-
-    def get_latest_value_count(self):
-        return self.assembler.fail_boxes_count
-
-    def get_latest_force_token(self):
-        return self.assembler.fail_force_index
-
-    def get_on_leave_jitted_hook(self):
-        return self.assembler.leave_jitted_hook
-
     def clear_latest_values(self, count):
         setitem = self.assembler.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)
@@ -76,7 +64,7 @@ class AbstractARMCPU(AbstractLLCPU):
             setitem(index, null)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
 
         def execute_token(executable_token, *args):
             clt = executable_token.compiled_loop_token
@@ -91,12 +79,13 @@ class AbstractARMCPU(AbstractLLCPU):
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                fail_index = func(*args)
+                deadframe = func(*args)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            return self.get_fail_descr_from_number(fail_index)
+            self.gc_set_extra_threshold()
+            return deadframe
         return execute_token
 
     def cast_ptr_to_int(x):
@@ -115,17 +104,22 @@ class AbstractARMCPU(AbstractLLCPU):
         assert fail_index >= 0, "already forced!"
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
-        bytecode = self.assembler._find_failure_recovery_bytecode(faildescr)
+        frb = self.assembler._find_failure_recovery_bytecode(faildescr)
+        bytecode = rffi.cast(rffi.UCHARP, frb)
         addr_all_null_regsiters = rffi.cast(rffi.LONG, self.all_null_registers)
-        # start of "no gc operation!" block
-        fail_index_2 = self.assembler.failure_recovery_func(
-            bytecode,
-            addr_of_force_index,
-            addr_all_null_regsiters)
-        self.assembler.leave_jitted_hook()
-        # end of "no gc operation!" block
-        assert fail_index == fail_index_2
-        return faildescr
+        #
+        assert (rffi.cast(lltype.Signed, bytecode[0]) ==
+                self.assembler.CODE_FORCED)
+        bytecode = rffi.ptradd(bytecode, 1)
+        deadframe = self.assembler.failure_recovery_func(bytecode,
+                      addr_of_force_index,
+                      self.all_null_registers)
+    
+        #
+        assert self.get_latest_descr(deadframe) is faildescr
+        self.assembler.force_token_to_dead_frame[addr_of_force_index] = (
+            deadframe)
+        return deadframe
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
