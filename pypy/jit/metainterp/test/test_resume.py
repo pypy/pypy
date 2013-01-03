@@ -1005,7 +1005,12 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
             @staticmethod
             def enumerate_vars(callback_i, callback_r, callback_f, _):
                 for index, tagged in enumerate(self.cur_numb.nums):
-                    box = self.decode_box(tagged, Whatever())
+                    _, tag = untag(tagged)
+                    if tag == TAGVIRTUAL:
+                        kind = REF
+                    else:
+                        kind = Whatever()
+                    box = self.decode_box(tagged, kind)
                     if box.type == INT:
                         callback_i(index, index)
                     elif box.type == REF:

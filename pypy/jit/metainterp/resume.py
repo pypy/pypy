@@ -453,6 +453,8 @@ class ResumeDataVirtualAdder(object):
                 return self.liveboxes_from_env[box]
             return self.liveboxes[box]
 
+class WrongVirtualKind(Exception):
+    pass
 
 class AbstractVirtualInfo(object):
     kind = REF
@@ -466,6 +468,15 @@ class AbstractVirtualInfo(object):
 
     def debug_prints(self):
         raise NotImplementedError
+
+    # subclasses should override one and only one of these two methods,
+    # depending on the kind
+    def allocate(self, decoder, index):
+        raise WrongVirtualKind
+
+    def allocate_int(self, decoder, index):
+        raise WrongVirtualKind
+        
 
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
