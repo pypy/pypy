@@ -605,7 +605,7 @@ def test_raw_malloc_fixedsize():
     assert op1.args == []
 
 def test_raw_free():
-    S = rffi.CArray(lltype.Signed)
+    S = rffi.CArray(lltype.Char)
     flags = Constant({'flavor': 'raw', 'track_allocation': True},
                      lltype.Void)
     op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
