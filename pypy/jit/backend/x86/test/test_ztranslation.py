@@ -13,6 +13,18 @@ from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from pypy.config.translationoption import DEFL_GC
 from pypy.rlib import rgc
 
+def fix_annotator_for_vrawbuffer(monkeypatch):
+    from pypy.rlib.nonconst import NonConstant
+    from pypy.jit.metainterp.optimizeopt.virtualize import VRawBufferValue
+    from pypy.jit.metainterp import warmspot
+
+    def my_hook_for_tests(cpu):
+        # this is needed so that the annotator can see it
+        if NonConstant(False):
+            v = VRawBufferValue(cpu, None, -1, None, None)
+    monkeypatch.setattr(warmspot, 'hook_for_tests', my_hook_for_tests)
+
+
 class TestTranslationX86(CCompiledMixin):
     CPUClass = getcpuclass()
 
@@ -22,7 +34,8 @@ class TestTranslationX86(CCompiledMixin):
         assert '-msse2' in cbuilder.eci.compile_extra
         assert '-mfpmath=sse' in cbuilder.eci.compile_extra
 
-    def test_stuff_translates(self):
+    def test_stuff_translates(self, monkeypatch):
+        fix_annotator_for_vrawbuffer(monkeypatch)
         # this is a basic test that tries to hit a number of features and their
         # translation:
         # - jitting of loops and bridges
@@ -95,9 +108,10 @@ class TestTranslationX86(CCompiledMixin):
         res = self.meta_interp(main, [40, -49])
         assert res == expected
 
-    def test_direct_assembler_call_translates(self):
+    def test_direct_assembler_call_translates(self, monkeypatch):
         """Test CALL_ASSEMBLER and the recursion limit"""
         from pypy.rlib.rstackovf import StackOverflow
+        fix_annotator_for_vrawbuffer(monkeypatch)
 
         class Thing(object):
             def __init__(self, val):
@@ -171,7 +185,8 @@ class TestTranslationX86(CCompiledMixin):
         assert 1024 <= bound <= 131072
         assert bound & (bound-1) == 0       # a power of two
 
-    def test_jit_get_stats(self):
+    def test_jit_get_stats(self, monkeypatch):
+        fix_annotator_for_vrawbuffer(monkeypatch)
         driver = JitDriver(greens = [], reds = ['i'])
         
         def f():
@@ -201,7 +216,8 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
         t.config.translation.gcremovetypeptr = True
         return t
 
-    def test_external_exception_handling_translates(self):
+    def test_external_exception_handling_translates(self, monkeypatch):
+        fix_annotator_for_vrawbuffer(monkeypatch)
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
 
         class ImDone(Exception):

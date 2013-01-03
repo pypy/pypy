@@ -861,8 +861,11 @@ class WarmRunnerDesc(object):
         ts = self.cpu.ts
         state = jd.warmstate
         maybe_compile_and_run = jd._maybe_compile_and_run_fn
+        cpu = jd.warmstate.cpu
 
         def ll_portal_runner(*args):
+            hook_for_tests(cpu) # usually it's empty, but tests can monkeypatch
+                                # it to fix the annotator
             start = True
             while 1:
                 try:
@@ -1096,3 +1099,10 @@ class WarmRunnerDesc(object):
         graphs = self.translator.graphs
         for graph, block, i in find_force_quasi_immutable(graphs):
             self.replace_force_quasiimmut_with_direct_call(block.operations[i])
+
+def hook_for_tests():
+    """
+    This function is empty and does nothing. Its only role is to be
+    monkey-patched by tests to "fix" the annotator if needed (see
+    e.g. x86/test/test_ztranslation::test_external_exception_handling_translates
+    """
