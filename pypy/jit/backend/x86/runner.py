@@ -58,12 +58,6 @@ class AbstractX86CPU(AbstractLLCPU):
         else:
             return 1000
 
-    def gc_set_extra_threshold(self):
-        llop.gc_set_extra_threshold(lltype.Void, self.deadframe_size_max)
-
-    def gc_clear_extra_threshold(self):
-        llop.gc_set_extra_threshold(lltype.Void, 0)
-
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
 
