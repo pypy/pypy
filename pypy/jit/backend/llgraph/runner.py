@@ -408,6 +408,7 @@ class LLtypeCPU(BaseCPU):
         # so far this is used only by optimizeopt.virtualize for
         # {GET,SET}ARRAYITEM_RAW: for now we just return dummy values for
         # basesize and is_signed
+        assert isinstance(arraydescr, Descr)
         return 0, arraydescr.width, True
 
     # ---------- the backend-dependent operations ----------
