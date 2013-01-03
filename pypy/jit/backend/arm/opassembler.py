@@ -319,8 +319,7 @@ class ResOpAssembler(object):
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
         [argloc] = arglocs
         if argloc is not r.r0: #XXX verify this
-            self.mov(argloc, eax)
-	    self.mov_loc_loc(arg_loc, r.r0, fcond)
+	    self.mov_loc_loc(argloc, r.r0, fcond)
         # exit function
         self.gen_func_epilog()
         return fcond
