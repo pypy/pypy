@@ -111,10 +111,10 @@ class AbstractARMCPU(AbstractLLCPU):
         assert (rffi.cast(lltype.Signed, bytecode[0]) ==
                 self.assembler.CODE_FORCED)
         bytecode = rffi.ptradd(bytecode, 1)
-        deadframe = self.assembler.failure_recovery_func(bytecode,
-                      addr_of_force_index,
-                      self.all_null_registers)
-    
+        deadframe = self.assembler.grab_frame_values(self,
+                        bytecode, addr_of_force_index,
+                        self.all_null_registers,
+                        self.all_null_registers)
         #
         assert self.get_latest_descr(deadframe) is faildescr
         self.assembler.force_token_to_dead_frame[addr_of_force_index] = (

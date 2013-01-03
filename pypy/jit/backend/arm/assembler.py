@@ -26,7 +26,7 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.arm.opassembler import ResOpAssembler
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
-                             have_debug_prints)
+                             have_debug_prints, fatalerror)
 from pypy.rlib.jit import AsmInfo
 from pypy.rlib.objectmodel import compute_unique_id
 
@@ -325,7 +325,8 @@ class AssemblerARM(ResOpAssembler):
             vfp_registers = rffi.cast(rffi.LONGP, stack_pointer)
             registers = rffi.ptradd(vfp_registers, 2*len(r.all_vfp_regs))
             registers = rffi.cast(rffi.LONGP, registers)
-            return self.grab_frame_values(self.cpu, mem_loc, frame_pointer,
+            bytecode = rffi.cast(rffi.UCHARP, mem_loc)
+            return self.grab_frame_values(self.cpu, bytecode, frame_pointer,
                                                     registers, vfp_registers)
         self.failure_recovery_code = [0, 0, 0, 0]
 
@@ -335,13 +336,13 @@ class AssemblerARM(ResOpAssembler):
                                                         llmemory.GCREF))
 
     @staticmethod
-    def grab_frame_values(cpu, mem_loc, frame_pointer,
+    #@rgc.no_collect -- XXX still true, but hacked gc_set_extra_threshold
+    def grab_frame_values(cpu, bytecode, frame_pointer,
                                                 registers, vfp_registers):
         # no malloc allowed here!!  xxx apart from one, hacking a lot
         force_index = rffi.cast(lltype.Signed, frame_pointer)
         num = 0
         deadframe = lltype.nullptr(jitframe.DEADFRAME)
-        bytecode = rffi.cast(rffi.UCHARP, mem_loc)
         # step 1: lots of mess just to count the final value of 'num'
         bytecode1 = bytecode
         while 1:
@@ -545,7 +546,7 @@ class AssemblerARM(ResOpAssembler):
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = ARMv7Builder()
-        decode_registers_addr = llhelper(self._FAILURE_RECOVERY_FUNC,
+        failure_recovery = llhelper(self._FAILURE_RECOVERY_FUNC,
                                             self.failure_recovery_func)
         self._insert_checks(mc)
         if withfloats:
@@ -570,7 +571,7 @@ class AssemblerARM(ResOpAssembler):
             # pass the current stack pointer as third param
             mc.MOV_rr(r.r2.value, r.sp.value)
             self._insert_checks(mc)
-            mc.BL(rffi.cast(lltype.Signed, decode_registers_addr))
+            mc.BL(rffi.cast(lltype.Signed, failure_recovery))
             if exc:
                 # save ebx into 'jf_guard_exc'
                 from pypy.jit.backend.llsupport.descr import unpack_fielddescr
