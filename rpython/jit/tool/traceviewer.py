@@ -8,7 +8,6 @@ import re
 import math
 import py
 
-import autopath
 from rpython.translator.tool.graphpage import GraphPage
 from rpython.translator.tool.make_dot import DotGen
 from rpython.tool import logparser

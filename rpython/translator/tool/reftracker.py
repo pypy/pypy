@@ -3,7 +3,7 @@ General-purpose reference tracker.
 Usage: call track(obj).
 """
 
-import autopath, sys, os, types
+import sys, os, types
 import gc
 from rpython.translator.tool.graphpage import GraphPage, DotGen
 from rpython.tool.uid import uid

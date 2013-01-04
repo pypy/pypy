@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from __future__ import division
 
-import autopath
 import sys, py
 from rpython.tool import logparser
 from rpython.jit.tool.oparser import parse

@@ -1,4 +1,4 @@
-import autopath, os
+import os
 import inspect, linecache
 from rpython.flowspace.model import *
 from rpython.flowspace.objspace import FlowObjSpace as Space

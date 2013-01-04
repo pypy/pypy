@@ -5,7 +5,6 @@ Run it with py.test -s --pdb pypyjit.py [--ootype]
 
 """
 
-import autopath
 import py, os
 
 from pypy.objspace.std import Space

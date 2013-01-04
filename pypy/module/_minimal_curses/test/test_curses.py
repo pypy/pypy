@@ -1,4 +1,4 @@
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.tool.udir import udir
 import py
 import sys

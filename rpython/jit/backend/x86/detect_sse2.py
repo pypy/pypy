@@ -1,4 +1,3 @@
-import autopath
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rmmap import alloc, free
 

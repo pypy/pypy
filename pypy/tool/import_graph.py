@@ -1,11 +1,10 @@
 from __future__ import division
-import autopath
 import py
 
 import math
 import random
 
-exclude_files = ["__init__.py", "autopath.py", "conftest.py"]
+exclude_files = ["__init__.py", "conftest.py"]
 
 def include_file(path):
     if ("test" in str(path) or "tool" in str(path) or

@@ -1,6 +1,5 @@
 '''Toy Language with Cons Cells'''
 
-import autopath
 import py
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.tl.tlopcode import *

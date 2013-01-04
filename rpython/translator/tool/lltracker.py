@@ -2,7 +2,7 @@
 Reference tracker for lltype data structures.
 """
 
-import autopath, sys, os
+import sys, os
 import gc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.memory.gcheader import header2obj

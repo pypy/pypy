@@ -4,7 +4,7 @@ The Translator is a glue class putting together the various pieces of the
 translation-related code.  It can be used for interactive testing of the
 translator; see pypy/bin/translatorshell.py.
 """
-import autopath, os, sys, types, copy
+import os, sys, types, copy
 
 from rpython.translator import simplify
 from rpython.flowspace.model import FunctionGraph, checkgraph, Block

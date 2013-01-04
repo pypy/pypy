@@ -17,7 +17,6 @@
 # of the current Mercurial branch.
 #
 
-import autopath
 import os, sys
 import py
 

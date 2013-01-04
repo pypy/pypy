@@ -4,6 +4,7 @@ import os.path
 
 import py
 
+from pypy.conftest import pypydir
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
@@ -15,7 +16,6 @@ from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
-from rpython.translator.goal import autopath
 from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 
@@ -235,7 +235,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             else:
                 if filename is None:
                     filename = name
-                filename = py.path.local(autopath.pypydir) / 'module' \
+                filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
                 kwds = dict(separate_module_files=[filename])
 
@@ -304,7 +304,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.w_record_imported_module = self.space.wrap(
             interp2app(record_imported_module))
         self.w_here = self.space.wrap(
-            str(py.path.local(autopath.pypydir)) + '/module/cpyext/test/')
+            str(py.path.local(pypydir)) + '/module/cpyext/test/')
 
 
         # create the file lock before we count allocations

@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-import autopath
 import re, sys, os, random
 
 from rpython.translator.c.gcc.instruction import Insn, Label, InsnCall, InsnRet

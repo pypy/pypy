@@ -1,4 +1,3 @@
-import autopath
 from rpython.jit.metainterp.resoperation import opname
 
 for name in opname.values():

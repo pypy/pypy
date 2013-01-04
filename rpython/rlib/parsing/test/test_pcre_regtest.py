@@ -84,8 +84,8 @@ import py
 from rpython.rlib.parsing.regexparse import make_runner, unescape
 import string
 import re
-import autopath
-this_dir = py.path.local(autopath.this_dir)
+import os
+this_dir = py.path.local(os.path.realpath(os.path.dirname(__file__)))
 
 #py.test.skip("Still in progress")
 

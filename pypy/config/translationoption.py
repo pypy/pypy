@@ -1,4 +1,3 @@
-import autopath
 import py, os, sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config

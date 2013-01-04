@@ -1,4 +1,3 @@
-import autopath
 import py
 import os, time, sys
 from rpython.tool.udir import udir

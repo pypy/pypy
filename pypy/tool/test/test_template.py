@@ -1,4 +1,3 @@
-import autopath
 from rpython.tool.sourcetools import compile_template
 
 

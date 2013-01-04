@@ -1,4 +1,3 @@
-import autopath
 import sys, imp
 from pypy.tool import slaveproc
 

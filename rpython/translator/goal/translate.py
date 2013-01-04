@@ -7,12 +7,12 @@ Command-line options for translate:
 
 import os
 import sys
+from pypy.conftest import pypydir
 
-import autopath
 import py
 # clean up early pypy/_cache
 try:
-    py.path.local(autopath.pypydir).join('_cache').remove()
+    py.path.local(pypydir).join('_cache').remove()
 except Exception:
     pass
 

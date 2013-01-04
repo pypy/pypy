@@ -10,7 +10,7 @@ from rpython.translator.backendopt import all
 from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from pypy.conftest import option
 
 

@@ -4,7 +4,7 @@ import atexit
 
 import py
 
-from rpython.translator.goal import autopath
+from pypy.conftest import pypydir
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
@@ -45,7 +45,7 @@ Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
 
-pypydir = py.path.local(autopath.pypydir)
+pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = pypydir / 'translator' / 'c'

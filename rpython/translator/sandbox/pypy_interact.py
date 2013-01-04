@@ -21,7 +21,7 @@ provided you use enough -u options:
 """
 
 import sys, os
-import autopath
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 from rpython.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from rpython.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from rpython.translator.sandbox.vfs import Dir, RealDir, RealFile

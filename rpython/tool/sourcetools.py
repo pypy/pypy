@@ -7,7 +7,7 @@
 # XXX code compilation.
 
 import sys, os, inspect, new
-import autopath, py
+import py
 
 def render_docstr(func, indent_str='', closing_str=''):
     """ Render a docstring as a string of lines.

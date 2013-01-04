@@ -1,4 +1,3 @@
-import autopath
 import random
 from rpython.tool.algo.graphlib import *
 

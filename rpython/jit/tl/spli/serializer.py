@@ -3,7 +3,6 @@
 serialize.py python_file func_name output_file
 """
 
-import autopath
 import py
 import sys
 import types

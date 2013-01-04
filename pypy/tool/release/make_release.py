@@ -8,7 +8,6 @@ Usage: make_release.py  <branchname>  <version>
  e.g.: make_release.py  release-1.4.1  1.4.1
 """
 
-import autopath
 import sys
 import urllib2
 from xml.dom import minidom

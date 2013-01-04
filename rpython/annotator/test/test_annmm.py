@@ -1,5 +1,3 @@
-import autopath
-
 from pypy.objspace.std.multimethod import *
 from rpython.annotator.annrpython import RPythonAnnotator
 

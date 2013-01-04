@@ -23,7 +23,9 @@ Some functions are provided for the benefit of interactive testing.
 Try dir(snippet) for list of current snippets.
 """
 
-import autopath, os, sys
+import os, sys
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from rpython.translator.interactive import Translation
 from rpython.rtyper.rtyper import *
 from rpython.rlib.rarithmetic import *

@@ -7,7 +7,6 @@ Actions:
     draw-time      draw a timeline image of the log (format PNG by default)
     print-summary  print a summary of the log
 """
-import autopath
 import sys, re
 from rpython.rlib.debug import DebugLog
 from rpython.tool import progressbar

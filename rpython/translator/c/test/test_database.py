@@ -1,4 +1,4 @@
-import autopath, sys
+import sys
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c.database import LowLevelDatabase

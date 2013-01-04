@@ -1,4 +1,3 @@
-import autopath
 import os, sys, stat, errno
 from rpython.translator.sandbox.pypy_interact import PyPySandboxedProc
 from rpython.translator.interactive import Translation

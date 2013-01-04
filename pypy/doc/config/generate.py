@@ -1,4 +1,3 @@
-import autopath
 import py
 from pypy.config import pypyoption, translationoption, config, makerestdoc
 from pypy.doc.config.confrest import all_optiondescrs

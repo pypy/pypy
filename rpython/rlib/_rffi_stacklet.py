@@ -1,5 +1,5 @@
 import py
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform

@@ -12,7 +12,7 @@ from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 import py

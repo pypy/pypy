@@ -9,7 +9,7 @@
 import py
 import os, sys
 from rpython.tool.udir import udir
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 
 
 class ExpectTestMethod(py.test.collect.Function):

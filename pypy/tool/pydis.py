@@ -5,7 +5,6 @@ XXX this only works for python-2.3 because of the linenumber
 
 """
 
-import autopath
 import sys
 
 from rpython.tool import stdlib_opcode

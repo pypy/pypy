@@ -1,4 +1,3 @@
-import autopath
 import sys
 
 class AppTestBuiltinApp:

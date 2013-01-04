@@ -1,6 +1,6 @@
 
 import py
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, os, sys

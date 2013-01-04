@@ -2,7 +2,7 @@
 
 import py, os, sys
 
-from pypy.tool import autopath
+from pypy.conftest import pypydir
 from rpython.translator.platform import Platform, log, _run_subprocess
 
 class BasePosix(Platform):
@@ -88,7 +88,7 @@ class BasePosix(Platform):
         if path is None:
             path = cfiles[0].dirpath()
 
-        pypypath = py.path.local(autopath.pypydir)
+        pypypath = py.path.local(pypydir)
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
@@ -139,7 +139,7 @@ class BasePosix(Platform):
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('PYPYDIR', '"%s"' % autopath.pypydir),
+            ('PYPYDIR', '"%s"' % pypydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),

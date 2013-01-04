@@ -14,7 +14,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.controllerentry import Controller, SomeControlledInstance
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________

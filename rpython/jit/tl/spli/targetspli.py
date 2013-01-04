@@ -2,7 +2,7 @@
 """ usage: spli-c code_obj_file [i:int_arg s:s_arg ...]
 """
 
-import sys, autopath, os
+import sys, os
 from rpython.jit.tl.spli import execution, serializer, objects
 from rpython.rlib.streamio import open_file_as_stream
 

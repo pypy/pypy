@@ -1,5 +1,3 @@
-
-import autopath
 import py
 from rpython.annotator.model import *
 from rpython.annotator.listdef import ListDef

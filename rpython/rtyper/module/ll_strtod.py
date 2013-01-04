@@ -3,11 +3,11 @@ import py
 from rpython.rtyper.extfunc import BaseLazyRegistering, extdef, registering
 from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.annotator.model import SomeString
 
 class CConfig:

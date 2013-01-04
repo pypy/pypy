@@ -9,7 +9,6 @@ Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
 """
 
-import autopath
 import shutil
 import sys
 import py

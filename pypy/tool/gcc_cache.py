@@ -1,4 +1,4 @@
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.translator.platform import CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.compat import md5

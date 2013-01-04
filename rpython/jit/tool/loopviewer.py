@@ -3,7 +3,6 @@
 Parse and display the traces produced by pypy-c-jit when PYPYLOG is set.
 """
 
-import autopath
 import py
 import sys
 import optparse

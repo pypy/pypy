@@ -11,7 +11,7 @@ from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.tool.udir import udir
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 
 # ____________________________________________________________

@@ -1,4 +1,3 @@
-import autopath
 from pypy.tool import testit
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import build_cfunc

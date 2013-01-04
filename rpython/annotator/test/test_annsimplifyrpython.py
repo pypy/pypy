@@ -1,4 +1,3 @@
-import autopath
 import rpython.annotator.test.test_annrpython
 parent = rpython.annotator.test.test_annrpython.TestAnnotateTestCase
 

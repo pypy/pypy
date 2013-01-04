@@ -1,4 +1,3 @@
-import autopath
 from pypy.tool.cache import Cache 
 
 class MyCache(Cache):

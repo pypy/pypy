@@ -4,13 +4,13 @@ Tests for the entry point of pypy-c, app_main.py.
 from __future__ import with_statement
 import py
 import sys, os, re, runpy, subprocess
-import autopath
 from rpython.tool.udir import udir
 from contextlib import contextmanager
+from pypy.conftest import pypydir
 
 banner = sys.version.splitlines()[0]
 
-app_main = os.path.join(autopath.this_dir, os.pardir, 'app_main.py')
+app_main = os.path.join(os.path.realpath(os.path.dirname(__file__)), os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
 
 _counter = 0
@@ -201,7 +201,7 @@ class TestInteraction:
 
     def setup_class(cls):
         # some tests need to be able to import test2, change the cwd
-        goal_dir = os.path.abspath(os.path.join(autopath.this_dir, '..'))
+        goal_dir = os.path.abspath(os.path.join(os.path.realpath(os.path.dirname(__file__)), '..'))
         os.chdir(goal_dir)
 
     def _spawn(self, *args, **kwds):
@@ -428,7 +428,7 @@ class TestInteraction:
             skip("close_fds is not supported on Windows platforms")
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
-        p = os.path.join(autopath.this_dir, 'mymodule.py')
+        p = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
                             '-m', 'test2.mymodule',
@@ -523,7 +523,7 @@ class TestInteraction:
             assert line.rstrip() == 'Not at all. They could be carried.'
             print 'A five ounce bird could not carry a one pound coconut.'
             """)
-        py_py = os.path.join(autopath.pypydir, 'bin', 'py.py')
+        py_py = os.path.join(pypydir, 'bin', 'py.py')
         child = self._spawn(sys.executable, [py_py, '-S', path])
         child.expect('Are you suggesting coconuts migrate?', timeout=120)
         child.sendline('Not at all. They could be carried.')
@@ -637,7 +637,7 @@ class TestNonInteractive:
     def test_option_m(self):
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
-        p = os.path.join(autopath.this_dir, 'mymodule.py')
+        p = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'mymodule.py')
         p = os.path.abspath(p)
         data = self.run('-m test2.mymodule extra')
         assert 'mymodule running' in data
@@ -850,7 +850,7 @@ class AppTestAppMain:
         self.w_goal_dir = self.space.wrap(goal_dir)
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
-        self.w_trunkdir = self.space.wrap(os.path.dirname(autopath.pypydir))
+        self.w_trunkdir = self.space.wrap(os.path.dirname(pypydir))
         #
         foo_py = prefix.join('foo.py').write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))

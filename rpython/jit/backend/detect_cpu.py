@@ -1,7 +1,6 @@
 """
 Processor auto-detection
 """
-import autopath
 import sys, os
 
 

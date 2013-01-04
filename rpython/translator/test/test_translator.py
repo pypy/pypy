@@ -1,4 +1,3 @@
-import autopath
 from rpython.translator.translator import TranslationContext
 
 

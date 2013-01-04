@@ -1,11 +1,10 @@
 """Regular expression tests specific to _sre.py and accumulated during TDD."""
-import autopath
 import py
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 
 def init_app_test(cls, space):
-    cls.w_s = space.appexec([space.wrap(autopath.this_dir)], 
+    cls.w_s = space.appexec([space.wrap(os.path.realpath(os.path.dirname(__file__)))], 
                               """(this_dir):
         import sys
         # Uh-oh, ugly hack

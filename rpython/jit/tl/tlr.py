@@ -1,4 +1,3 @@
-import autopath
 from rpython.rlib.jit import JitDriver
 
 
