@@ -8,7 +8,7 @@ from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
 from pypy import conftest
-from pypy.tool.stdlib_opcode import bytecode_spec, host_bytecode_spec
+from rpython.tool.stdlib_opcode import bytecode_spec, host_bytecode_spec
 
 import os
 import operator

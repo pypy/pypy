@@ -16,7 +16,7 @@ from rpython.annotator.model import s_ImpossibleValue
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import description
 from rpython.flowspace.model import Constant
-from pypy.tool.error import AnnotatorError
+from rpython.tool.error import AnnotatorError
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
 

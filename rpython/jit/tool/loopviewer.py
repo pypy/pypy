@@ -8,7 +8,7 @@ import py
 import sys
 import optparse
 from pprint import pprint
-from pypy.tool import logparser
+from rpython.tool import logparser
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.history import ConstInt
 from rpython.rtyper.lltypesystem import llmemory, lltype

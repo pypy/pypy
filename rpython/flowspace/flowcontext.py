@@ -5,8 +5,8 @@ with rpython.flowspace.objspace.
 import sys
 import collections
 
-from pypy.tool.error import source_lines
-from pypy.tool.stdlib_opcode import host_bytecode_spec
+from rpython.tool.error import source_lines
+from rpython.tool.stdlib_opcode import host_bytecode_spec
 from rpython.flowspace.argument import ArgumentsForTranslation
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
     UnwrapException, c_last_exception)

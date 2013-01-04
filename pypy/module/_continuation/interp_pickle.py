@@ -1,4 +1,4 @@
-from pypy.tool import stdlib_opcode as pythonopcode
+from rpython.tool import stdlib_opcode as pythonopcode
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyframe import PyFrame

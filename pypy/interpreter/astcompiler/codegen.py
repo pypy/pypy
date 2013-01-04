@@ -10,7 +10,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
-from pypy.tool import stdlib_opcode as ops
+from rpython.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 
 

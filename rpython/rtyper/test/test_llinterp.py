@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.annotator import model as annmodel
 from rpython.annotator.model import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
-from pypy.tool import leakfinder
+from rpython.tool import leakfinder
 from pypy import conftest
 
 

@@ -22,7 +22,7 @@ from rpython.annotator.model import SomeGenericCallable
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.rlib import rarithmetic
-from pypy.tool.error import AnnotatorError
+from rpython.tool.error import AnnotatorError
 
 # convenience only!
 def immutablevalue(x):

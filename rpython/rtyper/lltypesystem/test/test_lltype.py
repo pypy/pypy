@@ -3,7 +3,7 @@ import py
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.identity_dict import identity_dict
-from pypy.tool import leakfinder
+from rpython.tool import leakfinder
 
 def isweak(p, T):
     try:

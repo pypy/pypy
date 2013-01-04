@@ -1,5 +1,5 @@
 import py
-from pypy.tool import leakfinder
+from rpython.tool import leakfinder
 
 def test_start_stop():
     leakfinder.start_tracking_allocations()

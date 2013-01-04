@@ -9,7 +9,7 @@ from rpython.flowspace.objspace import FlowObjSpace
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.objectmodel import r_dict
-from pypy.tool.error import AnnotatorError
+from rpython.tool.error import AnnotatorError
 from rpython.rtyper.ootypesystem import ooregistry # side effects
 
 def gengraph(f, args=[], viewBefore=False, viewAfter=False, mangle=True):

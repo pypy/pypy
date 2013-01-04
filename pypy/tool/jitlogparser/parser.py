@@ -2,7 +2,7 @@ import re, sys
 
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.tool.oparser import OpParser
-from pypy.tool.logparser import parse_log_file, extract_category
+from rpython.tool.logparser import parse_log_file, extract_category
 from copy import copy
 
 def parse_code_data(arg):

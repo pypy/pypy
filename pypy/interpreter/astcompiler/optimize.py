@@ -2,7 +2,7 @@
 import sys
 
 from pypy.interpreter.astcompiler import ast, consts, misc
-from pypy.tool import stdlib_opcode as ops
+from rpython.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.runicode import MAXUNICODE

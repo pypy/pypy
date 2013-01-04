@@ -6,7 +6,7 @@ from pypy.module.cpyext.pyobject import from_ref
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_cpyext import LeakCheckingTest, freeze_refcnts
 from pypy.module.cpyext.pystate import PyThreadState_Get, PyInterpreterState_Head
-from pypy.tool import leakfinder
+from rpython.tool import leakfinder
 
 class AppTestThreads(AppTestCpythonExtensionBase):
     def test_allow_threads(self):

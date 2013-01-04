@@ -434,7 +434,7 @@ if __name__ == '__main__':
         sys.exit(2)
     #
     import cStringIO
-    from pypy.tool import logparser
+    from rpython.tool import logparser
     log1 = logparser.parse_log_file(sys.argv[1])
     text1 = logparser.extract_category(log1, catprefix='jit-backend-dump')
     f = cStringIO.StringIO()

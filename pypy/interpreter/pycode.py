@@ -17,7 +17,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import compute_hash
-from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
+from rpython.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 
 
 class BytecodeCorruption(Exception):

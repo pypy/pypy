@@ -11,8 +11,8 @@ import py
 import autopath
 from rpython.translator.tool.graphpage import GraphPage
 from rpython.translator.tool.make_dot import DotGen
-from pypy.tool import logparser
-from pypy.tool import progressbar
+from rpython.tool import logparser
+from rpython.tool import progressbar
 
 class SubPage(GraphPage):
     def compute(self, graph):

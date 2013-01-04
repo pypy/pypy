@@ -8,8 +8,8 @@ XXX this only works for python-2.3 because of the linenumber
 import autopath
 import sys
 
-from pypy.tool import stdlib_opcode
-from pypy.tool.stdlib_opcode import *
+from rpython.tool import stdlib_opcode
+from rpython.tool.stdlib_opcode import *
 
 __all__ = ["dis","pydisassemble","distb","disco"] + stdlib_opcode.__all__
 

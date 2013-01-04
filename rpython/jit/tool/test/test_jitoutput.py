@@ -5,7 +5,7 @@ from rpython.rlib.jit import JitDriver
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.jitprof import Profiler, JITPROF_LINES
 from rpython.jit.tool.jitoutput import parse_prof
-from pypy.tool.logparser import parse_log, extract_category
+from rpython.tool.logparser import parse_log, extract_category
 
 def test_really_run():
     """ This test checks whether output of jitprof did not change.

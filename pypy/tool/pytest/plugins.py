@@ -1,7 +1,7 @@
 # pytest hooks, installed by pypy.conftest.
 
 import py
-from pypy.tool import leakfinder
+from rpython.tool import leakfinder
 
 class LeakFinder:
     """Track memory allocations during test execution.

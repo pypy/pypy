@@ -3,7 +3,7 @@
 """
 
 from rpython.translator.translator import TranslationContext
-from pypy.tool.error import AnnotatorError
+from rpython.tool.error import AnnotatorError
 from rpython.annotator.model import UnionError
 
 import py

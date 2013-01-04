@@ -1,7 +1,7 @@
 """
 Bytecode handling classes and functions for use by the flow space.
 """
-from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
+from rpython.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
 from rpython.flowspace.argument import Signature
 from rpython.flowspace.flowcontext import BytecodeCorruption

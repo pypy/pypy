@@ -522,7 +522,7 @@ class TestDebuggingAssembler(object):
         self.cpu.setup_once()
 
     def test_debugger_on(self):
-        from pypy.tool.logparser import parse_log_file, extract_category
+        from rpython.tool.logparser import parse_log_file, extract_category
         from rpython.rlib import debug
 
         targettoken, preambletoken = TargetToken(), TargetToken()

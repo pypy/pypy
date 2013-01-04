@@ -1,6 +1,6 @@
 import autopath
 import sys, re
-from pypy.tool import logparser
+from rpython.tool import logparser
 
 # fflush(pypy_debug_file)
 

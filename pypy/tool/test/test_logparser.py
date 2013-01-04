@@ -1,5 +1,5 @@
 from rpython.tool.udir import udir
-from pypy.tool.logparser import *
+from rpython.tool.logparser import *
 
 
 globalpath = udir.join('test_logparser.log')

@@ -3,7 +3,7 @@ from __future__ import division
 
 import autopath
 import sys, py
-from pypy.tool import logparser
+from rpython.tool import logparser
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, llmemory
