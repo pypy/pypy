@@ -36,8 +36,8 @@ def identify():
 
 ts_reflect = False
 ts_call    = False
-ts_memory  = 'auto'
-ts_helper  = 'auto'
+ts_memory  = False
+ts_helper  = False
 
 # force loading in global mode of core libraries, rather than linking with
 # them as PyPy uses various version of dlopen in various places; note that
