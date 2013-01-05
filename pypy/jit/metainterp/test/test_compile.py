@@ -166,6 +166,7 @@ def test_compile_tmp_callback():
         portal_runner_adr = llmemory.cast_ptr_to_adr(portal_runner_ptr)
         portal_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, None)
         portal_finishtoken = compile.DoneWithThisFrameDescrInt()
+        propagate_exc_descr = compile.PropagateExceptionDescr()
         num_red_args = 2
         result_type = INT
     #

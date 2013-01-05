@@ -649,6 +649,7 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
         return res
 
 class AllVirtuals:
+    llopaque = True
     list = [resume.ResumeDataDirectReader.virtual_default]   # annotation hack
     def __init__(self, list):
         self.list = list
@@ -714,23 +715,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         obj = AllVirtuals(all_virtuals)
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
-
-    def fetch_data(self, key):
-        globaldata = self.metainterp_sd.globaldata
-        if we_are_translated():
-            assert key in globaldata.resume_virtuals
-            data = globaldata.resume_virtuals[key]
-            del globaldata.resume_virtuals[key]
-        else:
-            rv = globaldata.resume_virtuals_not_translated
-            for i in range(len(rv)):
-                if rv[i][0] == key:
-                    data = rv[i][1]
-                    del rv[i]
-                    break
-            else:
-                assert 0, "not found: %r" % (key,)
-        return data
 
     def _clone_if_mutable(self):
         res = ResumeGuardForcedDescr(self.metainterp_sd,
@@ -913,7 +897,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
         finishargs = []
     #
     jd = jitdriver_sd
-    faildescr = propagate_exception_descr
+    faildescr = jitdriver_sd.propagate_exc_descr
     operations = [
         ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),

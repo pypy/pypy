@@ -15,6 +15,7 @@ UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
 BOOLLTR = "b"
 FLOATINGLTR = "f"
+COMPLEXLTR = "c"
 VOIDLTR = 'V'
 STRINGLTR = 'S'
 UNICODELTR = 'U'
@@ -135,7 +136,7 @@ class W_Dtype(Wrappable):
         return self.kind == SIGNEDLTR
 
     def is_complex_type(self):
-        return (self.num == 14 or self.num == 15)
+        return (self.num == 14 or self.num == 15 or self.num == 16)
 
     def is_bool_type(self):
         return self.kind == BOOLLTR
@@ -412,17 +413,10 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float],
             aliases=["float"],
         )
-        # self.w_float128dtype = W_Dtype(
-        #     types.Float128(),
-        #     num=13,
-        #     kind=FLOATINGLTR,
-        #     name="float128",
-        #     ...
-        # )
         self.w_complex64dtype = W_Dtype(
             types.Complex64(),
             num=14,
-            kind=FLOATINGLTR,
+            kind=COMPLEXLTR,
             name="complex64",
             char="F",
             w_box_type = space.gettypefor(interp_boxes.W_Complex64Box),
@@ -430,13 +424,64 @@ class DtypeCache(object):
         self.w_complex128dtype = W_Dtype(
             types.Complex128(),
             num=15,
-            kind=FLOATINGLTR,
+            kind=COMPLEXLTR,
             name="complex128",
             char="D",
             w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
             alternate_constructors=[space.w_complex],
             aliases=["complex"],
         )
+        if interp_boxes.long_double_size == 12:
+            self.w_float96dtype = W_Dtype(
+                types.Float96(),
+                num=13,
+                kind=FLOATINGLTR,
+                name="float96",
+                char="g",
+                w_box_type=space.gettypefor(interp_boxes.W_Float96Box),
+                aliases=["longfloat", "longdouble"],
+            )
+            self.w_longdouble = self.w_float96dtype
+
+            self.w_complex192dtype = W_Dtype(
+                types.Complex192(),
+                num=16,
+                kind=COMPLEXLTR,
+                name="complex192",
+                char="G",
+                w_box_type = space.gettypefor(interp_boxes.W_Complex192Box),
+                alternate_constructors=[space.w_complex],
+                aliases=["clongdouble", "clongfloat"],
+            )
+            self.w_clongdouble = self.w_complex192dtype
+
+        elif interp_boxes.long_double_size == 16:
+            self.w_float128dtype = W_Dtype(
+                types.Float128(),
+                num=13,
+                kind=FLOATINGLTR,
+                name="float128",
+                char="g",
+                w_box_type=space.gettypefor(interp_boxes.W_Float128Box),
+                aliases=["longfloat", "longdouble"],
+            )
+            self.w_longdouble = self.w_float128dtype
+
+            self.w_complex256dtype = W_Dtype(
+                types.Complex256(),
+                num=16,
+                kind=COMPLEXLTR,
+                name="complex256",
+                char="G",
+                w_box_type = space.gettypefor(interp_boxes.W_Complex256Box),
+                alternate_constructors=[space.w_complex],
+                aliases=["clongdouble", "clongfloat"],
+            )
+            self.w_clongdouble = self.w_complex256dtype
+        else:
+            self.w_float64dtype.aliases += ["longfloat", "longdouble"]
+            self.w_longdouble = self.w_float64dtype
+            self.w_clongdouble = self.w_complex64dtype
         self.w_stringdtype = W_Dtype(
             types.StringType(1),
             num=18,
@@ -507,14 +552,16 @@ class DtypeCache(object):
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
             self.w_int64dtype, self.w_uint64dtype,
-            self.w_float16dtype, self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
-            self.w_complex128dtype,
+            self.w_float16dtype, self.w_float32dtype, self.w_float64dtype,
+            self.w_longdouble,
+            self.w_complex64dtype, self.w_complex128dtype, self.w_clongdouble,
             self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype, self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
-            for dtype in [self.w_float16dtype, self.w_float32dtype, self.w_float64dtype]
+            for dtype in [self.w_float16dtype, self.w_float32dtype,
+                          self.w_float64dtype, self.w_longdouble]
         )
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with
@@ -540,7 +587,7 @@ class DtypeCache(object):
             'LONGLONG': self.w_int64dtype,
             'SHORT': self.w_int16dtype,
             'VOID': self.w_voiddtype,
-            #'LONGDOUBLE':,
+            'LONGDOUBLE': self.w_longdouble,
             'UBYTE': self.w_uint8dtype,
             'UINTP': self.w_ulongdtype,
             'ULONG': self.w_ulongdtype,
@@ -549,7 +596,7 @@ class DtypeCache(object):
             #'OBJECT',
             'ULONGLONG': self.w_uint64dtype,
             'STRING': self.w_stringdtype,
-            #'CDOUBLE',
+            'CDOUBLE': self.w_complex64dtype,
             #'DATETIME',
             'UINT': self.w_uint32dtype,
             'INTP': self.w_intpdtype,
@@ -563,7 +610,7 @@ class DtypeCache(object):
             'USHORT': self.w_uint16dtype,
             'FLOAT': self.w_float32dtype,
             'BOOL': self.w_booldtype,
-            #, 'CLONGDOUBLE']
+            'CLONGDOUBLE': self.w_clongdouble,
         }
         typeinfo_partial = {
             'Generic': interp_boxes.W_GenericBox,
@@ -573,7 +620,7 @@ class DtypeCache(object):
             'Integer': interp_boxes.W_IntegerBox,
             'SignedInteger': interp_boxes.W_SignedIntegerBox,
             'UnsignedInteger': interp_boxes.W_UnsignedIntegerBox,
-            #'ComplexFloating',
+            'ComplexFloating': interp_boxes.W_ComplexFloatingBox,
             'Number': interp_boxes.W_NumberBox,
             'Floating': interp_boxes.W_FloatingBox
         }

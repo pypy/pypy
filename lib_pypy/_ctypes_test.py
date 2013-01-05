@@ -2,10 +2,6 @@ import os, sys
 import tempfile
 import gc
 
-# Monkeypatch & hacks to let ctypes.tests import.
-# This should be removed at some point.
-sys.getrefcount = lambda x: len(gc.get_referrers(x)) - 1
-
 def compile_shared():
     """Compile '_ctypes_test.c' into an extension module, and import it
     """

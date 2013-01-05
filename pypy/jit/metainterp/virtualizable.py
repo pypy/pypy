@@ -3,7 +3,6 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
 from pypy.rpython import rvirtualizable2
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.nonconst import NonConstant
 from pypy.jit.metainterp.typesystem import deref, fieldType, arrayItem

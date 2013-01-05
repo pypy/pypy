@@ -2444,8 +2444,13 @@ class Assembler386(object):
         _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
         fail_descr = self.cpu.get_fail_descr_from_number(value)
         value = fail_descr.hide(self.cpu)
-        value = rffi.cast(lltype.Signed, value)       # XXX assumes non-moving
-        self.mc.CMP_mi((eax.value, _offset), value)
+        rgc._make_sure_does_not_move(value)
+        value = rffi.cast(lltype.Signed, value)
+        if rx86.fits_in_32bits(value):
+            self.mc.CMP_mi((eax.value, _offset), value)
+        else:
+            self.mc.MOV_ri(X86_64_SCRATCH_REG.value, value)
+            self.mc.CMP_mr((eax.value, _offset), X86_64_SCRATCH_REG.value)
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
         je_location = self.mc.get_relative_pos()

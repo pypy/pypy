@@ -246,6 +246,17 @@ def most_neg_value_of(tp):
         return r_class(0)
 most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
+def is_signed_integer_type(tp):
+    from pypy.rpython.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return True
+    try:
+        r_class = rffi.platform.numbertype_to_rclass[tp]
+        return r_class.SIGNED
+    except KeyError:
+        return False   # not an integer type
+is_signed_integer_type._annspecialcase_ = 'specialize:memo'
+
 def highest_bit(n):
     """
     Calculates the highest set bit in n.  This function assumes that n is a

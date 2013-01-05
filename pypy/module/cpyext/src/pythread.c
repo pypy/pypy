@@ -37,13 +37,13 @@ PyThread_free_lock(PyThread_type_lock lock)
 int
 PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 {
-    return RPyThreadAcquireLock((struct RPyOpaqueThreadLock*)lock, waitflag);
+    return RPyThreadAcquireLock((struct RPyOpaque_ThreadLock*)lock, waitflag);
 }
 
 void
 PyThread_release_lock(PyThread_type_lock lock)
 {
-    RPyThreadReleaseLock((struct RPyOpaqueThreadLock*)lock);
+    RPyThreadReleaseLock((struct RPyOpaque_ThreadLock*)lock);
 }
 
 

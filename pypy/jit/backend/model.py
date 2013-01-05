@@ -1,4 +1,5 @@
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history
 from pypy.rpython.lltypesystem import lltype
 
@@ -42,6 +43,12 @@ class AbstractCPU(object):
 
     def get_fail_descr_number(self, descr):
         assert isinstance(descr, history.AbstractFailDescr)
+        if not we_are_translated():
+            if not hasattr(descr, '_cpu'):
+                assert descr.index == -1, "descr.index is already >= 0??"
+                descr._cpu = self
+            assert descr._cpu is self,"another CPU has already seen the descr!"
+        #
         n = descr.index
         if n < 0:
             n = self.reserve_some_free_fail_descr_number()

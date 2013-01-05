@@ -535,6 +535,7 @@ class rop(object):
     pass
 
 opclasses = []   # mapping numbers to the concrete ResOp class
+opargnum  = []   # mapping numbers to number or args (or -1)
 opname = {}      # mapping numbers to the original names, for debugging
 oparity = []     # mapping numbers to the arity of the operation or -1
 opwithdescr = [] # mapping numbers to a flag "takes a descr"
@@ -563,6 +564,7 @@ def setup(debug_print=False):
         else:
             cls = None
         opclasses.append(cls)
+        opargnum.append(arity)
         oparity.append(arity)
         opwithdescr.append(withdescr)
         opboolresult.append(boolresult)

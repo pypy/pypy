@@ -709,6 +709,7 @@ class AbstractResumeDataReader(object):
         assert self.rd_virtuals is not None
         v = self.virtuals_cache[index]
         if not v:
+            assert self.rd_virtuals is not None
             v = self.rd_virtuals[index].allocate(self, index)
             ll_assert(v == self.virtuals_cache[index], "resume.py: bad cache")
         return v

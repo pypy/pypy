@@ -31,6 +31,11 @@ def char():
     return model.SomeChar()
 
 
+def ptr(ll_type):
+    from pypy.rpython.lltypesystem.lltype import Ptr
+    return model.SomePtr(Ptr(ll_type))
+
+
 def list(element):
     listdef = ListDef(None, element, mutated=True, resized=True)
     return model.SomeList(listdef)

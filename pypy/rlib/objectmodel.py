@@ -132,11 +132,12 @@ def enforceargs(*types_, **kwds):
     def decorator(f):
         def get_annotation(t):
             from pypy.annotation.signature import annotation
-            from pypy.annotation.model import SomeObject, SomeStringOrUnicode
+            from pypy.annotation.model import SomeObject, SomeString, SomeUnicodeString
             if isinstance(t, SomeObject):
                 return t
             s_result = annotation(t)
-            if isinstance(s_result, SomeStringOrUnicode):
+            if (isinstance(s_result, SomeString) or
+                isinstance(s_result, SomeUnicodeString)):
                 return s_result.__class__(can_be_None=True)
             return s_result
         def get_type_descr_of_argument(arg):
@@ -297,6 +298,10 @@ class Entry(ExtRegistryEntry):
         from pypy.rpython.lltypesystem import lltype
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
+
+def int_to_bytearray(i):
+    # XXX this can be made more efficient in the future
+    return bytearray(str(i))
 
 # ____________________________________________________________
 

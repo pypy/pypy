@@ -28,7 +28,7 @@ class LLTrace(object):
             try:
                 newbox = _cache[box]
             except KeyError:
-                newbox = _cache[box] = box.clonebox()
+                newbox = _cache[box] = box.__class__()
             return newbox
         #
         self.inputargs = map(mapping, inputargs)
@@ -164,6 +164,7 @@ class LLGraphCPU(model.AbstractCPU):
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
     translate_support_code = False
+    is_llgraph = True
 
     def __init__(self, rtyper, stats=None, *ignored_args, **ignored_kwds):
         model.AbstractCPU.__init__(self)
@@ -813,6 +814,12 @@ class LLFrame(object):
         return res
 
     def execute_call_release_gil(self, descr, func, *args):
+        if hasattr(descr, '_original_func_'):
+            func = descr._original_func_     # see pyjitpl.py
+            # we want to call the function that does the aroundstate
+            # manipulation here (as a hack, instead of really doing
+            # the aroundstate manipulation ourselves)
+            return self.execute_call_may_force(descr, func, *args)
         call_args = support.cast_call_args_in_order(descr.ARGS, args)
         FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
         func_to_call = rffi.cast(lltype.Ptr(FUNC), func)

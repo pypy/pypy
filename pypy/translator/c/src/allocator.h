@@ -1,4 +1,3 @@
-#ifdef PYPY_STANDALONE 
 
 #if defined(RPY_STM) && defined(RPY_STM_ASSERT)
 #  define PYPY_USE_TRIVIAL_MALLOC
@@ -19,5 +18,3 @@ void *PyObject_Malloc(size_t n);
 void *PyObject_Realloc(void *p, size_t n);
 void PyObject_Free(void *p);
 #endif
-
-#endif  /* PYPY_STANDALONE */
