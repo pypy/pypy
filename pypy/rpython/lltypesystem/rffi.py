@@ -1,6 +1,6 @@
 import py
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rstr
 from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
 from pypy.rpython.lltypesystem.llmemory import itemoffsetof, raw_memcopy
@@ -13,7 +13,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.tool.rfficache import platform, sizeof_c_type
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, llstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
@@ -279,9 +279,17 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     callable_name = getattr(callable, '__name__', '?')
     if callbackholder is not None:
         callbackholder.callbacks[callable] = True
+    callable_name_descr = str(callable).replace('"', '\\"')
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
-        def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+        def inner_wrapper(%(args)s):
+            callback_hook = aroundstate.callback_hook
+            if callback_hook:
+                callback_hook(llstr("%(callable_name_descr)s"))
+            return callable(%(args)s)
+        inner_wrapper._never_inline_ = True
+        
+        def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
@@ -290,7 +298,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
-                result = callable(%s)
+                result = inner_wrapper(%(args)s)
             except Exception, e:
                 os.write(2,
                     "Warning: uncaught exception in callback: %%s %%s\n" %%
@@ -308,10 +316,11 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
             return result
-    """ % (args, args))
+    """ % locals())
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
+    miniglobals['llstr'] = llstr
     miniglobals['we_are_translated'] = we_are_translated
     miniglobals['stackcounter'] = stackcounter
     exec source.compile() in miniglobals
@@ -319,10 +328,14 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+CallbackHookPtr = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)], lltype.Void))
+
 class AroundState:
+    callback_hook = None
+    
     def _cleanup_(self):
-        self.before = None    # or a regular RPython function
-        self.after = None     # or a regular RPython function
+        self.before = None        # or a regular RPython function
+        self.after = None         # or a regular RPython function
 aroundstate = AroundState()
 aroundstate._cleanup_()
 
