@@ -2,7 +2,7 @@
 
 """Main entry point into the PyPy interpreter.  For a list of options, type
 
-      py.py --help
+      pyinteractive.py --help
 
 """
 
@@ -21,7 +21,7 @@ from pypy.config.config import Config, to_optparse
 from pypy.config import pypyoption
 
 
-cmdline_optiondescr = OptionDescription("interactive", "the options of py.py", [
+cmdline_optiondescr = OptionDescription("interactive", "the options of pyinteractive.py", [
     BoolOption("verbose", "show verbose interpreter-level traceback",
                default=os.getenv("PYPY_TB"), cmdline="-v"),
     BoolOption("interactive", "inspect interactively after running script",
@@ -189,6 +189,6 @@ def main_(argv=None):
 
 if __name__ == '__main__':
     if hasattr(sys, 'setrecursionlimit'):
-        # for running "python -i py.py -Si -- py.py -Si" 
+        # for running "python -i pyinteractive.py -Si -- py.py -Si" 
         sys.setrecursionlimit(3000)
     sys.exit(main_(sys.argv))

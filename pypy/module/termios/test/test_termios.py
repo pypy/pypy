@@ -14,7 +14,7 @@ class TestTermios(object):
             import termios
         except ImportError:
             py.test.skip("termios not found")
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         assert py_py.check()
         cls.py_py = py_py
         cls.termios = termios

@@ -1127,7 +1127,7 @@ class TestPexpect(object):
         return child
 
     def spawn(self, argv):
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         return self._spawn(sys.executable, [str(py_py)] + argv)
 
     def test_ttyname(self):

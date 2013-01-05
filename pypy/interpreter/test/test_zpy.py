@@ -5,7 +5,7 @@ import sys
 import pypy
 import subprocess
 
-pypypath = py.path.local(pypy.__file__).dirpath("bin", "py.py")
+pypypath = py.path.local(pypy.__file__).dirpath("bin", "pyinteractive.py")
 
 def run(*args):
     argslist = map(str, args)
