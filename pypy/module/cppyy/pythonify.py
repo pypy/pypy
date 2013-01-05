@@ -68,30 +68,6 @@ def make_method(meth_name, cppol):
     return method
 
 
-def make_datamember(cppdm):
-    rettype = cppdm.get_returntype()
-    if not rettype:                              # return builtin type
-        cppclass = None
-    else:                                        # return instance
-        try:
-            cppclass = get_pycppclass(rettype)
-        except AttributeError:
-            import warnings
-            warnings.warn("class %s unknown: no data member access" % rettype,
-                          RuntimeWarning)
-            cppclass = None
-    if cppdm.is_static():
-        def binder(obj):
-            return cppdm.get(None, cppclass)
-        def setter(obj, value):
-            return cppdm.set(None, value)
-    else:
-        def binder(obj):
-            return cppdm.get(obj, cppclass)
-        setter = cppdm.set
-    return property(binder, setter)
-
-
 def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
     # build up a representation of a C++ namespace (namespaces are classes)
 
@@ -123,11 +99,10 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
 
         # add all data members to the dictionary of the class to be created, and
         # static ones also to the meta class (needed for property setters)
-        for dm in cppns.get_datamember_names():
-            cppdm = cppns.get_datamember(dm)
-            pydm = make_datamember(cppdm)
-            setattr(pycppns, dm, pydm)
-            setattr(metans, dm, pydm)
+        for dm_name in cppns.get_datamember_names():
+            cppdm = cppns.get_datamember(dm_name)
+            setattr(pycppns, dm_name, cppdm)
+            setattr(metans, dm_name, cppdm)
 
         modname = pycppns.__name__.replace('::', '.')
         sys.modules['cppyy.gbl.'+modname] = pycppns
@@ -197,14 +172,13 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
     # static ones also to the meta class (needed for property setters)
     for dm_name in cppclass.get_datamember_names():
         cppdm = cppclass.get_datamember(dm_name)
-        pydm = make_datamember(cppdm)
 
         # here, setattr() can not be used, because a data member can shadow one in
         # its base class, resulting in the __set__() of its base class being called
         # by setattr(); so, store directly on the dictionary
-        pycppclass.__dict__[dm_name] = pydm
-        if cppdm.is_static():
-            metacpp.__dict__[dm_name] = pydm
+        pycppclass.__dict__[dm_name] = cppdm
+        if cppyy._is_static(cppdm):
+            metacpp.__dict__[dm_name] = cppdm
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
@@ -254,11 +228,10 @@ def get_pycppitem(scope, name):
     # data
     if not cppitem:
         try:
-            cppitem = scope._cpp_proxy.get_datamember(name)
-            pycppitem = make_datamember(cppitem)
-            setattr(scope, name, pycppitem)
-            if cppitem.is_static():
-                setattr(scope.__class__, name, pycppitem)
+            cppdm = scope._cpp_proxy.get_datamember(name)
+            setattr(scope, name, cppdm)
+            if cppyy._is_static(cppdm):
+                setattr(scope.__class__, name, cppdm)
             pycppitem = getattr(scope, name)      # gets actual property value
         except AttributeError:
             pass

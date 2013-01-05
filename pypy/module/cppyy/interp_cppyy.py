@@ -493,21 +493,17 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
-    _attrs_ = ['space', 'scope', 'converter', 'offset', '_is_static']
-    _immutable_fields = ['scope', 'converter', 'offset', '_is_static']
+    _attrs_ = ['space', 'scope', 'converter', 'offset']
+    _immutable_fields = ['scope', 'converter', 'offset']
 
-    def __init__(self, space, containing_scope, type_name, offset, is_static):
+    def __init__(self, space, containing_scope, type_name, offset):
         self.space = space
         self.scope = containing_scope
         self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
-        self._is_static = is_static
 
     def get_returntype(self):
         return self.space.wrap(self.converter.name)
-
-    def is_static(self):
-        return self.space.newbool(self._is_static)
 
     @jit.elidable_promote()
     def _get_offset(self, cppinstance):
@@ -532,13 +528,37 @@ class W_CPPDataMember(Wrappable):
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
-    is_static = interp2app(W_CPPDataMember.is_static),
     get_returntype = interp2app(W_CPPDataMember.get_returntype),
-    get = interp2app(W_CPPDataMember.get),
-    set = interp2app(W_CPPDataMember.set),
+    __get__ = interp2app(W_CPPDataMember.get),
+    __set__ = interp2app(W_CPPDataMember.set),
 )
 W_CPPDataMember.typedef.acceptable_as_base_class = False
 
+class W_CPPStaticData(W_CPPDataMember):
+    def _get_offset(self):
+        return self.offset
+
+    def get(self, w_cppinstance, w_pycppclass):
+        return self.converter.from_memory(self.space, self.space.w_None, w_pycppclass, self.offset)
+
+    def set(self, w_cppinstance, w_value):
+        self.converter.to_memory(self.space, self.space.w_None, w_value, self.offset)
+        return self.space.w_None
+
+W_CPPStaticData.typedef = TypeDef(
+    'CPPStaticData',
+    get_returntype = interp2app(W_CPPStaticData.get_returntype),
+    __get__ = interp2app(W_CPPStaticData.get),
+    __set__ = interp2app(W_CPPStaticData.set),
+)
+W_CPPStaticData.typedef.acceptable_as_base_class = False
+
+def is_static(space, w_obj):
+    try:
+        space.interp_w(W_CPPStaticData, w_obj, can_be_None=False)
+        return space.w_True
+    except Exception:
+        return space.w_False
 
 class W_CPPScope(Wrappable):
     _attrs_ = ['space', 'name', 'handle', 'methods', 'datamembers']
@@ -659,7 +679,7 @@ class W_CPPNamespace(W_CPPScope):
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self, dm_idx)
         offset = capi.c_datamember_offset(self, dm_idx)
-        datamember = W_CPPDataMember(self.space, self, type_name, offset, True)
+        datamember = W_CPPStaticData(self.space, self, type_name, offset)
         self.datamembers[dm_name] = datamember
         return datamember
 
@@ -769,7 +789,10 @@ class W_CPPClass(W_CPPScope):
             type_name = capi.c_datamember_type(self, i)
             offset = capi.c_datamember_offset(self, i)
             is_static = bool(capi.c_is_staticdata(self, i))
-            datamember = W_CPPDataMember(self.space, self, type_name, offset, is_static)
+            if is_static:
+                datamember = W_CPPStaticData(self.space, self, type_name, offset)
+            else:
+                datamember = W_CPPDataMember(self.space, self, type_name, offset)
             self.datamembers[datamember_name] = datamember
 
     def construct(self):

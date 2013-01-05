@@ -12,6 +12,7 @@ class Module(MixedModule):
         '_template_byname'       : 'interp_cppyy.template_byname',
         '_set_class_generator'   : 'interp_cppyy.set_class_generator',
         '_register_class'        : 'interp_cppyy.register_class',
+        '_is_static'             : 'interp_cppyy.is_static',
         'CPPInstance'            : 'interp_cppyy.W_CPPInstance',
         'addressof'              : 'interp_cppyy.addressof',
         'bind_object'            : 'interp_cppyy.bind_object',

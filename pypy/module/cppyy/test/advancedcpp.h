@@ -155,7 +155,7 @@ template<typename T>               // for template testing
 class T1 {
 public:
    T1(T t = T(1)) : m_t1(t) {}
-   T value() { return m_t1; }
+   T get_value() { return m_t1; }
 
 public:
    T m_t1;
@@ -165,7 +165,7 @@ template<typename T>
 class T2 {
 public:
    T2(T t = T(2)) : m_t2(t) {}
-   T value() { return m_t2; }
+   T get_value() { return m_t2; }
 
 public:
    T m_t2;
@@ -175,8 +175,8 @@ template<typename T, typename U>
 class T3 {
 public:
    T3(T t = T(3), U u = U(33)) : m_t3(t), m_u3(u) {}
-   T value_t() { return m_t3; }
-   U value_u() { return m_u3; }
+   T get_value_t() { return m_t3; }
+   U get_value_u() { return m_u3; }
 
 public:
    T m_t3;
@@ -189,7 +189,7 @@ namespace a_ns {
    class T4 {
    public:
       T4(T t = T(4)) : m_t4(t) {}
-      T value() { return m_t4; }
+      T get_value() { return m_t4; }
 
    public:
       T m_t4;

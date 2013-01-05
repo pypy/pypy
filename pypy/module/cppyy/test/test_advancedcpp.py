@@ -204,24 +204,24 @@ class AppTestADVANCEDCPP:
 
         #-----
         t1 = gbl.T1(int)()
-        assert t1.m_t1    == 1
-        assert t1.value() == 1
+        assert t1.m_t1        == 1
+        assert t1.get_value() == 1
         t1.destruct()
 
         #-----
         t1 = gbl.T1(int)(11)
-        assert t1.m_t1    == 11
-        assert t1.value() == 11
+        assert t1.m_t1        == 11
+        assert t1.get_value() == 11
         t1.m_t1 = 111
-        assert t1.value() == 111
-        assert t1.m_t1    == 111
+        assert t1.get_value() == 111
+        assert t1.m_t1        == 111
         t1.destruct()
 
         #-----
         t2 = gbl.T2(gbl.T1(int))(gbl.T1(int)(32))
         t2.m_t2.m_t1 = 32
-        assert t2.m_t2.value() == 32
-        assert t2.m_t2.m_t1    == 32
+        assert t2.m_t2.get_value() == 32
+        assert t2.m_t2.m_t1        == 32
         t2.destruct()
 
     def test05_abstract_classes(self):
