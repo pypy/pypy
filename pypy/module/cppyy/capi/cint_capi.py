@@ -138,8 +138,7 @@ def ttree_Branch(space, w_self, args_w):
         # call the helper stub to by-pass CINT
         vbranch = _ttree_Branch(vtree, branchname, klassname, address, bufsize, splitlevel)
         branch_class = interp_cppyy.scope_byname(space, "TBranch")
-        w_branch = interp_cppyy.wrap_cppobject(
-            space, space.w_None, branch_class, vbranch, isref=False, python_owns=False)
+        w_branch = interp_cppyy.wrap_cppobject(space, vbranch, branch_class)
         return w_branch
     except (OperationError, TypeError, IndexError), e:
         pass
