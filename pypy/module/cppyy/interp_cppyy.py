@@ -384,8 +384,8 @@ class CPPConstructor(CPPMethod):
         vscope = rffi.cast(capi.C_OBJECT, self.scope.handle)
         w_result = CPPMethod.call(self, vscope, args_w)
         newthis = rffi.cast(capi.C_OBJECT, self.space.int_w(w_result))
-        return wrap_new_cppobject_nocast(
-            self.space, self.space.w_None, self.scope, newthis, isref=False, python_owns=True)
+        return wrap_cppobject(self.space, newthis, self.scope,
+                              do_cast=False, python_owns=True, fresh=True)
 
     def __repr__(self):
         return "CPPConstructor: %s" % self.signature()
@@ -1049,26 +1049,13 @@ def get_pythonized_cppclass(space, handle):
         w_pycppclass = space.call_function(state.w_clgen_callback, space.wrap(final_name))
     return w_pycppclass
 
-def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
+def wrap_cppobject(space, rawobject, cppclass,
+                   do_cast=True, python_owns=False, is_ref=False, fresh=False):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
-    if space.is_w(w_pycppclass, space.w_None):
-        w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
-    w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
-    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
-    cppinstance.__init__(space, cppclass, rawobject, isref, python_owns)
-    memory_regulator.register(cppinstance)
-    return w_cppinstance
 
-def wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
-    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
-    obj = memory_regulator.retrieve(rawobject)
-    if obj is not None and obj.cppclass is cppclass:
-        return obj
-    return wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
-
-def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
-    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
-    if rawobject:
+    # cast to actual cast if requested and possible
+    w_pycppclass = space.w_None
+    if do_cast and rawobject:
         actual = capi.c_actual_class(cppclass, rawobject)
         if actual != cppclass.handle:
             try:
@@ -1082,7 +1069,22 @@ def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
                 # that only get_pythonized_cppclass is expected to raise, so none of
                 # the variables are re-assigned yet)
                 pass
-    return wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
+
+    if space.is_w(w_pycppclass, space.w_None):
+        w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
+
+    # try to recycle existing object if this one is not newly created
+    if not fresh:
+        obj = memory_regulator.retrieve(rawobject)
+        if obj is not None and obj.cppclass is cppclass:
+            return obj
+
+    # fresh creation
+    w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
+    cppinstance.__init__(space, cppclass, rawobject, is_ref, python_owns)
+    memory_regulator.register(cppinstance)
+    return w_cppinstance
 
 @unwrap_spec(cppinstance=W_CPPInstance)
 def addressof(space, cppinstance):
@@ -1096,4 +1098,4 @@ def bind_object(space, address, w_pycppclass, owns=False):
     rawobject = rffi.cast(capi.C_OBJECT, address)
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
-    return wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, False, owns)
+    return wrap_cppobject(space, rawobject, cppclass, do_cast=False, python_owns=owns)

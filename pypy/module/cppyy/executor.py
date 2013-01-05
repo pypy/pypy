@@ -159,16 +159,14 @@ class InstancePtrExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_l(cppmethod, cppthis, num_args, args)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppobject(
-            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
+        return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
         result = rffi.ptradd(buffer, cif_descr.exchange_result)
         from pypy.module.cppyy import interp_cppyy
         ptr_result = rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, result)[0])
-        return interp_cppyy.wrap_cppobject(
-            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
+        return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
 
 class InstancePtrPtrExecutor(InstancePtrExecutor):
 
@@ -177,8 +175,7 @@ class InstancePtrPtrExecutor(InstancePtrExecutor):
         voidp_result = capi.c_call_r(cppmethod, cppthis, num_args, args)
         ref_address = rffi.cast(rffi.VOIDPP, voidp_result)
         ptr_result = rffi.cast(capi.C_OBJECT, ref_address[0])
-        return interp_cppyy.wrap_cppobject(
-            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
+        return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -190,8 +187,8 @@ class InstanceExecutor(InstancePtrExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_o(cppmethod, cppthis, num_args, args, self.cppclass)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppobject_nocast(
-            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=True)
+        return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass,
+                                           do_cast=False, python_owns=True)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
