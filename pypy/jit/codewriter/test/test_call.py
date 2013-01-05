@@ -173,7 +173,7 @@ def test_jit_force_virtualizable_effectinfo():
     py.test.skip("XXX add a test for CallControl.getcalldescr() -> EF_xxx")
 
 def test_releases_gil_analyzer():
-    from pypy.jit.backend.llgraph.runner import LLtypeCPU
+    from pypy.jit.backend.llgraph.runner import LLGraphCPU
 
     T = rffi.CArrayPtr(rffi.TIME_T)
     external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
@@ -184,7 +184,7 @@ def test_releases_gil_analyzer():
 
     rtyper = support.annotate(f, [])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
-    cc = CallControl(LLtypeCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
     res = cc.find_all_graphs(FakePolicy())
 
     [f_graph] = [x for x in res if x.func is f]
@@ -195,7 +195,7 @@ def test_releases_gil_analyzer():
     assert call_descr.extrainfo.is_call_release_gil() is False
 
 def test_call_release_gil():
-    from pypy.jit.backend.llgraph.runner import LLtypeCPU
+    from pypy.jit.backend.llgraph.runner import LLGraphCPU
 
     T = rffi.CArrayPtr(rffi.TIME_T)
     external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
@@ -206,7 +206,7 @@ def test_call_release_gil():
 
     rtyper = support.annotate(f, [])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
-    cc = CallControl(LLtypeCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
     res = cc.find_all_graphs(FakePolicy())
 
     [llext_graph] = [x for x in res if x.func is external]
@@ -220,7 +220,7 @@ def test_call_release_gil():
     assert call_descr.extrainfo.call_release_gil_target == call_target
 
 def test_random_effects_on_stacklet_switch():
-    from pypy.jit.backend.llgraph.runner import LLtypeCPU
+    from pypy.jit.backend.llgraph.runner import LLGraphCPU
     from pypy.translator.platform import CompilationError
     try:
         from pypy.rlib._rffi_stacklet import switch, thread_handle, handle
@@ -235,7 +235,7 @@ def test_random_effects_on_stacklet_switch():
 
     rtyper = support.annotate(f, [])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
-    cc = CallControl(LLtypeCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
     res = cc.find_all_graphs(FakePolicy())
 
     [f_graph] = [x for x in res if x.func is f]

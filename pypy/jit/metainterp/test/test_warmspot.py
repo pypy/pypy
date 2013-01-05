@@ -520,7 +520,7 @@ class WarmspotTests(object):
 
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
-    CPUClass = runner.LLtypeCPU
+    CPUClass = runner.LLGraphCPU
     type_system = 'lltype'
 
 class TestOOWarmspot(WarmspotTests, OOJitMixin):
@@ -540,8 +540,9 @@ class TestWarmspotDirect(object):
         class FakeFailDescr(object):
             def __init__(self, no):
                 self.no = no
-            def handle_fail(self, metainterp_sd, jitdrivers_sd):
+            def handle_fail(self, deadframe, metainterp_sd, jitdrivers_sd):
                 no = self.no
+                assert deadframe._no == no
                 if no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
                 if no == 1:
@@ -555,6 +556,10 @@ class TestWarmspotDirect(object):
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
                 assert 0
 
+        class FakeDeadFrame:
+            def __init__(self, no):
+                self._no = no
+
         class FakeDescr:
             def as_vtable_size_descr(self):
                 return self
@@ -566,6 +571,10 @@ class TestWarmspotDirect(object):
             ts = llhelper
             translate_support_code = False
             stats = "stats"
+
+            def get_latest_descr(self, deadframe):
+                assert isinstance(deadframe, FakeDeadFrame)
+                return self.get_fail_descr_from_number(deadframe._no)
 
             def get_fail_descr_number(self, d):
                 return -1
@@ -600,15 +609,17 @@ class TestWarmspotDirect(object):
         translator = rtyper.annotator.translator
         translator.config.translation.gc = 'hybrid'
         cls.desc = WarmRunnerDesc(translator, CPUClass=FakeCPU)
+        cls.FakeDeadFrame = FakeDeadFrame
 
     def test_call_helper(self):
         from pypy.rpython.llinterp import LLException
 
         [jd] = self.desc.jitdrivers_sd
-        assert jd._assembler_call_helper(0, 0) == 3
-        assert jd._assembler_call_helper(1, 0) == 10
+        FakeDeadFrame = self.FakeDeadFrame
+        assert jd._assembler_call_helper(FakeDeadFrame(0), 0) == 3
+        assert jd._assembler_call_helper(FakeDeadFrame(1), 0) == 10
         try:
-            jd._assembler_call_helper(3, 0)
+            jd._assembler_call_helper(FakeDeadFrame(3), 0)
         except LLException, lle:
             assert lle[0] == self.exc_vtable
         else:
