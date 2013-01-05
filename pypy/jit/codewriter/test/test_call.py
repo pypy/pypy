@@ -195,7 +195,7 @@ def test_releases_gil_analyzer():
     assert call_descr.extrainfo.is_call_release_gil() is False
 
 def test_call_release_gil():
-    from pypy.jit.backend.llgraph.runner import LLtypeCPU
+    from pypy.jit.backend.llgraph.runner import LLGraphCPU
 
     T = rffi.CArrayPtr(rffi.TIME_T)
     external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
@@ -206,7 +206,7 @@ def test_call_release_gil():
 
     rtyper = support.annotate(f, [])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
-    cc = CallControl(LLtypeCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
     res = cc.find_all_graphs(FakePolicy())
 
     [llext_graph] = [x for x in res if x.func is external]
