@@ -139,6 +139,40 @@ class MallocNonMovingEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
+def copy_struct_item(source, dest, si, di):
+    TP = lltype.typeOf(source)
+    i = 0
+    while i < len(TP._names):
+        setattr(dest[di], TP._names[i], getattr(source[si], TP._names[i]))
+
+class CopyStructEntry(ExtRegistryEntry):
+    _about_ = copy_struct_item
+
+    def compute_result_annotation(self, s_source, s_dest, si, di):
+        pass
+
+    def specialize_call(self, hop):
+        v_source, v_dest, v_si, v_di = hop.inputargs(hop.args_r[0],
+                                                     hop.args_r[1],
+                                                     lltype.Signed,
+                                                     lltype.Signed)
+        hop.exception_cannot_occur()
+        TP = v_source.concretetype.TO.OF
+        for name, TP in TP._flds.iteritems():
+            c_name = hop.inputconst(lltype.Void, name)
+            v_fld = hop.genop('getinteriorfield', [v_source, v_si, c_name],
+                              resulttype=TP)
+            hop.genop('setinteriorfield', [v_dest, v_di, c_name, v_fld])
+
+
+@specialize.ll()
+def copy_item(source, dest, si, di):
+    TP = lltype.typeOf(source)
+    if isinstance(TP.TO.OF, lltype.Struct):
+        copy_struct_item(source, dest, si, di)
+    else:
+        dest[di] = source[si]
+
 @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
 @specialize.ll()
@@ -150,7 +184,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     # and also, maybe, speed up very small cases
     if length <= 1:
         if length == 1:
-            dest[dest_start] = source[source_start]
+            copy_item(source, dest, source_start, dest_start)
         return
 
     # supports non-overlapping copies only
@@ -170,7 +204,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             # if the write barrier is not supported, copy by hand
             i = 0
             while i < length:
-                dest[i + dest_start] = source[i + source_start]
+                copy_item(source, dest, i + source_start, i + dest_start)
                 i += 1
             return
     source_addr = llmemory.cast_ptr_to_adr(source)
