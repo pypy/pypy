@@ -3981,3 +3981,24 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         self.interp_operations(f, [])
 
+    def test_external_call(self):
+        from pypy.rlib.objectmodel import invoke_around_extcall
+        
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T)
+
+        l = []
+
+        def before():
+            l.append("before")
+
+        def after():
+            l.append("after")
+
+        def f():
+            external(lltype.nullptr(T.TO))
+            return 1
+
+        invoke_around_extcall(before, after)
+        self.interp_operations(f, [])
+        assert len(l) == 2
