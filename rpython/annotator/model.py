@@ -30,7 +30,7 @@ generic element in some specific subset of the set of all objects.
 from __future__ import absolute_import
 
 from types import BuiltinFunctionType, MethodType, FunctionType
-import pypy
+import rpython
 from pypy.tool import descriptor
 from rpython.tool.pairtype import pair, extendabletype
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, base_int

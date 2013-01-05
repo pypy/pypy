@@ -23,7 +23,7 @@ udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
 tmpfile = str(udir.join('dump.tmp'))
 
 # hack hack
-import pypy.tool
+import rpython.tool
 mod = new.module('rpython.tool.udir')
 mod.udir = udir
 sys.modules['rpython.tool.udir'] = mod

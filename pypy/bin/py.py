@@ -6,10 +6,10 @@
 
 """
 
-try:
-    import autopath
-except ImportError:
-    pass
+import os, sys
+import time
+
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 import pypy
 from pypy.tool import option
@@ -18,8 +18,7 @@ from pypy.interpreter import main, interactive, error, gateway
 from pypy.config.config import OptionDescription, BoolOption, StrOption
 from pypy.config.config import Config, to_optparse
 from pypy.config import pypyoption
-import os, sys
-import time
+
 
 cmdline_optiondescr = OptionDescription("interactive", "the options of py.py", [
     BoolOption("verbose", "show verbose interpreter-level traceback",
