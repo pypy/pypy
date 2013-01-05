@@ -225,7 +225,7 @@ class AssemblerARM(ResOpAssembler):
         #
         # Call the helper, which will return a dead frame object with
         # the correct exception set, or MemoryError by default
-	# XXX make sure we return the correct value here
+        # XXX make sure we return the correct value here
         addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
         mc.BL(addr)
         self.gen_func_epilog(mc=mc)

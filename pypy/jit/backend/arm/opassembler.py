@@ -36,7 +36,7 @@ NO_FORCE_INDEX = -1
 
 class GuardToken(object):
     def __init__(self, descr, failargs, faillocs, offset, save_exc, fcond=c.AL,
-		is_guard_not_invalidated=False, is_guard_not_forced=False):
+                 is_guard_not_invalidated=False, is_guard_not_forced=False):
         assert isinstance(save_exc, bool)
         self.descr = descr
         self.offset = offset
@@ -319,7 +319,7 @@ class ResOpAssembler(object):
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
         [argloc] = arglocs
         if argloc is not r.r0: #XXX verify this
-	    self.mov_loc_loc(argloc, r.r0, fcond)
+            self.mov_loc_loc(argloc, r.r0, fcond)
         # exit function
         self.gen_func_epilog()
         return fcond
