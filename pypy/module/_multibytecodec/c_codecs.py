@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.conftest import pypydir
+from rpython.translator.translator import cdir
 
 UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
 
@@ -15,7 +15,7 @@ class EncodeDecodeError(Exception):
         return 'EncodeDecodeError(%r, %r, %r)' % (self.start, self.end,
                                                   self.reason)
 
-srcdir = py.path.local(pypydir).join('translator', 'c')
+srcdir = py.path.local(cdir)
 
 codecs = [
     # _codecs_cn

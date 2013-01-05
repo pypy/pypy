@@ -10,6 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.translator.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
@@ -48,7 +49,7 @@ ADDR = lltype.Signed
 pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
-translator_c_dir = pypydir / 'translator' / 'c'
+translator_c_dir = py.path.local(cdir)
 include_dirs = [
     include_dir,
     translator_c_dir,

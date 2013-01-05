@@ -7,9 +7,9 @@ import signal as cpy_signal
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.translator import cdir
 import py
 import sys
-from pypy.conftest import pypydir
 from rpython.rlib import jit, rposix
 from rpython.rlib.rarithmetic import intmask, is_valid_int
 
@@ -41,7 +41,7 @@ includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')
 
-cdir = py.path.local(pypydir).join('translator', 'c')
+cdir = py.path.local(cdir)
 
 eci = ExternalCompilationInfo(
     includes = includes,

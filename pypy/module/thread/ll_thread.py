@@ -1,6 +1,7 @@
 
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.translator import cdir
 import py
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
@@ -13,7 +14,7 @@ class error(Exception):
     pass
 
 pypydir = py.path.local(pypydir)
-translator_c_dir = pypydir / 'translator' / 'c'
+translator_c_dir = py.path.local(cdir)
 
 eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
