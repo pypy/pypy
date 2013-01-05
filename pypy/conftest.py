@@ -10,7 +10,7 @@ rsyncignore = ['_cache']
 #
 option = None
 
-pypydir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+pypydir = os.path.realpath(os.path.dirname(__file__))
 
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""
