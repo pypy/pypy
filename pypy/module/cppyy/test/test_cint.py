@@ -254,7 +254,7 @@ class AppTestCINTTTree:
     def test05_branch_activation(self):
         """Test of automatic branch activation"""
 
-        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy import gbl
         from cppyy.gbl import TFile, TTree
         from cppyy.gbl.std import vector
 
@@ -306,3 +306,19 @@ class AppTestCINTTTree:
             i += 1
         assert i == self.N
 
+
+class AppTestRegression:
+    spaceconfig = dict(usemodules=['cppyy'])
+
+    def test01_regression(self):
+        """TPaveText::AddText() used to result in KeyError"""
+
+        # This is where the original problem was discovered, and the test is
+        # left in. However, the detailed underlying problem, as well as the
+        # solution to it, is tested in test_fragile.py
+
+        from cppyy import gbl
+        from cppyy.gbl import TPaveText
+
+        hello = TPaveText( .1, .8, .9, .97 )
+        hello.AddText( 'Hello, World!' )

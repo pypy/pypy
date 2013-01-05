@@ -9,7 +9,6 @@ from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 
 from pypy.rlib import jit, rdynload, rweakref
 from pypy.rlib import jit_libffi, clibffi
-from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.module.cppyy import converter, executor, helper
 
@@ -1025,17 +1024,17 @@ def get_pythonized_cppclass(space, handle):
         final_name = capi.c_scoped_final_name(handle)
         # the callback will cache the class by calling register_class
         w_pycppclass = space.call_function(state.w_clgen_callback, space.wrap(final_name))
-        assert w_pycppclass is state.cppclass_registry[handle]
     return w_pycppclass
 
 def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     if space.is_w(w_pycppclass, space.w_None):
         w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
-    cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
-    W_CPPInstance.__init__(cppinstance, space, cppclass, rawobject, isref, python_owns)
+    w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
+    cppinstance.__init__(space, cppclass, rawobject, isref, python_owns)
     memory_regulator.register(cppinstance)
-    return space.wrap(cppinstance)
+    return w_cppinstance
 
 def wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
@@ -1049,11 +1048,17 @@ def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
     if rawobject:
         actual = capi.c_actual_class(cppclass, rawobject)
         if actual != cppclass.handle:
-            offset = capi._c_base_offset(actual, cppclass.handle, rawobject, -1)
-            rawobject = capi.direct_ptradd(rawobject, offset)
-            w_pycppclass = get_pythonized_cppclass(space, actual)
-            w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
-            cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
+            try:
+                w_pycppclass = get_pythonized_cppclass(space, actual)
+                offset = capi._c_base_offset(actual, cppclass.handle, rawobject, -1)
+                rawobject = capi.direct_ptradd(rawobject, offset)
+                w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
+                cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
+            except Exception:
+                # failed to locate/build the derived class, so stick to the base (note
+                # that only get_pythonized_cppclass is expected to raise, so none of
+                # the variables are re-assigned yet)
+                pass
     return wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
 
 @unwrap_spec(cppinstance=W_CPPInstance)

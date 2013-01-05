@@ -11,8 +11,9 @@ class CppyyScopeMeta(type):
     def __getattr__(self, name):
         try:
             return get_pycppitem(self, name)  # will cache on self
-        except TypeError, t:
-            raise AttributeError("%s object has no attribute '%s'" % (self, name))
+        except Exception, e:
+            raise AttributeError("%s object has no attribute '%s' (details: %s)" %
+                                 (self, name, str(e)))
 
 class CppyyNamespaceMeta(CppyyScopeMeta):
     def __dir__(cls):
@@ -198,9 +199,12 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
         cppdm = cppclass.get_datamember(dm_name)
         pydm = make_datamember(cppdm)
 
-        setattr(pycppclass, dm_name, pydm)
+        # here, setattr() can not be used, because a data member can shadow one in
+        # its base class, resulting in the __set__() of its base class being called
+        # by setattr(); so, store directly on the dictionary
+        pycppclass.__dict__[dm_name] = pydm
         if cppdm.is_static():
-            setattr(metacpp, dm_name, pydm)
+            metacpp.__dict__[dm_name] = pydm
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
