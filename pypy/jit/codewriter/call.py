@@ -220,6 +220,7 @@ class CallControl(object):
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
         loopinvariant = False
+        call_release_gil_target = llmemory.NULL
         if op.opname == "direct_call":
             funcobj = get_funcobj(op.args[0].value)
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
@@ -230,6 +231,10 @@ class CallControl(object):
             if loopinvariant:
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
+            if getattr(func, "_call_aroundstate_target_", None):
+                call_release_gil_target = func._call_aroundstate_target_
+                call_release_gil_target = llmemory.cast_ptr_to_adr(
+                    call_release_gil_target)
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
@@ -253,7 +258,7 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex, can_invalidate)
+            oopspecindex, can_invalidate, call_release_gil_target)
         #
         assert effectinfo is not None
         if elidable or loopinvariant:
