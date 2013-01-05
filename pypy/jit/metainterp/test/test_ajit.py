@@ -3985,20 +3985,29 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         T = rffi.CArrayPtr(rffi.TIME_T)
         external = rffi.llexternal("time", [T], rffi.TIME_T)
 
-        l = []
+        class Oups(Exception):
+            pass
+        class State:
+            pass
+        state = State()
 
         def before():
-            l.append("before")
+            if we_are_jitted():
+                raise Oups
+            state.l.append("before")
 
         def after():
-            l.append("after")
+            if we_are_jitted():
+                raise Oups
+            state.l.append("after")
 
         def f():
+            state.l = []
+            invoke_around_extcall(before, after)
             external(lltype.nullptr(T.TO))
-            return 1
+            return len(state.l)
 
-        invoke_around_extcall(before, after)
-        self.interp_operations(f, [])
-        assert len(l) == 2
-        self.interp_operations(f, [])
-        
+        res = self.interp_operations(f, [])
+        assert res == 2
+        res = self.interp_operations(f, [])
+        assert res == 2
