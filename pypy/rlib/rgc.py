@@ -140,10 +140,11 @@ class MallocNonMovingEntry(ExtRegistryEntry):
         return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
 def copy_struct_item(source, dest, si, di):
-    TP = lltype.typeOf(source)
+    TP = lltype.typeOf(source).TO.OF
     i = 0
     while i < len(TP._names):
         setattr(dest[di], TP._names[i], getattr(source[si], TP._names[i]))
+        i += 1
 
 class CopyStructEntry(ExtRegistryEntry):
     _about_ = copy_struct_item

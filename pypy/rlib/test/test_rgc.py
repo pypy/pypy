@@ -150,7 +150,13 @@ def test_ll_arraycopy_array_of_structs():
 
 
     interpret(f, [])
-    f()
+    a1 = lltype.malloc(TP, 3)
+    a2 = lltype.malloc(TP, 3)
+    a1[1].x = 3
+    a1[1].y = 15
+    rgc.copy_struct_item(a1, a2, 1, 2)
+    assert a2[2].x == 3
+    assert a2[2].y == 15
 
 def test_ll_arraycopy_small():
     TYPE = lltype.GcArray(lltype.Signed)
