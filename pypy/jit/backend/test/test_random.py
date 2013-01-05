@@ -675,8 +675,8 @@ class RandomLoop(object):
         cpu = self.builder.cpu
         self.clear_state()
         # disable check for now
-	# exc = cpu.grab_exc_value()
-	# assert not exc
+        # exc = cpu.grab_exc_value()
+        # assert not exc
 
         arguments = [box.value for box in self.loop.inputargs]
         deadframe = cpu.execute_token(self.runjitcelltoken(), *arguments)
