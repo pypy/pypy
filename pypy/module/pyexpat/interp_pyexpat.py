@@ -198,7 +198,10 @@ class Storage:
     def get_object(id):
         if id == global_storage._last_object_id:
             return global_storage._last_object
-        return global_storage.storage[id]
+        result = global_storage.storage[id]
+        global_storage._last_object_id = id
+        global_storage._last_object = result
+        return result
 
     @staticmethod
     def free_nonmoving_id(id):
