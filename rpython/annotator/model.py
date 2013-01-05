@@ -31,7 +31,7 @@ from __future__ import absolute_import
 
 from types import BuiltinFunctionType, MethodType, FunctionType
 import rpython
-from pypy.tool import descriptor
+from rpython.tool import descriptor
 from rpython.tool.pairtype import pair, extendabletype
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat

@@ -706,7 +706,7 @@ class TestFlowObjSpace(Base):
     def test_catch_importerror_1(self):
         def f():
             try:
-                import pypy.this_does_not_exist
+                import rpython.this_does_not_exist
             except ImportError:
                 return 1
         graph = self.codetest(f)
@@ -719,7 +719,7 @@ class TestFlowObjSpace(Base):
     def test_catch_importerror_2(self):
         def f():
             try:
-                from pypy import this_does_not_exist
+                from rpython import this_does_not_exist
             except ImportError:
                 return 1
         graph = self.codetest(f)
@@ -731,12 +731,12 @@ class TestFlowObjSpace(Base):
 
     def test_importerror_1(self):
         def f():
-            import pypy.this_does_not_exist
+            import rpython.this_does_not_exist
         py.test.raises(ImportError, 'self.codetest(f)')
 
     def test_importerror_2(self):
         def f():
-            from pypy import this_does_not_exist
+            from rpython import this_does_not_exist
         py.test.raises(ImportError, 'self.codetest(f)')
 
     def test_relative_import(self):
