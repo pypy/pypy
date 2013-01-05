@@ -499,7 +499,7 @@ LL_OPERATIONS = {
     'gc_typeids_z'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
-    'gc_set_extra_threshold': LLOp(canrun=True),
+    'gc_set_extra_threshold': LLOp(canrun=True, canmallocgc=True),
 
     # ------- JIT & GC interaction, only for some GCs ----------
 
