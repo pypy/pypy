@@ -28,7 +28,7 @@ class LLTrace(object):
             try:
                 newbox = _cache[box]
             except KeyError:
-                newbox = _cache[box] = box.clonebox()
+                newbox = _cache[box] = box.__class__()
             return newbox
         #
         self.inputargs = map(mapping, inputargs)
