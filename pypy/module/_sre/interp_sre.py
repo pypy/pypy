@@ -54,7 +54,7 @@ def do_flatten_marks(ctx, num_groups):
     result = [-1] * (2 * num_groups)
     mark = ctx.match_marks
     while mark is not None:
-        index = mark.gid
+        index = jit.promote(mark.gid)
         if result[index] == -1:
             result[index] = mark.position
         mark = mark.prev
