@@ -858,8 +858,6 @@ class PropagateExceptionDescr(AbstractFailDescr):
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
-propagate_exception_descr = PropagateExceptionDescr()
-
 def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
                          memory_manager=None):
     """Make a LoopToken that corresponds to assembler code that just
