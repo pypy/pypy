@@ -1,7 +1,7 @@
 
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 import py
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert

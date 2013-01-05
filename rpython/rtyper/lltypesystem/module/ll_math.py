@@ -5,7 +5,7 @@ import sys
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 from rpython.rlib import jit, rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform

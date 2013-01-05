@@ -5,11 +5,12 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
 from rpython.rlib.debug import debug_print, debug_start, debug_stop, debug_offset
-from rpython.translator.translator import TranslationContext, cdir
+from rpython.translator.translator import TranslationContext
 from rpython.translator.backendopt import all
 from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInfo
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
+from rpython.conftest import cdir
 from pypy.conftest import option
 
 

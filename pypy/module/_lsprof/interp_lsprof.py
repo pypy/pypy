@@ -11,7 +11,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rtimer import read_timestamp, _is_64_bit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 from rpython.rlib.rarithmetic import r_longlong
 
 import time, sys

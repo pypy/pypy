@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.rarithmetic import is_emulated_long
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 import sys
 
 

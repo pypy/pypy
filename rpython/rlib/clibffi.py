@@ -14,7 +14,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 import py
 import os
 import sys

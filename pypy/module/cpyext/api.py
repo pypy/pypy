@@ -10,7 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir

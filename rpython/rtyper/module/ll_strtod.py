@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 from rpython.annotator.model import SomeString
 
 class CConfig:

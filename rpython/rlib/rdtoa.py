@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from rpython.rlib import rfloat
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder

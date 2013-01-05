@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator.translator import cdir
+from rpython.conftest import cdir
 
 UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
 
