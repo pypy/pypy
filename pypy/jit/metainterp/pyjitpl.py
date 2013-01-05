@@ -1348,6 +1348,8 @@ class MIFrame(object):
             self.metainterp.vable_and_vrefs_before_residual_call()
             resbox = self.metainterp.execute_and_record_varargs(
                 rop.CALL_MAY_FORCE, allboxes, descr=descr)
+            if effectinfo.is_call_release_gil():
+                self.metainterp.direct_call_release_gil()
             self.metainterp.vrefs_after_residual_call()
             vablebox = None
             if assembler_call:
@@ -1360,6 +1362,7 @@ class MIFrame(object):
             if vablebox is not None:
                 self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
             self.metainterp.handle_possible_exception()
+            # XXX refactor: direct_libffi_call() is a hack
             if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
                 self.metainterp.direct_libffi_call()
             return resbox
@@ -2605,6 +2608,19 @@ class MetaInterp(object):
             self.history.record(rop.SETARRAYITEM_RAW,
                                 [box_resultpos, ConstInt(0), box_result],
                                 None, descr)
+
+    def direct_call_release_gil(self):
+        op = self.history.operations.pop()
+        assert op.opnum == rop.CALL_MAY_FORCE
+        descr = op.getdescr()
+        effectinfo = descr.get_extra_info()
+        realfuncaddr = effectinfo.call_release_gil_target
+        funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
+        self.history.record(rop.CALL_RELEASE_GIL,
+                            [funcbox] + op.getarglist()[1:],
+                            op.result, descr)
+        if not we_are_translated():       # for llgraph
+            descr._original_func_ = op.getarg(0).value
 
 # ____________________________________________________________
 

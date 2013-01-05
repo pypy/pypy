@@ -3979,5 +3979,36 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             rgc.add_memory_pressure(1234)
             return 3
 
-        self.interp_operations(f, [])
+    def test_external_call(self):
+        from pypy.rlib.objectmodel import invoke_around_extcall
         
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T)
+
+        class Oups(Exception):
+            pass
+        class State:
+            pass
+        state = State()
+
+        def before():
+            if we_are_jitted():
+                raise Oups
+            state.l.append("before")
+
+        def after():
+            if we_are_jitted():
+                raise Oups
+            state.l.append("after")
+
+        def f():
+            state.l = []
+            invoke_around_extcall(before, after)
+            external(lltype.nullptr(T.TO))
+            return len(state.l)
+
+        res = self.interp_operations(f, [])
+        assert res == 2
+        res = self.interp_operations(f, [])
+        assert res == 2
+        self.check_operations_history(call_release_gil=1, call_may_force=0)

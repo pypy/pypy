@@ -1,6 +1,6 @@
 import py
 from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.translator.unsimplify import varoftype
 from pypy.rlib import jit
 from pypy.jit.codewriter.call import CallControl
@@ -192,6 +192,32 @@ def test_releases_gil_analyzer():
     [op] = block.operations
     call_descr = cc.getcalldescr(op)
     assert call_descr.extrainfo.has_random_effects()
+    assert call_descr.extrainfo.is_call_release_gil() is False
+
+def test_call_release_gil():
+    from pypy.jit.backend.llgraph.runner import LLtypeCPU
+
+    T = rffi.CArrayPtr(rffi.TIME_T)
+    external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+
+    # no jit.dont_look_inside in this test
+    def f():
+        return external(lltype.nullptr(T.TO))
+
+    rtyper = support.annotate(f, [])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLtypeCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+
+    [llext_graph] = [x for x in res if x.func is external]
+    [block, _] = list(llext_graph.iterblocks())
+    [op] = block.operations
+    call_target = op.args[0].value._obj.graph.func._call_aroundstate_target_
+    call_target = llmemory.cast_ptr_to_adr(call_target)
+    call_descr = cc.getcalldescr(op)
+    assert call_descr.extrainfo.has_random_effects()
+    assert call_descr.extrainfo.is_call_release_gil() is True
+    assert call_descr.extrainfo.call_release_gil_target == call_target
 
 def test_random_effects_on_stacklet_switch():
     from pypy.jit.backend.llgraph.runner import LLGraphCPU
