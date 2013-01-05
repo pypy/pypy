@@ -2214,7 +2214,7 @@ class TestAnnotateTestCase:
         assert not s.is_constant()
 
     def test_getorbuild_as_attr(self):
-        from pypy.tool.cache import Cache
+        from rpython.rlib.cache import Cache
         class SpaceCache(Cache):
             def _build(self, callable):
                 return callable()

@@ -1,4 +1,4 @@
-from pypy.tool.cache import Cache 
+from rpython.rlib.cache import Cache 
 
 class MyCache(Cache):
     counter = 0

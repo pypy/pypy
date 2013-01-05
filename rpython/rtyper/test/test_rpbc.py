@@ -359,9 +359,9 @@ class BaseTestRPBC(BaseRtypingTest):
 
         # this test checks that we add a separate field 
         # per specialization and also it uses a subclass of 
-        # the standard pypy.tool.cache.Cache
+        # the standard rpython.rlib.cache.Cache
 
-        from pypy.tool.cache import Cache
+        from rpython.rlib.cache import Cache
         fr1 = Freezing()
         fr2 = Freezing()
 

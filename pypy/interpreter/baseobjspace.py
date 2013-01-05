@@ -6,7 +6,7 @@ from pypy.interpreter.error import (OperationError, operationerrfmt,
     new_exception_class, typed_unwrap_error_msg)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
-from pypy.tool.cache import Cache
+from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
