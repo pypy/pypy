@@ -1,4 +1,4 @@
-from pypy.tool.staticmethods import StaticMethods
+from rpython.tool.staticmethods import StaticMethods
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.annotator import model as annmodel

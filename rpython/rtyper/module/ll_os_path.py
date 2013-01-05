@@ -6,7 +6,7 @@ Dummy low-level implementations for the external functions of the 'os.path' modu
 
 import stat
 import os
-from pypy.tool.staticmethods import ClassMethods
+from rpython.tool.staticmethods import ClassMethods
 
 # Does a path exist?
 # This is false for dangling symbolic links.

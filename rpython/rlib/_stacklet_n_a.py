@@ -1,7 +1,7 @@
 from rpython.rlib import _rffi_stacklet as _c
 from rpython.rlib import objectmodel, debug
 from rpython.rtyper.annlowlevel import llhelper
-from pypy.tool.staticmethods import StaticMethods
+from rpython.tool.staticmethods import StaticMethods
 
 
 class StackletGcRootFinder:

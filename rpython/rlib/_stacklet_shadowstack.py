@@ -3,7 +3,7 @@ from rpython.rlib.debug import ll_assert
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
-from pypy.tool.staticmethods import StaticMethods
+from rpython.tool.staticmethods import StaticMethods
 
 
 NULL_SUSPSTACK = lltype.nullptr(llmemory.GCREF.TO)
