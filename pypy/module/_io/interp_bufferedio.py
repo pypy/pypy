@@ -53,10 +53,10 @@ class TryLock(object):
 
     def __enter__(self):
         if not self.lock.acquire(False):
-            if self.owner == ll_thread.get_ident():
+            if self.owner == rthread.get_ident():
                 raise self.operr
             self.lock.acquire(True)
-        self.owner = ll_thread.get_ident()
+        self.owner = rthread.get_ident()
     
     def __exit__(self,*args):
         self.owner = 0

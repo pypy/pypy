@@ -862,13 +862,13 @@ class TestThread(object):
 
         def before():
             debug_print("releasing...")
-            ll_assert(not ll_thread.acquire_NOAUTO(state.ll_lock, False),
+            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
                       "lock not held!")
-            ll_thread.release_NOAUTO(state.ll_lock)
+            rthread.release_NOAUTO(state.ll_lock)
             debug_print("released")
         def after():
             debug_print("waiting...")
-            ll_thread.acquire_NOAUTO(state.ll_lock, True)
+            rthread.acquire_NOAUTO(state.ll_lock, True)
             debug_print("acquired")
 
         def recurse(n):
@@ -897,7 +897,7 @@ class TestThread(object):
 
         def entry_point(argv):
             os.write(1, "hello world\n")
-            error = ll_thread.set_stacksize(int(argv[1]))
+            error = rthread.set_stacksize(int(argv[1]))
             if error != 0:
                 os.write(2, "set_stacksize(%d) returned %d\n" % (
                     int(argv[1]), error))
@@ -906,13 +906,13 @@ class TestThread(object):
             s1 = State(); s2 = State(); s3 = State()
             s1.x = 0x11111111; s2.x = 0x22222222; s3.x = 0x33333333
             # start 3 new threads
-            state.ll_lock = ll_thread.allocate_ll_lock()
+            state.ll_lock = rthread.allocate_ll_lock()
             after()
             state.count = 0
             invoke_around_extcall(before, after)
-            ident1 = ll_thread.start_new_thread(bootstrap, ())
-            ident2 = ll_thread.start_new_thread(bootstrap, ())
-            ident3 = ll_thread.start_new_thread(bootstrap, ())
+            ident1 = rthread.start_new_thread(bootstrap, ())
+            ident2 = rthread.start_new_thread(bootstrap, ())
+            ident3 = rthread.start_new_thread(bootstrap, ())
             # wait for the 3 threads to finish
             while True:
                 if state.count == 3:
@@ -960,12 +960,12 @@ class TestThread(object):
         state = State()
 
         def before():
-            ll_assert(not ll_thread.acquire_NOAUTO(state.ll_lock, False),
+            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
                       "lock not held!")
-            ll_thread.release_NOAUTO(state.ll_lock)
+            rthread.release_NOAUTO(state.ll_lock)
         def after():
-            ll_thread.acquire_NOAUTO(state.ll_lock, True)
-            ll_thread.gc_thread_run()
+            rthread.acquire_NOAUTO(state.ll_lock, True)
+            rthread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -973,14 +973,14 @@ class TestThread(object):
                 self.tail = tail
 
         def bootstrap():
-            ll_thread.gc_thread_start()
+            rthread.gc_thread_start()
             state.xlist.append(Cons(123, Cons(456, None)))
             gc.collect()
-            ll_thread.gc_thread_die()
+            rthread.gc_thread_die()
 
         def new_thread():
-            ll_thread.gc_thread_prepare()
-            ident = ll_thread.start_new_thread(bootstrap, ())
+            rthread.gc_thread_prepare()
+            ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
 
@@ -989,7 +989,7 @@ class TestThread(object):
             state.xlist = []
             x2 = Cons(51, Cons(62, Cons(74, None)))
             # start 5 new threads
-            state.ll_lock = ll_thread.allocate_ll_lock()
+            state.ll_lock = rthread.allocate_ll_lock()
             after()
             invoke_around_extcall(before, after)
             ident1 = new_thread()
@@ -1066,12 +1066,12 @@ class TestThread(object):
         state = State()
 
         def before():
-            ll_assert(not ll_thread.acquire_NOAUTO(state.ll_lock, False),
+            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
                       "lock not held!")
-            ll_thread.release_NOAUTO(state.ll_lock)
+            rthread.release_NOAUTO(state.ll_lock)
         def after():
-            ll_thread.acquire_NOAUTO(state.ll_lock, True)
-            ll_thread.gc_thread_run()
+            rthread.acquire_NOAUTO(state.ll_lock, True)
+            rthread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -1095,7 +1095,7 @@ class TestThread(object):
             return childpid
 
         def bootstrap():
-            ll_thread.gc_thread_start()
+            rthread.gc_thread_start()
             childpid = run_in_thread()
             gc.collect()        # collect both in the child and in the parent
             gc.collect()
@@ -1104,15 +1104,15 @@ class TestThread(object):
                 os.write(state.write_end, 'c')   # "I did not die!" from child
             else:
                 os.write(state.write_end, 'p')   # "I did not die!" from parent
-            ll_thread.gc_thread_die()
+            rthread.gc_thread_die()
 
         def new_thread():
-            ll_thread.gc_thread_prepare()
-            ident = ll_thread.start_new_thread(bootstrap, ())
+            rthread.gc_thread_prepare()
+            ident = rthread.start_new_thread(bootstrap, ())
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
 
-        def start_all_threads():
+        def start_arthreads():
             s = allocate_stuff()
             ident1 = new_thread()
             ident2 = new_thread()
@@ -1130,10 +1130,10 @@ class TestThread(object):
             state.read_end, state.write_end = os.pipe()
             x2 = Cons(51, Cons(62, Cons(74, None)))
             # start 5 new threads
-            state.ll_lock = ll_thread.allocate_ll_lock()
+            state.ll_lock = rthread.allocate_ll_lock()
             after()
             invoke_around_extcall(before, after)
-            start_all_threads()
+            start_arthreads()
             # force freeing
             gc.collect()
             gc.collect()

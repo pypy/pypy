@@ -48,7 +48,7 @@ from pypy.interpreter.gateway import unwrap_spec, Arguments
 class Bootstrapper(object):
     "A global container used to pass information to newly starting threads."
 
-    # Passing a closure argument to ll_thread.start_new_thread() would be
+    # Passing a closure argument to rthread.start_new_thread() would be
     # theoretically nicer, but comes with messy memory management issues.
     # This is much more straightforward.
 

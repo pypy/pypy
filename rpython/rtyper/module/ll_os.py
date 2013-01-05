@@ -1643,9 +1643,9 @@ class RegisterOs(BaseLazyRegistering):
                                   _nowrapper = True)
 
         def fork_llimpl():
-            opaqueaddr = ll_thread.gc_thread_before_fork()
+            opaqueaddr = rthread.gc_thread_before_fork()
             childpid = rffi.cast(lltype.Signed, os_fork())
-            ll_thread.gc_thread_after_fork(childpid, opaqueaddr)
+            rthread.gc_thread_after_fork(childpid, opaqueaddr)
             if childpid == -1:
                 raise OSError(rposix.get_errno(), "os_fork failed")
             return rffi.cast(lltype.Signed, childpid)

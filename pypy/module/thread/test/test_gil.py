@@ -1,6 +1,6 @@
 import time
 from pypy.module.thread import gil
-from pypy.module.thread.test import test_ll_thread
+from pypy.module.thread.test import test_rthread
 from rpython.rlib import rthread as thread
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -26,7 +26,7 @@ class FakeSpace(object):
         raise NotImplementedError
 
 
-class GILTests(test_ll_thread.AbstractGCTestClass):
+class GILTests(test_rthread.AbstractGCTestClass):
     use_threads = True
     bigtest = False
 

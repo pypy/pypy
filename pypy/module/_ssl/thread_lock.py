@@ -64,7 +64,7 @@ int _PyPy_SSL_SetupThreads(void)
 
 from rpython.rlib import rthread
 
-eci = ll_thread.eci.merge(ExternalCompilationInfo(
+eci = rthread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
     post_include_bits=[
         "int _PyPy_SSL_SetupThreads(void);"],

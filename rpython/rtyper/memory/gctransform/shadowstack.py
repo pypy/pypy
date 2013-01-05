@@ -119,7 +119,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         gcdata.thread_stacks = None
 
         # Return the thread identifier, as an integer.
-        get_tid = ll_thread.get_ident
+        get_tid = rthread.get_ident
 
         def thread_setup():
             tid = get_tid()

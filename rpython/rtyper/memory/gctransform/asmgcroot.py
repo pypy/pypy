@@ -167,7 +167,7 @@ class AsmStackRootWalker(BaseRootWalker):
 
         def get_aid():
             """Return the thread identifier, cast to an (opaque) address."""
-            return llmemory.cast_int_to_adr(ll_thread.get_ident())
+            return llmemory.cast_int_to_adr(rthread.get_ident())
 
         def thread_start():
             value = llop.stack_current(llmemory.Address)

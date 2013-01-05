@@ -434,7 +434,7 @@ class W_SemLock(Wrappable):
         return space.wrap(self.count)
 
     def _ismine(self):
-        return self.count > 0 and ll_thread.get_ident() == self.last_tid
+        return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
         return space.wrap(self._ismine())
@@ -466,7 +466,7 @@ class W_SemLock(Wrappable):
             raise wrap_oserror(space, e)
 
         if got:
-            self.last_tid = ll_thread.get_ident()
+            self.last_tid = rthread.get_ident()
             self.count += 1
             return space.w_True
         else:

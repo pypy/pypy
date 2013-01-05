@@ -6,7 +6,7 @@ import py
 
 def setup_module(mod):
     # Hack to avoid a deadlock if the module is run after other test files :-(
-    # In this module, we assume that ll_thread.start_new_thread() is not
+    # In this module, we assume that rthread.start_new_thread() is not
     # providing us with a GIL equivalent, except in test_gc_locking
     # which installs its own aroundstate.
     rffi.aroundstate._cleanup_()

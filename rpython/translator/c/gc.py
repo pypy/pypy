@@ -230,7 +230,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
             # The following define is required by the thread module,
-            # See module/thread/test/test_ll_thread.py
+            # See module/thread/test/test_rthread.py
             compile_extra=['-DPYPY_USING_BOEHM_GC'],
             ))
 
