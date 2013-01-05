@@ -814,6 +814,12 @@ class LLFrame(object):
         return res
 
     def execute_call_release_gil(self, descr, func, *args):
+        if hasattr(descr, '_original_func_'):
+            func = descr._original_func_     # see pyjitpl.py
+            # we want to call the function that does the aroundstate
+            # manipulation here (as a hack, instead of really doing
+            # the aroundstate manipulation ourselves)
+            return self.execute_call_may_force(descr, func, *args)
         call_args = support.cast_call_args_in_order(descr.ARGS, args)
         FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
         func_to_call = rffi.cast(lltype.Ptr(FUNC), func)

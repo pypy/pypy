@@ -4011,3 +4011,4 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert res == 2
         res = self.interp_operations(f, [])
         assert res == 2
+        self.check_operations_history(call_release_gil=1, call_may_force=0)
