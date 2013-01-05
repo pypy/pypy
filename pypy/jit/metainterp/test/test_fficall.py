@@ -113,18 +113,19 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
                                        ctypes.c_void_p).value)
         math_sin = rffi.cast(rffi.VOIDP, math_sin)
 
+        cd = lltype.malloc(CIF_DESCRIPTION, 1, flavor='raw')
+        cd.abi = clibffi.FFI_DEFAULT_ABI
+        cd.nargs = 1
+        cd.rtype = clibffi.cast_type_to_ffitype(rffi.DOUBLE)
+        atypes = lltype.malloc(clibffi.FFI_TYPE_PP.TO, 1, flavor='raw')
+        atypes[0] = clibffi.cast_type_to_ffitype(rffi.DOUBLE)
+        cd.atypes = atypes
+        cd.exchange_size = 64    # 64 bytes of exchange data
+        cd.exchange_result = 24
+        cd.exchange_result_libffi = 24
+        cd.exchange_args[0] = 16
+
         def f():
-            cd = lltype.malloc(CIF_DESCRIPTION, 1, flavor='raw')
-            cd.abi = clibffi.FFI_DEFAULT_ABI
-            cd.nargs = 1
-            cd.rtype = clibffi.cast_type_to_ffitype(rffi.DOUBLE)
-            atypes = lltype.malloc(clibffi.FFI_TYPE_PP.TO, 1, flavor='raw')
-            atypes[0] = clibffi.cast_type_to_ffitype(rffi.DOUBLE)
-            cd.atypes = atypes
-            cd.exchange_size = 64    # 64 bytes of exchange data
-            cd.exchange_result = 24
-            cd.exchange_result_libffi = 24
-            cd.exchange_args[0] = 16
             #
             jit_ffi_prep_cif(cd)
             #
@@ -136,8 +137,8 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
             lltype.free(exb, flavor='raw')
             #
             lltype.free(atypes, flavor='raw')
-            lltype.free(cd, flavor='raw')
             return res
             #
         res = self.interp_operations(f, [])
+        lltype.free(cd, flavor='raw')
         assert res == math.sin(1.23)
