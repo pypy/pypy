@@ -1635,7 +1635,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'fork')
     def register_os_fork(self):
-        from pypy.module.thread import ll_thread
+        from rpython.rlib import rthread
         eci = self.gcc_profiling_bug_workaround('pid_t _noprof_fork(void)',
                                                 'return fork();')
         os_fork = self.llexternal('_noprof_fork', [], rffi.PID_T,

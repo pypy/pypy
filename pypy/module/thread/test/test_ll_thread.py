@@ -1,5 +1,5 @@
 import gc
-from pypy.module.thread.ll_thread import *
+from rpython.rlib.rthread import *
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py

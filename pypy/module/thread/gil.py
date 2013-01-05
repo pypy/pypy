@@ -7,7 +7,7 @@ Global Interpreter Lock.
 # all but one will be blocked.  The other threads get a chance to run
 # from time to time, using the periodic action GILReleaseAction.
 
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.module.thread.threadlocals import OSThreadLocals

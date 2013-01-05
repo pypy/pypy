@@ -627,7 +627,7 @@ class ObjSpace(object):
             return dummy_lock
 
     def __allocate_lock(self):
-        from pypy.module.thread.ll_thread import allocate_lock, error
+        from rpython.rlib.rthread import allocate_lock, error
         try:
             return allocate_lock()
         except error:

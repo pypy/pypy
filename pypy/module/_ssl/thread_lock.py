@@ -62,7 +62,7 @@ int _PyPy_SSL_SetupThreads(void)
 }
 """
 
-from pypy.module.thread import ll_thread
+from rpython.rlib import rthread
 
 eci = ll_thread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],

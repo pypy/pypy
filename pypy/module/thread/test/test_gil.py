@@ -1,7 +1,7 @@
 import time
 from pypy.module.thread import gil
 from pypy.module.thread.test import test_ll_thread
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread as thread
 from rpython.rlib.objectmodel import we_are_translated
 
 class FakeEC(object):

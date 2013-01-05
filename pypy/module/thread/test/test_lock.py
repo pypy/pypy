@@ -48,7 +48,7 @@ class AppTestLock(GenericTestThread):
 
 def test_compile_lock():
     from rpython.rlib import rgc
-    from pypy.module.thread.ll_thread import allocate_lock
+    from rpython.rlib.rthread import allocate_lock
     def g():
         l = allocate_lock()
         ok1 = l.acquire(True)

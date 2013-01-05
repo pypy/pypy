@@ -30,7 +30,7 @@ if _WIN:
     # and the wait function exits.
     from rpython.rlib import rwin32
     from pypy.interpreter.error import wrap_windowserror, wrap_oserror
-    from pypy.module.thread import ll_thread as thread
+    from rpython.rlib import rthread as thread
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h'],

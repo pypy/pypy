@@ -8,7 +8,7 @@ from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
-from pypy.module.thread import ll_thread
+from rpython.rlib import rthread
 from pypy.module._multiprocessing.interp_connection import w_handle
 import sys, os, time, errno
 

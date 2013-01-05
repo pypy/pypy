@@ -852,7 +852,7 @@ class TestThread(object):
 
     def test_stack_size(self):
         import time
-        from pypy.module.thread import ll_thread
+        from rpython.rlib import rthread
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rlib.objectmodel import invoke_around_extcall
 
@@ -951,7 +951,7 @@ class TestThread(object):
 
     def test_thread_and_gc(self):
         import time, gc
-        from pypy.module.thread import ll_thread
+        from rpython.rlib import rthread
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rlib.objectmodel import invoke_around_extcall
 
@@ -1056,7 +1056,7 @@ class TestThread(object):
         # least that the object referenced from stacks that are no longer
         # alive are really freed.
         import time, gc, os
-        from pypy.module.thread import ll_thread
+        from rpython.rlib import rthread
         from rpython.rlib.objectmodel import invoke_around_extcall
         if not hasattr(os, 'fork'):
             py.test.skip("requires fork()")

@@ -159,7 +159,7 @@ class AsmStackRootWalker(BaseRootWalker):
         # gc_thread_before_fork and gc_thread_after_fork to get rid of
         # all ASM_FRAMEDATA structures that do no belong to the current
         # thread after a fork().
-        from pypy.module.thread import ll_thread
+        from rpython.rlib import rthread
         from rpython.rtyper.memory.support import AddressDict
         from rpython.rtyper.memory.support import copy_without_null_values
         from rpython.annotator import model as annmodel

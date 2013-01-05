@@ -8,12 +8,10 @@ from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
-from pypy.conftest import pypydir
 
 class error(Exception):
     pass
 
-pypydir = py.path.local(pypydir)
 translator_c_dir = py.path.local(cdir)
 
 eci = ExternalCompilationInfo(

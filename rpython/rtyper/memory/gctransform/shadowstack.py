@@ -105,7 +105,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                            gcdata.root_stack_base, gcdata.root_stack_top)
 
     def need_thread_support(self, gctransformer, getfn):
-        from pypy.module.thread import ll_thread    # xxx fish
+        from rpython.rlib import rthread    # xxx fish
         gcdata = self.gcdata
         # the interfacing between the threads and the GC is done via
         # two completely ad-hoc operations at the moment:

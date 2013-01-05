@@ -12,7 +12,7 @@ from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
-from pypy.module.thread import ll_thread
+from rpython.rlib import rthread
 import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
