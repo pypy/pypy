@@ -159,17 +159,20 @@ def test_ll_arraycopy_array_of_structs():
     assert a2[2].y == 15
 
 def test__contains_gcptr():
-    assert not rgc._contains_gcptr(lltype.GcArray(lltype.Signed))
-    assert not rgc._contains_gcptr(lltype.GcArray(
-        lltype.Struct('x', ('x', lltype.Signed))))
-    assert rgc._contains_gcptr(lltype.GcArray(
+    assert not rgc._contains_gcptr(lltype.Signed)
+    assert not rgc._contains_gcptr(
+        lltype.Struct('x', ('x', lltype.Signed)))
+    assert rgc._contains_gcptr(
         lltype.Struct('x', ('x', lltype.Signed),
-                      ('y', lltype.Ptr(lltype.GcArray(lltype.Signed))))))
-    assert rgc._contains_gcptr(lltype.GcArray(
+                      ('y', lltype.Ptr(lltype.GcArray(lltype.Signed)))))
+    assert rgc._contains_gcptr(
         lltype.Struct('x', ('x', lltype.Signed),
-                      ('y', llmemory.GCREF))))
-    assert rgc._contains_gcptr(lltype.GcArray(lltype.Ptr(lltype.GcStruct('x'))))
-    assert not rgc._contains_gcptr(lltype.GcArray(lltype.Ptr(lltype.Struct('x'))))
+                      ('y', llmemory.GCREF)))
+    assert rgc._contains_gcptr(lltype.Ptr(lltype.GcStruct('x')))
+    assert not rgc._contains_gcptr(lltype.Ptr(lltype.Struct('x')))
+    GCPTR = lltype.Ptr(lltype.GcStruct('x'))
+    assert rgc._contains_gcptr(
+        lltype.Struct('FOO', ('s', lltype.Struct('BAR', ('y', GCPTR)))))
 
 def test_ll_arraycopy_small():
     TYPE = lltype.GcArray(lltype.Signed)
