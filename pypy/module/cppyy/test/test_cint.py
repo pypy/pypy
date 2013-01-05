@@ -41,9 +41,9 @@ class AppTestCINT:
         oldval = cppyy.gbl.gDebug
         assert oldval != 3
 
-        proxy = cppyy.gbl.__class__.gDebug
+        proxy = cppyy.gbl.__class__.__dict__['gDebug']
         cppyy.gbl.gDebug = 3
-        assert proxy.__get__(proxy) == 3
+        assert proxy.__get__(proxy, None) == 3
 
         # this is where this test differs from test03_write_access_to_globals
         # in test_pythonify.py
@@ -60,8 +60,8 @@ class AppTestCINT:
         cppyy.gbl.gROOT.ProcessLine('double gMyOwnGlobal = 3.1415')
         assert cppyy.gbl.gMyOwnGlobal == 3.1415
 
-        proxy = cppyy.gbl.__class__.gMyOwnGlobal
-        assert proxy.__get__(proxy) == 3.1415
+        proxy = cppyy.gbl.__class__.__dict__['gMyOwnGlobal']
+        assert proxy.__get__(proxy, None) == 3.1415
 
     def test04_auto_loading(self):
         """Test auto-loading by retrieving a non-preloaded class"""

@@ -166,6 +166,8 @@ def ttree_getattr(space, w_self, args_w):
     # setup branch as a data member and enable it for reading
     space = tree.space            # holds the class cache in State
     w_branch = space.call_method(w_self, "GetBranch", args_w[0])
+    if not space.is_true(w_branch):
+        raise OperationError(space.w_AttributeError, args_w[0])
     w_klassname = space.call_method(w_branch, "GetClassName")
     klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
     w_obj = klass.construct()
@@ -178,7 +180,6 @@ def ttree_getattr(space, w_self, args_w):
 
 class W_TTreeIter(Wrappable):
     def __init__(self, space, w_tree):
-
         from pypy.module.cppyy import interp_cppyy
         tree = space.interp_w(interp_cppyy.W_CPPInstance, w_tree)
         self.tree = tree.get_cppthis(tree.cppclass)
