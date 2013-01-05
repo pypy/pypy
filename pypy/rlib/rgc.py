@@ -174,6 +174,15 @@ def copy_item(source, dest, si, di):
     else:
         dest[di] = source[si]
 
+@specialize.memo()
+def _contains_gcptr(TP):
+    if not isinstance(TP, lltype.Struct):
+        return False
+    for TP in TP._flds.itervalues():
+        if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc':
+            return True
+    return False
+
 @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
 @specialize.ll()
@@ -196,7 +205,8 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
-    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
+    if isinstance(TP.OF, lltype.Ptr) and (TP.OF.TO._gckind == 'gc'
+                                          or _contains_gcptr(TP.OF.TO)):
         # perform a write barrier that copies necessary flags from
         # source to dest
         if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,

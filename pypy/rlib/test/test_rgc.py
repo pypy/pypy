@@ -158,6 +158,14 @@ def test_ll_arraycopy_array_of_structs():
     assert a2[2].x == 3
     assert a2[2].y == 15
 
+def test__contains_gcptr():
+    assert not rgc._contains_gcptr(lltype.Signed)
+    assert not rgc._contains_gcptr(lltype.Struct('x', ('x', lltype.Signed)))
+    assert rgc._contains_gcptr(lltype.Struct('x', ('x', lltype.Signed),
+                           ('y', lltype.Ptr(lltype.GcArray(lltype.Signed)))))
+    assert rgc._contains_gcptr(lltype.Struct('x', ('x', lltype.Signed),
+                           ('y', llmemory.GCREF)))
+
 def test_ll_arraycopy_small():
     TYPE = lltype.GcArray(lltype.Signed)
     for length in range(5):
