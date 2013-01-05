@@ -2,7 +2,7 @@ from os import listdir
 import glob, os.path, py, re
 
 this_dir = os.path.realpath(os.path.dirname(__file__))
-pypy_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+pypy_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 
 from pypy.tool.getdocstrings import quote, triplequotes
 from pypy.tool.getdocstrings import mk_std_filelist
