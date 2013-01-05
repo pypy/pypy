@@ -90,7 +90,7 @@ def searchcontext(space, ctx):
 # SRE_Pattern class
 
 class W_SRE_Pattern(Wrappable):
-    _immutable_fields_ = ["code", "flags", "num_groups", "w_indexgroup"]
+    _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
     def cannot_copy_w(self):
         space = self.space
