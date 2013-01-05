@@ -91,8 +91,7 @@ class GenCli(GenOO):
         args = [helper] + args
         if timeout and not sys.platform.startswith('win'):
             import os
-            from pypy.conftest import pypydir
-            watchdog = os.path.join(pypydir, 'tool', 'watchdog.py')
+            watchdog = os.path.join(os.path.dirname(__file__), '..', '..', 'tool', 'watchdog.py')
             args[:0] = [sys.executable, watchdog, str(float(timeout))]
         proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
