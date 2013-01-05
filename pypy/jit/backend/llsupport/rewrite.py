@@ -1,10 +1,12 @@
 import sys
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.jit.metainterp import history
 from pypy.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.symbolic import WORD
 from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
+from pypy.jit.backend.llsupport import jitframe
 
 
 class GcRewriterAssembler(object):
@@ -65,6 +67,10 @@ class GcRewriterAssembler(object):
                     continue
             # ----------
             self.newops.append(op)
+        # ---------- FINISH ----------
+        if len(self.newops) != 0 and self.newops[-1].getopnum() == rop.FINISH:
+            self.handle_finish(self.newops.pop())
+        # ----------
         return self.newops
 
     # ----------
@@ -337,3 +343,40 @@ class GcRewriterAssembler(object):
             # assume that "self.gc_ll_descr.minimal_size_in_nursery" is 2 WORDs
             size = max(size, 2 * WORD)
             return (size + WORD-1) & ~(WORD-1)     # round up
+
+    # ----------
+
+    def handle_finish(self, finish_op):
+        v_deadframe = BoxPtr()
+        args_boxes = finish_op.getarglist()     # may contain Consts too
+        #
+        descrs = self.gc_ll_descr.getframedescrs(self.cpu)
+        #
+        op = ResOperation(rop.NEW_ARRAY,
+                          [ConstInt(len(args_boxes))], v_deadframe,
+                          descr=descrs.arraydescr)
+        self.handle_malloc_operation(op)
+        #
+        for i in range(len(args_boxes)):
+            # Generate setinteriorfields to write the args inside the
+            # deadframe object.  Ignore write barriers because it's a
+            # recent object.
+            box = args_boxes[i]
+            if box.type == history.INT: descr = descrs.as_int
+            elif box.type == history.REF: descr = descrs.as_ref
+            elif box.type == history.FLOAT: descr = descrs.as_float
+            else: assert 0, "bad box type?"
+            op = ResOperation(rop.SETINTERIORFIELD_GC,
+                              [v_deadframe, ConstInt(i), box], None,
+                              descr=descr)
+            self.newops.append(op)
+        #
+        # Generate a setfield to write the finish_op's descr.
+        gcref_descr = finish_op.getdescr().hide(self.cpu)
+        op = ResOperation(rop.SETFIELD_GC,
+                          [v_deadframe, ConstPtr(gcref_descr)], None,
+                          descr=descrs.jf_descr)
+        self.newops.append(op)
+        #
+        op = ResOperation(rop.FINISH, [v_deadframe], None)
+        self.newops.append(op)

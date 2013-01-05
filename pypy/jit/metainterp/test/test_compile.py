@@ -152,7 +152,7 @@ def test_compile_tmp_callback():
     from pypy.rpython.annlowlevel import llhelper
     from pypy.rpython.llinterp import LLException
     #
-    cpu = runner.LLtypeCPU(None)
+    cpu = runner.LLGraphCPU(None)
     FUNC = lltype.FuncType([lltype.Signed]*4, lltype.Signed)
     def ll_portal_runner(g1, g2, r3, r4):
         assert (g1, g2, r3, r4) == (12, 34, -156, -178)
@@ -166,6 +166,7 @@ def test_compile_tmp_callback():
         portal_runner_adr = llmemory.cast_ptr_to_adr(portal_runner_ptr)
         portal_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, None)
         portal_finishtoken = compile.DoneWithThisFrameDescrInt()
+        propagate_exc_descr = compile.PropagateExceptionDescr()
         num_red_args = 2
         result_type = INT
     #
@@ -174,24 +175,27 @@ def test_compile_tmp_callback():
     #
     raiseme = None
     # only two arguments must be passed in
-    fail_descr = cpu.execute_token(loop_token, -156, -178)
+    deadframe = cpu.execute_token(loop_token, -156, -178)
+    fail_descr = cpu.get_latest_descr(deadframe)
     assert fail_descr is FakeJitDriverSD().portal_finishtoken
     #
     EXC = lltype.GcStruct('EXC')
     llexc = lltype.malloc(EXC)
     raiseme = LLException("exception class", llexc)
-    fail_descr = cpu.execute_token(loop_token, -156, -178)
+    deadframe = cpu.execute_token(loop_token, -156, -178)
+    fail_descr = cpu.get_latest_descr(deadframe)
     assert isinstance(fail_descr, compile.PropagateExceptionDescr)
-    got = cpu.grab_exc_value()
+    got = cpu.grab_exc_value(deadframe)
     assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), got) == llexc
     #
     class FakeMetaInterpSD:
         class ExitFrameWithExceptionRef(Exception):
             pass
     FakeMetaInterpSD.cpu = cpu
-    fail_descr = cpu.execute_token(loop_token, -156, -178)
+    deadframe = cpu.execute_token(loop_token, -156, -178)
+    fail_descr = cpu.get_latest_descr(deadframe)
     try:
-        fail_descr.handle_fail(FakeMetaInterpSD(), None)
+        fail_descr.handle_fail(deadframe, FakeMetaInterpSD(), None)
     except FakeMetaInterpSD.ExitFrameWithExceptionRef, e:
         assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), e.args[1]) == llexc
     else:

@@ -28,5 +28,7 @@ Rudimentary support for bytearray in RPython
 
 .. branch: remove-PYPY_NOT_MAIN_FILE
 
+.. branch: missing-jit-operations
+
 .. branch: fix-lookinside-iff-oopspec
 Fixed the interaction between two internal tools for controlling the JIT.
