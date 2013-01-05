@@ -1,7 +1,7 @@
 import py
 import sys, operator
 from pypy.translator.translator import TranslationContext
-from pypy.annotation import model as annmodel
+from pypy.annotation import unaryop, binaryop
 from pypy.rpython.test import snippet
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
@@ -34,12 +34,12 @@ class TestSnippet(object):
 
     def DONTtest_unary_operations(self):
         # XXX TODO test if all unary operations are implemented
-        for opname in annmodel.UNARY_OPERATIONS:
+        for opname in unaryop.UNARY_OPERATIONS:
             print 'UNARY_OPERATIONS:', opname
 
     def DONTtest_binary_operations(self):
         # XXX TODO test if all binary operations are implemented
-        for opname in annmodel.BINARY_OPERATIONS:
+        for opname in binaryop.BINARY_OPERATIONS:
             print 'BINARY_OPERATIONS:', opname
 
 

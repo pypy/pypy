@@ -1,16 +1,18 @@
 import sys
-from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
+
+from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic, CDefinedIntSymbolic
 from pypy.rlib.rarithmetic import r_longlong, is_emulated_long
 from pypy.rlib.rfloat import isinf, isnan
-from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi, llgroup
-from pypy.rpython.lltypesystem.llmemory import Address, \
-     AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
-     CompositeOffset, ArrayLengthOffset, \
-     GCHeaderOffset, GCREF, AddressAsInt
+from pypy.rpython.lltypesystem.llmemory import (Address, AddressOffset,
+    ItemOffset, ArrayItemsOffset, FieldOffset, CompositeOffset,
+    ArrayLengthOffset, GCHeaderOffset, GCREF, AddressAsInt)
+from pypy.rpython.lltypesystem.lltype import (Signed, SignedLongLong, Unsigned,
+    UnsignedLongLong, Float, SingleFloat, LongFloat, Char, UniChar, Bool, Void,
+    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf)
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
+
 
 SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
 
@@ -26,7 +28,7 @@ if is_emulated_long:
 else:
     def lll(fmt):
         return fmt
-    
+
 def name_signed(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, FieldOffset):
@@ -36,7 +38,7 @@ def name_signed(value, db):
                 repeat = value.fldname[4:]
                 size = 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE.OF), ''),)
                 return '(%s * %s)' % (size, repeat)
-            return 'offsetof(%s, %s)'%(
+            return 'offsetof(%s, %s)' % (
                 cdecl(db.gettype(value.TYPE), ''),
                 structnode.c_struct_field_name(value.fldname))
         elif isinstance(value, ItemOffset):
@@ -52,12 +54,12 @@ def name_signed(value, db):
                 barebonearray(value.TYPE)):
                 return '0'
             elif value.TYPE.OF != Void:
-                return 'offsetof(%s, items)'%(
+                return 'offsetof(%s, items)' % (
                     cdecl(db.gettype(value.TYPE), ''))
             else:
-                return 'sizeof(%s)'%(cdecl(db.gettype(value.TYPE), ''),)
+                return 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE), ''),)
         elif isinstance(value, ArrayLengthOffset):
-            return 'offsetof(%s, length)'%(
+            return 'offsetof(%s, length)' % (
                 cdecl(db.gettype(value.TYPE), ''))
         elif isinstance(value, CompositeOffset):
             names = [name_signed(item, db) for item in value.offsets]
@@ -81,7 +83,7 @@ def name_signed(value, db):
         elif isinstance(value, AddressAsInt):
             return '((Signed)%s)' % name_address(value.adr, db)
         else:
-            raise Exception("unimplemented symbolic %r"%value)
+            raise Exception("unimplemented symbolic %r" % value)
     if value is None:
         assert not db.completed
         return None
@@ -241,7 +243,7 @@ def define_c_primitive(ll_type, c_name, suffix=''):
     else:
         name_str = '((%s) %%d%s)' % (c_name, suffix)
         PrimitiveName[ll_type] = lambda value, db: name_str % value
-    PrimitiveType[ll_type] = '%s @'% c_name
+    PrimitiveType[ll_type] = '%s @' % c_name
 
 define_c_primitive(rffi.SIGNEDCHAR, 'signed char')
 define_c_primitive(rffi.UCHAR, 'unsigned char')

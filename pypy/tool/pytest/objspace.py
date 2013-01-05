@@ -49,6 +49,9 @@ class TinyObjSpace(object):
             if key == 'usemodules':
                 if info is not None:
                     for modname in value:
+                        if modname == 'time':
+                            continue   # always either 'time' or 'rctime',
+                                       # and any is fine
                         ok = info.get('objspace.usemodules.%s' % modname,
                                       False)
                         if not ok:

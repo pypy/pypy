@@ -1,5 +1,7 @@
 from pypy.translator.backendopt.support import log, all_operations, annotate
 import pypy.rpython.raisingops.raisingops
+
+
 log = log.raisingop2directcall
 
 def is_raisingop(op):
@@ -22,7 +24,6 @@ def raisingop2direct_call(translator, graphs=None):
     #special_operations = "int_floordiv int_mod".split()
     if graphs is None:
         graphs = translator.graphs
-
 
     log('starting')
     seen = {}
@@ -48,11 +49,11 @@ def raisingop2direct_call(translator, graphs=None):
         translator.rtyper.specialize_more_blocks()
 
     #rename some operations (that were introduced in the newly specialized graphs)
-    #so this transformation becomes idempotent... 
+    #so this transformation becomes idempotent...
     #for op in all_operations(graphs):
     #   if op.opname in special_operations:
     #       log('renamed %s to %s_' % (op.opname, op.opname))
-    #       op.opname += '_' 
+    #       op.opname += '_'
 
     #selfdiagnostics... assert that there are no more raisingops
     for op in all_operations(graphs):

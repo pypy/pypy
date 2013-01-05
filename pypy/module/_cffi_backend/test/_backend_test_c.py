@@ -1309,6 +1309,12 @@ def test_enum_in_struct():
     assert p.a1 == "c"
     e = py.test.raises(TypeError, newp, BStructPtr, [None])
     assert "must be a str or int, not NoneType" in str(e.value)
+    if sys.version_info < (3,):
+        p.a1 = unicode("def")
+        assert p.a1 == "def" and type(p.a1) is str
+        py.test.raises(UnicodeEncodeError, "p.a1 = unichr(1234)")
+        BEnum2 = new_enum_type(unicode("foo"), (unicode('abc'),), (5,))
+        assert string(cast(BEnum2, unicode('abc'))) == 'abc'
 
 def test_enum_overflow():
     for ovf in (2**63, -2**63-1, 2**31, -2**31-1):

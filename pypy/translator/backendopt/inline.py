@@ -1,28 +1,22 @@
 import sys
-from pypy.translator.simplify import join_blocks, cleanup_graph
-from pypy.translator.simplify import get_graph, get_funcobj
-from pypy.translator.unsimplify import copyvar
-from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation, c_last_exception
-from pypy.objspace.flow.model import FunctionGraph
-from pypy.objspace.flow.model import mkentrymap, checkgraph
-from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr
-from pypy.rpython.lltypesystem.lltype import normalizeptr
+
+from pypy.objspace.flow.model import (Variable, Constant, Block, Link,
+    SpaceOperation, c_last_exception, FunctionGraph, mkentrymap)
+from pypy.rpython.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr, normalizeptr
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt import removenoops
-from pypy.translator.backendopt.support import log
-from pypy.translator.unsimplify import split_block
-from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
+from pypy.translator.backendopt.support import log, find_loop_blocks
+from pypy.translator.simplify import join_blocks, cleanup_graph, get_graph, get_funcobj
+from pypy.translator.unsimplify import copyvar, split_block
+
 
 class CannotInline(Exception):
     pass
 
+
 def get_meth_from_oosend(op):
-    method_name = op.args[0].value
     INSTANCE = op.args[1].concretetype
     _, meth = INSTANCE._lookup(op.args[0].value)
     virtual = getattr(meth, '_virtual', True)
@@ -31,9 +25,11 @@ def get_meth_from_oosend(op):
     else:
         return meth
 
-class CanRaise:
+
+class CanRaise(object):
     def __init__(self, can_raise):
         self.can_raise = can_raise
+
 
 def collect_called_graphs(graph, translator, include_oosend=True):
     graphs_or_something = {}
@@ -103,14 +99,14 @@ def contains_call(graph, calling_what):
 def inline_function(translator, inline_func, graph, lltype_to_classdef,
                     raise_analyzer, call_count_pred=None, cleanup=True):
     inliner = Inliner(translator, graph, inline_func, lltype_to_classdef,
-                      raise_analyzer = raise_analyzer,
+                      raise_analyzer=raise_analyzer,
                       call_count_pred=call_count_pred, cleanup=cleanup)
     return inliner.inline_all()
 
 def simple_inline_function(translator, inline_func, graph):
     inliner = Inliner(translator, graph, inline_func,
                       translator.rtyper.lltype_to_classdef_mapping(),
-                      raise_analyzer = RaiseAnalyzer(translator))
+                      raise_analyzer=RaiseAnalyzer(translator))
     return inliner.inline_all()
 
 
@@ -119,7 +115,7 @@ def _find_exception_type(block):
     #(e.g. if you do only raise XXXError) by doing pattern matching
     currvar = block.exits[0].args[1]
     ops = block.operations
-    i = len(ops)-1
+    i = len(ops) - 1
     while True:
         if isinstance(currvar, Constant):
             value = currvar.value
@@ -175,7 +171,7 @@ def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
     return False
 
 class BaseInliner(object):
-    def __init__(self, translator, graph, lltype_to_classdef, 
+    def __init__(self, translator, graph, lltype_to_classdef,
                  inline_guarded_calls=False,
                  inline_guarded_calls_no_matter_what=False,
                  raise_analyzer=None,
@@ -213,7 +209,6 @@ class BaseInliner(object):
                 label = countop.args[1].value
                 if not call_count_pred(label):
                     continue
-            operation = block.operations[index_operation]
             self.inline_once(block, index_operation)
             count += 1
         if self.do_cleanup:
@@ -237,7 +232,7 @@ class BaseInliner(object):
             index_operation == len(block.operations) - 1):
             self.exception_guarded = True
             if self.inline_guarded_calls:
-                if (not self.inline_guarded_calls_no_matter_what and 
+                if (not self.inline_guarded_calls_no_matter_what and
                     does_raise_directly(self.graph_to_inline, self.raise_analyzer)):
                     raise CannotInline("can't inline because the call is exception guarded")
             elif any_call_to_raising_graphs(self.graph_to_inline,
@@ -287,7 +282,7 @@ class BaseInliner(object):
                       for var in self.original_passon_vars]
         self._passon_vars[cache_key] = result
         return result
-        
+
     def copy_operation(self, op):
         args = [self.get_new_name(arg) for arg in op.args]
         result = SpaceOperation(op.opname, args, self.get_new_name(op.result))
@@ -314,7 +309,6 @@ class BaseInliner(object):
         if hasattr(link, 'llexitcase'):
             newlink.llexitcase = link.llexitcase
         return newlink
-        
 
     def find_args_in_exceptional_case(self, link, block, etype, evalue, afterblock, passon_vars):
         linkargs = []
@@ -338,7 +332,7 @@ class BaseInliner(object):
         copiedreturnblock.exitswitch = None
         copiedreturnblock.recloseblock(linkfrominlined)
         assert copiedreturnblock.exits[0].target == afterblock
-       
+
     def rewire_exceptblock(self, afterblock):
         #let links to exceptblock of the graph to inline go to graphs exceptblock
         copiedexceptblock = self.copy_block(self.graph_to_inline.exceptblock)
@@ -366,7 +360,7 @@ class BaseInliner(object):
                         else:
                             # if self.graph.exceptblock was never used before
                             a2.concretetype = a1.concretetype
-    
+
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
         # this rewiring does not always succeed. in the cases where it doesn't
         # there will be generic code inserted
@@ -398,7 +392,7 @@ class BaseInliner(object):
 
     def generic_exception_matching(self, afterblock, copiedexceptblock):
         #XXXXX don't look: insert blocks that do exception matching
-        #for the cases where direct matching did not work        
+        #for the cases where direct matching did not work
         exc_match = Constant(
             self.translator.rtyper.getexceptiondata().fn_exception_match)
         exc_match.concretetype = typeOf(exc_match.value)
@@ -488,7 +482,7 @@ class BaseInliner(object):
         linktoinlined.args = passon_args
         afterblock.inputargs = [self.op.result] + afterblock.inputargs
         if self.graph_to_inline.returnblock in self.entrymap:
-            self.rewire_returnblock(afterblock) 
+            self.rewire_returnblock(afterblock)
         if self.graph_to_inline.exceptblock in self.entrymap:
             self.rewire_exceptblock(afterblock)
         if self.exception_guarded:
@@ -640,7 +634,7 @@ def inlinable_static_callers(graphs, store_calls=False):
                     if graph is not None and graph in ok_to_call:
                         add(parentgraph, block, op, graph)
     return result
-    
+
 def instrument_inline_candidates(graphs, threshold):
     cache = {None: False}
     def candidate(graph):
@@ -654,7 +648,7 @@ def instrument_inline_candidates(graphs, threshold):
     for parentgraph in graphs:
         for block in parentgraph.iterblocks():
             ops = block.operations
-            i = len(ops)-1
+            i = len(ops) - 1
             while i >= 0:
                 op = ops[i]
                 i -= 1
@@ -672,7 +666,7 @@ def instrument_inline_candidates(graphs, threshold):
                         dummy.concretetype = Void
                         count = SpaceOperation('instrument_count',
                                                [tag, label], dummy)
-                        ops.insert(i+1, count)
+                        ops.insert(i + 1, count)
                         n += 1
     log.inlining("%d call sites instrumented" % n)
 
@@ -684,7 +678,7 @@ def auto_inlining(translator, threshold=None,
                   callgraph=None,
                   call_count_pred=None,
                   heuristic=inlining_heuristic):
-    
+
     assert threshold is not None and threshold != 1
     to_cleanup = {}
     from heapq import heappush, heappop, heapreplace, heapify
@@ -784,6 +778,6 @@ def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None,
         count = auto_inlining(translator, threshold, callgraph=callgraph,
                               heuristic=heuristic,
                               call_count_pred=call_count_pred)
-        log.inlining('inlined %d callsites.'% (count,))
+        log.inlining('inlined %d callsites.' % (count,))
         for graph in graphs:
             removenoops.remove_duplicate_casts(graph, translator)

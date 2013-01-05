@@ -230,9 +230,8 @@ def must_be_light_finalizer(func):
 def get_rpy_roots():
     "NOT_RPYTHON"
     # Return the 'roots' from the GC.
-    # This stub is not usable on top of CPython.
     # The gc typically returns a list that ends with a few NULL_GCREFs.
-    raise NotImplementedError
+    return [_GcRef(x) for x in gc.get_objects()]
 
 def get_rpy_referents(gcref):
     "NOT_RPYTHON"

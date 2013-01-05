@@ -479,7 +479,7 @@ class RegisterManager(object):
         """
         raise NotImplementedError("Abstract")
 
-    def get_scratch_reg(self, forbidden_vars=[]):
+    def get_scratch_reg(self, type, forbidden_vars=[], selected_reg=None):
         """ Platform specific - Allocates a temporary register """
         raise NotImplementedError("Abstract")
 

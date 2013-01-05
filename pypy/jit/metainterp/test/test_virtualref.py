@@ -114,15 +114,16 @@ class VRefTests:
         # try reloading from blackhole.py's point of view
         from pypy.jit.metainterp.resume import ResumeDataDirectReader
         cpu = self.metainterp.cpu
-        cpu.get_latest_value_count = lambda : len(guard_op.getfailargs())
-        cpu.get_latest_value_int = lambda i:guard_op.getfailargs()[i].getint()
-        cpu.get_latest_value_ref = lambda i:guard_op.getfailargs()[i].getref_base()
+        cpu.get_latest_value_count = lambda df: len(guard_op.getfailargs())
+        cpu.get_latest_value_int = lambda df,i:guard_op.getfailargs()[i].getint()
+        cpu.get_latest_value_ref = lambda df,i:guard_op.getfailargs()[i].getref_base()
         cpu.clear_latest_values = lambda count: None
         class FakeMetaInterpSd:
             callinfocollection = None
         FakeMetaInterpSd.cpu = cpu
         resumereader = ResumeDataDirectReader(FakeMetaInterpSd(),
-                                              guard_op.getdescr())
+                                              guard_op.getdescr(),
+                                              "deadframe")
         vrefinfo = self.metainterp.staticdata.virtualref_info
         lst = []
         vrefinfo.continue_tracing = lambda vref, virtual: \
@@ -134,7 +135,8 @@ class VRefTests:
                                lst[0][0])  # assert correct type
         #
         # try reloading from pyjitpl's point of view
-        self.metainterp.rebuild_state_after_failure(guard_op.getdescr())
+        self.metainterp.rebuild_state_after_failure(guard_op.getdescr(),
+                                                    "deadframe")
         assert len(self.metainterp.framestack) == 1
         assert len(self.metainterp.virtualref_boxes) == 2
         assert self.metainterp.virtualref_boxes[0].value == bxs1[0].value

@@ -2,6 +2,7 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation.model import SomeInteger
 from pypy.objspace.flow.model import Constant, SpaceOperation
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gctransform.framework import (CollectAnalyzer,
      find_initializing_stores, find_clean_setarrayitems)
@@ -92,6 +93,13 @@ def test_cancollect_external():
         lltype.malloc(S, zero=True)
     def g():
         fext3(h)
+    t = rtype(g, [])
+    gg = graphof(t, g)
+    assert CollectAnalyzer(t).analyze_direct_call(gg)
+
+def test_cancollect_some_operation():
+    def g():
+        llop.gc_set_extra_threshold(lltype.Void, 32)
     t = rtype(g, [])
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)

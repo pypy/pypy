@@ -9,7 +9,10 @@ from _ctypes import PyObj_FromPtr
 
 ################################################################
 
-from sys import getrefcount as grc
+try:
+    from sys import getrefcount as grc
+except ImportError:
+    grc = None      # e.g. PyPy
 if sys.version_info > (2, 4):
     c_py_ssize_t = c_size_t
 else:

@@ -22,7 +22,6 @@ def remove_tail_calls_to_self(translator, graph):
             len(block.operations) > 0 and
             block.operations[-1].opname == 'direct_call' and
             block.operations[-1].result == link.args[0]):
-            call = get_graph(block.operations[-1].args[0], translator)
             print "getgraph", graph
             if graph is graph:
                 _remove_tail_call(translator, graph, block)

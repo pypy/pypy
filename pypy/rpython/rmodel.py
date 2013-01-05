@@ -1,5 +1,5 @@
 from pypy.tool.pairtype import pairtype, extendabletype, pair
-from pypy.annotation import model as annmodel
+from pypy.annotation import model as annmodel, unaryop, binaryop
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
@@ -310,10 +310,10 @@ def make_missing_op(rcls, opname):
                                         "'%s' on %r" % (opname, self))
         setattr(rcls, attr, missing_rtype_operation)
 
-for opname in annmodel.UNARY_OPERATIONS:
+for opname in unaryop.UNARY_OPERATIONS:
     make_missing_op(Repr, opname)
 
-for opname in annmodel.BINARY_OPERATIONS:
+for opname in binaryop.BINARY_OPERATIONS:
     make_missing_op(pairtype(Repr, Repr), opname)
 
 # not in BINARY_OPERATIONS

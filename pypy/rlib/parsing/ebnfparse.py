@@ -1,15 +1,14 @@
 import py
+
 from pypy.rlib.parsing.parsing import PackratParser, Rule
-from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
+from pypy.rlib.parsing.tree import Nonterminal, RPythonVisitor
 from pypy.rlib.parsing.codebuilder import Codebuilder
 from pypy.rlib.parsing.regexparse import parse_regex
-import string
-from pypy.rlib.parsing.regex import *
+from pypy.rlib.parsing.regex import StringExpression
 from pypy.rlib.parsing.deterministic import DFA
 from pypy.rlib.parsing.lexer import Lexer, DummyLexer
 from pypy.rlib.objectmodel import we_are_translated
 
-set = py.builtin.set
 
 def make_ebnf_parser():
     NONTERMINALNAME = parse_regex("([a-z]|_)[a-z0-9_]*")
@@ -56,7 +55,7 @@ def parse_ebnf(s):
     assert len(s) == 1
     s = s[0]
     s.visit(visitor)
-    
+
     rules, changes = visitor.get_rules_and_changes()
     maker = TransformerMaker(rules, changes)
     ToAstVisitor = maker.make_transformer()
@@ -88,11 +87,11 @@ def make_parse_function(regexs, rules, eof=False):
         s = parser.parse(tokens)
         if not we_are_translated():
             try:
-                if py.test.config.option.view: 
+                if py.test.config.option.view:
                     s.view()
             except AttributeError:
                 pass
-                
+
         return s
     return parse
 
@@ -162,7 +161,7 @@ class ParserBuilder(object):
             assert change == " " or change == newchange
             result.append((name, newchange))
         return result
-    
+
     def visit_decorated(self, node):
         expansions = node.children[0].visit(self)
         expansions, changes = zip(*expansions)
@@ -247,9 +246,10 @@ class ParserBuilder(object):
                     real_expansions.append(expansion)
                     real_changes.append(change)
                     continue
-                assert n != len(expansion), (
-                    "currently an expansion needs at least one"
-                    "symbol that always has to occur")
+                if n == len(expansion):
+                    raise ValueError("Rule %r's expansion needs "
+                        "at least one symbol with >0 repetitions"
+                        % rule.nonterminal)
                 slices = []
                 start = 0
                 for i, (maybe, symbol) in enumerate(
@@ -360,7 +360,6 @@ class TransformerMaker(Codebuilder):
 
     def create_returning_code(self, expansion, subchange):
         assert len(expansion) == len(subchange)
-        children = []
         self.emit("children = []")
         for i, (symbol, c) in enumerate(zip(expansion, subchange)):
             if c == "[":

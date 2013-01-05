@@ -13,8 +13,7 @@ class BaseLinux(BasePosix):
                  + os.environ.get('LDFLAGS', '').split())
     extra_libs = ('-lrt',)
     cflags = tuple(
-             ['-Os',   # more compact and actually a bit faster
-              '-pthread', '-fomit-frame-pointer',
+             ['-O3', '-pthread', '-fomit-frame-pointer',
               '-Wall', '-Wno-unused']
              + os.environ.get('CFLAGS', '').split())
     standalone_only = ()

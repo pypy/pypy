@@ -526,7 +526,14 @@ class __extend__(SomeUnicodeString):
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
 
+
 class __extend__(SomeString):
+    def method_isdigit(chr):
+        return s_Bool
+
+    def method_isalpha(chr):
+        return s_Bool
+
     def method_upper(str):
         return SomeString()
 
@@ -560,12 +567,6 @@ class __extend__(SomeChar, SomeUnicodeCodePoint):
 class __extend__(SomeChar):
 
     def method_isspace(chr):
-        return s_Bool
-
-    def method_isdigit(chr):
-        return s_Bool
-
-    def method_isalpha(chr):
         return s_Bool
 
     def method_isalnum(chr):
