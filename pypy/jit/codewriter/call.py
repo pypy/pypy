@@ -134,9 +134,14 @@ class CallControl(object):
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
             targetgraph = funcobj.graph
-            if (hasattr(targetgraph, 'func') and
-                hasattr(targetgraph.func, 'oopspec')):
-                return 'builtin'
+            if hasattr(targetgraph, 'func'):
+                # must never produce JitCode for a function with
+                # _gctransformer_hint_close_stack_ set!
+                if getattr(targetgraph.func,
+                           '_gctransformer_hint_close_stack_', False):
+                    return 'residual'
+                if hasattr(targetgraph.func, 'oopspec'):
+                    return 'builtin'
         elif op.opname == 'oosend':
             SELFTYPE, methname, opargs = support.decompose_oosend(op)
             if SELFTYPE.oopspec_name is not None:
@@ -164,6 +169,13 @@ class CallControl(object):
         try:
             return self.jitcodes[graph]
         except KeyError:
+            # must never produce JitCode for a function with
+            # _gctransformer_hint_close_stack_ set!
+            if hasattr(graph, 'func') and getattr(graph.func,
+                    '_gctransformer_hint_close_stack_', False):
+                raise AssertionError(
+                    '%s has _gctransformer_hint_close_stack_' % (graph,))
+            #
             fnaddr, calldescr = self.get_jitcode_calldescr(graph)
             jitcode = JitCode(graph.name, fnaddr, calldescr,
                               called_from=called_from)
