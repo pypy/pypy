@@ -6,6 +6,8 @@ translator; see pypy/bin/translatorshell.py.
 """
 import os, sys, types, copy
 
+cdir = os.path.join(os.path.dirname(__file__), 'c')
+
 from rpython.translator import simplify
 from rpython.flowspace.model import FunctionGraph, checkgraph, Block
 from rpython.flowspace.objspace import FlowObjSpace

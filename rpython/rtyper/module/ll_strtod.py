@@ -3,17 +3,16 @@ import py
 from rpython.rtyper.extfunc import BaseLazyRegistering, extdef, registering
 from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.conftest import pypydir
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.conftest import pypydir
+from rpython.translator.translator import cdir
 from rpython.annotator.model import SomeString
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes = ['src/ll_strtod.h'],
-        include_dirs = [str(py.path.local(pypydir).join('translator', 'c'))],
+        include_dirs = [str(py.path.local(cdir))],
         separate_module_sources = ['#include <src/ll_strtod.c>'],
         export_symbols = ['LL_strtod_formatd', 'LL_strtod_parts_to_float'],
     )

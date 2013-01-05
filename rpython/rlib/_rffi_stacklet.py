@@ -1,13 +1,13 @@
 import py
-from pypy.conftest import pypydir
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.rarithmetic import is_emulated_long
+from rpython.translator.translator import cdir
 import sys
 
 
-cdir = py.path.local(pypydir) / 'translator' / 'c'
+cdir = py.path.local(cdir)
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],

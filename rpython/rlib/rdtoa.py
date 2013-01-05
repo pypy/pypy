@@ -1,13 +1,13 @@
 from __future__ import with_statement
 from rpython.rlib import rfloat
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.conftest import pypydir
+from rpython.translator.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 import py, sys
 
-cdir = py.path.local(pypydir) / 'translator' / 'c'
+cdir = py.path.local(cdir)
 include_dirs = [cdir]
 
 # set the word endianness based on the host's endianness

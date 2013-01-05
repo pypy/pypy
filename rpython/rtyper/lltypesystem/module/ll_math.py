@@ -5,7 +5,7 @@ import sys
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.conftest import pypydir
+from rpython.translator.translator import cdir
 from rpython.rlib import jit, rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -25,7 +25,7 @@ if sys.platform == "win32":
     else:
         eci = ExternalCompilationInfo()
     # Some math functions are C99 and not defined by the Microsoft compiler
-    cdir = py.path.local(pypydir).join('translator', 'c')
+    cdir = py.path.local(cdir)
     math_eci = ExternalCompilationInfo(
         include_dirs = [cdir],
         includes = ['src/ll_math.h'],
