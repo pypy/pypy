@@ -535,7 +535,8 @@ W_CPPDataMember.typedef = TypeDef(
 W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 class W_CPPStaticData(W_CPPDataMember):
-    def _get_offset(self):
+    @jit.elidable_promote()
+    def _get_offset(self, cppinstance):
         return self.offset
 
     def get(self, w_cppinstance, w_pycppclass):
