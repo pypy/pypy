@@ -8,7 +8,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.tool.udir import udir
 from rpython.rlib import rarithmetic
 from rpython.rtyper.lltypesystem import lltype
-from pypy.tool.gcc_cache import build_executable_cache
+from rpython.tool.gcc_cache import build_executable_cache
 
 def ask_gcc(question, add_source="", ignore_errors=False):
     from rpython.translator.platform import platform

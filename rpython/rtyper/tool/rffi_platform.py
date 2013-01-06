@@ -7,7 +7,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import llmemory
-from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
+from rpython.tool.gcc_cache import build_executable_cache, try_compile_cache
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.tool.udir import udir
