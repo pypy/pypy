@@ -3,7 +3,7 @@
 import py, os, sys
 
 from rpython.tool.ansi_print import ansi_log
-from pypy.tool.runsubprocess import run_subprocess as _run_subprocess
+from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
 
 log = py.log.Producer("platform")

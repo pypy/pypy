@@ -6,7 +6,7 @@ for the outer process, which can run CPython or PyPy.
 
 import sys, os, posixpath, errno, stat, time
 import subprocess
-from pypy.tool.killsubprocess import killsubprocess
+from rpython.tool.killsubprocess import killsubprocess
 from rpython.translator.sandbox.vfs import UID, GID
 import py
 

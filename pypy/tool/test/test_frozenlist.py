@@ -1,5 +1,5 @@
 import py
-from pypy.tool.frozenlist import frozenlist
+from rpython.tool.frozenlist import frozenlist
 
 def test_frozenlist():
     l = frozenlist([1, 2, 3])

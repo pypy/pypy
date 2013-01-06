@@ -3,8 +3,8 @@ import py
 import sys, os
 from rpython.rlib import exports
 from rpython.rtyper.typesystem import getfunctionptr
-from pypy.tool import runsubprocess
-from pypy.tool.nullpath import NullPyPathLocal
+from rpython.tool import runsubprocess
+from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
 from rpython.translator.c import gc
 from rpython.translator.c.database import LowLevelDatabase

@@ -1,6 +1,6 @@
 import sys, time
 import subprocess
-from pypy.tool.killsubprocess import killsubprocess
+from rpython.tool.killsubprocess import killsubprocess
 
 def waitdead(process):
     for i in range(50):

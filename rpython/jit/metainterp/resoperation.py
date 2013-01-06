@@ -666,7 +666,7 @@ def get_deep_immutable_oplist(operations):
 
     When we_are_translated(), do nothing and just return the old list.
     """
-    from pypy.tool.frozenlist import frozenlist
+    from rpython.tool.frozenlist import frozenlist
     if we_are_translated():
         return operations
     #

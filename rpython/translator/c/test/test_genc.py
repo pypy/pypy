@@ -10,7 +10,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem.rstr import STR
-from pypy.tool.nullpath import NullPyPathLocal
+from rpython.tool.nullpath import NullPyPathLocal
 from rpython.translator.c import genc
 from rpython.translator.interactive import Translation
 from rpython.translator.translator import TranslationContext, graphof
