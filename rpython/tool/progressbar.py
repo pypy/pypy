@@ -7,7 +7,7 @@ Usage:
     p.render(percentage, message)
 """
  
-from pypy.tool import terminal
+from rpython.tool import terminal
 import sys
  
 class ProgressBar(object):
