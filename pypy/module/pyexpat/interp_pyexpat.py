@@ -182,6 +182,8 @@ class Storage:
 
     def clear(self):
         self.next_id = 0
+        self._last_object_id = -1
+        self._last_object = None
         self.storage = {}
 
     @staticmethod
@@ -194,10 +196,18 @@ class Storage:
 
     @staticmethod
     def get_object(id):
-        return global_storage.storage[id]
+        if id == global_storage._last_object_id:
+            return global_storage._last_object
+        result = global_storage.storage[id]
+        global_storage._last_object_id = id
+        global_storage._last_object = result
+        return result
 
     @staticmethod
     def free_nonmoving_id(id):
+        if id == global_storage._last_object_id:
+            global_storage._last_object = None
+            global_storage._last_object_id = -1
         del global_storage.storage[id]
 
 global_storage = Storage()

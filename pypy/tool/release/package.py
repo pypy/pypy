@@ -122,7 +122,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     try:
         os.chdir(str(builddir))
         #
-        # 'strip' fun: see https://codespeak.net/issue/pypy-dev/issue587
+        # 'strip' fun: see issue #587
         for source, target in binaries:
             if sys.platform == 'win32':
                 pass

@@ -20,7 +20,7 @@ from pypy.jit.backend.arm.test.test_regalloc import MockAssembler
 from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.arm.regalloc import ARMFrameManager, VFPRegisterManager
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.arm.regalloc import Regalloc, ARMv7RegisterManager
+from pypy.jit.backend.arm.regalloc import Regalloc
 
 CPU = getcpuclass()
 

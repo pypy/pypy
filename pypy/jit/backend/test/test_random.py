@@ -515,8 +515,8 @@ def Random():
 
 def get_cpu():
     if pytest.config.option.backend == 'llgraph':
-        from pypy.jit.backend.llgraph.runner import LLtypeCPU
-        return LLtypeCPU(None)
+        from pypy.jit.backend.llgraph.runner import LLGraphCPU
+        return LLGraphCPU(None)
     elif pytest.config.option.backend == 'cpu':
         from pypy.jit.backend.detect_cpu import getcpuclass
         return getcpuclass()(None, None)
@@ -674,25 +674,27 @@ class RandomLoop(object):
     def run_loop(self):
         cpu = self.builder.cpu
         self.clear_state()
-        exc = cpu.grab_exc_value()
-        assert not exc
+        # disable check for now
+        # exc = cpu.grab_exc_value()
+        # assert not exc
 
         arguments = [box.value for box in self.loop.inputargs]
-        fail = cpu.execute_token(self.runjitcelltoken(), *arguments)
+        deadframe = cpu.execute_token(self.runjitcelltoken(), *arguments)
+        fail = cpu.get_latest_descr(deadframe)
         do_assert(fail is self.should_fail_by.getdescr(),
                   "Got %r, expected %r" % (fail,
                                            self.should_fail_by.getdescr()))
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
-                value = cpu.get_latest_value_float(i)
+                value = cpu.get_latest_value_float(deadframe, i)
             else:
-                value = cpu.get_latest_value_int(i)
+                value = cpu.get_latest_value_int(deadframe, i)
             do_assert(value == self.expected[v],
                 "Got %r, expected %r for value #%d" % (value,
                                                        self.expected[v],
                                                        i)
                 )
-        exc = cpu.grab_exc_value()
+        exc = cpu.grab_exc_value(deadframe)
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
             if self.guard_op.getopnum() == rop.GUARD_NO_EXCEPTION:
