@@ -1,5 +1,5 @@
 import py, os
-from pypy.tool.runsubprocess import run_subprocess
+from rpython.tool.runsubprocess import run_subprocess
 
 def test_no_such_command():
     py.test.raises(EnvironmentError, run_subprocess,
@@ -34,7 +34,7 @@ def test_cat_fail():
 def test_recover_lost_process():
     if not hasattr(os, 'fork'):
         py.test.skip("there is no os.fork()")
-    from pypy.tool import runsubprocess
+    from rpython.tool import runsubprocess
     import signal
     os.kill(runsubprocess._child.pid, signal.SIGTERM)
     runsubprocess._child.wait()
