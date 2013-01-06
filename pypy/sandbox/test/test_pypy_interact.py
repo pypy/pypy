@@ -1,5 +1,5 @@
 import os, sys, stat, errno
-from pypy.sandbox.pypysandbox import PyPySandboxedProc
+from pypy.sandbox.pypy_interact import PyPySandboxedProc
 from rpython.translator.interactive import Translation
 
 from pypy.module.sys.version import CPYTHON_VERSION
