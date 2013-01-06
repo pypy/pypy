@@ -64,8 +64,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
              'tmp': tmpdirnode,
              })
 
-
-if __name__ == '__main__':
+def main():
     from getopt import getopt      # and not gnu_getopt!
     options, arguments = getopt(sys.argv[1:], 't:hv', 
                                 ['tmp=', 'heapsize=', 'timeout=', 'log=',
@@ -125,3 +124,6 @@ if __name__ == '__main__':
         sandproc.interact()
     finally:
         sandproc.kill()
+
+if __name__ == '__main__':
+    main()

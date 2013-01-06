@@ -1,7 +1,6 @@
 import py
 import sys
 
-from pypy.conftest import pypydir
 from rpython.translator.platform import host
 from rpython.tool.udir import udir
 
