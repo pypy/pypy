@@ -186,7 +186,7 @@ def test_specific_values():
     
     import rpython
     # too fragile...
-    fname = os.path.join(os.path.dirname(rpython.rlib.test.test_rcomplex.__file__), 'rcomplex_testcases.txt')
+    fname = os.path.join(os.path.dirname(rpython.rlib.__file__), 'test', 'rcomplex_testcases.txt')
     for id, fn, ar, ai, er, ei, flags in parse_testfile(fname):
         arg = (ar, ai)
         expected = (er, ei)
