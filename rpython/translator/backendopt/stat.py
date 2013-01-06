@@ -1,5 +1,5 @@
 from rpython.translator.simplify import get_graph
-from pypy.tool.compat import md5
+from rpython.tool.compat import md5
 
 def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_checks=False):
     seen_graphs = {}
