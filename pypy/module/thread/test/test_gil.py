@@ -1,6 +1,6 @@
 import time
 from pypy.module.thread import gil
-from pypy.module.thread.test import test_rthread
+from rpython.rlib.test import test_rthread
 from rpython.rlib import rthread as thread
 from rpython.rlib.objectmodel import we_are_translated
 
