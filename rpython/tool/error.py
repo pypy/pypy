@@ -14,8 +14,6 @@ SHOW_TRACEBACK = False
 SHOW_ANNOTATIONS = True
 SHOW_DEFAULT_LINES_OF_CODE = 0
 
-from pypy.interpreter.pytraceback import offset2lineno
-
 def source_lines1(graph, block, operindex=None, offset=None, long=False, \
     show_lines_of_code=SHOW_DEFAULT_LINES_OF_CODE):
     if block is not None:
@@ -161,3 +159,15 @@ def debug(drv, use_pdb=True):
     if use_pdb:
         pdb_plus_show = PdbPlusShow(t)
         pdb_plus_show.start(tb)
+
+
+def offset2lineno(c, stopat):
+    tab = c.co_lnotab
+    line = c.co_firstlineno
+    addr = 0
+    for i in range(0, len(tab), 2):
+        addr = addr + ord(tab[i])
+        if addr > stopat:
+            break
+        line = line + ord(tab[i+1])
+    return line

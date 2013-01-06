@@ -4,7 +4,7 @@ from rpython.flowspace.model import *
 from rpython.flowspace.objspace import FlowObjSpace as Space
 from rpython.tool.udir import udir
 from py.process import cmdexec
-from pypy.interpreter.pytraceback import offset2lineno
+from rpython.tool.error import offset2lineno
 
 class DotGen:
 
