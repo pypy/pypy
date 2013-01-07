@@ -1,6 +1,6 @@
 import py
 import os
-from rpython.jit.tl.spli import execution, objects
+from spli import execution, objects
 
 class TestSPLIInterpreter:
 

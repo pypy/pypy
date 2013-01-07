@@ -1,5 +1,5 @@
-from rpython.jit.tl.spli.serializer import serialize, deserialize
-from rpython.jit.tl.spli import execution, pycode, objects
+from spli.serializer import serialize, deserialize
+from spli import execution, pycode, objects
 
 class TestSerializer(object):
 

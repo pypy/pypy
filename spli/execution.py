@@ -1,4 +1,4 @@
-from rpython.jit.tl.spli import interpreter, objects, pycode
+from spli import interpreter, objects, pycode
 
 
 def run_from_cpython_code(co, args=[], locs=None, globs=None):

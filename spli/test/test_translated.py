@@ -1,7 +1,7 @@
 
 from rpython.rtyper.test.test_llinterp import interpret
-from rpython.jit.tl.spli import execution, objects
-from rpython.jit.tl.spli.serializer import serialize, deserialize
+from spli import execution, objects
+from spli.serializer import serialize, deserialize
 
 class TestSPLITranslated(object):
 

@@ -3,7 +3,7 @@
 """
 
 import sys, os
-from rpython.jit.tl.spli import execution, serializer, objects
+from spli import execution, serializer, objects
 from rpython.rlib.streamio import open_file_as_stream
 
 

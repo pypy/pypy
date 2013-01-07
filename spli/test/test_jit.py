@@ -1,7 +1,7 @@
 
 import py
 from rpython.jit.metainterp.test.support import JitMixin
-from rpython.jit.tl.spli import interpreter, objects, serializer
+from spli import interpreter, objects, serializer
 from rpython.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from rpython.jit.backend.llgraph import runner
 from rpython.rtyper.annlowlevel import llstr, hlstr

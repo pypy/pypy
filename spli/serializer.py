@@ -6,8 +6,8 @@ serialize.py python_file func_name output_file
 import py
 import sys
 import types
-from rpython.jit.tl.spli.objects import Int, Str, spli_None
-from rpython.jit.tl.spli.pycode import Code
+from spli.objects import Int, Str, spli_None
+from spli.pycode import Code
 from rpython.rlib.rstruct.runpack import runpack
 import struct
 

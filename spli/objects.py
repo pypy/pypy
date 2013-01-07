@@ -154,5 +154,5 @@ class Function(SPLIObject):
         self.globs = globs
 
     def call(self, args):
-        from rpython.jit.tl.spli import execution
+        from spli import execution
         return execution.run(self.code, args, None, self.globs)

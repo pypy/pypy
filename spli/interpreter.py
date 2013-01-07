@@ -1,6 +1,6 @@
 import os
 from rpython.tool import stdlib_opcode
-from rpython.jit.tl.spli import objects, pycode
+from spli import objects, pycode
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.jit import JitDriver, promote, dont_look_inside
 from rpython.rlib.objectmodel import we_are_translated

@@ -1,5 +1,5 @@
 from pypy.interpreter import pycode
-from rpython.jit.tl.spli import objects
+from spli import objects
 
 
 class Code(objects.SPLIObject):
