@@ -50,13 +50,6 @@ def make_rst(basename):
 
 thisdir = py.path.local(__file__).dirpath()
 
-#XXX hack - remove all old versions, try to be careful
-for f in thisdir.listdir('objspace*.rst'):
-    f.remove()
-for f in thisdir.listdir('translation*.rst'):
-    f.remove()
-
-
 for descr in all_optiondescrs:
     prefix = descr._name
     c = config.Config(descr)
