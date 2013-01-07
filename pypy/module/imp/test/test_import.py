@@ -1283,13 +1283,10 @@ class AppTestPyPyExtension(object):
 class AppTestNoPycFile(object):
     spaceconfig = {
         "objspace.usepycfiles": False,
-        "objspace.lonepycfiles": False
     }
     def setup_class(cls):
         usepycfiles = cls.spaceconfig['objspace.usepycfiles']
-        lonepycfiles = cls.spaceconfig['objspace.lonepycfiles']
         cls.w_usepycfiles = cls.space.wrap(usepycfiles)
-        cls.w_lonepycfiles = cls.space.wrap(lonepycfiles)
         cls.saved_modules = _setup(cls.space)
 
     def teardown_class(cls):
@@ -1301,21 +1298,13 @@ class AppTestNoPycFile(object):
         try:
             from compiled import lone
         except ImportError:
-            assert not self.lonepycfiles, "should have found 'lone.pyc'"
+            assert not self.usepycfiles
         else:
-            assert self.lonepycfiles, "should not have found 'lone.pyc'"
             assert lone.__cached__.endswith('.pyc')
 
 class AppTestNoLonePycFile(AppTestNoPycFile):
     spaceconfig = {
         "objspace.usepycfiles": True,
-        "objspace.lonepycfiles": False
-    }
-
-class AppTestLonePycFile(AppTestNoPycFile):
-    spaceconfig = {
-        "objspace.usepycfiles": True,
-        "objspace.lonepycfiles": True
     }
 
 

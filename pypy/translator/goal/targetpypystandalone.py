@@ -194,7 +194,6 @@ class PyPyTarget(object):
         #    config.translation.backend == "cli"
 
         if config.translation.sandbox:
-            config.objspace.lonepycfiles = False
             config.objspace.usepycfiles = False
 
         config.translating = True

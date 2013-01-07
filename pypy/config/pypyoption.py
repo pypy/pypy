@@ -171,10 +171,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     BoolOption("usepycfiles", "Write and read pyc files when importing",
                default=True),
 
-    BoolOption("lonepycfiles", "Import pyc files with no matching py file",
-               default=False,
-               requires=[("objspace.usepycfiles", True)]),
-
     StrOption("soabi",
               "Tag to differentiate extension modules built for different Python interpreters",
               cmdline="--soabi",

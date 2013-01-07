@@ -73,13 +73,8 @@ def find_modtype(space, filepart):
         if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
 
-    # The .py file does not exist.  By default on PyPy, lonepycfiles
-    # is False: if a .py file does not exist, we don't even try to
-    # look for a lone .pyc file.
-    # The "imp" module does not respect this, and is allowed to find
-    # lone .pyc files.
-    # check the .pyc file
-    if space.config.objspace.usepycfiles and space.config.objspace.lonepycfiles:
+    # The .py file does not exist, check the .pyc file
+    if space.config.objspace.usepycfiles:
         pycfile = filepart + ".pyc"
         if file_exists(pycfile):
             # existing .pyc file
