@@ -307,6 +307,13 @@ class AppTestWeakref(object):
         if seen_callback:
             assert seen_callback == [True, True, True]
 
+    def test_type_weakrefable(self):
+        import _weakref, gc
+        w = _weakref.ref(list)
+        assert w() is list
+        gc.collect()
+        assert w() is list
+
 
 class AppTestProxy(object):
     spaceconfig = dict(usemodules=('_weakref',))
