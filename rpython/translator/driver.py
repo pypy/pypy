@@ -258,7 +258,7 @@ class TranslationDriver(SimpleTaskEngine):
 
     def _profile(self, goal, func):
         from cProfile import Profile
-        from pypy.tool.lsprofcalltree import KCacheGrind
+        from rpython.tool.lsprofcalltree import KCacheGrind
         d = {'func':func}
         prof = Profile()
         prof.runctx("res = func()", globals(), d)
