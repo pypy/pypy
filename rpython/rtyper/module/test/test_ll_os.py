@@ -1,7 +1,6 @@
 import os
 from py.path import local
 
-import pypy
 from rpython.tool.udir import udir
 from rpython.translator.c.test.test_genc import compile
 from rpython.rtyper.module import ll_os #has side effect of registering functions

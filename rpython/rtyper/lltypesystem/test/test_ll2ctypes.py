@@ -1017,7 +1017,6 @@ class TestLL2Ctypes(object):
         assert ftest == [-5, -5, -5]
 
     def test_c_callback_with_void_arg_3(self):
-        import pypy
         def f(i):
             x = 'X' * i
             return x[-2]
