@@ -14,9 +14,9 @@ import textwrap
 import errno
 
 from test.support import (
-    EnvironmentVarGuard, TESTFN, check_impl_detail, check_warnings, forget,
-    impl_detail, is_jython, make_legacy_pyc, rmtree, run_unittest, swap_attr,
-    swap_item, temp_umask, unlink, unload)
+    EnvironmentVarGuard, TESTFN, check_warnings, forget, is_jython,
+    make_legacy_pyc, rmtree, run_unittest, swap_attr, swap_item, temp_umask,
+    unlink, unload)
 from test import script_helper
 
 
@@ -166,9 +166,7 @@ class ImportTests(unittest.TestCase):
             # Bytecode must be relocated from the PEP 3147 bytecode-only location.
             py_compile.compile(filename)
         finally:
-            if check_impl_detail(pypy=False):
-                # pypy refuses to import a .pyc if the .py does not exist
-                unlink(filename)
+            unlink(filename)
 
         # Need to be able to load from current dir.
         sys.path.append('')
@@ -251,7 +249,6 @@ class ImportTests(unittest.TestCase):
             remove_files(TESTFN)
             unload(TESTFN)
 
-    @impl_detail("pypy refuses to import without a .py source", pypy=False)
     def test_file_to_source(self):
         # check if __file__ points to the source file where available
         source = TESTFN + ".py"
@@ -399,7 +396,6 @@ func_filename = func.__code__.co_filename
         self.assertEqual(mod.code_filename, self.file_name)
         self.assertEqual(mod.func_filename, self.file_name)
 
-    @impl_detail("pypy refuses to import without a .py source", pypy=False)
     def test_module_without_source(self):
         target = "another_module.py"
         py_compile.compile(self.file_name, dfile=target)
@@ -597,7 +593,6 @@ class PycacheTests(unittest.TestCase):
         forget(TESTFN)
         self.assertRaises(ImportError, __import__, TESTFN)
 
-    @impl_detail("pypy refuses to import without a .py source", pypy=False)
     def test_missing_source_legacy(self):
         # Like test_missing_source() except that for backward compatibility,
         # when the pyc file lives where the py file would have been (and named
@@ -618,7 +613,6 @@ class PycacheTests(unittest.TestCase):
         pyc_file = imp.cache_from_source(TESTFN + '.py')
         self.assertEqual(m.__cached__, os.path.join(os.curdir, pyc_file))
 
-    @impl_detail("pypy refuses to import without a .py source", pypy=False)
     def test___cached___legacy_pyc(self):
         # Like test___cached__() except that for backward compatibility,
         # when the pyc file lives where the py file would have been (and named
