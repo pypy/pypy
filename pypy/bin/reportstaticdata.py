@@ -28,7 +28,6 @@ Options:
 """
 
 import sys
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from rpython.translator.tool.staticsizereport import print_report
 

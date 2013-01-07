@@ -24,7 +24,6 @@ Try dir(snippet) for list of current snippets.
 """
 
 import os, sys
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from rpython.translator.interactive import Translation
 from rpython.rtyper.rtyper import *
