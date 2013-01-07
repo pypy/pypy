@@ -328,23 +328,30 @@ class MsvcPlatform(Platform):
             m.rule(*rule)
         
         objects = ' $(OBJECTS)'
-        create_obj_response_file = ''
+        create_obj_response_file = []
         if len(' '.join(rel_ofiles)) > 4000:
-            create_obj_response_file = 'echo $(OBJECTS) > obj_names.rsp'
+            # cmd.exe has a limit of ~4000 characters before a command line is too long.
+            # Use a response file instead, at the cost of making the Makefile very ugly.
+            for i in range(len(rel_ofiles) - 1):
+                create_obj_response_file.append('echo %s >> obj_names.rsp' % \
+                                                rel_ofiles[i])
+            # use cmd /c for the last one so that the file is flushed 
+            create_obj_response_file.append('cmd /c echo %s >> obj_names.rsp' % \
+                                            rel_ofiles[-1])
             objects = ' @obj_names.rsp'
         if self.version < 80:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                    [create_obj_response_file,
+                    create_obj_response_file + [\
                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' /out:$@ $(LIBDIRS) $(LIBS)',
                    ])
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   [create_obj_response_file,
+                    create_obj_response_file + [\
                     '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
         m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
-               [create_obj_response_file,
+                create_obj_response_file + [\
                '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
                 ])
 

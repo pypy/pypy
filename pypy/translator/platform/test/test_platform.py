@@ -67,7 +67,7 @@ class TestPlatform(object):
         for i in range(900):
             txt += '    j += func%03d();\n' % i
         txt += '    printf("%d\\n", j);\n'
-        txt += '    return j;};\n'
+        txt += '    return 0;};\n'
         cfile = udir.join('test_900_files.c')
         cfile.write(txt)
         cfiles = [cfile]
@@ -84,7 +84,7 @@ class TestPlatform(object):
         mk.write()
         self.platform.execute_makefile(mk)
         res = self.platform.execute(udir.join('test_900_files'))
-        self.check_res(res, sum(range(900)))
+        self.check_res(res, '%d\n' %sum(range(900)))
 
 
     def test_nice_errors(self):
