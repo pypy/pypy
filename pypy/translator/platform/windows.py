@@ -326,17 +326,26 @@ class MsvcPlatform(Platform):
 
         for rule in rules:
             m.rule(*rule)
-
+        
+        objects = ' $(OBJECTS)'
+        create_obj_response_file = ''
+        if len(' '.join(rel_ofiles)) > 4000:
+            create_obj_response_file = 'echo $(OBJECTS) > obj_names.rsp'
+            objects = ' @obj_names.rsp'
         if self.version < 80:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) /out:$@ $(LIBDIRS) $(LIBS)')
+                    [create_obj_response_file,
+                   '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' /out:$@ $(LIBDIRS) $(LIBS)',
+                   ])
         else:
             m.rule('$(TARGET)', '$(OBJECTS)',
-                   ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
+                   [create_obj_response_file,
+                    '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
         m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
-               ['$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
+               [create_obj_response_file,
+               '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + objects + ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
                 ])
 
         if shared:
