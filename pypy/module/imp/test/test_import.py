@@ -90,6 +90,9 @@ def setup_directory_structure(space):
         'a=5\nb=6\rc="""hello\r\nworld"""\r', mode='wb')
     p.join('mod.py').write(
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
+    setuppkg("encoded",
+             # actually a line 2, setuppkg() sets up a line1
+             line2 = "# encoding: iso-8859-1\n")
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -658,6 +661,12 @@ class AppTestImport:
                                  'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
         assert module.__name__ == 'a'
         assert module.__file__ == 'invalid_path_name'
+
+    def test_source_encoding(self):
+        import imp
+        import encoded
+        fd = imp.find_module('line2', encoded.__path__)[0]
+        assert fd.encoding == 'iso-8859-1'
 
 
 class TestAbi:

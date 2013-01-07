@@ -4,7 +4,7 @@ from pypy.rlib.streamio import StreamErrors
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.pyparser import pytokenizer
+from pypy.interpreter.pyparser import pyparse
 from pypy.objspace.std import unicodetype
 from pypy.rlib import streamio
 from pypy.module._io.interp_iobase import W_IOBase
@@ -76,10 +76,10 @@ def find_module(space, w_name, w_path=None):
         encoding = None
         if find_info.modtype == importing.PY_SOURCE:
             # try to find the declared encoding
-            firstline = stream.readline()
+            top = stream.readline()
+            top += stream.readline()
             stream.seek(0, 0) # reset position
-            if firstline.startswith('#'):
-                encoding = pytokenizer.match_encoding_declaration(firstline)
+            encoding = pyparse._check_for_encoding(top)
             if encoding is None:
                 encoding = unicodetype.getdefaultencoding(space)
         #
