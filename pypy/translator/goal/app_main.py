@@ -584,7 +584,12 @@ def run_command_line(interactive,
                                                         python_startup,
                                                         'exec')
                             exec co_python_startup in mainmodule.__dict__
+                        mainmodule.__file__ = python_startup
                         run_toplevel(run_it)
+                        try:
+                            del mainmodule.__file__
+                        except (AttributeError, TypeError):
+                            pass
                 # Then we need a prompt.
                 inspect = True
             else:
