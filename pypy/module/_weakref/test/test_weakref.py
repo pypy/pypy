@@ -114,19 +114,28 @@ class AppTestWeakref(object):
         class A(object):
             def __eq__(self, other):
                 return True
+            def __ne__(self, other):
+                return False
         a1 = A()
         a2 = A()
         ref1 = _weakref.ref(a1)
         ref2 = _weakref.ref(a2)
         assert ref1 == ref2
+        assert not (ref1 != ref2)
+        assert not (ref1 == [])
+        assert ref1 != []
         del a1
         gc.collect()
         assert not ref1 == ref2
         assert ref1 != ref2
+        assert not (ref1 == [])
+        assert ref1 != []
         del a2
         gc.collect()
         assert not ref1 == ref2
         assert ref1 != ref2
+        assert not (ref1 == [])
+        assert ref1 != []
 
     def test_getweakrefs(self):
         import _weakref, gc
@@ -435,6 +444,8 @@ class AppTestProxy(object):
         class A(object):
             def __eq__(self, other):
                 return True
+            def __ne__(self, other):
+                return False
 
         a = A()
         assert _weakref.ref(a) == a
