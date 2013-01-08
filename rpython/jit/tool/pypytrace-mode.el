@@ -18,7 +18,7 @@
 
 
 ;; to generate the list of keywords:
-;; from pypy.jit.metainterp import resoperation
+;; from rpython.jit.metainterp import resoperation
 ;; print ' '.join(sorted('"%s"' % op.lower() for op in resoperation.opname.values() if not op.startswith('GUARD')))
 
 

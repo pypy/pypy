@@ -2,13 +2,13 @@
     compiled to C with SSE2 enabled.
 """
 import py, math
-from pypy.module.math.test import test_direct
 from rpython.translator.c.test.test_genc import compile
 from rpython.jit.backend.x86.support import ensure_sse2_floats
 from rpython.rlib import rfloat
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_print
-
+from rpython.rtyper.lltypesystem.module.test.test_ll_math import (MathTests,
+                                                                  getTester)
 
 def get_test_case((fnname, args, expected)):
     try:
@@ -17,7 +17,7 @@ def get_test_case((fnname, args, expected)):
         fn = getattr(rfloat, fnname)
     expect_valueerror = (expected == ValueError)
     expect_overflowerror = (expected == OverflowError)
-    check = test_direct.get_tester(expected)
+    check = get_tester(expected)
     unroll_args = unrolling_iterable(args)
     #
     def testfn():
@@ -50,7 +50,7 @@ def get_test_case((fnname, args, expected)):
 
 
 testfnlist = [get_test_case(testcase)
-              for testcase in test_direct.MathTests.TESTCASES]
+              for testcase in MathTests.TESTCASES]
 
 def fn():
     ensure_sse2_floats()
@@ -64,6 +64,6 @@ def test_math():
     f = compile(fn, [])
     res = f()
     if res >= 0:
-        py.test.fail(repr(test_direct.MathTests.TESTCASES[res]))
+        py.test.fail(repr(MathTests.TESTCASES[res]))
     else:
         assert res == -42
