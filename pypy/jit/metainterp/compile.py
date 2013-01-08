@@ -484,9 +484,13 @@ class ResumeGuardDescr(ResumeDescr):
     _counters = None    # they get stored in _counters then.
 
     # this class also gets the following attributes stored by resume.py code
+    
+    # XXX move all of unused stuff to guard_op, now that we can have
+    #     a separate class, so it does not survive that long
     rd_snapshot = None
     rd_frame_info_list = None
     rd_numb = lltype.nullptr(NUMBERING)
+    rd_count = 0
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
@@ -501,6 +505,7 @@ class ResumeGuardDescr(ResumeDescr):
 
     def store_final_boxes(self, guard_op, boxes):
         guard_op.setfailargs(boxes)
+        self.rd_count = len(boxes)
         self.guard_opnum = guard_op.getopnum()
 
     def make_a_counter_per_value(self, guard_value_op):
@@ -630,6 +635,7 @@ class ResumeGuardDescr(ResumeDescr):
         res.rd_consts = self.rd_consts
         res.rd_virtuals = self.rd_virtuals
         res.rd_pendingfields = self.rd_pendingfields
+        res.rd_count = self.rd_count
 
     def _clone_if_mutable(self):
         res = ResumeGuardDescr()
