@@ -20,7 +20,6 @@
 import os, sys
 import py
 
-from pypy.tool.version import get_repo_version_info
 from py.path import local 
 
 PYPY_KEEP = int(os.environ.get('PYPY_USESSION_KEEP', '3'))
@@ -29,17 +28,7 @@ def make_udir(dir=None, basename=None):
     if dir is not None:
         dir = local(dir)
     if basename is None:
-        info = get_repo_version_info()
-        if info:
-            project, hgtag, hgid = info
-            basename = hgtag
-            if basename == '?':
-                basename = 'unknown' # directories with ? are not fun
-                # especially on windows
-            if isinstance(basename, unicode):
-                basename = basename.encode(sys.getdefaultencoding())
-        else:
-            basename = ''
+        basename = ''
     basename = basename.replace('/', '--')
     if not basename.startswith('-'):
         basename = '-' + basename
