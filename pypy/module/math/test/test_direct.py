@@ -3,7 +3,6 @@
 
 import py, sys, math
 from rpython.rlib import rfloat
-from rpython.rlib.rfloat import isinf, isnan, INFINITY, NAN
 from rpython.rtyper.lltypesystem.module.test.test_ll_math import (MathTests,
                                                                   getTester)
 
