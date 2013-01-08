@@ -7,7 +7,7 @@ from pypy.jit.metainterp.history import BoxInt, \
      BoxPtr, TreeLoop, TargetToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
-from pypy.jit.backend.llsupport.descr import GcCache
+from pypy.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm
 from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.arm.arch import WORD
@@ -44,23 +44,14 @@ class MockGcRootMap(object):
         return ['compressed'] + shape[1:]
 
 
-class MockGcDescr(GcCache):
-    get_malloc_slowpath_addr = None
-    write_barrier_descr = None
-    moving_gc = True
+class MockGcDescr(GcLLDescr_boehm):
     gcrootmap = MockGcRootMap()
-
-    def initialize(self):
-        pass
-
-    _record_constptrs = GcLLDescr_framework._record_constptrs.im_func
-    rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)
-    cpu.gc_ll_descr = MockGcDescr(False)
+    cpu.gc_ll_descr = MockGcDescr(None, None, None)
     cpu.setup_once()
     
     S = lltype.GcForwardReference()
