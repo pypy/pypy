@@ -2,9 +2,6 @@ import py
 
 import sys, os
 
-from pypy.tool.pytest.modcheck import skipimporterror
-skipimporterror("ctypes")
-
 from rpython.rtyper.lltypesystem.module.ll_os_path import Implementation as impl
 from rpython.rtyper.module.support import ll_strcpy
 from rpython.rtyper.test.test_llinterp import interpret
