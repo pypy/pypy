@@ -769,8 +769,8 @@ class TreeLoop(object):
 
     def show(self, errmsg=None):
         "NOT_RPYTHON"
-        from pypy.jit.metainterp.graphpage import display_loops
-        display_loops([self], errmsg)
+        from pypy.jit.metainterp.graphpage import display_procedures
+        display_procedures([self], errmsg)
 
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"

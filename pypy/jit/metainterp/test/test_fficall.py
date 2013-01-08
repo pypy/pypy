@@ -1,4 +1,5 @@
 import py
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib import jit
@@ -101,6 +102,75 @@ class FfiCallTests(object):
         self._run([types.signed], types.sint8, [456],
                   rffi.cast(rffi.SIGNEDCHAR, -42))
 
+
+    def test_guard_not_forced_fails(self):
+        FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
+
+        cif_description = get_description([types.slong], types.slong)
+        cif_description.exchange_args[0] = 16
+        cif_description.exchange_result = 32
+
+        ARRAY = lltype.Ptr(rffi.CArray(lltype.Signed))
+
+        @jit.dont_look_inside
+        def fn(n):
+            if n >= 50:
+                exctx.m = exctx.topframeref().n # forces the frame
+            return n*2
+
+        @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
+        def fake_call(cif_description, func_addr, exchange_buffer):
+            # read the args from the buffer
+            data_in = rffi.ptradd(exchange_buffer, 16)
+            n = rffi.cast(ARRAY, data_in)[0]
+            #
+            # logic of the function
+            func_ptr = rffi.cast(lltype.Ptr(FUNC), func_addr)
+            n = func_ptr(n)
+            #
+            # write the result to the buffer
+            data_out = rffi.ptradd(exchange_buffer, 32)
+            rffi.cast(ARRAY, data_out)[0] = n
+
+        def do_call(n):
+            func_ptr = llhelper(lltype.Ptr(FUNC), fn)
+            #func_addr = rffi.cast(rffi.VOIDP, func_ptr)
+            exbuf = lltype.malloc(rffi.CCHARP.TO, 48, flavor='raw', zero=True)
+            data_in = rffi.ptradd(exbuf, 16)
+            rffi.cast(ARRAY, data_in)[0] = n
+            fake_call(cif_description, func_ptr, exbuf)
+            data_out = rffi.ptradd(exbuf, 32)
+            res = rffi.cast(ARRAY, data_out)[0]
+            lltype.free(exbuf, flavor='raw')
+            return res
+
+        #
+        #
+        class XY:
+            pass
+        class ExCtx:
+            pass
+        exctx = ExCtx()
+        myjitdriver = jit.JitDriver(greens = [], reds = ['n'])
+        def f():
+            n = 0
+            while n < 100:
+                myjitdriver.jit_merge_point(n=n)
+                xy = XY()
+                xy.n = n
+                exctx.topframeref = vref = jit.virtual_ref(xy)
+                res = do_call(n) # this is equivalent of a cffi call which
+                                 # sometimes forces a frame
+                assert res == n*2
+                jit.virtual_ref_finish(vref, xy)
+                exctx.topframeref = jit.vref_None
+                n += 1
+            return n
+
+        assert f() == 100
+        res = self.meta_interp(f, [])
+        assert res == 100
+        
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     pass
