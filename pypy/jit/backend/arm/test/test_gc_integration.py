@@ -2,25 +2,13 @@
 """ Tests for register allocation for common constructs
 """
 
-import py
-from pypy.jit.metainterp.history import BoxInt, \
-     BoxPtr, TreeLoop, TargetToken
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.codewriter import heaptracker
+from pypy.jit.metainterp.history import TargetToken
 from pypy.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm
-from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.arm.arch import WORD
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import rclass
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 
-from pypy.jit.backend.arm.test.test_regalloc import MockAssembler
 from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
-from pypy.jit.backend.arm.regalloc import ARMFrameManager, VFPRegisterManager
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.arm.regalloc import Regalloc
 
 CPU = getcpuclass()
 
