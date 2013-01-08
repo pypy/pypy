@@ -193,12 +193,6 @@ class AbstractLLCPU(AbstractCPU):
 
     # ------------------- helpers and descriptions --------------------
 
-    def gc_set_extra_threshold(self):
-        llop.gc_set_extra_threshold(lltype.Void, self.deadframe_size_max)
-
-    def gc_clear_extra_threshold(self):
-        llop.gc_set_extra_threshold(lltype.Void, 0)
-
     @staticmethod
     def _cast_int_to_gcref(x):
         # dangerous!  only use if you are sure no collection could occur

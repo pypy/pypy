@@ -1958,7 +1958,7 @@ class Assembler386(object):
         return arglocs[:]
 
     @staticmethod
-    #@rgc.no_collect -- XXX still true, but hacked gc_set_extra_threshold
+    @rgc.no_collect
     def grab_frame_values(cpu, bytecode, frame_addr, allregisters):
         # no malloc allowed here!!  xxx apart from one, hacking a lot
         #self.fail_ebp = allregisters[16 + ebp.value]
@@ -1998,7 +1998,6 @@ class Assembler386(object):
             # that it is guaranteed that the following malloc() works
             # without requiring a collect(), but it needs to be re-added
             # as soon as possible.
-            cpu.gc_clear_extra_threshold()
             assert num <= cpu.get_failargs_limit()
             try:
                 deadframe = lltype.malloc(jitframe.DEADFRAME, num)
@@ -2088,8 +2087,7 @@ class Assembler386(object):
         return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
 
     def setup_failure_recovery(self):
-
-        #@rgc.no_collect -- XXX still true, but hacked gc_set_extra_threshold
+        @rgc.no_collect
         def failure_recovery_func(registers):
             # 'registers' is a pointer to a structure containing the
             # original value of the registers, optionally the original

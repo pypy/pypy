@@ -97,13 +97,6 @@ def test_cancollect_external():
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
 
-def test_cancollect_some_operation():
-    def g():
-        llop.gc_set_extra_threshold(lltype.Void, 32)
-    t = rtype(g, [])
-    gg = graphof(t, g)
-    assert CollectAnalyzer(t).analyze_direct_call(gg)
-
 def test_no_collect():
     from pypy.rlib import rgc
     from pypy.translator.c.genc import CStandaloneBuilder

@@ -45,10 +45,6 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
-        from pypy.jit.backend.llsupport import jitframe
-        self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
-                                                  self.get_failargs_limit())
-
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
@@ -123,7 +119,6 @@ class AbstractX86CPU(AbstractLLCPU):
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            self.gc_set_extra_threshold()
             return deadframe
         return execute_token
 

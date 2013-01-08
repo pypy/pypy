@@ -1820,20 +1820,6 @@ class MiniMarkGC(MovingGCBase):
         return self.id_or_identityhash(gcobj, True)
 
     # ----------
-    # set_extra_threshold support
-
-    def set_extra_threshold(self, reserved_size):
-        ll_assert(reserved_size <= self.nonlarge_max,
-                  "set_extra_threshold: too big!")
-        diff = reserved_size - self.extra_threshold
-        if diff > 0 and self.nursery_free + diff > self.nursery_top:
-            self.minor_collection()
-        self.nursery_size -= diff
-        self.nursery_top -= diff
-        self.extra_threshold += diff
-
-
-    # ----------
     # Finalizers
 
     def deal_with_young_objects_with_finalizers(self):
