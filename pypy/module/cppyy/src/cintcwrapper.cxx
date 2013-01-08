@@ -274,6 +274,10 @@ char* cppyy_resolve_name(const char* cppitem_name) {
 }
 
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
+    // CINT still has trouble with std:: sometimes ... 
+    if (strncmp(scope_name, "std::", 5) == 0)
+        scope_name = &scope_name[5];
+
     ClassRefIndices_t::iterator icr = g_classref_indices.find(scope_name);
     if (icr != g_classref_indices.end())
         return (cppyy_type_t)icr->second;
@@ -281,7 +285,7 @@ cppyy_scope_t cppyy_get_scope(const char* scope_name) {
     if (strcmp(scope_name, "#define") == 0)
         return (cppyy_type_t)NULL;
 
-     // use TClass directly, to enable auto-loading
+    // use TClass directly, to enable auto-loading
     TClassRef cr(TClass::GetClass(scope_name, kTRUE, kTRUE));
     if (!cr.GetClass())
         return (cppyy_type_t)NULL;

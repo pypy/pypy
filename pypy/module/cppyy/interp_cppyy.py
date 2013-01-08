@@ -921,7 +921,10 @@ class W_CPPInstance(Wrappable):
         try:
             return self.space.call_method(self.space.wrap(self), "_cppyy_as_builtin")
         except OperationError, e:
-            if not e.match(self.space, self.space.w_AttributeError):
+            if not (e.match(self.space, self.space.w_TypeError) or
+                    e.match(self.space, self.space.w_AttributeError)):
+                # TODO: TypeError is raised by call_method if the method is not found;
+                # it'd be a lot nicer if only AttributeError were raise
                 raise
         return None
 
@@ -945,7 +948,7 @@ class W_CPPInstance(Wrappable):
             if not e.match(self.space, self.space.w_TypeError):
                 raise
 
-        # fallback 1: convert the object to a builin equivalent
+        # fallback 1: convert the object to a builtin equivalent
         w_as_builtin = self._get_as_builtin()
         if w_as_builtin is not None:
             return self.space.eq(w_as_builtin, w_other)

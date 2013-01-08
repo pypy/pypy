@@ -7,9 +7,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import rffi
-from pypy.rlib import libffi, rdynload
 
-from pypy.module.itertools import interp_itertools
+from pypy.rlib import libffi, rdynload
 
 
 __all__ = ['identify', 'eci', 'c_load_dictionary']
@@ -162,20 +161,51 @@ def ttree_getattr(space, w_self, args_w):
     from pypy.module.cppyy import interp_cppyy
     tree = space.interp_w(interp_cppyy.W_CPPInstance, w_self)
 
-    # setup branch as a data member and enable it for reading
     space = tree.space            # holds the class cache in State
+
+    # prevent recursion
+    attr = space.str_w(args_w[0])
+    if attr and attr[0] == '_':
+        raise OperationError(space.w_AttributeError, args_w[0])
+
+    # try the saved cdata (for builtin types)
+    try:
+        w_cdata = space.getattr(w_self, space.wrap('_'+attr))
+        from pypy.module._cffi_backend import cdataobj
+        cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
+        return cdata.convert_to_object()
+    except OperationError:
+        pass
+
+    # setup branch as a data member and enable it for reading
     w_branch = space.call_method(w_self, "GetBranch", args_w[0])
     if not space.is_true(w_branch):
         raise OperationError(space.w_AttributeError, args_w[0])
-    w_klassname = space.call_method(w_branch, "GetClassName")
-    klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
-    w_obj = klass.construct()
-    #space.call_method(w_branch, "SetStatus", space.wrap(1)) 
     activate_branch(space, w_branch)
-    space.call_method(w_branch, "SetObject", w_obj)
-    space.call_method(w_branch, "GetEntry", space.wrap(0))
-    space.setattr(w_self, args_w[0], w_obj)
-    return w_obj
+    w_klassname = space.call_method(w_branch, "GetClassName")
+    if space.is_true(w_klassname):
+        # some instance
+        klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
+        w_obj = klass.construct()
+        space.call_method(w_branch, "SetObject", w_obj)
+        space.call_method(w_branch, "GetEntry", space.wrap(0))
+        space.setattr(w_self, args_w[0], w_obj)
+        return w_obj
+    else:
+        # builtin data
+        w_leaf = space.call_method(w_self, "GetLeaf", args_w[0])
+        w_typename = space.call_method(w_leaf, "GetTypeName" )
+        from pypy.module.cppyy import capi
+        typename = capi.c_resolve_name(space.str_w(w_typename))
+        w_address = space.call_method(w_leaf, "GetValuePointer")
+        buf = space.buffer_w(w_address)
+        from pypy.module._rawffi import buffer
+        assert isinstance(buf, buffer.RawFFIBuffer)
+        address = rffi.cast(rffi.CCHARP, buf.datainstance.ll_buffer)
+        from pypy.module._cffi_backend import cdataobj, newtype
+        cdata = cdataobj.W_CData(space, address, newtype.new_primitive_type(space, typename))
+        space.setattr(w_self, space.wrap('_'+attr), space.wrap(cdata))
+        return space.getattr(w_self, args_w[0])
 
 class W_TTreeIter(Wrappable):
     def __init__(self, space, w_tree):

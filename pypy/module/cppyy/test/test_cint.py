@@ -139,7 +139,7 @@ class AppTestCINTPythonizations:
 
 
 class AppTestCINTTTree:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', 'array', '_rawffi', '_cffi_backend'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(5)
@@ -148,7 +148,8 @@ class AppTestCINTTTree:
         cls.w_tname = cls.space.wrap("test")
         cls.w_title = cls.space.wrap("test tree")
         cls.w_iotypes = cls.space.appexec([], """():
-            import cppyy
+            import cppyy, _cffi_backend
+            _cffi_backend.new_primitive_type      # prevents leak-checking complaints on _cffi_backend
             return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))
 
     def test01_write_stdvector(self):
@@ -176,7 +177,17 @@ class AppTestCINTTTree:
         f.Write()
         f.Close()
 
-    def test02_read_stdvector(self):
+    def test02_file_open(self):
+
+        from cppyy import gbl
+
+        f = gbl.TFile.Open(self.fname)
+        s = str(f)            # should not raise
+        r = repr(f)
+
+        f.Close()
+
+    def test03_read_stdvector(self):
         """Test reading of a single branched TTree with an std::vector<double>"""
 
         from cppyy import gbl
@@ -195,7 +206,7 @@ class AppTestCINTTTree:
 
         f.Close()
 
-    def test03_write_some_data_object(self):
+    def test04_write_some_data_object(self):
         """Test writing of a complex data object"""
 
         from cppyy import gbl
@@ -220,7 +231,7 @@ class AppTestCINTTTree:
         f.Write()
         f.Close()
 
-    def test04_read_some_data_object(self):
+    def test05_read_some_data_object(self):
         """Test reading of a complex data object"""
 
         from cppyy import gbl
@@ -251,7 +262,7 @@ class AppTestCINTTTree:
         #
         f.Close()
 
-    def test05_branch_activation(self):
+    def test06_branch_activation(self):
         """Test of automatic branch activation"""
 
         from cppyy import gbl
@@ -305,6 +316,49 @@ class AppTestCINTTTree:
                 assert j == self.M
             i += 1
         assert i == self.N
+
+    def test07_write_builtin(self):
+        """Test writing of a builtins"""
+
+        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy.gbl import TFile, TTree
+        from cppyy.gbl.std import vector
+
+        f = TFile(self.fname, "RECREATE")
+        mytree = TTree(self.tname, self.title)
+        mytree._python_owns = False
+
+        import array
+        a = array.array('i', [0])
+        b = array.array('d', [0.])
+
+        mytree.Branch("myi", a, "myi/I")
+        mytree.Branch("myd", b, "myd/D")
+
+        for i in range(self.N):
+            a[0] = i
+            b[0] = i/2.
+            mytree.Fill()
+        f.Write()
+        f.Close()
+
+    def test08_read_builtin(self):
+        """Test reading of a single branched TTree with an std::vector<double>"""
+
+        from cppyy import gbl
+        from cppyy.gbl import TFile
+
+        f = TFile(self.fname)
+        mytree = f.Get(self.tname)
+
+        i = 0
+        for event in mytree:
+            assert event.myi == i
+            assert event.myd == i/2.
+            i += 1
+        assert i == self.N
+
+        f.Close()
 
 
 class AppTestRegression:
