@@ -17,6 +17,7 @@ class Storage:
     rd_consts = []
     rd_virtuals = None
     rd_pendingfields = None
+    rd_count = 0
 
 
 class FakeOptimizer(object):
@@ -102,9 +103,6 @@ class MyCPU:
         CONST_NULL = ConstPtr(gcrefnull)
     def __init__(self, values):
         self.values = values
-    def get_latest_value_count(self, deadframe):
-        assert deadframe == "deadframe"
-        return len(self.values)
     def get_latest_value_int(self, deadframe, index):
         assert deadframe == "deadframe"
         return self.values[index]
@@ -182,6 +180,7 @@ def test_simple_read():
                             tag(0, TAGBOX),
                             tag(1, TAGBOX)])
     storage.rd_numb = numb
+    storage.rd_count = 3
     #
     cpu = MyCPU([42, gcref1, -66])
     metainterp = MyMetaInterp(cpu)
@@ -500,6 +499,21 @@ def test_capture_resumedata():
     assert snapshot.prev is fs[2].parent_resumedata_snapshot
     assert snapshot.boxes == fs[2]._env
 
+def test_renaming():
+    b1, b2, b3 = [BoxInt(), BoxPtr(), BoxInt()]
+    c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
+    fs = [FakeFrame("code0", 0, b1, c1, b2)]
+
+    storage = Storage()
+    capture_resumedata(fs, None, [], storage)
+    memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
+    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier.finish(FakeOptimizer({}))
+    resume_renum([10, 20], storage)
+    for num, x in zip(storage.rd_numb.prev.nums, [10, 20]):
+        pos, tag = untag(num)
+        if tag == TAGBOX:
+            assert pos == x
 
 class FakeMetaInterpStaticData:
     cpu = LLtypeMixin.cpu

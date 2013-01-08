@@ -1,4 +1,5 @@
 
+import py
 import ctypes, math
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.test.support import LLJitMixin
@@ -106,6 +107,7 @@ class FfiCallTests(object):
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     def test_jit_fii_vref(self):
+        py.test.skip("unsupported so far")
         from pypy.rlib import clibffi
         from pypy.rlib.jit_libffi import jit_ffi_prep_cif, jit_ffi_call
 
