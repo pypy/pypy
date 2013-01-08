@@ -1,5 +1,5 @@
 """
-This file is imported by pypy.translation.driver when running the
+This file is imported by rpython.translator.driver when running the
 target --jittest.  Feel free to hack it as needed; it is imported
 only after the '---> Checkpoint' fork.
 """

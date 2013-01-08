@@ -116,7 +116,7 @@ def find_loop_blocks(graph):
     return loop
 
 def md5digest(translator):
-    from rpython.tool.compat import md5
+    from hashlib import md5
     graph2digest = {}
     for graph in translator.graphs:
         m = md5()

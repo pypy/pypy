@@ -395,7 +395,7 @@ class TranslationDriver(SimpleTaskEngine):
         # print a message, and restart
         from rpython.translator.goal import unixcheckpoint
         unixcheckpoint.restartable_point(auto='run')
-        # load the module pypy/jit/tl/jittest.py, which you can hack at
+        # load the module rpython/jit/tl/jittest.py, which you can hack at
         # and restart without needing to restart the whole translation process
         from rpython.jit.tl import jittest
         jittest.jittest(self)

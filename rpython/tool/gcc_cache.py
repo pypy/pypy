@@ -1,7 +1,7 @@
 from pypy.conftest import pypydir
 from rpython.translator.platform import CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.tool.compat import md5
+from hashlib import md5
 import py
 
 cache_dir_root = py.path.local(pypydir).join('_cache').ensure(dir=1)
