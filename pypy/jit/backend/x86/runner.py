@@ -2,6 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.annlowlevel import cast_instance_to_gcref
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.jit.codewriter import longlong
@@ -101,7 +102,7 @@ class AbstractX86CPU(AbstractLLCPU):
             setitem(index, null)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([jitframe.JITFRAME],
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                              lltype.Signed))
         #
         def execute_token(executable_token, *args):
@@ -113,20 +114,21 @@ class AbstractX86CPU(AbstractLLCPU):
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
             frame = lltype.malloc(jitframe.JITFRAME, clt.frame_depth)
             frame.jf_frame_info = clt.frame_info
+            ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                import pdb
-                pdb.set_trace()
-                descr_no = func(frame)
-                xxx
+                # XXX parameters
+                descr_no = func(ll_frame)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            return frame
+            descr = self.get_fail_descr_from_number(descr_no)
+            frame.jf_descr = cast_instance_to_gcref(descr)
+            return ll_frame
         return execute_token
 
     def cast_ptr_to_int(x):

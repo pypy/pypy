@@ -6,7 +6,7 @@ from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy, Sig
 from pypy.annotation.specialize import flatten_star_args
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import extregistry
 from pypy.objspace.flow.model import Constant
@@ -511,6 +511,11 @@ def cast_instance_to_base_ptr(instance):
 @specialize.argtype(0)
 def cast_instance_to_base_obj(instance):
     return cast_object_to_ptr(base_obj_ootype(), instance)
+
+@specialize.argtype(0)
+def cast_instance_to_gcref(instance):
+    return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                  cast_instance_to_base_ptr(instance))
 
 def base_ptr_lltype():
     from pypy.rpython.lltypesystem.rclass import OBJECTPTR
