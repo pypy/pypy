@@ -77,9 +77,10 @@ class AbstractLLCPU(AbstractCPU):
             return (rffi.cast(lltype.Signed, _exception_emulator) +
                     rffi.sizeof(lltype.Signed))
 
-        self._memoryerror_emulated = rffi.cast(llmemory.GCREF, -123)
-        self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
-        self.deadframe_memoryerror.jf_guard_exc = self._memoryerror_emulated
+        # XXX I think we don't need it any more
+        #self._memoryerror_emulated = rffi.cast(llmemory.GCREF, -123)
+        #self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
+        #self.deadframe_memoryerror.jf_guard_exc = self._memoryerror_emulated
 
         def propagate_exception():
             exc = _exception_emulator[1]
@@ -96,6 +97,7 @@ class AbstractLLCPU(AbstractCPU):
                 else:
                     assert deadframe.jf_descr == faildescr
             else:
+                XXX
                 deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
                 deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
                 deadframe.jf_descr = faildescr
@@ -126,7 +128,7 @@ class AbstractLLCPU(AbstractCPU):
             slowpathaddr = rffi.cast(lltype.Signed, f)
             return endaddr, lengthaddr, slowpathaddr
 
-        self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
+        #self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
 
         def propagate_exception():
             addr = llop.get_exception_addr(llmemory.Address)
@@ -138,6 +140,7 @@ class AbstractLLCPU(AbstractCPU):
             faildescr = self.get_fail_descr_from_number(
                 self.propagate_exception_v)
             faildescr = faildescr.hide(self)
+            XXX
             deadframe = lltype.nullptr(jitframe.DEADFRAME)
             if exc:
                 try:
@@ -169,16 +172,19 @@ class AbstractLLCPU(AbstractCPU):
         return llhelper(self.PROPAGATE_EXCEPTION, self._propagate_exception)
 
     def grab_exc_value(self, deadframe):
+        XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         if not we_are_translated() and deadframe == self.deadframe_memoryerror:
             return "memoryerror!"       # for tests
         return deadframe.jf_guard_exc
 
     def set_savedata_ref(self, deadframe, data):
+        XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         deadframe.jf_savedata = data
 
     def get_savedata_ref(self, deadframe):
+        XXXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return deadframe.jf_savedata
 
@@ -265,23 +271,28 @@ class AbstractLLCPU(AbstractCPU):
                                                       abiname)
 
     def get_latest_descr(self, deadframe):
+        XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
         return history.AbstractDescr.show(self, descr)
 
     def get_latest_value_int(self, deadframe, index):
+        XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return deadframe.jf_values[index].int
 
     def get_latest_value_ref(self, deadframe, index):
+        XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return deadframe.jf_values[index].ref
 
     def get_latest_value_float(self, deadframe, index):
+        XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return deadframe.jf_values[index].float
 
     def get_latest_value_count(self, deadframe):
+        XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return len(deadframe.jf_values)
 

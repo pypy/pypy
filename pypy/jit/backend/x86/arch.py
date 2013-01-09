@@ -40,15 +40,17 @@ else:
 # one word for the force_index, and some extra space used only
 # during a malloc that needs to go via its slow path.
 
+# XXX FORCE_INDEX might need to go to GC frame
+
 if WORD == 4:
     # ebp + ebx + esi + edi + 4 extra words + force_index = 9 words
-    FRAME_FIXED_SIZE = 9
+    FRAME_FIXED_SIZE = 12 # 9 aligned to 16 bytes = 4 * WORD
     FORCE_INDEX_OFS = 0
     SAVED_REGISTERS = 1    # range(1, 5)
     MY_COPY_OF_REGS = 5    # range(5, 9)
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + 11 extra words + force_index = 18
-    FRAME_FIXED_SIZE = 18
+    FRAME_FIXED_SIZE = 18 # 18 aligned to 16 bytes = 2 * WORD
     FORCE_INDEX_OFS = 0
     SAVED_REGISTERS = 1    # range(1, 7)
     MY_COPY_OF_REGS = 7    # range(7, 18)

@@ -49,11 +49,15 @@ class StackLoc(AssemblerLocation):
         # _getregkey() returns self.value; the value returned must not
         # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
         # so let it fail the following assert if it no longer does.
-        assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
+        assert ebp_offset >= 0
+        #assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
         self.position = position
         self.value = ebp_offset
         # One of INT, REF, FLOAT
         self.type = type
+
+    def _getregkey(self):
+        return -(self.value + 1)
 
     def get_width(self):
         if self.type == FLOAT:

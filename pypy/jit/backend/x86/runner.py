@@ -10,6 +10,7 @@ from pypy.jit.backend.x86.assembler import Assembler386
 from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS, IS_X86_32
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
+from pypy.jit.backend.llsupport import jitframe
 from pypy.jit.backend.x86 import regloc
 import sys
 
@@ -100,7 +101,8 @@ class AbstractX86CPU(AbstractLLCPU):
             setitem(index, null)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
+        FUNCPTR = lltype.Ptr(lltype.FuncType([jitframe.JITFRAME],
+                                             lltype.Signed))
         #
         def execute_token(executable_token, *args):
             clt = executable_token.compiled_loop_token
@@ -109,17 +111,22 @@ class AbstractX86CPU(AbstractLLCPU):
             addr = executable_token._x86_function_addr
             func = rffi.cast(FUNCPTR, addr)
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
+            frame = lltype.malloc(jitframe.JITFRAME, clt.frame_depth)
+            frame.jf_frame_info = clt.frame_info
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                deadframe = func(*args)
+                import pdb
+                pdb.set_trace()
+                descr_no = func(frame)
+                xxx
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            return deadframe
+            return frame
         return execute_token
 
     def cast_ptr_to_int(x):

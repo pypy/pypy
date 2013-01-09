@@ -236,6 +236,8 @@ def do_failure_recovery_func(withfloats):
     registers[ACTUAL_CPU.NUM_REGS] = rffi.cast(rffi.LONG, descr_bytes)
     registers[ebp.value] = rffi.cast(rffi.LONG, stack) + WORD*stacklen
 
+    XXX # rewrite
+
     # run!
     assembler = Assembler386(FakeCPU())
     deadframe = assembler.failure_recovery_func(registers)

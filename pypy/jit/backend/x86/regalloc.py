@@ -221,55 +221,64 @@ class RegAlloc(object):
         return self.min_frame_depth
 
     def _set_initial_bindings(self, inputargs):
-        if IS_X86_64:
-            inputargs = self._set_initial_bindings_regs_64(inputargs)
-        #                   ...
-        # stack layout:     arg2
-        #                   arg1
-        #                   arg0
-        #                   return address
-        #                   saved ebp        <-- ebp points here
-        #                   ...
-        cur_frame_pos = - 1 - FRAME_FIXED_SIZE
-        assert get_ebp_ofs(cur_frame_pos-1) == 2*WORD
-        assert get_ebp_ofs(cur_frame_pos-2) == 3*WORD
-        #
         for box in inputargs:
             assert isinstance(box, Box)
-            #
-            if IS_X86_32 and box.type == FLOAT:
-                cur_frame_pos -= 2
-            else:
-                cur_frame_pos -= 1
-            loc = self.fm.frame_pos(cur_frame_pos, box.type)
-            self.fm.set_binding(box, loc)
+            self.fm.get_new_loc(box)
+            #loc = self.fm.frame_pos(cur_frame_pos, box.type)
+            #self.fm.set_binding(box, loc)
 
-    def _set_initial_bindings_regs_64(self, inputargs):
-        # In reverse order for use with pop()
-        unused_gpr = [r9, r8, ecx, edx, esi, edi]
-        unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
-        #
-        pass_on_stack = []
-        #
-        for box in inputargs:
-            assert isinstance(box, Box)
-            #
-            if box.type == FLOAT:
-                if len(unused_xmm) > 0:
-                    ask = unused_xmm.pop()
-                    got = self.xrm.try_allocate_reg(box, selected_reg=ask)
-                    assert ask == got
-                else:
-                    pass_on_stack.append(box)
-            else:
-                if len(unused_gpr) > 0:
-                    ask = unused_gpr.pop()
-                    got = self.rm.try_allocate_reg(box, selected_reg=ask)
-                    assert ask == got
-                else:
-                    pass_on_stack.append(box)
-        #
-        return pass_on_stack
+        # if IS_X86_64:
+    #         inputargs = self._set_initial_bindings_regs_64(inputargs)
+    #     #                   ...
+    #     # stack layout:     arg2
+    #     #                   arg1
+    #     #                   arg0
+    #     #                   return address
+    #     #                   saved ebp        <-- ebp points here
+    #     #                   ...
+    #     XXX # adjust the address to count for the fact that we're passing
+    #     # jitframe as a first arg
+    #     cur_frame_pos = - 1 - FRAME_FIXED_SIZE
+    #     assert get_ebp_ofs(cur_frame_pos-1) == 2*WORD
+    #     assert get_ebp_ofs(cur_frame_pos-2) == 3*WORD
+    #     #
+    #     for box in inputargs:
+    #         assert isinstance(box, Box)
+    #         #
+    #         if IS_X86_32 and box.type == FLOAT:
+    #             cur_frame_pos -= 2
+    #         else:
+    #             cur_frame_pos -= 1
+    #         loc = self.fm.frame_pos(cur_frame_pos, box.type)
+    #         self.fm.set_binding(box, loc)
+
+    # def _set_initial_bindings_regs_64(self, inputargs):
+    #     # In reverse order for use with pop()
+    #     unused_gpr = [r9, r8, ecx, edx, esi] # jitframe comes in edi. don't use
+    #                                          # it for parameter parsing
+    #     unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
+    #     #
+    #     pass_on_stack = []
+    #     #
+    #     for box in inputargs:
+    #         assert isinstance(box, Box)
+    #         #
+    #         if box.type == FLOAT:
+    #             if len(unused_xmm) > 0:
+    #                 ask = unused_xmm.pop()
+    #                 got = self.xrm.try_allocate_reg(box, selected_reg=ask)
+    #                 assert ask == got
+    #             else:
+    #                 pass_on_stack.append(box)
+    #         else:
+    #             if len(unused_gpr) > 0:
+    #                 ask = unused_gpr.pop()
+    #                 got = self.rm.try_allocate_reg(box, selected_reg=ask)
+    #                 assert ask == got
+    #             else:
+    #                 pass_on_stack.append(box)
+    #     #
+    #     return pass_on_stack
 
     def possibly_free_var(self, var):
         if var.type == FLOAT:
@@ -486,8 +495,14 @@ class RegAlloc(object):
     consider_guard_isnull = _consider_guard
 
     def consider_finish(self, op):
+        # the frame is in ebp, but we have to point where in the frame is
+        # the potential argument to FINISH
+        descr = op.getdescr()
+        self.force_spill_var(op.getarg(0))
         loc = self.loc(op.getarg(0))
-        self.Perform(op, [loc], None)
+        descr._x86_result_offset = loc.value
+        fail_no = self.assembler.cpu.get_fail_descr_number(descr)
+        self.Perform(op, [imm(fail_no)], None)
         self.possibly_free_var(op.getarg(0))
 
     def consider_guard_no_exception(self, op):
@@ -1468,7 +1483,7 @@ def get_ebp_ofs(position):
     # Argument is a frame position (0, 1, 2...).
     # Returns (ebp-20), (ebp-24), (ebp-28)...
     # i.e. the n'th word beyond the fixed frame size.
-    return -WORD * (FRAME_FIXED_SIZE + position)
+    return WORD * position
 
 def _valid_addressing_size(size):
     return size == 1 or size == 2 or size == 4 or size == 8

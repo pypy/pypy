@@ -4,6 +4,7 @@ from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from pypy.jit.metainterp.history import JitCellToken
+from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
@@ -498,6 +499,7 @@ class Assembler386(object):
         # for the duration of compiling one loop or a one bridge.
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
+        clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
         if not we_are_translated():
@@ -512,15 +514,14 @@ class Assembler386(object):
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
         self._call_header_with_stack_check()
-        stackadjustpos = self._patchable_stackadjust()
         clt._debug_nbargs = len(inputargs)
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
-        clt.frame_depth = -1     # temporarily
         frame_depth = self._assemble(regalloc, operations)
         clt.frame_depth = frame_depth
+        clt.frame_info.jfi_frame_depth = frame_depth
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -534,7 +535,6 @@ class Assembler386(object):
             rawstart + size_excluding_failure_stuff,
             rawstart))
         debug_stop("jit-backend-addr")
-        self._patch_stackadjust(rawstart + stackadjustpos, frame_depth)
         self.patch_pending_failure_recoveries(rawstart)
         #
         ops_offset = self.mc.ops_offset
@@ -579,7 +579,6 @@ class Assembler386(object):
                                              operations,
                                              self.current_clt.allgcrefs)
 
-        stackadjustpos = self._patchable_stackadjust()
         frame_depth = self._assemble(regalloc, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -590,7 +589,6 @@ class Assembler386(object):
         debug_print("bridge out of Guard %d has address %x to %x" %
                     (descr_number, rawstart, rawstart + codeendpos))
         debug_stop("jit-backend-addr")
-        self._patch_stackadjust(rawstart + stackadjustpos, frame_depth)
         self.patch_pending_failure_recoveries(rawstart)
         if not we_are_translated():
             # for the benefit of tests
@@ -599,7 +597,9 @@ class Assembler386(object):
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
         self.fixup_target_tokens(rawstart)
-        self.current_clt.frame_depth = max(self.current_clt.frame_depth, frame_depth)
+        frame_depth = max(self.current_clt.frame_depth, frame_depth)
+        self.current_clt.frame_depth = frame_depth
+        self.current_clt.frame_info.jfi_frame_depth = frame_depth
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -776,31 +776,19 @@ class Assembler386(object):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
-    def _patchable_stackadjust(self):
-        # stack adjustment LEA
-        self.mc.LEA32_rb(esp.value, 0)
-        return self.mc.get_relative_pos() - 4
-
-    def _patch_stackadjust(self, adr_lea, allocated_depth):
-        # patch stack adjustment LEA
-        mc = codebuf.MachineCodeBlockWrapper()
-        # Compute the correct offset for the instruction LEA ESP, [EBP-4*words]
-        mc.writeimm32(self._get_offset_of_ebp_from_esp(allocated_depth))
-        mc.copy_to_raw_memory(adr_lea)
-
-    def _get_offset_of_ebp_from_esp(self, allocated_depth):
-        # Given that [EBP] is where we saved EBP, i.e. in the last word
-        # of our fixed frame, then the 'words' value is:
-        words = (FRAME_FIXED_SIZE - 1) + allocated_depth
-        # align, e.g. for Mac OS X
-        aligned_words = align_stack_words(words+2)-2 # 2 = EIP+EBP
-        return -WORD * aligned_words
-
     def _call_header(self):
         # NB. the shape of the frame is hard-coded in get_basic_shape() too.
         # Also, make sure this is consistent with FRAME_FIXED_SIZE.
         self.mc.PUSH_r(ebp.value)
-        self.mc.MOV_rr(ebp.value, esp.value)
+        # XXX should be LEA?
+        self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
+        if IS_X86_64:
+            descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+            _, ofs, _ = unpack_arraydescr(descrs.arraydescr)
+            self.mc.LEA_rm(ebp.value, (edi.value, ofs))
+        else:
+            xxx
+
         for loc in self.cpu.CALLEE_SAVE_REGISTERS:
             self.mc.PUSH_r(loc.value)
 
@@ -827,7 +815,7 @@ class Assembler386(object):
         self._call_header()
 
     def _call_footer(self):
-        self.mc.LEA_rb(esp.value, -len(self.cpu.CALLEE_SAVE_REGISTERS) * WORD)
+        self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -1963,6 +1951,7 @@ class Assembler386(object):
         # no malloc allowed here!!  xxx apart from one, hacking a lot
         #self.fail_ebp = allregisters[16 + ebp.value]
         num = 0
+        XXX
         deadframe = lltype.nullptr(jitframe.DEADFRAME)
         # step 1: lots of mess just to count the final value of 'num'
         bytecode1 = bytecode

@@ -21,8 +21,6 @@ class FrameManager(object):
         self.used = []      # list of bools
         self.hint_frame_locations = {}
 
-    frame_depth = property(lambda:xxx, lambda:xxx)   # XXX kill me
-
     def get_frame_depth(self):
         return len(self.used)
 
