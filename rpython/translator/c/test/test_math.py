@@ -1,5 +1,6 @@
 import py, math
-from pypy.module.math.test import test_direct
+from rpython.rtyper.lltypesystem.module.test.test_ll_math import (MathTests,
+                                                                  getTester)
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.rlib import rfloat
 
@@ -11,7 +12,7 @@ def get_test_case((fnname, args, expected)):
         fn = getattr(rfloat, fnname)
     expect_valueerror = (expected == ValueError)
     expect_overflowerror = (expected == OverflowError)
-    check = test_direct.get_tester(expected)
+    check = get_tester(expected)
     #
     def testfn():
         try:
@@ -28,9 +29,9 @@ def get_test_case((fnname, args, expected)):
 
 
 testfnlist = [get_test_case(testcase)
-              for testcase in test_direct.MathTests.TESTCASES]
+              for testcase in MathTests.TESTCASES]
 reprlist = [repr(testcase)
-            for testcase in test_direct.MathTests.TESTCASES]
+            for testcase in MathTests.TESTCASES]
 
 def fn(args):
     err = False
