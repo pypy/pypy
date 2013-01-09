@@ -14,6 +14,7 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.llsupport import jitframe
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.llsupport.symbolic import WORD
+from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -126,6 +127,10 @@ class AbstractX86CPU(AbstractLLCPU):
                 for arg in args:
                     if isinstance(arg, int):
                         self.set_int_value(frame, num, arg)
+                    elif isinstance(arg, float):
+                        self.set_float_value(frame, num, arg)
+                        if IS_X86_32:
+                            num += WORD
                     else:
                         xxx
                     num += WORD
@@ -195,6 +200,24 @@ class AbstractX86CPU(AbstractLLCPU):
             l[i].number = ll_s.number
             l[i].counter = ll_s.i
         return l
+
+    def set_int_value(self, newframe, index, value):
+        """ Note that we keep index multiplied by WORD here mostly
+        for completeness with get_int_value and friends
+        """
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        self.write_int_at_mem(newframe, ofs + index * WORD, WORD, 1, value)
+
+    def set_ref_value(self, newframe, index, value):
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        self.write_ref_at_mem(newframe, ofs + index * WORD, value)
+
+    def set_float_value(self, newframe, index, value):
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        self.write_float_at_mem(newframe, ofs + index * WORD, value)
 
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'

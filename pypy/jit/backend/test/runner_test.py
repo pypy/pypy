@@ -144,7 +144,9 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop(inputargs, operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken,
                                            longlong.getfloatstorage(2.8))
-        res = self.cpu.get_float_value(deadframe, 0)
+        fail = self.cpu.get_latest_descr(deadframe)
+        res = self.cpu.get_float_value(deadframe,
+                                       self.find_pos_on_faildescr(fail))
         assert longlong.getrealfloat(res) == 5.1
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 1

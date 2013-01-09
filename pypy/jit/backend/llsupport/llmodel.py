@@ -275,31 +275,89 @@ class AbstractLLCPU(AbstractCPU):
         return history.AbstractDescr.show(self, descr)
 
     def get_int_value(self, deadframe, index):
-        return deadframe.jf_frame[index // WORD]
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        return self.read_int_at_mem(deadframe, index + ofs, 1, WORD)
 
     def get_ref_value(self, deadframe, index):
-        XXX
-        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
-        return deadframe.jf_values[index].ref
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        return self.read_ref_at_mem(deadframe, index + ofs)
 
     def get_float_value(self, deadframe, index):
-        XXX
-        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
-        return deadframe.jf_values[index].float
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        return self.read_float_at_mem(deadframe, index + ofs)
 
-    def set_int_value(self, newframe, index, value):
-        """ Note that we keep index multiplied by WORD here mostly
-        for completeness with get_int_value and friends
-        """
-        newframe.jf_frame[index // WORD] = value
+    # ____________________ RAW PRIMITIVES ________________________
 
-    def set_ref_value(self, deadframe, index, value):
-        xxx
+    @specialize.argtype(1)
+    def read_int_at_mem(self, gcref, ofs, size, sign):
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                if sign:
+                    items = rffi.cast(rffi.CArrayPtr(STYPE), items)
+                    val = items[0]
+                    val = rffi.cast(lltype.Signed, val)
+                else:
+                    items = rffi.cast(rffi.CArrayPtr(UTYPE), items)
+                    val = items[0]
+                    val = rffi.cast(lltype.Signed, val)
+                # --- end of GC unsafe code ---
+                return val
+        else:
+            raise NotImplementedError("size = %d" % size)
 
-    def set_float_value(self, deadframe, index, value):
-        xxx
+    @specialize.argtype(1)
+    def write_int_at_mem(self, gcref, ofs, size, sign, newvalue):
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        for TYPE, _, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                items[0] = rffi.cast(TYPE, newvalue)
+                # --- end of GC unsafe code ---
+                return
+        else:
+            raise NotImplementedError("size = %d" % size)
+
+    def read_ref_at_mem(self, gcref, ofs):
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+        pval = self._cast_int_to_gcref(items[0])
+        # --- end of GC unsafe code ---
+        return pval
+
+    def write_ref_at_mem(self, gcref, ofs, newvalue):
+        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+        items[0] = self.cast_gcref_to_int(newvalue)
+        # --- end of GC unsafe code ---
+
+    @specialize.argtype(1)
+    def read_float_at_mem(self, gcref, ofs):
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
+        fval = items[0]
+        # --- end of GC unsafe code ---
+        return fval
+
+    @specialize.argtype(1)
+    def write_float_at_mem(self, gcref, ofs, newvalue):
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
+        items[0] = newvalue
+        # --- end of GC unsafe code ---
 
     # ____________________________________________________________
+
 
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
@@ -309,73 +367,34 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def bh_getarrayitem_gc_i(self, gcref, itemindex, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                if sign:
-                    items = rffi.cast(rffi.CArrayPtr(STYPE), items)
-                    val = items[itemindex]
-                    val = rffi.cast(lltype.Signed, val)
-                else:
-                    items = rffi.cast(rffi.CArrayPtr(UTYPE), items)
-                    val = items[itemindex]
-                    val = rffi.cast(lltype.Signed, val)
-                # --- end of GC unsafe code ---
-                return val
-        else:
-            raise NotImplementedError("size = %d" % size)
+        return self.read_int_at_mem(gcref, ofs + itemindex * size, size,
+                                    sign)
 
     def bh_getarrayitem_gc_r(self, gcref, itemindex, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        pval = self._cast_int_to_gcref(items[itemindex])
-        # --- end of GC unsafe code ---
-        return pval
+        return self.read_ref_at_mem(gcref, itemindex * WORD + ofs)
 
     @specialize.argtype(1)
     def bh_getarrayitem_gc_f(self, gcref, itemindex, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        fval = items[itemindex]
-        # --- end of GC unsafe code ---
-        return fval
+        fsize = rffi.sizeof(longlong.FLOATSTORAGE)
+        return self.read_float_at_mem(gcref, itemindex * fsize + ofs)
 
     @specialize.argtype(1)
     def bh_setarrayitem_gc_i(self, gcref, itemindex, newvalue, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        for TYPE, _, itemsize in unroll_basic_sizes:
-            if size == itemsize:
-                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
-                items[itemindex] = rffi.cast(TYPE, newvalue)
-                # --- end of GC unsafe code ---
-                return
-        else:
-            raise NotImplementedError("size = %d" % size)
+        self.write_int_at_mem(gcref, ofs + itemindex * size, size, sign,
+                              newvalue)
 
     def bh_setarrayitem_gc_r(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
-        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
-        items[itemindex] = self.cast_gcref_to_int(newvalue)
-        # --- end of GC unsafe code ---
+        self.write_ref_at_mem(gcref, itemindex * WORD + ofs, newvalue)
 
     @specialize.argtype(1)
     def bh_setarrayitem_gc_f(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
-        # --- start of GC unsafe code (no GC operation!) ---
-        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
-        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
-        items[itemindex] = newvalue
-        # --- end of GC unsafe code ---
+        fsize = rffi.sizeof(longlong.FLOATSTORAGE)
+        self.write_float_at_mem(gcref, ofs + itemindex * fsize, newvalue)
 
     bh_setarrayitem_raw_i = bh_setarrayitem_gc_i
     bh_setarrayitem_raw_f = bh_setarrayitem_gc_f
