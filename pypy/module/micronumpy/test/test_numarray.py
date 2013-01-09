@@ -1368,6 +1368,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b[1,2] == -1
         b[1,2] = 30
         assert a[1,2].imag == 30
+        a.real = 13
+        assert a[1,1].real == 13
+        a=array([1+1j, 2-3j, 4+5j, -6+7j, 8-9j, -2-1j]) 
+        a.real = 13
+        assert a[3].real == 13
 
     def test_tolist_scalar(self):
         from _numpypy import int32, bool_
