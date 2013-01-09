@@ -161,8 +161,8 @@ class W_ComplexDtype(W_Dtype):
                  alternate_constructors=[], aliases=[],
                  fields=None, fieldnames=None, native=True, float_type=None):
         W_Dtype.__init__(self, itemtype, num, kind, name, char, w_box_type,
-                 alternate_constructors=[], aliases=[],
-                 fields=None, fieldnames=None, native=True)
+                 alternate_constructors=alternate_constructors, aliases=aliases,
+                 fields=fields, fieldnames=fieldnames, native=native)
         self.float_type = float_type
 
     def is_complex_type(self):
