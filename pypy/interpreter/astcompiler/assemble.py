@@ -5,6 +5,8 @@ Python control flow graph generation and bytecode assembly.
 from pypy.interpreter.astcompiler import ast, symtable
 from pypy.interpreter import pycode
 from pypy.tool import stdlib_opcode as ops
+from rpython.tool import stdlib_opcode as ops2
+print dir(ops2)
 
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import we_are_translated

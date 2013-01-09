@@ -32,7 +32,7 @@ load_pypy_opcode()
 del load_pypy_opcode
 
 bytecode_spec = BytecodeSpec('pypy', opmap, HAVE_ARGUMENT)
-bytecode_spec.to_globals()
+bytecode_spec.to_globals(globals())
 
 opcode_method_names = bytecode_spec.method_names
 opcodedesc = bytecode_spec.opcodedesc
