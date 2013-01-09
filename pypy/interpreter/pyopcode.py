@@ -15,7 +15,7 @@ from rpython.rlib import jit, rstackovf
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import check_nonneg
-from rpython.tool.stdlib_opcode import (bytecode_spec,
+from pypy.tool.stdlib_opcode import (bytecode_spec,
                                      unrolling_all_opcode_descs)
 
 def unaryoperation(operationname):

@@ -106,7 +106,7 @@ def exc_info_without_tb(space, frame):
                            space.w_None])
 
 def exc_info_direct(space, frame):
-    from rpython.tool import stdlib_opcode
+    from pypy.tool import stdlib_opcode
     # In order to make the JIT happy, we try to return (exc, val, None)
     # instead of (exc, val, tb).  We can do that only if we recognize
     # the following pattern in the bytecode:

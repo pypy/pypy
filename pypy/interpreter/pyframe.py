@@ -12,7 +12,7 @@ from rpython.rlib.jit import hint
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib import jit
-from rpython.tool import stdlib_opcode
+from pypy.tool import stdlib_opcode
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 # Define some opcodes used

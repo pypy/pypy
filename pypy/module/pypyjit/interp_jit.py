@@ -27,7 +27,7 @@ PyFrame._virtualizable2_ = ['last_instr', 'pycode',
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
 def get_printable_location(next_instr, is_being_profiled, bytecode):
-    from rpython.tool.stdlib_opcode import opcode_method_names
+    from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 

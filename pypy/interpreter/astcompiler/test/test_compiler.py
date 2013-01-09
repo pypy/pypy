@@ -4,7 +4,7 @@ from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
-from rpython.tool import stdlib_opcode as ops
+from pypy.tool import stdlib_opcode as ops
 
 def compile_with_astcompiler(expr, mode, space):
     p = pyparse.PythonParser(space)
