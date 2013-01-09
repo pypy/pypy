@@ -1,3 +1,4 @@
-import os
+from os.path import *
 
-cdir = os.path.join(os.path.dirname(__file__), 'translator', 'c')
+cdir = realpath(join(dirname(__file__), 'translator', 'c'))
+cache_dir = realpath(join(dirname(__file__), '_cache'))

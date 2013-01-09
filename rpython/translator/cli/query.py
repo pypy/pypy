@@ -65,8 +65,8 @@ def load_assembly(name):
 
 
 def get_cachedir():
-    import pypy
-    _cache = py.path.local(pypy.__file__).new(basename='_cache').ensure(dir=1)
+    from rpython import cache_dir
+    _cache = py.path.local(cache_dir).ensure(dir=1)
     return _cache
 
 def load_and_cache_assembly(name, outfile):

@@ -1,10 +1,10 @@
-from pypy.conftest import pypydir
 from rpython.translator.platform import CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.conftest import cache_dir
 from hashlib import md5
 import py
 
-cache_dir_root = py.path.local(pypydir).join('_cache').ensure(dir=1)
+cache_dir_root = py.path.local(cache_dir).ensure(dir=1)
 
 def cache_file_path(c_files, eci, cachename):
     "Builds a filename to cache compilation data"
