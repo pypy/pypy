@@ -2,7 +2,6 @@
 The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
-import types
 from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy, Sig
@@ -13,6 +12,7 @@ from pypy.rpython import extregistry
 from pypy.objspace.flow.model import Constant
 from pypy.translator.simplify import get_functype
 from pypy.rpython.rmodel import warning
+from pypy.rlib.objectmodel import specialize
 
 class KeyComp(object):
     def __init__(self, val):
@@ -504,13 +504,13 @@ def cast_object_to_ptr(PTR, object):
     else:
         raise NotImplementedError("cast_object_to_ptr(%r, ...)" % PTR)
 
+@specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
     return cast_object_to_ptr(base_ptr_lltype(), instance)
-cast_instance_to_base_ptr._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.argtype(0)
 def cast_instance_to_base_obj(instance):
     return cast_object_to_ptr(base_obj_ootype(), instance)
-cast_instance_to_base_obj._annspecialcase_ = 'specialize:argtype(0)'
 
 def base_ptr_lltype():
     from pypy.rpython.lltypesystem.rclass import OBJECTPTR

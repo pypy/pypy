@@ -290,11 +290,13 @@ class WarmRunnerDesc(object):
         callgraph = inlinable_static_callers(self.translator.graphs, store_calls=True)
         new_callgraph = []
         new_portals = set()
+        inlined_jit_merge_points = set()
         for caller, block, op_call, callee in callgraph:
             func = getattr(callee, 'func', None)
             _inline_jit_merge_point_ = getattr(func, '_inline_jit_merge_point_', None)
             if _inline_jit_merge_point_:
                 _inline_jit_merge_point_._always_inline_ = True
+                inlined_jit_merge_points.add(_inline_jit_merge_point_)
                 op_jmp_call, jmp_graph = get_jmp_call(callee, _inline_jit_merge_point_)
                 #
                 # now we move the op_jmp_call from callee to caller, just
@@ -315,6 +317,9 @@ class WarmRunnerDesc(object):
         # inline them!
         inline_threshold = 0.1 # we rely on the _always_inline_ set above
         auto_inlining(self.translator, inline_threshold, new_callgraph)
+        # clean up _always_inline_ = True, it can explode later
+        for item in inlined_jit_merge_points:
+            del item._always_inline_
 
         # make a fresh copy of the JitDriver in all newly created
         # jit_merge_points
@@ -689,7 +694,7 @@ class WarmRunnerDesc(object):
         else:
             assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [lltype.Signed, llmemory.GCREF], ASMRESTYPE)
+            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
 
     def rewrite_can_enter_jits(self):
         sublists = {}
@@ -954,15 +959,18 @@ class WarmRunnerDesc(object):
             EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
+        gc_set_extra_threshold = getattr(self.cpu, 'gc_set_extra_threshold',
+                                         lambda: None)
 
-        def assembler_call_helper(failindex, virtualizableref):
-            fail_descr = self.cpu.get_fail_descr_from_number(failindex)
+        def assembler_call_helper(deadframe, virtualizableref):
+            gc_set_extra_threshold()    # XXX temporary hack
+            fail_descr = self.cpu.get_latest_descr(deadframe)
             if vinfo is not None:
                 virtualizable = lltype.cast_opaque_ptr(
                     vinfo.VTYPEPTR, virtualizableref)
                 vinfo.reset_vable_token(virtualizable)
             try:
-                fail_descr.handle_fail(self.metainterp_sd, jd)
+                fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
             except JitException, e:
                 return handle_jitexception(e)
             else:
@@ -1008,6 +1016,9 @@ class WarmRunnerDesc(object):
         origblock.operations.append(newop)
         origblock.exitswitch = None
         origblock.recloseblock(Link([v_result], origportalgraph.returnblock))
+        # the origportal now can raise (even if it did not raise before),
+        # which means that we cannot inline it anywhere any more, but that's
+        # fine since any forced inlining has been done before
         #
         checkgraph(origportalgraph)
 
