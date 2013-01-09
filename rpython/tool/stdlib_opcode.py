@@ -69,13 +69,12 @@ class BytecodeSpec(object):
         self.ordered_opdescs = lst = self.opdescmap.values() 
         lst.sort()
     
-    def to_globals(self):
+    def to_globals(self, globals_dict):
         """NOT_RPYTHON. Add individual opcodes to the module constants."""
-        g = globals()
-        g.update(self.opmap)
-        g['SLICE'] = self.opmap["SLICE+0"]
-        g['STORE_SLICE'] = self.opmap["STORE_SLICE+0"]
-        g['DELETE_SLICE'] = self.opmap["DELETE_SLICE+0"]
+        globals_dict.update(self.opmap)
+        globals_dict['SLICE'] = self.opmap["SLICE+0"]
+        globals_dict['STORE_SLICE'] = self.opmap["STORE_SLICE+0"]
+        globals_dict['DELETE_SLICE'] = self.opmap["DELETE_SLICE+0"]
 
     def __str__(self):
         return "<%s bytecode>" % (self.name,)
