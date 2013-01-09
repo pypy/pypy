@@ -136,7 +136,7 @@ class W_Dtype(Wrappable):
         return self.kind == SIGNEDLTR
 
     def is_complex_type(self):
-        return (self.num == 14 or self.num == 15 or self.num == 16)
+        return False
 
     def is_bool_type(self):
         return self.kind == BOOLLTR
@@ -154,6 +154,19 @@ class W_Dtype(Wrappable):
 
     def get_size(self):
         return self.itemtype.get_element_size()
+
+class W_ComplexDtype(W_Dtype):
+
+    def __init__(self, itemtype, num, kind, name, char, w_box_type,
+                 alternate_constructors=[], aliases=[],
+                 fields=None, fieldnames=None, native=True, float_type=None):
+        W_Dtype.__init__(self, itemtype, num, kind, name, char, w_box_type,
+                 alternate_constructors=[], aliases=[],
+                 fields=None, fieldnames=None, native=True)
+        self.float_type = float_type
+
+    def is_complex_type(self):
+        return True
 
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
@@ -413,15 +426,16 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float],
             aliases=["float"],
         )
-        self.w_complex64dtype = W_Dtype(
+        self.w_complex64dtype = W_ComplexDtype(
             types.Complex64(),
             num=14,
             kind=COMPLEXLTR,
             name="complex64",
             char="F",
             w_box_type = space.gettypefor(interp_boxes.W_Complex64Box),
+            float_type = self.w_float32dtype,
         )
-        self.w_complex128dtype = W_Dtype(
+        self.w_complex128dtype = W_ComplexDtype(
             types.Complex128(),
             num=15,
             kind=COMPLEXLTR,
@@ -430,6 +444,7 @@ class DtypeCache(object):
             w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
             alternate_constructors=[space.w_complex],
             aliases=["complex"],
+            float_type = self.w_float64dtype,
         )
         if interp_boxes.long_double_size == 12:
             self.w_float96dtype = W_Dtype(
@@ -443,7 +458,7 @@ class DtypeCache(object):
             )
             self.w_longdouble = self.w_float96dtype
 
-            self.w_complex192dtype = W_Dtype(
+            self.w_complex192dtype = W_ComplexDtype(
                 types.Complex192(),
                 num=16,
                 kind=COMPLEXLTR,
@@ -452,6 +467,7 @@ class DtypeCache(object):
                 w_box_type = space.gettypefor(interp_boxes.W_Complex192Box),
                 alternate_constructors=[space.w_complex],
                 aliases=["clongdouble", "clongfloat"],
+                float_type = self.w_float96dtype,
             )
             self.w_clongdouble = self.w_complex192dtype
 
@@ -467,7 +483,7 @@ class DtypeCache(object):
             )
             self.w_longdouble = self.w_float128dtype
 
-            self.w_complex256dtype = W_Dtype(
+            self.w_complex256dtype = W_ComplexDtype(
                 types.Complex256(),
                 num=16,
                 kind=COMPLEXLTR,
@@ -476,6 +492,7 @@ class DtypeCache(object):
                 w_box_type = space.gettypefor(interp_boxes.W_Complex256Box),
                 alternate_constructors=[space.w_complex],
                 aliases=["clongdouble", "clongfloat"],
+                float_type = self.w_float128dtype,
             )
             self.w_clongdouble = self.w_complex256dtype
         else:

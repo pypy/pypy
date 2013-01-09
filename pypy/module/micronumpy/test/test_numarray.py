@@ -1360,10 +1360,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == b[1]
         b[1] = 'xyz'
         assert a[1] == 'xyz'
-        a=array([1+1j, 2-3j]) 
-        assert a.real[1] == 2
-        a.real[1] = -20
-        assert a[1].real == -20
+        a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]]) 
+        assert a.real[0,1] == 2
+        a.real[0,1] = -20
+        assert a[0,1].real == -20
+        b = a.imag
+        assert b[1,2] == -1
+        b[1,2] = 30
+        assert a[1,2].imag == 30
 
     def test_tolist_scalar(self):
         from _numpypy import int32, bool_

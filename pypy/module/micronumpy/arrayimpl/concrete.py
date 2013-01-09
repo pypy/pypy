@@ -222,21 +222,26 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return None
     
     def get_real(self):
+        strides = self.get_strides()
+        backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
-            raise NotImplementedError('waiting for astype()')
-        return SliceArray(self.start, self.get_strides(), 
-                          self.get_backstrides(), self.get_shape(), self)
+            dtype =  self.dtype.float_type
+            return SliceArray(self.start, strides, backstrides,
+                          self.get_shape(), self, dtype=dtype)
+        return SliceArray(self.start, strides, backstrides, 
+                          self.get_shape(), self)
 
     def get_imag(self):
+        strides = self.get_strides()
+        backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
-            raise NotImplementedError('waiting for astype()')
+            dtype =  self.dtype.float_type
+            return SliceArray(self.start + dtype.get_size(), strides, 
+                    backstrides, self.get_shape(), self, dtype=dtype)
         if self.dtype.is_flexible_type():
             # numpy returns self for self.imag
-            return SliceArray(self.start, self.get_strides(), 
-                          self.get_backstrides(), self.get_shape(), self)
-   
-        strides, backstrides = support.calc_strides(self.get_shape(), self.dtype,
-                                                    self.order)
+            return SliceArray(self.start, strides, backstrides,
+                    self.get_shape(), self)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
         impl.fill(self.dtype.box(0))
