@@ -153,6 +153,12 @@ def activate_branch(space, w_branch):
     space.call_method(w_branch, "SetStatus", space.wrap(1))
     space.call_method(w_branch, "ResetReadEntry")
 
+c_ttree_GetEntry = rffi.llexternal(
+    "cppyy_ttree_GetEntry",
+    [rffi.VOIDP, rffi.LONGLONG], rffi.LONGLONG,
+    threadsafe=False,
+    compilation_info=eci)
+
 @unwrap_spec(args_w='args_w')
 def ttree_getattr(space, w_self, args_w):
     """Specialized __getattr__ for TTree's that allows switching on/off the
@@ -211,10 +217,9 @@ class W_TTreeIter(Wrappable):
     def __init__(self, space, w_tree):
         from pypy.module.cppyy import interp_cppyy
         tree = space.interp_w(interp_cppyy.W_CPPInstance, w_tree)
-        self.tree = tree.get_cppthis(tree.cppclass)
+        self.vtree = rffi.cast(rffi.VOIDP, tree.get_cppthis(tree.cppclass))
         self.w_tree = w_tree
 
-        self.getentry = tree.cppclass.get_overload("GetEntry").functions[0]
         self.current  = 0
         self.maxentry = space.int_w(space.call_method(w_tree, "GetEntriesFast"))
 
@@ -228,7 +233,7 @@ class W_TTreeIter(Wrappable):
         if self.current == self.maxentry:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         # TODO: check bytes read?
-        self.getentry.call(self.tree, [self.space.wrap(self.current)])
+        c_ttree_GetEntry(self.vtree, self.current)
         self.current += 1 
         return self.w_tree
 

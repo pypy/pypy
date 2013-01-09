@@ -950,3 +950,7 @@ cppyy_object_t cppyy_ttree_Branch(void* vtree, const char* branchname, const cha
     if (b) b->SetObject(addobj);
     return (cppyy_object_t)b;
 }
+
+long long cppyy_ttree_GetEntry(void* vtree, long long entry) {
+    return (long long)((TTree*)vtree)->GetEntry((Long64_t)entry);
+}
