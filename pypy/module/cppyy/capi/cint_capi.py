@@ -200,16 +200,24 @@ def ttree_getattr(space, w_self, args_w):
     else:
         # builtin data
         w_leaf = space.call_method(w_self, "GetLeaf", args_w[0])
-        w_typename = space.call_method(w_leaf, "GetTypeName" )
-        from pypy.module.cppyy import capi
-        typename = capi.c_resolve_name(space.str_w(w_typename))
+        space.call_method(w_branch, "GetEntry", space.wrap(0))
+
+        # location
         w_address = space.call_method(w_leaf, "GetValuePointer")
         buf = space.buffer_w(w_address)
         from pypy.module._rawffi import buffer
         assert isinstance(buf, buffer.RawFFIBuffer)
         address = rffi.cast(rffi.CCHARP, buf.datainstance.ll_buffer)
+
+        # placeholder
+        w_typename = space.call_method(w_leaf, "GetTypeName" )
+        from pypy.module.cppyy import capi
+        typename = capi.c_resolve_name(space.str_w(w_typename))
+        w_address = space.call_method(w_leaf, "GetValuePointer")
         from pypy.module._cffi_backend import cdataobj, newtype
         cdata = cdataobj.W_CData(space, address, newtype.new_primitive_type(space, typename))
+
+        # cache result
         space.setattr(w_self, space.wrap('_'+attr), space.wrap(cdata))
         return space.getattr(w_self, args_w[0])
 

@@ -336,8 +336,8 @@ class AppTestCINTTTree:
         mytree.Branch("myd", b, "myd/D")
 
         for i in range(self.N):
-            a[0] = i
-            b[0] = i/2.
+            a[0] = i+1                 # make sure value is different from default (0)
+            b[0] = (i+1)/2.            # id. 0.
             mytree.Fill()
         f.Write()
         f.Close()
@@ -351,12 +351,12 @@ class AppTestCINTTTree:
         f = TFile(self.fname)
         mytree = f.Get(self.tname)
 
-        i = 0
+        i = 1
         for event in mytree:
             assert event.myi == i
             assert event.myd == i/2.
             i += 1
-        assert i == self.N
+        assert (i-1) == self.N
 
         f.Close()
 
