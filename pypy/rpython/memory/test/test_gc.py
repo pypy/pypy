@@ -557,6 +557,19 @@ class GCTest(object):
         res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
         assert res == True
 
+    def test_weakref_to_prebuilt(self):
+        import weakref
+        class A:
+            pass
+        a = A()
+        def f(x):
+            ref = weakref.ref(a)
+            assert ref() is a
+            llop.gc__collect(lltype.Void)
+            return ref() is a
+        res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
+        assert res == True
+
     def test_many_weakrefs(self):
         # test for the case where allocating the weakref itself triggers
         # a collection

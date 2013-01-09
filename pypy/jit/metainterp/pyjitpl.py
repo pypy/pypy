@@ -1379,16 +1379,15 @@ class MIFrame(object):
         """The 'residual_call' operation is emitted in two cases:
         when we have to generate a residual CALL operation, but also
         to handle an indirect_call that may need to be inlined."""
-        assert isinstance(funcbox, Const)
-        sd = self.metainterp.staticdata
-        key = sd.cpu.ts.getaddr_for_box(funcbox)
-        jitcode = sd.bytecode_for_address(key)
-        if jitcode is not None:
-            # we should follow calls to this graph
-            return self.metainterp.perform_call(jitcode, argboxes)
-        else:
-            # but we should not follow calls to that graph
-            return self.do_residual_call(funcbox, argboxes, calldescr)
+        if isinstance(funcbox, Const):
+            sd = self.metainterp.staticdata
+            key = sd.cpu.ts.getaddr_for_box(funcbox)
+            jitcode = sd.bytecode_for_address(key)
+            if jitcode is not None:
+                # we should follow calls to this graph
+                return self.metainterp.perform_call(jitcode, argboxes)
+        # but we should not follow calls to that graph
+        return self.do_residual_call(funcbox, argboxes, calldescr)
 
 # ____________________________________________________________
 
