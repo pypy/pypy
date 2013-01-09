@@ -1354,12 +1354,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.imag
         assert b[7] == 0
         raises(RuntimeError, 'b[7] = -2')
+        raises(TypeError, 'a.imag = -2')
         a = array(['abc','def'],dtype='S3')
         b = a.real
         assert a[0] == b[0]
         assert a[1] == b[1]
         b[1] = 'xyz'
         assert a[1] == 'xyz'
+        assert a.imag[0] == 'abc'
+        raises(TypeError, 'a.imag = "qop"')
         a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]]) 
         assert a.real[0,1] == 2
         a.real[0,1] = -20
@@ -1373,6 +1376,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         a=array([1+1j, 2-3j, 4+5j, -6+7j, 8-9j, -2-1j]) 
         a.real = 13
         assert a[3].real == 13
+        a.imag = -5
+        a.imag[3] = -10
+        assert a[3].imag == -10
+        assert a[2].imag == -5
 
     def test_tolist_scalar(self):
         from _numpypy import int32, bool_
