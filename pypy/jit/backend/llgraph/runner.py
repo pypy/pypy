@@ -232,26 +232,23 @@ class LLGraphCPU(model.AbstractCPU):
         except ExecutionFinished, e:
             return e.deadframe
 
-    def get_latest_value_int(self, deadframe, index):
+    def get_int_value(self, deadframe, index):
         v = deadframe._values[index]
         assert lltype.typeOf(v) == lltype.Signed
         return v
 
-    def get_latest_value_ref(self, deadframe, index):
+    def get_ref_value(self, deadframe, index):
         v = deadframe._values[index]
         assert lltype.typeOf(v) == llmemory.GCREF
         return v
 
-    def get_latest_value_float(self, deadframe, index):
+    def get_float_value(self, deadframe, index):
         v = deadframe._values[index]
         assert lltype.typeOf(v) == longlong.FLOATSTORAGE
         return v
 
     def get_latest_descr(self, deadframe):
         return deadframe._latest_descr
-
-    def get_latest_value_count(self, deadframe):
-        return len(deadframe._values)
 
     def grab_exc_value(self, deadframe):
         if deadframe._last_exception is not None:
@@ -864,13 +861,13 @@ class LLFrame(object):
         failindex = self.cpu.get_fail_descr_number(faildescr)
         if failindex == self.cpu.done_with_this_frame_int_v:
             reset_vable(jd, vable)
-            return self.cpu.get_latest_value_int(pframe, 0)
+            return self.cpu.get_int_value(pframe, 0)
         if failindex == self.cpu.done_with_this_frame_ref_v:
             reset_vable(jd, vable)
-            return self.cpu.get_latest_value_ref(pframe, 0)
+            return self.cpu.get_ref_value(pframe, 0)
         if failindex == self.cpu.done_with_this_frame_float_v:
             reset_vable(jd, vable)
-            return self.cpu.get_latest_value_float(pframe, 0)
+            return self.cpu.get_float_value(pframe, 0)
         if failindex == self.cpu.done_with_this_frame_void_v:
             reset_vable(jd, vable)
             return None

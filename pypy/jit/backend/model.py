@@ -132,28 +132,22 @@ class AbstractCPU(object):
         """Returns the Descr for the last operation executed by the frame."""
         raise NotImplementedError
 
-    def get_latest_value_int(self, deadframe, index):
+    def get_int_value(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns an int."""
         raise NotImplementedError
 
-    def get_latest_value_float(self, deadframe, index):
+    def get_float_value(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns a FLOATSTORAGE."""
         raise NotImplementedError
 
-    def get_latest_value_ref(self, deadframe, index):
+    def get_ref_value(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns a GCREF."""
-        raise NotImplementedError
-
-    def get_latest_value_count(self, deadframe):
-        """Return how many values are ready to be returned by
-        get_latest_value_xxx().  Only after a guard failure; not
-        necessarily correct after a FINISH."""
         raise NotImplementedError
 
     def grab_exc_value(self, deadframe):

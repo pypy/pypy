@@ -13,6 +13,7 @@ from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.llsupport import jitframe
 from pypy.jit.backend.x86 import regloc
+from pypy.jit.backend.llsupport.symbolic import WORD
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -120,7 +121,14 @@ class AbstractX86CPU(AbstractLLCPU):
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                # XXX parameters
+                # XXX RPythonize
+                num = 0
+                for arg in args:
+                    if isinstance(arg, int):
+                        self.set_int_value(frame, num, arg)
+                    else:
+                        xxx
+                    num += WORD
                 descr_no = func(ll_frame)
             finally:
                 if not self.translate_support_code:
@@ -128,7 +136,7 @@ class AbstractX86CPU(AbstractLLCPU):
             #llop.debug_print(lltype.Void, "<<<< Back")
             descr = self.get_fail_descr_from_number(descr_no)
             frame.jf_descr = cast_instance_to_gcref(descr)
-            return ll_frame
+            return frame
         return execute_token
 
     def cast_ptr_to_int(x):

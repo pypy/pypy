@@ -271,29 +271,33 @@ class AbstractLLCPU(AbstractCPU):
                                                       abiname)
 
     def get_latest_descr(self, deadframe):
-        deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
         return history.AbstractDescr.show(self, descr)
 
-    def get_latest_value_int(self, deadframe, index):
-        XXX
-        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
-        return deadframe.jf_values[index].int
+    def get_int_value(self, deadframe, index):
+        return deadframe.jf_frame[index // WORD]
 
-    def get_latest_value_ref(self, deadframe, index):
+    def get_ref_value(self, deadframe, index):
         XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return deadframe.jf_values[index].ref
 
-    def get_latest_value_float(self, deadframe, index):
+    def get_float_value(self, deadframe, index):
         XXX
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return deadframe.jf_values[index].float
 
-    def get_latest_value_count(self, deadframe):
-        XXX
-        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
-        return len(deadframe.jf_values)
+    def set_int_value(self, newframe, index, value):
+        """ Note that we keep index multiplied by WORD here mostly
+        for completeness with get_int_value and friends
+        """
+        newframe.jf_frame[index // WORD] = value
+
+    def set_ref_value(self, deadframe, index, value):
+        xxx
+
+    def set_float_value(self, deadframe, index, value):
+        xxx
 
     # ____________________________________________________________
 
