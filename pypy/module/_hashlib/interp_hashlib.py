@@ -27,7 +27,7 @@ class W_Hash(Wrappable):
         self.lock = Lock(space)
 
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
-        rgc.add_memory_pressure(HASH_MALLOC_SIZE + self.digest_size)
+        rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
         try:
             if copy_from:
                 ropenssl.EVP_MD_CTX_copy(ctx, copy_from)
