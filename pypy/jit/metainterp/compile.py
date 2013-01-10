@@ -650,7 +650,7 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 
 class AllVirtuals:
     llopaque = True
-    list = [resume.ResumeDataDirectReader.virtual_ref_default]   # annotation hack
+    list = [resume.ResumeDataDirectReader.virtual_ptr_default]   # annotation hack
     def __init__(self, list):
         self.list = list
     def hide(self, cpu):

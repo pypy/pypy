@@ -745,7 +745,7 @@ class AbstractResumeDataReader(object):
     _mixin_ = True
     rd_virtuals = None
     virtuals_cache = None
-    virtual_ref_default = None
+    virtual_ptr_default = None
     virtual_int_default = None
 
 
@@ -758,7 +758,7 @@ class AbstractResumeDataReader(object):
         self._prepare_virtuals(storage.rd_virtuals)
         self._prepare_pendingfields(storage.rd_pendingfields)
 
-    def getvirtual_ref(self, index):
+    def getvirtual_ptr(self, index):
         # Returns the index'th virtual, building it lazily if needed.
         # Note that this may be called recursively; that's why the
         # allocate() methods must fill in the cache as soon as they
@@ -786,7 +786,7 @@ class AbstractResumeDataReader(object):
                 rd_virtual = rd_virtuals[i]
                 if rd_virtual is not None:
                     if rd_virtual.kind == REF:
-                        self.getvirtual_ref(i)
+                        self.getvirtual_ptr(i)
                     elif rd_virtual.kind == INT:
                         self.getvirtual_int(i)
                     else:
@@ -800,7 +800,7 @@ class AbstractResumeDataReader(object):
             # for REFs and one for INTs: but for each index, we are using
             # either one or the other, so we should think of a way to
             # "compact" them
-            self.virtuals_cache = self.VirtualCache([self.virtual_ref_default] * len(virtuals),
+            self.virtuals_cache = self.VirtualCache([self.virtual_ptr_default] * len(virtuals),
                                                     [self.virtual_int_default] * len(virtuals))
 
     def _prepare_pendingfields(self, pendingfields):
@@ -1057,7 +1057,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             if kind == INT:
                 box = self.getvirtual_int(num)
             else:
-                box = self.getvirtual_ref(num)
+                box = self.getvirtual_ptr(num)
         elif tag == TAGINT:
             box = ConstInt(num)
         else:
@@ -1152,7 +1152,7 @@ def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
 
 class ResumeDataDirectReader(AbstractResumeDataReader):
     unique_id = lambda: None
-    virtual_ref_default = lltype.nullptr(llmemory.GCREF.TO)
+    virtual_ptr_default = lltype.nullptr(llmemory.GCREF.TO)
     virtual_int_default = 0
     resume_after_guard_not_forced = 0
     VirtualCache = get_VirtualCache_class('DirectReader')
@@ -1370,7 +1370,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
                 return self.cpu.ts.NULLREF
             return self.consts[num].getref_base()
         elif tag == TAGVIRTUAL:
-            return self.getvirtual_ref(num)
+            return self.getvirtual_ptr(num)
         else:
             assert tag == TAGBOX
             if num < 0:
