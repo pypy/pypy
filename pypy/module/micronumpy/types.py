@@ -368,8 +368,8 @@ class Integer(Primitive):
     def str_format(self, box):
         return str(self.for_computation(self.unbox(box)))
 
-    @staticmethod
-    def for_computation(v):
+    #@staticmethod #v can be all kinds of int
+    def for_computation(self, v):
         return widen(v)
 
     def default_fromstring(self, space):
@@ -634,8 +634,8 @@ class Float(Primitive):
         return float2string(self.for_computation(self.unbox(box)), "g",
                             rfloat.DTSF_STR_PRECISION)
 
-    @staticmethod
-    def for_computation(v):
+    #@staticmethod #v can be a longfloat
+    def for_computation(self, v):
         return float(v)
 
     def default_fromstring(self, space):
