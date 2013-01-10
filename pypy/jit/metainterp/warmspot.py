@@ -1111,7 +1111,7 @@ class WarmRunnerDesc(object):
         for graph, block, i in find_force_quasi_immutable(graphs):
             self.replace_force_quasiimmut_with_direct_call(block.operations[i])
 
-def hook_for_tests():
+def hook_for_tests(cpu):
     """
     This function is empty and does nothing. Its only role is to be
     monkey-patched by tests to "fix" the annotator if needed (see
