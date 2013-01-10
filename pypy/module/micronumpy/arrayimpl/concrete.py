@@ -78,9 +78,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         if self.dtype.is_complex_type():
             dtype =  self.dtype.float_type
             return SliceArray(self.start, strides, backstrides,
-                          self.get_shape(), self, dtype=dtype)
+                          self.get_shape(), self, self, dtype=dtype)
         return SliceArray(self.start, strides, backstrides, 
-                          self.get_shape(), self)
+                          self.get_shape(), self, self)
 
     def get_imag(self):
         strides = self.get_strides()
@@ -88,11 +88,11 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         if self.dtype.is_complex_type():
             dtype =  self.dtype.float_type
             return SliceArray(self.start + dtype.get_size(), strides, 
-                    backstrides, self.get_shape(), self, dtype=dtype)
+                    backstrides, self.get_shape(), self, self, dtype=dtype)
         if self.dtype.is_flexible_type():
             # numpy returns self for self.imag
             return SliceArray(self.start, strides, backstrides,
-                    self.get_shape(), self)
+                    self.get_shape(), self, self)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
         impl.fill(self.dtype.box(0))
@@ -320,7 +320,7 @@ class ConcreteArray(BaseConcreteArray):
         return None
 
 class NonWritableArray(ConcreteArray):
-    def descr_setitem(self, space, w_index, w_value):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_RuntimeError, space.wrap(
             "array is not writable"))
         
