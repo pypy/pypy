@@ -650,9 +650,9 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 
 class AllVirtuals:
     llopaque = True
-    list = [resume.ResumeDataDirectReader.virtual_ptr_default]   # annotation hack
-    def __init__(self, list):
-        self.list = list
+    cache = None
+    def __init__(self, cache):
+        self.cache = cache
     def hide(self, cpu):
         ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(ptr)
@@ -676,7 +676,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         from pypy.jit.metainterp.blackhole import resume_in_blackhole
         hidden_all_virtuals = metainterp_sd.cpu.get_savedata_ref(deadframe)
         obj = AllVirtuals.show(metainterp_sd.cpu, hidden_all_virtuals)
-        all_virtuals = obj.list
+        all_virtuals = obj.cache
         if all_virtuals is None:
             all_virtuals = ResumeDataDirectReader.VirtualCache([], [])
         assert jitdriver_sd is self.jitdriver_sd
