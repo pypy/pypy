@@ -547,13 +547,13 @@ elif hasattr(os, 'waitpid'):
 if hasattr(os, 'kill'):
     def test_kill_to_send_sigusr1():
         import signal
-        from pypy.module.signal import interp_signal
+        from rpython.rlib import rsignal
         def does_stuff():
-            interp_signal.pypysig_setflag(signal.SIGUSR1)
+            rsignal.pypysig_setflag(signal.SIGUSR1)
             os.kill(os.getpid(), signal.SIGUSR1)
-            interp_signal.pypysig_ignore(signal.SIGUSR1)
+            rsignal.pypysig_ignore(signal.SIGUSR1)
             while True:
-                n = interp_signal.pypysig_poll()
+                n = rsignal.pypysig_poll()
                 if n < 0 or n == signal.SIGUSR1:
                     break
             return n
@@ -564,14 +564,14 @@ if hasattr(os, 'kill'):
 if hasattr(os, 'killpg'):
     def test_killpg():
         import signal
-        from pypy.module.signal import interp_signal
+        from rpython.rlib import rsignal
         def does_stuff():
             os.setpgid(0, 0)     # become its own separated process group
-            interp_signal.pypysig_setflag(signal.SIGUSR1)
+            rsignal.pypysig_setflag(signal.SIGUSR1)
             os.killpg(os.getpgrp(), signal.SIGUSR1)
-            interp_signal.pypysig_ignore(signal.SIGUSR1)
+            rsignal.pypysig_ignore(signal.SIGUSR1)
             while True:
-                n = interp_signal.pypysig_poll()
+                n = rsignal.pypysig_poll()
                 if n < 0 or n == signal.SIGUSR1:
                     break
             return n

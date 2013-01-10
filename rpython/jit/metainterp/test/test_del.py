@@ -123,46 +123,8 @@ class DelTests:
         res = self.meta_interp(main, [20])
         assert res == 1001
 
-# Minimal copy of pypy.module.signal.interp_signal.SignalActionFlag for
-# TestLLtype
-from rpython.rtyper.lltypesystem import lltype, rffi
-
-class Ticker(object):
-    def __init__(self):
-        self.ticker = rffi.llexternal('ticker', [],
-                                     lltype.Ptr(LONG_STRUCT),
-                                     compilation_info=eci,
-                                     sandboxsafe=True, _nowrapper=True,
-                                     elidable_function=True)
-    
-    def reset_ticker(self, value):
-        self.ticker().c_value = value
-
-    def decrement_ticker(self, by):
-        self.ticker().c_value -= by
-        return self.ticker().c_value
-
 class TestLLtype(DelTests, LLJitMixin):
-    def test_signal_action(self):
-        action = Ticker()
-        #
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
-        class X:
-            pass
-        #
-        def f(n):
-            x = X()
-            action.reset_ticker(n)
-            while True:
-                myjitdriver.can_enter_jit(n=n, x=x)
-                myjitdriver.jit_merge_point(n=n, x=x)
-                x.foo = n
-                n -= 1
-                if action.decrement_ticker(1) < 0:
-                    break
-            return 42
-        self.meta_interp(f, [20])
-        self.check_resops(call_pure=0, setfield_raw=2, call=0, getfield_raw=2)
+    pass
 
 class TestOOtype(DelTests, OOJitMixin):
     def setup_class(cls):
