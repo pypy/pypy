@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
-    getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc,
+    getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc)
@@ -59,6 +59,16 @@ def wrap_binaryfunc(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
+
+def wrap_inquirypred(space, w_self, w_args, func):
+    func_inquiry = rffi.cast(inquiry, func)
+    check_num_args(space, w_args, 0)
+    args_w = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_inquiry, w_self)
+    res = rffi.cast(lltype.Signed, res)
+    if res == -1:
+        space.fromcache(State).check_and_raise_exception()
+    return space.wrap(bool(res))
 
 def wrap_getattr(space, w_self, w_args, func):
     func_target = rffi.cast(getattrfunc, func)
@@ -167,14 +177,16 @@ def wrap_sq_delitem(space, w_self, w_args, func):
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
 
+# Warning, confusing function name (like CPython).  Used only for sq_contains.
 def wrap_objobjproc(space, w_self, w_args, func):
     func_target = rffi.cast(objobjproc, func)
     check_num_args(space, w_args, 1)
     w_value, = space.fixedview(w_args)
     res = generic_cpy_call(space, func_target, w_self, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
+    res = rffi.cast(lltype.Signed, res)
+    if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(res)
+    return space.wrap(bool(res))
 
 def wrap_objobjargproc(space, w_self, w_args, func):
     func_target = rffi.cast(objobjargproc, func)
@@ -183,7 +195,16 @@ def wrap_objobjargproc(space, w_self, w_args, func):
     res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(res)
+    return space.w_None
+
+def wrap_delitem(space, w_self, w_args, func):
+    func_target = rffi.cast(objobjargproc, func)
+    check_num_args(space, w_args, 1)
+    w_key, = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_key, None)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.w_None
 
 def wrap_ssizessizeargfunc(space, w_self, w_args, func):
     func_target = rffi.cast(ssizessizeargfunc, func)
@@ -290,6 +311,14 @@ def slot_tp_str(space, w_self):
 @cpython_api([PyObject], PyObject, external=False)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iter(space, w_self):
+    return space.iter(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iternext(space, w_self):
+    return space.next(w_self)
 
 from pypy.rlib.nonconst import NonConstant
 
@@ -631,6 +660,19 @@ slotdefs = eval(slotdefs_str)
 slotdefs += (
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
 )
+
+# partial sort to solve some slot conflicts:
+# Number slots before Mapping slots before Sequence slots.
+# These are the only conflicts between __name__ methods
+def slotdef_sort_key(slotdef):
+    if slotdef.slot_name.startswith('tp_as_number'):
+        return 1
+    if slotdef.slot_name.startswith('tp_as_mapping'):
+        return 2
+    if slotdef.slot_name.startswith('tp_as_sequence'):
+        return 3
+    return 0
+slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 
 slotdefs_for_tp_slots = unrolling_iterable(
     [(x.method_name, x.slot_name, x.slot_names, x.slot_func)

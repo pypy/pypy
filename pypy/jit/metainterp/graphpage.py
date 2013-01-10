@@ -169,9 +169,9 @@ class ResOpGen(object):
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
                 if jd_sd._get_printable_location_ptr:
-                    s = jd_sd.warmstate.get_location_str(op.getarglist()[2:])
+                    s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
                     s = s.replace(',', '.') # we use comma for argument splitting
-                    op_repr = "debug_merge_point(%d, '%s')" % (op.getarg(1).getint(), s)
+                    op_repr = "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
             lines.append(op_repr)
             if is_interesting_guard(op):
                 tgt = op.getdescr()._debug_suboperations[0]

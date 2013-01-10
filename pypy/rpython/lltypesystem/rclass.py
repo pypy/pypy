@@ -14,9 +14,8 @@ from pypy.rpython.lltypesystem.lltype import \
      cast_pointer, cast_ptr_to_int, castable, nullptr, \
      RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
      Array, Char, Void, \
-     FuncType, Bool, Signed, functionptr, PyObject
+     FuncType, Bool, Signed, functionptr
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import intmask
@@ -746,4 +745,5 @@ class Entry(ExtRegistryEntry):
         assert isinstance(TYPE, GcStruct)
         assert lltype._castdepth(TYPE, OBJECT) > 0
         hop.rtyper.set_type_for_typeptr(vtable, TYPE)
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)

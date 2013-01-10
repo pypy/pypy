@@ -1,4 +1,6 @@
-from pypy.objspace.flow.model import *
+from pypy.objspace.flow.model import (Variable, Constant, Block, Link,
+    SpaceOperation, c_last_exception, checkgraph)
+
 
 def copyvar(annotator, v):
     """Make a copy of the Variable v, preserving annotations and concretetype."""
@@ -51,7 +53,7 @@ def starts_with_empty_block(graph):
 
 def split_block(annotator, block, index, _forcelink=None):
     """return a link where prevblock is the block leading up but excluding the
-    index'th operation and target is a new block with the neccessary variables 
+    index'th operation and target is a new block with the neccessary variables
     passed on.
     """
     assert 0 <= index <= len(block.operations)
@@ -102,7 +104,14 @@ def split_block(annotator, block, index, _forcelink=None):
                 # then it's ok to recreate its value in the target block.
                 # If not, then we have a problem :-)
                 from pypy.rpython.lltypesystem import lltype
-                assert v.concretetype is lltype.Void
+                if v.concretetype is not lltype.Void:
+                    raise Exception(
+                        "The variable %r of type %r was not explicitly listed"
+                        " in _forcelink.  This issue can be caused by a"
+                        " jitdriver.jit_merge_point() where some variable"
+                        " containing an int or str or instance is actually"
+                        " known to be constant, e.g. always 42." % (
+                        v, v.concretetype))
                 c = Constant(None, lltype.Void)
                 w = varmap[v]
                 newop = SpaceOperation('same_as', [c], w)

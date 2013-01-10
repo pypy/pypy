@@ -580,6 +580,7 @@ class List(BuiltinADTType):
             "_ll_resize_ge": Meth([Signed], Void),
             "_ll_resize_le": Meth([Signed], Void),
             "_ll_resize": Meth([Signed], Void),
+            "_ll_resize_hint": Meth([Signed], Void),
         })
 
         self._setup_methods(generic_types)
@@ -1295,6 +1296,8 @@ class OverloadingResolver(object):
         for meth in self.overloadings:
             ARGS = meth._TYPE.ARGS
             if ARGS in signatures:
+                # XXX Conflict on 'Signed' vs 'SignedLongLong' on win64.
+                # XXX note that this partially works if this error is ignored.
                 raise TypeError, 'Bad overloading'
             signatures.add(ARGS)
 

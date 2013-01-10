@@ -10,6 +10,7 @@ import sys
 import signal
 import subprocess
 import time
+
 from test import test_support
 import mmap
 import uuid
@@ -74,23 +75,24 @@ class TemporaryFileTests(unittest.TestCase):
         self.assertFalse(os.path.exists(name),
                     "file already exists for temporary file")
         # make sure we can create the file
-        f = open(name, "w")
-        f.close()
+        open(name, "w")
         self.files.append(name)
 
     def test_tempnam(self):
         if not hasattr(os, "tempnam"):
             return
-        warnings.filterwarnings("ignore", "tempnam", RuntimeWarning,
-                                r"test_os$")
-        self.check_tempfile(os.tempnam())
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "tempnam", RuntimeWarning,
+                                    r"test_os$")
+            warnings.filterwarnings("ignore", "tempnam", DeprecationWarning)
+            self.check_tempfile(os.tempnam())
 
-        name = os.tempnam(test_support.TESTFN)
-        self.check_tempfile(name)
+            name = os.tempnam(test_support.TESTFN)
+            self.check_tempfile(name)
 
-        name = os.tempnam(test_support.TESTFN, "pfx")
-        self.assertTrue(os.path.basename(name)[:3] == "pfx")
-        self.check_tempfile(name)
+            name = os.tempnam(test_support.TESTFN, "pfx")
+            self.assertTrue(os.path.basename(name)[:3] == "pfx")
+            self.check_tempfile(name)
 
     def test_tmpfile(self):
         if not hasattr(os, "tmpfile"):
@@ -109,63 +111,69 @@ class TemporaryFileTests(unittest.TestCase):
         # test that a subsequent call to os.tmpfile() raises the same error. If
         # it doesn't, assume we're on XP or below and the user running the test
         # has administrative privileges, and proceed with the test as normal.
-        if sys.platform == 'win32':
-            name = '\\python_test_os_test_tmpfile.txt'
-            if os.path.exists(name):
-                os.remove(name)
-            try:
-                fp = open(name, 'w')
-            except IOError, first:
-                # open() failed, assert tmpfile() fails in the same way.
-                # Although open() raises an IOError and os.tmpfile() raises an
-                # OSError(), 'args' will be (13, 'Permission denied') in both
-                # cases.
-                try:
-                    fp = os.tmpfile()
-                except OSError, second:
-                    self.assertEqual(first.args, second.args)
-                else:
-                    self.fail("expected os.tmpfile() to raise OSError")
-                return
-            else:
-                # open() worked, therefore, tmpfile() should work.  Close our
-                # dummy file and proceed with the test as normal.
-                fp.close()
-                os.remove(name)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "tmpfile", DeprecationWarning)
 
-        fp = os.tmpfile()
-        fp.write("foobar")
-        fp.seek(0,0)
-        s = fp.read()
-        fp.close()
-        self.assertTrue(s == "foobar")
+            if sys.platform == 'win32':
+                name = '\\python_test_os_test_tmpfile.txt'
+                if os.path.exists(name):
+                    os.remove(name)
+                try:
+                    fp = open(name, 'w')
+                except IOError, first:
+                    # open() failed, assert tmpfile() fails in the same way.
+                    # Although open() raises an IOError and os.tmpfile() raises an
+                    # OSError(), 'args' will be (13, 'Permission denied') in both
+                    # cases.
+                    try:
+                        fp = os.tmpfile()
+                    except OSError, second:
+                        self.assertEqual(first.args, second.args)
+                    else:
+                        self.fail("expected os.tmpfile() to raise OSError")
+                    return
+                else:
+                    # open() worked, therefore, tmpfile() should work.  Close our
+                    # dummy file and proceed with the test as normal.
+                    fp.close()
+                    os.remove(name)
+
+            fp = os.tmpfile()
+            fp.write("foobar")
+            fp.seek(0,0)
+            s = fp.read()
+            fp.close()
+            self.assertTrue(s == "foobar")
 
     def test_tmpnam(self):
         if not hasattr(os, "tmpnam"):
             return
-        warnings.filterwarnings("ignore", "tmpnam", RuntimeWarning,
-                                r"test_os$")
-        name = os.tmpnam()
-        if sys.platform in ("win32",):
-            # The Windows tmpnam() seems useless.  From the MS docs:
-            #
-            #     The character string that tmpnam creates consists of
-            #     the path prefix, defined by the entry P_tmpdir in the
-            #     file STDIO.H, followed by a sequence consisting of the
-            #     digit characters '0' through '9'; the numerical value
-            #     of this string is in the range 1 - 65,535.  Changing the
-            #     definitions of L_tmpnam or P_tmpdir in STDIO.H does not
-            #     change the operation of tmpnam.
-            #
-            # The really bizarre part is that, at least under MSVC6,
-            # P_tmpdir is "\\".  That is, the path returned refers to
-            # the root of the current drive.  That's a terrible place to
-            # put temp files, and, depending on privileges, the user
-            # may not even be able to open a file in the root directory.
-            self.assertFalse(os.path.exists(name),
-                        "file already exists for temporary file")
-        else:
-            self.check_tempfile(name)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "tmpnam", RuntimeWarning,
+                                    r"test_os$")
+            warnings.filterwarnings("ignore", "tmpnam", DeprecationWarning)
+
+            name = os.tmpnam()
+            if sys.platform in ("win32",):
+                # The Windows tmpnam() seems useless.  From the MS docs:
+                #
+                #     The character string that tmpnam creates consists of
+                #     the path prefix, defined by the entry P_tmpdir in the
+                #     file STDIO.H, followed by a sequence consisting of the
+                #     digit characters '0' through '9'; the numerical value
+                #     of this string is in the range 1 - 65,535.  Changing the
+                #     definitions of L_tmpnam or P_tmpdir in STDIO.H does not
+                #     change the operation of tmpnam.
+                #
+                # The really bizarre part is that, at least under MSVC6,
+                # P_tmpdir is "\\".  That is, the path returned refers to
+                # the root of the current drive.  That's a terrible place to
+                # put temp files, and, depending on privileges, the user
+                # may not even be able to open a file in the root directory.
+                self.assertFalse(os.path.exists(name),
+                            "file already exists for temporary file")
+            else:
+                self.check_tempfile(name)
 
 # Test attributes on return values from os.*stat* family.
 class StatAttributeTests(unittest.TestCase):
@@ -236,7 +244,7 @@ class StatAttributeTests(unittest.TestCase):
         except TypeError:
             pass
 
-        # Use the constructr with a too-long tuple.
+        # Use the constructor with a too-long tuple.
         try:
             result2 = os.stat_result((0,1,2,3,4,5,6,7,8,9,10,11,12,13,14))
         except TypeError:
@@ -283,7 +291,7 @@ class StatAttributeTests(unittest.TestCase):
         except TypeError:
             pass
 
-        # Use the constructr with a too-long tuple.
+        # Use the constructor with a too-long tuple.
         try:
             result2 = os.statvfs_result((0,1,2,3,4,5,6,7,8,9,10,11,12,13,14))
         except TypeError:
@@ -312,6 +320,11 @@ class StatAttributeTests(unittest.TestCase):
         if get_file_system(test_support.TESTFN) == "NTFS":
             def test_1565150(self):
                 t1 = 1159195039.25
+                os.utime(self.fname, (t1, t1))
+                self.assertEqual(os.stat(self.fname).st_mtime, t1)
+
+            def test_large_time(self):
+                t1 = 5000000000 # some day in 2128
                 os.utime(self.fname, (t1, t1))
                 self.assertEqual(os.stat(self.fname).st_mtime, t1)
 
@@ -348,6 +361,20 @@ class EnvironTests(mapping_tests.BasicTestMappingProtocol):
             with os.popen("/bin/sh -c 'echo $HELLO'") as popen:
                 value = popen.read().strip()
                 self.assertEqual(value, "World")
+
+    # On FreeBSD < 7 and OS X < 10.6, unsetenv() doesn't return a value (issue
+    # #13415).
+    @unittest.skipIf(sys.platform.startswith(('freebsd', 'darwin')),
+                     "due to known OS bug: see issue #13415")
+    def test_unset_error(self):
+        if sys.platform == "win32":
+            # an environment variable is limited to 32,767 characters
+            key = 'x' * 50000
+            self.assertRaises(ValueError, os.environ.__delitem__, key)
+        else:
+            # "=" is not allowed in a variable name
+            key = 'key='
+            self.assertRaises(OSError, os.environ.__delitem__, key)
 
 class WalkTests(unittest.TestCase):
     """Tests for os.walk()."""
@@ -500,18 +527,41 @@ class DevNullTests (unittest.TestCase):
         f.close()
 
 class URandomTests (unittest.TestCase):
-    def test_urandom(self):
-        try:
-            self.assertEqual(len(os.urandom(1)), 1)
-            self.assertEqual(len(os.urandom(10)), 10)
-            self.assertEqual(len(os.urandom(100)), 100)
-            self.assertEqual(len(os.urandom(1000)), 1000)
-            # see http://bugs.python.org/issue3708
-            self.assertRaises(TypeError, os.urandom, 0.9)
-            self.assertRaises(TypeError, os.urandom, 1.1)
-            self.assertRaises(TypeError, os.urandom, 2.0)
-        except NotImplementedError:
-            pass
+
+    def test_urandom_length(self):
+        self.assertEqual(len(os.urandom(0)), 0)
+        self.assertEqual(len(os.urandom(1)), 1)
+        self.assertEqual(len(os.urandom(10)), 10)
+        self.assertEqual(len(os.urandom(100)), 100)
+        self.assertEqual(len(os.urandom(1000)), 1000)
+
+    def test_urandom_value(self):
+        data1 = os.urandom(16)
+        data2 = os.urandom(16)
+        self.assertNotEqual(data1, data2)
+
+    def get_urandom_subprocess(self, count):
+        # We need to use repr() and eval() to avoid line ending conversions
+        # under Windows.
+        code = '\n'.join((
+            'import os, sys',
+            'data = os.urandom(%s)' % count,
+            'sys.stdout.write(repr(data))',
+            'sys.stdout.flush()',
+            'print >> sys.stderr, (len(data), data)'))
+        cmd_line = [sys.executable, '-c', code]
+        p = subprocess.Popen(cmd_line, stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        self.assertEqual(p.wait(), 0, (p.wait(), err))
+        out = eval(out)
+        self.assertEqual(len(out), count, err)
+        return out
+
+    def test_urandom_subprocess(self):
+        data1 = self.get_urandom_subprocess(16)
+        data2 = self.get_urandom_subprocess(16)
+        self.assertNotEqual(data1, data2)
 
     def test_execvpe_with_bad_arglist(self):
         self.assertRaises(ValueError, os.execvpe, 'notepad', [], None)
@@ -678,7 +728,8 @@ else:
     class PosixUidGidTests(unittest.TestCase):
         pass
 
-@unittest.skipUnless(sys.platform == "win32", "Win32 specific tests")
+@unittest.skipUnless(sys.platform == "win32" and hasattr(os,'kill'),
+                         "Win32 specific tests")
 class Win32KillTests(unittest.TestCase):
     def _kill(self, sig):
         # Start sys.executable as a subprocess and communicate from the

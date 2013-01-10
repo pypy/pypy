@@ -1,12 +1,11 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
 import py.test
 
 
 ## class AppTestSimpleArray:
+##     spaceconfig = dict(usemodules=('array',))
 ##     def setup_class(cls):
-##         cls.space = gettestobjspace(usemodules=('array',))
 ##         cls.w_simple_array = cls.space.appexec([], """():
 ##             import array
 ##             return array.simple_array
@@ -433,7 +432,25 @@ class BaseArrayTests:
         a = self.array('h', 'Hi')
         buf = buffer(a)
         assert buf[1] == 'i'
-        #raises(TypeError, buf.__setitem__, 1, 'o')
+
+    def test_buffer_write(self):
+        a = self.array('c', 'hello')
+        buf = buffer(a)
+        print repr(buf)
+        try:
+            buf[3] = 'L'
+        except TypeError:
+            skip("buffer(array) returns a read-only buffer on CPython")
+        assert a.tostring() == 'helLo'
+
+    def test_buffer_keepalive(self):
+        buf = buffer(self.array('c', 'text'))
+        assert buf[2] == 'x'
+        #
+        a = self.array('c', 'foobarbaz')
+        buf = buffer(a)
+        a.fromstring('some extra text')
+        assert buf[:] == 'foobarbazsome extra text'
 
     def test_list_methods(self):
         assert repr(self.array('i')) == "array('i')"
@@ -535,12 +552,6 @@ class BaseArrayTests:
                 assert (b >= a) is True
                 assert (a >= c) is False
                 assert (c >= a) is True
-
-                assert cmp(a, a) == 0
-                assert cmp(a, b) == 0
-                assert cmp(a, c) <  0
-                assert cmp(b, a) == 0
-                assert cmp(c, a) >  0
 
     def test_reduce(self):
         import pickle
@@ -668,6 +679,22 @@ class BaseArrayTests:
 
         a.__delslice__(0, 2)
         assert repr(a) == "array('i', [5])"
+
+        a = self.array('i', [1, 2, 3, 4, 5])
+        del a[3:1]
+        assert repr(a) == "array('i', [1, 2, 3, 4, 5])"
+
+        del a[-100:1]
+        assert repr(a) == "array('i', [2, 3, 4, 5])"
+
+        del a[3:]
+        assert repr(a) == "array('i', [2, 3, 4])"
+
+        del a[-1:]
+        assert repr(a) == "array('i', [2, 3])"
+
+        del a[1:100]
+        assert repr(a) == "array('i', [2])"
 
     def test_iter(self):
         a = self.array('i', [1, 2, 3])
@@ -850,9 +877,11 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
         cls.maxint = sys.maxint
 
+
 class AppTestArray(BaseArrayTests):
+    spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'))
         cls.w_array = cls.space.appexec([], """():
             import array
             return array.array
@@ -860,7 +889,7 @@ class AppTestArray(BaseArrayTests):
         cls.w_tempfile = cls.space.wrap(
             str(py.test.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
-    
+
     def test_buffer_info(self):
         a = self.array('c', 'Hi!')
         bi = a.buffer_info()
@@ -874,3 +903,57 @@ class AppTestArray(BaseArrayTests):
         a = self.array('b', range(4))
         a[::-1] = a
         assert a == self.array('b', [3, 2, 1, 0])
+
+    def test_array_multiply(self):
+        a = self.array('b', [0])
+        b = a * 13
+        assert b[12] == 0
+        b = 13 * a
+        assert b[12] == 0
+        a *= 13
+        assert a[12] == 0
+        a = self.array('b', [1])
+        b = a * 13
+        assert b[12] == 1
+        b = 13 * a
+        assert b[12] == 1
+        a *= 13
+        assert a[12] == 1
+        a = self.array('i', [0])
+        b = a * 13
+        assert b[12] == 0
+        b = 13 * a
+        assert b[12] == 0
+        a *= 13
+        assert a[12] == 0
+        a = self.array('i', [1])
+        b = a * 13
+        assert b[12] == 1
+        b = 13 * a
+        assert b[12] == 1
+        a *= 13
+        assert a[12] == 1
+        a = self.array('i', [0, 0])
+        b = a * 13
+        assert len(b) == 26
+        assert b[22] == 0
+        b = 13 * a
+        assert len(b) == 26
+        assert b[22] == 0
+        a *= 13
+        assert a[22] == 0
+        assert len(a) == 26
+        a = self.array('f', [-0.0])
+        b = a * 13
+        assert len(b) == 13
+        assert str(b[12]) == "-0.0"
+        a = self.array('d', [-0.0])
+        b = a * 13
+        assert len(b) == 13
+        assert str(b[12]) == "-0.0"
+
+
+class AppTestArrayBuiltinShortcut(AppTestArray):
+    spaceconfig = AppTestArray.spaceconfig.copy()
+    spaceconfig['objspace.std.builtinshortcut'] = True
+

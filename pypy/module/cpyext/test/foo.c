@@ -19,6 +19,7 @@ typedef struct {
     double foo_double;
     long long foo_longlong;
     unsigned long long foo_ulonglong;
+    Py_ssize_t foo_ssizet;
 } fooobject;
 
 static PyTypeObject footype;
@@ -71,6 +72,13 @@ foo_create(fooobject *self)
 }
 
 static PyObject *
+foo_classmeth(PyObject *cls)
+{
+    Py_INCREF(cls);
+    return cls;
+}
+
+static PyObject *
 foo_unset(fooobject *self)
 {
     self->foo_string = NULL;
@@ -81,6 +89,7 @@ foo_unset(fooobject *self)
 static PyMethodDef foo_methods[] = {
     {"copy",      (PyCFunction)foo_copy,      METH_NOARGS,  NULL},
     {"create",    (PyCFunction)foo_create,    METH_NOARGS|METH_STATIC,  NULL},
+    {"classmeth", (PyCFunction)foo_classmeth, METH_NOARGS|METH_CLASS,  NULL},
     {"unset_string_member", (PyCFunction)foo_unset, METH_NOARGS, NULL},
     {NULL, NULL}                 /* sentinel */
 };
@@ -172,9 +181,12 @@ static PyMemberDef foo_members[] = {
     {"float_member", T_FLOAT, offsetof(fooobject, foo_float), 0, NULL},
     {"double_member", T_DOUBLE, offsetof(fooobject, foo_double), 0, NULL},
     {"longlong_member", T_LONGLONG, offsetof(fooobject, foo_longlong), 0, NULL},
-    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},
+    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},  
+    {"ssizet_member", T_PYSSIZET, offsetof(fooobject, foo_ssizet), 0, NULL},
     {NULL}  /* Sentinel */
 };
+
+PyDoc_STRVAR(foo_doc, "foo is for testing.");
 
 static PyTypeObject footype = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -198,7 +210,7 @@ static PyTypeObject footype = {
     (setattrofunc)foo_setattro, /*tp_setattro*/
     0,                       /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT,      /*tp_flags*/
-    0,                       /*tp_doc*/
+    foo_doc,                 /*tp_doc*/
     0,                       /*tp_traverse*/
     0,                       /*tp_clear*/
     0,                       /*tp_richcompare*/

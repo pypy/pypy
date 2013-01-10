@@ -406,8 +406,12 @@ try:
             continue
         if hasattr(lib, 'uuid_generate_random'):
             _uuid_generate_random = lib.uuid_generate_random
+            _uuid_generate_random.argtypes = [ctypes.c_char * 16]
+            _uuid_generate_random.restype = None
         if hasattr(lib, 'uuid_generate_time'):
             _uuid_generate_time = lib.uuid_generate_time
+            _uuid_generate_time.argtypes = [ctypes.c_char * 16]
+            _uuid_generate_time.restype = None
 
     # The uuid_generate_* functions are broken on MacOS X 10.5, as noted
     # in issue #8621 the function generates the same sequence of values
@@ -436,6 +440,9 @@ try:
         lib = None
     _UuidCreate = getattr(lib, 'UuidCreateSequential',
                           getattr(lib, 'UuidCreate', None))
+    if _UuidCreate is not None:
+        _UuidCreate.argtypes = [ctypes.c_char * 16]
+        _UuidCreate.restype = ctypes.c_int
 except:
     pass
 

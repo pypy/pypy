@@ -21,9 +21,7 @@ class OperationError(Exception):
     _application_traceback = None
 
     def __init__(self, w_type, w_value, tb=None):
-        if not we_are_translated() and w_type is None:
-            from pypy.tool.error import FlowingError
-            raise FlowingError(w_value)
+        assert w_type is not None
         self.setup(w_type)
         self._w_value = w_value
         self._application_traceback = tb
@@ -163,9 +161,7 @@ class OperationError(Exception):
         # Or 'Class' can also be an old-style class and 'inst' an old-style
         # instance of it.
         #
-        # Note that 'space.full_exceptions' is set to False by the flow
-        # object space; in this case we must assume that we are in a
-        # non-advanced case, and ignore the advanced cases.  Old-style
+        # The flow object space only deals with non-advanced case. Old-style
         # classes and instances *are* advanced.
         #
         #  input (w_type, w_value)... becomes...                advanced case?
@@ -180,9 +176,8 @@ class OperationError(Exception):
         #
         w_type  = self.w_type
         w_value = self.get_w_value(space)
-        if space.full_exceptions:
-            while space.is_true(space.isinstance(w_type, space.w_tuple)):
-                w_type = space.getitem(w_type, space.wrap(0))
+        while space.is_true(space.isinstance(w_type, space.w_tuple)):
+            w_type = space.getitem(w_type, space.wrap(0))
 
         if space.exception_is_valid_obj_as_class_w(w_type):
             # this is for all cases of the form (Class, something)
@@ -196,8 +191,7 @@ class OperationError(Exception):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
-                    if space.full_exceptions and space.is_true(
-                        space.isinstance(w_value, space.w_tuple)):
+                    if space.is_true(space.isinstance(w_value, space.w_tuple)):
                         # raise Type, tuple: assume the tuple contains the
                         #                    constructor args
                         w_value = space.call(w_type, w_value)
@@ -229,7 +223,8 @@ class OperationError(Exception):
             raise operationerrfmt(space.w_TypeError, msg, typename)
         return w_type
 
-    def write_unraisable(self, space, where, w_object=None):
+    def write_unraisable(self, space, where, w_object=None,
+                         with_traceback=False, extra_line=''):
         if w_object is None:
             objrepr = ''
         else:
@@ -237,10 +232,28 @@ class OperationError(Exception):
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
                 objrepr = '?'
-        msg = 'Exception %s in %s%s ignored\n' % (
-            self.errorstr(space, use_repr=True), where, objrepr)
+        #
         try:
-            space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
+            if with_traceback:
+                w_t = self.w_type
+                w_v = self.get_w_value(space)
+                w_tb = space.wrap(self.get_traceback())
+                space.appexec([space.wrap(where),
+                               space.wrap(objrepr),
+                               space.wrap(extra_line),
+                               w_t, w_v, w_tb],
+                """(where, objrepr, extra_line, t, v, tb):
+                    import sys, traceback
+                    sys.stderr.write('From %s%s:\\n' % (where, objrepr))
+                    if extra_line:
+                        sys.stderr.write(extra_line)
+                    traceback.print_exception(t, v, tb)
+                """)
+            else:
+                msg = 'Exception %s in %s%s ignored\n' % (
+                    self.errorstr(space, use_repr=True), where, objrepr)
+                space.call_method(space.sys.get('stderr'), 'write',
+                                  space.wrap(msg))
         except OperationError:
             pass   # ignored
 
@@ -322,9 +335,7 @@ def get_operrcls2(valuefmt):
                 self.xstrings = strings
                 for i, attr in entries:
                     setattr(self, attr, args[i])
-                if not we_are_translated() and w_type is None:
-                    from pypy.tool.error import FlowingError
-                    raise FlowingError(self._compute_value())
+                assert w_type is not None
             def _compute_value(self):
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, attr in entries:
@@ -388,7 +399,7 @@ else:
         return OperationError(exc, w_error)
 
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
-                  w_exception_class=None): 
+                  w_exception_class=None):
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):

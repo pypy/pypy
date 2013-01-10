@@ -37,7 +37,7 @@ class TestMath(BaseRtypingTest, LLRtypeMixin):
             assert self.interpret(f, [0.3, 0.4]) == f(0.3, 0.4)
         return next_test
 
-    for name in ll_math.unary_math_functions + ['log', 'log10', 'sin', 'cos', 'sqrt']:
+    for name in ll_math.unary_math_functions + ['log', 'log10', 'log1p', 'sin', 'cos', 'sqrt']:
         func_name = 'test_%s' % (name,)
         next_test = new_unary_test(name)
         next_test.func_name = func_name
@@ -82,3 +82,11 @@ class TestMath(BaseRtypingTest, LLRtypeMixin):
                 return -42.0
 
         assert self.interpret(f, [10.0, 40000]) == -42.0
+
+    def test_log1p_zero(self):
+        def f(x):
+            x = rfloat.copysign(0.0, x)
+            return rfloat.copysign(1.0, rfloat.log1p(x))
+
+        assert self.interpret(f, [3.0]) == 1.0
+        assert self.interpret(f, [-2.0]) == -1.0

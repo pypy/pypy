@@ -1,4 +1,5 @@
-import py
+import py, re, sys
+from pypy.tool.udir import udir
 # tests here are run as snippets through a pexpected python subprocess
 
 def setup_module(mod):
@@ -7,59 +8,71 @@ def setup_module(mod):
         mod.termios = termios
     except ImportError:
         py.test.skip("termios not found")
+    try:
+        import pexpect
+    except ImportError:
+        py.test.skip("pexpect not found")
+    fname = udir.join('expect_test.py')
+    fname.write('''
+import termios
+print str(termios.tcgetattr(2)[:-1])
+''')
+    child = pexpect.spawn('python', [str(fname)])
+    child.logfile = sys.stderr
+    x = child.wait()
+    assert x == 0
+    mod.TCGETATTR = child.readlines()[0][:-2]
 
-class ExpectTestLLTermios(object):
+class TestLLTermios(object):
+
+    def run(self, arg, expected):
+        import pexpect
+        child = pexpect.spawn(str(arg.builder.executable_name))
+        child.expect(re.escape(expected))
+        assert child.status is None
+    
     def test_tcgetattr(self):
         from pypy.translator.c.test.test_genc import compile
-        import termios
         from pypy.rlib import rtermios
         def runs_tcgetattr():
             tpl = list(rtermios.tcgetattr(2)[:-1])
             return str(tpl)
 
         fn = compile(runs_tcgetattr, [], backendopt=False)
-        res = fn()
-        res2 = str(rtermios.tcgetattr(2)[:-1])
-        assert res[1:-1] == res2[1:-1]
+        self.run(fn, TCGETATTR)
 
     def test_tcgetattr2(self):
         from pypy.translator.c.test.test_genc import compile
-        from pypy.rpython.module import ll_termios
         from pypy.rlib import rtermios
         import os, errno
-        import termios
-        def runs_tcgetattr(fd):
+        def runs_tcgetattr(): 
+            fd = os.open('.', 0, 0777)
             try:
                 rtermios.tcgetattr(fd)
             except OSError, e:
-                return e.errno
-            return 0
+                assert e.errno == errno.ENOTTY
+                print "ok"
 
-        fn = compile(runs_tcgetattr, [int], backendopt=False)
-        fd = os.open('.', 0)
-        try:
-            res = fn(fd)
-            assert res == errno.ENOTTY
-        finally:
-            os.close(fd)
-
+        fn = compile(runs_tcgetattr, [], backendopt=False)
+        self.run(fn, "ok")
+        
     def test_tcsetattr(self):
         # a test, which doesn't even check anything.
         # I've got no idea how to test it to be honest :-(
         from pypy.translator.c.test.test_genc import compile
-        from pypy.rpython.module import ll_termios
         from pypy.rlib import rtermios
-        import termios, time
+        import time
         def runs_tcsetattr():
             tp = rtermios.tcgetattr(2)
             a, b, c, d, e, f, g = tp
             rtermios.tcsetattr(2, rtermios.TCSANOW, (a, b, c, d, e, f, g))
-            time.sleep(1)
+            time.sleep(.1)
             tp = rtermios.tcgetattr(2)
             assert tp[5] == f
+            print "ok"
 
         fn = compile(runs_tcsetattr, [], backendopt=False)
-        fn()
+        self.run(fn, "ok")
 
     def test_tcrest(self):
         from pypy.translator.c.test.test_genc import compile
@@ -70,10 +83,12 @@ class ExpectTestLLTermios(object):
             termios.tcdrain(2)
             termios.tcflush(2, termios.TCIOFLUSH)
             termios.tcflow(2, termios.TCOON)
+            print "ok"
 
         fn = compile(runs_tcall, [], backendopt=False)
-        fn()
+        self.run(fn, "ok")
 
+class ExpectTestTermios(object):
     def test_tcsetattr_icanon(self):
         from pypy.rlib import rtermios
         import termios

@@ -557,6 +557,19 @@ class GCTest(object):
         res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
         assert res == True
 
+    def test_weakref_to_prebuilt(self):
+        import weakref
+        class A:
+            pass
+        a = A()
+        def f(x):
+            ref = weakref.ref(a)
+            assert ref() is a
+            llop.gc__collect(lltype.Void)
+            return ref() is a
+        res = self.interpret(f, [20])  # for GenerationGC, enough for a minor collection
+        assert res == True
+
     def test_many_weakrefs(self):
         # test for the case where allocating the weakref itself triggers
         # a collection
@@ -746,6 +759,30 @@ class GCTest(object):
         res = self.interpret(fn, [])
         assert res == ord('y')
 
+    def test_gcflag_extra(self):
+        class A:
+            pass
+        a1 = A()
+        def fn():
+            a2 = A()
+            if not rgc.has_gcflag_extra():
+                return     # cannot test it then
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+        self.interpret(fn, [])
+
 from pypy.rlib.objectmodel import UnboxedValue
 
 class TaggedBase(object):
@@ -766,12 +803,6 @@ class UnboxedObject(TaggedBase, UnboxedValue):
         return self.smallint + x + 3
 
 
-class TestMarkSweepGC(GCTest):
-    from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
-
-    def test_weakref_to_object_with_finalizer_ordering(self):
-        py.test.skip("Does not work")
-
 class TestSemiSpaceGC(GCTest, snippet.SemiSpaceGCTests):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
     GC_CAN_MOVE = True
@@ -784,15 +815,6 @@ class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
 
 class TestGenerationalGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
-
-class TestMarkCompactGC(TestSemiSpaceGC):
-    from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
-    GC_PARAMS = {'space_size': 65536+16384}
-    GC_CAN_SHRINK_ARRAY = False
-    GC_CAN_SHRINK_BIG_ARRAY = False
-
-    def test_finalizer_order(self):
-        py.test.skip("Not implemented yet")
 
 class TestHybridGC(TestGenerationalGC):
     from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass

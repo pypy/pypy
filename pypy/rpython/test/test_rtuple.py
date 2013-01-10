@@ -1,11 +1,10 @@
-from pypy.translator.translator import TranslationContext
-from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rtupletype
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rint import signed_repr
+from pypy.rpython.lltypesystem.lltype import Signed, Bool
 from pypy.rpython.rbool import bool_repr
+from pypy.rpython.rint import signed_repr
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-import py
+from pypy.translator.translator import TranslationContext
+
 
 def test_rtuple():
     from pypy.rpython.lltypesystem.rtuple import TupleRepr
@@ -18,9 +17,9 @@ class BaseTestRtuple(BaseRtypingTest):
 
     def test_simple(self):
         def dummyfn(x):
-            l = (10,x,30)
+            l = (10, x, 30)
             return l[2]
-        res = self.interpret(dummyfn,[4])
+        res = self.interpret(dummyfn, [4])
         assert res == 30
 
     def test_len(self):
@@ -302,50 +301,15 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(f, [53])
         assert res is True
 
-    TUPLES = [
-        ((1,2),  (2,3),   -1),
-        ((1,2),  (1,3),   -1),
-        ((1,2),  (1,1),    1),
-        ((1,2),  (1,2),    0),
-        ((1.,2.),(2.,3.), -1),
-        ((1.,2.),(1.,3.), -1),
-        ((1.,2.),(1.,1.),  1),
-        ((1.,2.),(1.,2.),  0),
-        ((1,2.),(2,3.), -1),
-        ((1,2.),(1,3.), -1),
-        ((1,2.),(1,1.),  1),
-        ((1,2.),(1,2.),  0),
-##         ((1,"def"),(1,"abc"), -1),
-##         ((1.,"abc"),(1.,"abc"), 0),
-        ]
-
-    def test_tuple_comparison(self):
-        def f_lt( a, b, c, d ):
-            return (a,b) < (c,d)
-        def f_le( a, b, c, d ):
-            return (a,b) <= (c,d)
-        def f_gt( a, b, c, d ):
-            return (a,b) > (c,d)
-        def f_ge( a, b, c, d ):
-            return (a,b) >= (c,d)
-        def test_lt( a,b,c,d,resu ):
-            res = self.interpret(f_lt,[a,b,c,d])
-            assert res == (resu == -1), "Error (%s,%s)<(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-        def test_le( a,b,c,d,resu ):
-            res = self.interpret(f_le,[a,b,c,d])
-            assert res == (resu <= 0), "Error (%s,%s)<=(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-        def test_gt( a,b,c,d,resu ):
-            res = self.interpret(f_gt,[a,b,c,d])
-            assert res == ( resu == 1 ), "Error (%s,%s)>(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-        def test_ge( a,b,c,d,resu ):
-            res = self.interpret(f_ge,[a,b,c,d])
-            assert res == ( resu >= 0 ), "Error (%s,%s)>=(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-
-        for (a,b),(c,d),resu in self.TUPLES:
-            yield test_lt, a,b,c,d, resu
-            yield test_gt, a,b,c,d, resu
-            yield test_le, a,b,c,d, resu
-            yield test_ge, a,b,c,d, resu
+    def test_compare_list_char_str(self):
+        def fn(i, j):
+            t1 = ([str(i)],)
+            t2 = ([chr(j)],)
+            return t1 == t2
+        res = self.interpret(fn, [65, 65])
+        assert res is False
+        res = self.interpret(fn, [1, 49])
+        assert res is True
 
     def test_tuple_hash_2(self):
         from pypy.rlib.objectmodel import compute_hash

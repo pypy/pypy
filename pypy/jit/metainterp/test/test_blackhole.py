@@ -15,7 +15,7 @@ class FakeCodeWriter:
 class FakeAssembler:
     pass
 class FakeCPU:
-    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_i(self, func, args_i, args_r, args_f, calldescr):
         assert func == 321
         assert calldescr == "<calldescr>"
         if args_i[0] < 0:
@@ -89,14 +89,14 @@ def test_simple_loop():
 
 def test_simple_exception():
     jitcode = JitCode("test")
-    jitcode.setup(    # residual_call_ir_i $<* fn g>, <Descr>, I[%i9], R[], %i8
-                  "\x01\xFF\x00\x00\x01\x09\x00\x08"
+    jitcode.setup(    # residual_call_ir_i $<* fn g>, I[%i9], R[], <Descr>  %i8
+                  "\x01\xFF\x01\x09\x00\x00\x00\x08"
                   "\x00\x0D\x00"          #     catch_exception L1
                   "\x02\x08"              #     int_return %i8
                   "\x03\x2A",             # L1: int_return $42
                   [321])   # <-- address of the function g
     blackholeinterp = getblackholeinterp({'catch_exception/L': 0,
-                                          'residual_call_ir_i/idIR>i': 1,
+                                          'residual_call_ir_i/iIRd>i': 1,
                                           'int_return/i': 2,
                                           'int_return/c': 3},
                                          ["<calldescr>"])

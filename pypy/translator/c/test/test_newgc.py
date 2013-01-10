@@ -1,20 +1,23 @@
-import py
-import sys, os, inspect
+import gc
+import inspect
+import os
+import sys
 
-from pypy.objspace.flow.model import summary
-from pypy.rpython.lltypesystem import lltype, llmemory
+import py
+
+from pypy import conftest
+from pypy.rlib import rgc
+from pypy.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash
+from pypy.rlib.rstring import StringBuilder
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.memory.test import snippet
-from pypy.rlib import rgc
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.tool.udir import udir
 from pypy.translator.interactive import Translation
-from pypy.annotation import policy as annpolicy
-from pypy import conftest
 
-class TestUsingFramework(object):
-    gcpolicy = "marksweep"
+
+class UsingFrameworkTest(object):
+    #gcpolicy = ... specified by subclasses
     should_be_moving = False
     removetypeptr = False
     taggedpointers = False
@@ -38,8 +41,7 @@ class TestUsingFramework(object):
                 print res
             return 0
 
-        t = Translation(main, standalone=True, gc=cls.gcpolicy,
-                        policy=annpolicy.StrictAnnotatorPolicy(),
+        t = Translation(main, gc=cls.gcpolicy,
                         taggedpointers=cls.taggedpointers,
                         gcremovetypeptr=cls.removetypeptr)
         t.disable(['backendopt'])
@@ -58,7 +60,6 @@ class TestUsingFramework(object):
 
         return run
 
-
     def setup_class(cls):
         funcs0 = []
         funcs1 = []
@@ -75,12 +76,12 @@ class TestUsingFramework(object):
             prefix, name = fullname.split('_', 1)
             definefunc = getattr(cls, fullname)
             func = definefunc.im_func(cls)
-            func.func_name = 'f_'+name
+            func.func_name = 'f_' + name
             if prefix == 'definestr':
                 funcsstr.append(func)
                 funcs0.append(None)
                 funcs1.append(None)
-            else:            
+            else:
                 numargs = len(inspect.getargspec(func)[0])
                 funcsstr.append(None)
                 if numargs == 0:
@@ -92,6 +93,7 @@ class TestUsingFramework(object):
                     funcs1.append(func)
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
+
         def allfuncs(name, arg):
             num = name_to_func[name]
             func0 = funcs0[num]
@@ -237,10 +239,10 @@ class TestUsingFramework(object):
                     a[j] = lltype.malloc(T)
                     a[j].y = i
                     a[j].s = lltype.malloc(S)
-                    a[j].s.x = 2*i
+                    a[j].s.x = 2 * i
                     r += a[j].y + a[j].s.x
                     a[j].s = lltype.malloc(S)
-                    a[j].s.x = 3*i
+                    a[j].s.x = 3 * i
                     r -= a[j].s.x
                 for j in range(i):
                     r += a[j].y
@@ -270,7 +272,7 @@ class TestUsingFramework(object):
     def test_framework_using_lists(self):
         N = 1000
         res = self.run('framework_using_lists')
-        assert res == N*(N - 1)/2
+        assert res == N * (N - 1) / 2
 
     def define_framework_static_roots(cls):
         class A(object):
@@ -319,10 +321,9 @@ class TestUsingFramework(object):
         res = self.run('framework_void_array')
         assert res == 44
 
-
     def define_framework_malloc_failure(cls):
         def f():
-            a = [1] * (sys.maxint//2)
+            a = [1] * (sys.maxint // 2)
             return len(a) + a[0]
         return f
 
@@ -398,7 +399,6 @@ class TestUsingFramework(object):
         assert res == 6
 
     def define_del_catches(cls):
-        import os
         def g():
             pass
         class A(object):
@@ -443,7 +443,6 @@ class TestUsingFramework(object):
 
     def define_custom_trace(cls):
         from pypy.rpython.annlowlevel import llhelper
-        from pypy.rpython.lltypesystem import llmemory
         #
         S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
         offset_of_x = llmemory.offsetof(S, 'x')
@@ -531,9 +530,9 @@ class TestUsingFramework(object):
                 a = refs[i]()
                 rgc.collect()
                 if a is None:
-                    result += (i+1)
+                    result += (i + 1)
                 else:
-                    result += a.hello * (i+1)
+                    result += a.hello * (i + 1)
             return result
         return fn
 
@@ -625,7 +624,7 @@ class TestUsingFramework(object):
         res = self.run('object_alignment')
         from pypy.rpython.tool import rffi_platform
         expected_alignment = rffi_platform.memory_alignment()
-        assert (res & (expected_alignment-1)) == 0
+        assert (res & (expected_alignment - 1)) == 0
 
     def define_void_list(cls):
         class E:
@@ -665,8 +664,6 @@ class TestUsingFramework(object):
     def define_callback_with_collect(cls):
         from pypy.rlib.clibffi import ffi_type_pointer, cast_type_to_ffitype,\
              CDLL, ffi_type_void, CallbackFuncPtr, ffi_type_sint
-        from pypy.rpython.lltypesystem import rffi, ll2ctypes
-        import gc
         ffi_size_t = cast_type_to_ffitype(rffi.SIZE_T)
 
         from pypy.rlib.clibffi import get_libc_name
@@ -675,8 +672,8 @@ class TestUsingFramework(object):
             gc.collect()
             p_a1 = rffi.cast(rffi.VOIDPP, ll_args[0])[0]
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
-            a1 = rffi.cast(rffi.LONGP, p_a1)[0]
-            a2 = rffi.cast(rffi.LONGP, p_a2)[0]
+            a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
+            a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
             res = rffi.cast(rffi.INTP, ll_res)
             if a1 > a2:
                 res[0] = rffi.cast(rffi.INT, 1)
@@ -692,7 +689,7 @@ class TestUsingFramework(object):
             ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
                                   ffi_type_sint, callback)
 
-            TP = rffi.CArray(rffi.LONG)
+            TP = rffi.CArray(lltype.Signed)
             to_sort = lltype.malloc(TP, 4, flavor='raw')
             to_sort[0] = 4
             to_sort[1] = 3
@@ -700,10 +697,10 @@ class TestUsingFramework(object):
             to_sort[3] = 2
             qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
             qsort.push_arg(rffi.cast(rffi.SIZE_T, 4))
-            qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(rffi.LONG)))
+            qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(lltype.Signed)))
             qsort.push_arg(rffi.cast(rffi.VOIDP, ptr.ll_closure))
             qsort.call(lltype.Void)
-            result = [to_sort[i] for i in range(4)] == [1,2,3,4]
+            result = [to_sort[i] for i in range(4)] == [1, 2, 3, 4]
             lltype.free(to_sort, flavor='raw')
             keepalive_until_here(ptr)
             return int(result)
@@ -733,7 +730,7 @@ class TestUsingFramework(object):
                     assert not rgc.can_move(a)
                     return 1
                 return 0
-            except Exception, e:
+            except Exception:
                 return 2
 
         return func
@@ -768,9 +765,6 @@ class TestUsingFramework(object):
         assert res == expected
 
     def define_hash_preservation(cls):
-        from pypy.rlib.objectmodel import compute_hash
-        from pypy.rlib.objectmodel import compute_identity_hash
-        from pypy.rlib.objectmodel import current_object_addr_as_int
         class C:
             pass
         class D(C):
@@ -785,17 +779,23 @@ class TestUsingFramework(object):
         h_s = compute_identity_hash(s)   # varsized: hash not saved/restored
         #
         def f():
-            if compute_hash(c) != compute_identity_hash(c): return 12
-            if compute_hash(d) != h_d: return 13
-            if compute_hash(("Hi", None, (7.5, 2, d))) != h_t: return 14
+            if compute_hash(c) != compute_identity_hash(c):
+                return 12
+            if compute_hash(d) != h_d:
+                return 13
+            if compute_hash(("Hi", None, (7.5, 2, d))) != h_t:
+                return 14
             c2 = C()
             h_c2 = compute_hash(c2)
-            if compute_hash(c2) != h_c2: return 15
-            if compute_identity_hash(s) == h_s: return 16   # unlikely
+            if compute_hash(c2) != h_c2:
+                return 15
+            if compute_identity_hash(s) == h_s:
+                return 16   # unlikely
             i = 0
             while i < 6:
                 rgc.collect()
-                if compute_hash(c2) != h_c2: return i
+                if compute_hash(c2) != h_c2:
+                    return i
                 i += 1
             return 42
         return f
@@ -805,7 +805,6 @@ class TestUsingFramework(object):
         assert res == 42
 
     def define_hash_overflow(self):
-        from pypy.rlib.objectmodel import compute_identity_hash
         class X(object):
             pass
 
@@ -849,16 +848,16 @@ class TestUsingFramework(object):
             build(x1, n)       # can collect!
             check(x1, n, 1)
             build(x3, 3)
-            x2 = g(n//2)       # allocate more and try again
-            build(x2, n//2)
+            x2 = g(n // 2)       # allocate more and try again
+            build(x2, n // 2)
             check(x1, n, 11)
-            check(x2, n//2, 12)
+            check(x2, n // 2, 12)
             build(x4, 3)
             check(x3, 3, 13)   # check these old objects too
             check(x4, 3, 14)   # check these old objects too
             rgc.collect()
             check(x1, n, 21)
-            check(x2, n//2, 22)
+            check(x2, n // 2, 22)
             check(x3, 3, 23)
             check(x4, 3, 24)
 
@@ -890,7 +889,6 @@ class TestUsingFramework(object):
     def test_hash_varsized(self):
         res = self.run('hash_varsized')
         assert res != 0
-
 
     def define_arraycopy_writebarrier_int(cls):
         TP = lltype.GcArray(lltype.Signed)
@@ -1063,10 +1061,10 @@ class TestUsingFramework(object):
             assert 8 <= int1 <= 32
             gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, s.u)
             int2 = rgc.get_rpy_memory_usage(gcref2)
-            assert 4*9 <= int2 <= 8*12
+            assert 4 * 9 <= int2 <= 8 * 12
             gcref3 = lltype.cast_opaque_ptr(llmemory.GCREF, a)
             int3 = rgc.get_rpy_memory_usage(gcref3)
-            assert 4*1001 <= int3 <= 8*1010
+            assert 4 * 1001 <= int3 <= 8 * 1010
             return 0
 
         return fn
@@ -1185,7 +1183,36 @@ class TestUsingFramework(object):
         assert data.startswith('member0')
         assert 'GcArray of * GcStruct S {' in data
 
-class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
+    def define_gcflag_extra(self):
+        class A:
+            pass
+        a1 = A()
+        def fn():
+            a2 = A()
+            if not rgc.has_gcflag_extra():
+                return 0     # cannot test it then
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+            return 0
+        return fn
+
+    def test_gcflag_extra(self):
+        self.run("gcflag_extra")
+
+
+class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True
     GC_CAN_MOVE = True
@@ -1202,7 +1229,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         def f():
             from pypy.rpython.lltypesystem import lltype, rffi
             alist = [A() for i in range(50000)]
-            idarray = lltype.malloc(rffi.LONGP.TO, len(alist), flavor='raw')
+            idarray = lltype.malloc(rffi.SIGNEDP.TO, len(alist), flavor='raw')
             # Compute the id of all elements of the list.  The goal is
             # to not allocate memory, so that if the GC needs memory to
             # remember the ids, it will trigger some collections itself
@@ -1235,7 +1262,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
             # the semispace size starts at 8MB for now, so setting a
             # smaller limit has no effect
             # set to more than 32MB -- which should be rounded down to 32MB
-            rgc.set_max_heap_size(32*1024*1024 + 20000)
+            rgc.set_max_heap_size(32 * 1024 * 1024 + 20000)
             s1 = s2 = s3 = None
             try:
                 s1 = g(400000)      # ~ 400 KB
@@ -1300,7 +1327,6 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         assert res == "aabcbdddd"
 
     def definestr_string_builder_over_allocation(cls):
-        import gc
         def fn(_):
             s = StringBuilder(4)
             s.append("abcd")
@@ -1319,7 +1345,6 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         assert res[1000] == 'y'
 
     def definestr_string_builder_multiple_builds(cls):
-        import gc
         def fn(_):
             s = StringBuilder(4)
             got = []
@@ -1336,7 +1361,6 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
                                 for length in range(1, 51)])
 
     def define_nursery_hash_base(cls):
-        from pypy.rlib.objectmodel import compute_identity_hash
         class A:
             pass
         def fn():
@@ -1363,6 +1387,7 @@ class TestGenerationalGC(TestSemiSpaceGC):
     gcpolicy = "generation"
     should_be_moving = True
 
+
 class TestHybridGC(TestGenerationalGC):
     gcpolicy = "hybrid"
     should_be_moving = True
@@ -1372,70 +1397,9 @@ class TestHybridGC(TestGenerationalGC):
         py.test.skip("not implemented")
 
 
-
 class TestHybridGCRemoveTypePtr(TestHybridGC):
     removetypeptr = True
 
-
-class TestMarkCompactGC(TestSemiSpaceGC):
-    gcpolicy = "markcompact"
-    should_be_moving = True
-    GC_CAN_SHRINK_ARRAY = False
-
-    def test_gc_set_max_heap_size(self):
-        py.test.skip("not implemented")
-
-    def test_gc_heap_stats(self):
-        py.test.skip("not implemented")
-
-    def test_finalizer_order(self):
-        py.test.skip("not implemented")
-
-    def define_adding_a_hash(cls):
-        from pypy.rlib.objectmodel import compute_identity_hash
-        S1 = lltype.GcStruct('S1', ('x', lltype.Signed))
-        S2 = lltype.GcStruct('S2', ('p1', lltype.Ptr(S1)),
-                                   ('p2', lltype.Ptr(S1)),
-                                   ('p3', lltype.Ptr(S1)),
-                                   ('p4', lltype.Ptr(S1)),
-                                   ('p5', lltype.Ptr(S1)),
-                                   ('p6', lltype.Ptr(S1)),
-                                   ('p7', lltype.Ptr(S1)),
-                                   ('p8', lltype.Ptr(S1)),
-                                   ('p9', lltype.Ptr(S1)))
-        def g():
-            lltype.malloc(S1)   # forgotten, will be shifted over
-            s2 = lltype.malloc(S2)   # a big object, overlaps its old position
-            s2.p1 = lltype.malloc(S1); s2.p1.x = 1010
-            s2.p2 = lltype.malloc(S1); s2.p2.x = 1020
-            s2.p3 = lltype.malloc(S1); s2.p3.x = 1030
-            s2.p4 = lltype.malloc(S1); s2.p4.x = 1040
-            s2.p5 = lltype.malloc(S1); s2.p5.x = 1050
-            s2.p6 = lltype.malloc(S1); s2.p6.x = 1060
-            s2.p7 = lltype.malloc(S1); s2.p7.x = 1070
-            s2.p8 = lltype.malloc(S1); s2.p8.x = 1080
-            s2.p9 = lltype.malloc(S1); s2.p9.x = 1090
-            return s2
-        def f():
-            rgc.collect()
-            s2 = g()
-            h2 = compute_identity_hash(s2)
-            rgc.collect()    # shift s2 to the left, but add a hash field
-            assert s2.p1.x == 1010
-            assert s2.p2.x == 1020
-            assert s2.p3.x == 1030
-            assert s2.p4.x == 1040
-            assert s2.p5.x == 1050
-            assert s2.p6.x == 1060
-            assert s2.p7.x == 1070
-            assert s2.p8.x == 1080
-            assert s2.p9.x == 1090
-            return h2 - compute_identity_hash(s2)
-        return f
-
-    def test_adding_a_hash(self):
-        res = self.run("adding_a_hash")
-        assert res == 0
 
 class TestMiniMarkGC(TestSemiSpaceGC):
     gcpolicy = "minimark"
@@ -1467,7 +1431,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 am3 = am2
                 am2 = am1
                 am1 = A(i * 4)
-                am1.buf[0] = rffi.cast(rffi.INT, i-50000)
+                am1.buf[0] = rffi.cast(rffi.INT, i - 50000)
             return res
         return f
 
@@ -1478,7 +1442,6 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     def define_nongc_opaque_attached_to_gc(cls):
         from pypy.module._hashlib.interp_hashlib import HASH_MALLOC_SIZE
         from pypy.rlib import rgc, ropenssl
-        from pypy.rpython.lltypesystem import rffi
 
         class A:
             def __init__(self):
@@ -1491,7 +1454,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
             def __del__(self):
                 ropenssl.EVP_MD_CTX_cleanup(self.ctx)
                 lltype.free(self.ctx, flavor='raw')
-        A()
+        #A() --- can't call it here?? get glibc crashes on tannit64
         def f():
             am1 = am2 = am3 = None
             for i in range(100000):
@@ -1595,8 +1558,6 @@ class UnboxedObject(TaggedBase, UnboxedValue):
 class TestHybridTaggedPointers(TaggedPointersTest, TestHybridGC):
     pass
 
-class TestMarkCompactGCMostCompact(TaggedPointersTest, TestMarkCompactGC):
-    removetypeptr = True
 
 class TestMiniMarkGCMostCompact(TaggedPointersTest, TestMiniMarkGC):
     removetypeptr = True

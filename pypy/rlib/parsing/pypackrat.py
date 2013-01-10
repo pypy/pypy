@@ -1,6 +1,8 @@
 
 from pypy.rlib.parsing.tree import Nonterminal, Symbol
-from makepackrat import PackratParser, BacktrackException, Status
+from pypy.rlib.parsing.makepackrat import PackratParser, BacktrackException, Status
+
+
 class Parser(object):
     def NAME(self):
         return self._NAME().result

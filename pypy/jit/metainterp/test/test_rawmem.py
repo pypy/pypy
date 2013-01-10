@@ -1,8 +1,9 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
+                                  free_raw_storage, raw_storage_getitem)
 
-
-class TestJITRawMem(LLJitMixin):
+class RawMemTests(object):
     def test_cast_void_ptr(self):
         TP = lltype.Array(lltype.Float, hints={"nolength": True})
         VOID_TP = lltype.Array(lltype.Void, hints={"nolength": True, "uncast_on_llgraph": True})
@@ -18,7 +19,7 @@ class TestJITRawMem(LLJitMixin):
             s += rffi.cast(lltype.Ptr(TP), a.storage)[0]
             lltype.free(x, flavor="raw")
             return s
-        res = self.interp_operations(f, [10])
+        self.interp_operations(f, [10])
 
     def test_fixed_size_malloc(self):
         TIMEVAL = lltype.Struct('dummy', ('tv_sec', rffi.LONG), ('tv_usec', rffi.LONG))
@@ -30,3 +31,32 @@ class TestJITRawMem(LLJitMixin):
         assert res == 42
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'finish': 1})
+
+    def test_raw_storage_int(self):
+        def f():
+            p = alloc_raw_storage(15)
+            raw_storage_setitem(p, 3, 24)
+            res = raw_storage_getitem(lltype.Signed, p, 3)
+            free_raw_storage(p)
+            return res
+        res = self.interp_operations(f, [])
+        assert res == 24
+        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+                                       'raw_store': 1, 'raw_load': 1,
+                                       'finish': 1})
+
+    def test_raw_storage_float(self):
+        def f():
+            p = alloc_raw_storage(15)
+            raw_storage_setitem(p, 3, 2.4e15)
+            res = raw_storage_getitem(lltype.Float, p, 3)
+            free_raw_storage(p)
+            return res
+        res = self.interp_operations(f, [])
+        assert res == 2.4e15
+        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+                                       'raw_store': 1, 'raw_load': 1,
+                                       'finish': 1})
+
+class TestRawMem(RawMemTests, LLJitMixin):
+    pass

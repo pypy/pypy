@@ -5,7 +5,6 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.module import ll_time, ll_os
 
 # table of functions hand-written in src/ll_*.h
 # Note about *.im_func: The annotator and the rtyper expect direct
@@ -106,8 +105,6 @@ def predeclare_exception_data(db, rtyper):
     yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.fn_exception_match)
     yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.fn_type_of_exc_inst)
     yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.fn_raise_OSError)
-    if not db.standalone:
-        yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
 
     yield ('RPyExceptionOccurred1',    exctransformer.rpyexc_occured_ptr.value)
     yield ('RPyFetchExceptionType',    exctransformer.rpyexc_fetch_type_ptr.value)
@@ -115,14 +112,14 @@ def predeclare_exception_data(db, rtyper):
     yield ('RPyClearException',        exctransformer.rpyexc_clear_ptr.value)
     yield ('RPyRaiseException',        exctransformer.rpyexc_raise_ptr.value)
 
-    for pyexccls in exceptiondata.standardexceptions:
-        exc_llvalue = exceptiondata.fn_pyexcclass2exc(
-            lltype.pyobjectptr(pyexccls))
+    for exccls in exceptiondata.standardexceptions:
+        exc_llvalue = exceptiondata.get_standard_ll_exc_instance_by_class(
+            exccls)
         # strange naming here because the macro name must be
         # a substring of PyExc_%s
-        name = pyexccls.__name__
-        if pyexccls.__module__ != 'exceptions':
-            name = '%s_%s' % (pyexccls.__module__.replace('.', '__'), name)
+        name = exccls.__name__
+        if exccls.__module__ != 'exceptions':
+            name = '%s_%s' % (exccls.__module__.replace('.', '__'), name)
         yield ('RPyExc_%s' % name, exc_llvalue)
 
 

@@ -4,6 +4,10 @@
 
 import unittest
 from test.test_support import check_warnings, run_unittest, import_module
+from test.test_support import check_impl_detail
+
+if not check_impl_detail(cpython=True):
+    raise unittest.SkipTest("this test is only for CPython")
 
 # Skip tests if _ctypes module does not exist
 import_module('_ctypes')

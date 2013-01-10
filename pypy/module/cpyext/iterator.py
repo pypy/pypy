@@ -22,7 +22,7 @@ def PyObject_GetIter(space, w_obj):
     cannot be iterated."""
     return space.iter(w_obj)
 
-@cpython_api([PyObject], PyObject, error=CANNOT_FAIL)
+@cpython_api([PyObject], PyObject)
 def PyIter_Next(space, w_obj):
     """Return the next value from the iteration o.  If the object is an
     iterator, this retrieves the next value from the iteration, and returns

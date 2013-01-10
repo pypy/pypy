@@ -226,32 +226,22 @@ class InteriorFieldDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()
 
-def get_interiorfield_descr(gc_ll_descr, ARRAY, name):
+def get_interiorfield_descr(gc_ll_descr, ARRAY, name, arrayfieldname=None):
+    # can be used either with a GcArray of Structs, or with a GcStruct
+    # containing an inlined GcArray of Structs (then arrayfieldname != None).
     cache = gc_ll_descr._cache_interiorfield
     try:
-        return cache[(ARRAY, name)]
+        return cache[(ARRAY, name, arrayfieldname)]
     except KeyError:
         arraydescr = get_array_descr(gc_ll_descr, ARRAY)
-        fielddescr = get_field_descr(gc_ll_descr, ARRAY.OF, name)
+        if arrayfieldname is None:
+            REALARRAY = ARRAY
+        else:
+            REALARRAY = getattr(ARRAY, arrayfieldname)
+        fielddescr = get_field_descr(gc_ll_descr, REALARRAY.OF, name)
         descr = InteriorFieldDescr(arraydescr, fielddescr)
-        cache[(ARRAY, name)] = descr
+        cache[(ARRAY, name, arrayfieldname)] = descr
         return descr
-
-def get_dynamic_interiorfield_descr(gc_ll_descr, offset, width, fieldsize,
-                                    is_pointer, is_float, is_signed):
-    arraydescr = ArrayDescr(0, width, None, FLAG_STRUCT)
-    if is_pointer:
-        assert not is_float
-        flag = FLAG_POINTER
-    elif is_float:
-        flag = FLAG_FLOAT
-    elif is_signed:
-        flag = FLAG_SIGNED
-    else:
-        flag = FLAG_UNSIGNED
-    fielddescr = FieldDescr('dynamic', offset, fieldsize, flag)
-    return InteriorFieldDescr(arraydescr, fielddescr)
-
 
 # ____________________________________________________________
 # CallDescrs
@@ -478,3 +468,31 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
         cache[key] = calldescr
     assert repr(calldescr.result_size) == repr(result_size)
     return calldescr
+
+
+def unpack_arraydescr(arraydescr):
+    assert isinstance(arraydescr, ArrayDescr)
+    ofs = arraydescr.basesize
+    size = arraydescr.itemsize
+    sign = arraydescr.is_item_signed()
+    return size, ofs, sign
+
+
+def unpack_fielddescr(fielddescr):
+    assert isinstance(fielddescr, FieldDescr)
+    ofs = fielddescr.offset
+    size = fielddescr.field_size
+    sign = fielddescr.is_field_signed()
+    return ofs, size, sign
+unpack_fielddescr._always_inline_ = True
+
+
+def unpack_interiorfielddescr(descr):
+    assert isinstance(descr, InteriorFieldDescr)
+    arraydescr = descr.arraydescr
+    ofs = arraydescr.basesize
+    itemsize = arraydescr.itemsize
+    fieldsize = descr.fielddescr.field_size
+    sign = descr.fielddescr.is_field_signed()
+    ofs += descr.fielddescr.offset
+    return ofs, itemsize, fieldsize, sign

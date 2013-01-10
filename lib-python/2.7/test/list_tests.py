@@ -45,8 +45,12 @@ class CommonTest(seq_tests.CommonTest):
         self.assertEqual(str(a2), "[0, 1, 2, [...], 3]")
         self.assertEqual(repr(a2), "[0, 1, 2, [...], 3]")
 
+        if test_support.check_impl_detail():
+            depth = sys.getrecursionlimit() + 100
+        else:
+            depth = 1000 * 1000 # should be enough to exhaust the stack
         l0 = []
-        for i in xrange(sys.getrecursionlimit() + 100):
+        for i in xrange(depth):
             l0 = [l0]
         self.assertRaises(RuntimeError, repr, l0)
 
@@ -472,7 +476,11 @@ class CommonTest(seq_tests.CommonTest):
         u += "eggs"
         self.assertEqual(u, self.type2test("spameggs"))
 
-        self.assertRaises(TypeError, u.__iadd__, None)
+        def f_iadd(u, x):
+            u += x
+            return u
+
+        self.assertRaises(TypeError, f_iadd, u, None)
 
     def test_imul(self):
         u = self.type2test([0, 1])

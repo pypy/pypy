@@ -1,3 +1,5 @@
+import py
+
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 
@@ -74,9 +76,24 @@ class BaseTestGenerator(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 358
 
+    def test_iterating_generator(self):
+        def f():
+            yield 1
+            yield 2
+            yield 3
+        def g():
+            s = 0
+            for x in f():
+                s += x
+            return s
+        res = self.interpret(g, [])
+        assert res == 6
+
 
 class TestLLtype(BaseTestGenerator, LLRtypeMixin):
     pass
 
+
 class TestOOtype(BaseTestGenerator, OORtypeMixin):
-    pass
+    def test_iterating_generator(self):
+        py.test.skip("Iterators aren't supported on OOtype yet")

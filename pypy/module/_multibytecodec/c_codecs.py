@@ -230,14 +230,14 @@ def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
         if ignore_error == 0:
             flags = MBENC_FLUSH | MBENC_RESET
         else:
-            flags = MBENC_RESET
+            flags = 0
         while True:
             r = pypy_cjk_enc_chunk(encodebuf, flags)
             if r == 0 or r == ignore_error:
                 break
             multibytecodec_encerror(encodebuf, r, errors,
                                     errorcb, namecb, unicodedata)
-        while True:
+        while flags & MBENC_RESET:
             r = pypy_cjk_enc_reset(encodebuf)
             if r == 0:
                 break
@@ -279,8 +279,15 @@ def multibytecodec_encerror(encodebuf, e, errors,
             replace = "?"
     else:
         assert errorcb
-        replace, end = errorcb(errors, namecb, reason,
-                               unicodedata, start, end)
+        retu, rets, end = errorcb(errors, namecb, reason,
+                                  unicodedata, start, end)
+        if rets is not None:
+            # py3k only
+            replace = rets
+        else:
+            assert retu is not None
+            codec = pypy_cjk_enc_getcodec(encodebuf)
+            replace = encode(codec, retu, "strict", errorcb, namecb)
     inbuf = rffi.get_nonmovingbuffer(replace)
     try:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)

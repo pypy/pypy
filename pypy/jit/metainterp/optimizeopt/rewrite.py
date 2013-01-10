@@ -1,8 +1,11 @@
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.history import ConstInt, make_hashable_int
+from pypy.jit.metainterp import compile
+from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
+    BoxPtr, make_hashable_int)
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
-from pypy.jit.metainterp.optimizeopt.optimizer import *
+from pypy.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
+    CONST_0, CONST_1)
 from pypy.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from pypy.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
     ResOperation)
@@ -208,7 +211,8 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} was proven to' +
+                                  'always fail')
             return
         if emit_operation:
             self.emit_operation(op)
@@ -220,7 +224,7 @@ class OptRewrite(Optimization):
         if value.is_null():
             return
         elif value.is_nonnull():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_ISNULL was proven to always fail')
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
@@ -229,7 +233,7 @@ class OptRewrite(Optimization):
         if value.is_nonnull():
             return
         elif value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL was proven to always fail')
         self.emit_operation(op)
         value.make_nonnull(op)
 
@@ -240,6 +244,16 @@ class OptRewrite(Optimization):
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
             old_guard_op = value.last_guard
+            if old_guard_op.getopnum() != rop.GUARD_NONNULL:
+                # This is only safe if the class of the guard_value matches the
+                # class of the guard_*_class, otherwise the intermediate ops might
+                # be executed with wrong classes.
+                previous_classbox = value.get_constant_class(self.optimizer.cpu)            
+                expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
+                assert previous_classbox is not None
+                assert expected_classbox is not None
+                if not previous_classbox.same_constant(expected_classbox):
+                    raise InvalidLoop('A GUARD_VALUE was proven to always fail')
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                                       args = [old_guard_op.getarg(0), op.getarg(1)])
             self.optimizer.replaces_guard[op] = old_guard_op
@@ -250,6 +264,8 @@ class OptRewrite(Optimization):
             assert isinstance(descr, compile.ResumeGuardDescr)
             descr.guard_opnum = rop.GUARD_VALUE
             descr.make_a_counter_per_value(op)
+            # to be safe
+            value.last_guard = None
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)
@@ -278,7 +294,7 @@ class OptRewrite(Optimization):
         if realclassbox is not None:
             if realclassbox.same_constant(expectedclassbox):
                 return
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_CLASS was proven to always fail')
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
@@ -301,7 +317,8 @@ class OptRewrite(Optimization):
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL_CLASS was proven to always ' +
+                              'fail')
         self.optimize_GUARD_CLASS(op)
 
     def optimize_CALL_LOOPINVARIANT(self, op):
@@ -412,14 +429,33 @@ class OptRewrite(Optimization):
         source_start_box = self.get_constant_box(op.getarg(3))
         dest_start_box = self.get_constant_box(op.getarg(4))
         length = self.get_constant_box(op.getarg(5))
-        if (source_value.is_virtual() and source_start_box and dest_start_box
-            and length and (dest_value.is_virtual() or length.getint() <= 8)):
+        extrainfo = op.getdescr().get_extra_info()
+        if (source_start_box and dest_start_box
+            and length and (dest_value.is_virtual() or length.getint() <= 8) and
+            (source_value.is_virtual() or length.getint() <= 8) and
+            len(extrainfo.write_descrs_arrays) == 1):   # <-sanity check
             from pypy.jit.metainterp.optimizeopt.virtualize import VArrayValue
-            assert isinstance(source_value, VArrayValue)
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
+            # XXX fish fish fish
+            arraydescr = extrainfo.write_descrs_arrays[0]
             for index in range(length.getint()):
-                val = source_value.getitem(index + source_start)
+                if source_value.is_virtual():
+                    assert isinstance(source_value, VArrayValue)
+                    val = source_value.getitem(index + source_start)
+                else:
+                    if arraydescr.is_array_of_pointers():
+                        resbox = BoxPtr()
+                    elif arraydescr.is_array_of_floats():
+                        resbox = BoxFloat()
+                    else:
+                        resbox = BoxInt()
+                    newop = ResOperation(rop.GETARRAYITEM_GC,
+                                      [op.getarg(1),
+                                       ConstInt(index + source_start)], resbox,
+                                       descr=arraydescr)
+                    self.optimizer.propagate_forward(newop)
+                    val = self.getvalue(resbox)
                 if dest_value.is_virtual():
                     dest_value.setitem(index + dest_start, val)
                 else:
@@ -427,7 +463,7 @@ class OptRewrite(Optimization):
                                          [op.getarg(2),
                                           ConstInt(index + dest_start),
                                           val.get_key_box()], None,
-                                         descr=source_value.arraydescr)
+                                         descr=arraydescr)
                     self.emit_operation(newop)
             return True
         if length and length.getint() == 0:
@@ -478,10 +514,6 @@ class OptRewrite(Optimization):
                 op = op.copy_and_change(rop.INT_RSHIFT,
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
-
-    def optimize_MARK_OPAQUE_PTR(self, op):
-        value = self.getvalue(op.getarg(0))
-        self.optimizer.opaque_pointers[value] = True
 
     def optimize_CAST_PTR_TO_INT(self, op):
         self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))

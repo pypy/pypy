@@ -30,3 +30,6 @@ class TestJvmUnicode(JvmTest, BaseTestRUnicode):
             return const
         res = self.interpret(fn, [])
         assert res == const
+
+    def test_strformat_unicode_arg(self):
+        py.test.skip('fixme!')

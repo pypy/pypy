@@ -236,7 +236,7 @@ def build_stat_result(st):
 def register_stat_variant(name, traits):
     if name != 'fstat':
         arg_is_path = True
-        s_arg = traits.str
+        s_arg = traits.str0
         ARG1 = traits.CCHARP
     else:
         arg_is_path = False
@@ -250,8 +250,6 @@ def register_stat_variant(name, traits):
         return extdef(
             [s_arg], s_StatResult, traits.ll_os_name(name),
             llimpl=posix_stat_llimpl)
-
-    assert traits.str is str
 
     if sys.platform.startswith('linux'):
         # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler
@@ -283,7 +281,7 @@ def register_stat_variant(name, traits):
 
     @func_renamer('os_%s_fake' % (name,))
     def posix_fakeimpl(arg):
-        if s_arg == str:
+        if s_arg == traits.str0:
             arg = hlstr(arg)
         st = getattr(os, name)(arg)
         fields = [TYPE for fieldname, TYPE in STAT_FIELDS]
@@ -321,6 +319,7 @@ def make_win32_stat_impl(name, traits):
 
     def attributes_to_mode(attributes):
         m = 0
+        attributes = intmask(attributes)
         if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
         else:
@@ -403,8 +402,7 @@ def make_win32_stat_impl(name, traits):
             lltype.free(data, flavor='raw')
 
     def win32_fstat_llimpl(fd):
-        handle = rwin32._get_osfhandle(fd)
-
+        handle = rwin32.get_osfhandle(fd)
         filetype = win32traits.GetFileType(handle)
         if filetype == win32traits.FILE_TYPE_CHAR:
             # console or LPT device
@@ -456,6 +454,6 @@ def FILE_TIME_to_time_t_nsec(filetime):
     return intmask(time), intmask(nsec)
 
 def time_t_to_FILE_TIME(time, filetime):
-    ft = (rffi.r_longlong(time) + secs_between_epochs) * 10000000
+    ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)
     filetime.c_dwHighDateTime = rffi.r_uint(ft >> 32)
     filetime.c_dwLowDateTime = rffi.r_uint(ft)    # masking off high bits

@@ -8,7 +8,6 @@ from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
 from pypy.config.config import Config, to_optparse, make_dict, SUPPRESS_USAGE
 from pypy.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
-from pypy.translator.goal.nanos import setup_nanos
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -27,11 +26,14 @@ def create_entry_point(space, w_dict):
     w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
     w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
     w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
-    w_os = setup_nanos(space)
     withjit = space.config.objspace.usemodules.pypyjit
 
+    if withjit:
+        from pypy.module.pypyjit.interp_jit import callback_hook
+        from pypy.rlib import objectmodel
+        objectmodel.register_around_callback_hook(callback_hook)
+
     def entry_point(argv):
-        space.timer.start("Entrypoint")
         if withjit:
             from pypy.jit.backend.hlinfo import highleveljitinfo
             highleveljitinfo.sys_executable = argv[0]
@@ -50,14 +52,10 @@ def create_entry_point(space, w_dict):
             argv = argv[:1] + argv[3:]
         try:
             try:
-                space.timer.start("space.startup")
                 space.call_function(w_run_toplevel, w_call_startup_gateway)
-                space.timer.stop("space.startup")
                 w_executable = space.wrap(argv[0])
                 w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
-                space.timer.start("w_entry_point")
-                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv, w_os)
-                space.timer.stop("w_entry_point")
+                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
             ##    from pypy.interpreter import main, interactive, error
@@ -70,16 +68,12 @@ def create_entry_point(space, w_dict):
                 return 1
         finally:
             try:
-                space.timer.start("space.finish")
                 space.call_function(w_run_toplevel, w_call_finish_gateway)
-                space.timer.stop("space.finish")
             except OperationError, e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
                 return 1
-        space.timer.stop("Entrypoint")
-        space.timer.dump()
         return exitcode
     return entry_point
 
@@ -159,6 +153,8 @@ class PyPyTarget(object):
         ## if config.translation.type_system == 'ootype':
         ##     config.objspace.usemodules.suggest(rbench=True)
 
+        config.translation.suggest(check_str_without_nul=True)
+
         if config.translation.thread:
             config.objspace.usemodules.thread = True
         elif config.objspace.usemodules.thread:
@@ -201,12 +197,11 @@ class PyPyTarget(object):
             config.objspace.lonepycfiles = False
             config.objspace.usepycfiles = False
 
-        config.objspace.nofaking = True
         config.translating = True
 
         import translate
         translate.log_config(config.objspace, "PyPy config object")
- 
+
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)
@@ -240,7 +235,6 @@ class PyPyTarget(object):
         filename = os.path.join(this_dir, 'app_main.py')
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
-        app.can_use_geninterp = False
         w_dict = app.getwdict(space)
         entry_point = create_entry_point(space, w_dict)
 

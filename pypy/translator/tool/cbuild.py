@@ -91,9 +91,14 @@ class ExternalCompilationInfo(object):
             assert isinstance(value, (list, tuple))
             setattr(self, name, tuple(value))
         self.use_cpp_linker = use_cpp_linker
-        if platform is None:
+        self._platform = platform
+
+    @property
+    def platform(self):
+        if self._platform is None:
             from pypy.translator.platform import platform
-        self.platform = platform
+            return platform
+        return self._platform
 
     def from_compiler_flags(cls, flags):
         """Returns a new ExternalCompilationInfo instance by parsing
@@ -233,7 +238,7 @@ class ExternalCompilationInfo(object):
             d[attr] = getattr(self, attr)
         return d
 
-    def convert_sources_to_files(self, cache_dir=None, being_main=False):
+    def convert_sources_to_files(self, cache_dir=None):
         if not self.separate_module_sources:
             return self
         if cache_dir is None:
@@ -247,8 +252,6 @@ class ExternalCompilationInfo(object):
                 if not filename.check():
                     break
             f = filename.open("w")
-            if being_main:
-                f.write("#define PYPY_NOT_MAIN_FILE\n")
             self.write_c_header(f)
             source = str(source)
             f.write(source)
@@ -267,9 +270,12 @@ class ExternalCompilationInfo(object):
         d['separate_module_files'] = ()
         return files, ExternalCompilationInfo(**d)
 
-    def compile_shared_lib(self, outputfilename=None):
+    def compile_shared_lib(self, outputfilename=None, ignore_a_files=False):
         self = self.convert_sources_to_files()
-        if not self.separate_module_files:
+        if ignore_a_files:
+            if not [fn for fn in self.link_files if fn.endswith('.a')]:
+                ignore_a_files = False    # there are none
+        if not self.separate_module_files and not ignore_a_files:
             if sys.platform != 'win32':
                 return self
             if not self.export_symbols:
@@ -288,6 +294,13 @@ class ExternalCompilationInfo(object):
                 num += 1
             basepath.ensure(dir=1)
             outputfilename = str(pth.dirpath().join(pth.purebasename))
+
+        if ignore_a_files:
+            d = self._copy_attributes()
+            d['link_files'] = [fn for fn in d['link_files']
+                                  if not fn.endswith('.a')]
+            self = ExternalCompilationInfo(**d)
+
         lib = str(host.compile([], self, outputfilename=outputfilename,
                                standalone=False))
         d = self._copy_attributes()
@@ -314,10 +327,21 @@ STANDARD_DEFINES = '''
 /* Define on NetBSD to activate all library features */
 #define _NETBSD_SOURCE 1
 /* Define to activate features from IEEE Stds 1003.1-2001 */
-#define _POSIX_C_SOURCE 200112L
+#ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 200112L
+#endif
 /* Define on FreeBSD to activate all library features */
 #define __BSD_VISIBLE 1
 #define __XSI_VISIBLE 700
 /* Windows: winsock/winsock2 mess */
 #define WIN32_LEAN_AND_MEAN
+#ifdef _WIN64
+   typedef          __int64 Signed;
+   typedef unsigned __int64 Unsigned;
+#  define SIGNED_MIN LLONG_MIN 
+#else
+   typedef          long Signed;
+   typedef unsigned long Unsigned;
+#  define SIGNED_MIN LONG_MIN
+#endif
 '''

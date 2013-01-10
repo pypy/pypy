@@ -6,6 +6,7 @@ import re, sys
 from pypy.rlib.rsre import rsre_core, rsre_char
 from pypy.rlib.rsre.test.test_match import get_code as _get_code
 from pypy.module.unicodedata import unicodedb
+from pypy.rlib.objectmodel import specialize
 rsre_char.set_unicode_db(unicodedb)
 
 
@@ -38,6 +39,7 @@ def subn(pattern, repl, string, count=0):
 def split(pattern, string, maxsplit=0):
     return compile(pattern).split(string, maxsplit)
 
+@specialize.memo()
 def compile(pattern, flags=0):
     code, flags, args = _get_code(pattern, flags, allargs=True)
     return RSREPattern(pattern, code, flags, *args)
@@ -75,7 +77,7 @@ class RSREPattern(object):
             else:
                 item = match.groups("")
             matchlist.append(item)
-        return matchlist        
+        return matchlist
 
     def finditer(self, string, pos=0, endpos=sys.maxint):
         return iter(self.scanner(string, pos, endpos).search, None)
@@ -172,8 +174,9 @@ class RSREMatch(object):
         self._ctx = ctx
 
     def span(self, groupnum=0):
-        if not isinstance(groupnum, (int, long)):
-            groupnum = self.re.groupindex[groupnum]
+#        if not isinstance(groupnum, (int, long)):
+#            groupnum = self.re.groupindex[groupnum]
+ 
         return self._ctx.span(groupnum)
 
     def start(self, groupnum=0):
@@ -182,19 +185,25 @@ class RSREMatch(object):
     def end(self, groupnum=0):
         return self.span(groupnum)[1]
 
-    def group(self, *groups):
-        groups = groups or (0,)
-        result = []
-        for group in groups:
-            frm, to = self.span(group)
-            if 0 <= frm <= to:
-                result.append(self._ctx._string[frm:to])
-            else:
-                result.append(None)
-        if len(result) > 1:
-            return tuple(result)
+    def group(self, group=0):
+        frm, to = self.span(group)
+        if 0 <= frm <= to:
+            return self._ctx._string[frm:to]
         else:
-            return result[0]
+            return None
+
+#    def group(self, *groups):
+#        groups = groups or (0,)
+#        result = []
+#        for group in groups:
+#            frm, to = self.span(group)
+#            if 0 <= frm <= to:
+#                result.append(self._ctx._string[frm:to])
+#            else:
+#                result.append(None)
+#        if len(result) > 1:
+#            return tuple(result)
+
 
     def groups(self, default=None):
         fmarks = self._ctx.flatten_marks()

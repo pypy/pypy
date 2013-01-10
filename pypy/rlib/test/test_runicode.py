@@ -66,11 +66,18 @@ class UnicodeTests(object):
             assert t is s
             assert start == startingpos
             assert stop == endingpos
-            return "42424242", stop
+            return u"42424242", None, stop
         encoder = self.getencoder(encoding)
         result = encoder(s, len(s), "foo!", errorhandler)
         assert called[0]
         assert "42424242" in result
+
+        # ensure bytes results passthru
+        def errorhandler_bytes(errors, enc, msg, t, startingpos,
+                               endingpos):
+            return None, '\xc3', endingpos
+        result = encoder(s, len(s), "foo!", errorhandler_bytes)
+        assert '\xc3' in result
 
     def checkdecodeerror(self, s, encoding, start, stop,
                          addstuff=True, msg=None):
@@ -118,6 +125,9 @@ class TestDecoding(UnicodeTests):
         for i in range(10000):
             for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
+                if encoding == 'utf-8' and 0xd800 <= i <= 0xdfff:
+                    # Don't try to encode lone surrogates
+                    continue
                 self.checkdecode(unichr(i), encoding)
 
     def test_random(self):
@@ -142,6 +152,10 @@ class TestDecoding(UnicodeTests):
 
     def test_ascii_error(self):
         self.checkdecodeerror("abc\xFF\xFF\xFFcde", "ascii", 3, 4)
+
+    def test_decode_replace(self):
+        decoder = self.getdecoder('utf-8')
+        assert decoder('caf\xe9', 4, 'replace', True) == (u'caf\ufffd', 4)
 
     def test_utf16_errors(self):
         # trunkated BOM
@@ -209,23 +223,24 @@ class TestDecoding(UnicodeTests):
         u = u'\U000abcde'
         assert encode(u, len(u), None) == '+2m/c3g-'
         decode = self.getdecoder('utf-7')
-        s = '+3ADYAA-'
-        raises(UnicodeError, decode, s, len(s), None)
-        def replace_handler(errors, codec, message, input, start, end):
-            return u'?', end
-        assert decode(s, len(s), None, final=True,
-                      errorhandler = replace_handler) == (u'??', len(s))
+
+        # Unpaired surrogates are passed through
+        assert encode(u'\uD801', 1, None) == '+2AE-'
+        assert encode(u'\uD801x', 2, None) == '+2AE-x'
+        assert encode(u'\uDC01', 1, None) == '+3AE-'
+        assert encode(u'\uDC01x', 2, None) == '+3AE-x'
+        assert decode('+2AE-', 5, None) == (u'\uD801', 5)
+        assert decode('+2AE-x', 6, None) == (u'\uD801x', 6)
+        assert decode('+3AE-', 5, None) == (u'\uDC01', 5)
+        assert decode('+3AE-x', 6, None) == (u'\uDC01x', 6)
+
+        assert encode(u'\uD801\U000abcde', 2, None) == '+2AHab9ze-'
+        assert decode('+2AHab9ze-', 10, None) == (u'\uD801\U000abcde', 10)
 
 
 class TestUTF8Decoding(UnicodeTests):
     def __init__(self):
         self.decoder = self.getdecoder('utf-8')
-
-    def replace_handler(self, errors, codec, message, input, start, end):
-        return u'\ufffd', end
-
-    def ignore_handler(self, errors, codec, message, input, start, end):
-        return u'', end
 
     def to_bytestring(self, bytes):
         return ''.join(chr(int(c, 16)) for c in bytes.split())
@@ -235,9 +250,8 @@ class TestUTF8Decoding(UnicodeTests):
             self.checkdecode(s, "utf-8")
 
     def test_utf8_surrogate(self):
-        # A surrogate should not be valid utf-8, but python 2.x accepts them.
-        # This test will raise an error with python 3.x
-        self.checkdecode(u"\ud800", "utf-8")
+        # surrogates used to be allowed by python 2.x
+        raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
 
     def test_invalid_start_byte(self):
         """
@@ -252,16 +266,13 @@ class TestUTF8Decoding(UnicodeTests):
             raises(UnicodeDecodeError, self.decoder, byte, 1, None, final=True)
             self.checkdecodeerror(byte, 'utf-8', 0, 1, addstuff=False,
                                   msg='invalid start byte')
-            assert self.decoder(byte, 1, None, final=True,
-                       errorhandler=self.replace_handler) == (FFFD, 1)
-            assert (self.decoder('aaaa' + byte + 'bbbb', 9, None,
-                        final=True, errorhandler=self.replace_handler) ==
+            assert self.decoder(byte, 1, 'replace', final=True) == (FFFD, 1)
+            assert (self.decoder('aaaa' + byte + 'bbbb', 9, 'replace',
+                        final=True) ==
                         (u'aaaa'+ FFFD + u'bbbb', 9))
-            assert self.decoder(byte, 1, None, final=True,
-                           errorhandler=self.ignore_handler) == (u'', 1)
-            assert (self.decoder('aaaa' + byte + 'bbbb', 9, None,
-                        final=True, errorhandler=self.ignore_handler) ==
-                        (u'aaaabbbb', 9))
+            assert self.decoder(byte, 1, 'ignore', final=True) == (u'', 1)
+            assert (self.decoder('aaaa' + byte + 'bbbb', 9, 'ignore',
+                        final=True) == (u'aaaabbbb', 9))
 
     def test_unexpected_end_of_data(self):
         """
@@ -291,16 +302,15 @@ class TestUTF8Decoding(UnicodeTests):
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, len(seq), addstuff=False,
                                   msg='unexpected end of data')
-            assert self.decoder(seq, len(seq), None, final=True,
-                       errorhandler=self.replace_handler) == (FFFD, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.replace_handler) ==
+            assert self.decoder(seq, len(seq), 'replace', final=True
+                                ) == (FFFD, len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8,
+                                 'replace', final=True) ==
                         (u'aaaa'+ FFFD + u'bbbb', len(seq) + 8))
-            assert self.decoder(seq, len(seq), None, final=True,
-                           errorhandler=self.ignore_handler) == (u'', len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.ignore_handler) ==
-                        (u'aaaabbbb', len(seq) + 8))
+            assert self.decoder(seq, len(seq), 'ignore', final=True
+                                ) == (u'', len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 'ignore',
+                        final=True) == (u'aaaabbbb', len(seq) + 8))
 
     def test_invalid_cb_for_2bytes_seq(self):
         """
@@ -326,16 +336,16 @@ class TestUTF8Decoding(UnicodeTests):
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, 1, addstuff=False,
                                   msg='invalid continuation byte')
-            assert self.decoder(seq, len(seq), None, final=True,
-                       errorhandler=self.replace_handler) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.replace_handler) ==
+            assert self.decoder(seq, len(seq), 'replace', final=True
+                                ) == (res, len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8,
+                                 'replace', final=True) ==
                         (u'aaaa' + res + u'bbbb', len(seq) + 8))
             res = res.replace(FFFD, u'')
-            assert self.decoder(seq, len(seq), None, final=True,
-                           errorhandler=self.ignore_handler) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.ignore_handler) ==
+            assert self.decoder(seq, len(seq), 'ignore', final=True
+                                ) == (res, len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8,
+                                 'ignore', final=True) ==
                         (u'aaaa' + res + u'bbbb', len(seq) + 8))
 
     def test_invalid_cb_for_3bytes_seq(self):
@@ -398,17 +408,16 @@ class TestUTF8Decoding(UnicodeTests):
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, len(seq)-1, addstuff=False,
                                   msg='invalid continuation byte')
-            assert self.decoder(seq, len(seq), None, final=True,
-                       errorhandler=self.replace_handler) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.replace_handler) ==
+            assert self.decoder(seq, len(seq), 'replace', final=True
+                                ) == (res, len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8,
+                                 'replace', final=True) ==
                         (u'aaaa' + res + u'bbbb', len(seq) + 8))
             res = res.replace(FFFD, u'')
-            assert self.decoder(seq, len(seq), None, final=True,
-                           errorhandler=self.ignore_handler) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.ignore_handler) ==
-                        (u'aaaa' + res + u'bbbb', len(seq) + 8))
+            assert self.decoder(seq, len(seq), 'ignore', final=True
+                                ) == (res, len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 'ignore',
+                        final=True) == (u'aaaa' + res + u'bbbb', len(seq) + 8))
 
     def test_invalid_cb_for_4bytes_seq(self):
         """
@@ -491,17 +500,16 @@ class TestUTF8Decoding(UnicodeTests):
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, len(seq)-1, addstuff=False,
                                   msg='invalid continuation byte')
-            assert self.decoder(seq, len(seq), None, final=True,
-                       errorhandler=self.replace_handler) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.replace_handler) ==
+            assert self.decoder(seq, len(seq), 'replace', final=True
+                                ) == (res, len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 
+                                 'replace', final=True) ==
                         (u'aaaa' + res + u'bbbb', len(seq) + 8))
             res = res.replace(FFFD, u'')
-            assert self.decoder(seq, len(seq), None, final=True,
-                           errorhandler=self.ignore_handler) == (res, len(seq))
-            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, None,
-                        final=True, errorhandler=self.ignore_handler) ==
-                        (u'aaaa' + res + u'bbbb', len(seq) + 8))
+            assert self.decoder(seq, len(seq), 'ignore', final=True
+                                ) == (res, len(seq))
+            assert (self.decoder('aaaa' + seq + 'bbbb', len(seq) + 8, 'ignore',
+                        final=True) == (u'aaaa' + res + u'bbbb', len(seq) + 8))
 
     def test_utf8_errors(self):
         # unexpected end of data
@@ -619,15 +627,13 @@ class TestUTF8Decoding(UnicodeTests):
         for n, (seq, res) in enumerate(sequences):
             decoder = self.getdecoder('utf-8')
             raises(UnicodeDecodeError, decoder, seq, len(seq), None, final=True)
-            assert decoder(seq, len(seq), None, final=True,
-                           errorhandler=self.replace_handler) == (res, len(seq))
-            assert decoder(seq + 'b', len(seq) + 1, None, final=True,
-                           errorhandler=self.replace_handler) == (res + u'b',
-                                                                  len(seq) + 1)
+            assert decoder(seq, len(seq), 'replace', final=True
+                           ) == (res, len(seq))
+            assert decoder(seq + 'b', len(seq) + 1, 'replace', final=True
+                           ) == (res + u'b', len(seq) + 1)
             res = res.replace(FFFD, u'')
-            assert decoder(seq, len(seq), None, final=True,
-                           errorhandler=self.ignore_handler) == (res, len(seq))
-
+            assert decoder(seq, len(seq), 'ignore', final=True
+                           ) == (res, len(seq))
 
 class TestEncoding(UnicodeTests):
     def test_all_ascii(self):
@@ -679,12 +685,16 @@ class TestEncoding(UnicodeTests):
             self.checkencode(s, "utf-8")
 
     def test_utf8_surrogates(self):
-        # check replacing of two surrogates by single char while encoding
         # make sure that the string itself is not marshalled
         u = u"\ud800"
         for i in range(4):
             u += u"\udc00"
-        self.checkencode(u, "utf-8")
+        if runicode.MAXUNICODE < 65536:
+            # Check replacing of two surrogates by single char while encoding
+            self.checkencode(u, "utf-8")
+        else:
+            # This is not done in wide unicode builds
+            raises(UnicodeEncodeError, self.checkencode, u, "utf-8")
 
     def test_ascii_error(self):
         self.checkencodeerror(u"abc\xFF\xFF\xFFcde", "ascii", 3, 6)
@@ -700,6 +710,12 @@ class TestEncoding(UnicodeTests):
         # XXX test this on a non-western Windows installation
         self.checkencode(u"\N{GREEK CAPITAL LETTER PHI}", "mbcs") # a F
         self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
+
+    def test_encode_decimal(self):
+        encoder = self.getencoder('decimal')
+        assert encoder(u' 12, 34 ', 8, None) == ' 12, 34 '
+        raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
+        assert encoder(u'u\u1234', 2, 'replace') == 'u?'
 
 class TestTranslation(object):
     def setup_class(cls):
@@ -728,3 +744,18 @@ class TestTranslation(object):
 
         res = interpret(f, [0x10140])
         assert res == 0x10140
+
+    def test_encode_surrogate_pair(self):
+        u = runicode.UNICHR(0xD800) + runicode.UNICHR(0xDC00)
+        if runicode.MAXUNICODE < 65536:
+            # Narrow unicode build, consider utf16 surrogate pairs
+            assert runicode.unicode_encode_unicode_escape(
+                u, len(u), True) == r'\U00010000'
+            assert runicode.unicode_encode_raw_unicode_escape(
+                u, len(u), True) == r'\U00010000'
+        else:
+            # Wide unicode build, don't merge utf16 surrogate pairs
+            assert runicode.unicode_encode_unicode_escape(
+                u, len(u), True) == r'\ud800\udc00'
+            assert runicode.unicode_encode_raw_unicode_escape(
+                u, len(u), True) == r'\ud800\udc00'

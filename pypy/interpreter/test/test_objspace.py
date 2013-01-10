@@ -178,6 +178,14 @@ class TestObjSpace:
         res = self.space.interp_w(Function, w(None), can_be_None=True)
         assert res is None
 
+    def test_str0_w(self):
+        space = self.space
+        w = space.wrap
+        assert space.str0_w(w("123")) == "123"
+        exc = space.raises_w(space.w_TypeError, space.str0_w, w("123\x004"))
+        assert space.unicode0_w(w(u"123")) == u"123"
+        exc = space.raises_w(space.w_TypeError, space.unicode0_w, w(u"123\x004"))
+
     def test_getindex_w(self):
         w_instance1 = self.space.appexec([], """():
             class X(object):
@@ -233,6 +241,37 @@ class TestObjSpace:
         w_obj = space.wrap(-12)
         space.raises_w(space.w_ValueError, space.r_ulonglong_w, w_obj)
 
+    def test_truncatedint_w(self):
+        space = self.space
+        assert space.truncatedint_w(space.wrap(42)) == 42
+        assert space.truncatedint_w(space.wrap(sys.maxint)) == sys.maxint
+        assert space.truncatedint_w(space.wrap(sys.maxint+1)) == -sys.maxint-1
+        assert space.truncatedint_w(space.wrap(-1)) == -1
+        assert space.truncatedint_w(space.wrap(-sys.maxint-2)) == sys.maxint
+
+    def test_truncatedlonglong_w(self):
+        space = self.space
+        w_value = space.wrap(12)
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 12
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(9223372036854775808))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -9223372036854775808
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551615))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -1
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551616))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 0
+        assert type(res) is r_longlong
+
+
     def test_call_obj_args(self):
         from pypy.interpreter.argument import Arguments
         
@@ -281,36 +320,27 @@ class TestObjSpace:
 
 class TestModuleMinimal: 
     def test_sys_exists(self):
-        assert self.space.sys 
+        assert self.space.sys
 
     def test_import_exists(self):
         space = self.space
-        assert space.builtin 
+        assert space.builtin
         w_name = space.wrap('__import__')
         w_builtin = space.sys.getmodule('__builtin__')
-        w_import = self.space.getattr(w_builtin, w_name) 
+        w_import = self.space.getattr(w_builtin, w_name)
         assert space.is_true(w_import)
 
     def test_sys_import(self):
         from pypy.interpreter.main import run_string
         run_string('import sys', space=self.space)
 
-    def test_get_builtinmodule_to_install(self):
-        space = self.space
-        try:
-            # force rebuilding with this fake builtin
-            space.ALL_BUILTIN_MODULES.append('this_doesnt_exist')
-            del space._builtinmodule_list
-            mods = space.get_builtinmodule_to_install()
-            
-            assert '__pypy__' in mods                # real builtin
-            assert 'array' not in mods               # in lib_pypy
-            assert 'faked+array' not in mods         # in lib_pypy
-            assert 'this_doesnt_exist' not in mods   # not in lib_pypy
-            assert 'faked+this_doesnt_exist' in mods # not in lib_pypy, but in
-                                                     # ALL_BUILTIN_MODULES
-        finally:
-            # rebuild the original list
-            space.ALL_BUILTIN_MODULES.pop()
-            del space._builtinmodule_list
-            mods = space.get_builtinmodule_to_install()
+    def test_dont_reload_builtin_mods_on_startup(self):
+        from pypy.tool.option import make_config, make_objspace
+        config = make_config(None)
+        space = make_objspace(config)
+        w_executable = space.wrap('executable')
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'py.py'
+        space.setattr(space.sys, w_executable, space.wrap('foobar'))
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        space.startup()
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'

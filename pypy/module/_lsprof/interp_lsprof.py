@@ -3,7 +3,7 @@ import py
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method, Function
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.rlib import jit
@@ -22,7 +22,7 @@ srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
 eci = ExternalCompilationInfo(
     separate_module_files=[srcdir.join('profiling.c')],
     export_symbols=['pypy_setup_profiling', 'pypy_teardown_profiling'])
-                                                     
+
 c_setup_profiling = rffi.llexternal('pypy_setup_profiling',
                                   [], lltype.Void,
                                   compilation_info = eci)
@@ -185,36 +185,52 @@ class ProfilerContext(object):
             if subentry is not None:
                 subentry._stop(tt, it)
 
-def create_spec(space, w_arg):
-    if isinstance(w_arg, Method):
-        w_function = w_arg.w_function
-        if isinstance(w_function, Function):
-            name = w_function.name
-        else:
-            name = '?'
-        # try to get the real class that defines the method,
-        # which is a superclass of the class of the instance
-        from pypy.objspace.std.typeobject import W_TypeObject   # xxx
-        w_type = w_arg.w_class
-        class_name = w_type.getname(space)    # if the rest doesn't work
-        if isinstance(w_type, W_TypeObject) and name != '?':
-            w_realclass, _ = space.lookup_in_type_where(w_type, name)
-            if isinstance(w_realclass, W_TypeObject):
-                class_name = w_realclass.get_module_type_name()
-        return "{method '%s' of '%s' objects}" % (name, class_name)
-    elif isinstance(w_arg, Function):
-        if w_arg.w_module is None:
+
+@jit.elidable_promote()
+def create_spec_for_method(space, w_function, w_type):
+    w_function = w_function
+    if isinstance(w_function, Function):
+        name = w_function.name
+    else:
+        name = '?'
+    # try to get the real class that defines the method,
+    # which is a superclass of the class of the instance
+    from pypy.objspace.std.typeobject import W_TypeObject   # xxx
+    class_name = w_type.getname(space)    # if the rest doesn't work
+    if isinstance(w_type, W_TypeObject) and name != '?':
+        w_realclass, _ = space.lookup_in_type_where(w_type, name)
+        if isinstance(w_realclass, W_TypeObject):
+            class_name = w_realclass.get_module_type_name()
+    return "{method '%s' of '%s' objects}" % (name, class_name)
+
+
+@jit.elidable_promote()
+def create_spec_for_function(space, w_func):
+    if w_func.w_module is None:
+        module = ''
+    else:
+        module = space.str_w(w_func.w_module)
+        if module == '__builtin__':
             module = ''
         else:
-            module = space.str_w(w_arg.w_module)
-            if module == '__builtin__':
-                module = ''
-            else:
-                module += '.'
-        return '{%s%s}' % (module, w_arg.name)
+            module += '.'
+    return '{%s%s}' % (module, w_func.name)
+
+
+@jit.elidable_promote()
+def create_spec_for_object(space, w_obj):
+    class_name = space.type(w_obj).getname(space)
+    return "{'%s' object}" % (class_name,)
+
+
+def create_spec(space, w_arg):
+    if isinstance(w_arg, Method):
+        return create_spec_for_method(space, w_arg.w_function, w_arg.w_class)
+    elif isinstance(w_arg, Function):
+        return create_spec_for_function(space, w_arg)
     else:
-        class_name = space.type(w_arg).getname(space)
-        return "{'%s' object}" % (class_name,)
+        return create_spec_for_object(space, w_arg)
+
 
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
@@ -228,7 +244,7 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         if w_self.builtins:
             key = create_spec(space, w_arg)
             w_self._enter_builtin_call(key)
-    elif event == 'c_return':
+    elif event == 'c_return' or event == 'c_exception':
         if w_self.builtins:
             key = create_spec(space, w_arg)
             w_self._enter_builtin_return(key)
@@ -237,7 +253,7 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         pass
 
 class W_Profiler(Wrappable):
-    
+
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
         self.subcalls = subcalls
         self.builtins = builtins
@@ -265,8 +281,8 @@ class W_Profiler(Wrappable):
                 return timer_size_int(0)
         return read_timestamp()
 
-    def enable(self, space, w_subcalls=NoneNotWrapped,
-               w_builtins=NoneNotWrapped):
+    def enable(self, space, w_subcalls=None,
+               w_builtins=None):
         if self.is_enabled:
             return      # ignored
         if w_subcalls is not None:
@@ -377,7 +393,7 @@ class W_Profiler(Wrappable):
                      factor)
 
 @unwrap_spec(time_unit=float, subcalls=bool, builtins=bool)
-def descr_new_profile(space, w_type, w_callable=NoneNotWrapped, time_unit=0.0,
+def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
                       subcalls=True, builtins=True):
     p = space.allocate_instance(W_Profiler, w_type)
     p.__init__(space, w_callable, time_unit, subcalls, builtins)

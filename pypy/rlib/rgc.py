@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import gc
 import types
 
@@ -137,16 +139,65 @@ class MallocNonMovingEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
-@jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
+def copy_struct_item(source, dest, si, di):
+    TP = lltype.typeOf(source).TO.OF
+    i = 0
+    while i < len(TP._names):
+        setattr(dest[di], TP._names[i], getattr(source[si], TP._names[i]))
+        i += 1
+
+class CopyStructEntry(ExtRegistryEntry):
+    _about_ = copy_struct_item
+
+    def compute_result_annotation(self, s_source, s_dest, si, di):
+        pass
+
+    def specialize_call(self, hop):
+        v_source, v_dest, v_si, v_di = hop.inputargs(hop.args_r[0],
+                                                     hop.args_r[1],
+                                                     lltype.Signed,
+                                                     lltype.Signed)
+        hop.exception_cannot_occur()
+        TP = v_source.concretetype.TO.OF
+        for name, TP in TP._flds.iteritems():
+            c_name = hop.inputconst(lltype.Void, name)
+            v_fld = hop.genop('getinteriorfield', [v_source, v_si, c_name],
+                              resulttype=TP)
+            hop.genop('setinteriorfield', [v_dest, v_di, c_name, v_fld])
+
+
 @specialize.ll()
+def copy_item(source, dest, si, di):
+    TP = lltype.typeOf(source)
+    if isinstance(TP.TO.OF, lltype.Struct):
+        copy_struct_item(source, dest, si, di)
+    else:
+        dest[di] = source[si]
+
+@specialize.memo()
+def _contains_gcptr(TP):
+    if not isinstance(TP, lltype.Struct):
+        if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc':
+            return True
+        return False
+    for TP in TP._flds.itervalues():
+        if _contains_gcptr(TP):
+            return True
+    return False
+
+@jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
 @enforceargs(None, None, int, int, int)
+@specialize.ll()
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.objectmodel import keepalive_until_here
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
-    if NonConstant(False):
-        dest[dest_start] = source[source_start]
+    # and also, maybe, speed up very small cases
+    if length <= 1:
+        if length == 1:
+            copy_item(source, dest, source_start, dest_start)
+        return
 
     # supports non-overlapping copies only
     if not we_are_translated():
@@ -156,7 +207,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
-    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
+    if _contains_gcptr(TP.OF):
         # perform a write barrier that copies necessary flags from
         # source to dest
         if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
@@ -165,7 +216,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             # if the write barrier is not supported, copy by hand
             i = 0
             while i < length:
-                dest[i + dest_start] = source[i + source_start]
+                copy_item(source, dest, i + source_start, i + dest_start)
                 i += 1
             return
     source_addr = llmemory.cast_ptr_to_adr(source)
@@ -225,9 +276,8 @@ def must_be_light_finalizer(func):
 def get_rpy_roots():
     "NOT_RPYTHON"
     # Return the 'roots' from the GC.
-    # This stub is not usable on top of CPython.
     # The gc typically returns a list that ends with a few NULL_GCREFs.
-    raise NotImplementedError
+    return [_GcRef(x) for x in gc.get_objects()]
 
 def get_rpy_referents(gcref):
     "NOT_RPYTHON"
@@ -254,12 +304,9 @@ def _keep_object(x):
         return False      # don't keep any type
     if isinstance(x, (list, dict, str)):
         return True       # keep lists and dicts and strings
-    try:
-        return not x._freeze_()   # don't keep any frozen object
-    except AttributeError:
-        return type(x).__module__ != '__builtin__'   # keep non-builtins
-    except Exception:
-        return False      # don't keep objects whose _freeze_() method explodes
+    if hasattr(x, '_freeze_'):
+        return False
+    return type(x).__module__ != '__builtin__'   # keep non-builtins
 
 def add_memory_pressure(estimate):
     """Add memory pressure for OpaquePtrs."""
@@ -307,6 +354,32 @@ def dump_rpy_heap(fd):
 def get_typeids_z():
     "NOT_RPYTHON"
     raise NotImplementedError
+
+def has_gcflag_extra():
+    "NOT_RPYTHON"
+    return True
+has_gcflag_extra._subopnum = 1
+
+_gcflag_extras = set()
+
+def get_gcflag_extra(gcref):
+    "NOT_RPYTHON"
+    assert gcref   # not NULL!
+    return gcref in _gcflag_extras
+get_gcflag_extra._subopnum = 2
+
+def toggle_gcflag_extra(gcref):
+    "NOT_RPYTHON"
+    assert gcref   # not NULL!
+    try:
+        _gcflag_extras.remove(gcref)
+    except KeyError:
+        _gcflag_extras.add(gcref)
+toggle_gcflag_extra._subopnum = 3
+
+def assert_no_more_gcflags():
+    if not we_are_translated():
+        assert not _gcflag_extras
 
 ARRAY_OF_CHAR = lltype.Array(lltype.Char)
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
@@ -382,6 +455,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self):
         return s_list_of_gcrefs()
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_roots', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
@@ -392,6 +466,7 @@ class Entry(ExtRegistryEntry):
         return s_list_of_gcrefs()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_referents', vlist,
                          resulttype = hop.r_result)
 
@@ -402,6 +477,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeInteger()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_memory_usage', vlist,
                          resulttype = hop.r_result)
 
@@ -412,6 +488,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeInteger()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
 
@@ -430,6 +507,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeBool()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_is_rpy_instance', vlist,
                          resulttype = hop.r_result)
 
@@ -449,6 +527,7 @@ class Entry(ExtRegistryEntry):
         classrepr = getclassrepr(hop.rtyper, classdef)
         vtable = classrepr.getvtable()
         assert lltype.typeOf(vtable) == rclass.CLASSTYPE
+        hop.exception_cannot_occur()
         return Constant(vtable, concretetype=rclass.CLASSTYPE)
 
 class Entry(ExtRegistryEntry):
@@ -469,3 +548,18 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)
+    def compute_result_annotation(self, s_arg=None):
+        from pypy.annotation.model import s_Bool
+        return s_Bool
+    def specialize_call(self, hop):
+        subopnum = self.instance._subopnum
+        vlist = [hop.inputconst(lltype.Signed, subopnum)]
+        vlist += hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_gcflag_extra', vlist, resulttype = hop.r_result)
+
+def lltype_is_gc(TP):
+    return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'

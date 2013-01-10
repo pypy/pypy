@@ -1,9 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.pyopcode import LoopBlock
 from pypy.rlib import jit
-from pypy.rlib.objectmodel import specialize
 
 
 class GeneratorIterator(Wrappable):
@@ -92,6 +90,8 @@ return next yielded value or raise StopIteration."""
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """x.throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
+        if w_val is None:
+            w_val = self.space.w_None
         return self.throw(w_type, w_val, w_tb)
 
 
@@ -100,7 +100,7 @@ return next yielded value or raise StopIteration."""
         space = self.space
 
         msg = "throw() third argument must be a traceback object"
-        if space.is_w(w_tb, space.w_None):
+        if space.is_none(w_tb):
             tb = None
         else:
             tb = check_traceback(space, w_tb, msg)

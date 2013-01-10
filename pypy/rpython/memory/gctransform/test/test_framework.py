@@ -1,25 +1,26 @@
-from pypy.objspace.flow.model import Constant, SpaceOperation
-from pypy.annotation.model import SomeInteger
 from pypy.annotation.listdef import s_list_of_strings
-from pypy.rpython.memory.gc.marksweep import MarkSweepGC
-from pypy.rpython.memory.gctransform.test.test_transform import rtype, \
-    rtype_and_transform
-from pypy.rpython.memory.gctransform.transform import GcHighLevelOp
-from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer, \
-    CollectAnalyzer, find_initializing_stores, find_clean_setarrayitems
+from pypy.annotation.model import SomeInteger
+from pypy.objspace.flow.model import Constant, SpaceOperation
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.memory.gc.semispace import SemiSpaceGC
+from pypy.rpython.memory.gctransform.framework import (CollectAnalyzer,
+     find_initializing_stores, find_clean_setarrayitems)
+from pypy.rpython.memory.gctransform.shadowstack import (
+     ShadowStackFrameworkGCTransformer)
+from pypy.rpython.memory.gctransform.test.test_transform import rtype
+from pypy.rpython.memory.gctransform.transform import GcHighLevelOp
 from pypy.rpython.rtyper import LowLevelOpList
-from pypy.translator.c.gc import FrameworkGcPolicy
+from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.c.gc import BasicFrameworkGcPolicy
+from pypy.translator.exceptiontransform import ExceptionTransformer
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.unsimplify import varoftype
-from pypy.translator.exceptiontransform import ExceptionTransformer
-from pypy.translator.backendopt.all import backend_optimizations
-from pypy import conftest
 
 import py
 
-class FrameworkGcPolicy2(FrameworkGcPolicy):
-    class transformerclass(FrameworkGCTransformer):
+class FrameworkGcPolicy2(BasicFrameworkGcPolicy):
+    class transformerclass(ShadowStackFrameworkGCTransformer):
         root_stack_depth = 100
 
 def test_framework_simple():
@@ -34,9 +35,9 @@ def test_framework_simple():
 
     from pypy.rpython.llinterp import LLInterpreter
     from pypy.translator.c.genc import CStandaloneBuilder
-    from pypy.translator.c import gc
 
     t = rtype(entrypoint, [s_list_of_strings])
+    t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
@@ -96,10 +97,16 @@ def test_cancollect_external():
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
 
+def test_cancollect_some_operation():
+    def g():
+        llop.gc_set_extra_threshold(lltype.Void, 32)
+    t = rtype(g, [])
+    gg = graphof(t, g)
+    assert CollectAnalyzer(t).analyze_direct_call(gg)
+
 def test_no_collect():
     from pypy.rlib import rgc
     from pypy.translator.c.genc import CStandaloneBuilder
-    from pypy.translator.c import gc
 
     @rgc.no_collect
     def g():
@@ -112,6 +119,7 @@ def test_no_collect():
         return g() + 2
     
     t = rtype(entrypoint, [s_list_of_strings])
+    t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
@@ -119,7 +127,6 @@ def test_no_collect():
 def test_no_collect_detection():
     from pypy.rlib import rgc
     from pypy.translator.c.genc import CStandaloneBuilder
-    from pypy.translator.c import gc
 
     class A(object):
         def __init__(self, x):
@@ -136,16 +143,17 @@ def test_no_collect_detection():
         return g() + 2
     
     t = rtype(entrypoint, [s_list_of_strings])
+    t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
     expected = "'no_collect' function can trigger collection: <function g at "
     assert str(f.value).startswith(expected)
 
-class WriteBarrierTransformer(FrameworkGCTransformer):
+class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
     GC_PARAMS = {}
-    class GCClass(MarkSweepGC):
+    class GCClass(SemiSpaceGC):
         needs_write_barrier = True
         def writebarrier_before_copy(self, source, dest,
                                      source_start, dest_start, length):

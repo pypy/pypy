@@ -172,46 +172,12 @@ Under the new proposal, the __methods__ attribute no longer exists:
     AttributeError: 'list' object has no attribute '__methods__'
     >>>
 
-Instead, you can get the same information from the list type:
+Instead, you can get the same information from the list type
+(the following example filters out the numerous method names
+starting with '_'):
 
-    >>> pprint.pprint(dir(list))    # like list.__dict__.keys(), but sorted
-    ['__add__',
-     '__class__',
-     '__contains__',
-     '__delattr__',
-     '__delitem__',
-     '__delslice__',
-     '__doc__',
-     '__eq__',
-     '__format__',
-     '__ge__',
-     '__getattribute__',
-     '__getitem__',
-     '__getslice__',
-     '__gt__',
-     '__hash__',
-     '__iadd__',
-     '__imul__',
-     '__init__',
-     '__iter__',
-     '__le__',
-     '__len__',
-     '__lt__',
-     '__mul__',
-     '__ne__',
-     '__new__',
-     '__reduce__',
-     '__reduce_ex__',
-     '__repr__',
-     '__reversed__',
-     '__rmul__',
-     '__setattr__',
-     '__setitem__',
-     '__setslice__',
-     '__sizeof__',
-     '__str__',
-     '__subclasshook__',
-     'append',
+    >>> pprint.pprint([name for name in dir(list) if not name.startswith('_')])
+    ['append',
      'count',
      'extend',
      'index',

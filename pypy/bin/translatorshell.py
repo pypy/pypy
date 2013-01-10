@@ -8,10 +8,10 @@ Can be used for interactive testing of the translator.
 
 Example:
 
-    t = Translation(func)
+    t = Translation(func, [int])       # pass the list of args types
     t.view()                           # control flow graph
 
-    t.annotate([int])                  # pass the list of args types
+    t.annotate()
     t.view()                           # graph + annotations under the mouse
 
     t.rtype()                          # use low level operations 

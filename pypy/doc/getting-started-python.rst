@@ -50,10 +50,10 @@ the version you have is not 4.2 or you will run into `this bug`_.
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 
-   On a Fedora box these are::
+   On a Fedora-16 box these are::
 
      [user@fedora-or-rh-box ~]$ sudo yum install \
-     gcc make python-devel libffi-devel pkg-config \
+     gcc make python-devel libffi-devel pkgconfig \
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
 
@@ -103,18 +103,24 @@ translation options that where used to produce this particular
 executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
-    Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.6.0 with GCC 4.4.3] on linux2
+    Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
+    [PyPy 2.0.0-beta1 with GCC 4.7.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``this sentence is false''
+    And now for something completely different: ``RPython magically makes you rich
+    and famous (says so on the tin)''
+
     >>>> 46 - 4
     42
     >>>> from test import pystone
     >>>> pystone.main()
-    Pystone(1.1) time for 50000 passes = 0.280017
-    This machine benchmarks at 178561 pystones/second
-    >>>>
+    Pystone(1.1) time for 50000 passes = 0.220015
+    This machine benchmarks at 227257 pystones/second
+    >>>> pystone.main()
+    Pystone(1.1) time for 50000 passes = 0.060004
+    This machine benchmarks at 833278 pystones/second
+    >>>> 
 
+Note that pystone gets faster as the JIT kicks in.
 This executable can be moved around or copied on other machines; see
 Installation_ below.
 
@@ -125,8 +131,6 @@ Find a more detailed description of the various options in our `configuration
 sections`_.
 
 .. _`configuration sections`: config/index.html
-
-.. _`translate PyPy with the thunk object space`:
 
 Translating with non-standard options
 ++++++++++++++++++++++++++++++++++++++++
@@ -216,20 +220,19 @@ looks like this::
    ./include/
    ./lib_pypy/
    ./lib-python/2.7
-   ./lib-python/modified-2.7
    ./site-packages/
 
 The hierarchy shown above is relative to a PREFIX directory.  PREFIX is
 computed by starting from the directory where the executable resides, and
-"walking up" the filesystem until we find a directory containing ``lib_pypy``,
-``lib-python/2.7`` and ``lib-python/2.7.1``.
+"walking up" the filesystem until we find a directory containing ``lib_pypy``
+and ``lib-python/2.7``.
 
 The archives (.tar.bz2 or .zip) containing PyPy releases already contain the
 correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy1.6``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy2.0-beta1``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report

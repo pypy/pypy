@@ -7,8 +7,6 @@
 extern "C" {
 #endif
 
-int PyOS_snprintf(char *str, size_t size, const  char  *format, ...);
-
 #define PyString_GET_SIZE(op) PyString_Size(op)
 #define PyString_AS_STRING(op) PyString_AsString(op)
 

@@ -1,13 +1,10 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments, Signature
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-
-Null = NoneNotWrapped
 
 from pypy.module.oracle import roci, config
 from pypy.module.oracle import interp_error, interp_environ
@@ -22,7 +19,7 @@ class W_SessionPool(Wrappable):
     def descr_new(space, w_subtype,
                   w_user, w_password, w_dsn,
                   min, max, increment,
-                  w_connectiontype=Null,
+                  w_connectiontype=None,
                   threaded=False,
                   getmode=roci.OCI_SPOOL_ATTRVAL_NOWAIT,
                   events=False,

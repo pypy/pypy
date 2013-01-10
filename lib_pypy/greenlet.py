@@ -77,8 +77,6 @@ class greenlet(_continulet):
         try:
             unbound_method = getattr(_continulet, methodname)
             args = unbound_method(current, *args, to=target)
-        except GreenletExit, e:
-            args = (e,)
         finally:
             _tls.current = current
         #
@@ -132,6 +130,8 @@ def _greenlet_start(greenlet, args):
     _tls.current = greenlet
     try:
         res = greenlet.run(*args)
+    except GreenletExit, e:
+        res = e
     finally:
         _continuation.permute(greenlet, greenlet.parent)
     return (res,)

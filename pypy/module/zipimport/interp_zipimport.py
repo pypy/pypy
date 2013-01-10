@@ -123,7 +123,9 @@ class W_ZipImporter(Wrappable):
         self.prefix = prefix
 
     def getprefix(self, space):
-        return space.wrap(self.prefix)
+        if ZIPSEP == os.path.sep:
+            return space.wrap(self.prefix)
+        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))    
 
     def _find_relative_path(self, filename):
         if filename.startswith(self.filename):
@@ -227,7 +229,11 @@ class W_ZipImporter(Wrappable):
         startpos = fullname.rfind('.') + 1 # 0 when not found
         assert startpos >= 0
         subname = fullname[startpos:]
-        return self.prefix + subname.replace('.', '/')
+        if ZIPSEP == os.path.sep:
+            return self.prefix + subname.replace('.', '/')
+        else:
+            return self.prefix.replace(os.path.sep, ZIPSEP) + \
+                    subname.replace('.', '/')
 
     def make_co_filename(self, filename):
         """
@@ -342,7 +348,7 @@ class W_ZipImporter(Wrappable):
         space = self.space
         return space.wrap(self.filename)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='str0')
 def descr_new_zipimporter(space, w_type, name):
     w = space.wrap
     ok = False
@@ -381,7 +387,7 @@ def descr_new_zipimporter(space, w_type, name):
     prefix = name[len(filename):]
     if prefix.startswith(os.path.sep) or prefix.startswith(ZIPSEP):
         prefix = prefix[1:]
-    if prefix and not prefix.endswith(ZIPSEP):
+    if prefix and not prefix.endswith(ZIPSEP) and not prefix.endswith(os.path.sep):
         prefix += ZIPSEP
     w_result = space.wrap(W_ZipImporter(space, name, filename, zip_file, prefix))
     zip_cache.set(filename, w_result)

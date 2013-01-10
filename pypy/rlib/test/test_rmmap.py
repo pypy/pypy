@@ -33,8 +33,6 @@ class TestMMap:
         interpret(f, [])
 
     def test_file_size(self):
-        if os.name == "nt":
-            skip("Only Unix checks file size")
         def func(no):
 
             try:
@@ -263,10 +261,23 @@ class TestMMap:
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
         raises(RTypeError, m.write, "foo")
+        m.close()
+        f.close()
+
+    def test_write_without_protwrite(self):
+        if os.name == "nt":
+            skip("Needs PROT_WRITE")
+        f = open(self.tmpname + "l2", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, prot=~mmap.PROT_WRITE)
+        raises(RTypeError, m.write_byte, 'a')
+        raises(RTypeError, m.write, "foo")
+        m.close()
         f.close()
 
     def test_size(self):
-        f = open(self.tmpname + "l", "w+")
+        f = open(self.tmpname + "l3", "w+")
         
         f.write("foobar")
         f.flush()
@@ -415,20 +426,21 @@ class TestMMap:
             m.close()
             return r
 
-        compile(func, [int])
+        compile(func, [int], gcpolicy='boehm')
 
     def test_windows_crasher_1(self):
         if sys.platform != "win32":
             skip("Windows-only test")
-
-        m = mmap.mmap(-1, 1000, tagname="foo")
-        # same tagname, but larger size
-        try:
-            m2 = mmap.mmap(-1, 5000, tagname="foo")
-            m2.getitem(4500)
-        except WindowsError:
-            pass
-        m.close()
+        def func():
+            m = mmap.mmap(-1, 1000, tagname="foo")
+            # same tagname, but larger size
+            try:
+                m2 = mmap.mmap(-1, 5000, tagname="foo")
+                m2.getitem(4500)
+            except WindowsError:
+                pass
+            m.close()
+        interpret(func, [])
 
     def test_windows_crasher_2(self):
         if sys.platform != "win32":
@@ -457,5 +469,5 @@ def test_alloc_free():
 def test_compile_alloc_free():
     from pypy.translator.c.test.test_genc import compile
 
-    fn = compile(test_alloc_free, [])
+    fn = compile(test_alloc_free, [], gcpolicy='boehm')
     fn()

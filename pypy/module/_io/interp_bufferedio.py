@@ -1,18 +1,67 @@
 from __future__ import with_statement
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.rarithmetic import r_longlong, intmask
+from pypy.rlib import rposix
 from pypy.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
+from pypy.module.thread import ll_thread
+import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
+
+def trap_eintr(space, error):
+    # Return True if an EnvironmentError with errno == EINTR is set
+    if not error.match(space, space.w_EnvironmentError):
+        return False
+    try:
+        w_value = error.get_w_value(space)
+        w_errno = space.getattr(w_value, space.wrap("errno"))
+        return space.is_true(
+            space.eq(w_errno, space.wrap(errno.EINTR)))
+    except OperationError:
+        return False
+
+
+def make_write_blocking_error(space, written):
+    w_type = space.gettypeobject(W_BlockingIOError.typedef)
+    w_value = space.call_function(
+        w_type,
+        space.wrap(rposix.get_errno()),
+        space.wrap("write could not complete without blocking"),
+        space.wrap(written))
+    return OperationError(w_type, w_value)
+
+
+class TryLock(object):
+    "A Lock that raises RuntimeError when acquired twice by the same thread"
+    def __init__(self, space):
+        ## XXX cannot free a Lock?
+        ## if self.lock:
+        ##     self.lock.free()
+        self.lock = space.allocate_lock()
+        self.owner = 0
+        self.operr = OperationError(space.w_RuntimeError,
+                                    space.wrap("reentrant call"))
+
+    def __enter__(self):
+        if not self.lock.acquire(False):
+            if self.owner == ll_thread.get_ident():
+                raise self.operr
+            self.lock.acquire(True)
+        self.owner = ll_thread.get_ident()
+    
+    def __exit__(self,*args):
+        self.owner = 0
+        self.lock.release()
+
 
 class BlockingIOError(Exception):
     pass
@@ -116,10 +165,7 @@ class BufferedMixin:
 
         self.buffer = ['\0'] * self.buffer_size
 
-        ## XXX cannot free a Lock?
-        ## if self.lock:
-        ##     self.lock.free()
-        self.lock = space.allocate_lock()
+        self.lock = TryLock(space)
 
         try:
             self._raw_tell(space)
@@ -254,6 +300,7 @@ class BufferedMixin:
         if pos < 0:
             raise OperationError(space.w_IOError, space.wrap(
                 "Raw stream returned invalid position"))
+        self.abs_pos = pos
         return pos
 
     def _closed(self, space):
@@ -272,7 +319,7 @@ class BufferedMixin:
         self._check_init(space)
         return space.call_method(self.w_raw, "flush")
 
-    def _writer_flush_unlocked(self, space, restore_pos=False):
+    def _writer_flush_unlocked(self, space):
         if self.write_end == -1 or self.write_pos == self.write_end:
             return
         # First, rewind
@@ -285,18 +332,8 @@ class BufferedMixin:
         while self.write_pos < self.write_end:
             try:
                 n = self._raw_write(space, self.write_pos, self.write_end)
-            except OperationError, e:
-                if not e.match(space, space.gettypeobject(
-                    W_BlockingIOError.typedef)):
-                    raise
-                w_exc = e.get_w_value(space)
-                assert isinstance(w_exc, W_BlockingIOError)
-                self.write_pos += w_exc.written
-                self.raw_pos = self.write_pos
-                written += w_exc.written
-                # re-raise the error
-                w_exc.written = written
-                raise
+            except BlockingIOError:
+                raise make_write_blocking_error(space, 0)
             self.write_pos += n
             self.raw_pos = self.write_pos
             written += n
@@ -305,17 +342,24 @@ class BufferedMixin:
             # blocking another time, possibly indefinitely.
             space.getexecutioncontext().checksignals()
 
-        if restore_pos:
-            forward = rewind - written
-            if forward:
-                self._raw_seek(space, forward, 1)
-                self.raw_pos += forward
-
         self._writer_reset_buf()
 
     def _write(self, space, data):
         w_data = space.wrap(data)
-        w_written = space.call_method(self.w_raw, "write", w_data)
+        while True:
+            try:
+                w_written = space.call_method(self.w_raw, "write", w_data)
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue  # try again
+                raise
+            else:
+                break
+
+        if space.is_w(w_written, space.w_None):
+            # Non-blocking stream would have blocked.
+            raise BlockingIOError()
+
         written = space.getindex_w(w_written, space.w_IOError)
         if not 0 <= written <= len(data):
             raise OperationError(space.w_IOError, space.wrap(
@@ -343,17 +387,12 @@ class BufferedMixin:
         self._check_init(space)
         return space.call_method(self.w_raw, "fileno")
 
-    def truncate_w(self, space, w_size=None):
+    @unwrap_spec(w_size = WrappedDefault(None))
+    def truncate_w(self, space, w_size):
         self._check_init(space)
         with self.lock:
             if self.writable:
-                self._writer_flush_unlocked(space)
-            if self.readable:
-                if space.is_w(w_size, space.w_None):
-                    # Rewind the raw stream so that its position corresponds
-                    # to the current logical position
-                    self._raw_seek(space, -self._raw_offset(), 1)
-                self._reader_reset_buf()
+                self._flush_and_rewind_unlocked(space)
             # invalidate cached position
             self.abs_pos = -1
 
@@ -386,7 +425,7 @@ class BufferedMixin:
         self._check_init(space)
         with self.lock:
             if self.writable:
-                self._writer_flush_unlocked(space, restore_pos=True)
+                self._flush_and_rewind_unlocked(space)
             # Constraints:
             # 1. we don't want to advance the file position.
             # 2. we don't want to lose block alignment, so we can't shift the
@@ -420,9 +459,6 @@ class BufferedMixin:
             return space.wrap("")
 
         with self.lock:
-            if self.writable:
-                self._writer_flush_unlocked(space, restore_pos=True)
-
             # Return up to n bytes.  If at least one byte is buffered, we only
             # return buffered bytes.  Otherwise, we do one raw read.
 
@@ -433,6 +469,9 @@ class BufferedMixin:
 
             have = self._readahead()
             if have == 0:
+                if self.writable:
+                    self._flush_and_rewind_unlocked(space)
+
                 # Fill the buffer from the raw stream
                 self._reader_reset_buf()
                 self.pos = 0
@@ -449,6 +488,7 @@ class BufferedMixin:
 
     def _read_all(self, space):
         "Read all the file, don't update the cache"
+        # Must run with the lock held!
         builder = StringBuilder()
         # First copy what we have in the current buffer
         current_size = self._readahead()
@@ -456,10 +496,11 @@ class BufferedMixin:
         if current_size:
             data = ''.join(self.buffer[self.pos:self.pos + current_size])
             builder.append(data)
-        self._reader_reset_buf()
+            self.pos += current_size
         # We're going past the buffer's bounds, flush it
         if self.writable:
-            self._writer_flush_unlocked(space, restore_pos=True)
+            self._flush_and_rewind_unlocked(space)
+        self._reader_reset_buf()
 
         while True:
             # Read until EOF or until read() would block
@@ -481,7 +522,16 @@ class BufferedMixin:
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
         w_buf = space.wrap(RawBuffer(buffer, start, length))
-        w_size = space.call_method(self.w_raw, "readinto", w_buf)
+        while True:
+            try:
+                w_size = space.call_method(self.w_raw, "readinto", w_buf)
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue  # try again
+                raise
+            else:
+                break
+                
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
         size = space.int_w(w_size)
@@ -506,6 +556,7 @@ class BufferedMixin:
     def _read_generic(self, space, n):
         """Generic read function: read from the stream until enough bytes are
            read, or until an EOF occurs or until read() would block."""
+        # Must run with the lock held!
         current_size = self._readahead()
         if n <= current_size:
             return self._read_fast(n)
@@ -519,12 +570,12 @@ class BufferedMixin:
                 result_buffer[written + i] = self.buffer[self.pos + i]
             remaining -= current_size
             written += current_size
-        self._reader_reset_buf()
+            self.pos += current_size
 
-        # XXX potential bug in CPython? The following is not enabled.
-        # We're going past the buffer's bounds, flush it
-        ## if self.writable:
-        ##     self._writer_flush_unlocked(space, restore_pos=True)
+        # Flush the write buffer if necessary
+        if self.writable:
+            self._writer_flush_unlocked(space)
+        self._reader_reset_buf()
 
         # Read whole blocks, and don't buffer them
         while remaining > 0:
@@ -606,7 +657,7 @@ class BufferedMixin:
             if size <= available:
                 for i in range(size):
                     self.buffer[self.pos + i] = data[i]
-                if self.write_end == -1:
+                if self.write_end == -1 or self.write_pos > self.pos:
                     self.write_pos = self.pos
                 self._adjust_position(self.pos + size)
                 if self.pos > self.write_end:
@@ -634,19 +685,23 @@ class BufferedMixin:
                 self.pos = newpos
                 self.write_pos = 0
                 available = self.buffer_size - self.write_end
+                assert available >= 0
                 if size <= available:
                     # Everything can be buffered
                     for i in range(size):
                         self.buffer[self.write_end + i] = data[i]
                     self.write_end += size
+                    self.pos += size
                     return space.wrap(size)
                 # Buffer as much as possible
                 for i in range(available):
                     self.buffer[self.write_end + i] = data[i]
-                    self.write_end += available
-                # Raise previous exception
-                w_exc.written = available
-                raise
+                self.write_end += available
+                self.pos += available
+                # Modifying the existing exception will will change
+                # e.characters_written but not e.args[2].  Therefore
+                # we just replace with a new error.
+                raise make_write_blocking_error(space, available)
 
             # Adjust the raw stream position if it is away from the logical
             # stream position. This happens if the read buffer has been filled
@@ -663,14 +718,8 @@ class BufferedMixin:
             while remaining > self.buffer_size:
                 try:
                     n = self._write(space, data[written:])
-                except OperationError, e:
-                    if not e.match(space, space.gettypeobject(
-                        W_BlockingIOError.typedef)):
-                        raise
-                    w_exc = e.get_w_value(space)
-                    assert isinstance(w_exc, W_BlockingIOError)
-                    written += w_exc.written
-                    remaining -= w_exc.written
+                except BlockingIOError:
+                    # Write failed because raw file is non-blocking
                     if remaining > self.buffer_size:
                         # Can't buffer everything, still buffer as much as
                         # possible
@@ -679,8 +728,8 @@ class BufferedMixin:
                         self.raw_pos = 0
                         self._adjust_position(self.buffer_size)
                         self.write_end = self.buffer_size
-                        w_exc.written = written + self.buffer_size
-                        raise
+                        written += self.buffer_size
+                        raise make_write_blocking_error(space, written)
                     break
                 written += n
                 remaining -= n
@@ -705,13 +754,22 @@ class BufferedMixin:
         self._check_init(space)
         self._check_closed(space, "flush of closed file")
         with self.lock:
-            self._writer_flush_unlocked(space)
+            self._flush_and_rewind_unlocked(space)
             if self.readable:
                 # Rewind the raw stream so that its position corresponds to
                 # the current logical position.
                 self._raw_seek(space, -self._raw_offset(), 1)
                 self._reader_reset_buf()
 
+    def _flush_and_rewind_unlocked(self, space):
+        self._writer_flush_unlocked(space)
+        if self.readable:
+            # Rewind the raw stream so that its position corresponds to
+            # the current logical position.
+            try:
+                self._raw_seek(space, -self._raw_offset(), 1)
+            finally:
+                self._reader_reset_buf()
 
 class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
     @unwrap_spec(buffer_size=int)

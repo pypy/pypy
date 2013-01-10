@@ -1,17 +1,80 @@
 import py
+
 from pypy.conftest import option
-from pypy.rlib.jit import hint, we_are_jitted, JitDriver, elidable_promote
-from pypy.rlib.jit import JitHintError, oopspec, isconstant
-from pypy.translator.translator import TranslationContext, graphof
+from pypy.annotation.model import UnionError
+from pypy.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
+    JitHintError, oopspec, isconstant)
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem import lltype
+
 
 def test_oopspec():
     @oopspec('foobar')
     def fn():
         pass
     assert fn.oopspec == 'foobar'
+
+def test_jitdriver_autoreds():
+    driver = JitDriver(greens=['foo'], reds='auto')
+    assert driver.autoreds
+    assert driver.reds == []
+    assert driver.numreds is None
+    py.test.raises(TypeError, "driver.can_enter_jit(foo='something')")
+    #
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', get_printable_location='something')")
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
+
+def test_jitdriver_numreds():
+    driver = JitDriver(greens=['foo'], reds=['a', 'b'])
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
+    #
+    class MyJitDriver(JitDriver):
+        greens = ['foo']
+        reds = ['a', 'b']
+    driver = MyJitDriver()
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
+
+def test_jitdriver_inline():
+    driver = JitDriver(greens=[], reds='auto')
+    calls = []
+    def foo(a, b):
+        calls.append(('foo', a, b))
+
+    @driver.inline(foo)
+    def bar(a, b):
+        calls.append(('bar', a, b))
+        return a+b
+
+    assert bar._inline_jit_merge_point_ is foo
+    assert driver.inline_jit_merge_point
+    assert bar(40, 2) == 42
+    assert calls == [
+        ('foo', 40, 2),
+        ('bar', 40, 2),
+        ]
+
+def test_jitdriver_clone():
+    def bar(): pass
+    def foo(): pass
+    driver = JitDriver(greens=[], reds=[])
+    py.test.raises(AssertionError, "driver.inline(bar)(foo)")
+    #
+    driver = JitDriver(greens=[], reds='auto')
+    py.test.raises(AssertionError, "driver.clone()")
+    foo = driver.inline(bar)(foo)
+    assert foo._inline_jit_merge_point_ == bar
+    #
+    driver.foo = 'bar'
+    driver2 = driver.clone()
+    assert driver is not driver2
+    assert driver2.foo == 'bar'
+    driver.foo = 'xxx'
+    assert driver2.foo == 'bar'
     
+
 class BaseTestJIT(BaseRtypingTest):
     def test_hint(self):
         def f():
@@ -90,7 +153,7 @@ class BaseTestJIT(BaseRtypingTest):
             for graph in t.graphs:
                 if getattr(graph, 'func', None) is func:
                     return [v.concretetype for v in graph.getargs()]
-            raise Exception, 'function %r has not been annotated' % func
+            raise Exception('function %r has not been annotated' % func)
 
         get_printable_location_args = getargs(get_printable_location)
         assert get_printable_location_args == [lltype.Float]
@@ -107,15 +170,17 @@ class BaseTestJIT(BaseRtypingTest):
 
     def test_annotate_typeerror(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
-        class A(object): pass
-        class B(object): pass
+        class A(object):
+            pass
+        class B(object):
+            pass
         def fn(n):
             while n > 0:
                 myjitdriver.can_enter_jit(m=A(), n=n)
                 myjitdriver.jit_merge_point(m=B(), n=n)
                 n -= 1
             return n
-        py.test.raises(JitHintError, self.gengraph, fn, [int])
+        py.test.raises(UnionError, self.gengraph, fn, [int])
 
     def test_green_field(self):
         def get_printable_location(xfoo):
@@ -145,6 +210,43 @@ class BaseTestJIT(BaseRtypingTest):
             return len(l)
         res = self.interpret(f, [-234])
         assert res == 1
+
+    def test_argument_order_ok(self):
+        myjitdriver = JitDriver(greens=['i1', 'r1', 'f1'], reds=[])
+        class A(object):
+            pass
+        myjitdriver.jit_merge_point(i1=42, r1=A(), f1=3.5)
+        # assert did not raise
+
+    def test_argument_order_wrong(self):
+        myjitdriver = JitDriver(greens=['r1', 'i1', 'f1'], reds=[])
+        class A(object):
+            pass
+        e = raises(AssertionError,
+                   myjitdriver.jit_merge_point, i1=42, r1=A(), f1=3.5)
+
+    def test_argument_order_more_precision_later(self):
+        myjitdriver = JitDriver(greens=['r1', 'i1', 'r2', 'f1'], reds=[])
+        class A(object):
+            pass
+        myjitdriver.jit_merge_point(i1=42, r1=None, r2=None, f1=3.5)
+        e = raises(AssertionError,
+                   myjitdriver.jit_merge_point, i1=42, r1=A(), r2=None, f1=3.5)
+        assert "got ['2:REF', '1:INT', '?', '3:FLOAT']" in repr(e.value)
+
+    def test_argument_order_more_precision_later_2(self):
+        myjitdriver = JitDriver(greens=['r1', 'i1', 'r2', 'f1'], reds=[])
+        class A(object):
+            pass
+        myjitdriver.jit_merge_point(i1=42, r1=None, r2=A(), f1=3.5)
+        e = raises(AssertionError,
+                   myjitdriver.jit_merge_point, i1=42, r1=A(), r2=None, f1=3.5)
+        assert "got ['2:REF', '1:INT', '2:REF', '3:FLOAT']" in repr(e.value)
+
+    def test_argument_order_accept_r_uint(self):
+        # this used to fail on 64-bit, because r_uint == r_ulonglong
+        myjitdriver = JitDriver(greens=['i1'], reds=[])
+        myjitdriver.jit_merge_point(i1=r_uint(42))
 
 
 class TestJITLLtype(BaseTestJIT, LLRtypeMixin):

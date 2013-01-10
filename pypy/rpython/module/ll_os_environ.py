@@ -3,7 +3,10 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.controllerentry import Controller
 from pypy.rpython.extfunc import register_external
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.module import ll_os
 from pypy.rlib import rposix
+
+str0 = ll_os.str0
 
 # ____________________________________________________________
 #
@@ -28,9 +31,11 @@ class OsEnvironController(Controller):
 
     def delitem(self, obj, key):
         # in the RPython program, 'del os.environ[key]' is redirected here
-        if r_getenv(key) is None:
-            raise KeyError
+        absent = r_getenv(key) is None
+        # Always call unsetenv(), to get eventual OSErrors
         r_unsetenv(key)
+        if absent:
+            raise KeyError
 
     def get_keys(self, obj):
         # 'os.environ.keys' is redirected here - note that it's the getattr
@@ -64,7 +69,7 @@ def getenv_llimpl(name):
     rffi.free_charp(l_name)
     return result
 
-register_external(r_getenv, [str], annmodel.SomeString(can_be_None=True),
+register_external(r_getenv, [str0], annmodel.SomeString(can_be_None=True, no_nul=True),
                   export_name='ll_os.ll_os_getenv',
                   llimpl=getenv_llimpl)
 
@@ -93,7 +98,7 @@ def putenv_llimpl(name, value):
     if l_oldstring:
         rffi.free_charp(l_oldstring)
 
-register_external(r_putenv, [str, str], annmodel.s_None,
+register_external(r_putenv, [str0, str0], annmodel.s_None,
                   export_name='ll_os.ll_os_putenv',
                   llimpl=putenv_llimpl)
 
@@ -128,7 +133,7 @@ if hasattr(__import__(os.name), 'unsetenv'):
             del envkeepalive.byname[name]
             rffi.free_charp(l_oldstring)
 
-    register_external(r_unsetenv, [str], annmodel.s_None,
+    register_external(r_unsetenv, [str0], annmodel.s_None,
                       export_name='ll_os.ll_os_unsetenv',
                       llimpl=unsetenv_llimpl)
 
@@ -172,7 +177,7 @@ def envkeys_llimpl():
         i += 1
     return result
 
-register_external(r_envkeys, [], [str],   # returns a list of strings
+register_external(r_envkeys, [], [str0],   # returns a list of strings
                   export_name='ll_os.ll_os_envkeys',
                   llimpl=envkeys_llimpl)
 
@@ -193,6 +198,6 @@ def envitems_llimpl():
         i += 1
     return result
 
-register_external(r_envitems, [], [(str, str)],
+register_external(r_envitems, [], [(str0, str0)],
                   export_name='ll_os.ll_os_envitems',
                   llimpl=envitems_llimpl)

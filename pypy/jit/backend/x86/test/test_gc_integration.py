@@ -8,8 +8,8 @@ from pypy.jit.metainterp.history import BoxInt, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.llsupport.descr import GcCache, FieldDescr, FLAG_SIGNED
-from pypy.jit.backend.llsupport.gc import GcLLDescription
+from pypy.jit.backend.llsupport.descr import FieldDescr, FLAG_SIGNED
+from pypy.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.regalloc import RegAlloc
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
@@ -17,7 +17,6 @@ from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 
 from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
@@ -28,7 +27,7 @@ CPU = getcpuclass()
 
 class MockGcRootMap(object):
     is_shadow_stack = False
-    def get_basic_shape(self, is_64_bit):
+    def get_basic_shape(self):
         return ['shape']
     def add_frame_offset(self, shape, offset):
         shape.append(offset)
@@ -40,24 +39,15 @@ class MockGcRootMap(object):
         assert shape[0] == 'shape'
         return ['compressed'] + shape[1:]
 
-class MockGcDescr(GcCache):
-    get_malloc_slowpath_addr = None
-    write_barrier_descr = None
-    moving_gc = True
+class MockGcDescr(GcLLDescr_boehm):
     gcrootmap = MockGcRootMap()
-
-    def initialize(self):
-        pass
-
-    _record_constptrs = GcLLDescr_framework._record_constptrs.im_func
-    rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 
 class TestRegallocDirectGcIntegration(object):
 
     def test_mark_gc_roots(self):
         cpu = CPU(None, None)
         cpu.setup_once()
-        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))
+        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(None, None, None)))
         regalloc.assembler.datablockwrapper = 'fakedatablockwrapper'
         boxes = [BoxPtr() for i in range(len(X86RegisterManager.all_regs))]
         longevity = {}
@@ -90,7 +80,7 @@ class TestRegallocDirectGcIntegration(object):
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)
-    cpu.gc_ll_descr = MockGcDescr(False)
+    cpu.gc_ll_descr = GcLLDescr_boehm(None, None, None)
     cpu.setup_once()
     
     S = lltype.GcForwardReference()
@@ -184,6 +174,8 @@ class GCDescrFastpathMalloc(GcLLDescription):
         self.addrs[1] = self.addrs[0] + 64
         self.calls = []
         def malloc_slowpath(size):
+            if self.gcrootmap is not None:   # hook
+                self.gcrootmap.hook_malloc_slowpath()
             self.calls.append(size)
             # reset the nursery
             nadr = rffi.cast(lltype.Signed, self.nursery)
@@ -216,17 +208,17 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_malloc_fastpath(self):
         ops = '''
-        []
+        [i0]
         p0 = call_malloc_nursery(16)
         p1 = call_malloc_nursery(32)
         p2 = call_malloc_nursery(16)
-        finish(p0, p1, p2)
+        guard_true(i0) [p0, p1, p2]
         '''
-        self.interpret(ops, [])
+        self.interpret(ops, [0])
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        ref = self.cpu.get_latest_value_ref
+        ref = lambda n: self.cpu.get_latest_value_ref(self.deadframe, n)
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 16
         assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 48
@@ -238,17 +230,17 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_malloc_slowpath(self):
         ops = '''
-        []
+        [i0]
         p0 = call_malloc_nursery(16)
         p1 = call_malloc_nursery(32)
         p2 = call_malloc_nursery(24)     # overflow
-        finish(p0, p1, p2)
+        guard_true(i0) [p0, p1, p2]
         '''
-        self.interpret(ops, [])
+        self.interpret(ops, [0])
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        ref = self.cpu.get_latest_value_ref
+        ref = lambda n: self.cpu.get_latest_value_ref(self.deadframe, n)
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 16
         assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 0
@@ -257,3 +249,218 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.addrs[0] == nurs_adr + 24
         # this should call slow path once
         assert gc_ll_descr.calls == [24]
+
+    def test_save_regs_around_malloc(self):
+        S1 = lltype.GcStruct('S1')
+        S2 = lltype.GcStruct('S2', ('s0', lltype.Ptr(S1)),
+                                   ('s1', lltype.Ptr(S1)),
+                                   ('s2', lltype.Ptr(S1)),
+                                   ('s3', lltype.Ptr(S1)),
+                                   ('s4', lltype.Ptr(S1)),
+                                   ('s5', lltype.Ptr(S1)),
+                                   ('s6', lltype.Ptr(S1)),
+                                   ('s7', lltype.Ptr(S1)),
+                                   ('s8', lltype.Ptr(S1)),
+                                   ('s9', lltype.Ptr(S1)),
+                                   ('s10', lltype.Ptr(S1)),
+                                   ('s11', lltype.Ptr(S1)),
+                                   ('s12', lltype.Ptr(S1)),
+                                   ('s13', lltype.Ptr(S1)),
+                                   ('s14', lltype.Ptr(S1)),
+                                   ('s15', lltype.Ptr(S1)))
+        cpu = self.cpu
+        self.namespace = self.namespace.copy()
+        for i in range(16):
+            self.namespace['ds%i' % i] = cpu.fielddescrof(S2, 's%d' % i)
+        ops = '''
+        [i0, p0]
+        p1 = getfield_gc(p0, descr=ds0)
+        p2 = getfield_gc(p0, descr=ds1)
+        p3 = getfield_gc(p0, descr=ds2)
+        p4 = getfield_gc(p0, descr=ds3)
+        p5 = getfield_gc(p0, descr=ds4)
+        p6 = getfield_gc(p0, descr=ds5)
+        p7 = getfield_gc(p0, descr=ds6)
+        p8 = getfield_gc(p0, descr=ds7)
+        p9 = getfield_gc(p0, descr=ds8)
+        p10 = getfield_gc(p0, descr=ds9)
+        p11 = getfield_gc(p0, descr=ds10)
+        p12 = getfield_gc(p0, descr=ds11)
+        p13 = getfield_gc(p0, descr=ds12)
+        p14 = getfield_gc(p0, descr=ds13)
+        p15 = getfield_gc(p0, descr=ds14)
+        p16 = getfield_gc(p0, descr=ds15)
+        #
+        # now all registers are in use
+        p17 = call_malloc_nursery(40)
+        p18 = call_malloc_nursery(40)     # overflow
+        #
+        guard_true(i0) [p1, p2, p3, p4, p5, p6, \
+            p7, p8, p9, p10, p11, p12, p13, p14, p15, p16]
+        '''
+        s2 = lltype.malloc(S2)
+        for i in range(16):
+            setattr(s2, 's%d' % i, lltype.malloc(S1))
+        s2ref = lltype.cast_opaque_ptr(llmemory.GCREF, s2)
+        #
+        self.interpret(ops, [0, s2ref])
+        gc_ll_descr = cpu.gc_ll_descr
+        gc_ll_descr.check_nothing_in_nursery()
+        assert gc_ll_descr.calls == [40]
+        # check the returned pointers
+        for i in range(16):
+            s1ref = self.cpu.get_latest_value_ref(self.deadframe, i)
+            s1 = lltype.cast_opaque_ptr(lltype.Ptr(S1), s1ref)
+            assert s1 == getattr(s2, 's%d' % i)
+
+
+class MockShadowStackRootMap(MockGcRootMap):
+    is_shadow_stack = True
+    MARKER_FRAME = 88       # this marker follows the frame addr
+    S1 = lltype.GcStruct('S1')
+
+    def __init__(self):
+        self.addrs = lltype.malloc(rffi.CArray(lltype.Signed), 20,
+                                   flavor='raw')
+        # root_stack_top
+        self.addrs[0] = rffi.cast(lltype.Signed, self.addrs) + 3*WORD
+        # random stuff
+        self.addrs[1] = 123456
+        self.addrs[2] = 654321
+        self.check_initial_and_final_state()
+        self.callshapes = {}
+        self.should_see = []
+
+    def check_initial_and_final_state(self):
+        assert self.addrs[0] == rffi.cast(lltype.Signed, self.addrs) + 3*WORD
+        assert self.addrs[1] == 123456
+        assert self.addrs[2] == 654321
+
+    def get_root_stack_top_addr(self):
+        return rffi.cast(lltype.Signed, self.addrs)
+
+    def compress_callshape(self, shape, datablockwrapper):
+        assert shape[0] == 'shape'
+        return ['compressed'] + shape[1:]
+
+    def write_callshape(self, mark, force_index):
+        assert mark[0] == 'compressed'
+        assert force_index not in self.callshapes
+        assert force_index == 42 + len(self.callshapes)
+        self.callshapes[force_index] = mark
+
+    def hook_malloc_slowpath(self):
+        num_entries = self.addrs[0] - rffi.cast(lltype.Signed, self.addrs)
+        assert num_entries == 5*WORD    # 3 initially, plus 2 by the asm frame
+        assert self.addrs[1] == 123456  # unchanged
+        assert self.addrs[2] == 654321  # unchanged
+        frame_addr = self.addrs[3]                   # pushed by the asm frame
+        assert self.addrs[4] == self.MARKER_FRAME    # pushed by the asm frame
+        #
+        from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS
+        addr = rffi.cast(rffi.CArrayPtr(lltype.Signed),
+                         frame_addr + FORCE_INDEX_OFS)
+        force_index = addr[0]
+        assert force_index == 43    # in this test: the 2nd call_malloc_nursery
+        #
+        # The callshapes[43] saved above should list addresses both in the
+        # COPY_AREA and in the "normal" stack, where all the 16 values p1-p16
+        # of test_save_regs_at_correct_place should have been stored.  Here
+        # we replace them with new addresses, to emulate a moving GC.
+        shape = self.callshapes[force_index]
+        assert len(shape[1:]) == len(self.should_see)
+        new_objects = [None] * len(self.should_see)
+        for ofs in shape[1:]:
+            assert isinstance(ofs, int)    # not a register at all here
+            addr = rffi.cast(rffi.CArrayPtr(lltype.Signed), frame_addr + ofs)
+            contains = addr[0]
+            for j in range(len(self.should_see)):
+                obj = self.should_see[j]
+                if contains == rffi.cast(lltype.Signed, obj):
+                    assert new_objects[j] is None   # duplicate?
+                    break
+            else:
+                assert 0   # the value read from the stack looks random?
+            new_objects[j] = lltype.malloc(self.S1)
+            addr[0] = rffi.cast(lltype.Signed, new_objects[j])
+        self.should_see[:] = new_objects
+
+
+class TestMallocShadowStack(BaseTestRegalloc):
+
+    def setup_method(self, method):
+        cpu = CPU(None, None)
+        cpu.gc_ll_descr = GCDescrFastpathMalloc()
+        cpu.gc_ll_descr.gcrootmap = MockShadowStackRootMap()
+        cpu.setup_once()
+        for i in range(42):
+            cpu.reserve_some_free_fail_descr_number()
+        self.cpu = cpu
+
+    def test_save_regs_at_correct_place(self):
+        cpu = self.cpu
+        gc_ll_descr = cpu.gc_ll_descr
+        S1 = gc_ll_descr.gcrootmap.S1
+        S2 = lltype.GcStruct('S2', ('s0', lltype.Ptr(S1)),
+                                   ('s1', lltype.Ptr(S1)),
+                                   ('s2', lltype.Ptr(S1)),
+                                   ('s3', lltype.Ptr(S1)),
+                                   ('s4', lltype.Ptr(S1)),
+                                   ('s5', lltype.Ptr(S1)),
+                                   ('s6', lltype.Ptr(S1)),
+                                   ('s7', lltype.Ptr(S1)),
+                                   ('s8', lltype.Ptr(S1)),
+                                   ('s9', lltype.Ptr(S1)),
+                                   ('s10', lltype.Ptr(S1)),
+                                   ('s11', lltype.Ptr(S1)),
+                                   ('s12', lltype.Ptr(S1)),
+                                   ('s13', lltype.Ptr(S1)),
+                                   ('s14', lltype.Ptr(S1)),
+                                   ('s15', lltype.Ptr(S1)))
+        self.namespace = self.namespace.copy()
+        for i in range(16):
+            self.namespace['ds%i' % i] = cpu.fielddescrof(S2, 's%d' % i)
+        ops = '''
+        [i0, p0]
+        p1 = getfield_gc(p0, descr=ds0)
+        p2 = getfield_gc(p0, descr=ds1)
+        p3 = getfield_gc(p0, descr=ds2)
+        p4 = getfield_gc(p0, descr=ds3)
+        p5 = getfield_gc(p0, descr=ds4)
+        p6 = getfield_gc(p0, descr=ds5)
+        p7 = getfield_gc(p0, descr=ds6)
+        p8 = getfield_gc(p0, descr=ds7)
+        p9 = getfield_gc(p0, descr=ds8)
+        p10 = getfield_gc(p0, descr=ds9)
+        p11 = getfield_gc(p0, descr=ds10)
+        p12 = getfield_gc(p0, descr=ds11)
+        p13 = getfield_gc(p0, descr=ds12)
+        p14 = getfield_gc(p0, descr=ds13)
+        p15 = getfield_gc(p0, descr=ds14)
+        p16 = getfield_gc(p0, descr=ds15)
+        #
+        # now all registers are in use
+        p17 = call_malloc_nursery(40)
+        p18 = call_malloc_nursery(40)     # overflow
+        #
+        guard_true(i0) [p1, p2, p3, p4, p5, p6, p7, p8,         \
+               p9, p10, p11, p12, p13, p14, p15, p16]
+        '''
+        s2 = lltype.malloc(S2)
+        for i in range(16):
+            s1 = lltype.malloc(S1)
+            setattr(s2, 's%d' % i, s1)
+            gc_ll_descr.gcrootmap.should_see.append(s1)
+        s2ref = lltype.cast_opaque_ptr(llmemory.GCREF, s2)
+        #
+        self.interpret(ops, [0, s2ref])
+        gc_ll_descr.check_nothing_in_nursery()
+        assert gc_ll_descr.calls == [40]
+        gc_ll_descr.gcrootmap.check_initial_and_final_state()
+        # check the returned pointers
+        for i in range(16):
+            s1ref = self.cpu.get_latest_value_ref(self.deadframe, i)
+            s1 = lltype.cast_opaque_ptr(lltype.Ptr(S1), s1ref)
+            for j in range(16):
+                assert s1 != getattr(s2, 's%d' % j)
+            assert s1 == gc_ll_descr.gcrootmap.should_see[i]

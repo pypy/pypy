@@ -24,6 +24,7 @@ PLATFORMS = [
     'maemo',
     'host',
     'distutils',
+    'arm',
 ]
 
 translation_optiondescription = OptionDescription(
@@ -57,21 +58,19 @@ translation_optiondescription = OptionDescription(
 
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "marksweep", "semispace", "statistics",
-                  "generation", "hybrid", "markcompact", "minimark", "none"],
+                 ["boehm", "ref", "semispace", "statistics",
+                  "generation", "hybrid", "minimark", "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
                      "none": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "none")],
                      "semispace": [("translation.gctransformer", "framework")],
-                     "marksweep": [("translation.gctransformer", "framework")],
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
                      "boehm": [("translation.continuation", False),  # breaks
                                ("translation.gctransformer", "boehm")],
-                     "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
                   cmdline="--gc"),
@@ -105,7 +104,8 @@ translation_optiondescription = OptionDescription(
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
                requires=[("translation.thread", False)],
-               suggests=[("translation.gc", "generation")]),
+               suggests=[("translation.gc", "generation"),
+                         ("translation.gcrootfinder", "shadowstack")]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
@@ -116,20 +116,17 @@ translation_optiondescription = OptionDescription(
                          ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
-                 ["auto", "x86", "x86-without-sse2", "llvm"],
+                 ["auto", "x86", "x86-without-sse2", 'arm'],
                  default="auto", cmdline="--jit-backend"),
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
-    # jit_ffi is automatically turned on by withmod-_ffi (which is enabled by default)
-    BoolOption("jit_ffi", "optimize libffi calls", default=False, cmdline=None),
+    BoolOption("check_str_without_nul",
+               "Forbid NUL chars in strings in some external function calls",
+               default=False, cmdline=None),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
-    BoolOption("debug", "Record extra annotation information",
-               cmdline="-d --debug", default=True),
-    BoolOption("insist", "Try hard to go on RTyping", default=False,
-               cmdline="--insist"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
     StrOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
@@ -160,29 +157,20 @@ translation_optiondescription = OptionDescription(
                default=False, requires=[("translation.backend", "c")]),
 
     # portability options
-    BoolOption("vanilla",
-               "Try to be as portable as possible, which is not much",
-               default=False,
-               cmdline="--vanilla",
-               requires=[("translation.no__thread", True)]),
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
                default=False, cmdline="--no__thread", negation=False),
-    StrOption("compilerflags", "Specify flags for the C compiler",
-               cmdline="--cflags"),
-    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
-               cmdline="--ldflags"),
+##  --- not supported since a long time.  Use the env vars CFLAGS/LDFLAGS.
+##    StrOption("compilerflags", "Specify flags for the C compiler",
+##               cmdline="--cflags"),
+##    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
+##               cmdline="--ldflags"),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),
-    BoolOption("builtins_can_raise_exceptions",
-               "When true, assume any call to a 'simple' builtin such as "
-               "'hex' can raise an arbitrary exception",
-               default=False,
-               cmdline=None),
     BoolOption("list_comprehension_operations",
                "When true, look for and special-case the sequence of "
                "operations that results from a list comprehension and "
@@ -409,7 +397,7 @@ def set_platform(config):
     set_platform(config.translation.platform, config.translation.cc)
 
 def get_platform(config):
-    from pypy.translator.platform import pick_platform    
+    from pypy.translator.platform import pick_platform
     opt = config.translation.platform
     cc = config.translation.cc
     return pick_platform(opt, cc)

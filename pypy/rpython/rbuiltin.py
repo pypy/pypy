@@ -1,18 +1,12 @@
-from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltypesystem import lltype, rclass, llmemory
-from pypy.rpython import rint, raddress
 from pypy.rlib import rarithmetic, objectmodel
+from pypy.rpython import raddress, rptr, extregistry, rrange
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
-from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
-from pypy.rpython.rrange import rtype_builtin_enumerate
-from pypy.rpython import rstr
-from pypy.rpython import rptr
-from pypy.rpython.robject import pyobj_repr
-from pypy.tool import sourcetools
-from pypy.rpython import extregistry
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.rmodel import Repr
+from pypy.tool.pairtype import pairtype
+
 
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
@@ -25,10 +19,7 @@ class __extend__(annmodel.SomeBuiltin):
             # built-in method case
             assert self.methodname is not None
             result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
-            if result.self_repr == pyobj_repr:
-                return pyobj_repr   # special case: methods of 'PyObject*'
-            else:
-                return result
+            return result
     def rtyper_makekey(self):
         if self.s_self is None:
             # built-in function case
@@ -53,7 +44,7 @@ class __extend__(annmodel.SomeBuiltin):
 
 def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
-    from pypy.interpreter.argument import ArgumentsForTranslation
+    from pypy.objspace.flow.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             None, hop.args_s[1].const, # shape
             range(hop.nb_args-2))
@@ -84,7 +75,7 @@ def call_args_expand(hop, takes_kwds = True):
     kwds_i = {}
     for i, key in enumerate(keywords):
         index = arguments.keywords_w[i]
-        kwds_i['i_'+key] = index
+        kwds_i['i_' + key] = index
 
     return hop, kwds_i
 
@@ -111,25 +102,32 @@ class BuiltinFunctionRepr(Repr):
         raise TyperError("don't know about built-in function %r" % (
             self.builtinfunc,))
 
+    def _call(self, hop2, **kwds_i):
+        bltintyper = self.findbltintyper(hop2.rtyper)
+        hop2.llops._called_exception_is_here_or_cannot_occur = False
+        v_result = bltintyper(hop2, **kwds_i)
+        if not hop2.llops._called_exception_is_here_or_cannot_occur:
+            raise TyperError("missing hop.exception_cannot_occur() or "
+                             "hop.exception_is_here() in %s" % bltintyper)
+        return v_result
+
     def rtype_simple_call(self, hop):
-        bltintyper = self.findbltintyper(hop.rtyper)
         hop2 = hop.copy()
         hop2.r_s_popfirstarg()
-        return bltintyper(hop2)
+        return self._call(hop2)
 
     def rtype_call_args(self, hop):
         # calling a built-in function with keyword arguments:
         # mostly for rpython.objectmodel.hint()
         hop, kwds_i = call_args_expand(hop)
 
-        bltintyper = self.findbltintyper(hop.rtyper)
         hop2 = hop.copy()
         hop2.r_s_popfirstarg()
         hop2.r_s_popfirstarg()
         # the RPython-level keyword args are passed with an 'i_' prefix and
         # the corresponding value is an *index* in the hop2 arguments,
         # to be used with hop.inputarg(arg=..)
-        return bltintyper(hop2, **kwds_i)
+        return self._call(hop2, **kwds_i)
 
 
 class BuiltinMethodRepr(Repr):
@@ -198,6 +196,7 @@ def get_builtin_method_self(x):
 # ____________________________________________________________
 
 def rtype_builtin_bool(hop):
+    # not called any more?
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_is_true(hop)
 
@@ -223,6 +222,9 @@ def rtype_builtin_unichr(hop):
 def rtype_builtin_unicode(hop):
     return hop.args_r[0].rtype_unicode(hop)
 
+def rtype_builtin_bytearray(hop):
+    return hop.args_r[0].rtype_bytearray(hop)
+
 def rtype_builtin_list(hop):
     return hop.args_r[0].rtype_bltn_list(hop)
 
@@ -239,8 +241,14 @@ def rtype_intmask(hop):
     vlist = hop.inputargs(lltype.Signed)
     return vlist[0]
 
+def rtype_longlongmask(hop):
+    hop.exception_cannot_occur()
+    vlist = hop.inputargs(lltype.SignedLongLong)
+    return vlist[0]
+
 def rtype_builtin_min(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
+    hop.exception_cannot_occur()
     return hop.gendirectcall(ll_min, v1, v2)
 
 def ll_min(i1, i2):
@@ -250,6 +258,7 @@ def ll_min(i1, i2):
 
 def rtype_builtin_max(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
+    hop.exception_cannot_occur()
     return hop.gendirectcall(ll_max, v1, v2)
 
 def ll_max(i1, i2):
@@ -258,12 +267,13 @@ def ll_max(i1, i2):
     return i2
 
 def rtype_Exception__init__(hop):
-    pass
+    hop.exception_cannot_occur()
 
 def rtype_object__init__(hop):
-    pass
+    hop.exception_cannot_occur()
 
 def rtype_OSError__init__(hop):
+    hop.exception_cannot_occur()
     if hop.nb_args == 2:
         raise TyperError("OSError() should not be called with "
                          "a single argument")
@@ -274,6 +284,7 @@ def rtype_OSError__init__(hop):
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
 def rtype_WindowsError__init__(hop):
+    hop.exception_cannot_occur()
     if hop.nb_args == 2:
         raise TyperError("WindowsError() should not be called with "
                          "a single argument")
@@ -290,7 +301,7 @@ def rtype_hlinvoke(hop):
     r_func, nimplicitarg = r_callable.get_r_implfunc()
     s_callable = r_callable.get_s_callable()
 
-    nbargs = len(hop.args_s) - 1 + nimplicitarg 
+    nbargs = len(hop.args_s) - 1 + nimplicitarg
     s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
@@ -317,9 +328,13 @@ def rtype_hlinvoke(hop):
 
     return hop.dispatch()
 
+rtype_builtin_range = rrange.rtype_builtin_range
+rtype_builtin_xrange = rrange.rtype_builtin_xrange
+rtype_builtin_enumerate = rrange.rtype_builtin_enumerate
+
 
 # collect all functions
-import __builtin__, exceptions
+import __builtin__
 BUILTIN_TYPER = {}
 for name, value in globals().items():
     if name.startswith('rtype_builtin_'):
@@ -371,7 +386,7 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
 
     hop.has_implicit_exception(MemoryError)   # record that we know about it
     hop.exception_is_here()
-    return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
+    return hop.genop(opname, vlist, resulttype=hop.r_result.lowleveltype)
 
 def rtype_free(hop, i_flavor, i_track_allocation=None):
     vlist = [hop.inputarg(hop.args_r[0], arg=0)]
@@ -442,6 +457,7 @@ def rtype_cast_primitive(hop):
     assert hop.args_s[0].is_constant()
     TGT = hop.args_s[0].const
     v_type, v_value = hop.inputargs(lltype.Void, hop.args_r[1])
+    hop.exception_cannot_occur()
     return gen_cast(hop.llops, TGT, v_value)
 
 _cast_to_Signed = {
@@ -490,7 +506,7 @@ def gen_cast(llops, TGT, v_value):
         elif ORIG == llmemory.Address:
             return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
         elif isinstance(ORIG, lltype.Primitive):
-            v_value = gen_cast(llops, lltype.Signed, v_value)            
+            v_value = gen_cast(llops, lltype.Signed, v_value)
             return llops.genop('cast_int_to_ptr', [v_value], resulttype=TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):
         return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
@@ -523,11 +539,13 @@ def rtype_cast_int_to_ptr(hop):
 
 def rtype_identity_hash(hop):
     vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
     return hop.genop('gc_identityhash', vlist, resulttype=lltype.Signed)
 
 def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
     return hop.genop('runtime_type_info', vlist,
                      resulttype = hop.r_result.lowleveltype)
 
@@ -549,6 +567,7 @@ BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.Ptr] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
+BUILTIN_TYPER[rarithmetic.longlongmask] = rtype_longlongmask
 
 BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 
@@ -558,6 +577,7 @@ BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 
 def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
 
 def rtype_raw_malloc_usage(hop):
@@ -586,6 +606,7 @@ def rtype_raw_memclear(hop):
     if s_addr.is_null_address():
         raise TyperError("raw_memclear(x, n) where x is the constant NULL")
     v_list = hop.inputargs(llmemory.Address, lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_memclear', v_list)
 
 BUILTIN_TYPER[llmemory.raw_malloc] = rtype_raw_malloc
@@ -596,6 +617,7 @@ BUILTIN_TYPER[llmemory.raw_memcopy] = rtype_raw_memcopy
 
 def rtype_offsetof(hop):
     TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
+    hop.exception_cannot_occur()
     return hop.inputconst(lltype.Signed,
                           llmemory.offsetof(TYPE.value, field.value))
 
@@ -605,18 +627,20 @@ BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 # non-gc objects
 
 def rtype_free_non_gc_object(hop):
+    hop.exception_cannot_occur()
     vinst, = hop.inputargs(hop.args_r[0])
     flavor = hop.args_r[0].gcflavor
     assert flavor != 'gc'
     flags = {'flavor': flavor}
     cflags = hop.inputconst(lltype.Void, flags)
     return hop.genop('free', [vinst, cflags])
-    
+
 BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 
 # keepalive_until_here
 
 def rtype_keepalive_until_here(hop):
+    hop.exception_cannot_occur()
     for v in hop.args_v:
         hop.genop('keepalive', [v], resulttype=lltype.Void)
     return hop.inputconst(lltype.Void, None)
@@ -660,4 +684,3 @@ BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
 BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
-

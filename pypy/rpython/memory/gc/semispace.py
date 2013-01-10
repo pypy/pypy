@@ -33,6 +33,8 @@ GC_HASH_TAKEN_NURS = _GCFLAG_HASH_BASE * 0x2
 #   - we have our own extra field to store the hash
 GC_HASH_HASFIELD   = _GCFLAG_HASH_BASE * 0x3
 
+GCFLAG_EXTRA = first_gcflag << 5    # for RPython abuse only
+
 memoryError = MemoryError()
 
 
@@ -41,8 +43,8 @@ class SemiSpaceGC(MovingGCBase):
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
     malloc_zero_filled = True
-    first_unused_gcflag = first_gcflag << 5
-    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
+    first_unused_gcflag = first_gcflag << 6
+    gcflag_extra = GCFLAG_EXTRA
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
@@ -640,7 +642,7 @@ class SemiSpaceGC(MovingGCBase):
         between collections."""
         tid = self.header(obj).tid
         if tid & GCFLAG_EXTERNAL:
-            ll_assert(tid & GCFLAG_FORWARDED, "bug: external+!forwarded")
+            ll_assert(tid & GCFLAG_FORWARDED != 0, "bug: external+!forwarded")
             ll_assert(not (self.tospace <= obj < self.free),
                       "external flag but object inside the semispaces")
         else:

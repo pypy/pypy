@@ -14,11 +14,11 @@ from pypy.interpreter.module import Module as PyPyModule
 from pypy.interpreter.main import run_string, run_file
 
 # the following adds command line options as a side effect! 
-from pypy.conftest import gettestobjspace, option as pypy_option 
+from pypy.conftest import option as pypy_option 
 
 from pypy.tool.pytest import appsupport 
-from pypy.tool.pytest.confpath import pypydir, libpythondir, \
-                                      regrtestdir, modregrtestdir, testresultdir
+from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
+from pypy.config.parse import parse_info
 
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../pypy/']
@@ -76,14 +76,11 @@ class RegrTest:
     compiler = property(compiler)
 
     def ismodified(self): 
-        return modregrtestdir.join(self.basename).check() 
+        #XXX: ask hg
+        return None
 
     def getfspath(self): 
-        fn = modregrtestdir.join(self.basename)
-        if fn.check(): 
-            return fn 
-        fn = regrtestdir.join(self.basename)
-        return fn 
+        return testdir.join(self.basename)
 
     def run_file(self, space): 
         fspath = self.getfspath()
@@ -156,6 +153,7 @@ testmap = [
     RegrTest('test_codeccallbacks.py', core=True),
     RegrTest('test_codecencodings_cn.py', usemodules='_multibytecodec'),
     RegrTest('test_codecencodings_hk.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecencodings_iso2022.py', usemodules='_multibytecodec'),
     RegrTest('test_codecencodings_jp.py', usemodules='_multibytecodec'),
     RegrTest('test_codecencodings_kr.py', usemodules='_multibytecodec'),
     RegrTest('test_codecencodings_tw.py', usemodules='_multibytecodec'),
@@ -185,7 +183,7 @@ testmap = [
     RegrTest('test_cpickle.py', core=True),
     RegrTest('test_cprofile.py'), 
     RegrTest('test_crypt.py', usemodules='crypt', skip=skip_win32),
-    RegrTest('test_csv.py'),
+    RegrTest('test_csv.py', usemodules='_csv'),
 
     RegrTest('test_curses.py', skip="unsupported extension module"),
     RegrTest('test_datetime.py'),
@@ -284,7 +282,7 @@ testmap = [
     RegrTest('test_isinstance.py', core=True),
     RegrTest('test_iter.py', core=True),
     RegrTest('test_iterlen.py', skip="undocumented internal API behavior __length_hint__"),
-    RegrTest('test_itertools.py', core=True),
+    RegrTest('test_itertools.py', core=True, usemodules="itertools struct"),
     RegrTest('test_json.py'),
     RegrTest('test_kqueue.py'),
     RegrTest('test_largefile.py'),
@@ -311,9 +309,10 @@ testmap = [
     RegrTest('test_mimetypes.py'),
     RegrTest('test_MimeWriter.py', core=False),
     RegrTest('test_minidom.py'),
-    RegrTest('test_mmap.py'),
+    RegrTest('test_mmap.py', usemodules="mmap"),
     RegrTest('test_module.py', core=True),
     RegrTest('test_modulefinder.py'),
+    RegrTest('test_msilib.py', skip=only_win32),
     RegrTest('test_multibytecodec.py', usemodules='_multibytecodec'),
     RegrTest('test_multibytecodec_support.py', skip="not a test"),
     RegrTest('test_multifile.py'),
@@ -361,6 +360,7 @@ testmap = [
     RegrTest('test_pty.py', skip="unsupported extension module"),
     RegrTest('test_pwd.py', usemodules="pwd", skip=skip_win32),
     RegrTest('test_py3kwarn.py'),
+    RegrTest('test_py_compile.py'),
     RegrTest('test_pyclbr.py'),
     RegrTest('test_pydoc.py'),
     RegrTest('test_pyexpat.py'),
@@ -525,7 +525,7 @@ def check_testmap_complete():
     listed_names = dict.fromkeys([regrtest.basename for regrtest in testmap])
     listed_names['test_support.py'] = True     # ignore this
     missing = []
-    for path in regrtestdir.listdir(fil='test_*.py'):
+    for path in testdir.listdir(fil='test_*.py'):
         name = path.basename
         if name not in listed_names:
             missing.append('    RegrTest(%r),' % (name,))
@@ -546,7 +546,7 @@ def pytest_collect_file(path, parent, __multicall__):
     regrtest = parent.config._basename2spec.get(path.basename, None)
     if regrtest is None:
         return
-    if path.dirpath() not in (modregrtestdir, regrtestdir):
+    if path.dirpath() != testdir:
         return
     return RunFileExternal(path.basename, parent=parent, regrtest=regrtest)
 
@@ -602,8 +602,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
 
             # check modules
             info = py.process.cmdexec("%s --info" % execpath)
+            info = parse_info(info)
             for mod in regrtest.usemodules:
-                if "objspace.usemodules.%s: False" % mod in info:
+                if info.get('objspace.usemodules.%s' % mod) is not True:
                     py.test.skip("%s module not included in %s" % (mod,
                                                                    execpath))
                     
@@ -714,14 +715,3 @@ class ReallyRunFileExternal(py.test.collect.Item):
             lst.append('core')
         return lst
 
-#
-# Sanity check  (could be done more nicely too)
-#
-import os
-samefile = getattr(os.path, 'samefile', 
-                   lambda x,y : str(x) == str(y))
-if samefile(os.getcwd(), str(regrtestdir.dirpath())):
-    raise NotImplementedError(
-        "Cannot run py.test with this current directory:\n"
-        "the app-level sys.path will contain %s before %s)." % (
-            regrtestdir.dirpath(), modregrtestdir.dirpath()))

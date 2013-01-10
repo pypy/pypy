@@ -32,7 +32,6 @@ else:
 config = get_pypy_config(translating=True)
 config.translation.backendopt.inline_threshold = 0.1
 config.translation.gc = 'boehm'
-config.objspace.nofaking = True
 config.translating = True
 set_opt_level(config, level='jit')
 config.objspace.allworkingmodules = False
@@ -43,6 +42,7 @@ config.objspace.usemodules._sre = False
 config.objspace.usemodules._lsprof = False
 #
 config.objspace.usemodules._ffi = True
+#config.objspace.usemodules.cppyy = True
 config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')

@@ -10,7 +10,6 @@ from pypy.annotation.signature import Sig
 
 
 class BasicAnnotatorPolicy(object):
-    allow_someobjects = True
 
     def event(pol, bookkeeper, what, *args):
         pass
@@ -26,11 +25,6 @@ class BasicAnnotatorPolicy(object):
         for callback in annotator.bookkeeper.pending_specializations:
             callback()
         del annotator.bookkeeper.pending_specializations[:]
-
-    def _adjust_space_config(self, space):
-        # allow to override space options.
-        if getattr(self, 'do_imports_immediately', None) is not None:
-            space.do_imports_immediately = self.do_imports_immediately
 
 class AnnotatorPolicy(BasicAnnotatorPolicy):
     """
@@ -67,7 +61,7 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
                 def specialize_with_parms(funcdesc, args_s):
                     return specializer(funcdesc, args_s, *parms)
                 return specialize_with_parms
-        
+
     # common specializations
 
     default_specialize = staticmethod(default)
@@ -85,6 +79,3 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     def specialize__ll_and_arg(pol, *args):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         return LowLevelAnnotatorPolicy.specialize__ll_and_arg(*args)
-
-class StrictAnnotatorPolicy(AnnotatorPolicy):
-    allow_someobjects = False

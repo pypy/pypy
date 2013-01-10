@@ -43,6 +43,15 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert arr[:2].tolist() == [1,2]
         assert arr[1:3].tolist() == [2,3]
 
+    def test_slice_object(self):
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        assert arr[slice(1,3)].tolist() == [2,3]
+        arr[slice(1,3)] = module.array('i', [21, 22, 23])
+        assert arr.tolist() == [1, 21, 22, 23, 4]
+        del arr[slice(1, 3)]
+        assert arr.tolist() == [1, 23, 4]
+
     def test_buffer(self):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])

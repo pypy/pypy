@@ -131,7 +131,7 @@ class StringNode(object):
     def __add__(self, other):
         return concatenate(self, other)
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.additional_info()
 
 class LiteralNode(StringNode):
@@ -769,11 +769,11 @@ def find(node, subnode, start=0, stop=-1):
     len2 = subnode.length()
     if stop > len1 or stop == -1:
         stop = len1
+    if stop - start < 0:
+        return -1
     if len2 == 1:
         return find_int(node, subnode.getint(0), start, stop)
     if len2 == 0:
-        if (stop - start) < 0:
-            return -1
         return start
     if len2 > stop - start:
         return -1
@@ -1485,7 +1485,7 @@ def unicode_encode_latin1(rope):
     if rope.is_bytestring():
         return rope
 
-def unicode_encode_utf8(rope):
+def unicode_encode_utf8(rope, allow_surrogates=False):
     from pypy.rlib.runicode import unicode_encode_utf_8
     if rope.is_ascii():
         return rope
@@ -1494,7 +1494,8 @@ def unicode_encode_utf8(rope):
                                 unicode_encode_utf8(rope.right))
     elif isinstance(rope, LiteralUnicodeNode):
         return LiteralStringNode(
-            unicode_encode_utf_8(rope.u, len(rope.u), "strict"))
+            unicode_encode_utf_8(rope.u, len(rope.u), "strict",
+                                 allow_surrogates=allow_surrogates))
     elif isinstance(rope, LiteralStringNode):
         return LiteralStringNode(_str_encode_utf_8(rope.s))
 

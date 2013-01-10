@@ -1,8 +1,7 @@
-from pypy.rpython.lltypesystem.lltype import \
-     Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
-     GcStruct, GcArray, RttiStruct, ContainerType, \
-     parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
-     RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray
+from pypy.rpython.lltypesystem.lltype import (Struct, Array, FixedSizeArray,
+    FuncType, typeOf, GcStruct, GcArray, RttiStruct, ContainerType, parentlink,
+    Ptr, Void, OpaqueType, Float, RuntimeTypeInfo, getRuntimeTypeInfo, Char,
+    _subarray)
 from pypy.rpython.lltypesystem import llmemory, llgroup
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
@@ -11,7 +10,7 @@ from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType, name_signed
 from pypy.rlib import exports
-from pypy.rlib.rfloat import isfinite
+from pypy.rlib.rfloat import isfinite, isinf
 from pypy.rlib.rstackovf import _StackOverflow
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -734,8 +733,11 @@ class ArrayNode(ContainerNode):
                 yield '\t%s{' % length
             for j in range(len(self.obj.items)):
                 value = self.obj.items[j]
+                basename = self.name
+                if basename.endswith('.b'):
+                    basename = basename[:-2] + '.a'
                 lines = generic_initializationexpr(self.db, value,
-                                                '%s.items[%d]' % (self.name, j),
+                                                '%s.items[%d]' % (basename, j),
                                                 '%s%d' % (decoration, j))
                 for line in lines:
                     yield '\t' + line
@@ -790,15 +792,13 @@ def generic_initializationexpr(db, value, access_expr, decoration):
         return lines
     else:
         comma = ','
-        if typeOf(value) == Ptr(PyObject) and value:
-            # cannot just write 'gxxx' as a constant in a structure :-(
-            node = db.getcontainernode(value._obj)
-            expr = 'NULL /*%s*/' % node.name
-            node.where_to_copy_me.append('&%s' % access_expr)
-        elif typeOf(value) == Float and not isfinite(value):
+        if typeOf(value) == Float and not isfinite(value):
             db.late_initializations.append(('%s' % access_expr, db.get(value)))
-            expr = '0.0 /* patched later by %sinfinity */' % (
-                '-+'[value > 0])
+            if isinf(value):
+                name = '-+'[value > 0] + 'inf'
+            else:
+                name = 'NaN'
+            expr = '0.0 /* patched later with %s */' % (name,)
         else:
             expr = db.get(value)
             if typeOf(value) is Void:
@@ -982,7 +982,8 @@ class ExtType_OpaqueNode(ContainerNode):
 
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
-        yield 'RPyOpaque_INITEXPR_%s' % (T.tag,)
+        raise NotImplementedError(
+            'seeing an unexpected prebuilt object: %s' % (T.tag,))
 
     def startupcode(self):
         T = self.getTYPE()
@@ -1004,54 +1005,6 @@ def opaquenode_factory(db, T, obj):
         return ExtType_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
-
-class PyObjectNode(ContainerNode):
-    nodekind = 'pyobj'
-    globalcontainer = True
-    typename = 'PyObject @'
-    implementationtypename = 'PyObject *@'
-    _funccodegen_owner = None
-
-    def __init__(self, db, T, obj):
-        # obj is a _pyobject here; obj.value is the underlying CPython object
-        self.db = db
-        self.T = T
-        self.obj = obj
-        value = obj.value
-        self.name = self._python_c_name(value)
-        self.exported_name = self.name
-        # a list of expressions giving places where this constant PyObject
-        # must be copied.  Normally just in the global variable of the same
-        # name, but see also StructNode.initializationexpr()  :-(
-        self.where_to_copy_me = []
-
-    def getptrname(self):
-        return self.name
-
-    def _python_c_name(self, value):
-        # just some minimal cases: None and builtin exceptions
-        if value is None:
-            return 'Py_None'
-        import types, py
-        if isinstance(value, (type, types.ClassType)):
-            if (issubclass(value, BaseException) and
-                value.__module__ == 'exceptions'):
-                return 'PyExc_' + value.__name__
-            if issubclass(value, AssertionError):
-                return 'PyExc_AssertionError'
-            if value is _StackOverflow:
-                return 'PyExc_RuntimeError'
-        raise Exception("don't know how to simply render py object: %r" %
-                        (value, ))
-    
-    def forward_declaration(self):
-        return []
-
-    def enum_dependencies(self):
-        return []
-
-    def implementation(self):
-        return []
 
 def weakrefnode_factory(db, T, obj):
     assert isinstance(obj, llmemory._wref)
@@ -1131,7 +1084,6 @@ ContainerNodeFactory = {
     FixedSizeArray: FixedSizeArrayNode,
     FuncType:     FuncNode,
     OpaqueType:   opaquenode_factory,
-    PyObjectType: PyObjectNode,
     llmemory._WeakRefType: weakrefnode_factory,
     llgroup.GroupType: GroupNode,
-    }
+}

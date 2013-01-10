@@ -1,14 +1,12 @@
 import py
 
-from pypy.conftest import gettestobjspace, option
-
 class AppTestRangeListObject(object):
+    spaceconfig = {"objspace.std.withrangelist": True}
 
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("__pypy__.internal_repr() cannot be used to see "
                          "if a range list was forced on top of pypy-c")
-        cls.space = gettestobjspace(**{"objspace.std.withrangelist": True})
         cls.w_not_forced = cls.space.appexec([], """():
             import __pypy__
             def f(r):
@@ -32,7 +30,7 @@ class AppTestRangeListObject(object):
         for i in r[10:15]:
             result.append(i)
         assert result == [21, 23, 25, 27, 29]
-        assert self.not_forced(r)
+        assert not self.not_forced(r)
 
     def test_getitem_extended_slice(self):
         result = []
@@ -40,7 +38,7 @@ class AppTestRangeListObject(object):
         for i in r[40:30:-2]:
             result.append(i)
         assert result == [81, 77, 73, 69, 65]
-        assert self.not_forced(r)
+        assert not self.not_forced(r)
 
     def test_empty_range(self):
         r = range(10, 10)
@@ -62,7 +60,7 @@ class AppTestRangeListObject(object):
     def test_reverse(self):
         r = range(10)
         r.reverse()
-        assert self.not_forced(r)
+        assert not self.not_forced(r)
         assert r == range(9, -1, -1)
         r = range(3)
         r[0] = 1

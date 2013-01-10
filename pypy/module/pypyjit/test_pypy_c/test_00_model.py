@@ -54,12 +54,16 @@ class BaseTestPyPyC(object):
             cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
         #
-        env={'PYPYLOG': self.log_string + ':' + str(logfile)}
+        env = os.environ.copy()
+        env['PYPYLOG'] = self.log_string + ':' + str(logfile)
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
+        if getattr(pipe, 'returncode', 0) < 0:
+            raise IOError("subprocess was killed by signal %d" % (
+                pipe.returncode,))
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
         if stderr.startswith('debug_alloc.h:'):   # lldebug builds
@@ -196,6 +200,12 @@ class TestOpMatcher_(object):
             # missing op at the end
         """
         assert not self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_add(i2, 2)
+            jump(i5, descr=...)
+        """
+        assert not self.match(loop, expected)
 
     def test_match_descr(self):
         loop = """
@@ -286,6 +296,49 @@ class TestOpMatcher_(object):
             jump(i4, descr=...)
         """
         assert self.match(loop, expected)
+
+    def test_match_any_order(self):
+        loop = """
+            [i0, i1]
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            jump(i2, i3, descr=...)
+        """
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i3 = int_add(i1, 2)
+            i2 = int_add(i0, 1)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            i4 = int_add(i1, 3)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert not self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert not self.match(loop, expected)
 
 
 class TestRunPyPyC(BaseTestPyPyC):
@@ -440,7 +493,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             i8 = int_add(i4, 1)
             # signal checking stuff
             guard_not_invalidated(descr=...)
-            i10 = getfield_raw(37212896, descr=<.* pypysig_long_struct.c_value .*>)
+            i10 = getfield_raw(..., descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
             jump(p0, p1, p2, p3, i8, descr=...)

@@ -3,7 +3,8 @@
 
 """
 import py
-from pypy.interpreter.gateway import interp2app, BuiltinCode
+from pypy.interpreter.gateway import interp2app, BuiltinCode, unwrap_spec,\
+     WrappedDefault
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -12,7 +13,7 @@ from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
 from pypy.rlib.jit import promote
 
 class TypeDef:
-    def __init__(self, __name, __base=None, **rawdict):
+    def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -31,23 +32,52 @@ class TypeDef:
         self.rawdict = {}
         self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
-        # xxx used by faking
-        self.fakedcpytype = None
         self.add_entries(**rawdict)
-    
+        assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
+        if __total_ordering__ == 'auto':
+            self.auto_total_ordering()
+
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
         for key, value in rawdict.items():
             if isinstance(value, (interp2app, GetSetProperty)):
                 value.name = key
         self.rawdict.update(rawdict)
-    
+
+    def auto_total_ordering(self):
+        assert '__lt__' in self.rawdict, "__total_ordering='auto' requires __lt__"
+        assert '__eq__' in self.rawdict, "__total_ordering='auto' requires __eq__"
+        self.add_entries(__le__ = auto__le__,
+                         __gt__ = auto__gt__,
+                         __ge__ = auto__ge__,
+                         __ne__ = auto__ne__)
+
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
         return True
 
     def __repr__(self):
         return "<%s name=%r>" % (self.__class__.__name__, self.name)
+
+
+# generic special cmp methods defined on top of __lt__ and __eq__, used by
+# automatic total ordering
+
+@interp2app
+def auto__le__(space, w_self, w_other):
+    return space.not_(space.lt(w_other, w_self))
+
+@interp2app
+def auto__gt__(space, w_self, w_other):
+    return space.lt(w_other, w_self)
+
+@interp2app
+def auto__ge__(space, w_self, w_other):
+    return space.not_(space.lt(w_self, w_other))
+
+@interp2app
+def auto__ne__(space, w_self, w_other):
+    return space.not_(space.eq(w_self, w_other))
 
 
 # ____________________________________________________________
@@ -74,6 +104,13 @@ def default_identity_hash(space, w_obj):
 # features, but limit ourselves to 6, chosen a bit arbitrarily based on
 # typical usage (case 1 is the most common kind of app-level subclasses;
 # case 2 is the memory-saving kind defined with __slots__).
+#
+#  +----------------------------------------------------------------+
+#  | NOTE: if withmapdict is enabled, the following doesn't apply!  |
+#  | Map dicts can flexibly allow any slots/__dict__/__weakref__ to |
+#  | show up only when needed.  In particular there is no way with  |
+#  | mapdict to prevent some objects from being weakrefable.        |
+#  +----------------------------------------------------------------+
 #
 #     dict   slots   del   weakrefable
 #
@@ -197,7 +234,7 @@ def _builduserclswithfeature(config, supercls, *features):
 
     def add(Proto):
         for key, value in Proto.__dict__.items():
-            if (not key.startswith('__') and not key.startswith('_mixin_') 
+            if (not key.startswith('__') and not key.startswith('_mixin_')
                     or key == '__del__'):
                 if hasattr(value, "func_name"):
                     value = func_with_new_name(value, value.func_name)
@@ -284,13 +321,13 @@ def _builduserclswithfeature(config, supercls, *features):
         class Proto(object):
             def getdict(self, space):
                 return self.w__dict__
-            
+
             def setdict(self, space, w_dict):
                 self.w__dict__ = check_new_dictionary(space, w_dict)
-            
+
             def user_setup(self, space, w_subtype):
                 self.w__dict__ = space.newdict(
-                    instance=True, classofinstance=w_subtype)
+                    instance=True)
                 base_user_setup(self, space, w_subtype)
 
             def setclass(self, space, w_subtype):
@@ -352,7 +389,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
             return %(name)s(%(args)s, %(extra)s)
         """
         miniglobals[cls_name] = cls
-    
+
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
@@ -425,6 +462,7 @@ class GetSetProperty(Wrappable):
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
+    @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
         """property.__get__(obj[, type]) -> value
         Read the value of the property of the given obj."""
@@ -472,7 +510,7 @@ class GetSetProperty(Wrappable):
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
                                                space.wrap(self.name)]))
-    
+
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
 
@@ -490,7 +528,7 @@ def interp_attrproperty_w(name, cls, doc=None):
             return space.w_None
         else:
             return w_value
-    
+
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 GetSetProperty.typedef = TypeDef(
@@ -512,7 +550,7 @@ class Member(Wrappable):
         self.index = index
         self.name = name
         self.w_cls = w_cls
-    
+
     def typecheck(self, space, w_obj):
         if not space.is_true(space.isinstance(w_obj, self.w_cls)):
             raise operationerrfmt(space.w_TypeError,
@@ -521,8 +559,8 @@ class Member(Wrappable):
                                   self.name,
                                   self.w_cls.name,
                                   space.type(w_obj).getname(space))
-    
-    def descr_member_get(self, space, w_obj, w_w_cls=None):
+
+    def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
@@ -534,13 +572,13 @@ class Member(Wrappable):
                 raise OperationError(space.w_AttributeError,
                                      space.wrap(self.name)) # XXX better message
             return w_result
-    
+
     def descr_member_set(self, space, w_obj, w_value):
         """member.__set__(obj, value)
         Write into the slot 'member' of the given 'obj'."""
         self.typecheck(space, w_obj)
         w_obj.setslotvalue(self.index, w_value)
-    
+
     def descr_member_del(self, space, w_obj):
         """member.__delete__(obj)
         Delete the value of the slot 'member' from the given 'obj'."""
@@ -772,15 +810,16 @@ Function.typedef = TypeDef("function",
     func_dict = getset_func_dict,
     func_defaults = getset_func_defaults,
     func_globals = interp_attrproperty_w('w_func_globals', cls=Function),
-    func_closure = GetSetProperty( Function.fget_func_closure ),
+    func_closure = GetSetProperty(Function.fget_func_closure),
     __code__ = getset_func_code,
     __doc__ = getset_func_doc,
     __name__ = getset_func_name,
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
+    __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
-    )
+)
 Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(

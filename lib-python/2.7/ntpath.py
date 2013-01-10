@@ -310,7 +310,7 @@ def expanduser(path):
 #       - $varname is accepted.
 #       - %varname% is accepted.
 #       - varnames can be made out of letters, digits and the characters '_-'
-#         (though is not verifed in the ${varname} and %varname% cases)
+#         (though is not verified in the ${varname} and %varname% cases)
 # XXX With COMMAND.COM you can use any characters in a variable name,
 # XXX except '^|<>='.
 
@@ -521,3 +521,13 @@ def relpath(path, start=curdir):
     if not rel_list:
         return curdir
     return join(*rel_list)
+
+try:
+    # The genericpath.isdir implementation uses os.stat and checks the mode
+    # attribute to tell whether or not the path is a directory.
+    # This is overkill on Windows - just pass the path to GetFileAttributes
+    # and check the attribute from there.
+    from nt import _isdir as isdir
+except ImportError:
+    # Use genericpath.isdir as imported above.
+    pass

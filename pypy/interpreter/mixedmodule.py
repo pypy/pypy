@@ -8,9 +8,6 @@ import os, sys
 import inspect
 
 class MixedModule(Module):
-
-    NOT_RPYTHON_ATTRIBUTES = ['loaders']
-
     applevel_name = None
     expose__file__attribute = True
 
@@ -50,7 +47,7 @@ class MixedModule(Module):
             space.call_method(self.w_dict, 'update', self.w_initialdict)
 
         for w_submodule in self.submodules_w:
-            name = space.str_w(w_submodule.w_name)
+            name = space.str0_w(w_submodule.w_name)
             space.setitem(self.w_dict, space.wrap(name.split(".")[-1]), w_submodule)
             space.getbuiltinmodule(name)
 
@@ -124,14 +121,11 @@ class MixedModule(Module):
             self.w_initialdict = space.call_method(self.w_dict, 'items')
         return self.w_dict
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.getdict(self.space)
         self.w_initialdict = None
         self.startup_called = False
         self._frozen = True
-        # hint for the annotator: Modules can hold state, so they are
-        # not constant
-        return False
 
     def buildloaders(cls):
         """ NOT_RPYTHON """

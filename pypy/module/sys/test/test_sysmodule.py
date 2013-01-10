@@ -1,8 +1,4 @@
 # -*- coding: iso-8859-1 -*-
-import autopath
-from pypy.conftest import option, gettestobjspace
-from py.test import raises
-from pypy.interpreter.gateway import app2interp_temp
 import sys
 
 def test_stdin_exists(space):
@@ -16,7 +12,7 @@ def test_stdout_exists(space):
 class AppTestAppSysTests:
 
     def setup_class(cls):
-        cls.w_appdirect = cls.space.wrap(option.runappdirect)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
         cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
 
     def test_sys_in_modules(self):
@@ -130,7 +126,7 @@ class AppTestAppSysTests:
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
-        cls.w_appdirect = cls.space.wrap(option.runappdirect)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_original_displayhook(self):
         import sys, cStringIO, __builtin__
@@ -359,6 +355,7 @@ class AppTestSysModulePortedFromCPython:
         sys.setrecursionlimit(10000)
         assert sys.getrecursionlimit() == 10000
         sys.setrecursionlimit(oldlimit)
+        raises(OverflowError, sys.setrecursionlimit, 1<<31)
 
     def test_getwindowsversion(self):
         import sys
@@ -541,8 +538,8 @@ class AppTestSysModulePortedFromCPython:
         # be changed.
         assert sys.float_repr_style == "short"
 
-class AppTestCurrentFrames:
 
+class AppTestCurrentFrames:
     def test_current_frames(self):
         try:
             import thread
@@ -558,9 +555,11 @@ class AppTestCurrentFrames:
         assert frames.keys() == [0]
         assert frames[0].f_code.co_name in ('f', '?')
 
+
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('thread',))
+    spaceconfig = {
+        "usemodules": ["rctime", "thread"],
+    }
 
     def test_current_frames(self):
         import sys
@@ -595,3 +594,123 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         assert len(frames) == 1
         _, other_frame = frames.popitem()
         assert other_frame.f_code.co_name in ('other_thread', '?')
+
+
+class AppTestSysExcInfoDirect:
+
+    def setup_method(self, meth):
+        self.checking = not self.runappdirect
+        if self.checking:
+            self.seen = []
+            from pypy.module.sys import vm
+            def exc_info_with_tb(*args):
+                self.seen.append("n")     # not optimized
+                return self.old[0](*args)
+            def exc_info_without_tb(*args):
+                self.seen.append("y")     # optimized
+                return self.old[1](*args)
+            self.old = [vm.exc_info_with_tb, vm.exc_info_without_tb]
+            vm.exc_info_with_tb = exc_info_with_tb
+            vm.exc_info_without_tb = exc_info_without_tb
+            #
+            from pypy.rlib import jit
+            self.old2 = [jit.we_are_jitted]
+            jit.we_are_jitted = lambda: True
+
+    def teardown_method(self, meth):
+        if self.checking:
+            from pypy.module.sys import vm
+            from pypy.rlib import jit
+            vm.exc_info_with_tb = self.old[0]
+            vm.exc_info_without_tb = self.old[1]
+            jit.we_are_jitted = self.old2[0]
+            #
+            assert ''.join(self.seen) == meth.expected
+
+    def test_returns_none(self):
+        import sys
+        assert sys.exc_info() == (None, None, None)
+        assert sys.exc_info()[0] is None
+        assert sys.exc_info()[1] is None
+        assert sys.exc_info()[2] is None
+        assert sys.exc_info()[:2] == (None, None)
+        assert sys.exc_info()[:3] == (None, None, None)
+        assert sys.exc_info()[0:2] == (None, None)
+        assert sys.exc_info()[2:4] == (None,)
+    test_returns_none.expected = 'nnnnnnnn'
+
+    def test_returns_subscr(self):
+        import sys
+        e = KeyError("boom")
+        try:
+            raise e
+        except:
+            assert sys.exc_info()[0] is KeyError  # y
+            assert sys.exc_info()[1] is e         # y
+            assert sys.exc_info()[2] is not None  # n
+            assert sys.exc_info()[-3] is KeyError # y
+            assert sys.exc_info()[-2] is e        # y
+            assert sys.exc_info()[-1] is not None # n
+    test_returns_subscr.expected = 'yynyyn'
+
+    def test_returns_slice_2(self):
+        import sys
+        e = KeyError("boom")
+        try:
+            raise e
+        except:
+            foo = sys.exc_info()                  # n
+            assert sys.exc_info()[:0] == ()       # y
+            assert sys.exc_info()[:1] == foo[:1]  # y
+            assert sys.exc_info()[:2] == foo[:2]  # y
+            assert sys.exc_info()[:3] == foo      # n
+            assert sys.exc_info()[:4] == foo      # n
+            assert sys.exc_info()[:-1] == foo[:2] # y
+            assert sys.exc_info()[:-2] == foo[:1] # y
+            assert sys.exc_info()[:-3] == ()      # y
+    test_returns_slice_2.expected = 'nyyynnyyy'
+
+    def test_returns_slice_3(self):
+        import sys
+        e = KeyError("boom")
+        try:
+            raise e
+        except:
+            foo = sys.exc_info()                   # n
+            assert sys.exc_info()[2:2] == ()       # y
+            assert sys.exc_info()[0:1] == foo[:1]  # y
+            assert sys.exc_info()[1:2] == foo[1:2] # y
+            assert sys.exc_info()[0:3] == foo      # n
+            assert sys.exc_info()[2:4] == foo[2:]  # n
+            assert sys.exc_info()[0:-1] == foo[:2] # y
+            assert sys.exc_info()[0:-2] == foo[:1] # y
+            assert sys.exc_info()[5:-3] == ()      # y
+    test_returns_slice_3.expected = 'nyyynnyyy'
+
+    def test_strange_invocation(self):
+        import sys
+        e = KeyError("boom")
+        try:
+            raise e
+        except:
+            a = []; k = {}
+            assert sys.exc_info(*a)[:0] == ()
+            assert sys.exc_info(**k)[:0] == ()
+    test_strange_invocation.expected = 'nn'
+
+    def test_call_in_subfunction(self):
+        import sys
+        def g():
+            # this case is not optimized, because we need to search the
+            # frame chain.  it's probably not worth the complications
+            return sys.exc_info()[1]
+        e = KeyError("boom")
+        try:
+            raise e
+        except:
+            assert g() is e
+    test_call_in_subfunction.expected = 'n'
+
+
+class AppTestSysExcInfoDirectCallMethod(AppTestSysExcInfoDirect):
+    spaceconfig = {"objspace.opcodes.CALL_METHOD": True}

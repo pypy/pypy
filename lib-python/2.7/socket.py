@@ -46,8 +46,6 @@ the setsockopt() and getsockopt() methods.
 
 import _socket
 from _socket import *
-from functools import partial
-from types import MethodType
 
 try:
     import _ssl
@@ -159,11 +157,6 @@ if os.name == "nt":
 if sys.platform == "riscos":
     _socketmethods = _socketmethods + ('sleeptaskw',)
 
-# All the method names that must be delegated to either the real socket
-# object or the _closedsocket object.
-_delegate_methods = ("recv", "recvfrom", "recv_into", "recvfrom_into",
-                     "send", "sendto")
-
 class _closedsocket(object):
     __slots__ = []
     def _dummy(*args):
@@ -180,22 +173,43 @@ class _socketobject(object):
 
     __doc__ = _realsocket.__doc__
 
-    __slots__ = ["_sock", "__weakref__"] + list(_delegate_methods)
-
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, _sock=None):
         if _sock is None:
             _sock = _realsocket(family, type, proto)
         self._sock = _sock
-        for method in _delegate_methods:
-            setattr(self, method, getattr(_sock, method))
+        self._io_refs = 0
+        self._closed = False
 
-    def close(self, _closedsocket=_closedsocket,
-              _delegate_methods=_delegate_methods, setattr=setattr):
+    def send(self, data, flags=0):
+        return self._sock.send(data, flags=flags)
+    send.__doc__ = _realsocket.send.__doc__
+
+    def recv(self, buffersize, flags=0):
+        return self._sock.recv(buffersize, flags=flags)
+    recv.__doc__ = _realsocket.recv.__doc__
+
+    def recv_into(self, buffer, nbytes=0, flags=0):
+        return self._sock.recv_into(buffer, nbytes=nbytes, flags=flags)
+    recv_into.__doc__ = _realsocket.recv_into.__doc__
+
+    def recvfrom(self, buffersize, flags=0):
+        return self._sock.recvfrom(buffersize, flags=flags)
+    recvfrom.__doc__ = _realsocket.recvfrom.__doc__
+
+    def recvfrom_into(self, buffer, nbytes=0, flags=0):
+        return self._sock.recvfrom_into(buffer, nbytes=nbytes, flags=flags)
+    recvfrom_into.__doc__ = _realsocket.recvfrom_into.__doc__
+
+    def sendto(self, data, param2, param3=None):
+        if param3 is None:
+            return self._sock.sendto(data, param2)
+        else:
+            return self._sock.sendto(data, param2, param3)
+    sendto.__doc__ = _realsocket.sendto.__doc__
+
+    def close(self):
         # This function should not reference any globals. See issue #808164.
         self._sock = _closedsocket()
-        dummy = self._sock._dummy
-        for method in _delegate_methods:
-            setattr(self, method, dummy)
     close.__doc__ = _realsocket.close.__doc__
 
     def accept(self):
@@ -214,21 +228,49 @@ class _socketobject(object):
 
         Return a regular file object corresponding to the socket.  The mode
         and bufsize arguments are as for the built-in open() function."""
-        return _fileobject(self._sock, mode, bufsize)
+        self._io_refs += 1
+        return _fileobject(self, mode, bufsize)
+
+    def _decref_socketios(self):
+        if self._io_refs > 0:
+            self._io_refs -= 1
+        if self._closed:
+            self.close()
+
+    def _real_close(self):
+        # This function should not reference any globals. See issue #808164.
+        self._sock.close()
+
+    def close(self):
+        # This function should not reference any globals. See issue #808164.
+        self._closed = True
+        if self._io_refs <= 0:
+            self._real_close()
 
     family = property(lambda self: self._sock.family, doc="the socket family")
     type = property(lambda self: self._sock.type, doc="the socket type")
     proto = property(lambda self: self._sock.proto, doc="the socket protocol")
 
-def meth(name,self,*args):
-    return getattr(self._sock,name)(*args)
+    # Delegate many calls to the raw socket object.
+    _s = ("def %(name)s(self, %(args)s): return self._sock.%(name)s(%(args)s)\n\n"
+          "%(name)s.__doc__ = _realsocket.%(name)s.__doc__\n")
+    for _m in _socketmethods:
+        # yupi! we're on pypy, all code objects have this interface
+        argcount = getattr(_realsocket, _m).im_func.func_code.co_argcount - 1
+        exec _s % {'name': _m, 'args': ', '.join('arg%d' % i for i in range(argcount))}
+    del _m, _s, argcount
 
-for _m in _socketmethods:
-    p = partial(meth,_m)
-    p.__name__ = _m
-    p.__doc__ = getattr(_realsocket,_m).__doc__
-    m = MethodType(p,None,_socketobject)
-    setattr(_socketobject,_m,m)
+    # Delegation methods with default arguments, that the code above
+    # cannot handle correctly
+    def sendall(self, data, flags=0):
+        self._sock.sendall(data, flags)
+    sendall.__doc__ = _realsocket.sendall.__doc__
+
+    def getsockopt(self, level, optname, buflen=None):
+        if buflen is None:
+            return self._sock.getsockopt(level, optname)
+        return self._sock.getsockopt(level, optname, buflen)
+    getsockopt.__doc__ = _realsocket.getsockopt.__doc__
 
 socket = SocketType = _socketobject
 
@@ -278,8 +320,11 @@ class _fileobject(object):
             if self._sock:
                 self.flush()
         finally:
-            if self._close:
-                self._sock.close()
+            if self._sock:
+                if self._close:
+                    self._sock.close()
+                else:
+                    self._sock._decref_socketios()
             self._sock = None
 
     def __del__(self):

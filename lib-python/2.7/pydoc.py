@@ -37,7 +37,7 @@ Reference Manual pages.
 __author__ = "Ka-Ping Yee <ping@lfw.org>"
 __date__ = "26 February 2001"
 
-__version__ = "$Revision$"
+__version__ = "$Revision: 88564 $"
 __credits__ = """Guido van Rossum, for an excellent programming language.
 Tommy Burnette, the original creator of manpy.
 Paul Prescod, for all his work on onlinehelp.
@@ -52,7 +52,7 @@ Richard Chamberlain, for the first implementation of textdoc.
 #     the current directory is changed with os.chdir(), an incorrect
 #     path will be displayed.
 
-import sys, imp, os, re, types, inspect, __builtin__, pkgutil
+import sys, imp, os, re, types, inspect, __builtin__, pkgutil, warnings
 from repr import Repr
 from string import expandtabs, find, join, lower, split, strip, rfind, rstrip
 from traceback import extract_tb
@@ -156,7 +156,7 @@ def _split_list(s, predicate):
             no.append(x)
     return yes, no
 
-def visiblename(name, all=None):
+def visiblename(name, all=None, obj=None):
     """Decide whether to show documentation on a variable."""
     # Certain special names are redundant.
     _hidden_names = ('__builtins__', '__doc__', '__file__', '__path__',
@@ -164,6 +164,9 @@ def visiblename(name, all=None):
     if name in _hidden_names: return 0
     # Private names are hidden, but special names are displayed.
     if name.startswith('__') and name.endswith('__'): return 1
+    # Namedtuples have public fields and methods with a single leading underscore
+    if name.startswith('_') and hasattr(obj, '_fields'):
+        return 1
     if all is not None:
         # only document that which the programmer exported in __all__
         return name in all
@@ -209,8 +212,8 @@ def source_synopsis(file):
 def synopsis(filename, cache={}):
     """Get the one-line summary out of a module file."""
     mtime = os.stat(filename).st_mtime
-    lastupdate, result = cache.get(filename, (0, None))
-    if lastupdate < mtime:
+    lastupdate, result = cache.get(filename, (None, None))
+    if lastupdate is None or lastupdate < mtime:
         info = inspect.getmoduleinfo(filename)
         try:
             file = open(filename)
@@ -475,9 +478,9 @@ class HTMLDoc(Doc):
     def multicolumn(self, list, format, cols=4):
         """Format a list of items into a multi-column list."""
         result = ''
-        rows = (len(list)+cols-1)/cols
+        rows = (len(list)+cols-1)//cols
         for col in range(cols):
-            result = result + '<td width="%d%%" valign=top>' % (100/cols)
+            result = result + '<td width="%d%%" valign=top>' % (100//cols)
             for i in range(rows*col, rows*col+rows):
                 if i < len(list):
                     result = result + format(list[i]) + '<br>\n'
@@ -620,14 +623,16 @@ class HTMLDoc(Doc):
             head, '#ffffff', '#7799ee',
             '<a href=".">index</a><br>' + filelink + docloc)
 
-        modules = inspect.getmembers(object, inspect.ismodule)
+        def isnonbuiltinmodule(obj):
+            return inspect.ismodule(obj) and obj is not __builtin__
+        modules = inspect.getmembers(object, isnonbuiltinmodule)
 
         classes, cdict = [], {}
         for key, value in inspect.getmembers(object, inspect.isclass):
             # if __all__ exists, believe it.  Otherwise use old heuristic.
             if (all is not None or
                 (inspect.getmodule(value) or object) is object):
-                if visiblename(key, all):
+                if visiblename(key, all, object):
                     classes.append((key, value))
                     cdict[key] = cdict[value] = '#' + key
         for key, value in classes:
@@ -643,13 +648,13 @@ class HTMLDoc(Doc):
             # if __all__ exists, believe it.  Otherwise use old heuristic.
             if (all is not None or
                 inspect.isbuiltin(value) or inspect.getmodule(value) is object):
-                if visiblename(key, all):
+                if visiblename(key, all, object):
                     funcs.append((key, value))
                     fdict[key] = '#-' + key
                     if inspect.isfunction(value): fdict[value] = fdict[key]
         data = []
         for key, value in inspect.getmembers(object, isdata):
-            if visiblename(key, all):
+            if visiblename(key, all, object):
                 data.append((key, value))
 
         doc = self.markup(getdoc(object), self.preformat, fdict, cdict)
@@ -737,8 +742,15 @@ class HTMLDoc(Doc):
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    push(self.document(getattr(object, name), name, mod,
-                                       funcs, classes, mdict, object))
+                    try:
+                        value = getattr(object, name)
+                    except Exception:
+                        # Some descriptors may meet a failure in their __get__.
+                        # (bug #1785)
+                        push(self._docdescriptor(name, value, mod))
+                    else:
+                        push(self.document(value, name, mod,
+                                        funcs, classes, mdict, object))
                     push('\n')
             return attrs
 
@@ -773,12 +785,17 @@ class HTMLDoc(Doc):
                     push('\n')
             return attrs
 
-        attrs = filter(lambda data: visiblename(data[0]),
+        attrs = filter(lambda data: visiblename(data[0], obj=object),
                        classify_class_attrs(object))
         mdict = {}
         for key, kind, homecls, value in attrs:
             mdict[key] = anchor = '#' + name + '-' + key
-            value = getattr(object, key)
+            try:
+                value = getattr(object, name)
+            except Exception:
+                # Some descriptors may meet a failure in their __get__.
+                # (bug #1785)
+                pass
             try:
                 # The value may not be hashable (e.g., a data attr with
                 # a dict or list value).
@@ -1042,18 +1059,18 @@ class TextDoc(Doc):
             # if __all__ exists, believe it.  Otherwise use old heuristic.
             if (all is not None
                 or (inspect.getmodule(value) or object) is object):
-                if visiblename(key, all):
+                if visiblename(key, all, object):
                     classes.append((key, value))
         funcs = []
         for key, value in inspect.getmembers(object, inspect.isroutine):
             # if __all__ exists, believe it.  Otherwise use old heuristic.
             if (all is not None or
                 inspect.isbuiltin(value) or inspect.getmodule(value) is object):
-                if visiblename(key, all):
+                if visiblename(key, all, object):
                     funcs.append((key, value))
         data = []
         for key, value in inspect.getmembers(object, isdata):
-            if visiblename(key, all):
+            if visiblename(key, all, object):
                 data.append((key, value))
 
         modpkgs = []
@@ -1113,7 +1130,7 @@ class TextDoc(Doc):
             result = result + self.section('CREDITS', str(object.__credits__))
         return result
 
-    def docclass(self, object, name=None, mod=None):
+    def docclass(self, object, name=None, mod=None, *ignored):
         """Produce text documentation for a given class object."""
         realname = object.__name__
         name = name or realname
@@ -1158,8 +1175,15 @@ class TextDoc(Doc):
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    push(self.document(getattr(object, name),
-                                       name, mod, object))
+                    try:
+                        value = getattr(object, name)
+                    except Exception:
+                        # Some descriptors may meet a failure in their __get__.
+                        # (bug #1785)
+                        push(self._docdescriptor(name, value, mod))
+                    else:
+                        push(self.document(value,
+                                        name, mod, object))
             return attrs
 
         def spilldescriptors(msg, attrs, predicate):
@@ -1186,7 +1210,7 @@ class TextDoc(Doc):
                                        name, mod, maxlen=70, doc=doc) + '\n')
             return attrs
 
-        attrs = filter(lambda data: visiblename(data[0]),
+        attrs = filter(lambda data: visiblename(data[0], obj=object),
                        classify_class_attrs(object))
         while attrs:
             if mro:
@@ -1451,13 +1475,14 @@ def locate(path, forceload=0):
         else: break
     if module:
         object = module
-        for part in parts[n:]:
-            try: object = getattr(object, part)
-            except AttributeError: return None
-        return object
     else:
-        if hasattr(__builtin__, path):
-            return getattr(__builtin__, path)
+        object = __builtin__
+    for part in parts[n:]:
+        try:
+            object = getattr(object, part)
+        except AttributeError:
+            return None
+    return object
 
 # --------------------------------------- interactive interpreter interface
 
@@ -1718,8 +1743,9 @@ class Helper:
             return ''
         return '<pydoc.Helper instance>'
 
-    def __call__(self, request=None):
-        if request is not None:
+    _GoInteractive = object()
+    def __call__(self, request=_GoInteractive):
+        if request is not self._GoInteractive:
             self.help(request)
         else:
             self.intro()
@@ -1963,10 +1989,11 @@ def apropos(key):
         if modname[-9:] == '.__init__':
             modname = modname[:-9] + ' (package)'
         print modname, desc and '- ' + desc
-    try: import warnings
-    except ImportError: pass
-    else: warnings.filterwarnings('ignore') # ignore problems during import
-    ModuleScanner().run(callback, key)
+    def onerror(modname):
+        pass
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore') # ignore problems during import
+        ModuleScanner().run(callback, key, onerror=onerror)
 
 # --------------------------------------------------- web browser interface
 

@@ -4,7 +4,6 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.stringobject import W_StringObject, make_rsplit_with_delim
-from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
@@ -13,9 +12,10 @@ from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash, specialize
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rstring import UnicodeBuilder
-from pypy.rlib.runicode import unicode_encode_unicode_escape
+from pypy.rlib.runicode import make_unicode_escape_function
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib import jit
 
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith
@@ -64,6 +64,15 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
 
     def unicode_w(self, space):
         return self._value
+
+    def listview_unicode(w_self):
+        return _create_list_from_unicode(w_self._value)
+
+def _create_list_from_unicode(value):
+    # need this helper function to allow the jit to look inside and inline
+    # listview_unicode
+    return [s for s in value]
+
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
@@ -136,14 +145,10 @@ def eq__Unicode_String(space, w_uni, w_str):
     return _unicode_string_comparison(space, w_uni, w_str,
                     False, unicode_from_string)
 
-eq__Unicode_Rope = eq__Unicode_String
-
 def ne__Unicode_String(space, w_uni, w_str):
     from pypy.objspace.std.unicodetype import unicode_from_string
     return _unicode_string_comparison(space, w_uni, w_str,
                     True, unicode_from_string)
-
-ne__Unicode_Rope = ne__Unicode_String
 
 def lt__Unicode_Unicode(space, w_left, w_right):
     left = w_left._value
@@ -176,8 +181,6 @@ def add__String_Unicode(space, w_left, w_right):
     # (and thus the usual logic about calling __radd__() first applies).
     return space.add(unicode_from_string(space, w_left) , w_right)
 
-add__Rope_Unicode = add__String_Unicode
-
 def add__Unicode_String(space, w_left, w_right):
     # this function is needed to make 'abc'.__radd__(u'def') return
     # u'defabc', although it's completely unclear if that's necessary
@@ -187,12 +190,9 @@ def add__Unicode_String(space, w_left, w_right):
     # Note about "unicode + string subclass": look for
     # "cpython bug compatibility" in descroperation.py
 
-add__Unicode_Rope = add__Unicode_String
-
 def contains__String_Unicode(space, w_container, w_item):
     from pypy.objspace.std.unicodetype import unicode_from_string
     return space.contains(unicode_from_string(space, w_container), w_item )
-contains__Rope_Unicode = contains__String_Unicode
 
 
 def contains__Unicode_Unicode(space, w_container, w_item):
@@ -201,6 +201,11 @@ def contains__Unicode_Unicode(space, w_container, w_item):
     return space.newbool(container.find(item) != -1)
 
 def unicode_join__Unicode_ANY(space, w_self, w_list):
+    l = space.listview_unicode(w_list)
+    if l is not None:
+        if len(l) == 1:
+            return space.wrap(l[0])
+        return space.wrap(w_self._value.join(l))
     list_w = space.listview(w_list)
     size = len(list_w)
 
@@ -214,6 +219,8 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
 
     return _unicode_join_many_items(space, w_self, list_w, size)
 
+@jit.look_inside_iff(lambda space, w_self, list_w, size:
+                     jit.loop_unrolling_heuristic(list_w, size))
 def _unicode_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     prealloc_size = len(self) * (size - 1)
@@ -234,21 +241,7 @@ def _unicode_join_many_items(space, w_self, list_w, size):
     return space.wrap(sb.build())
 
 def hash__Unicode(space, w_uni):
-    s = w_uni._value
-    if space.config.objspace.std.withrope:
-        # be compatible with the special ropes hash
-        # XXX no caching
-        if len(s) == 0:
-            return space.wrap(0)
-        x = 0
-        for c in s:
-            x = intmask((1000003 * x) + ord(c))
-        x <<= 1
-        x ^= len(s)
-        x ^= ord(s[0])
-        h = intmask(x)
-        return space.wrap(h)
-    x = compute_hash(s)
+    x = compute_hash(w_uni._value)
     return space.wrap(x)
 
 def len__Unicode(space, w_uni):
@@ -407,7 +400,6 @@ def unicode_strip__Unicode_String(space, w_self, w_chars):
     from pypy.objspace.std.unicodetype import unicode_from_string
     return space.call_method(w_self, 'strip',
                              unicode_from_string(space, w_chars))
-unicode_strip__Unicode_Rope = unicode_strip__Unicode_String
 
 def unicode_lstrip__Unicode_None(space, w_self, w_chars):
     return _strip_none(space, w_self, 1, 0)
@@ -418,7 +410,6 @@ def unicode_lstrip__Unicode_String(space, w_self, w_chars):
     return space.call_method(w_self, 'lstrip',
                              unicode_from_string(space, w_chars))
 
-unicode_lstrip__Unicode_Rope = unicode_lstrip__Unicode_String
 
 def unicode_rstrip__Unicode_None(space, w_self, w_chars):
     return _strip_none(space, w_self, 0, 1)
@@ -429,7 +420,6 @@ def unicode_rstrip__Unicode_String(space, w_self, w_chars):
     return space.call_method(w_self, 'rstrip',
                              unicode_from_string(space, w_chars))
 
-unicode_rstrip__Unicode_Rope = unicode_rstrip__Unicode_String
 
 def unicode_capitalize__Unicode(space, w_self):
     input = w_self._value
@@ -915,10 +905,13 @@ def unicode_translate__Unicode_ANY(space, w_self, w_table):
                     space.wrap("character mapping must return integer, None or unicode"))
     return W_UnicodeObject(u''.join(result))
 
+_repr_function, _ = make_unicode_escape_function(
+    pass_printable=False, unicode_output=False, quotes=True, prefix='u')
+
 def repr__Unicode(space, w_unicode):
     chars = w_unicode._value
     size = len(chars)
-    s = unicode_encode_unicode_escape(chars, size, "strict", quotes=True)
+    s = _repr_function(chars, size, "strict")
     return space.wrap(s)
 
 def mod__Unicode_ANY(space, w_format, w_values):
@@ -951,60 +944,48 @@ class str_methods:
     from pypy.objspace.std import stringtype
     W_UnicodeObject = W_UnicodeObject
     from pypy.objspace.std.stringobject import W_StringObject
-    from pypy.objspace.std.ropeobject import W_RopeObject
     def str_strip__String_Unicode(space, w_self, w_chars):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'strip', w_chars)
-    str_strip__Rope_Unicode = str_strip__String_Unicode
     def str_lstrip__String_Unicode(space, w_self, w_chars):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'lstrip', w_chars)
-    str_lstrip__Rope_Unicode = str_lstrip__String_Unicode
     def str_rstrip__String_Unicode(space, w_self, w_chars):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rstrip', w_chars)
-    str_rstrip__Rope_Unicode = str_rstrip__String_Unicode
     def str_count__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'count', w_substr, w_start, w_end)
-    str_count__Rope_Unicode_ANY_ANY = str_count__String_Unicode_ANY_ANY
     def str_find__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'find', w_substr, w_start, w_end)
-    str_find__Rope_Unicode_ANY_ANY = str_find__String_Unicode_ANY_ANY
     def str_rfind__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rfind', w_substr, w_start, w_end)
-    str_rfind__Rope_Unicode_ANY_ANY = str_rfind__String_Unicode_ANY_ANY
     def str_index__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'index', w_substr, w_start, w_end)
-    str_index__Rope_Unicode_ANY_ANY = str_index__String_Unicode_ANY_ANY
     def str_rindex__String_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rindex', w_substr, w_start, w_end)
-    str_rindex__Rope_Unicode_ANY_ANY = str_rindex__String_Unicode_ANY_ANY
     def str_replace__String_Unicode_Unicode_ANY(space, w_self, w_old, w_new, w_maxsplit):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'replace', w_old, w_new, w_maxsplit)
-    str_replace__Rope_Unicode_Unicode_ANY = str_replace__String_Unicode_Unicode_ANY
     def str_split__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'split', w_delim, w_maxsplit)
-    str_split__Rope_Unicode_ANY = str_split__String_Unicode_ANY
     def str_rsplit__String_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
         from pypy.objspace.std.unicodetype import unicode_from_string
         return space.call_method(unicode_from_string(space, w_self),
                                  'rsplit', w_delim, w_maxsplit)
-    str_rsplit__Rope_Unicode_ANY = str_rsplit__String_Unicode_ANY
     register_all(vars(), stringtype)

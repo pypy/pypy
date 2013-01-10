@@ -339,7 +339,7 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
         self.check_operations_history(setarrayitem_gc=2,
-                setfield_gc=2)
+                setfield_gc=0)
 
     def test_virtualizable_with_array_heap_cache(self):
         myjitdriver = jit.JitDriver(greens = [], reds = ['n', 'x', 'i', 'frame'],
@@ -559,7 +559,7 @@ class TestLLtype(LLJitMixin):
             a1 = [0] * n
             g.a = a1
             return len(a1) + res
-        res = self.interp_operations(fn, [7])
+        res = self.interp_operations(fn, [7], backendopt=True)
         assert res == 7 * 3
         self.check_operations_history(arraylen_gc=1)
 
@@ -574,7 +574,7 @@ class TestLLtype(LLJitMixin):
             x = [0] * n
             x[2] = 21
             return len(a[:n]) + x[2]
-        res = self.interp_operations(fn, [3])
+        res = self.interp_operations(fn, [3], backendopt=True)
         assert res == 24
         self.check_operations_history(getarrayitem_gc=0)
 

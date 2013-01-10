@@ -22,7 +22,7 @@ class TypeSystem(object):
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
                     'rslice', 'rdict', 'rrange', 'rstr', 'rgeneric',
-                    'll_str', 'rbuilder', 'rvirtualizable2',
+                    'll_str', 'rbuilder', 'rvirtualizable2', 'rbytearray',
                     'exceptiondata'):
             mod = load(name)
             if mod is not None:
@@ -119,7 +119,7 @@ class LowLevelTypeSystem(TypeSystem):
         return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 
     def getconcretetype(self, v):
-        return getattr(v, 'concretetype', lltype.Ptr(lltype.PyObject))
+        return v.concretetype
 
     def null_callable(self, T):
         return lltype.nullptr(T.TO)

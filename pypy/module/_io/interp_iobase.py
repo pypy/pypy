@@ -5,11 +5,13 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib import rweakref
+
 
 DEFAULT_BUFFER_SIZE = 8192
 
 def convert_size(space, w_size):
-    if space.is_w(w_size, space.w_None):
+    if space.is_none(w_size):
         return -1
     else:
         return space.int_w(w_size)
@@ -43,6 +45,8 @@ class W_IOBase(Wrappable):
         self.space = space
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
+        self.streamholder = None # needed by AutoFlusher
+        get_autoflushher(space).add(self)
 
     def getdict(self, space):
         return self.w_dict
@@ -98,6 +102,7 @@ class W_IOBase(Wrappable):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
+            get_autoflushher(space).remove(self)
 
     def flush_w(self, space):
         if self._CLOSED():
@@ -282,6 +287,10 @@ class W_RawIOBase(W_IOBase):
         while True:
             w_data = space.call_method(self, "read",
                                        space.wrap(DEFAULT_BUFFER_SIZE))
+            if space.is_w(w_data, space.w_None):
+                if not builder.getlength():
+                    return w_data
+                break
 
             if not space.isinstance_w(w_data, space.w_str):
                 raise OperationError(space.w_TypeError, space.wrap(
@@ -299,3 +308,62 @@ W_RawIOBase.typedef = TypeDef(
     read = interp2app(W_RawIOBase.read_w),
     readall = interp2app(W_RawIOBase.readall_w),
 )
+
+
+# ------------------------------------------------------------
+# functions to make sure that all streams are flushed on exit
+# ------------------------------------------------------------
+
+class StreamHolder(object):
+
+    def __init__(self, w_iobase):
+        self.w_iobase_ref = rweakref.ref(w_iobase)
+        w_iobase.autoflusher = self
+
+    def autoflush(self, space):
+        w_iobase = self.w_iobase_ref()
+        if w_iobase is not None:
+            try:
+                space.call_method(w_iobase, 'flush')
+            except OperationError, e:
+                # Silencing all errors is bad, but getting randomly
+                # interrupted here is equally as bad, and potentially
+                # more frequent (because of shutdown issues).
+                pass 
+
+
+class AutoFlusher(object):
+    
+    def __init__(self, space):
+        self.streams = {}
+
+    def add(self, w_iobase):
+        assert w_iobase.streamholder is None
+        if rweakref.has_weakref_support():
+            holder = StreamHolder(w_iobase)
+            w_iobase.streamholder = holder
+            self.streams[holder] = None
+        #else:
+        #   no support for weakrefs, so ignore and we
+        #   will not get autoflushing
+
+    def remove(self, w_iobase):
+        holder = w_iobase.streamholder
+        if holder is not None:
+            del self.streams[holder]
+
+    def flush_all(self, space):
+        while self.streams:
+            for streamholder in self.streams.keys():
+                try:
+                    del self.streams[streamholder]
+                except KeyError:
+                    pass    # key was removed in the meantime
+                else:
+                    streamholder.autoflush(space)
+
+
+def get_autoflushher(space):
+    return space.fromcache(AutoFlusher)
+
+

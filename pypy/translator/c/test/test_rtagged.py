@@ -67,7 +67,7 @@ from pypy.translator.interactive import Translation
 from pypy import conftest
 
 def test_tagged_boehm():
-    t = Translation(entry_point, standalone=True, gc='boehm', taggedpointers=True)
+    t = Translation(entry_point, gc='boehm', taggedpointers=True)
     try:
         exename = str(t.compile_c())
     finally:

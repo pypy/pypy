@@ -27,7 +27,7 @@ class W_BytesIO(W_BufferedIOBase):
         self.string_size = 0
         self.pos = 0
 
-        if not space.is_w(w_initial_bytes, space.w_None):
+        if not space.is_none(w_initial_bytes):
             self.write_w(space, w_initial_bytes)
             self.pos = 0
 
@@ -108,7 +108,7 @@ class W_BytesIO(W_BufferedIOBase):
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
 
-        if space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             size = self.pos
         else:
             size = space.r_longlong_w(w_size)

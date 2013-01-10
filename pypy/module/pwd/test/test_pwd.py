@@ -1,8 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestPwd:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['pwd'])
+    spaceconfig = dict(usemodules=['pwd'])
 
     def test_getpwuid(self):
         import pwd, sys

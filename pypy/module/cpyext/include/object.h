@@ -38,10 +38,26 @@ typedef struct {
 	PyObject_VAR_HEAD
 } PyVarObject;
 
+#ifdef PYPY_DEBUG_REFCOUNT
+/* Slow version, but useful for debugging */
 #define Py_INCREF(ob)   (Py_IncRef((PyObject *)ob))
 #define Py_DECREF(ob)   (Py_DecRef((PyObject *)ob))
 #define Py_XINCREF(ob)  (Py_IncRef((PyObject *)ob))
 #define Py_XDECREF(ob)  (Py_DecRef((PyObject *)ob))
+#else
+/* Fast version */
+#define Py_INCREF(ob)   (((PyObject *)ob)->ob_refcnt++)
+#define Py_DECREF(ob)                                   \
+    do {                                                \
+        if (((PyObject *)ob)->ob_refcnt > 1)            \
+            ((PyObject *)ob)->ob_refcnt--;              \
+        else                                            \
+            Py_DecRef((PyObject *)ob);                  \
+    } while (0)
+
+#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
+#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+#endif
 
 #define Py_CLEAR(op)				\
         do {                            	\
@@ -55,6 +71,8 @@ typedef struct {
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
+
+#define _Py_ForgetReference(ob) /* nothing */
 
 #define Py_None (&_Py_NoneStruct)
 
@@ -131,18 +149,18 @@ typedef struct bufferinfo {
 
     /* This is Py_ssize_t so it can be
        pointed to by strides in simple case.*/
-    /* Py_ssize_t itemsize; */
-    /* int readonly; */
-    /* int ndim; */
-    /* char *format; */
-    /* Py_ssize_t *shape; */
-    /* Py_ssize_t *strides; */
-    /* Py_ssize_t *suboffsets; */
+    Py_ssize_t itemsize;
+    int readonly;
+    int ndim;
+    char *format;
+    Py_ssize_t *shape;
+    Py_ssize_t *strides;
+    Py_ssize_t *suboffsets;
 
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
-    /* void *internal; */
+    void *internal;
 } Py_buffer;
 
 

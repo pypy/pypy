@@ -19,3 +19,4 @@ class TestLLtype(LoopUnrollTest, LLJitMixin):
 
 class TestOOtype(LoopUnrollTest, OOJitMixin):
     pass
+

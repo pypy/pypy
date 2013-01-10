@@ -1,6 +1,6 @@
 import py
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rstr
 from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
 from pypy.rpython.lltypesystem.llmemory import itemoffsetof, raw_memcopy
@@ -11,13 +11,15 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import rarithmetic, rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rpython.tool.rfficache import platform
+from pypy.rpython.tool.rfficache import platform, sizeof_c_type
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, llstr
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rlib.rarithmetic import maxint, LONG_BIT
+from pypy.translator.platform import CompilationError
 import os, sys
 
 class CConstant(Symbolic):
@@ -169,6 +171,7 @@ def llexternal(name, args, result, _callable=None,
         call_external_function._dont_inline_ = True
         call_external_function._annspecialcase_ = 'specialize:ll'
         call_external_function._gctransformer_hint_close_stack_ = True
+        call_external_function._call_aroundstate_target_ = funcptr
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
         # don't inline, as a hack to guarantee that no GC pointer is alive
@@ -248,7 +251,7 @@ def llexternal(name, args, result, _callable=None,
                 return cast(lltype.Unsigned, res)
         return res
     wrapper._annspecialcase_ = 'specialize:ll'
-    wrapper._always_inline_ = True
+    wrapper._always_inline_ = 'try'
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
@@ -276,9 +279,18 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     callable_name = getattr(callable, '__name__', '?')
     if callbackholder is not None:
         callbackholder.callbacks[callable] = True
+    callable_name_descr = str(callable).replace('"', '\\"')
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
-        def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+        def inner_wrapper(%(args)s):
+            if aroundstate is not None:
+                callback_hook = aroundstate.callback_hook
+                if callback_hook:
+                    callback_hook(llstr("%(callable_name_descr)s"))
+            return callable(%(args)s)
+        inner_wrapper._never_inline_ = True
+        
+        def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
@@ -287,7 +299,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
-                result = callable(%s)
+                result = inner_wrapper(%(args)s)
             except Exception, e:
                 os.write(2,
                     "Warning: uncaught exception in callback: %%s %%s\n" %%
@@ -305,10 +317,11 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
             return result
-    """ % (args, args))
+    """ % locals())
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
+    miniglobals['llstr'] = llstr
     miniglobals['we_are_translated'] = we_are_translated
     miniglobals['stackcounter'] = stackcounter
     exec source.compile() in miniglobals
@@ -316,20 +329,23 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+CallbackHookPtr = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)], lltype.Void))
+
 class AroundState:
-    def _freeze_(self):
-        self.before = None    # or a regular RPython function
-        self.after = None     # or a regular RPython function
-        return False
+    callback_hook = None
+    
+    def _cleanup_(self):
+        self.before = None        # or a regular RPython function
+        self.after = None         # or a regular RPython function
 aroundstate = AroundState()
-aroundstate._freeze_()
+aroundstate._cleanup_()
 
 class StackCounter:
-    def _freeze_(self):
+    def _cleanup_(self):
         self.stacks_counter = 1     # number of "stack pieces": callbacks
-        return False                # and threads increase it by one
+                                    # and threads increase it by one
 stackcounter = StackCounter()
-stackcounter._freeze_()
+stackcounter._cleanup_()
 
 def llexternal_use_eci(compilation_info):
     """Return a dummy function that, if called in a RPython program,
@@ -433,7 +449,18 @@ for _name in 'short int long'.split():
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
-          'size_t', 'time_t', 'wchar_t']
+          'size_t', 'time_t', 'wchar_t',
+          'uintptr_t', 'intptr_t',
+          'void*']    # generic pointer type
+
+# This is a bit of a hack since we can't use rffi_platform here.
+try:
+    sizeof_c_type('__int128_t', ignore_errors=True)
+    TYPES += ['__int128_t']
+except CompilationError:
+    pass
+    
+_TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -452,7 +479,7 @@ def populate_inttypes():
             name = 'u' + name[9:]
             signed = False
         else:
-            signed = (name != 'size_t')
+            signed = (name not in _TYPES_ARE_UNSIGNED)
         name = name.replace(' ', '')
         names.append(name)
         populatelist.append((name.upper(), c_name, signed))
@@ -617,8 +644,6 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
 # (use SIGNEDCHAR or UCHAR for the small integer types)
 CHAR = lltype.Char
 
-INTPTR_T = SSIZE_T
-
 # double
 DOUBLE = lltype.Float
 LONGDOUBLE = lltype.LongFloat
@@ -649,6 +674,13 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
+
+# long double *
+LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
+
+# Signed, Signed *
+SIGNED = lltype.Signed
+SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
 
 # various type mapping
 
@@ -693,12 +725,15 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        b = builder_class()
+        size = 0
+        while cp[size] != lastchar:
+            size += 1
+        b = builder_class(size)
         i = 0
         while cp[i] != lastchar:
             b.append(cp[i])
             i += 1
-        return b.build()
+        return assert_str0(b.build())
 
     # str -> char*
     # Can't inline this because of the raw address manipulation.
@@ -755,10 +790,11 @@ def make_string_mappings(strtype):
         """
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
-    alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._always_inline_ = 'try' # to get rid of the returned tuple
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
+    @jit.dont_look_inside
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
@@ -784,6 +820,7 @@ def make_string_mappings(strtype):
         return hlstrtype(new_buf)
 
     # (char*, str) -> None
+    @jit.dont_look_inside
     def keep_buffer_alive_until_here(raw_buf, gc_buf):
         """
         Keeps buffers alive or frees temporary buffers created by alloc_buffer.
@@ -802,7 +839,7 @@ def make_string_mappings(strtype):
         while i < maxlen and cp[i] != lastchar:
             b.append(cp[i])
             i += 1
-        return b.build()
+        return assert_str0(b.build())
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
@@ -840,6 +877,7 @@ def liststr2charpp(l):
         array[i] = str2charp(l[i])
     array[len(l)] = lltype.nullptr(CCHARP.TO)
     return array
+liststr2charpp._annenforceargs_ = [[annmodel.s_Str0]]  # List of strings
 
 def free_charpp(ref):
     """ frees list of char**, NULL terminated
@@ -895,7 +933,7 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        tp = ULONG     # XXX!
+        return globals()['r_void*'].BITS/8
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
@@ -904,9 +942,14 @@ def sizeof(tp):
         return 8
     if tp is lltype.SingleFloat:
         return 4
+    if tp is lltype.LongFloat:
+        if globals()['r_void*'].BITS == 32:
+            return 12
+        else:
+            return 16
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
-        return ULONG._type.BITS/8
+        return LONG_BIT/8
     return tp._type.BITS/8
 sizeof._annspecialcase_ = 'specialize:memo'
 
@@ -926,11 +969,16 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-assert sys.maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
+assert maxint == (1 << (8 * sizeof(llmemory.Address) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
-    "but the C compiler says that 'long' is %d bytes" % (
-    sys.maxint, sizeof(lltype.Signed)))
+    "but the C compiler says that 'void *' is %d bytes" % (
+    maxint, sizeof(llmemory.Address)))
+assert sizeof(lltype.Signed) == sizeof(llmemory.Address), (
+    "Bad configuration: we should manage to get lltype.Signed "
+    "be an integer type of the same size as llmemory.Address, "
+    "but we got %s != %s" % (sizeof(lltype.Signed),
+                             sizeof(llmemory.Address)))
 
 # ********************** some helpers *******************
 

@@ -411,7 +411,8 @@ def swapaxes(a, axis1, axis2):
             [3, 7]]])
 
     """
-    raise NotImplementedError('Waiting on interp level method')
+    swapaxes = a.swapaxes
+    return swapaxes(axis1, axis2)
 
 
 def transpose(a, axes=None):

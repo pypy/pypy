@@ -1,13 +1,13 @@
 # The model produced by the flowobjspace
 # this is to be used by the translator mainly.
-# 
+#
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
 import py
 from pypy.tool.uid import uid, Hashable
-from pypy.tool.descriptor import roproperty
 from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from pypy.tool.identity_dict import identity_dict
+from pypy.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
+
 
 """
     memory size before and after introduction of __slots__
@@ -19,7 +19,7 @@ from pypy.tool.identity_dict import identity_dict
     Var/Const/SpaceOp   205 MB      325 MB
     + Link              189 MB      311 MB
     + Block             185 MB      304 MB
-    
+
     Dropping Variable.instances and using
     just an instancenames dict brought
     annotation down to 160 MB.
@@ -33,8 +33,6 @@ __metaclass__ = type
 
 
 class FunctionGraph(object):
-    __slots__ = ['startblock', 'returnblock', 'exceptblock', '__dict__']
-    
     def __init__(self, name, startblock, return_var=None):
         self.name        = name    # function name (possibly mangled already)
         self.startblock  = startblock
@@ -55,23 +53,29 @@ class FunctionGraph(object):
     def getreturnvar(self):
         return self.returnblock.inputargs[0]
 
-    def getsource(self):
+    @property
+    def source(self):
+        if hasattr(self, "_source"):
+            return self._source
         from pypy.tool.sourcetools import getsource
-        func = self.func    # can raise AttributeError
+        self.func    # can raise AttributeError
         src = getsource(self.func)
         if src is None:
             raise AttributeError('source not found')
         return src
-    source = roproperty(getsource)
-    
-    def getstartline(self):
+
+    @source.setter
+    def source(self, value):
+        self._source = value
+
+    @property
+    def startline(self):
         return self.func.func_code.co_firstlineno
-    startline = roproperty(getstartline)
-    
-    def getfilename(self):
+
+    @property
+    def filename(self):
         return self.func.func_code.co_filename
-    filename = roproperty(getfilename)
-    
+
     def __str__(self):
         if hasattr(self, 'func'):
             return nice_repr_for_func(self.func, self.name)
@@ -113,6 +117,8 @@ class FunctionGraph(object):
     def show(self, t=None):
         from pypy.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(t, [self]).display()
+
+    view = show
 
 
 class Link(object):
@@ -167,6 +173,8 @@ class Link(object):
     def show(self):
         from pypy.translator.tool.graphpage import try_show
         try_show(self)
+
+    view = show
 
 
 class Block(object):
@@ -243,16 +251,11 @@ class Block(object):
         from pypy.translator.tool.graphpage import try_show
         try_show(self)
 
+    view = show
+
 
 class Variable(object):
     __slots__ = ["_name", "_nr", "concretetype"]
-
-##    def getter(x): return x._ct
-##    def setter(x, ct):
-##        if repr(ct) == '<* PyObject>':
-##            import pdb; pdb.set_trace()
-##        x._ct = ct
-##    concretetype = property(getter, setter)
 
     dummyname = 'v'
     namesdict = {dummyname : (dummyname, 0)}
@@ -542,7 +545,9 @@ def checkgraph(graph):
                     cases = [link.exitcase for link in block.exits]
                     has_default = cases[-1] == 'default'
                     for n in cases[:len(cases)-has_default]:
-                        if isinstance(n, (int, long)):
+                        if is_valid_int(n):
+                            continue
+                        if isinstance(n, (r_longlong, r_ulonglong, r_uint)):
                             continue
                         if isinstance(n, (str, unicode)) and len(n) == 1:
                             continue

@@ -251,7 +251,7 @@ def divmod__Long_Long(space, w_long1, w_long2):
 
 def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
     # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.lt(rbigint.fromint(0)):
+    if w_long2.num.sign < 0:
         raise OperationError(
             space.w_TypeError,
             space.wrap(
@@ -265,7 +265,7 @@ def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
 
 def pow__Long_Long_None(space, w_long1, w_long2, w_long3):
     # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.lt(rbigint.fromint(0)):
+    if w_long2.num.sign < 0:
         raise FailedToImplementArgs(
             space.w_ValueError,
             space.wrap("long pow() too negative"))
@@ -288,7 +288,7 @@ def invert__Long(space, w_long):
 
 def lshift__Long_Long(space, w_long1, w_long2):
     # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.lt(rbigint.fromint(0)):
+    if w_long2.num.sign < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     try:
@@ -300,7 +300,7 @@ def lshift__Long_Long(space, w_long1, w_long2):
 
 def rshift__Long_Long(space, w_long1, w_long2):
     # XXX need to replicate some of the logic, to get the errors right
-    if w_long2.num.lt(rbigint.fromint(0)):
+    if w_long2.num.sign < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     try:

@@ -182,6 +182,12 @@ class TestRx86_32(object):
         filename  = str(testdir.join(FILENAME  % methname))
         g = open(inputname, 'w')
         g.write('\x09.string "%s"\n' % BEGIN_TAG)
+        #
+        if instrname == 'MOVD' and self.WORD == 8:
+            instrname = 'MOVQ'
+            if argmodes == 'xb':
+                py.test.skip('"as" uses an undocumented alternate encoding??')
+        #
         for args in args_lists:
             suffix = ""
     ##        all = instr.as_all_suffixes
@@ -228,9 +234,6 @@ class TestRx86_32(object):
                 and ops[1].startswith('%r')):
                 # movq $xxx, %rax => movl $xxx, %eax
                 suffix = 'l'
-                ops[1] = reduce_to_32bit(ops[1])
-            if instrname.lower() == 'movd':
-                ops[0] = reduce_to_32bit(ops[0])
                 ops[1] = reduce_to_32bit(ops[1])
             #
             op = '\t%s%s %s%s' % (instrname.lower(), suffix,

@@ -211,7 +211,7 @@ def _install_loggers(cp, handlers, disable_existing_loggers):
     #avoid disabling child loggers of explicitly
     #named loggers. With a sorted list it is easier
     #to find the child loggers.
-    existing.sort(key=_encoded)
+    existing.sort()
     #We'll keep the list of existing loggers
     #which are children of named loggers here...
     child_loggers = []
@@ -226,14 +226,14 @@ def _install_loggers(cp, handlers, disable_existing_loggers):
             propagate = 1
         logger = logging.getLogger(qn)
         if qn in existing:
-            i = existing.index(qn)
+            i = existing.index(qn) + 1 # start with the entry after qn
             prefixed = qn + "."
             pflen = len(prefixed)
             num_existing = len(existing)
-            i = i + 1 # look at the entry after qn
-            while (i < num_existing) and (existing[i][:pflen] == prefixed):
-                child_loggers.append(existing[i])
-                i = i + 1
+            while i < num_existing:
+                if existing[i][:pflen] == prefixed:
+                    child_loggers.append(existing[i])
+                i += 1
             existing.remove(qn)
         if "level" in opts:
             level = cp.get(sectname, "level")
@@ -589,13 +589,14 @@ class DictConfigurator(BaseConfigurator):
                 #avoid disabling child loggers of explicitly
                 #named loggers. With a sorted list it is easier
                 #to find the child loggers.
-                existing.sort(key=_encoded)
+                existing.sort()
                 #We'll keep the list of existing loggers
                 #which are children of named loggers here...
                 child_loggers = []
                 #now set up the new ones...
                 loggers = config.get('loggers', EMPTY_DICT)
                 for name in loggers:
+                    name = _encoded(name)
                     if name in existing:
                         i = existing.index(name)
                         prefixed = name + "."

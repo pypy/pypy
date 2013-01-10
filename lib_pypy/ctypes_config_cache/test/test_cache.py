@@ -39,10 +39,6 @@ def test_resource():
     d = run('resource.ctc.py', '_resource_cache.py')
     assert 'RLIM_NLIMITS' in d
 
-def test_pyexpat():
-    d = run('pyexpat.ctc.py', '_pyexpat_cache.py')
-    assert 'XML_COMBINED_VERSION' in d
-
 def test_locale():
     d = run('locale.ctc.py', '_locale_cache.py')
     assert 'LC_ALL' in d

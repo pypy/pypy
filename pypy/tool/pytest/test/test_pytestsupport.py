@@ -80,21 +80,6 @@ def test_appexecinfo(space):
     assert not appex.errisinstance(A)
 
 
-def test_fakedexception(space):
-    from cPickle import PicklingError
-    def raise_error():
-        raise PicklingError("SomeMessage")
-    space.setitem(space.builtin.w_dict, space.wrap('raise_error'),
-                  space.wrap(raise_error))
-
-    try:
-        space.appexec([], "(): raise_error()")
-    except OperationError, e:
-        appex = AppExceptionInfo(space, e)
-    else:
-        py.test.fail("did not raise!")
-    assert "PicklingError" in appex.exconly()
-
 class AppTestWithWrappedInterplevelAttributes:
     def setup_class(cls):
         space = cls.space
@@ -128,7 +113,7 @@ def test_expectcollect(testdir):
     assert passed == 1
 
 def test_safename():
-    from pypy.conftest import ExpectTestMethod
+    from pypy.tool.pytest.expecttest import ExpectTestMethod
 
     safe_name = ExpectTestMethod.safe_name
     assert safe_name(['pypy', 'tool', 'test', 'test_pytestsupport.py',
@@ -165,7 +150,10 @@ def test_app_test_blow(testdir):
     def test_one(self): exec 'blow'
     """)
 
-    ev, = sorter.getreports("pytest_runtest_logreport")
+    reports = sorter.getreports("pytest_runtest_logreport")
+    setup, ev, teardown = reports
     assert ev.failed
+    assert setup.passed
+    assert teardown.passed
     assert 'NameError' in ev.longrepr.reprcrash.message
     assert 'blow' in ev.longrepr.reprcrash.message

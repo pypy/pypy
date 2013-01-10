@@ -128,3 +128,82 @@ class TestDicts(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('look')
         assert 'call' not in log.opnames(ops)
+
+    #XXX the following tests only work with strategies enabled
+
+    def test_should_not_create_intobject_with_sets(self):
+        def main(n):
+            i = 0
+            s = set()
+            while i < n:
+                s.add(i)
+                i += 1
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+
+    def test_should_not_create_stringobject_with_sets(self):
+        def main(n):
+            i = 0
+            s = set()
+            while i < n:
+                s.add(str(i))
+                i += 1
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+
+    def test_should_not_create_intobject_with_lists(self):
+        def main(n):
+            i = 0
+            l = []
+            while i < n:
+                l.append(i)
+                i += 1
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+
+    def test_should_not_create_stringobject_with_lists(self):
+        def main(n):
+            i = 0
+            l = []
+            while i < n:
+                l.append(str(i))
+                i += 1
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+
+    def test_optimized_create_list_from_string(self):
+        def main(n):
+            i = 0
+            l = []
+            while i < n:
+                l = list("abc" * i)
+                i += 1
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+
+    def test_optimized_create_set_from_list(self):
+        def main(n):
+            i = 0
+            while i < n:
+                s = set([1,2,3])
+                i += 1
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0

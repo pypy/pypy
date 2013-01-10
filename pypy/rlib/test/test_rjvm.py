@@ -1,4 +1,6 @@
 import py
+py.test.skip('this is outdated. Check the jvm-improvements branch')
+
 try:
     import jpype
 except ImportError:

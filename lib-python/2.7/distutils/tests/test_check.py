@@ -1,5 +1,7 @@
+# -*- encoding: utf8 -*-
 """Tests for distutils.command.check."""
 import unittest
+from test.test_support import run_unittest
 
 from distutils.command.check import check, HAS_DOCUTILS
 from distutils.tests import support
@@ -45,6 +47,15 @@ class CheckTestCase(support.LoggingSilencer,
         cmd = self._run(metadata, strict=1)
         self.assertEqual(cmd._warnings, 0)
 
+        # now a test with Unicode entries
+        metadata = {'url': u'xxx', 'author': u'\u00c9ric',
+                    'author_email': u'xxx', u'name': 'xxx',
+                    'version': u'xxx',
+                    'description': u'Something about esszet \u00df',
+                    'long_description': u'More things about esszet \u00df'}
+        cmd = self._run(metadata)
+        self.assertEqual(cmd._warnings, 0)
+
     def test_check_document(self):
         if not HAS_DOCUTILS: # won't test without docutils
             return
@@ -79,8 +90,8 @@ class CheckTestCase(support.LoggingSilencer,
         self.assertRaises(DistutilsSetupError, self._run, metadata,
                           **{'strict': 1, 'restructuredtext': 1})
 
-        # and non-broken rest
-        metadata['long_description'] = 'title\n=====\n\ntest'
+        # and non-broken rest, including a non-ASCII character to test #12114
+        metadata['long_description'] = u'title\n=====\n\ntest \u00df'
         cmd = self._run(metadata, strict=1, restructuredtext=1)
         self.assertEqual(cmd._warnings, 0)
 
@@ -95,4 +106,4 @@ def test_suite():
     return unittest.makeSuite(CheckTestCase)
 
 if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
+    run_unittest(test_suite())

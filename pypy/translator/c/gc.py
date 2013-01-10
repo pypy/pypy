@@ -1,17 +1,13 @@
 import sys
 from pypy.objspace.flow.model import Constant
-from pypy.translator.c.support import cdecl
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lltype import (typeOf, RttiStruct,
+     RuntimeTypeInfo, top_container)
 from pypy.translator.c.node import ContainerNode
-from pypy.rpython.lltypesystem.lltype import \
-     typeOf, Ptr, ContainerType, RttiStruct, \
-     RuntimeTypeInfo, getRuntimeTypeInfo, top_container
-from pypy.rpython.memory.gctransform import \
-     refcounting, boehm, framework, asmgcroot
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.translator.c.support import cdecl
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
-    stores_hash_at_the_end = False
 
     def __init__(self, db, thread_enabled=False):
         self.db = db
@@ -47,8 +43,7 @@ class BasicGcPolicy(object):
         return ExternalCompilationInfo(
             pre_include_bits=['/* using %s */' % (gct.__class__.__name__,),
                               '#define MALLOC_ZERO_FILLED %d' % (gct.malloc_zero_filled,),
-                              ],
-            post_include_bits=['typedef void *GC_hidden_pointer;']
+                              ]
             )
 
     def get_prebuilt_hash(self, obj):
@@ -68,16 +63,6 @@ class BasicGcPolicy(object):
 
     def rtti_type(self):
         return ''
-
-    def OP_GC_PUSH_ALIVE_PYOBJ(self, funcgen, op):
-        expr = funcgen.expr(op.args[0])
-        if expr == 'NULL':
-            return ''
-        return 'Py_XINCREF(%s);' % expr
-
-    def OP_GC_POP_ALIVE_PYOBJ(self, funcgen, op):
-        expr = funcgen.expr(op.args[0])
-        return 'Py_XDECREF(%s);' % expr
 
     def OP_GC_SET_MAX_HEAP_SIZE(self, funcgen, op):
         return ''
@@ -106,14 +91,20 @@ class BasicGcPolicy(object):
     def OP_GC_STACK_BOTTOM(self, funcgen, op):
         return ''
 
+    def OP_GC_GCFLAG_EXTRA(self, funcgen, op):
+        return '%s = 0;  /* gc_gcflag_extra%r */' % (
+            funcgen.expr(op.result),
+            op.args[0])
+
 
 class RefcountingInfo:
     static_deallocator = None
 
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
-
 class RefcountingGcPolicy(BasicGcPolicy):
-    transformerclass = refcounting.RefcountingGCTransformer
+
+    def gettransformer(self):
+        from pypy.rpython.memory.gctransform import refcounting
+        return refcounting.RefcountingGCTransformer(self.db.translator)
 
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
@@ -198,7 +189,10 @@ class BoehmInfo:
 
 
 class BoehmGcPolicy(BasicGcPolicy):
-    transformerclass = boehm.BoehmGCTransformer
+
+    def gettransformer(self):
+        from pypy.rpython.memory.gctransform import boehm
+        return boehm.BoehmGCTransformer(self.db.translator)
 
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
@@ -235,7 +229,9 @@ class BoehmGcPolicy(BasicGcPolicy):
 
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
-            post_include_bits=['#define USING_BOEHM_GC'],
+            # The following define is required by the thread module,
+            # See module/thread/test/test_ll_thread.py
+            compile_extra=['-DPYPY_USING_BOEHM_GC'],
             ))
 
         return eci
@@ -248,9 +244,11 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield 'boehm_gc_startup_code();'
 
     def get_real_weakref_type(self):
+        from pypy.rpython.memory.gctransform import boehm
         return boehm.WEAKLINK
 
     def convert_weakref_to(self, ptarget):
+        from pypy.rpython.memory.gctransform import boehm
         return boehm.convert_weakref_to(ptarget)
 
     def OP_GC__COLLECT(self, funcgen, op):
@@ -301,14 +299,17 @@ class NoneGcPolicy(BoehmGcPolicy):
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)
         eci = eci.merge(ExternalCompilationInfo(
-            post_include_bits=['#define USING_NO_GC_AT_ALL'],
+            post_include_bits=['#define PYPY_USING_NO_GC_AT_ALL'],
             ))
         return eci
 
 
-class FrameworkGcPolicy(BasicGcPolicy):
-    transformerclass = framework.FrameworkGCTransformer
-    stores_hash_at_the_end = True
+class BasicFrameworkGcPolicy(BasicGcPolicy):
+
+    def gettransformer(self):
+        if hasattr(self, 'transformerclass'):    # for rpython/memory tests
+            return self.transformerclass(self.db.translator)
+        raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -340,10 +341,12 @@ class FrameworkGcPolicy(BasicGcPolicy):
         yield '%s();' % (self.db.get(fnptr),)
 
     def get_real_weakref_type(self):
-        return framework.WEAKREF
+        from pypy.rpython.memory.gctypelayout import WEAKREF
+        return WEAKREF
 
     def convert_weakref_to(self, ptarget):
-        return framework.convert_weakref_to(ptarget)
+        from pypy.rpython.memory.gctypelayout import convert_weakref_to
+        return convert_weakref_to(ptarget)
 
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
         if isinstance(op.args[1], Constant):
@@ -374,16 +377,23 @@ class FrameworkGcPolicy(BasicGcPolicy):
         config = self.db.translator.config
         return config.translation.gcremovetypeptr
 
+    def header_type(self, extra='*'):
+        # Fish out the C name of the 'struct pypy_header0'
+        HDR = self.db.gctransformer.HDR
+        return self.db.gettype(HDR).replace('@', extra)
+
+    def tid_fieldname(self, tid_field='tid'):
+        # Fish out the C name of the tid field.
+        HDR = self.db.gctransformer.HDR
+        hdr_node = self.db.gettypedefnode(HDR)
+        return hdr_node.c_struct_field_name(tid_field)
+
     def OP_GC_GETTYPEPTR_GROUP(self, funcgen, op):
         # expands to a number of steps, as per rpython/lltypesystem/opimpl.py,
         # all implemented by a single call to a C macro.
         [v_obj, c_grpptr, c_skipoffset, c_vtableinfo] = op.args
-        typename = funcgen.db.gettype(op.result.concretetype)
         tid_field = c_vtableinfo.value[2]
-        # Fish out the C name of the tid field.
-        HDR = self.db.gctransformer.HDR
-        hdr_node = self.db.gettypedefnode(HDR)
-        fieldname = hdr_node.c_struct_field_name(tid_field)
+        typename = funcgen.db.gettype(op.result.concretetype)
         return (
         '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, (pypy_halfword_t)%s->'
             '_gcheader.%s, %s);'
@@ -391,14 +401,47 @@ class FrameworkGcPolicy(BasicGcPolicy):
                cdecl(typename, ''),
                funcgen.expr(c_grpptr),
                funcgen.expr(v_obj),
-               fieldname,
+               self.tid_fieldname(tid_field),
                funcgen.expr(c_skipoffset)))
 
     def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
         raise Exception("the FramewokGCTransformer should handle this")
 
-class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
-    transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer
+    def OP_GC_GCFLAG_EXTRA(self, funcgen, op):
+        gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_extra
+        if gcflag_extra == 0:
+            return BasicGcPolicy.OP_GC_GCFLAG_EXTRA(self, funcgen, op)
+        subopnum = op.args[0].value
+        if subopnum == 1:
+            return '%s = 1;  /* has_gcflag_extra */' % (
+                funcgen.expr(op.result),)
+        hdrfield = '((%s)%s)->%s' % (self.header_type(),
+                                     funcgen.expr(op.args[1]),
+                                     self.tid_fieldname())
+        parts = ['%s = (%s & %dL) != 0;' % (funcgen.expr(op.result),
+                                            hdrfield,
+                                            gcflag_extra)]
+        if subopnum == 2:     # get_gcflag_extra
+            parts.append('/* get_gcflag_extra */')
+        elif subopnum == 3:     # toggle_gcflag_extra
+            parts.insert(0, '%s ^= %dL;' % (hdrfield,
+                                            gcflag_extra))
+            parts.append('/* toggle_gcflag_extra */')
+        else:
+            raise AssertionError(subopnum)
+        return ' '.join(parts)
+
+class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
+
+    def gettransformer(self):
+        from pypy.rpython.memory.gctransform import shadowstack
+        return shadowstack.ShadowStackFrameworkGCTransformer(self.db.translator)
+
+class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
+
+    def gettransformer(self):
+        from pypy.rpython.memory.gctransform import asmgcroot
+        return asmgcroot.AsmGcRootFrameworkGCTransformer(self.db.translator)
 
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
@@ -411,8 +454,8 @@ name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
-    'framework': FrameworkGcPolicy,
-    'framework+asmgcroot': AsmGcRootFrameworkGcPolicy,
+    'framework+shadowstack': ShadowStackFrameworkGcPolicy,
+    'framework+asmgcc': AsmGcRootFrameworkGcPolicy
 }
 
 

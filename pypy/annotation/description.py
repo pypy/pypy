@@ -1,8 +1,9 @@
+from __future__ import absolute_import
 import types, py
+from pypy.annotation.signature import enforce_signature_args, enforce_signature_return
 from pypy.objspace.flow.model import Constant, FunctionGraph
-from pypy.interpreter.pycode import cpython_code_signature
-from pypy.interpreter.argument import rawshape
-from pypy.interpreter.argument import ArgErr
+from pypy.objspace.flow.bytecode import cpython_code_signature
+from pypy.objspace.flow.argument import rawshape, ArgErr
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -181,7 +182,7 @@ class FunctionDesc(Desc):
             name = pyobj.func_name
         if signature is None:
             if hasattr(pyobj, '_generator_next_method_of_'):
-                from pypy.interpreter.argument import Signature
+                from pypy.objspace.flow.argument import Signature
                 signature = Signature(['entry'])     # haaaaaack
                 defaults = ()
             else:
@@ -229,8 +230,8 @@ class FunctionDesc(Desc):
                     return thing
                 elif hasattr(thing, '__name__'): # mostly types and functions
                     return thing.__name__
-                elif hasattr(thing, 'name'): # mostly ClassDescs
-                    return thing.name
+                elif hasattr(thing, 'name') and isinstance(thing.name, str):
+                    return thing.name            # mostly ClassDescs
                 elif isinstance(thing, tuple):
                     return '_'.join(map(nameof, thing))
                 else:
@@ -247,17 +248,20 @@ class FunctionDesc(Desc):
         defs_s = []
         if graph is None:
             signature = self.signature
-            defaults  = self.defaults
+            defaults = self.defaults
         else:
             signature = graph.signature
-            defaults  = graph.defaults
+            defaults = graph.defaults
         if defaults:
             for x in defaults:
-                defs_s.append(self.bookkeeper.immutablevalue(x))
+                if x is NODEFAULT:
+                    defs_s.append(None)
+                else:
+                    defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError("signature mismatch: %s() %s" % 
+            raise TypeError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
 
@@ -273,12 +277,17 @@ class FunctionDesc(Desc):
             policy = self.bookkeeper.annotator.policy
             self.specializer = policy.get_specializer(tag)
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if enforceargs and signature:
+            raise Exception("%r: signature and enforceargs cannot both be used" % (self,))
         if enforceargs:
             if not callable(enforceargs):
                 from pypy.annotation.policy import Sig
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
+        if signature:
+            enforce_signature_args(self, signature[0], inputcells) # mutates inputcells
         if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
             return self.specializer(self, inputcells, op)
         else:
@@ -295,6 +304,10 @@ class FunctionDesc(Desc):
             new_args = args.unmatch_signature(self.signature, inputcells)
             inputcells = self.parse_arguments(new_args, graph)
             result = schedule(graph, inputcells)
+            signature = getattr(self.pyobj, '_signature_', None)
+            if signature:
+                result = enforce_signature_return(self, signature[1], result)
+                self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [result])
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:
@@ -398,7 +411,6 @@ class ClassDesc(Desc):
             cls = pyobj
             base = object
             baselist = list(cls.__bases__)
-            baselist.reverse()
 
             # special case: skip BaseException in Python 2.5, and pretend
             # that all exceptions ultimately inherit from Exception instead
@@ -408,17 +420,27 @@ class ClassDesc(Desc):
             elif baselist == [py.builtin.BaseException]:
                 baselist = [Exception]
 
+            mixins_before = []
+            mixins_after = []
             for b1 in baselist:
                 if b1 is object:
                     continue
                 if b1.__dict__.get('_mixin_', False):
-                    self.add_mixin(b1)
+                    if base is object:
+                        mixins_before.append(b1)
+                    else:
+                        mixins_after.append(b1)
                 else:
                     assert base is object, ("multiple inheritance only supported "
                                             "with _mixin_: %r" % (cls,))
                     base = b1
-
+            if mixins_before and mixins_after:
+                raise Exception("unsupported: class %r has mixin bases both"
+                                " before and after the regular base" % (self,))
+            self.add_mixins(mixins_after, check_not_in=base)
+            self.add_mixins(mixins_before)
             self.add_sources_for_class(cls)
+
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
 
@@ -440,6 +462,12 @@ class ClassDesc(Desc):
                                         % (pyobj,))
                     attrs.update(self.basedesc.all_enforced_attrs)
                 self.all_enforced_attrs = attrs
+
+            if (self.is_builtin_exception_class() and
+                self.all_enforced_attrs is None):
+                from pypy.annotation import classdef
+                if self.pyobj not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
+                    self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, types.FunctionType):
@@ -480,18 +508,34 @@ class ClassDesc(Desc):
                 return
         self.classdict[name] = Constant(value)
 
-    def add_mixin(self, base):
-        for subbase in base.__bases__:
-            if subbase is object:
-                continue
-            assert subbase.__dict__.get("_mixin_", False), ("Mixin class %r has non"
-                "mixin base class %r" % (base, subbase))
-            self.add_mixin(subbase)
-        self.add_sources_for_class(base, mixin=True)
+    def add_mixins(self, mixins, check_not_in=object):
+        if not mixins:
+            return
+        A = type('tmp', tuple(mixins) + (object,), {})
+        mro = A.__mro__
+        assert mro[0] is A and mro[-1] is object
+        mro = mro[1:-1]
+        #
+        skip = set()
+        def add(cls):
+            if cls is not object:
+                for base in cls.__bases__:
+                    add(base)
+                for name in cls.__dict__:
+                    skip.add(name)
+        add(check_not_in)
+        #
+        for base in reversed(mro):
+            assert base.__dict__.get("_mixin_", False), ("Mixin class %r has non"
+                "mixin base class %r" % (mixins, base))
+            for name, value in base.__dict__.items():
+                if name in skip:
+                    continue
+                self.add_source_attribute(name, value, mixin=True)
 
-    def add_sources_for_class(self, cls, mixin=False):
+    def add_sources_for_class(self, cls):
         for name, value in cls.__dict__.items():
-            self.add_source_attribute(name, value, mixin)
+            self.add_source_attribute(name, value)
 
     def getallclassdefs(self):
         return self._classdefs.values()

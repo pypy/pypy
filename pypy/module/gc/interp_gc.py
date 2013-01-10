@@ -49,7 +49,7 @@ def disable_finalizers(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='str0')
 def dump_heap_stats(space, filename):
     tb = rgc._heap_stats()
     if not tb:

@@ -183,7 +183,8 @@ def test_mov8():
 
 def test_push32():
     cb = CodeBuilder32
-    assert_encodes_as(cb, 'PUSH_i32', (9,), '\x68\x09\x00\x00\x00')
+    assert_encodes_as(cb, 'PUSH_i', (0x10009,), '\x68\x09\x00\x01\x00')
+    assert_encodes_as(cb, 'PUSH_i', (9,), '\x6A\x09')
 
 def test_sub_ji8():
     cb = CodeBuilder32

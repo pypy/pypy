@@ -188,8 +188,21 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
 
     def test_pr29(self):
         # http://www.unicode.org/review/pr-29.html
-        for text in (u"\u0b47\u0300\u0b3e", u"\u1100\u0300\u1161"):
+        # See issues #1054943 and #10254.
+        composed = (u"\u0b47\u0300\u0b3e", u"\u1100\u0300\u1161",
+                    u'Li\u030dt-s\u1e73\u0301',
+                    u'\u092e\u093e\u0930\u094d\u0915 \u091c\u093c'
+                    + u'\u0941\u0915\u0947\u0930\u092c\u0930\u094d\u0917',
+                    u'\u0915\u093f\u0930\u094d\u0917\u093f\u091c\u093c'
+                    + 'u\u0938\u094d\u0924\u093e\u0928')
+        for text in composed:
             self.assertEqual(self.db.normalize('NFC', text), text)
+
+    def test_issue10254(self):
+        # Crash reported in #10254
+        a = u'C\u0338' * 20  + u'C\u0327'
+        b = u'C\u0338' * 20  + u'\xC7'
+        self.assertEqual(self.db.normalize('NFC', a), b)
 
     def test_east_asian_width(self):
         eaw = self.db.east_asian_width
@@ -220,10 +233,12 @@ class UnicodeMiscTest(UnicodeDatabaseTest):
         # been loaded in this process.
         popen = subprocess.Popen(args, stderr=subprocess.PIPE)
         popen.wait()
-        self.assertEqual(popen.returncode, 1)
-        error = "SyntaxError: (unicode error) \N escapes not supported " \
-            "(can't load unicodedata module)"
-        self.assertIn(error, popen.stderr.read())
+        self.assertIn(popen.returncode, [0, 1]) # at least it did not segfault
+        if test.test_support.check_impl_detail():
+            self.assertEqual(popen.returncode, 1)
+            error = "SyntaxError: (unicode error) \N escapes not supported " \
+                "(can't load unicodedata module)"
+            self.assertIn(error, popen.stderr.read())
 
     def test_decimal_numeric_consistent(self):
         # Test that decimal and numeric are consistent,

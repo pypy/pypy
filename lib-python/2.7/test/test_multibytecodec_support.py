@@ -4,8 +4,11 @@
 #   Common Unittest Routines for CJK codecs
 #
 
-import sys, codecs
-import unittest, re
+import codecs
+import os
+import re
+import sys
+import unittest
 from httplib import HTTPException
 from test import test_support
 from StringIO import StringIO
@@ -41,13 +44,24 @@ class TestBase:
 
     def test_errorhandle(self):
         for source, scheme, expected in self.codectests:
-            if type(source) == type(''):
+            if isinstance(source, bytes):
                 func = self.decode
             else:
                 func = self.encode
             if expected:
                 result = func(source, scheme)[0]
-                self.assertEqual(result, expected)
+                if func is self.decode:
+                    self.assertTrue(type(result) is unicode, type(result))
+                    self.assertEqual(result, expected,
+                                     '%r.decode(%r, %r)=%r != %r'
+                                     % (source, self.encoding, scheme, result,
+                                        expected))
+                else:
+                    self.assertTrue(type(result) is bytes, type(result))
+                    self.assertEqual(result, expected,
+                                     '%r.encode(%r, %r)=%r != %r'
+                                     % (source, self.encoding, scheme, result,
+                                        expected))
             else:
                 self.assertRaises(UnicodeError, func, source, scheme)
 
@@ -107,8 +121,8 @@ class TestBase:
         def myreplace(exc):
             return (u'x', sys.maxint + 1)
         codecs.register_error("test.cjktest", myreplace)
-        self.assertRaises(IndexError, self.encode, self.unmappedunicode,
-                          'test.cjktest')
+        self.assertRaises((IndexError, OverflowError), self.encode,
+                          self.unmappedunicode, 'test.cjktest')
 
     def test_callback_None_index(self):
         def myreplace(exc):
@@ -248,6 +262,7 @@ class TestBase_Mapping(unittest.TestCase):
     pass_enctest = []
     pass_dectest = []
     supmaps = []
+    codectests = []
 
     def __init__(self, *args, **kw):
         unittest.TestCase.__init__(self, *args, **kw)
@@ -326,6 +341,34 @@ class TestBase_Mapping(unittest.TestCase):
                 self.fail('Decoding failed while testing %s -> %s: %s' % (
                             repr(csetch), repr(unich), exc.reason))
 
-def load_teststring(encoding):
-    from test import cjkencodings_test
-    return cjkencodings_test.teststring[encoding]
+    def test_errorhandle(self):
+        for source, scheme, expected in self.codectests:
+            if isinstance(source, bytes):
+                func = source.decode
+            else:
+                func = source.encode
+            if expected:
+                if isinstance(source, bytes):
+                    result = func(self.encoding, scheme)
+                    self.assertTrue(type(result) is unicode, type(result))
+                    self.assertEqual(result, expected,
+                                     '%r.decode(%r, %r)=%r != %r'
+                                     % (source, self.encoding, scheme, result,
+                                        expected))
+                else:
+                    result = func(self.encoding, scheme)
+                    self.assertTrue(type(result) is bytes, type(result))
+                    self.assertEqual(result, expected,
+                                     '%r.encode(%r, %r)=%r != %r'
+                                     % (source, self.encoding, scheme, result,
+                                        expected))
+            else:
+                self.assertRaises(UnicodeError, func, self.encoding, scheme)
+
+def load_teststring(name):
+    dir = test_support.findfile('cjkencodings')
+    with open(os.path.join(dir, name + '.txt'), 'rb') as f:
+        encoded = f.read()
+    with open(os.path.join(dir, name + '-utf8.txt'), 'rb') as f:
+        utf8 = f.read()
+    return encoded, utf8

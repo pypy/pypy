@@ -78,7 +78,7 @@ def test_call_initial_function():
             return x * 6
         def hello_world():
             if we_are_translated():
-                fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0)
+                fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
                 os.close(fd)
         graph, t = translate(f, [int], type_system)
         call_initial_function(t, hello_world)
@@ -97,7 +97,7 @@ def test_call_final_function():
             return x * 6
         def goodbye_world():
             if we_are_translated():
-                fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0)
+                fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0644)
                 os.close(fd)
         graph, t = translate(f, [int], type_system)
         call_final_function(t, goodbye_world)

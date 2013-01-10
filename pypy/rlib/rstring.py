@@ -134,6 +134,10 @@ class SomeStringBuilder(SomeObject):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rbuilder.stringbuilder_repr
 
+    def rtyper_makekey(self):
+        return self.__class__,
+
+
 class SomeUnicodeBuilder(SomeObject):
     def method_append(self, s_str):
         if s_str != s_None:
@@ -166,6 +170,10 @@ class SomeUnicodeBuilder(SomeObject):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rbuilder.unicodebuilder_repr
 
+    def rtyper_makekey(self):
+        return self.__class__,
+
+
 class BaseEntry(object):
     def compute_result_annotation(self, s_init_size=None):
         if s_init_size is not None:
@@ -177,31 +185,79 @@ class BaseEntry(object):
     def specialize_call(self, hop):
         return hop.r_result.rtyper_new(hop)
 
+
 class StringBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = StringBuilder
     use_unicode = False
+
 
 class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
 
+
 class __extend__(pairtype(SomeStringBuilder, SomePBC)):
     def union((sb, p)):
         assert p.const is None
-        return SomeStringBuilder(can_be_None=True)
+        return SomeStringBuilder()
+
 
 class __extend__(pairtype(SomePBC, SomeStringBuilder)):
     def union((p, sb)):
         assert p.const is None
-        return SomeStringBuilder(can_be_None=True)
+        return SomeStringBuilder()
+
 
 class __extend__(pairtype(SomeUnicodeBuilder, SomePBC)):
     def union((sb, p)):
         assert p.const is None
-        return SomeUnicodeBuilder(can_be_None=True)
+        return SomeUnicodeBuilder()
+
 
 class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
     def union((p, sb)):
         assert p.const is None
-        return SomeUnicodeBuilder(can_be_None=True)
+        return SomeUnicodeBuilder()
+
+#___________________________________________________________________
+# Support functions for SomeString.no_nul
+
+def assert_str0(fname):
+    assert '\x00' not in fname, "NUL byte in string"
+    return fname
+
+class Entry(ExtRegistryEntry):
+    _about_ = assert_str0
+
+    def compute_result_annotation(self, s_obj):
+        if s_None.contains(s_obj):
+            return s_obj
+        assert isinstance(s_obj, (SomeString, SomeUnicodeString))
+        if s_obj.no_nul:
+            return s_obj
+        new_s_obj = SomeObject.__new__(s_obj.__class__)
+        new_s_obj.__dict__ = s_obj.__dict__.copy()
+        new_s_obj.no_nul = True
+        return new_s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+def check_str0(fname):
+    """A 'probe' to trigger a failure at translation time, if the
+    string was not proved to not contain NUL characters."""
+    assert '\x00' not in fname, "NUL byte in string"
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_str0
+
+    def compute_result_annotation(self, s_obj):
+        if not isinstance(s_obj, (SomeString, SomeUnicodeString)):
+            return s_obj
+        if not s_obj.no_nul:
+            raise ValueError("Value is not no_nul")
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
 

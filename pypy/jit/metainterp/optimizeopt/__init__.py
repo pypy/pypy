@@ -5,11 +5,10 @@ from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.vstring import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll
-from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
 from pypy.jit.metainterp.optimizeopt.pure import OptPure
 from pypy.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
-from pypy.rlib.jit import PARAMETERS
+from pypy.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
@@ -21,7 +20,6 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('earlyforce', OptEarlyForce),
             ('pure', OptPure),
             ('heap', OptHeap),
-            ('ffi', None),
             ('unroll', None)]
 # no direct instantiation of unroll
 unroll_all_opts = unrolling_iterable(ALL_OPTS)
@@ -29,6 +27,9 @@ unroll_all_opts = unrolling_iterable(ALL_OPTS)
 ALL_OPTS_DICT = dict.fromkeys([name for name, _ in ALL_OPTS])
 ALL_OPTS_LIST = [name for name, _ in ALL_OPTS]
 ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
+
+assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
+    'please fix rlib/jit.py to say ENABLE_ALL_OPTS = %r' % (ALL_OPTS_NAMES,))
 
 def build_opt_chain(metainterp_sd, enable_opts):
     config = metainterp_sd.config
@@ -39,15 +40,11 @@ def build_opt_chain(metainterp_sd, enable_opts):
             if opt is not None:
                 o = opt()
                 optimizations.append(o)
-            elif name == 'ffi' and config.translation.jit_ffi:
-                # we cannot put the class directly in the unrolling_iterable,
-                # because we do not want it to be seen at all (to avoid to
-                # introduce a dependency on libffi in case we do not need it)
-                optimizations.append(OptFfiCall())
 
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
-        or 'heap' not in enable_opts or 'unroll' not in enable_opts):
-        optimizations.append(OptSimplify())
+        or 'heap' not in enable_opts or 'unroll' not in enable_opts
+        or 'pure' not in enable_opts):
+        optimizations.append(OptSimplify(unroll))
 
     return optimizations, unroll
 

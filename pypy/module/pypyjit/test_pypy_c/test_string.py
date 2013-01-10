@@ -1,5 +1,10 @@
+import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
+if sys.maxint == 2147483647:
+    SHIFT = 31
+else:
+    SHIFT = 63
 
 # XXX review the <Call> descrs to replace some EF=4 with EF=3 (elidable)
 
@@ -22,10 +27,10 @@ class TestString(BaseTestPyPyC):
             i14 = int_lt(i6, i9)
             guard_true(i14, descr=...)
             guard_not_invalidated(descr=...)
-            i16 = int_eq(i6, -9223372036854775808)
+            i16 = int_eq(i6, %d)
             guard_false(i16, descr=...)
             i15 = int_mod(i6, i10)
-            i17 = int_rshift(i15, 63)
+            i17 = int_rshift(i15, %d)
             i18 = int_and(i10, i17)
             i19 = int_add(i15, i18)
             i21 = int_lt(i19, 0)
@@ -45,7 +50,7 @@ class TestString(BaseTestPyPyC):
             i34 = int_add(i6, 1)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i34, p7, p8, i9, i10, p11, i12, p13, descr=...)
-        """)
+        """ % (-sys.maxint-1, SHIFT))
 
     def test_long(self):
         def main(n):
@@ -62,10 +67,10 @@ class TestString(BaseTestPyPyC):
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             guard_not_invalidated(descr=...)
-            i13 = int_eq(i6, -9223372036854775808)
+            i13 = int_eq(i6, %d)
             guard_false(i13, descr=...)
             i15 = int_mod(i6, i8)
-            i17 = int_rshift(i15, 63)
+            i17 = int_rshift(i15, %d)
             i18 = int_and(i8, i17)
             i19 = int_add(i15, i18)
             i21 = int_lt(i19, 0)
@@ -95,7 +100,7 @@ class TestString(BaseTestPyPyC):
             guard_false(i43, descr=...)
             i46 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr45), descr=<Calli 1 rr EF=0>)
             guard_false(i46, descr=...)
-            p51 = new_with_vtable(21136408)
+            p51 = new_with_vtable(...)
             setfield_gc(p51, _, descr=...)    # 7 setfields, but the order is dict-order-dependent
             setfield_gc(p51, _, descr=...)
             setfield_gc(p51, _, descr=...)
@@ -111,7 +116,7 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=...)
-        """)
+        """ % (-sys.maxint-1, SHIFT))
 
     def test_str_mod(self):
         def main(n):
@@ -198,3 +203,37 @@ class TestString(BaseTestPyPyC):
             i49 = call(ConstClass(_ll_2_str_eq_nonnull__rpy_stringPtr_rpy_stringPtr), p35, ConstPtr(ptr48), descr=<Calli [48] rr EF=0 OS=28>)
             guard_value(i49, 1, descr=...)
             ''')
+
+    def test_remove_duplicate_method_calls(self):
+        def main(n):
+            lst = []
+            for i in range(n):
+                s = 'Hello %d' % i
+                t = s.lower()   # ID: callone
+                u = s.lower()   # ID: calltwo
+                lst.append(t)
+                lst.append(u)
+            return len(','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        loop.match_by_id('callone', '''
+            p114 = call(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
+            guard_no_exception(descr=...)
+            ''')
+        loop.match_by_id('calltwo', '')    # nothing
+
+    def test_move_method_call_out_of_loop(self):
+        def main(n):
+            lst = []
+            s = 'Hello %d' % n
+            for i in range(n):
+                t = s.lower()   # ID: callone
+                lst.append(t)
+            return len(','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        loop.match_by_id('callone', '')    # nothing

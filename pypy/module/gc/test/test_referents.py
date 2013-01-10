@@ -13,7 +13,8 @@ class AppTestReferents(object):
         l4 = space.newlist([w(4)])
         l2 = space.newlist([w(2)])
         l7 = space.newlist([w(7)])
-        cls.ALL_ROOTS = [l4, space.newlist([l2, l7]), RandomRPythonObject()]
+        cls.ALL_ROOTS = [l4, space.newlist([l2, l7]), RandomRPythonObject(),
+                         space.newtuple([l7])]
         cls.w_ALL_ROOTS = cls.space.newlist(cls.ALL_ROOTS)
         rgc.get_rpy_roots = lambda: (
             map(rgc._GcRef, cls.ALL_ROOTS) + [rgc.NULL_GCREF]*17)
@@ -26,7 +27,7 @@ class AppTestReferents(object):
     def test_get_objects(self):
         import gc
         lst = gc.get_objects()
-        i4, l27, ro = self.ALL_ROOTS
+        i4, l27, ro, rt = self.ALL_ROOTS
         i2, i7 = l27
         found = 0
         for x in lst:
@@ -48,7 +49,8 @@ class AppTestReferents(object):
             assert lst[0] == [4]
             assert lst[1] == [[2], [7]]
             assert type(lst[2]) is gc.GcRef
-            assert len(lst) == 3
+            assert lst[3] == ([7],)
+            assert len(lst) == 4
 
     def test_get_rpy_referents(self):
         import gc
@@ -108,3 +110,9 @@ class AppTestReferents(object):
                 break   # found
         else:
             assert 0, "the list [2, 7] is not found as gc.get_referrers(7)"
+        l7t = self.ALL_ROOTS[3]
+        for x in lst:
+            if x is l7t:
+                break   # found
+        else:
+            assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"

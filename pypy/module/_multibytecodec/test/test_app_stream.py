@@ -1,9 +1,7 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestStreams:
+    spaceconfig = dict(usemodules=['_multibytecodec'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_multibytecodec'])
         cls.w_HzStreamReader = cls.space.appexec([], """():
             import _codecs_cn
             from _multibytecodec import MultibyteStreamReader
@@ -76,8 +74,9 @@ class AppTestStreams:
         w = self.HzStreamWriter(FakeFile())
         for input in u'!\u5f95\u6c85xyz\u5f50\u73b7':
             w.write(input)
-        assert w.stream.output == ['!', '~{ab~}', '~{cd~}', 'x', 'y', 'z',
-                                   '~{ef~}', '~{gh~}']
+        w.reset()
+        assert w.stream.output == ['!', '~{ab', 'cd', '~}x', 'y', 'z',
+                                   '~{ef', 'gh', '~}']
 
     def test_no_flush(self):
         class FakeFile:

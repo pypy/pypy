@@ -399,9 +399,19 @@ def writeUnicodedata(version, table, outfile, base):
     print >> outfile, 'version = %r' % version
     print >> outfile
 
-    cjk_end = 0x9FA5
-    if version >= "4.1":
-        cjk_end = 0x9FBB
+    if version < "4.1":
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FA5 or"
+                        " 0x20000 <= code <= 0x2A6D6)")
+    elif version < "5":    # don't know the exact limit
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FBB or"
+                        " 0x20000 <= code <= 0x2A6D6)")
+    else:
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FCB or"
+                        " 0x20000 <= code <= 0x2A6D6 or"
+                        " 0x2A700 <= code <= 0x2B734)")
 
     write_character_names(outfile, table, base_mod)
 
@@ -457,9 +467,7 @@ def _lookup_cjk(cjk_code):
         if not ('0' <= c <= '9' or 'A' <= c <= 'F'):
             raise KeyError
     code = int(cjk_code, 16)
-    if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x%X or
-        0x20000 <= code <= 0x2A6D6):
+    if %s:
         return code
     raise KeyError
 
@@ -481,9 +489,7 @@ def lookup(name):
                 raise
 
 def name(code):
-    if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x%X or
-        0x20000 <= code <= 0x2A6D6):
+    if %s:
         return "CJK UNIFIED IDEOGRAPH-" + hex(code)[2:].upper()
     if 0xAC00 <= code <= 0xD7A3:
         # vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
@@ -505,7 +511,7 @@ def name(code):
                 return base_mod.lookup_charcode(code)
             else:
                 raise
-''' % (cjk_end, cjk_end)
+''' % (cjk_interval, cjk_interval)
 
     # Categories
     writeDbRecord(outfile, table)

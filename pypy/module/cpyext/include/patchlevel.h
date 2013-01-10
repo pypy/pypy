@@ -21,15 +21,15 @@
 /* Version parsed out into numeric values */
 #define PY_MAJOR_VERSION	2
 #define PY_MINOR_VERSION	7
-#define PY_MICRO_VERSION	1
+#define PY_MICRO_VERSION	3
 #define PY_RELEASE_LEVEL	PY_RELEASE_LEVEL_FINAL
 #define PY_RELEASE_SERIAL	0
 
 /* Version as a string */
-#define PY_VERSION		"2.7.1"
+#define PY_VERSION		"2.7.3"
 
 /* PyPy version as a string */
-#define PYPY_VERSION "1.8.1"
+#define PYPY_VERSION "2.0.0-beta1"
 
 /* Subversion Revision number of this file (not of the repository).
  * Empty since Mercurial migration. */

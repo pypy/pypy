@@ -24,6 +24,11 @@ class Opcode(object):
         self.lineno = lineno
         self.line_starts_here = False
 
+    def __str__(self):
+        if self.arg is None:
+            return "%s" % (self.__class__.__name__,)
+        return "%s (%s)" % (self.__class__.__name__, self.arg)
+
     def __repr__(self):
         if self.arg is None:
             return "<%s at %d>" % (self.__class__.__name__, self.pos)

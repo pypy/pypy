@@ -1,13 +1,8 @@
-from py.test import raises, skip
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
-from pypy.conftest import gettestobjspace
-
 from pypy.module.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
 
 class AppTestUnicodeData:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('unicodedata',))
 
     def test_hangul_syllables(self):
         import unicodedata
@@ -53,7 +48,12 @@ class AppTestUnicodeData:
         import unicodedata
         cases = ((0x3400, 0x4DB5),
                  (0x4E00, 0x9FA5))
-        if unicodedata.unidata_version >= "4.1":
+        if unicodedata.unidata_version >= "5":    # don't know the exact limit
+            cases = ((0x3400, 0x4DB5),
+                     (0x4E00, 0x9FCB),
+                     (0x20000, 0x2A6D6),
+                     (0x2A700, 0x2B734))
+        elif unicodedata.unidata_version >= "4.1":
             cases = ((0x3400, 0x4DB5),
                      (0x4E00, 0x9FBB),
                      (0x20000, 0x2A6D6))

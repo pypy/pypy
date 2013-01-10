@@ -18,7 +18,7 @@ OPCODE_AT                 = 6
 OPCODE_BRANCH             = 7
 #OPCODE_CALL              = 8
 OPCODE_CATEGORY           = 9
-#OPCODE_CHARSET           = 10
+OPCODE_CHARSET            = 10
 #OPCODE_BIGCHARSET        = 11
 OPCODE_GROUPREF           = 12
 OPCODE_GROUPREF_EXISTS    = 13
@@ -34,8 +34,8 @@ OPCODE_MAX_UNTIL          = 22
 OPCODE_MIN_UNTIL          = 23
 OPCODE_NOT_LITERAL        = 24
 OPCODE_NOT_LITERAL_IGNORE = 25
-#OPCODE_NEGATE            = 26
-#OPCODE_RANGE             = 27
+OPCODE_NEGATE             = 26
+OPCODE_RANGE              = 27
 OPCODE_REPEAT             = 28
 OPCODE_REPEAT_ONE         = 29
 #OPCODE_SUBPATTERN        = 30
@@ -166,6 +166,8 @@ class AbstractMatchContext(object):
 class StrMatchContext(AbstractMatchContext):
     """Concrete subclass for matching in a plain string."""
 
+    _immutable_fields_ = ["_string"]
+
     def __init__(self, pattern, string, match_start, end, flags):
         AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
         self._string = string
@@ -186,6 +188,8 @@ class StrMatchContext(AbstractMatchContext):
 
 class UnicodeMatchContext(AbstractMatchContext):
     """Concrete subclass for matching in a unicode string."""
+
+    _immutable_fields_ = ["_unicodestr"]
 
     def __init__(self, pattern, unicodestr, match_start, end, flags):
         AbstractMatchContext.__init__(self, pattern, match_start, end, flags)

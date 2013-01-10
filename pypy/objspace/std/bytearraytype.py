@@ -1,7 +1,6 @@
-import sys
-from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
@@ -163,9 +162,9 @@ bytearray_typedef = StdTypeDef("bytearray",
 bytearray(sequence) -> bytearray initialized from sequence\'s items
 
 If the argument is a bytearray, the return value is the same object.''',
-    __new__ = gateway.interp2app(descr__new__),
+    __new__ = interp2app(descr__new__),
     __hash__ = None,
-    __reduce__ = gateway.interp2app(descr_bytearray__reduce__),
-    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
+    __reduce__ = interp2app(descr_bytearray__reduce__),
+    fromhex = interp2app(descr_fromhex, as_classmethod=True)
     )
 bytearray_typedef.registermethods(globals())

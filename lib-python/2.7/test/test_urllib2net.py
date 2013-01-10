@@ -126,6 +126,8 @@ class OtherNetworkTests(unittest.TestCase):
         finally:
             os.remove(TESTFN)
 
+        self.assertRaises(ValueError, urllib2.urlopen,'./relative_path/to/file')
+
     # XXX Following test depends on machine configurations that are internal
     # to CNRI.  Need to set up a public server with the right authentication
     # configuration for test purposes.
@@ -160,7 +162,7 @@ class OtherNetworkTests(unittest.TestCase):
             req = urllib2.Request(urlwith_frag)
             res = urllib2.urlopen(req)
             self.assertEqual(res.geturl(),
-                    "http://docs.python.org/glossary.html")
+                    "http://docs.python.org/glossary.html#glossary")
 
     def test_fileno(self):
         req = urllib2.Request("http://www.python.org")
@@ -185,6 +187,16 @@ class OtherNetworkTests(unittest.TestCase):
             request.add_header('User-Agent','Test-Agent')
             opener.open(request)
             self.assertEqual(request.get_header('User-agent'),'Test-Agent')
+
+    def test_sites_no_connection_close(self):
+        # Some sites do not send Connection: close header.
+        # Verify that those work properly. (#issue12576)
+
+        URL = 'http://www.imdb.com' # No Connection:close
+        with test_support.transient_internet(URL):
+            req = urllib2.urlopen(URL)
+            res = req.read()
+            self.assertTrue(res)
 
     def _test_urls(self, urls, handlers, retry=True):
         import time
@@ -231,6 +243,7 @@ class OtherNetworkTests(unittest.TestCase):
         handlers = []
 
         cfh = urllib2.CacheFTPHandler()
+        self.addCleanup(cfh.clear_cache)
         cfh.setTimeout(1)
         handlers.append(cfh)
 

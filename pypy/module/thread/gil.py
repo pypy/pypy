@@ -5,7 +5,7 @@ Global Interpreter Lock.
 # This module adds a global lock to an object space.
 # If multiple threads try to execute simultaneously in this space,
 # all but one will be blocked.  The other threads get a chance to run
-# from time to time, using the hook yield_thread().
+# from time to time, using the periodic action GILReleaseAction.
 
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
@@ -24,13 +24,15 @@ class GILThreadLocals(OSThreadLocals):
         space.actionflag.register_periodic_action(GILReleaseAction(space),
                                                   use_bytecode_counter=True)
 
+    def _initialize_gil(self, space):
+        if not thread.gil_allocate():
+            raise wrap_thread_error(space, "can't allocate GIL")
+
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
         if not self.gil_ready:
-            if not thread.gil_allocate():
-                raise wrap_thread_error(space, "can't allocate GIL")
+            self._initialize_gil(space)
             self.gil_ready = True
-            self.enter_thread(space)   # setup the main thread
             result = True
         else:
             result = False      # already set up
@@ -47,12 +49,9 @@ class GILThreadLocals(OSThreadLocals):
         return result
 
     def reinit_threads(self, space):
-        if self.gil_ready:
-            self.gil_ready = False
-            self.setup_threads(space)
+        if self.gil_ready:     # re-initialize the gil if needed
+            self._initialize_gil(space)
 
-    def yield_thread(self):
-        do_yield_thread()
 
 class GILReleaseAction(PeriodicAsyncAction):
     """An action called every sys.checkinterval bytecodes.  It releases
@@ -65,10 +64,9 @@ class GILReleaseAction(PeriodicAsyncAction):
 
 class SpaceState:
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.action_after_thread_switch = None
         # ^^^ set by AsyncAction.fire_after_thread_switch()
-        return False
 
     def after_thread_switch(self):
         # this is support logic for the signal module, to help it deliver
@@ -79,7 +77,7 @@ class SpaceState:
             action.fire()
 
 spacestate = SpaceState()
-spacestate._freeze_()
+spacestate._cleanup_()
 
 # Fragile code below.  We have to preserve the C-level errno manually...
 

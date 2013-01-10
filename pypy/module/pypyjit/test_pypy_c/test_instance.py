@@ -201,3 +201,28 @@ class TestInstance(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("compare", "") # optimized away
 
+    def test_super(self):
+        def main():
+            class A(object):
+                def m(self, x):
+                    return x + 1
+            class B(A):
+                def m(self, x):
+                    return super(B, self).m(x)
+            i = 0
+            while i < 300:
+                i = B().m(i)
+            return i
+
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i78 = int_lt(i72, 300)
+            guard_true(i78, descr=...)
+            guard_not_invalidated(descr=...)
+            i79 = force_token()
+            i80 = force_token()
+            i81 = int_add(i72, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)

@@ -21,6 +21,8 @@ if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
+STDLIB_VER = "2.7"
+
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
 
@@ -52,15 +54,28 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
         print pypy_c
-        raise PyPyCNotFound('Please compile pypy first, using translate.py')
+        if os.path.isdir(os.path.dirname(str(pypy_c))):
+            raise PyPyCNotFound(
+                'Please compile pypy first, using translate.py,'
+                ' or check that you gave the correct path'
+                ' (see docstring for more info)')
+        else:
+            raise PyPyCNotFound(
+                'Bogus path: %r does not exist (see docstring for more info)'
+                % (os.path.dirname(str(pypy_c)),))
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':
+        #Don't include a mscvrXX.dll, users should get their own.
+        #Instructions are provided on the website.
+
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll']:
+                      'libexpat.dll', 'sqlite3.dll', 
+                      'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -72,15 +87,18 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     pypydir = builddir.ensure(name, dir=True)
     # Careful: to copy lib_pypy, copying just the svn-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
-    shutil.copytree(str(basedir.join('lib-python')),
-                    str(pypydir.join('lib-python')),
+    shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
+                    str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
-    for file in ['LICENSE', 'README']:
+    for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
+    if sys.platform == 'win32':
+        shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+                        str(pypydir.join('include/python27.lib')))
     # we want to put there all *.h and *.inl from trunk/include
     # and from pypy/_interfaces
     includedir = basedir.join('include')
@@ -104,7 +122,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     try:
         os.chdir(str(builddir))
         #
-        # 'strip' fun: see https://codespeak.net/issue/pypy-dev/issue587
+        # 'strip' fun: see issue #587
         for source, target in binaries:
             if sys.platform == 'win32':
                 pass
@@ -125,8 +143,10 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin':
+            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            elif sys.platform == 'cygwin':
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
             else:
                 e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
             if e:

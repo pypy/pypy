@@ -1,6 +1,8 @@
 import py
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.tool.udir import udir
+from pypy.rlib.rarithmetic import is_valid_int
+
 import os
 exec 'import %s as posix' % os.name
 
@@ -18,10 +20,10 @@ class BaseTestPosix(BaseRtypingTest):
 
     def test_open(self):
         def f():
-            ff = posix.open(path,posix.O_RDONLY,0777)
+            ff = posix.open(path, posix.O_RDONLY, 0777)
             return ff
-        func = self.interpret(f,[])
-        assert type(func) == int
+        func = self.interpret(f, [])
+        assert is_valid_int(func)
 
     def test_fstat(self):
         def fo(fi):
@@ -61,25 +63,25 @@ class BaseTestPosix(BaseRtypingTest):
         assert isinstance(times, tuple)
         assert len(times) == 5
         for value in times:
-            assert isinstance(value, int)
+            assert is_valid_int(value)
 
 
     def test_lseek(self):
-        def f(fi,pos):
-            posix.lseek(fi,pos,0)
-        fi = os.open(path,os.O_RDONLY,0777)
-        func = self.interpret(f,[fi,5]) 
-        res = os.read(fi,2)
+        def f(fi, pos):
+            posix.lseek(fi, pos, 0)
+        fi = os.open(path, os.O_RDONLY, 0777)
+        func = self.interpret(f, [fi, 5]) 
+        res = os.read(fi, 2)
         assert res =='is'
 
     def test_isatty(self):
         def f(fi):
             posix.isatty(fi)
-        fi = os.open(path,os.O_RDONLY,0777)
-        func = self.interpret(f,[fi])
+        fi = os.open(path, os.O_RDONLY, 0777)
+        func = self.interpret(f, [fi])
         assert not func
         os.close(fi)
-        func = self.interpret(f,[fi])
+        func = self.interpret(f, [fi])
         assert not func
 
     def test_getcwd(self):

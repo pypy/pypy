@@ -4,7 +4,6 @@ from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
-from pypy.conftest import gettestobjspace
 
 class BaseTestCompiler:
     def setup_method(self, method):
@@ -851,7 +850,7 @@ class AppTestOptimizer:
             ('a = 14%4', '(2)'),                    # binary modulo
             ('a = 2+3', '(5)'),                     # binary add
             ('a = 13-4', '(9)'),                    # binary subtract
-            # ('a = (12,13)[1]', '(13)'),             # binary subscr - pointless optimization
+            ('a = (12,13)[1]', '(13)'),             # binary subscr
             ('a = 13 << 2', '(52)'),                # binary lshift
             ('a = 13 >> 2', '(3)'),                 # binary rshift
             ('a = 13 & 7', '(5)'),                  # binary and
@@ -871,6 +870,10 @@ class AppTestOptimizer:
         # Verify that large sequences do not result from folding
         asm = dis_single('a="x"*1000')
         assert '(1000)' in asm
+
+    def test_folding_of_binops_on_constants_crash(self):
+        compile('()[...]', '', 'eval')
+        # assert did not crash
 
     def test_dis_stopcode(self):
         source = """def _f(a):
@@ -911,8 +914,7 @@ class AppTestOptimizer:
         assert "LOAD_GLOBAL" not in output
 
 class AppTestCallMethod(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{'objspace.opcodes.CALL_METHOD': True})
+    spaceconfig = {'objspace.opcodes.CALL_METHOD': True}
         
     def test_call_method_kwargs(self):
         source = """def _f(a):

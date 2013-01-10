@@ -1,8 +1,8 @@
 
-from pypy.translator.driver import TranslationDriver
-from pypy.translator.c.genc import CBuilder, CCompilerDriver
+from pypy.translator.c.genc import CBuilder
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
 
 class CLibraryBuilder(CBuilder):
     standalone = False
@@ -14,11 +14,14 @@ class CLibraryBuilder(CBuilder):
         CBuilder.__init__(self, *args, **kwds)
 
     def getentrypointptr(self):
+        entrypoints = []
         bk = self.translator.annotator.bookkeeper
-        graphs = [bk.getdesc(f).cachedgraph(None) for f, _ in self.functions]
-        return [getfunctionptr(graph) for graph in graphs]
+        for f, _ in self.functions:
+            graph = bk.getdesc(f).getuniquegraph()
+            entrypoints.append(getfunctionptr(graph))
+        return entrypoints
 
-    def gen_makefile(self, targetdir):
+    def gen_makefile(self, targetdir, exe_name=None):
         pass # XXX finish
 
     def compile(self):
@@ -35,17 +38,3 @@ class CLibraryBuilder(CBuilder):
     def get_entry_point(self, isolated=False):
         return self.so_name
 
-class DLLDef(object):
-    def __init__(self, name, functions=[], policy=None, config=None):
-        self.name = name
-        self.functions = functions # [(function, annotation), ...]
-        self.driver = TranslationDriver(config=config)
-        self.driver.setup_library(self, policy=policy)
-
-    def compile(self):
-        self.driver.proceed(['compile_c'])
-        return self.driver.c_entryp
-
-    def getcbuilder(self, translator, config):
-        return CLibraryBuilder(translator, None, config,
-                               functions=self.functions, name=self.name)

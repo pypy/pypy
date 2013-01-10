@@ -2,9 +2,10 @@ import py
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.jit.metainterp import resoperation, history
+from pypy.jit.metainterp import resoperation
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.jit.metainterp.resoperation import rop
+from pypy.rlib.objectmodel import we_are_translated
 
 # ____________________________________________________________
 # Misc. utilities
@@ -28,13 +29,20 @@ def _findall(Class, name_prefix, op_prefix=None):
 def make_dispatcher_method(Class, name_prefix, op_prefix=None, default=None):
     ops = _findall(Class, name_prefix, op_prefix)
     def dispatch(self, op, *args):
-        opnum = op.getopnum()
-        for value, cls, func in ops:
-            if opnum == value:
-                assert isinstance(op, cls)
+        if we_are_translated():
+            opnum = op.getopnum()
+            for value, cls, func in ops:
+                if opnum == value:
+                    assert isinstance(op, cls)
+                    return func(self, op, *args)
+            if default:
+                return default(self, op, *args)
+        else:
+            func = getattr(Class, name_prefix + op.getopname().upper(), None)
+            if func is not None:
                 return func(self, op, *args)
-        if default:
-            return default(self, op, *args)
+            if default:
+                return default(self, op, *args)
     dispatch.func_name = "dispatch_" + name_prefix
     return dispatch
 

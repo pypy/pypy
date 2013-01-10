@@ -1,10 +1,15 @@
-import py
 from pypy.translator.c.test.test_genc import compile
 from pypy.module.math.interp_math import _gamma
 
 
 def test_gamma_overflow():
-    f = compile(_gamma, [float])
+    def wrapper(arg):
+        try:
+            return _gamma(arg)
+        except OverflowError:
+            return -42
+    
+    f = compile(wrapper, [float])
     assert f(10.0) == 362880.0
-    py.test.raises(OverflowError, f, 1720.0)
-    py.test.raises(OverflowError, f, 172.0)
+    assert f(1720.0) == -42
+    assert f(172.0) == -42

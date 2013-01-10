@@ -6,8 +6,12 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
-from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib import jit
+from pypy.tool.sourcetools import func_with_new_name
+
+# Tuples of known length up to UNROLL_TUPLE_LIMIT have unrolled certain methods
+UNROLL_TUPLE_LIMIT = 10
 
 class W_AbstractTupleObject(W_Object):
     __slots__ = ()
@@ -114,39 +118,48 @@ def mul__Tuple_ANY(space, w_tuple, w_times):
 def mul__ANY_Tuple(space, w_times, w_tuple):
     return mul_tuple_times(space, w_tuple, w_times)
 
+def tuple_unroll_condition(space, w_tuple1, w_tuple2):
+    lgt1 = len(w_tuple1.wrappeditems)
+    lgt2 = len(w_tuple2.wrappeditems)
+    return ((jit.isconstant(lgt1) and lgt1 <= UNROLL_TUPLE_LIMIT) or
+            (jit.isconstant(lgt2) and lgt2 <= UNROLL_TUPLE_LIMIT))
+
+@jit.look_inside_iff(tuple_unroll_condition)
 def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
-    if len(items1) != len(items2):
+    lgt1 = len(items1)
+    lgt2 = len(items2)
+    if lgt1 != lgt2:
         return space.w_False
-    for i in range(len(items1)):
+    for i in range(lgt1):
         item1 = items1[i]
         item2 = items2[i]
         if not space.eq_w(item1, item2):
             return space.w_False
     return space.w_True
 
-def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
-    items1 = w_tuple1.wrappeditems
-    items2 = w_tuple2.wrappeditems
-    ncmp = min(len(items1), len(items2))
-    # Search for the first index where items are different
-    for p in range(ncmp):
-        if not space.eq_w(items1[p], items2[p]):
-            return space.lt(items1[p], items2[p])
-    # No more items to compare -- compare sizes
-    return space.newbool(len(items1) < len(items2))
+def _make_tuple_comparison(name):
+    import operator
+    op = getattr(operator, name)
+    #
+    @jit.look_inside_iff(tuple_unroll_condition)
+    def compare_tuples(space, w_tuple1, w_tuple2):
+        items1 = w_tuple1.wrappeditems
+        items2 = w_tuple2.wrappeditems
+        ncmp = min(len(items1), len(items2))
+        # Search for the first index where items are different
+        for p in range(ncmp):
+            if not space.eq_w(items1[p], items2[p]):
+                return getattr(space, name)(items1[p], items2[p])
+        # No more items to compare -- compare sizes
+        return space.newbool(op(len(items1), len(items2)))
+    return func_with_new_name(compare_tuples, name + '__Tuple_Tuple')
 
-def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
-    items1 = w_tuple1.wrappeditems
-    items2 = w_tuple2.wrappeditems
-    ncmp = min(len(items1), len(items2))
-    # Search for the first index where items are different
-    for p in range(ncmp):
-        if not space.eq_w(items1[p], items2[p]):
-            return space.gt(items1[p], items2[p])
-    # No more items to compare -- compare sizes
-    return space.newbool(len(items1) > len(items2))
+lt__Tuple_Tuple = _make_tuple_comparison('lt')
+le__Tuple_Tuple = _make_tuple_comparison('le')
+gt__Tuple_Tuple = _make_tuple_comparison('gt')
+ge__Tuple_Tuple = _make_tuple_comparison('ge')
 
 def repr__Tuple(space, w_tuple):
     items = w_tuple.wrappeditems
@@ -161,6 +174,9 @@ def repr__Tuple(space, w_tuple):
 def hash__Tuple(space, w_tuple):
     return space.wrap(hash_tuple(space, w_tuple.wrappeditems))
 
+@jit.look_inside_iff(lambda space, wrappeditems:
+                     jit.isconstant(len(wrappeditems)) and
+                     len(wrappeditems) < UNROLL_TUPLE_LIMIT)
 def hash_tuple(space, wrappeditems):
     # this is the CPython 2.4 algorithm (changed from 2.3)
     mult = 1000003

@@ -121,16 +121,23 @@ def pytest_generate_tests(metafunc):
 def pytest_itemstart(item, node=None):
     """ (deprecated, use pytest_runtest_logstart). """
 
-def pytest_runtest_protocol(item):
-    """ implements the standard runtest_setup/call/teardown protocol including
-    capturing exceptions and calling reporting hooks on the results accordingly.
+def pytest_runtest_protocol(item, nextitem):
+    """ implements the runtest_setup/call/teardown protocol for
+    the given test item, including capturing exceptions and calling
+    reporting hooks.
+
+    :arg item: test item for which the runtest protocol is performed.
+
+    :arg nexitem: the scheduled-to-be-next test item (or None if this
+                  is the end my friend).  This argument is passed on to
+                  :py:func:`pytest_runtest_teardown`.
 
     :return boolean: True if no further hook implementations should be invoked.
     """
 pytest_runtest_protocol.firstresult = True
 
 def pytest_runtest_logstart(nodeid, location):
-    """ signal the start of a test run. """
+    """ signal the start of running a single test item. """
 
 def pytest_runtest_setup(item):
     """ called before ``pytest_runtest_call(item)``. """
@@ -138,8 +145,14 @@ def pytest_runtest_setup(item):
 def pytest_runtest_call(item):
     """ called to execute the test ``item``. """
 
-def pytest_runtest_teardown(item):
-    """ called after ``pytest_runtest_call``. """
+def pytest_runtest_teardown(item, nextitem):
+    """ called after ``pytest_runtest_call``.
+
+    :arg nexitem: the scheduled-to-be-next test item (None if no further
+                  test item is scheduled).  This argument can be used to
+                  perform exact teardowns, i.e. calling just enough finalizers
+                  so that nextitem only needs to call setup-functions.
+    """
 
 def pytest_runtest_makereport(item, call):
     """ return a :py:class:`_pytest.runner.TestReport` object
@@ -149,15 +162,8 @@ def pytest_runtest_makereport(item, call):
 pytest_runtest_makereport.firstresult = True
 
 def pytest_runtest_logreport(report):
-    """ process item test report. """
-
-# special handling for final teardown - somewhat internal for now
-def pytest__teardown_final(session):
-    """ called before test session finishes. """
-pytest__teardown_final.firstresult = True
-
-def pytest__teardown_final_logerror(report, session):
-    """ called if runtest_teardown_final failed. """
+    """ process a test setup/call/teardown report relating to
+    the respective phase of executing a test. """
 
 # -------------------------------------------------------------------------
 # test session related hooks

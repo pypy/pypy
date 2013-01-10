@@ -1,4 +1,3 @@
-import gc
 import sys
 import unittest
 import UserList
@@ -6,6 +5,7 @@ import weakref
 import operator
 
 from test import test_support
+from test.test_support import gc_collect
 
 # Used in ReferencesTestCase.test_ref_created_during_del() .
 ref_from_del = None
@@ -70,6 +70,7 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del o
+        gc_collect()
         self.assertTrue(ref1() is None,
                      "expected reference to be invalidated")
         self.assertTrue(ref2() is None,
@@ -101,13 +102,16 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.proxy(o, self.callback)
         ref2 = weakref.proxy(o, self.callback)
         del o
+        gc_collect()
 
         def check(proxy):
             proxy.bar
 
         self.assertRaises(weakref.ReferenceError, check, ref1)
         self.assertRaises(weakref.ReferenceError, check, ref2)
-        self.assertRaises(weakref.ReferenceError, bool, weakref.proxy(C()))
+        ref3 = weakref.proxy(C())
+        gc_collect()
+        self.assertRaises(weakref.ReferenceError, bool, ref3)
         self.assertTrue(self.cbcalled == 2)
 
     def check_basic_ref(self, factory):
@@ -124,6 +128,7 @@ class ReferencesTestCase(TestBase):
         o = factory()
         ref = weakref.ref(o, self.callback)
         del o
+        gc_collect()
         self.assertTrue(self.cbcalled == 1,
                      "callback did not properly set 'cbcalled'")
         self.assertTrue(ref() is None,
@@ -148,6 +153,7 @@ class ReferencesTestCase(TestBase):
         self.assertTrue(weakref.getweakrefcount(o) == 2,
                      "wrong weak ref count for object")
         del proxy
+        gc_collect()
         self.assertTrue(weakref.getweakrefcount(o) == 1,
                      "wrong weak ref count for object after deleting proxy")
 
@@ -325,6 +331,7 @@ class ReferencesTestCase(TestBase):
                      "got wrong number of weak reference objects")
 
         del ref1, ref2, proxy1, proxy2
+        gc_collect()
         self.assertTrue(weakref.getweakrefcount(o) == 0,
                      "weak reference objects not unlinked from"
                      " referent when discarded.")
@@ -338,6 +345,7 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del ref1
+        gc_collect()
         self.assertTrue(weakref.getweakrefs(o) == [ref2],
                      "list of refs does not match")
 
@@ -345,10 +353,12 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del ref2
+        gc_collect()
         self.assertTrue(weakref.getweakrefs(o) == [ref1],
                      "list of refs does not match")
 
         del ref1
+        gc_collect()
         self.assertTrue(weakref.getweakrefs(o) == [],
                      "list of refs not cleared")
 
@@ -400,13 +410,11 @@ class ReferencesTestCase(TestBase):
         # when the second attempt to remove the instance from the "list
         # of all objects" occurs.
 
-        import gc
-
         class C(object):
             pass
 
         c = C()
-        wr = weakref.ref(c, lambda ignore: gc.collect())
+        wr = weakref.ref(c, lambda ignore: gc_collect())
         del c
 
         # There endeth the first part.  It gets worse.
@@ -414,7 +422,7 @@ class ReferencesTestCase(TestBase):
 
         c1 = C()
         c1.i = C()
-        wr = weakref.ref(c1.i, lambda ignore: gc.collect())
+        wr = weakref.ref(c1.i, lambda ignore: gc_collect())
 
         c2 = C()
         c2.c1 = c1
@@ -430,8 +438,6 @@ class ReferencesTestCase(TestBase):
         del c2
 
     def test_callback_in_cycle_1(self):
-        import gc
-
         class J(object):
             pass
 
@@ -467,11 +473,9 @@ class ReferencesTestCase(TestBase):
         # search II.__mro__, but that's NULL.   The result was a segfault in
         # a release build, and an assert failure in a debug build.
         del I, J, II
-        gc.collect()
+        gc_collect()
 
     def test_callback_in_cycle_2(self):
-        import gc
-
         # This is just like test_callback_in_cycle_1, except that II is an
         # old-style class.  The symptom is different then:  an instance of an
         # old-style class looks in its own __dict__ first.  'J' happens to
@@ -496,11 +500,9 @@ class ReferencesTestCase(TestBase):
         I.wr = weakref.ref(J, I.acallback)
 
         del I, J, II
-        gc.collect()
+        gc_collect()
 
     def test_callback_in_cycle_3(self):
-        import gc
-
         # This one broke the first patch that fixed the last two.  In this
         # case, the objects reachable from the callback aren't also reachable
         # from the object (c1) *triggering* the callback:  you can get to
@@ -520,11 +522,9 @@ class ReferencesTestCase(TestBase):
         c2.wr = weakref.ref(c1, c2.cb)
 
         del c1, c2
-        gc.collect()
+        gc_collect()
 
     def test_callback_in_cycle_4(self):
-        import gc
-
         # Like test_callback_in_cycle_3, except c2 and c1 have different
         # classes.  c2's class (C) isn't reachable from c1 then, so protecting
         # objects reachable from the dying object (c1) isn't enough to stop
@@ -548,11 +548,9 @@ class ReferencesTestCase(TestBase):
         c2.wr = weakref.ref(c1, c2.cb)
 
         del c1, c2, C, D
-        gc.collect()
+        gc_collect()
 
     def test_callback_in_cycle_resurrection(self):
-        import gc
-
         # Do something nasty in a weakref callback:  resurrect objects
         # from dead cycles.  For this to be attempted, the weakref and
         # its callback must also be part of the cyclic trash (else the
@@ -583,7 +581,7 @@ class ReferencesTestCase(TestBase):
         del c1, c2, C   # make them all trash
         self.assertEqual(alist, [])  # del isn't enough to reclaim anything
 
-        gc.collect()
+        gc_collect()
         # c1.wr and c2.wr were part of the cyclic trash, so should have
         # been cleared without their callbacks executing.  OTOH, the weakref
         # to C is bound to a function local (wr), and wasn't trash, so that
@@ -593,12 +591,10 @@ class ReferencesTestCase(TestBase):
         self.assertEqual(wr(), None)
 
         del alist[:]
-        gc.collect()
+        gc_collect()
         self.assertEqual(alist, [])
 
     def test_callbacks_on_callback(self):
-        import gc
-
         # Set up weakref callbacks *on* weakref callbacks.
         alist = []
         def safe_callback(ignore):
@@ -626,12 +622,12 @@ class ReferencesTestCase(TestBase):
 
         del callback, c, d, C
         self.assertEqual(alist, [])  # del isn't enough to clean up cycles
-        gc.collect()
+        gc_collect()
         self.assertEqual(alist, ["safe_callback called"])
         self.assertEqual(external_wr(), None)
 
         del alist[:]
-        gc.collect()
+        gc_collect()
         self.assertEqual(alist, [])
 
     def test_gc_during_ref_creation(self):
@@ -641,9 +637,11 @@ class ReferencesTestCase(TestBase):
         self.check_gc_during_creation(weakref.proxy)
 
     def check_gc_during_creation(self, makeref):
-        thresholds = gc.get_threshold()
-        gc.set_threshold(1, 1, 1)
-        gc.collect()
+        if test_support.check_impl_detail():
+            import gc
+            thresholds = gc.get_threshold()
+            gc.set_threshold(1, 1, 1)
+        gc_collect()
         class A:
             pass
 
@@ -663,7 +661,8 @@ class ReferencesTestCase(TestBase):
             weakref.ref(referenced, callback)
 
         finally:
-            gc.set_threshold(*thresholds)
+            if test_support.check_impl_detail():
+                gc.set_threshold(*thresholds)
 
     def test_ref_created_during_del(self):
         # Bug #1377858
@@ -683,7 +682,7 @@ class ReferencesTestCase(TestBase):
         r = weakref.ref(Exception)
         self.assertRaises(TypeError, r.__init__, 0, 0, 0, 0, 0)
         # No exception should be raised here
-        gc.collect()
+        gc_collect()
 
     def test_classes(self):
         # Check that both old-style classes and new-style classes
@@ -696,12 +695,12 @@ class ReferencesTestCase(TestBase):
         weakref.ref(int)
         a = weakref.ref(A, l.append)
         A = None
-        gc.collect()
+        gc_collect()
         self.assertEqual(a(), None)
         self.assertEqual(l, [a])
         b = weakref.ref(B, l.append)
         B = None
-        gc.collect()
+        gc_collect()
         self.assertEqual(b(), None)
         self.assertEqual(l, [a, b])
 
@@ -722,6 +721,7 @@ class SubclassableWeakrefTestCase(TestBase):
         self.assertTrue(mr.called)
         self.assertEqual(mr.value, 24)
         del o
+        gc_collect()
         self.assertTrue(mr() is None)
         self.assertTrue(mr.called)
 
@@ -738,9 +738,11 @@ class SubclassableWeakrefTestCase(TestBase):
         self.assertEqual(weakref.getweakrefcount(o), 3)
         refs = weakref.getweakrefs(o)
         self.assertEqual(len(refs), 3)
-        self.assertTrue(r2 is refs[0])
-        self.assertIn(r1, refs[1:])
-        self.assertIn(r3, refs[1:])
+        assert set(refs) == set((r1, r2, r3))
+        if test_support.check_impl_detail():
+            self.assertTrue(r2 is refs[0])
+            self.assertIn(r1, refs[1:])
+            self.assertIn(r3, refs[1:])
 
     def test_subclass_refs_dont_conflate_callbacks(self):
         class MyRef(weakref.ref):
@@ -839,15 +841,18 @@ class MappingTestCase(TestBase):
         del items1, items2
         self.assertTrue(len(dict) == self.COUNT)
         del objects[0]
+        gc_collect()
         self.assertTrue(len(dict) == (self.COUNT - 1),
                      "deleting object did not cause dictionary update")
         del objects, o
+        gc_collect()
         self.assertTrue(len(dict) == 0,
                      "deleting the values did not clear the dictionary")
         # regression on SF bug #447152:
         dict = weakref.WeakValueDictionary()
         self.assertRaises(KeyError, dict.__getitem__, 1)
         dict[2] = C()
+        gc_collect()
         self.assertRaises(KeyError, dict.__getitem__, 2)
 
     def test_weak_keys(self):
@@ -868,9 +873,11 @@ class MappingTestCase(TestBase):
         del items1, items2
         self.assertTrue(len(dict) == self.COUNT)
         del objects[0]
+        gc_collect()
         self.assertTrue(len(dict) == (self.COUNT - 1),
                      "deleting object did not cause dictionary update")
         del objects, o
+        gc_collect()
         self.assertTrue(len(dict) == 0,
                      "deleting the keys did not clear the dictionary")
         o = Object(42)
@@ -986,13 +993,13 @@ class MappingTestCase(TestBase):
         self.assertTrue(len(weakdict) == 2)
         k, v = weakdict.popitem()
         self.assertTrue(len(weakdict) == 1)
-        if k is key1:
+        if k == key1:
             self.assertTrue(v is value1)
         else:
             self.assertTrue(v is value2)
         k, v = weakdict.popitem()
         self.assertTrue(len(weakdict) == 0)
-        if k is key1:
+        if k == key1:
             self.assertTrue(v is value1)
         else:
             self.assertTrue(v is value2)
@@ -1137,6 +1144,7 @@ class MappingTestCase(TestBase):
         for o in objs:
             count += 1
             del d[o]
+        gc_collect()
         self.assertEqual(len(d), 0)
         self.assertEqual(count, 2)
 
@@ -1177,6 +1185,7 @@ True
 >>> o is o2
 True
 >>> del o, o2
+>>> gc_collect()
 >>> print r()
 None
 
@@ -1229,6 +1238,7 @@ True
 >>> id2obj(a_id) is a
 True
 >>> del a
+>>> gc_collect()
 >>> try:
 ...     id2obj(a_id)
 ... except KeyError:

@@ -8,6 +8,10 @@ def app_test_app_func():
 def test_interp_func(space): 
     assert space.is_true(space.w_None) 
 
+def test_interp_reinterpret(space):
+    a = 1
+    assert a == 2
+
 class TestInterpTest: 
     def test_interp_method(self): 
         assert self.space.is_true(self.space.w_False) 

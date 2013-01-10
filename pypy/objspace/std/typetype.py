@@ -6,8 +6,7 @@ from pypy.interpreter.typedef import (GetSetProperty, descr_get_dict,
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
 
-def descr__new__(space, w_typetype, w_name, w_bases=gateway.NoneNotWrapped,
-    w_dict=gateway.NoneNotWrapped):
+def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
 
     "This is used to create user-defined classes only."
     # XXX check types

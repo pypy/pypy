@@ -173,6 +173,12 @@ class __extend__(annmodel.SomeInstance):
     def rtyper_makekey(self):
         return self.__class__, self.classdef
 
+class __extend__(annmodel.SomeType):
+    def rtyper_makerepr(self, rtyper):
+        return get_type_repr(rtyper)
+    def rtyper_makekey(self):
+        return self.__class__,
+
 
 class AbstractInstanceRepr(Repr):
     def __init__(self, rtyper, classdef):
@@ -364,6 +370,8 @@ class AbstractInstanceRepr(Repr):
     def get_ll_hash_function(self):
         return ll_inst_hash
 
+    get_ll_fasthash_function = get_ll_hash_function
+
     def rtype_type(self, hop):
         raise NotImplementedError
 
@@ -375,6 +383,30 @@ class AbstractInstanceRepr(Repr):
 
     def rtype_is_true(self, hop):
         raise NotImplementedError
+
+    def _emulate_call(self, hop, meth_name):
+        vinst, = hop.inputargs(self)
+        clsdef = hop.args_s[0].classdef
+        s_unbound_attr = clsdef.find_attribute(meth_name).getvalue()
+        s_attr = clsdef.lookup_filter(s_unbound_attr, meth_name,
+                                      hop.args_s[0].flags)
+        if s_attr.is_constant():
+            xxx # does that even happen?
+        if '__iter__' in self.allinstancefields:
+            raise Exception("__iter__ on instance disallowed")
+        r_method = self.rtyper.makerepr(s_attr)
+        r_method.get_method_from_instance(self, vinst, hop.llops)
+        hop2 = hop.copy()
+        hop2.spaceop.opname = 'simple_call'
+        hop2.args_r = [r_method]
+        hop2.args_s = [s_attr]
+        return hop2.dispatch()
+
+    def rtype_iter(self, hop):
+        return self._emulate_call(hop, '__iter__')
+
+    def rtype_next(self, hop):
+        return self._emulate_call(hop, 'next')
 
     def ll_str(self, i):
         raise NotImplementedError

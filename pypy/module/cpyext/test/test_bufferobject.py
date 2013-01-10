@@ -48,3 +48,17 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
             ])
         b = module.buffer_new()
         raises(AttributeError, getattr, b, 'x')
+
+    def test_array_buffer(self):
+        module = self.import_extension('foo', [
+            ("roundtrip", "METH_O",
+             """
+                 PyBufferObject *buf = (PyBufferObject *)args;
+                 return PyString_FromStringAndSize(buf->b_ptr, buf->b_size);
+             """),
+            ])
+        import array
+        a = array.array('c', 'text')
+        b = buffer(a)
+        assert module.roundtrip(b) == 'text'
+        

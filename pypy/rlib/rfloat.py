@@ -1,11 +1,13 @@
 """Float constants"""
 
 import math
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.annotation.model import SomeString, SomeChar
 from pypy.rlib import objectmodel
 from pypy.rpython.extfunc import register_external
-from pypy.annotation.model import SomeString
+from pypy.rpython.tool import rffi_platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
 
 USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
 
@@ -74,7 +76,7 @@ def break_up_float(s):
         while i < len(s) and s[i] in '0123456789':
             after_point += s[i]
             i += 1
-            
+
         if i == len(s):
             return sign, before_point, after_point, exponent
 
@@ -91,7 +93,7 @@ def break_up_float(s):
 
     if i == len(s):
         raise ValueError
-    
+
     while i < len(s) and s[i] in '0123456789':
         exponent += s[i]
         i += 1
@@ -150,6 +152,7 @@ def _formatd(x, code, precision, flags):
 
     return s
 
+@objectmodel.enforceargs(float, SomeChar(), int, int)
 def formatd(x, code, precision, flags=0):
     if USE_SHORT_FLOAT_REPR:
         from pypy.rlib.rdtoa import dtoa_formatd
@@ -167,13 +170,17 @@ def double_to_string(value, tp, precision, flags):
     result = formatd(value, tp, precision, flags)
     return result, special
 
-def round_double(value, ndigits):
-    if USE_SHORT_FLOAT_REPR:
-        return round_double_short_repr(value, ndigits)
-    else:
-        return round_double_fallback_repr(value, ndigits)
+def round_double(value, ndigits, half_even=False):
+    """Round a float half away from zero.
 
-def round_double_short_repr(value, ndigits):
+    Specify half_even=True to round half even instead.
+    """
+    if USE_SHORT_FLOAT_REPR:
+        return round_double_short_repr(value, ndigits, half_even)
+    else:
+        return round_double_fallback_repr(value, ndigits, half_even)
+
+def round_double_short_repr(value, ndigits, half_even):
     # The basic idea is very simple: convert and round the double to
     # a decimal string using _Py_dg_dtoa, then convert that decimal
     # string back to a double with _Py_dg_strtod.  There's one minor
@@ -206,7 +213,7 @@ def round_double_short_repr(value, ndigits):
 
     # determine whether this is a halfway case.
     halfway_case = 0
-    if expo == -ndigits - 1:
+    if not half_even and expo == -ndigits - 1:
         if ndigits >= 0:
             halfway_case = 1
         elif ndigits >= -22:
@@ -221,7 +228,7 @@ def round_double_short_repr(value, ndigits):
     # round to a decimal string; use an extra place for halfway case
     strvalue = formatd(value, 'f', ndigits + halfway_case)
 
-    if halfway_case:
+    if not half_even and halfway_case:
         buf = [c for c in strvalue]
         if ndigits >= 0:
             endpos = len(buf) - 1
@@ -260,7 +267,7 @@ def round_double_short_repr(value, ndigits):
 
 # fallback version, to be used when correctly rounded
 # binary<->decimal conversions aren't available
-def round_double_fallback_repr(value, ndigits):
+def round_double_fallback_repr(value, ndigits, half_even):
     if ndigits >= 0:
         if ndigits > 22:
             # pow1 and pow2 are each safe from overflow, but
@@ -281,12 +288,17 @@ def round_double_fallback_repr(value, ndigits):
         pow2 = 1.0 # unused; for translation
         y = value / pow1
 
-    if y >= 0.0:
-        z = math.floor(y + 0.5)
+    if half_even:
+        z = round_away(y)
+        if math.fabs(y - z) == 0.5:
+            z = 2.0 * round_away(y / 2.0)
     else:
-        z = math.ceil(y - 0.5)
-    if math.fabs(y-z) == 1.0:   # obscure case, see the test
-        z = y
+        if y >= 0.0:
+            z = math.floor(y + 0.5)
+        else:
+            z = math.ceil(y - 0.5)
+        if math.fabs(y - z) == 1.0:   # obscure case, see the test
+            z = y
 
     if ndigits >= 0:
         z = (z / pow2) / pow1
@@ -295,7 +307,7 @@ def round_double_fallback_repr(value, ndigits):
     return z
 
 INFINITY = 1e200 * 1e200
-NAN = INFINITY / INFINITY
+NAN = abs(INFINITY / INFINITY)    # bah, INF/INF gives us -NAN?
 
 try:
     # Try to get math functions added in 2.6.
@@ -375,8 +387,7 @@ except ImportError:
 
     def log1p(x):
         "NOT_RPYTHON"
-        from pypy.rlib import rfloat
-        if abs(x) < rfloat.DBL_EPSILON // 2.:
+        if abs(x) < DBL_EPSILON // 2.:
             return x
         elif -.5 <= x <= 1.:
             y = 1. + x

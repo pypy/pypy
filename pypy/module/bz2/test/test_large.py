@@ -1,12 +1,12 @@
 import py
-from pypy.conftest import gettestobjspace, option
 
 
 class AppTestBZ2File:
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        if not option.runappdirect:
+        if not cls.runappdirect:
             py.test.skip("skipping this very slow test; try 'pypy-c -A'")
-        cls.space = gettestobjspace(usemodules=('bz2',))
         largetest_bz2 = py.path.local(__file__).dirpath().join("largetest.bz2")
         cls.w_compressed_data = cls.space.wrap(largetest_bz2.read('rb'))
 

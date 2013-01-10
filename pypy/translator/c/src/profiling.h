@@ -1,6 +1,5 @@
-
-#ifndef PROFILING_H
-#define PROFILING_H
+#ifndef _PYPY_PROFILING_H
+#define _PYPY_PROFILING_H
 
 void pypy_setup_profiling();
 void pypy_teardown_profiling();

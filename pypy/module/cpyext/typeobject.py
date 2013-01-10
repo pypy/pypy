@@ -307,6 +307,8 @@ class W_PyCTypeObject(W_TypeObject):
         if not space.is_true(space.issubtype(self, space.w_type)):
             self.flag_cpytype = True
         self.flag_heaptype = False
+        if pto.c_tp_doc:
+            self.w_doc = space.wrap(rffi.charp2str(pto.c_tp_doc))
 
 @bootstrap_function
 def init_typeobject(space):
@@ -624,7 +626,6 @@ def _type_realize(space, py_obj):
     Creates an interpreter type from a PyTypeObject structure.
     """
     # missing:
-    # setting __doc__ if not defined and tp_doc defined
     # inheriting tp_as_* slots
     # unsupported:
     # tp_mro, tp_subclasses

@@ -3,13 +3,17 @@ Native type codes.
 The table 'native_fmttable' is also used by pypy.module.array.interp_array.
 """
 import struct
+
+from pypy.rlib import jit, longlong2float
+from pypy.rlib.objectmodel import specialize
+from pypy.rlib.rarithmetic import r_singlefloat, widen
 from pypy.rlib.rstruct import standardfmttable as std
 from pypy.rlib.rstruct.error import StructError
-from pypy.rpython.tool import rffi_platform
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.objectmodel import specialize
+
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 
@@ -22,15 +26,24 @@ native_fmttable = {
 
 # ____________________________________________________________
 
+
 double_buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
 float_buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw', immortal=True)
 
+range_8_unroll = unrolling_iterable(list(reversed(range(8))))
+range_4_unroll = unrolling_iterable(list(reversed(range(4))))
+
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
-    double_buf[0] = doubleval
-    p = rffi.cast(rffi.CCHARP, double_buf)
-    for i in range(sizeof_double):
-        fmtiter.result.append(p[i])
+    value = longlong2float.float2longlong(doubleval)
+    if fmtiter.bigendian:
+        for i in range_8_unroll:
+            x = (value >> (8*i)) & 0xff
+            fmtiter.result.append(chr(x))
+    else:
+        for i in range_8_unroll:
+            fmtiter.result.append(chr(value & 0xff))
+            value >>= 8
 
 @specialize.argtype(0)
 def unpack_double(fmtiter):
@@ -44,10 +57,16 @@ def unpack_double(fmtiter):
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     floatval = r_singlefloat(doubleval)
-    float_buf[0] = floatval
-    p = rffi.cast(rffi.CCHARP, float_buf)
-    for i in range(sizeof_float):
-        fmtiter.result.append(p[i])
+    value = longlong2float.singlefloat2uint(floatval)
+    value = widen(value)
+    if fmtiter.bigendian:
+        for i in range_4_unroll:
+            x = (value >> (8*i)) & 0xff
+            fmtiter.result.append(chr(x))
+    else:
+        for i in range_4_unroll:
+            fmtiter.result.append(chr(value & 0xff))
+            value >>= 8
 
 @specialize.argtype(0)
 def unpack_float(fmtiter):

@@ -1,5 +1,5 @@
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
-from pypy.rlib import rposix, objectmodel
+from pypy.interpreter.gateway import unwrap_spec
+from pypy.rlib import rposix, objectmodel, rurandom
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
@@ -13,8 +13,11 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
-_WIN = sys.platform == 'win32'
 
+_WIN32 = sys.platform == 'win32'
+if _WIN32:
+    from pypy.rlib.rwin32 import _MAX_ENV
+    
 c_int = "c_int"
 
 # CPython 2.7 semantics are too messy to follow exactly,
@@ -37,7 +40,7 @@ def fsencode_w(space, w_obj):
     if space.isinstance_w(w_obj, space.w_unicode):
         w_obj = space.call_method(w_obj, 'encode',
                                   getfilesystemencoding(space))
-    return space.str_w(w_obj)
+    return space.str0_w(w_obj)
 
 class FileEncoder(object):
     def __init__(self, space, w_obj):
@@ -48,7 +51,7 @@ class FileEncoder(object):
         return fsencode_w(self.space, self.w_obj)
 
     def as_unicode(self):
-        return self.space.unicode_w(self.w_obj)
+        return self.space.unicode0_w(self.w_obj)
 
 class FileDecoder(object):
     def __init__(self, space, w_obj):
@@ -56,13 +59,13 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.str_w(self.w_obj)
+        return self.space.str0_w(self.w_obj)
 
     def as_unicode(self):
         space = self.space
         w_unicode = space.call_method(self.w_obj, 'decode',
                                       getfilesystemencoding(space))
-        return space.unicode_w(w_unicode)
+        return space.unicode0_w(w_unicode)
 
 @specialize.memo()
 def dispatch_filename(func, tag=0):
@@ -71,7 +74,7 @@ def dispatch_filename(func, tag=0):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.str_w(w_fname)
+            fname = space.str0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -299,7 +302,7 @@ class StatState(object):
     def __init__(self, space):
         self.stat_float_times = True
 
-def stat_float_times(space, w_value=NoneNotWrapped):
+def stat_float_times(space, w_value=None):
     """stat_float_times([newval]) -> oldval
 
 Determine whether os.[lf]stat represents time stamps as float objects.
@@ -369,7 +372,7 @@ def times(space):
                                space.wrap(times[3]),
                                space.wrap(times[4])])
 
-@unwrap_spec(cmd=str)
+@unwrap_spec(cmd='str0')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -401,7 +404,7 @@ def _getfullpathname(space, w_path):
             fullpath = rposix._getfullpathname(path)
             w_fullpath = space.wrap(fullpath)
         else:
-            path = space.str_w(w_path)
+            path = space.str0_w(w_path)
             fullpath = rposix._getfullpathname(path)
             w_fullpath = space.wrap(fullpath)
     except OSError, e:
@@ -418,7 +421,7 @@ def getcwd(space):
     else:
         return space.wrap(cur)
 
-if sys.platform == 'win32':
+if _WIN32:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
         try:
@@ -491,17 +494,15 @@ class State:
     def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
-        if _WIN:
-            self.cryptProviderPtr = lltype.malloc(
-                rffi.CArray(HCRYPTPROV), 1, zero=True,
-                flavor='raw', immortal=True)
+        self.random_context = rurandom.init_urandom()
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        if _WIN:
-            self.cryptProviderPtr[0] = HCRYPTPROV._default
+        # also reset random_context to a fresh new context (empty so far,
+        # to be filled at run-time by rurandom.urandom())
+        self.random_context = rurandom.init_urandom()
         return True
 
 def get(space):
@@ -512,15 +513,18 @@ def _convertenviron(space, w_env):
     for key, value in os.environ.items():
         space.setitem(w_env, space.wrap(key), space.wrap(value))
 
-@unwrap_spec(name=str, value=str)
+@unwrap_spec(name='str0', value='str0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
+    if _WIN32 and len(name) > _MAX_ENV:
+        raise OperationError(space.w_ValueError, space.wrap(
+                "the environment variable is longer than %d bytes" % _MAX_ENV))
     try:
         os.environ[name] = value
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='str0')
 def unsetenv(space, name):
     """Delete an environment variable."""
     try:
@@ -543,12 +547,18 @@ entries '.' and '..' even if they are present in the directory."""
             dirname = FileEncoder(space, w_dirname)
             result = rposix.listdir(dirname)
             w_fs_encoding = getfilesystemencoding(space)
-            result_w = [
-                space.call_method(space.wrap(s), "decode", w_fs_encoding)
-                for s in result
-            ]
+            len_result = len(result)
+            result_w = [None] * len_result
+            for i in range(len_result):
+                w_bytes = space.wrap(result[i])
+                try:
+                    result_w[i] = space.call_method(w_bytes,
+                                                    "decode", w_fs_encoding)
+                except OperationError, e:
+                    # fall back to the original byte string
+                    result_w[i] = w_bytes
         else:
-            dirname = space.str_w(w_dirname)
+            dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
             result_w = [space.wrap(s) for s in result]
     except OSError, e:
@@ -570,6 +580,16 @@ def chmod(space, w_path, mode):
         dispatch_filename(rposix.chmod)(space, w_path, mode)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
+
+@unwrap_spec(mode=c_int)
+def fchmod(space, w_fd, mode):
+    """Change the access permissions of the file given by file
+descriptor fd."""
+    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        os.fchmod(fd, mode)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 def rename(space, w_old, w_new):
     "Rename a file or directory."
@@ -617,7 +637,7 @@ def getpid(space):
 def kill(space, pid, sig):
     "Kill a process with a signal."
     try:
-        os.kill(pid, sig)
+        rposix.os_kill(pid, sig)
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -633,9 +653,9 @@ def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
 in the hardest way possible on the hosting operating system."""
     import signal
-    os.kill(os.getpid(), signal.SIGABRT)
+    rposix.os_kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src=str, dst=str)
+@unwrap_spec(src='str0', dst='str0')
 def link(space, src, dst):
     "Create a hard link to a file."
     try:
@@ -650,7 +670,7 @@ def symlink(space, w_src, w_dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path=str)
+@unwrap_spec(path='str0')
 def readlink(space, path):
     "Return a string representing the path to which the symbolic link points."
     try:
@@ -743,29 +763,14 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    command = fsencode_w(space, w_command)
-    try:
-        args_w = space.unpackiterable(w_args)
-        if len(args_w) < 1:
-            w_msg = space.wrap("execv() must have at least one argument")
-            raise OperationError(space.w_ValueError, w_msg)
-        args = [fsencode_w(space, w_arg) for w_arg in args_w]
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        msg = "execv() arg 2 must be an iterable of strings"
-        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
-    try:
-        os.execv(command, args)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    execve(space, w_command, w_args, None)
 
 def _env2interp(space, w_env):
     env = {}
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.str_w(w_key)] = space.str_w(w_value)
+        env[space.str0_w(w_key)] = space.str0_w(w_value)
     return env
 
 def execve(space, w_command, w_args, w_env):
@@ -778,25 +783,42 @@ Execute a path with arguments and environment, replacing current process.
         env: dictionary of strings mapping to strings
     """
     command = fsencode_w(space, w_command)
-    args = [fsencode_w(space, w_arg) for w_arg in space.unpackiterable(w_args)]
-    env = _env2interp(space, w_env)
     try:
-        os.execve(command, args, env)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            w_msg = space.wrap("execv() must have at least one argument")
+            raise OperationError(space.w_ValueError, w_msg)
+        args = [fsencode_w(space, w_arg) for w_arg in args_w]
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        msg = "execv() arg 2 must be an iterable of strings"
+        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    #
+    if w_env is None:    # when called via execv() above
+        try:
+            os.execv(command, args)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+    else:
+        env = _env2interp(space, w_env)
+        try:
+            os.execve(command, args, env)
+        except OSError, e:
+            raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path=str)
+@unwrap_spec(mode=int, path='str0')
 def spawnv(space, mode, path, w_args):
-    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(mode=int, path=str)
+@unwrap_spec(mode=int, path='str0')
 def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -914,7 +936,7 @@ def setegid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(path=str)
+@unwrap_spec(path='str0')
 def chroot(space, path):
     """ chroot(path)
 
@@ -1103,25 +1125,38 @@ def fpathconf(space, fd, w_name):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
+    """Change the owner and group id of path to the numeric uid and gid."""
     check_uid_range(space, uid)
     check_uid_range(space, gid)
     try:
         os.chown(path, uid, gid)
     except OSError, e:
         raise wrap_oserror(space, e, path)
-    return space.w_None
 
-@unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
+    """Change the owner and group id of path to the numeric uid and gid.
+This function will not follow symbolic links."""
     check_uid_range(space, uid)
     check_uid_range(space, gid)
     try:
         os.lchown(path, uid, gid)
     except OSError, e:
         raise wrap_oserror(space, e, path)
-    return space.w_None
+
+@unwrap_spec(uid=c_uid_t, gid=c_gid_t)
+def fchown(space, w_fd, uid, gid):
+    """Change the owner and group id of the file given by file descriptor
+fd to the numeric uid and gid."""
+    fd = space.c_filedescriptor_w(w_fd)
+    check_uid_range(space, uid)
+    check_uid_range(space, gid)
+    try:
+        os.fchown(fd, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 def getloadavg(space):
     try:
@@ -1157,72 +1192,14 @@ def nice(space, inc):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-if _WIN:
-    from pypy.rlib import rwin32
+@unwrap_spec(n=int)
+def urandom(space, n):
+    """urandom(n) -> str
 
-    eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'wincrypt.h'],
-        libraries = ['advapi32'],
-        )
-
-    class CConfig:
-        _compilation_info_ = eci
-        PROV_RSA_FULL = rffi_platform.ConstantInteger(
-            "PROV_RSA_FULL")
-        CRYPT_VERIFYCONTEXT = rffi_platform.ConstantInteger(
-            "CRYPT_VERIFYCONTEXT")
-
-    globals().update(rffi_platform.configure(CConfig))
-
-    HCRYPTPROV = rwin32.ULONG_PTR
-
-    CryptAcquireContext = rffi.llexternal(
-        'CryptAcquireContextA',
-        [rffi.CArrayPtr(HCRYPTPROV),
-         rwin32.LPCSTR, rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD],
-        rwin32.BOOL,
-        calling_conv='win',
-        compilation_info=eci)
-
-    CryptGenRandom = rffi.llexternal(
-        'CryptGenRandom',
-        [HCRYPTPROV, rwin32.DWORD, rffi.CArrayPtr(rwin32.BYTE)],
-        rwin32.BOOL,
-        calling_conv='win',
-        compilation_info=eci)
-
-    @unwrap_spec(n=int)
-    def win32_urandom(space, n):
-        """urandom(n) -> str
-
-        Return a string of n random bytes suitable for cryptographic use.
-        """
-
-        if n < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative argument not allowed"))
-
-        provider = get(space).cryptProviderPtr[0]
-        if not provider:
-            # Acquire context.
-            # This handle is never explicitly released. The operating
-            # system will release it when the process terminates.
-            if not CryptAcquireContext(
-                get(space).cryptProviderPtr, None, None,
-                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastWindowsError("CryptAcquireContext")
-
-            provider = get(space).cryptProviderPtr[0]
-
-        # Get random data
-        buf = lltype.malloc(rffi.CArray(rwin32.BYTE), n,
-                            zero=True, # zero seed
-                            flavor='raw')
-        try:
-            if not CryptGenRandom(provider, n, buf):
-                raise rwin32.lastWindowsError("CryptGenRandom")
-
-            return space.wrap(
-                rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n))
-        finally:
-            lltype.free(buf, flavor='raw')
+    Return a string of n random bytes suitable for cryptographic use.
+    """
+    context = get(space).random_context
+    try:
+        return space.wrap(rurandom.urandom(context, n))
+    except OSError, e:
+        raise wrap_oserror(space, e)

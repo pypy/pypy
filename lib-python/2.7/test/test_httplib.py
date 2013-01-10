@@ -152,13 +152,15 @@ class BasicTest(TestCase):
     def test_host_port(self):
         # Check invalid host_port
 
-        for hp in ("www.python.org:abc", "www.python.org:"):
+        # Note that httplib does not accept user:password@ in the host-port.
+        for hp in ("www.python.org:abc", "user:password@www.python.org"):
             self.assertRaises(httplib.InvalidURL, httplib.HTTP, hp)
 
         for hp, h, p in (("[fe80::207:e9ff:fe9b]:8000", "fe80::207:e9ff:fe9b",
                           8000),
                          ("www.python.org:80", "www.python.org", 80),
                          ("www.python.org", "www.python.org", 80),
+                         ("www.python.org:", "www.python.org", 80),
                          ("[fe80::207:e9ff:fe9b]", "fe80::207:e9ff:fe9b", 80)):
             http = httplib.HTTP(hp)
             c = http._conn
@@ -319,6 +321,35 @@ class BasicTest(TestCase):
         self.assertTrue(hasattr(resp,'fileno'),
                 'HTTPResponse should expose a fileno attribute')
 
+    # Test lines overflowing the max line size (_MAXLINE in http.client)
+
+    def test_overflowing_status_line(self):
+        self.skipTest("disabled for HTTP 0.9 support")
+        body = "HTTP/1.1 200 Ok" + "k" * 65536 + "\r\n"
+        resp = httplib.HTTPResponse(FakeSocket(body))
+        self.assertRaises((httplib.LineTooLong, httplib.BadStatusLine), resp.begin)
+
+    def test_overflowing_header_line(self):
+        body = (
+            'HTTP/1.1 200 OK\r\n'
+            'X-Foo: bar' + 'r' * 65536 + '\r\n\r\n'
+        )
+        resp = httplib.HTTPResponse(FakeSocket(body))
+        self.assertRaises(httplib.LineTooLong, resp.begin)
+
+    def test_overflowing_chunked_line(self):
+        body = (
+            'HTTP/1.1 200 OK\r\n'
+            'Transfer-Encoding: chunked\r\n\r\n'
+            + '0' * 65536 + 'a\r\n'
+            'hello world\r\n'
+            '0\r\n'
+        )
+        resp = httplib.HTTPResponse(FakeSocket(body))
+        resp.begin()
+        self.assertRaises(httplib.LineTooLong, resp.read)
+
+
 class OfflineTest(TestCase):
     def test_responses(self):
         self.assertEqual(httplib.responses[httplib.NOT_FOUND], "Not Found")
@@ -409,6 +440,28 @@ class HTTPSTimeoutTest(TestCase):
         if hasattr(httplib, 'HTTPSConnection'):
             h = httplib.HTTPSConnection(HOST, TimeoutTest.PORT, timeout=30)
             self.assertEqual(h.timeout, 30)
+
+    @unittest.skipIf(not hasattr(httplib, 'HTTPS'), 'httplib.HTTPS not available')
+    def test_host_port(self):
+        # Check invalid host_port
+
+        # Note that httplib does not accept user:password@ in the host-port.
+        for hp in ("www.python.org:abc", "user:password@www.python.org"):
+            self.assertRaises(httplib.InvalidURL, httplib.HTTP, hp)
+
+        for hp, h, p in (("[fe80::207:e9ff:fe9b]:8000", "fe80::207:e9ff:fe9b",
+                          8000),
+                         ("pypi.python.org:443", "pypi.python.org", 443),
+                         ("pypi.python.org", "pypi.python.org", 443),
+                         ("pypi.python.org:", "pypi.python.org", 443),
+                         ("[fe80::207:e9ff:fe9b]", "fe80::207:e9ff:fe9b", 443)):
+            http = httplib.HTTPS(hp)
+            c = http._conn
+            if h != c.host:
+                self.fail("Host incorrectly parsed: %s != %s" % (h, c.host))
+            if p != c.port:
+                self.fail("Port incorrectly parsed: %s != %s" % (p, c.host))
+
 
 def test_main(verbose=None):
     test_support.run_unittest(HeaderTests, OfflineTest, BasicTest, TimeoutTest,

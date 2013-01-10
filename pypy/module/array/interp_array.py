@@ -9,8 +9,10 @@ from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib import jit
+from pypy.rlib.rarithmetic import ovfcheck, widen
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import specialize, keepalive_until_here
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
@@ -144,28 +146,38 @@ for k, v in types.items():
 unroll_typecodes = unrolling_iterable(types.keys())
 
 class ArrayBuffer(RWBuffer):
-    def __init__(self, data, bytes):
-        self.data = data
-        self.len = bytes
+    def __init__(self, array):
+        self.array = array
 
     def getlength(self):
-        return self.len
+        return self.array.len * self.array.itemsize
 
     def getitem(self, index):
-        return self.data[index]
+        array = self.array
+        data = array._charbuf_start()
+        char = data[index]
+        array._charbuf_stop()
+        return char
 
     def setitem(self, index, char):
-        self.data[index] = char
+        array = self.array
+        data = array._charbuf_start()
+        data[index] = char
+        array._charbuf_stop()
 
+    def get_raw_address(self):
+        return self.array._charbuf_start()
 
 def make_array(mytype):
+    W_ArrayBase = globals()['W_ArrayBase']
+
     class W_Array(W_ArrayBase):
         itemsize = mytype.bytes
         typecode = mytype.typecode
 
         @staticmethod
         def register(typeorder):
-            typeorder[W_Array] = []
+            typeorder[W_Array] = [(W_ArrayBase, None)]
 
         def __init__(self, space):
             self.space = space
@@ -216,20 +228,29 @@ def make_array(mytype):
             # length
             self.setlen(0)
 
-        def setlen(self, size):
+        def setlen(self, size, zero=False, overallocate=True):
             if size > 0:
                 if size > self.allocated or size < self.allocated / 2:
-                    if size < 9:
-                        some = 3
+                    if overallocate:
+                        if size < 9:
+                            some = 3
+                        else:
+                            some = 6
+                        some += size >> 3
                     else:
-                        some = 6
-                    some += size >> 3
+                        some = 0
                     self.allocated = size + some
-                    new_buffer = lltype.malloc(mytype.arraytype,
-                                               self.allocated, flavor='raw',
-                                               add_memory_pressure=True)
-                    for i in range(min(size, self.len)):
-                        new_buffer[i] = self.buffer[i]
+                    if zero:
+                        new_buffer = lltype.malloc(mytype.arraytype,
+                                                   self.allocated, flavor='raw',
+                                                   add_memory_pressure=True,
+                                                   zero=True)
+                    else:
+                        new_buffer = lltype.malloc(mytype.arraytype,
+                                                   self.allocated, flavor='raw',
+                                                   add_memory_pressure=True)
+                        for i in range(min(size, self.len)):
+                            new_buffer[i] = self.buffer[i]
                 else:
                     self.len = size
                     return
@@ -275,9 +296,10 @@ def make_array(mytype):
             oldlen = self.len
             new = len(s) / mytype.bytes
             self.setlen(oldlen + new)
-            cbuf = self.charbuf()
+            cbuf = self._charbuf_start()
             for i in range(len(s)):
                 cbuf[oldlen * mytype.bytes + i] = s[i]
+            self._charbuf_stop()
 
         def fromlist(self, w_lst):
             s = self.len
@@ -307,8 +329,11 @@ def make_array(mytype):
             else:
                 self.fromsequence(w_iterable)
 
-        def charbuf(self):
-            return  rffi.cast(rffi.CCHARP, self.buffer)
+        def _charbuf_start(self):
+            return rffi.cast(rffi.CCHARP, self.buffer)
+
+        def _charbuf_stop(self):
+            keepalive_until_here(self)
 
         def w_getitem(self, space, idx):
             item = self.buffer[idx]
@@ -331,7 +356,7 @@ def make_array(mytype):
     def getitem__Array_Slice(space, self, w_slice):
         start, stop, step, size = space.decode_index4(w_slice, self.len)
         w_a = mytype.w_class(self.space)
-        w_a.setlen(size)
+        w_a.setlen(size, overallocate=False)
         assert step != 0
         j = 0
         for i in range(start, stop, step):
@@ -353,26 +378,18 @@ def make_array(mytype):
     def setitem__Array_Slice_Array(space, self, w_idx, w_item):
         start, stop, step, size = self.space.decode_index4(w_idx, self.len)
         assert step != 0
-        if w_item.len != size:
+        if w_item.len != size or self is w_item:
+            # XXX this is a giant slow hack
             w_lst = array_tolist__Array(space, self)
             w_item = space.call_method(w_item, 'tolist')
             space.setitem(w_lst, w_idx, w_item)
             self.setlen(0)
             self.fromsequence(w_lst)
         else:
-            if self is w_item:
-                with lltype.scoped_alloc(mytype.arraytype, self.allocated) as new_buffer:
-                    for i in range(self.len):
-                        new_buffer[i] = w_item.buffer[i]
-                    j = 0
-                    for i in range(start, stop, step):
-                        self.buffer[i] = new_buffer[j]
-                        j += 1
-            else:
-                j = 0
-                for i in range(start, stop, step):
-                    self.buffer[i] = w_item.buffer[j]
-                    j += 1
+            j = 0
+            for i in range(start, stop, step):
+                self.buffer[i] = w_item.buffer[j]
+                j += 1
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
@@ -444,19 +461,56 @@ def make_array(mytype):
         self.buffer[i] = val
 
     def delitem__Array_ANY(space, self, w_idx):
+        # XXX this is a giant slow hack
         w_lst = array_tolist__Array(space, self)
         space.delitem(w_lst, w_idx)
         self.setlen(0)
         self.fromsequence(w_lst)
 
+    # We can't look into this function until ptradd works with things (in the
+    # JIT) other than rffi.CCHARP
+    @jit.dont_look_inside
     def delslice__Array_ANY_ANY(space, self, w_i, w_j):
-        return space.delitem(self, space.newslice(w_i, w_j, space.w_None))
+        i = space.int_w(w_i)
+        if i < 0:
+            i += self.len
+        if i < 0:
+            i = 0
+        j = space.int_w(w_j)
+        if j < 0:
+            j += self.len
+        if j < 0:
+            j = 0
+        if j > self.len:
+            j = self.len
+        if i >= j:
+            return None
+        oldbuffer = self.buffer
+        self.buffer = lltype.malloc(mytype.arraytype,
+                      max(self.len - (j - i), 0), flavor='raw',
+                      add_memory_pressure=True)
+        if i:
+            rffi.c_memcpy(
+                rffi.cast(rffi.VOIDP, self.buffer),
+                rffi.cast(rffi.VOIDP, oldbuffer),
+                i * mytype.bytes
+            )
+        if j < self.len:
+            rffi.c_memcpy(
+                rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, i)),
+                rffi.cast(rffi.VOIDP, rffi.ptradd(oldbuffer, j)),
+                (self.len - j) * mytype.bytes
+            )
+        self.len -= j - i
+        self.allocated = self.len
+        if oldbuffer:
+            lltype.free(oldbuffer, flavor='raw')
 
     # Add and mul methods
 
     def add__Array_Array(space, self, other):
         a = mytype.w_class(space)
-        a.setlen(self.len + other.len)
+        a.setlen(self.len + other.len, overallocate=False)
         for i in range(self.len):
             a.buffer[i] = self.buffer[i]
         for i in range(other.len):
@@ -472,45 +526,57 @@ def make_array(mytype):
         return self
 
     def mul__Array_ANY(space, self, w_repeat):
-        try:
-            repeat = space.getindex_w(w_repeat, space.w_OverflowError)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise FailedToImplement
-            raise
-        a = mytype.w_class(space)
-        repeat = max(repeat, 0)
-        try:
-            newlen = ovfcheck(self.len * repeat)
-        except OverflowError:
-            raise MemoryError
-        a.setlen(newlen)
-        for r in range(repeat):
-            for i in range(self.len):
-                a.buffer[r * self.len + i] = self.buffer[i]
-        return a
+        return _mul_helper(space, self, w_repeat, False)
 
     def mul__ANY_Array(space, w_repeat, self):
-        return mul__Array_ANY(space, self, w_repeat)
+        return _mul_helper(space, self, w_repeat, False)
 
     def inplace_mul__Array_ANY(space, self, w_repeat):
+        return _mul_helper(space, self, w_repeat, True)
+
+    def _mul_helper(space, self, w_repeat, is_inplace):
         try:
             repeat = space.getindex_w(w_repeat, space.w_OverflowError)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 raise FailedToImplement
             raise
-        oldlen = self.len
         repeat = max(repeat, 0)
         try:
             newlen = ovfcheck(self.len * repeat)
         except OverflowError:
             raise MemoryError
-        self.setlen(newlen)
-        for r in range(1, repeat):
+        oldlen = self.len
+        if is_inplace:
+            a = self
+            start = 1
+        else:
+            a = mytype.w_class(space)
+            start = 0
+        # <a performance hack>
+        if oldlen == 1:
+            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
+                zero = not ord(self.buffer[0])
+            elif mytype.unwrap == 'int_w' or mytype.unwrap == 'bigint_w':
+                zero = not widen(self.buffer[0])
+            #elif mytype.unwrap == 'float_w':
+            #    value = ...float(self.buffer[0])  xxx handle the case of -0.0
+            else:
+                zero = False
+            if zero:
+                a.setlen(newlen, zero=True, overallocate=False)
+                return a
+            a.setlen(newlen, overallocate=False)
+            item = self.buffer[0]
+            for r in range(start, repeat):
+                a.buffer[r] = item
+            return a
+        # </a performance hack>
+        a.setlen(newlen, overallocate=False)
+        for r in range(start, repeat):
             for i in range(oldlen):
-                self.buffer[r * oldlen + i] = self.buffer[i]
-        return self
+                a.buffer[r * oldlen + i] = self.buffer[i]
+        return a
 
     # Convertions
 
@@ -527,8 +593,10 @@ def make_array(mytype):
         self.fromstring(space.str_w(w_s))
 
     def array_tostring__Array(space, self):
-        cbuf = self.charbuf()
-        return self.space.wrap(rffi.charpsize2str(cbuf, self.len * mytype.bytes))
+        cbuf = self._charbuf_start()
+        s = rffi.charpsize2str(cbuf, self.len * mytype.bytes)
+        self._charbuf_stop()
+        return self.space.wrap(s)
 
     def array_fromfile__Array_ANY_ANY(space, self, w_f, w_n):
         if not isinstance(w_f, W_File):
@@ -583,19 +651,35 @@ def make_array(mytype):
             raise OperationError(space.w_ValueError, space.wrap(msg))
 
     # Compare methods
-    def cmp__Array_ANY(space, self, other):
-        if isinstance(other, W_ArrayBase):
-            w_lst1 = array_tolist__Array(space, self)
-            w_lst2 = space.call_method(other, 'tolist')
-            return space.cmp(w_lst1, w_lst2)
-        else:
-            return space.w_NotImplemented
+    @specialize.arg(3)
+    def _cmp_impl(space, self, other, space_fn):
+        # XXX this is a giant slow hack
+        w_lst1 = array_tolist__Array(space, self)
+        w_lst2 = space.call_method(other, 'tolist')
+        return space_fn(w_lst1, w_lst2)
+
+    def eq__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.eq)
+
+    def ne__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.ne)
+
+    def lt__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.lt)
+
+    def le__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.le)
+
+    def gt__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.gt)
+
+    def ge__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.ge)
 
     # Misc methods
 
     def buffer__Array(space, self):
-        b = ArrayBuffer(self.charbuf(), self.len * mytype.bytes)
-        return space.wrap(b)
+        return space.wrap(ArrayBuffer(self))
 
     def array_buffer_info__Array(space, self):
         w_ptr = space.wrap(rffi.cast(lltype.Unsigned, self.buffer))
@@ -616,7 +700,7 @@ def make_array(mytype):
 
     def array_copy__Array(space, self):
         w_a = mytype.w_class(self.space)
-        w_a.setlen(self.len)
+        w_a.setlen(self.len, overallocate=False)
         rffi.c_memcpy(
             rffi.cast(rffi.VOIDP, w_a.buffer),
             rffi.cast(rffi.VOIDP, self.buffer),
@@ -630,7 +714,7 @@ def make_array(mytype):
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
         if self.len == 0:
             return
-        bytes = self.charbuf()
+        bytes = self._charbuf_start()
         tmp = [bytes[0]] * mytype.bytes
         for start in range(0, self.len * mytype.bytes, mytype.bytes):
             stop = start + mytype.bytes - 1
@@ -638,6 +722,7 @@ def make_array(mytype):
                 tmp[i] = bytes[start + i]
             for i in range(mytype.bytes):
                 bytes[stop - i] = tmp[i]
+        self._charbuf_stop()
 
     def repr__Array(space, self):
         if self.len == 0:

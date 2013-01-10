@@ -1,7 +1,10 @@
 import py
 from pypy.rlib.objectmodel import *
+from pypy.rlib import types
+from pypy.annotation import model
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.conftest import option
 
 def strange_key_eq(key1, key2):
@@ -420,9 +423,71 @@ def test_specialize_decorator():
 def test_enforceargs_decorator():
     @enforceargs(int, str, None)
     def f(a, b, c):
-        pass
-
+        return a, b, c
+    f.foo = 'foo'
     assert f._annenforceargs_ == (int, str, None)
+    assert f.func_name == 'f'
+    assert f.foo == 'foo'
+    assert f(1, 'hello', 42) == (1, 'hello', 42)
+    exc = py.test.raises(TypeError, "f(1, 2, 3)")
+    assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
+    py.test.raises(TypeError, "f('hello', 'world', 3)")
+    
+
+def test_enforceargs_defaults():
+    @enforceargs(int, int)
+    def f(a, b=40):
+        return a+b
+    assert f(2) == 42
+
+def test_enforceargs_keywords():
+    @enforceargs(b=int)
+    def f(a, b, c):
+        return a+b
+    assert f._annenforceargs_ == (None, int, None)
+
+def test_enforceargs_int_float_promotion():
+    @enforceargs(float)
+    def f(x):
+        return x
+    # in RPython there is an implicit int->float promotion
+    assert f(42) == 42
+
+def test_enforceargs_None_string():
+    @enforceargs(str, unicode)
+    def f(a, b):
+        return a, b
+    assert f(None, None) == (None, None)
+
+def test_enforceargs_complex_types():
+    @enforceargs([int], {str: int})
+    def f(a, b):
+        return a, b
+    x = [0, 1, 2]
+    y = {'a': 1, 'b': 2}
+    assert f(x, y) == (x, y)
+    assert f([], {}) == ([], {})
+    assert f(None, None) == (None, None)
+    py.test.raises(TypeError, "f(['hello'], y)")
+    py.test.raises(TypeError, "f(x, {'a': 'hello'})")
+    py.test.raises(TypeError, "f(x, {0: 42})")
+
+def test_enforceargs_no_typecheck():
+    @enforceargs(int, str, None, typecheck=False)
+    def f(a, b, c):
+        return a, b, c
+    assert f._annenforceargs_ == (int, str, None)
+    assert f(1, 2, 3) == (1, 2, 3) # no typecheck
+
+def test_enforceargs_translates():
+    from pypy.rpython.lltypesystem import lltype
+    @enforceargs(int, float)
+    def f(a, b):
+        return a, b
+    graph = getgraph(f, [int, int])
+    TYPES = [v.concretetype for v in graph.getargs()]
+    assert TYPES == [lltype.Signed, lltype.Float]
+
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
@@ -442,7 +507,7 @@ def getgraph(f, argtypes):
 def test_newlist():
     from pypy.annotation.model import SomeInteger
     def f(z):
-        x = newlist(sizehint=38)
+        x = newlist_hint(sizehint=38)
         if z < 0:
             x.append(1)
         return len(x)
@@ -456,7 +521,7 @@ def test_newlist():
 def test_newlist_nonconst():
     from pypy.annotation.model import SomeInteger
     def f(z):
-        x = newlist(sizehint=z)
+        x = newlist_hint(sizehint=z)
         return len(x)
 
     graph = getgraph(f, [SomeInteger()])
@@ -465,3 +530,27 @@ def test_newlist_nonconst():
             break
     assert llop.args[2] is graph.startblock.inputargs[0]
     
+def test_resizelist_hint():
+    from pypy.annotation.model import SomeInteger
+    def f(z):
+        x = []
+        resizelist_hint(x, 39)
+        return len(x)
+
+    graph = getgraph(f, [SomeInteger()])
+    for _, op in graph.iterblockops():
+        if op.opname == 'direct_call':
+            break
+    call_name = op.args[0].value._obj.graph.name
+    assert call_name.startswith('_ll_list_resize_hint')
+    call_arg2 = op.args[2].value
+    assert call_arg2 == 39
+
+def test_resizelist_hint_len():
+    def f(i):
+        l = [44]
+        resizelist_hint(l, i)
+        return len(l)
+
+    r = interpret(f, [29])
+    assert r == 1

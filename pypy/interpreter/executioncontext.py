@@ -144,7 +144,10 @@ class ExecutionContext(object):
         actionflag = self.space.actionflag
         if actionflag.get_ticker() < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
-    bytecode_trace_after_exception._always_inline_ = True
+    bytecode_trace_after_exception._always_inline_ = 'try'
+    # NB. this function is not inlined right now.  backendopt.inline would
+    # need some improvements to handle this case, but it's not really an
+    # issue
 
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
@@ -153,18 +156,20 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    def _convert_exc(self, operr):
-        return operr
-
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
         frame = self.gettopframe_nohidden()
         while frame:
             if frame.last_exception is not None:
-                return self._convert_exc(frame.last_exception)
+                return frame.last_exception
             frame = self.getnextframe_nohidden(frame)
         return None
+
+    def set_sys_exc_info(self, operror):
+        frame = self.gettopframe_nohidden()
+        if frame:     # else, the exception goes nowhere and is lost
+            frame.last_exception = operror
 
     def settrace(self, w_func):
         """Set the global trace function."""

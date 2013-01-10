@@ -2,6 +2,7 @@
 #ifdef WITH_PYMALLOC
 
 #include <string.h>
+#include <assert.h>
 
 /* An object allocator for Python.
 
@@ -224,10 +225,10 @@
 #define uint			unsigned int	/* assuming >= 16 bits */
 
 #undef  ulong
-#define ulong			unsigned long	/* assuming >= 32 bits */
+#define ulong			Unsigned	/* assuming >= 32 bits */
 
 #undef uptr
-#define uptr			unsigned long
+#define uptr			Unsigned
 
 /* When you say memory, my mind reasons in terms of (pointers to) blocks */
 typedef uchar block;

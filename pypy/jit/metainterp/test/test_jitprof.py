@@ -1,9 +1,9 @@
 
 from pypy.jit.metainterp.warmspot import ll_meta_interp
-from pypy.rlib.jit import JitDriver, dont_look_inside, elidable
+from pypy.rlib.jit import JitDriver, dont_look_inside, elidable, Counters
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.metainterp import pyjitpl
-from pypy.jit.metainterp.jitprof import *
+from pypy.jit.metainterp.jitprof import Profiler
 
 class FakeProfiler(Profiler):
     def start(self):
@@ -46,10 +46,10 @@ class TestProfile(ProfilerMixin):
         assert res == 84
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
         expected = [
-            TRACING,
-            BACKEND,
-            ~ BACKEND,
-            ~ TRACING,
+            Counters.TRACING,
+            Counters.BACKEND,
+            ~ Counters.BACKEND,
+            ~ Counters.TRACING,
             ]
         assert profiler.events == expected
         assert profiler.times == [2, 1]

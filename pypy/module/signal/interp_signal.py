@@ -11,11 +11,13 @@ import py
 import sys
 from pypy.tool import autopath
 from pypy.rlib import jit, rposix
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
-        if key.startswith('SIG') and isinstance(value, int):
+        if (key.startswith('SIG') or key.startswith('CTRL_')) and \
+                is_valid_int(value) and \
+                key != 'SIG_DFL' and key != 'SIG_IGN':
             globals()[key] = value
             yield key
 
@@ -23,15 +25,28 @@ NSIG    = cpy_signal.NSIG
 SIG_DFL = cpy_signal.SIG_DFL
 SIG_IGN = cpy_signal.SIG_IGN
 signal_names = list(setup())
-
+signal_values = {}
+for key in signal_names:
+    signal_values[globals()[key]] = None
+if sys.platform == 'win32' and not hasattr(cpy_signal,'CTRL_C_EVENT'):
+    # XXX Hack to revive values that went missing,
+    #     Remove this once we are sure the host cpy module has them.
+    signal_values[0] = None
+    signal_values[1] = None
+    signal_names.append('CTRL_C_EVENT')
+    signal_names.append('CTRL_BREAK_EVENT')
+    CTRL_C_EVENT = 0
+    CTRL_BREAK_EVENT = 1
 includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')
 
+cdir = py.path.local(autopath.pypydir).join('translator', 'c')
+
 eci = ExternalCompilationInfo(
     includes = includes,
-    separate_module_sources = ['#include <src/signals.h>'],
-    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
+    separate_module_files = [cdir / 'src' / 'signals.c'],
+    include_dirs = [str(cdir)],
     export_symbols = ['pypysig_poll', 'pypysig_default',
                       'pypysig_ignore', 'pypysig_setflag',
                       'pypysig_reinstall',
@@ -82,7 +97,7 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
                                     elidable_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
-c_pause = external('pause', [], rffi.INT)
+c_pause = external('pause', [], rffi.INT, threadsafe=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
 
 if sys.platform != 'win32':
@@ -130,47 +145,53 @@ class CheckSignalAction(PeriodicAsyncAction):
         else:
             self.reissue_signal_action = None
 
+    @jit.dont_look_inside
     def perform(self, executioncontext, frame):
         while True:
             n = pypysig_poll()
             if n < 0:
                 break
-            if self.reissue_signal_action is None:
-                # no threads: we can report the signal immediately
-                self.report_signal(n)
-            else:
-                main_ec = self.space.threadlocals.getmainthreadvalue()
-                if executioncontext is main_ec:
-                    # running in the main thread: we can report the
-                    # signal immediately
-                    self.report_signal(n)
-                else:
-                    # running in another thread: we need to hack a bit
-                    self.pending_signals[n] = None
-                    self.reissue_signal_action.fire_after_thread_switch()
+            self.perform_signal(executioncontext, n)
 
-    def set_interrupt(self):
-        "Simulates the effect of a SIGINT signal arriving"
-        n = cpy_signal.SIGINT
+    @jit.dont_look_inside
+    def perform_signal(self, executioncontext, n):
         if self.reissue_signal_action is None:
+            # no threads: we can report the signal immediately
             self.report_signal(n)
         else:
-            self.pending_signals[n] = None
-            self.reissue_signal_action.fire_after_thread_switch()
+            main_ec = self.space.threadlocals.getmainthreadvalue()
+            if executioncontext is main_ec:
+                # running in the main thread: we can report the
+                # signal immediately
+                self.report_signal(n)
+            else:
+                # running in another thread: we need to hack a bit
+                self.pending_signals[n] = None
+                self.reissue_signal_action.fire_after_thread_switch()
 
+    @jit.dont_look_inside
+    def set_interrupt(self):
+        "Simulates the effect of a SIGINT signal arriving"
+        ec = self.space.getexecutioncontext()
+        self.perform_signal(ec, cpy_signal.SIGINT)
+
+    @jit.dont_look_inside
     def report_signal(self, n):
         try:
             w_handler = self.handlers_w[n]
         except KeyError:
             return    # no handler, ignore signal
+        space = self.space
+        if not space.is_true(space.callable(w_handler)):
+            return    # w_handler is SIG_IGN or SIG_DFL?
         # re-install signal handler, for OSes that clear it
         pypysig_reinstall(n)
         # invoke the app-level handler
-        space = self.space
         ec = space.getexecutioncontext()
         w_frame = space.wrap(ec.gettopframe_nohidden())
         space.call_function(w_handler, space.wrap(n), w_frame)
 
+    @jit.dont_look_inside
     def report_pending_signals(self):
         # XXX this logic isn't so complicated but I have no clue how
         # to test it :-(
@@ -215,7 +236,7 @@ def getsignal(space, signum):
     None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
     anything else -- the callable Python object used as a handler
     """
-    check_signum(space, signum)
+    check_signum_in_range(space, signum)
     action = space.check_signal_action
     if signum in action.handlers_w:
         return action.handlers_w[signum]
@@ -241,10 +262,18 @@ def pause(space):
     c_pause()
     return space.w_None
 
-def check_signum(space, signum):
-    if signum < 1 or signum >= NSIG:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("signal number out of range"))
+def check_signum_exists(space, signum):
+    if signum in signal_values:
+        return
+    raise OperationError(space.w_ValueError,
+                         space.wrap("invalid signal value"))
+
+def check_signum_in_range(space, signum):
+    if 1 <= signum < NSIG:
+        return
+    raise OperationError(space.w_ValueError,
+                         space.wrap("signal number out of range"))
+
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int)
@@ -272,19 +301,18 @@ def signal(space, signum, w_handler):
     action = space.check_signal_action
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
         pypysig_default(signum)
-        action.handlers_w[signum] = w_handler
     elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
         pypysig_ignore(signum)
-        action.handlers_w[signum] = w_handler
     else:
         if not space.is_true(space.callable(w_handler)):
             raise OperationError(space.w_TypeError,
                                  space.wrap("'handler' must be a callable "
                                             "or SIG_DFL or SIG_IGN"))
         pypysig_setflag(signum)
-        action.handlers_w[signum] = w_handler
+    action.handlers_w[signum] = w_handler
     return old_handler
 
+@jit.dont_look_inside
 @unwrap_spec(fd=int)
 def set_wakeup_fd(space, fd):
     """Sets the fd to be written to (with '\0') when a signal
@@ -303,9 +331,10 @@ def set_wakeup_fd(space, fd):
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 
+@jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
-    check_signum(space, signum)
+    check_signum_exists(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))
@@ -337,6 +366,15 @@ def get_itimer_error(space):
 @jit.dont_look_inside
 @unwrap_spec(which=int, first=float, interval=float)
 def setitimer(space, which, first, interval=0):
+    """setitimer(which, seconds[, interval])
+    
+    Sets given itimer (one of ITIMER_REAL, ITIMER_VIRTUAL
+    or ITIMER_PROF) to fire after value seconds and after
+    that every interval seconds.
+    The itimer can be cleared by setting seconds to zero.
+    
+    Returns old values as a tuple: (delay, interval).
+    """
     with lltype.scoped_alloc(itimervalP.TO, 1) as new:
 
         timeval_from_double(first, new[0].c_it_value)
@@ -354,6 +392,10 @@ def setitimer(space, which, first, interval=0):
 @jit.dont_look_inside
 @unwrap_spec(which=int)
 def getitimer(space, which):
+    """getitimer(which)
+    
+    Returns current value of given itimer.
+    """
     with lltype.scoped_alloc(itimervalP.TO, 1) as old:
 
         c_getitimer(which, old)

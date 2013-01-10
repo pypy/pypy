@@ -17,17 +17,19 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
-Make big integers faster
--------------------------
-
-PyPy's implementation of the Python ``long`` type is slower than CPython's.
-Find out why and optimize them.
-
 Make bytearray type fast
 ------------------------
 
 PyPy's bytearray type is very inefficient. It would be an interesting
 task to look into possible optimizations on this.
+
+Implement copy-on-write list slicing
+------------------------------------
+
+The idea is to have a special implementation of list objects which is used
+when doing ``myslice = mylist[a:b]``: the new list is not constructed
+immediately, but only when (and if) ``myslice`` or ``mylist`` are mutated.
+
 
 Numpy improvements
 ------------------
@@ -81,14 +83,6 @@ Translation Toolchain
 
 * Allow separate compilation of extension modules.
 
-Work on some of other languages
--------------------------------
-
-There are various languages implemented using the RPython translation toolchain.
-One of the most interesting is the `JavaScript implementation`_, but there
-are others like scheme or prolog. An interesting project would be to improve
-the jittability of those or to experiment with various optimizations.
-
 Various GCs
 -----------
 
@@ -103,21 +97,35 @@ experiments can be done for the general purpose. Examples
 
 * A concurrent garbage collector (a lot of work)
 
-Remove the GIL
---------------
+STM (Software Transactional Memory)
+-----------------------------------
 
-This is a major task that requires lots of thinking. However, few subprojects
-can be potentially specified, unless a better plan can be thought out:
+This is work in progress.  Besides the main development path, whose goal is
+to make a (relatively fast) version of pypy which includes STM, there are
+independent topics that can already be experimented with on the existing,
+JIT-less pypy-stm version:
+  
+* What kind of conflicts do we get in real use cases?  And, sometimes,
+  which data structures would be more appropriate?  For example, a dict
+  implemented as a hash table will suffer "stm collisions" in all threads
+  whenever one thread writes anything to it; but there could be other
+  implementations.  Maybe alternate strategies can be implemented at the
+  level of the Python interpreter (see list/dict strategies,
+  ``pypy/objspace/std/{list,dict}object.py``).
 
-* A thread-aware garbage collector
+* More generally, there is the idea that we would need some kind of
+  "debugger"-like tool to "debug" things that are not bugs, but stm
+  conflicts.  How would this tool look like to the end Python
+  programmers?  Like a profiler?  Or like a debugger with breakpoints
+  on aborted transactions?  It would probably be all app-level, with
+  a few hooks e.g. for transaction conflicts.
 
-* Better RPython primitives for dealing with concurrency
+* Find good ways to have libraries using internally threads and atomics,
+  but not exposing threads to the user.  Right now there is a rough draft
+  in ``lib_pypy/transaction.py``, but much better is possible.  For example
+  we could probably have an iterator-like concept that allows each loop
+  iteration to run in parallel.
 
-* JIT passes to remove locks on objects
-
-* (maybe) implement locking in Python interpreter
-
-* alternatively, look at Software Transactional Memory
 
 Introduce new benchmarks
 ------------------------
@@ -129,8 +137,6 @@ script that can run without parameters. Example ideas (benchmarks need
 to be got from them!):
 
 * `hg`
-
-* `sympy`
 
 Experiment (again) with LLVM backend for RPython compilation
 ------------------------------------------------------------
@@ -157,8 +163,23 @@ it runs a .py module that installs (via ctypes) the interface it wants
 exported.  This would give us a one-size-fits-all generic .so file to be
 imported by any application that wants to load .so files :-)
 
+Optimising cpyext (CPython C-API compatibility layer)
+-----------------------------------------------------
+
+A lot of work has gone into PyPy's implementation of CPython's C-API over
+the last years to let it reach a practical level of compatibility, so that
+C extensions for CPython work on PyPy without major rewrites. However,
+there are still many edges and corner cases where it misbehaves, and it has
+not received any substantial optimisation so far.
+
+The objective of this project is to fix bugs in cpyext and to optimise
+several performance critical parts of it, such as the reference counting
+support and other heavily used C-API functions. The net result would be to
+have CPython extensions run much faster on PyPy than they currently do, or
+to make them work at all if they currently don't. A part of this work would
+be to get cpyext into a shape where it supports running Cython generated
+extensions.
 
 .. _`issue tracker`: http://bugs.pypy.org
 .. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`jitviewer`: http://bitbucket.org/pypy/jitviewer
-.. _`JavaScript implementation`: https://bitbucket.org/pypy/lang-js/overview

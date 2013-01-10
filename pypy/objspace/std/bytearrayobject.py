@@ -13,6 +13,8 @@ from pypy.objspace.std.listobject import get_positive_index
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.strutil import ParseStringError
+from pypy.objspace.std.strutil import string_to_float
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
@@ -111,8 +113,14 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     length = len(data)
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
-    newdata = [data[start + i*step] for i in range(slicelength)]
+    if step == 1 and 0 <= start <= stop:
+        newdata = data[start:stop]
+    else:
+        newdata = _getitem_slice_multistep(data, start, step, slicelength)
     return W_BytearrayObject(newdata)
+
+def _getitem_slice_multistep(data, start, step, slicelength):
+    return [data[start + i*step] for i in range(slicelength)]
 
 def contains__Bytearray_Int(space, w_bytearray, w_char):
     char = space.int_w(w_char)
@@ -279,19 +287,6 @@ def repr__Bytearray(space, w_bytearray):
 def str__Bytearray(space, w_bytearray):
     return space.wrap(''.join(w_bytearray.data))
 
-def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    char = w_char.intval
-    bytearray = w_bytearray.data
-    length = len(bytearray)
-    start, stop = slicetype.unwrap_start_stop(
-            space, length, w_start, w_stop, False)
-    count = 0
-    for i in range(start, min(stop, length)):
-        c = w_bytearray.data[i]
-        if ord(c) == char:
-            count += 1
-    return space.wrap(count)
-
 def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)
@@ -414,8 +409,8 @@ def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
         result = w_bytearray.data.pop(index)
     except IndexError:
         if not w_bytearray.data:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "cannot pop an empty bytearray"))
+            raise OperationError(space.w_IndexError, space.wrap(
+                "pop from empty bytearray"))
         raise OperationError(space.w_IndexError, space.wrap(
             "pop index out of range"))
     return space.wrap(ord(result))

@@ -7,19 +7,18 @@ import operator
 from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool, s_Bool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
-from pypy.annotation.model import SomeUnicodeCodePoint
+from pypy.annotation.model import SomeUnicodeCodePoint, SomeUnicodeString
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC, SomeFloat, s_None
+from pypy.annotation.model import SomePBC, SomeFloat, s_None, SomeByteArray
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
-from pypy.annotation.model import SomeSingleFloat, SomeLongFloat
+from pypy.annotation.model import SomeSingleFloat, SomeLongFloat, SomeType
 from pypy.annotation.model import unionof, UnionError, missing_operation
-from pypy.annotation.model import isdegenerated, TLS
+from pypy.annotation.model import TLS
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import SomeGenericCallable
-from pypy.annotation.model import SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rlib import rarithmetic
@@ -29,32 +28,23 @@ from pypy.tool.error import AnnotatorError
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-def unioncheck(*somevalues):
-    s_value = unionof(*somevalues)
-    if isdegenerated(s_value):
-        if not getattr(TLS, 'no_side_effects_in_union', 0):
-            bookkeeper = getbookkeeper()
-            if bookkeeper is not None:
-                bookkeeper.ondegenerated('union', s_value)
-    return s_value
-
 # XXX unify this with ObjSpace.MethodTable
 BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
-                         'truediv', 'floordiv', 'divmod', 'pow',
+                         'truediv', 'floordiv', 'divmod',
                          'and_', 'or_', 'xor',
                          'lshift', 'rshift',
                          'getitem', 'setitem', 'delitem',
                          'getitem_idx', 'getitem_key', 'getitem_idx_key',
                          'inplace_add', 'inplace_sub', 'inplace_mul',
                          'inplace_truediv', 'inplace_floordiv', 'inplace_div',
-                         'inplace_mod', 'inplace_pow',
+                         'inplace_mod',
                          'inplace_lshift', 'inplace_rshift',
                          'inplace_and', 'inplace_or', 'inplace_xor',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_', 'cmp',
                          'coerce',
                          ]
                         +[opname+'_ovf' for opname in
-                          """add sub mul floordiv div mod pow lshift
+                          """add sub mul floordiv div mod lshift
                            """.split()
                           ])
 
@@ -64,35 +54,7 @@ for opname in BINARY_OPERATIONS:
 class __extend__(pairtype(SomeObject, SomeObject)):
 
     def union((obj1, obj2)):
-        if obj1 == obj2:
-            return obj1
-        else:
-            result = SomeObject()
-            if obj1.knowntype == obj2.knowntype and obj1.knowntype != object:
-                result.knowntype = obj1.knowntype
-            is_type_of1 = getattr(obj1, 'is_type_of', None)
-            is_type_of2 = getattr(obj2, 'is_type_of', None)
-            if obj1.is_immutable_constant() and obj2.is_immutable_constant() and obj1.const == obj2.const:
-                result.const = obj1.const
-                is_type_of = {}
-                if is_type_of1:
-                    for v in is_type_of1:
-                        is_type_of[v] = True
-                if is_type_of2:
-                    for v in is_type_of2:
-                        is_type_of[v] = True
-                if is_type_of:
-                    result.is_type_of = is_type_of.keys()
-            else:
-                if is_type_of1 and is_type_of1 == is_type_of2:
-                    result.is_type_of = is_type_of1
-            # try to preserve the origin of SomeObjects
-            if obj1 == result:
-                result = obj1
-            elif obj2 == result:
-                result = obj2
-            unioncheck(result)
-            return result
+        raise UnionError(obj1, obj2)
 
     # inplace_xxx ---> xxx by default
     def inplace_add((obj1, obj2)):      return pair(obj1, obj2).add()
@@ -102,7 +64,6 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_floordiv((obj1, obj2)): return pair(obj1, obj2).floordiv()
     def inplace_div((obj1, obj2)):      return pair(obj1, obj2).div()
     def inplace_mod((obj1, obj2)):      return pair(obj1, obj2).mod()
-    def inplace_pow((obj1, obj2)):      return pair(obj1, obj2).pow(s_None)
     def inplace_lshift((obj1, obj2)):   return pair(obj1, obj2).lshift()
     def inplace_rshift((obj1, obj2)):   return pair(obj1, obj2).rshift()
     def inplace_and((obj1, obj2)):      return pair(obj1, obj2).and_()
@@ -182,7 +143,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         # XXX HACK HACK HACK
         bk = getbookkeeper()
         if bk is not None: # for testing
-            knowntypedata = r.knowntypedata = {}
+            knowntypedata = {}
             fn, block, i = bk.position_key
 
             annotator = bk.annotator
@@ -206,6 +167,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
             bind(obj2, obj1, 0)
             bind(obj1, obj2, 1)
+            r.set_knowntypedata(knowntypedata)
 
         return r
 
@@ -238,7 +200,30 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
     getitem_idx = getitem_idx_key
     getitem_key = getitem_idx_key
-        
+
+
+class __extend__(pairtype(SomeType, SomeType)):
+
+    def union((obj1, obj2)):
+        result = SomeType()
+        is_type_of1 = getattr(obj1, 'is_type_of', None)
+        is_type_of2 = getattr(obj2, 'is_type_of', None)
+        if obj1.is_immutable_constant() and obj2.is_immutable_constant() and obj1.const == obj2.const:
+            result.const = obj1.const
+            is_type_of = {}
+            if is_type_of1:
+                for v in is_type_of1:
+                    is_type_of[v] = True
+            if is_type_of2:
+                for v in is_type_of2:
+                    is_type_of[v] = True
+            if is_type_of:
+                result.is_type_of = is_type_of.keys()
+        else:
+            if is_type_of1 and is_type_of1 == is_type_of2:
+                result.is_type_of = is_type_of1
+        return result
+
 
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
@@ -315,19 +300,6 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             return SomeInteger(nonneg=int1.nonneg, knowntype=int1.knowntype)
     rshift.can_only_throw = []
 
-    def pow((int1, int2), obj3):
-        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
-        return SomeInteger(nonneg = int1.nonneg,
-                           knowntype=knowntype)
-    pow.can_only_throw = [ZeroDivisionError]
-    pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
-
-    def inplace_pow((int1, int2)):
-        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
-        return SomeInteger(nonneg = int1.nonneg,
-                           knowntype=knowntype)
-    inplace_pow.can_only_throw = [ZeroDivisionError]
-
     def _compare_helper((int1, int2), opname, operation):
         r = SomeBool()
         if int1.is_immutable_constant() and int2.is_immutable_constant():
@@ -365,8 +337,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             case = opname in ('gt', 'ge', 'eq')
             add_knowntypedata(knowntypedata, case, [op.args[0]],
                               SomeInteger(nonneg=True, knowntype=tointtype(int1)))
-        if knowntypedata:
-            r.knowntypedata = knowntypedata
+        r.set_knowntypedata(knowntypedata)
         # a special case for 'x < 0' or 'x >= 0',
         # where 0 is a flow graph Constant
         # (in this case we are sure that it cannot become a r_uint later)
@@ -397,8 +368,7 @@ class __extend__(pairtype(SomeBool, SomeBool)):
         if hasattr(boo1, 'knowntypedata') and \
            hasattr(boo2, 'knowntypedata'):
             ktd = merge_knowntypedata(boo1.knowntypedata, boo2.knowntypedata)
-            if ktd:
-                s.knowntypedata = ktd
+            s.set_knowntypedata(ktd)
         return s 
 
     def and_((boo1, boo2)):
@@ -434,13 +404,43 @@ class __extend__(pairtype(SomeBool, SomeBool)):
 class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
-        return SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
+        can_be_None = str1.can_be_None or str2.can_be_None
+        no_nul = str1.no_nul and str2.no_nul
+        return SomeString(can_be_None=can_be_None, no_nul=no_nul)
 
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
-        result = SomeString()
+        result = SomeString(no_nul=str1.no_nul and str2.no_nul)
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
+        return result
+
+class __extend__(pairtype(SomeByteArray, SomeByteArray)):
+    def union((b1, b2)):
+        can_be_None = b1.can_be_None or b2.can_be_None
+        return SomeByteArray(can_be_None=can_be_None)
+
+    def add((b1, b2)):
+        result = SomeByteArray()
+        if b1.is_immutable_constant() and b2.is_immutable_constant():
+            result.const = b1.const + b2.const
+        return result
+
+class __extend__(pairtype(SomeByteArray, SomeInteger)):
+    def getitem((s_b, s_i)):
+        return SomeInteger()
+
+    def setitem((s_b, s_i), s_i2):
+        assert isinstance(s_i2, SomeInteger)
+
+class __extend__(pairtype(SomeString, SomeByteArray),
+                 pairtype(SomeByteArray, SomeString),
+                 pairtype(SomeChar, SomeByteArray),
+                 pairtype(SomeByteArray, SomeChar)):
+    def add((b1, b2)):
+        result = SomeByteArray()
+        if b1.is_immutable_constant() and b2.is_immutable_constant():
+            result.const = b1.const + b2.const
         return result
 
 class __extend__(pairtype(SomeChar, SomeChar)):
@@ -468,21 +468,38 @@ class __extend__(pairtype(SomeString, SomeUnicodeString),
             "string formatting mixing strings and unicode not supported")
 
 
-class __extend__(pairtype(SomeString, SomeTuple)):
-    def mod((str, s_tuple)):
+class __extend__(pairtype(SomeString, SomeTuple),
+                 pairtype(SomeUnicodeString, SomeTuple)):
+    def mod((s_string, s_tuple)):
+        is_string = isinstance(s_string, SomeString)
+        is_unicode = isinstance(s_string, SomeUnicodeString)
+        assert is_string or is_unicode
         for s_item in s_tuple.items:
-            if isinstance(s_item, (SomeUnicodeCodePoint, SomeUnicodeString)):
+            if (is_unicode and isinstance(s_item, (SomeChar, SomeString)) or
+                is_string and isinstance(s_item, (SomeUnicodeCodePoint,
+                                                  SomeUnicodeString))):
                 raise NotImplementedError(
                     "string formatting mixing strings and unicode not supported")
-        getbookkeeper().count('strformat', str, s_tuple)
-        return SomeString()
+        getbookkeeper().count('strformat', s_string, s_tuple)
+        no_nul = s_string.no_nul
+        for s_item in s_tuple.items:
+            if isinstance(s_item, SomeFloat):
+                pass   # or s_item is a subclass, like SomeInteger
+            elif (isinstance(s_item, SomeString) or
+                  isinstance(s_item, SomeUnicodeString)) and s_item.no_nul:
+                pass
+            else:
+                no_nul = False
+                break
+        return s_string.__class__(no_nul=no_nul)
 
 
-class __extend__(pairtype(SomeString, SomeObject)):
+class __extend__(pairtype(SomeString, SomeObject),
+                 pairtype(SomeUnicodeString, SomeObject)):
 
-    def mod((str, args)):
-        getbookkeeper().count('strformat', str, args)
-        return SomeString()
+    def mod((s_string, args)):
+        getbookkeeper().count('strformat', s_string, args)
+        return s_string.__class__()
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
     
@@ -495,9 +512,6 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
         return SomeFloat()
     div.can_only_throw = []
     truediv = div
-
-    def pow((flt1, flt2), obj3):
-        raise NotImplementedError("float power not supported, use math.pow")
 
     # repeat these in order to copy the 'can_only_throw' attribute
     inplace_div = div
@@ -546,13 +560,29 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 
     def union((tup1, tup2)):
         if len(tup1.items) != len(tup2.items):
-            return SomeObject()
+            raise UnionError("cannot take the union of a tuple of length %d "
+                             "and a tuple of length %d" % (len(tup1.items),
+                                                           len(tup2.items)))
         else:
-            unions = [unioncheck(x,y) for x,y in zip(tup1.items, tup2.items)]
+            unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
 
     def add((tup1, tup2)):
         return SomeTuple(items = tup1.items + tup2.items)
+
+    def eq(tup1tup2):
+        tup1tup2.union()
+        return s_Bool
+    ne = eq
+
+    def lt((tup1, tup2)):
+        raise Exception("unsupported: (...) < (...)")
+    def le((tup1, tup2)):
+        raise Exception("unsupported: (...) <= (...)")
+    def gt((tup1, tup2)):
+        raise Exception("unsupported: (...) > (...)")
+    def ge((tup1, tup2)):
+        raise Exception("unsupported: (...) >= (...)")
 
 
 class __extend__(pairtype(SomeDict, SomeDict)):
@@ -648,7 +678,7 @@ class __extend__(pairtype(SomeString, SomeInteger)):
 
     def mul((str1, int2)): # xxx do we want to support this
         getbookkeeper().count("str_mul", str1, int2)
-        return SomeString()
+        return SomeString(no_nul=str1.no_nul)
 
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):
@@ -705,8 +735,7 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         else:
             basedef = ins1.classdef.commonbase(ins2.classdef)
             if basedef is None:
-                # print warning?
-                return SomeObject()
+                raise UnionError(ins1, ins2)
         flags = ins1.flags
         if flags:
             flags = flags.copy()
@@ -746,7 +775,7 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
     def union((iter1, iter2)):
-        s_cont = unioncheck(iter1.s_container, iter2.s_container)
+        s_cont = unionof(iter1.s_container, iter2.s_container)
         if iter1.variant != iter2.variant:
             raise UnionError("merging incompatible iterators variants")
         return SomeIterator(s_cont, *iter1.variant)
@@ -760,7 +789,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
             bltn1.s_self is None or bltn2.s_self is None):
             raise UnionError("cannot merge two different builtin functions "
                              "or methods:\n  %r\n  %r" % (bltn1, bltn2))
-        s_self = unioncheck(bltn1.s_self, bltn2.s_self)
+        s_self = unionof(bltn1.s_self, bltn2.s_self)
         return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
 class __extend__(pairtype(SomePBC, SomePBC)):
@@ -788,7 +817,7 @@ class __extend__(pairtype(SomeGenericCallable, SomePBC)):
             unique_key = desc
             bk = desc.bookkeeper
             s_result = bk.emulate_pbc_call(unique_key, pbc, gencall.args_s)
-            s_result = unioncheck(s_result, gencall.s_result)
+            s_result = unionof(s_result, gencall.s_result)
             assert gencall.s_result.contains(s_result)
         return gencall
 
@@ -828,7 +857,7 @@ def _make_none_union(classname, constructor_args='', glob=None):
     exec source.compile() in glob
 
 _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
-_make_none_union('SomeString',      'can_be_None=True')
+_make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')

@@ -2,39 +2,11 @@
 PyPy video documentation 
 =========================
 
-Requirements to download and view
----------------------------------
-
-In order to download the videos you need to point a
-BitTorrent client at the torrent files provided below. 
-We do not provide any other download method at this
-time.  Please get a BitTorrent client (such as bittorrent). 
-For a list of clients please 
-see http://en.wikipedia.org/wiki/Category:Free_BitTorrent_clients or 
-http://en.wikipedia.org/wiki/Comparison_of_BitTorrent_clients. 
-For more information about Bittorrent see 
-http://en.wikipedia.org/wiki/Bittorrent.
-
-In order to view the downloaded movies you need to 
-have a video player that supports DivX AVI files (DivX 5, mp3 audio)
-such as `mplayer`_, `xine`_, `vlc`_ or the windows media player.
-
-.. _`mplayer`: http://www.mplayerhq.hu/design7/dload.html
-.. _`xine`: http://www.xine-project.org
-.. _`vlc`: http://www.videolan.org/vlc/
-
-You can find the necessary codecs in the ffdshow-library:
-http://sourceforge.net/projects/ffdshow/
-
-or use the original divx codec (for Windows):
-http://www.divx.com/software/divx-plus
-
-
 Copyrights and Licensing 
 ----------------------------
 
-The following videos are copyrighted by merlinux gmbh and 
-published under the Creative Commons Attribution License 2.0 Germany: http://creativecommons.org/licenses/by/2.0/de/
+The following videos are copyrighted by merlinux gmbh and available on
+YouTube.
 
 If you need another license, don't hesitate to contact us. 
 
@@ -42,255 +14,202 @@ If you need another license, don't hesitate to contact us.
 Trailer: PyPy at the PyCon 2006
 -------------------------------
 
-130mb: http://buildbot.pypy.org/misc/torrent/pycon-trailer.avi.torrent
+This trailer shows the PyPy team at the PyCon 2006, a behind-the-scenes at
+sprints, talks and everywhere else.
 
-71mb: http://buildbot.pypy.org/misc/torrent/pycon-trailer-medium.avi.torrent
+.. raw:: html
 
-50mb: http://buildbot.pypy.org/misc/torrent/pycon-trailer-320x240.avi.torrent
-
-.. image:: image/pycon-trailer.jpg
-   :scale: 100
-   :alt: Trailer PyPy at PyCon
-   :align: left
-
-This trailer shows the PyPy team at the PyCon 2006, a behind-the-scenes at sprints, talks and everywhere else.
-
-PAL, 9 min, DivX AVI
-
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/WfGszrRUdtc?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Interview with Tim Peters
 -------------------------
 
-440mb: http://buildbot.pypy.org/misc/torrent/interview-timpeters-v2.avi.torrent
+Interview with CPython core developer Tim Peters at PyCon 2006, Dallas,
+US. (2006-03-02)
 
-138mb: http://buildbot.pypy.org/misc/torrent/interview-timpeters-320x240.avi.torrent
+Tim Peters, a longtime CPython core developer talks about how he got into
+Python, what he thinks about the PyPy project and why he thinks it would have
+never been possible in the US.
 
-.. image:: image/interview-timpeters.jpg
-   :scale: 100
-   :alt: Interview with Tim Peters
-   :align: left
+.. raw:: html
 
-Interview with CPython core developer Tim Peters at PyCon 2006, Dallas, US. (2006-03-02)
-
-PAL, 23 min, DivX AVI
-
-Tim Peters, a longtime CPython core developer talks about how he got into Python, what he thinks about the PyPy project and why he thinks it would have never been possible in the US.
-
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/1wAOy88WxmY?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Interview with Bob Ippolito
 ---------------------------
 
-155mb: http://buildbot.pypy.org/misc/torrent/interview-bobippolito-v2.avi.torrent
+What do you think about PyPy? Interview with American software developer Bob
+Ippolito at PyCon 2006, Dallas, US. (2006-03-01)
 
-50mb: http://buildbot.pypy.org/misc/torrent/interview-bobippolito-320x240.avi.torrent
+Bob Ippolito is an Open Source software developer from San Francisco and has
+been to two PyPy sprints. In this interview he is giving his opinion on the
+project.
 
-.. image:: image/interview-bobippolito.jpg
-   :scale: 100
-   :alt: Interview with Bob Ippolito
-   :align: left
+.. raw:: html
 
-What do you think about PyPy? Interview with American software developer Bob Ippolito at tPyCon 2006, Dallas, US. (2006-03-01)
-
-PAL 8 min, DivX AVI
-
-Bob Ippolito is an Open Source software developer from San Francisco and has been to two PyPy sprints. In this interview he is giving his opinion on the project.
-
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/c5rq4Q03zgg?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Introductory talk on PyPy
 -------------------------
 
-430mb: http://buildbot.pypy.org/misc/torrent/introductory-talk-pycon-v1.avi.torrent
-
-166mb: http://buildbot.pypy.org/misc/torrent/introductory-talk-pycon-320x240.avi.torrent
-
-.. image:: image/introductory-talk-pycon.jpg
-   :scale: 100
-   :alt: Introductory talk at PyCon 2006
-   :align: left
-
-This introductory talk is given by core developers Michael Hudson and Christian Tismer at PyCon 2006, Dallas, US. (2006-02-26)
-
-PAL, 28 min, divx AVI
+This introductory talk is given by core developers Michael Hudson and
+Christian Tismer at PyCon 2006, Dallas, US. (2006-02-26)
 
 Michael Hudson talks about the basic building blocks of Python, the currently
 available back-ends, and the status of PyPy in general. Christian Tismer takes
-over to explain how co-routines can be used to implement things like
-Stackless and Greenlets in PyPy.
+over to explain how co-routines can be used to implement things like Stackless
+and Greenlets in PyPy.
 
+.. raw:: html
+
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/AWUhXW2pLDE?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Talk on Agile Open Source Methods in the PyPy project
 -----------------------------------------------------
 
-395mb: http://buildbot.pypy.org/misc/torrent/agile-talk-v1.avi.torrent
-
-153mb: http://buildbot.pypy.org/misc/torrent/agile-talk-320x240.avi.torrent
-
-.. image:: image/agile-talk.jpg
-   :scale: 100
-   :alt: Agile talk
-   :align: left
-
-Core developer Holger Krekel and project manager Beatrice During are giving a talk on the agile open source methods used in the PyPy project at PyCon 2006, Dallas, US. (2006-02-26)
-
-PAL, 26 min, divx AVI
+Core developer Holger Krekel and project manager Beatrice During are giving a
+talk on the agile open source methods used in the PyPy project at PyCon 2006,
+Dallas, US. (2006-02-26)
 
 Holger Krekel explains more about the goals and history of PyPy, and the
 structure and organization behind it. Bea During describes the intricacies of
 driving a distributed community in an agile way, and how to combine that with
 the formalities required for EU funding.
 
+.. raw:: html
+
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/ed-zAxZtGlY?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 PyPy Architecture session
 -------------------------
 
-744mb: http://buildbot.pypy.org/misc/torrent/architecture-session-v1.avi.torrent
-
-288mb: http://buildbot.pypy.org/misc/torrent/architecture-session-320x240.avi.torrent
-
-.. image:: image/architecture-session.jpg
-   :scale: 100
-   :alt: Architecture session
-   :align: left
-
-This architecture session is given by core developers Holger Krekel and Armin Rigo at PyCon 2006, Dallas, US. (2006-02-26)
-
-PAL, 48 min, divx AVI
+This architecture session is given by core developers Holger Krekel and Armin
+Rigo at PyCon 2006, Dallas, US. (2006-02-26)
 
 Holger Krekel and Armin Rigo talk about the basic implementation,
-implementation level aspects and the RPython translation toolchain. This
-talk also gives an insight into how a developer works with these tools on
-a daily basis, and pays special attention to flow graphs.
+implementation level aspects and the RPython translation toolchain. This talk
+also gives an insight into how a developer works with these tools on a daily
+basis, and pays special attention to flow graphs.
 
+.. raw:: html
+
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/7opXGaQUUA4?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Sprint tutorial
 ---------------
 
-680mb: http://buildbot.pypy.org/misc/torrent/sprint-tutorial-v2.avi.torrent
+Sprint tutorial by core developer Michael Hudson at PyCon 2006, Dallas,
+US. (2006-02-27)
 
-263mb: http://buildbot.pypy.org/misc/torrent/sprint-tutorial-320x240.avi.torrent
+Michael Hudson gives an in-depth, very technical introduction to a PyPy
+sprint. The film provides a detailed and hands-on overview about the
+architecture of PyPy, especially the RPython translation toolchain.
 
-.. image:: image/sprint-tutorial.jpg
-   :scale: 100
-   :alt: Sprint Tutorial
-   :align: left
+.. raw:: html
 
-Sprint tutorial by core developer Michael Hudson at PyCon 2006, Dallas, US. (2006-02-27)
-
-PAL, 44 min, divx AVI
-
-Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. The film provides a detailed and hands-on overview about the architecture of PyPy, especially the RPython translation toolchain.
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/1YV7J74xrMI?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Scripting .NET with IronPython by Jim Hugunin
 ---------------------------------------------
 
-372mb: http://buildbot.pypy.org/misc/torrent/ironpython-talk-v2.avi.torrent
+Talk by Jim Hugunin (Microsoft) on the IronPython implementation on the .NET
+framework at the PyCon 2006, Dallas, US.
 
-270mb: http://buildbot.pypy.org/misc/torrent/ironpython-talk-320x240.avi.torrent
+Jim Hugunin talks about regression tests, the code generation and the object
+layout, the new-style instance and gives a CLS interop demo.
 
-.. image:: image/ironpython.jpg
-   :scale: 100
-   :alt: Jim Hugunin on IronPython
-   :align: left
+.. raw:: html
 
-Talk by Jim Hugunin (Microsoft) on the IronPython implementation on the .NET framework at this years PyCon, Dallas, US.
-
-PAL, 44 min, DivX AVI
-
-Jim Hugunin talks about regression tests, the code generation and the object layout, the new-style instance and gives a CLS interop demo.
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/bq9ZGN3-o80?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Bram Cohen, founder and developer of BitTorrent
 -----------------------------------------------
 
-509mb: http://buildbot.pypy.org/misc/torrent/bram-cohen-interview-v1.avi.torrent
+Bram Cohen is interviewed by Steve Holden at the PyCon 2006, Dallas, US.
 
-370mb: http://buildbot.pypy.org/misc/torrent/bram-cohen-interview-320x240.avi.torrent
+.. raw:: html
 
-.. image:: image/bram.jpg
-   :scale: 100
-   :alt: Bram Cohen on BitTorrent
-   :align: left
-
-Bram Cohen is interviewed by Steve Holden at this years PyCon, Dallas, US.
-
-PAL, 60 min, DivX AVI
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/EopmJWrLmWI?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Keynote speech by Guido van Rossum on the new Python 2.5 features
 -----------------------------------------------------------------
 
-695mb: http://buildbot.pypy.org/misc/torrent/keynote-speech_guido-van-rossum_v1.avi.torrent
+Guido van Rossum explains the new Python 2.5 features at the PyCon 2006,
+Dallas, US.
 
-430mb: http://buildbot.pypy.org/misc/torrent/keynote-speech_guido-van-rossum_320x240.avi.torrent
+.. raw:: html
 
-.. image:: image/guido.jpg
-   :scale: 100
-   :alt: Guido van Rossum on Python 2.5
-   :align: left
-
-Guido van Rossum explains the new Python 2.5 features at this years PyCon, Dallas, US.
-
-PAL, 70 min, DivX AVI
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/RR2sX8tFGsI?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Trailer: PyPy sprint at the University of Palma de Mallorca
 -----------------------------------------------------------
 
-166mb: http://buildbot.pypy.org/misc/torrent/mallorca-trailer-v1.avi.torrent
+This trailer shows the PyPy team at the sprint in Mallorca, a
+behind-the-scenes of a typical PyPy coding sprint and talk as well as
+everything else.
 
-88mb: http://buildbot.pypy.org/misc/torrent/mallorca-trailer-medium.avi.torrent
+.. raw:: html
 
-64mb: http://buildbot.pypy.org/misc/torrent/mallorca-trailer-320x240.avi.torrent
-
-.. image:: image/mallorca-trailer.jpg
-   :scale: 100
-   :alt: Trailer PyPy sprint in Mallorca
-   :align: left
-
-This trailer shows the PyPy team at the sprint in Mallorca, a behind-the-scenes of a typical PyPy coding sprint and talk as well as everything else.
-
-PAL, 11 min, DivX AVI
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/swsnRfj_cek?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 Coding discussion of core developers Armin Rigo and Samuele Pedroni
 -------------------------------------------------------------------
 
-620mb: http://buildbot.pypy.org/misc/torrent/coding-discussion-v1.avi.torrent
+Coding discussion between Armin Rigo and Samuele Pedroni during the PyPy
+sprint at the University of Palma de Mallorca, Spain. 27.1.2006
 
-240mb: http://buildbot.pypy.org/misc/torrent/coding-discussion-320x240.avi.torrent
+.. raw:: html
 
-.. image:: image/coding-discussion.jpg
-   :scale: 100
-   :alt: Coding discussion
-   :align: left
-
-Coding discussion between Armin Rigo and Samuele Pedroni during the PyPy sprint at the University of Palma de Mallorca, Spain. 27.1.2006
-
-PAL 40 min, DivX AVI
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/H_IgK9qmEss?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 
 
 PyPy technical talk at the University of Palma de Mallorca
 ----------------------------------------------------------
 
-865mb: http://buildbot.pypy.org/misc/torrent/introductory-student-talk-v2.avi.torrent
-
-437mb: http://buildbot.pypy.org/misc/torrent/introductory-student-talk-320x240.avi.torrent
-
-.. image:: image/introductory-student-talk.jpg
-   :scale: 100
-   :alt: Introductory student talk
-   :align: left
-
 Technical talk on the PyPy project at the University of Palma de Mallorca, Spain. 27.1.2006
 
-PAL 72 min, DivX AVI
+Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving
+an overview of the PyPy architecture, the standard interpreter, the RPython
+translation toolchain and the just-in-time compiler.
 
-Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving an overview of the PyPy architecture, the standard interpreter, the RPython translation toolchain and the just-in-time compiler.
+.. raw:: html
+
+   <iframe width="420" height="315"
+   src="http://www.youtube.com/embed/6dnUzVQaSlg?rel=0"
+   frameborder="0" allowfullscreen></iframe>
 

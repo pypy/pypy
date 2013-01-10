@@ -106,7 +106,7 @@ def test_socketio():
             pass
     
     def entry_point(argv):
-        fd = os.open("tcp://codespeak.net:80", os.O_RDONLY, 0777)
+        fd = os.open("tcp://pypy.org:80", os.O_RDONLY, 0777)
         os.write(fd, 'GET /\n')
         print os.read(fd, 30)
         return 0

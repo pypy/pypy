@@ -1,15 +1,13 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, rclass, rffi
+from pypy.rpython.lltypesystem import lltype, rclass, rffi, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
-from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Constant
@@ -43,7 +41,6 @@ def annotate(func, values, inline=None, backendoptimize=True,
     for key, value in translationoptions.items():
         setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
-    annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
     argtypes = getargtypes(a, values)
     a.build_types(func, argtypes, main_entry_point=True)
@@ -79,28 +76,32 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     link = split_block(None, portalblock, 0, greens_v + reds_v)
     return link.target
 
+def sort_vars(args_v):
+    from pypy.jit.metainterp.history import getkind
+    _kind2count = {'int': 1, 'ref': 2, 'float': 3}
+    return sorted(args_v, key=lambda v: _kind2count[getkind(v.concretetype)])
+
 def decode_hp_hint_args(op):
     # Returns (list-of-green-vars, list-of-red-vars) without Voids.
     # Both lists must be sorted: first INT, then REF, then FLOAT.
     assert op.opname == 'jit_marker'
     jitdriver = op.args[1].value
     numgreens = len(jitdriver.greens)
-    numreds = len(jitdriver.reds)
+    assert jitdriver.numreds is not None
+    numreds = jitdriver.numreds
     greens_v = op.args[2:2+numgreens]
     reds_v = op.args[2+numgreens:]
     assert len(reds_v) == numreds
     #
     def _sort(args_v, is_green):
-        from pypy.jit.metainterp.history import getkind
         lst = [v for v in args_v if v.concretetype is not lltype.Void]
         if is_green:
             assert len(lst) == len(args_v), (
                 "not supported so far: 'greens' variables contain Void")
-        _kind2count = {'int': 1, 'ref': 2, 'float': 3}
-        lst2 = sorted(lst, key=lambda v: _kind2count[getkind(v.concretetype)])
         # a crash here means that you have to reorder the variable named in
         # the JitDriver.  Indeed, greens and reds must both be sorted: first
         # all INTs, followed by all REFs, followed by all FLOATs.
+        lst2 = sort_vars(lst)
         assert lst == lst2
         return lst
     #
@@ -143,6 +144,10 @@ def _ll_2_newlist(LIST, count, item):
 _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
 _ll_2_newlist.need_result_type = True
+
+def _ll_1_newlist_hint(LIST, hint):
+    return LIST.ll_newlist_hint(hint)
+_ll_1_newlist_hint.need_result_type = True
 
 def _ll_1_list_len(l):
     return l.ll_length()
@@ -427,32 +432,6 @@ def _ll_2_uint_mod(xll, yll):
     return llop.uint_mod(lltype.Unsigned, xll, yll)
 
 
-# libffi support
-# --------------
-
-def func(llfunc):
-    from pypy.rlib.libffi import Func
-    return cast_base_ptr_to_instance(Func, llfunc)
-
-def _ll_1_libffi_prepare_call(llfunc):
-    return func(llfunc)._prepare()
-
-def _ll_4_libffi_push_int(llfunc, value, ll_args, i):
-    return func(llfunc)._push_int(value, ll_args, i)
-
-def _ll_4_libffi_push_float(llfunc, value, ll_args, i):
-    return func(llfunc)._push_float(value, ll_args, i)
-
-def _ll_3_libffi_call_int(llfunc, funcsym, ll_args):
-    return func(llfunc)._do_call(funcsym, ll_args, rffi.LONG)
-
-def _ll_3_libffi_call_float(llfunc, funcsym, ll_args):
-    return func(llfunc)._do_call(funcsym, ll_args, rffi.DOUBLE)
-
-def _ll_3_libffi_call_void(llfunc, funcsym, ll_args):
-    return func(llfunc)._do_call(funcsym, ll_args, lltype.Void)
-
-
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [
     ('int_floordiv_ovf_zer', [lltype.Signed, lltype.Signed], lltype.Signed),
@@ -667,6 +646,15 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
+    def _ll_1_weakref_create(obj):
+        return llop.weakref_create(llmemory.WeakRefPtr, obj)
+
+    def _ll_1_weakref_deref(TP, obj):
+        return llop.weakref_deref(lltype.Ptr(TP), obj)
+    _ll_1_weakref_deref.need_result_type = True
+
+    def _ll_1_gc_add_memory_pressure(num):
+        llop.gc_add_memory_pressure(lltype.Void, num)
 
 class OOtypeHelpers:
 

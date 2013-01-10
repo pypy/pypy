@@ -1,11 +1,11 @@
 from pypy.rpython.memory.gctransform.transform import GCTransformer, mallocHelpers
-from pypy.rpython.memory.gctransform.support import type_contains_pyobjs, \
-     get_rtti, _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor
+from pypy.rpython.memory.gctransform.support import (get_rtti,
+    _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor)
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.lltypesystem import rffi
 from pypy.rpython import rmodel
+
 
 class BoehmGCTransformer(GCTransformer):
     malloc_zero_filled = True
@@ -57,12 +57,6 @@ class BoehmGCTransformer(GCTransformer):
             self.mixlevelannotator.finish()   # for now
             self.mixlevelannotator.backend_optimize()
 
-    def push_alive_nopyobj(self, var, llops):
-        pass
-
-    def pop_alive_nopyobj(self, var, llops):
-        pass
-
     def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
         # XXX same behavior for zero=True: in theory that's wrong
         if TYPE._is_atomic():
@@ -105,20 +99,7 @@ class BoehmGCTransformer(GCTransformer):
             destrptr = None
             DESTR_ARG = None
 
-        if type_contains_pyobjs(TYPE):
-            if destrptr:
-                raise Exception("can't mix PyObjects and __del__ with Boehm")
-
-            static_body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
-            d = {'pop_alive': LLTransformerOp(self.pop_alive),
-                 'PTR_TYPE':lltype.Ptr(TYPE),
-                 'cast_adr_to_ptr': llmemory.cast_adr_to_ptr}
-            src = ("def ll_finalizer(addr):\n"
-                   "    v = cast_adr_to_ptr(addr, PTR_TYPE)\n"
-                   "%s\n")%(static_body,)
-            exec src in d
-            fptr = self.annotate_finalizer(d['ll_finalizer'], [llmemory.Address], lltype.Void)
-        elif destrptr:
+        if destrptr:
             EXC_INSTANCE_TYPE = self.translator.rtyper.exceptiondata.lltype_of_exception_value
             typename = TYPE.__name__
             def ll_finalizer(addr):

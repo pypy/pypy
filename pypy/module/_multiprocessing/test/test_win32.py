@@ -1,12 +1,12 @@
 import py
 import sys
-from pypy.conftest import gettestobjspace
 
 class AppTestWin32:
+    spaceconfig = dict(usemodules=('_multiprocessing',))
+
     def setup_class(cls):
         if sys.platform != "win32":
             py.test.skip("win32 only")
-        cls.space = gettestobjspace(usemodules=('_multiprocessing',))
 
     def test_CloseHandle(self):
         from _multiprocessing import win32

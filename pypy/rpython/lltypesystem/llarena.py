@@ -1,5 +1,7 @@
 import array, weakref
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 # An "arena" is a large area of memory which can hold a number of
 # objects, not necessarily all of the same type or size.  It's used by
@@ -164,7 +166,7 @@ class fakearenaaddress(llmemory.fakeaddress):
         return '<arenaaddr %s + %d>' % (self.arena, self.offset)
 
     def __add__(self, other):
-        if isinstance(other, (int, long)):
+        if is_valid_int(other):
             position = self.offset + other
         elif isinstance(other, llmemory.AddressOffset):
             # this is really some Do What I Mean logic.  There are two
@@ -184,7 +186,7 @@ class fakearenaaddress(llmemory.fakeaddress):
     def __sub__(self, other):
         if isinstance(other, llmemory.AddressOffset):
             other = llmemory.raw_malloc_usage(other)
-        if isinstance(other, (int, long)):
+        if is_valid_int(other):
             return self.arena.getaddr(self.offset - other)
         if isinstance(other, fakearenaaddress):
             if self.arena is not other.arena:
@@ -425,12 +427,14 @@ if sys.platform.startswith('linux'):
                                     sandboxsafe=True, _nowrapper=True,
                                     compilation_info=_eci)
     linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT,
-                                        sandboxsafe=True, _nowrapper=True)
+                                        sandboxsafe=True, _nowrapper=True,
+                                        compilation_info=_eci)
 
     class LinuxPageSize:
         def __init__(self):
             self.pagesize = 0
-        _freeze_ = __init__
+        def _cleanup_(self):
+            self.pagesize = 0
     linuxpagesize = LinuxPageSize()
 
     def clear_large_memory_chunk(baseaddr, size):

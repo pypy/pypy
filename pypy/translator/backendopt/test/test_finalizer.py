@@ -84,8 +84,8 @@ class TestLLType(BaseFinalizerAnalyzerTests):
 
             def __del__(self):
                 if self.x:
-                    self.x = lltype.nullptr(S)
                     lltype.free(self.x, flavor='raw')
+                    self.x = lltype.nullptr(S)
 
         def f():
             return A()

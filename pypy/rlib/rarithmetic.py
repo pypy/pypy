@@ -30,22 +30,54 @@ mark where overflow checking is required.
 
 
 """
-import sys
+import sys, struct
 from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
-# set up of machine internals
-_bits = 0
-_itest = 1
-_Ltest = 1L
-while _itest == _Ltest and type(_itest) is int:
-    _itest *= 2
-    _Ltest *= 2
-    _bits += 1
+"""
+Long-term target:
+We want to make pypy very flexible concerning its data type layout.
+This is a larger task for later.
 
-LONG_BIT = _bits+1
-LONG_MASK = _Ltest*2-1
-LONG_TEST = _Ltest
+Short-term target:
+We want to run PyPy on windows 64 bit.
+
+Problem:
+On windows 64 bit, integers are only 32 bit. This is a problem for PyPy
+right now, since it assumes that a c long can hold a pointer.
+We therefore set up the target machine constants to obey this rule.
+Right now this affects 64 bit Python only on windows.
+
+Note: We use the struct module, because the array module doesn's support
+all typecodes.
+"""
+
+def _get_bitsize(typecode):
+    return len(struct.pack(typecode, 1)) * 8
+
+_long_typecode = 'l'
+if _get_bitsize('P') > _get_bitsize('l'):
+    _long_typecode = 'P'
+
+def _get_long_bit():
+    # whatever size a long has, make it big enough for a pointer.
+    return _get_bitsize(_long_typecode)
+
+# exported for now for testing array values.
+# might go into its own module.
+def get_long_pattern(x):
+    """get the bit pattern for a long, adjusted to pointer size"""
+    return struct.pack(_long_typecode, x)
+
+# used in tests for ctypes and for genc and friends
+# to handle the win64 special case:
+is_emulated_long = _long_typecode != 'l'
+
+LONG_BIT = _get_long_bit()
+LONG_MASK = (2**LONG_BIT)-1
+LONG_TEST = 2**(LONG_BIT-1)
+
+# XXX this is a good guess, but what if a long long is 128 bit?
 LONGLONG_BIT  = 64
 LONGLONG_MASK = (2**LONGLONG_BIT)-1
 LONGLONG_TEST = 2**(LONGLONG_BIT-1)
@@ -55,12 +87,28 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     LONG_BIT_SHIFT += 1
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
 
+LONGLONGLONG_BIT  = 128
+LONGLONGLONG_MASK = (2**LONGLONGLONG_BIT)-1
+LONGLONGLONG_TEST = 2**(LONGLONGLONG_BIT-1)
+
+"""
+int is no longer necessarily the same size as the target int.
+We therefore can no longer use the int type as it is, but need
+to use long everywhere.
+"""
+
+# XXX returning int(n) should not be necessary and should be simply n.
+# XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
+# XXX       Then relax it and replace int(n) by n.
 def intmask(n):
-    if isinstance(n, int):
-        return int(n)   # possibly bool->int
+    """
+    NOT_RPYTHON
+    """
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
+    if is_valid_int(n):
+        return int(n)
     n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:
@@ -68,12 +116,20 @@ def intmask(n):
     return int(n)
 
 def longlongmask(n):
+    """
+    NOT_RPYTHON
+    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK
     if n >= LONGLONG_TEST:
         n -= 2*LONGLONG_TEST
     return r_longlong(n)
+
+def longlonglongmask(n):
+    # Assume longlonglong doesn't overflow. This is perfectly fine for rbigint.
+    # We deal directly with overflow there anyway.
+    return r_longlonglong(n)
 
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
@@ -95,7 +151,15 @@ def _should_widen_type(tp):
         r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
-del _bits, _itest, _Ltest
+# the replacement for sys.maxint
+maxint = int(LONG_TEST - 1)
+
+def is_valid_int(r):
+    if objectmodel.we_are_translated():
+        return isinstance(r, int)
+    return type(r) in (int, long, bool) and (
+        -maxint - 1 <= r <= maxint)
+is_valid_int._annspecialcase_ = 'specialize:argtype(0)'
 
 def ovfcheck(r):
     "NOT_RPYTHON"
@@ -103,8 +167,10 @@ def ovfcheck(r):
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
-    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
-    if type(r) is long:
+    assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
+    if type(r) is long and not is_valid_int(r):
+        # checks only if applicable to r's type.
+        # this happens in the garbage collector.
         raise OverflowError, "signed integer expression did overflow"
     return r
 
@@ -180,6 +246,17 @@ def most_neg_value_of(tp):
         return r_class(0)
 most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
+def is_signed_integer_type(tp):
+    from pypy.rpython.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return True
+    try:
+        r_class = rffi.platform.numbertype_to_rclass[tp]
+        return r_class.SIGNED
+    except KeyError:
+        return False   # not an integer type
+is_signed_integer_type._annspecialcase_ = 'specialize:memo'
+
 def highest_bit(n):
     """
     Calculates the highest set bit in n.  This function assumes that n is a
@@ -223,7 +300,7 @@ class base_int(long):
         y = long(other)
         return self._widen(other, x + y)
     __radd__ = __add__
-    
+
     def __sub__(self, other):
         x = long(self)
         y = long(other)
@@ -233,7 +310,7 @@ class base_int(long):
         y = long(self)
         x = long(other)
         return self._widen(other, x - y)
-    
+
     def __mul__(self, other):
         x = long(self)
         if not isinstance(other, (int, long)):
@@ -337,22 +414,26 @@ class base_int(long):
         res = pow(x, y, m)
         return self._widen(other, res)
 
+
 class signed_int(base_int):
     SIGNED = True
+
     def __new__(klass, val=0):
-        if type(val) is float:
+        if isinstance(val, (float, str)):
             val = long(val)
-        if val > klass.MASK>>1 or val < -(klass.MASK>>1)-1:
-            raise OverflowError("%s does not fit in signed %d-bit integer"%(val, klass.BITS))
+        if val > klass.MASK >> 1 or val < -(klass.MASK >> 1) - 1:
+            raise OverflowError("%s does not fit in signed %d-bit integer" % (val, klass.BITS))
         if val < 0:
             val = ~ ((~val) & klass.MASK)
         return super(signed_int, klass).__new__(klass, val)
     typemap = {}
 
+
 class unsigned_int(base_int):
     SIGNED = False
+
     def __new__(klass, val=0):
-        if isinstance(val, (float, long)):
+        if isinstance(val, (float, long, str)):
             val = long(val)
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
@@ -384,7 +465,7 @@ def build_int(name, sign, bits, force_creation=False):
         def compute_annotation(self):
             from pypy.annotation import model as annmodel
             return annmodel.SomeInteger(knowntype=int_type)
-            
+
     class ForTypeEntry(extregistry.ExtRegistryEntry):
         _about_ = int_type
 
@@ -396,7 +477,7 @@ def build_int(name, sign, bits, force_creation=False):
             v_result, = hop.inputargs(hop.r_result.lowleveltype)
             hop.exception_cannot_occur()
             return v_result
-            
+
     return int_type
 
 class BaseIntValueEntry(extregistry.ExtRegistryEntry):
@@ -405,7 +486,7 @@ class BaseIntValueEntry(extregistry.ExtRegistryEntry):
     def compute_annotation(self):
         from pypy.annotation import model as annmodel
         return annmodel.SomeInteger(knowntype=r_ulonglong)
-        
+
 class BaseIntTypeEntry(extregistry.ExtRegistryEntry):
     _about_ = base_int
 
@@ -418,6 +499,7 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+r_longlonglong = build_int('r_longlonglong', True, 128)
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
@@ -425,6 +507,11 @@ if r_longlong is not r_int:
 else:
     r_int64 = int
 
+# needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
+r_uint32 = build_int('r_uint32', False, 32)
+
+# needed for ll_time.time_sleep_llimpl
+maxint32 = int((1 << 31) -1)
 
 # the 'float' C type
 
@@ -513,3 +600,37 @@ def int_between(n, m, p):
     if not objectmodel.we_are_translated():
         assert n <= p
     return llop.int_between(lltype.Bool, n, m, p)
+
+@objectmodel.specialize.ll()
+def byteswap(arg):
+    """ Convert little->big endian and the opposite
+    """
+    from pypy.rpython.lltypesystem import lltype, rffi
+
+    T = lltype.typeOf(arg)
+    # XXX we cannot do arithmetics on small ints
+    if isinstance(arg, base_int):
+        arg = widen(arg)
+    if rffi.sizeof(T) == 1:
+        res = arg
+    elif rffi.sizeof(T) == 2:
+        a, b = arg & 0xFF, arg & 0xFF00
+        res = (a << 8) | (b >> 8)
+    elif rffi.sizeof(T) == 4:
+        FF = r_uint(0xFF)
+        arg = r_uint(arg)
+        a, b, c, d = (arg & FF, arg & (FF << 8), arg & (FF << 16),
+                      arg & (FF << 24))
+        res = (a << 24) | (b << 8) | (c >> 8) | (d >> 24)
+    elif rffi.sizeof(T) == 8:
+        FF = r_ulonglong(0xFF)
+        arg = r_ulonglong(arg)
+        a, b, c, d = (arg & FF, arg & (FF << 8), arg & (FF << 16),
+                      arg & (FF << 24))
+        e, f, g, h = (arg & (FF << 32), arg & (FF << 40), arg & (FF << 48),
+                      arg & (FF << 56))
+        res = ((a << 56) | (b << 40) | (c << 24) | (d << 8) | (e >> 8) |
+               (f >> 24) | (g >> 40) | (h >> 56))
+    else:
+        assert False # unreachable code
+    return rffi.cast(T, res)

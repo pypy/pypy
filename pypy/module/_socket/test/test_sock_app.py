@@ -1,12 +1,12 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.udir import udir
 from pypy.rlib import rsocket
 from pypy.rpython.lltypesystem import lltype, rffi
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket', 'array'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
@@ -243,10 +243,17 @@ def test_unknown_addr_as_object():
 def test_addr_raw_packet():
     if not hasattr(rsocket._c, 'sockaddr_ll'):
         py.test.skip("posix specific test")
+    # HACK: To get the correct interface numer of lo, which in most cases is 1,
+    # but can be anything (i.e. 39), we need to call the libc function
+    # if_nametoindex to get the correct index
+    import ctypes
+    libc = ctypes.CDLL(ctypes.util.find_library('c'))
+    ifnum = libc.if_nametoindex('lo')
+
     c_addr_ll = lltype.malloc(rsocket._c.sockaddr_ll, flavor='raw')
     addrlen = rffi.sizeof(rsocket._c.sockaddr_ll)
     c_addr = rffi.cast(lltype.Ptr(rsocket._c.sockaddr), c_addr_ll)
-    rffi.setintfield(c_addr_ll, 'c_sll_ifindex', 1)
+    rffi.setintfield(c_addr_ll, 'c_sll_ifindex', ifnum)
     rffi.setintfield(c_addr_ll, 'c_sll_protocol', 8)
     rffi.setintfield(c_addr_ll, 'c_sll_pkttype', 13)
     rffi.setintfield(c_addr_ll, 'c_sll_hatype', 0)
@@ -372,10 +379,9 @@ class AppTestSocket:
     def test_socket_connect(self):
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX temporarily we use python.org to test, will have more robust tests
-        # in the absence of a network connection later when more parts of the
-        # socket API are implemented.  Currently skip the test if there is no
-        # connection.
+        # it would be nice to have a test which works even if there is no
+        # network connection. However, this one is "good enough" for now. Skip
+        # it if there is no connection.
         try:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
@@ -612,13 +618,19 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == '?'
         # test send() timeout
+        count = 0
         try:
             while 1:
-                cli.send('foobar' * 70)
+                count += cli.send('foobar' * 70)
         except timeout:
             pass
+        t.recv(count)    
         # test sendall() timeout
-        raises(timeout, cli.sendall, 'foobar' * 70)
+        try:
+            while 1:
+                cli.sendall('foobar' * 70)
+        except timeout:
+            pass
         # done
         cli.close()
         t.close()

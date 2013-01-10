@@ -1,11 +1,8 @@
-from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
-from pypy.objspace.flow.model import c_last_exception
-from pypy.objspace.flow.model import mkentrymap
-from pypy.translator.backendopt.support import log
-from pypy.translator.simplify import eliminate_empty_blocks
-from pypy.translator.unsimplify import insert_empty_block, split_block
-from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.objspace.flow.model import (Constant, Variable, SpaceOperation,
+    c_last_exception, mkentrymap)
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.translator.unsimplify import insert_empty_block, split_block
 
 
 def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
@@ -36,7 +33,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                     pass
                 except (KeyboardInterrupt, SystemExit):
                     raise
-                except Exception, e:
+                except Exception:
                     pass   # turn off reporting these as warnings: useless
                     #log.WARNING('constant-folding %r:' % (spaceop,))
                     #log.WARNING('  %s: %s' % (e.__class__.__name__, e))
@@ -69,7 +66,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
 def constant_fold_block(block):
     constants = {}
     block.operations = fold_op_list(block.operations, constants,
-                           exc_catch = block.exitswitch == c_last_exception)
+                           exc_catch=block.exitswitch == c_last_exception)
     if constants:
         if block.exitswitch in constants:
             switch = constants[block.exitswitch].value
@@ -255,7 +252,7 @@ def constant_diffuse(graph):
         if same_as:
             constant_fold_block(block)
     return count
-                
+
 def constant_fold_graph(graph):
     # first fold inside the blocks
     for block in graph.iterblocks():
@@ -275,7 +272,7 @@ def constant_fold_graph(graph):
                     constants[v2] = v1
             if constants:
                 prepare_constant_fold_link(link, constants, splitblocks)
-        if  splitblocks:
+        if splitblocks:
             rewire_links(splitblocks, graph)
         if not diffused and not splitblocks:
             break # finished

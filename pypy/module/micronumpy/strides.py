@@ -1,20 +1,36 @@
 from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
+from pypy.module.micronumpy.base import W_NDimArray
+
+@jit.look_inside_iff(lambda chunks: jit.isconstant(len(chunks)))
+def enumerate_chunks(chunks):
+    result = []
+    i = -1
+    for chunk in chunks:
+        i += chunk.axis_step
+        result.append((i, chunk))
+    return result
 
 @jit.look_inside_iff(lambda shape, start, strides, backstrides, chunks:
     jit.isconstant(len(chunks))
 )
 def calculate_slice_strides(shape, start, strides, backstrides, chunks):
-    rstrides = []
-    rbackstrides = []
-    rstart = start
-    rshape = []
-    i = -1
-    for i, chunk in enumerate(chunks):
+    size = 0
+    for chunk in chunks:
         if chunk.step != 0:
-            rstrides.append(strides[i] * chunk.step)
-            rbackstrides.append(strides[i] * (chunk.lgt - 1) * chunk.step)
-            rshape.append(chunk.lgt)
+            size += 1
+    rstrides = [0] * size
+    rbackstrides = [0] * size
+    rstart = start
+    rshape = [0] * size
+    i = -1
+    j = 0
+    for i, chunk in enumerate_chunks(chunks):
+        if chunk.step != 0:
+            rstrides[j] = strides[i] * chunk.step
+            rbackstrides[j] = strides[i] * (chunk.lgt - 1) * chunk.step
+            rshape[j] = chunk.lgt
+            j += 1
         rstart += strides[i] * chunk.start
     # add a reminder
     s = i + 1
@@ -38,22 +54,33 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
     rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
     return rstrides, rbackstrides
 
-def find_shape_and_elems(space, w_iterable):
+def is_single_elem(space, w_elem, is_rec_type):
+    if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
+        return True
+    if (space.isinstance_w(w_elem, space.w_tuple) or
+        isinstance(w_elem, W_NDimArray) or    
+        space.isinstance_w(w_elem, space.w_list)):
+        return False
+    return True
+
+def find_shape_and_elems(space, w_iterable, dtype):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
+    is_rec_type = dtype is not None and dtype.is_record_type()
     while True:
         new_batch = []
         if not batch:
-            return shape, []
-        if not space.issequence_w(batch[0]):
-            for elem in batch:
-                if space.issequence_w(elem):
+            return shape[:], []
+        if is_single_elem(space, batch[0], is_rec_type):
+            for w_elem in batch:
+                if not is_single_elem(space, w_elem, is_rec_type):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "setting an array element with a sequence"))
-            return shape, batch
+            return shape[:], batch
         size = space.len_w(batch[0])
         for w_elem in batch:
-            if not space.issequence_w(w_elem) or space.len_w(w_elem) != size:
+            if (is_single_elem(space, w_elem, is_rec_type) or
+                space.len_w(w_elem) != size):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "setting an array element with a sequence"))
             new_batch += space.listview(w_elem)
@@ -68,9 +95,9 @@ def to_coords(space, shape, size, order, w_item_or_slice):
         space.isinstance_w(w_item_or_slice, space.w_slice)):
         raise OperationError(space.w_IndexError,
                              space.wrap('unsupported iterator index'))
-            
+
     start, stop, step, lngth = space.decode_index4(w_item_or_slice, size)
-        
+
     coords = [0] * len(shape)
     i = start
     if order == 'C':
@@ -83,7 +110,12 @@ def to_coords(space, shape, size, order, w_item_or_slice):
             i //= shape[s]
     return coords, step, lngth
 
-def shape_agreement(space, shape1, shape2):
+@jit.unroll_safe
+def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
+    if w_arr2 is None:
+        return shape1
+    assert isinstance(w_arr2, W_NDimArray)
+    shape2 = w_arr2.get_shape()
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):
         raise OperationError(space.w_ValueError,
@@ -92,8 +124,16 @@ def shape_agreement(space, shape1, shape2):
                 ",".join([str(x) for x in shape2]),
             ))
         )
+    if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
+        raise OperationError(space.w_ValueError,
+            space.wrap("unbroadcastable shape (%s) cannot be broadcasted to (%s)" % (
+                ",".join([str(x) for x in shape1]),
+                ",".join([str(x) for x in shape2]),
+            ))
+        )
     return ret
 
+@jit.unroll_safe
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.
@@ -144,12 +184,6 @@ def get_shape_from_iterable(space, old_size, w_iterable):
         neg_dim = -1
         batch = space.listview(w_iterable)
         new_size = 1
-        if len(batch) < 1:
-            if old_size == 1:
-                # Scalars can have an empty size.
-                new_size = 1
-            else:
-                new_size = 0
         new_shape = []
         i = 0
         for elem in batch:
@@ -229,4 +263,19 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
     assert len(new_strides) == len(new_shape)
-    return new_strides
+    return new_strides[:]
+
+
+def calculate_dot_strides(strides, backstrides, res_shape, skip_dims):
+    rstrides = [0] * len(res_shape)
+    rbackstrides = [0] * len(res_shape)
+    j = 0
+    for i in range(len(res_shape)):
+        if i in skip_dims:
+            rstrides[i] = 0
+            rbackstrides[i] = 0
+        else:
+            rstrides[i] = strides[j]
+            rbackstrides[i] = backstrides[j]
+            j += 1
+    return rstrides, rbackstrides

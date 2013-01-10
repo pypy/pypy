@@ -1,5 +1,5 @@
-"""Tests for distutils.command.register."""
 # -*- encoding: utf8 -*-
+"""Tests for distutils.command.register."""
 import sys
 import os
 import unittest
@@ -7,7 +7,7 @@ import getpass
 import urllib2
 import warnings
 
-from test.test_support import check_warnings
+from test.test_support import check_warnings, run_unittest
 
 from distutils.command import register as register_module
 from distutils.command.register import register
@@ -138,7 +138,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
 
         # let's see what the server received : we should
         # have 2 similar requests
-        self.assertTrue(self.conn.reqs, 2)
+        self.assertEqual(len(self.conn.reqs), 2)
         req1 = dict(self.conn.reqs[0].headers)
         req2 = dict(self.conn.reqs[1].headers)
         self.assertEqual(req2['Content-length'], req1['Content-length'])
@@ -168,7 +168,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
             del register_module.raw_input
 
         # we should have send a request
-        self.assertTrue(self.conn.reqs, 1)
+        self.assertEqual(len(self.conn.reqs), 1)
         req = self.conn.reqs[0]
         headers = dict(req.headers)
         self.assertEqual(headers['Content-length'], '608')
@@ -186,7 +186,7 @@ class RegisterTestCase(PyPIRCCommandTestCase):
             del register_module.raw_input
 
         # we should have send a request
-        self.assertTrue(self.conn.reqs, 1)
+        self.assertEqual(len(self.conn.reqs), 1)
         req = self.conn.reqs[0]
         headers = dict(req.headers)
         self.assertEqual(headers['Content-length'], '290')
@@ -246,6 +246,24 @@ class RegisterTestCase(PyPIRCCommandTestCase):
         finally:
             del register_module.raw_input
 
+        # and finally a Unicode test (bug #12114)
+        metadata = {'url': u'xxx', 'author': u'\u00c9ric',
+                    'author_email': u'xxx', u'name': 'xxx',
+                    'version': u'xxx',
+                    'description': u'Something about esszet \u00df',
+                    'long_description': u'More things about esszet \u00df'}
+
+        cmd = self._get_cmd(metadata)
+        cmd.ensure_finalized()
+        cmd.strict = 1
+        inputs = RawInputs('1', 'tarek', 'y')
+        register_module.raw_input = inputs.__call__
+        # let's run the command
+        try:
+            cmd.run()
+        finally:
+            del register_module.raw_input
+
     def test_check_metadata_deprecated(self):
         # makes sure make_metadata is deprecated
         cmd = self._get_cmd()
@@ -258,4 +276,4 @@ def test_suite():
     return unittest.makeSuite(RegisterTestCase)
 
 if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
+    run_unittest(test_suite())

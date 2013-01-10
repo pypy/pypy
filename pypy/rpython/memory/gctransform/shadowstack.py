@@ -1,15 +1,58 @@
-from pypy.rpython.memory.gctransform.framework import BaseRootWalker
-from pypy.rpython.memory.gctransform.framework import sizeofaddr
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.annotation import model as annmodel
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.nonconst import NonConstant
-from pypy.annotation import model as annmodel
+from pypy.rpython import rmodel
+from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.memory.gctransform.framework import (
+     BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
+from pypy.rpython.rbuiltin import gen_cast
+
+
+class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
+    def annotate_walker_functions(self, getfn):
+        self.incr_stack_ptr = getfn(self.root_walker.incr_stack,
+                                   [annmodel.SomeInteger()],
+                                   annmodel.SomeAddress(),
+                                   inline = True)
+        self.decr_stack_ptr = getfn(self.root_walker.decr_stack,
+                                   [annmodel.SomeInteger()],
+                                   annmodel.SomeAddress(),
+                                   inline = True)
+
+    def build_root_walker(self):
+        return ShadowStackRootWalker(self)
+
+    def push_roots(self, hop, keep_current_args=False):
+        livevars = self.get_livevars_for_roots(hop, keep_current_args)
+        self.num_pushs += len(livevars)
+        if not livevars:
+            return []
+        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
+        base_addr = hop.genop("direct_call", [self.incr_stack_ptr, c_len ],
+                              resulttype=llmemory.Address)
+        for k,var in enumerate(livevars):
+            c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
+            v_adr = gen_cast(hop.llops, llmemory.Address, var)
+            hop.genop("raw_store", [base_addr, c_k, v_adr])
+        return livevars
+
+    def pop_roots(self, hop, livevars):
+        if not livevars:
+            return
+        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
+        base_addr = hop.genop("direct_call", [self.decr_stack_ptr, c_len ],
+                              resulttype=llmemory.Address)
+        if self.gcdata.gc.moving_gc:
+            # for moving collectors, reload the roots into the local variables
+            for k,var in enumerate(livevars):
+                c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
+                v_newaddr = hop.genop("raw_load", [base_addr, c_k],
+                                      resulttype=llmemory.Address)
+                hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
 
 
 class ShadowStackRootWalker(BaseRootWalker):
-    need_root_stack = True
-
     def __init__(self, gctransformer):
         BaseRootWalker.__init__(self, gctransformer)
         # NB. 'self' is frozen, but we can use self.gcdata to store state
@@ -27,28 +70,17 @@ class ShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
-        translator = gctransformer.translator
-        if (hasattr(translator, '_jit2gc') and
-                'root_iterator' in translator._jit2gc):
-            root_iterator = translator._jit2gc['root_iterator']
-            def jit_walk_stack_root(callback, addr, end):
-                root_iterator.context = NonConstant(llmemory.NULL)
-                gc = self.gc
-                while True:
-                    addr = root_iterator.next(gc, addr, end)
-                    if addr == llmemory.NULL:
-                        return
-                    callback(gc, addr)
-                    addr += sizeofaddr
-            self.rootstackhook = jit_walk_stack_root
-        else:
-            def default_walk_stack_root(callback, addr, end):
-                gc = self.gc
-                while addr != end:
-                    if gc.points_to_valid_gc_object(addr):
-                        callback(gc, addr)
-                    addr += sizeofaddr
-            self.rootstackhook = default_walk_stack_root
+        root_iterator = get_root_iterator(gctransformer)
+        def walk_stack_root(callback, start, end):
+            root_iterator.setcontext(NonConstant(llmemory.NULL))
+            gc = self.gc
+            addr = end
+            while True:
+                addr = root_iterator.nextleft(gc, start, addr)
+                if addr == llmemory.NULL:
+                    return
+                callback(gc, addr)
+        self.rootstackhook = walk_stack_root
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
         rsd = gctransformer.root_stack_depth
@@ -74,8 +106,6 @@ class ShadowStackRootWalker(BaseRootWalker):
 
     def need_thread_support(self, gctransformer, getfn):
         from pypy.module.thread import ll_thread    # xxx fish
-        from pypy.rpython.memory.support import AddressDict
-        from pypy.rpython.memory.support import copy_without_null_values
         gcdata = self.gcdata
         # the interfacing between the threads and the GC is done via
         # two completely ad-hoc operations at the moment:
@@ -331,6 +361,30 @@ class ShadowStackPool(object):
                 raise MemoryError
 
 
+def get_root_iterator(gctransformer):
+    if hasattr(gctransformer, '_root_iterator'):
+        return gctransformer._root_iterator     # if already built
+    translator = gctransformer.translator
+    if (hasattr(translator, '_jit2gc') and
+            'root_iterator' in translator._jit2gc):
+        result = translator._jit2gc['root_iterator']
+    else:
+        class RootIterator(object):
+            def _freeze_(self):
+                return True
+            def setcontext(self, context):
+                pass
+            def nextleft(self, gc, start, addr):
+                while addr != start:
+                    addr -= sizeofaddr
+                    if gc.points_to_valid_gc_object(addr):
+                        return addr
+                return llmemory.NULL
+        result = RootIterator()
+    gctransformer._root_iterator = result
+    return result
+
+
 def get_shadowstackref(gctransformer):
     if hasattr(gctransformer, '_SHADOWSTACKREF'):
         return gctransformer._SHADOWSTACKREF
@@ -344,28 +398,15 @@ def get_shadowstackref(gctransformer):
                                      rtti=True)
     SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
 
-    translator = gctransformer.translator
-    if hasattr(translator, '_jit2gc'):
-        gc = gctransformer.gcdata.gc
-        root_iterator = translator._jit2gc['root_iterator']
-        def customtrace(obj, prev):
-            obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
-            if not prev:
-                root_iterator.context = obj.context
-                next = obj.base
-            else:
-                next = prev + sizeofaddr
-            return root_iterator.next(gc, next, obj.top)
-    else:
-        def customtrace(obj, prev):
-            # a simple but not JIT-ready version
-            if not prev:
-                next = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base
-            else:
-                next = prev + sizeofaddr
-            if next == llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top:
-                next = llmemory.NULL
-            return next
+    gc = gctransformer.gcdata.gc
+    root_iterator = get_root_iterator(gctransformer)
+
+    def customtrace(obj, prev):
+        obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
+        if not prev:
+            root_iterator.setcontext(obj.context)
+            prev = obj.top
+        return root_iterator.nextleft(gc, obj.base, prev)
 
     CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                       llmemory.Address)

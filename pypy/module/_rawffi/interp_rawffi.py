@@ -133,6 +133,11 @@ def unpack_argshapes(space, w_argtypes):
     return [unpack_simple_shape(space, w_arg)
             for w_arg in space.unpackiterable(w_argtypes)]
 
+def got_libffi_error(space):
+    raise OperationError(space.w_SystemError,
+                         space.wrap("not supported by libffi"))
+
+
 class W_CDLL(Wrappable):
     def __init__(self, space, name, cdll):
         self.cdll = cdll
@@ -175,6 +180,8 @@ class W_CDLL(Wrappable):
             except KeyError:
                 raise operationerrfmt(space.w_AttributeError,
                     "No symbol %s found in library %s", name, self.name)
+            except LibFFIError:
+                raise got_libffi_error(space)
 
         elif (_MS_WINDOWS and
               space.is_true(space.isinstance(w_name, space.w_int))):
@@ -185,6 +192,8 @@ class W_CDLL(Wrappable):
             except KeyError:
                 raise operationerrfmt(space.w_AttributeError,
                     "No symbol %d found in library %s", ordinal, self.name)
+            except LibFFIError:
+                raise got_libffi_error(space)
         else:
             raise OperationError(space.w_TypeError, space.wrap(
                 "function name must be string or integer"))
@@ -253,7 +262,7 @@ class W_DataShape(Wrappable):
         # XXX: this assumes that you have the _ffi module enabled. In the long
         # term, probably we will move the code for build structures and arrays
         # from _rawffi to _ffi
-        from pypy.module._ffi.interp_ffi import W_FFIType
+        from pypy.module._ffi.interp_ffitype import W_FFIType
         return W_FFIType('<unknown>', self.get_basic_ffi_type(), self)
 
     @unwrap_spec(n=int)
@@ -448,8 +457,11 @@ def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
     resshape = unpack_resshape(space, w_res)
     ffi_args = [shape.get_basic_ffi_type() for shape in argshapes]
     ffi_res = resshape.get_basic_ffi_type()
-    ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
-                     flags)
+    try:
+        ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
+                         flags)
+    except LibFFIError:
+        raise got_libffi_error(space)
     return space.wrap(W_FuncPtr(space, ptr, argshapes, resshape))
 
 W_FuncPtr.typedef = TypeDef(
@@ -539,11 +551,19 @@ def get_errno(space):
 def set_errno(space, w_errno):
     rposix.set_errno(space.int_w(w_errno))
 
-def get_last_error(space):
-    from pypy.rlib.rwin32 import GetLastError
-    return space.wrap(GetLastError())
-
-@unwrap_spec(error=int)
-def set_last_error(space, error):
-    from pypy.rlib.rwin32 import SetLastError
-    SetLastError(error)
+if sys.platform == 'win32':
+    def get_last_error(space):
+        from pypy.rlib.rwin32 import GetLastError
+        return space.wrap(GetLastError())
+    @unwrap_spec(error=int)
+    def set_last_error(space, error):
+        from pypy.rlib.rwin32 import SetLastError
+        SetLastError(error)
+else:
+    # always have at least a dummy version of these functions
+    # (https://bugs.pypy.org/issue1242)
+    def get_last_error(space):
+        return space.wrap(0)
+    @unwrap_spec(error=int)
+    def set_last_error(space, error):
+        pass

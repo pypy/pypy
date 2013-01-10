@@ -27,6 +27,7 @@ generic element in some specific subset of the set of all objects.
 #    \_____________________________________________________/
 #
 
+from __future__ import absolute_import
 
 from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy
@@ -36,18 +37,21 @@ from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat
 import inspect, weakref
 
-DEBUG = False    # set to False to disable recording of debugging information
-
 class State(object):
-    pass
+    # A global attribute :-(  Patch it with 'True' to enable checking of
+    # the no_nul attribute...
+    check_str_without_nul = False
 TLS = State()
 
 class SomeObject(object):
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
     __metaclass__ = extendabletype
-    knowntype = object
     immutable = False
+    knowntype = object
+
+    def __init__(self):
+        assert type(self) is not SomeObject
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -103,60 +107,28 @@ class SomeObject(object):
         return self.immutable and 'const' in self.__dict__
 
     # delegate accesses to 'const' to accesses to 'const_box.value',
-    # where const_box is a Constant.  XXX the idea is to eventually
-    # use systematically 'const_box' instead of 'const' for
-    # non-immutable constant annotations
+    # where const_box is a Constant.  This is not a property, in order
+    # to allow 'self.const = xyz' to work as well.
     class ConstAccessDelegator(object):
         def __get__(self, obj, cls=None):
             return obj.const_box.value
     const = ConstAccessDelegator()
     del ConstAccessDelegator
 
-    # for debugging, record where each instance comes from
-    # this is disabled if DEBUG is set to False
-    def __new__(cls, *args, **kw):
-        new = super(SomeObject, cls).__new__
-        if new is object.__new__:
-            # Since python 2.6, object.__new__ warns
-            # when parameters are passed
-            self = new(cls)
-        else:
-            self = new(cls, *args, **kw)
-        if DEBUG:
-            try:
-                bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-                position_key = bookkeeper.position_key
-            except AttributeError:
-                pass
-            else:
-                bookkeeper._isomeobject_coming_from[self] = position_key, None
-        return self
-
-    def origin(self):
-        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-        if bookkeeper is None:
-            return None
-        return bookkeeper._isomeobject_coming_from.get(self, (None, None))[0]
-    origin = property(origin)
-
-    def caused_by_merge(self):
-        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-        if bookkeeper is None:
-            return None
-        return bookkeeper._isomeobject_coming_from.get(self, (None, None))[1]
-    def set_caused_by_merge(self, nvalue):
-        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-        if bookkeeper is None:
-            return
-        bookkeeper._isomeobject_coming_from[self] = self.origin, nvalue
-    caused_by_merge = property(caused_by_merge, set_caused_by_merge)
-    del set_caused_by_merge
-
     def can_be_none(self):
         return True
-        
+
     def nonnoneify(self):
         return self
+
+
+class SomeType(SomeObject):
+    "Stands for a type.  We might not be sure which one it is."
+    knowntype = type
+    immutable = True
+
+    def can_be_none(self):
+        return False
 
 class SomeFloat(SomeObject):
     "Stands for a float or an integer."
@@ -224,44 +196,67 @@ class SomeBool(SomeInteger):
     unsigned = False
     def __init__(self):
         pass
+    def set_knowntypedata(self, knowntypedata):
+        assert not hasattr(self, 'knowntypedata')
+        if knowntypedata:
+            self.knowntypedata = knowntypedata
 
-class SomeString(SomeObject):
+class SomeStringOrUnicode(SomeObject):
+    """Base class for shared implementation of SomeString and SomeUnicodeString.
+
+    Cannot be an annotation."""
+
+    immutable = True
+    can_be_None=False
+    no_nul = False  # No NUL character in the string.
+
+    def __init__(self, can_be_None=False, no_nul=False):
+        assert type(self) is not SomeStringOrUnicode
+        if can_be_None:
+            self.can_be_None = True
+        if no_nul:
+            self.no_nul = True
+
+    def can_be_none(self):
+        return self.can_be_None
+
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        d1 = self.__dict__
+        d2 = other.__dict__
+        if not TLS.check_str_without_nul:
+            d1 = d1.copy(); d1['no_nul'] = 0   # ignored
+            d2 = d2.copy(); d2['no_nul'] = 0   # ignored
+        return d1 == d2
+
+    def nonnoneify(self):
+        return self.__class__(can_be_None=False, no_nul=self.no_nul)
+
+class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
-    immutable = True
-    def __init__(self, can_be_None=False):
-        self.can_be_None = can_be_None
 
-    def can_be_none(self):
-        return self.can_be_None
-
-    def nonnoneify(self):
-        return SomeString(can_be_None=False)
-
-class SomeUnicodeString(SomeObject):
+class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
-    immutable = True
-    def __init__(self, can_be_None=False):
-        self.can_be_None = can_be_None
 
-    def can_be_none(self):
-        return self.can_be_None
-
-    def nonnoneify(self):
-        return SomeUnicodeString(can_be_None=False)
+class SomeByteArray(SomeStringOrUnicode):
+    knowntype = bytearray
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
     can_be_None = False
-    def __init__(self):    # no 'can_be_None' argument here
-        pass
+    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
+        if no_nul:
+            self.no_nul = True
 
 class SomeUnicodeCodePoint(SomeUnicodeString):
     "Stands for an object known to be a unicode codepoint."
     can_be_None = False
-    def __init__(self):    # no 'can_be_None' argument here
-        pass
+    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
+        if no_nul:
+            self.no_nul = True
 
 SomeString.basestringclass = SomeString
 SomeString.basecharclass = SomeChar
@@ -395,6 +390,14 @@ class SomePBC(SomeObject):
                 desc, = descriptions
                 if desc.pyobj is not None:
                     self.const = desc.pyobj
+            elif len(descriptions) > 1:
+                from pypy.annotation.description import ClassDesc
+                if self.getKind() is ClassDesc:
+                    # a PBC of several classes: enforce them all to be
+                    # built, without support for specialization.  See
+                    # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
+                    for desc in descriptions:
+                        desc.getuniqueclassdef()
 
     def any_description(self):
         return iter(self.descriptions).next()
@@ -501,7 +504,9 @@ class SomeImpossibleValue(SomeObject):
 
 s_None = SomePBC([], can_be_None=True)
 s_Bool = SomeBool()
+s_Int  = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
+s_Str0 = SomeString(no_nul=True)
 
 # ____________________________________________________________
 # weakrefs
@@ -693,13 +698,7 @@ def unionof(*somevalues):
         # this is just a performance shortcut
         if s1 != s2:
             s1 = pair(s1, s2).union()
-    if DEBUG:
-        if s1.caused_by_merge is None and len(somevalues) > 1:
-            s1.caused_by_merge = somevalues
     return s1
-
-def isdegenerated(s_value):
-    return s_value.__class__ is SomeObject and s_value.knowntype is not type
 
 # make knowntypedata dictionary
 
@@ -715,9 +714,8 @@ def merge_knowntypedata(ktd1, ktd2):
     return r
 
 def not_const(s_obj):
-    if s_obj.is_constant():
-        new_s_obj = SomeObject()
-        new_s_obj.__class__ = s_obj.__class__
+    if s_obj.is_constant() and not isinstance(s_obj, SomePBC):
+        new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:
             del new_s_obj.const
@@ -770,14 +768,13 @@ def read_can_only_throw(opimpl, *args):
 #
 # safety check that no-one is trying to make annotation and translation
 # faster by providing the -O option to Python.
-try:
-    assert False
-except AssertionError:
-    pass   # fine
-else:
-    raise RuntimeError("The annotator relies on 'assert' statements from the\n"
+import os
+if "WINGDB_PYTHON" not in os.environ:
+    # ...but avoiding this boring check in the IDE
+    try:
+        assert False
+    except AssertionError:
+        pass   # fine
+    else:
+        raise RuntimeError("The annotator relies on 'assert' statements from the\n"
                      "\tannotated program: you cannot run it with 'python -O'.")
-
-# this has the side-effect of registering the unary and binary operations
-from pypy.annotation.unaryop  import UNARY_OPERATIONS
-from pypy.annotation.binaryop import BINARY_OPERATIONS

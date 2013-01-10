@@ -419,6 +419,8 @@ _oplist = [
     'CAST_INT_TO_FLOAT/1',          # need some messy code in the backend
     'CAST_FLOAT_TO_SINGLEFLOAT/1',
     'CAST_SINGLEFLOAT_TO_FLOAT/1',
+    'CONVERT_FLOAT_BYTES_TO_LONGLONG/1',
+    'CONVERT_LONGLONG_BYTES_TO_FLOAT/1',
     #
     'INT_LT/2b',
     'INT_LE/2b',
@@ -441,6 +443,7 @@ _oplist = [
     'INT_IS_TRUE/1b',
     'INT_NEG/1',
     'INT_INVERT/1',
+    'INT_FORCE_GE_ZERO/1',
     'INT_UNTAG/1',
     'INT_TAG/1',
     #
@@ -459,6 +462,7 @@ _oplist = [
     'GETFIELD_GC_PURE/1d',
     'GETFIELD_RAW_PURE/1d',
     'GETARRAYITEM_GC_PURE/2d',
+    'GETARRAYITEM_RAW_PURE/2d',
     'UNICODELEN/1',
     'UNICODEGETITEM/2',
     #
@@ -471,7 +475,7 @@ _oplist = [
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
     'GETINTERIORFIELD_GC/2d',
-    'GETINTERIORFIELD_RAW/2d',
+    'RAW_LOAD/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -490,7 +494,8 @@ _oplist = [
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',
-    'SETINTERIORFIELD_RAW/3d',
+    'SETINTERIORFIELD_RAW/3d',    # only used by llsupport/rewrite.py
+    'RAW_STORE/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
@@ -505,6 +510,7 @@ _oplist = [
     'COPYUNICODECONTENT/5',
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
     'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
+    'KEEPALIVE/1',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
@@ -536,6 +542,7 @@ class rop(object):
     pass
 
 opclasses = []   # mapping numbers to the concrete ResOp class
+opargnum  = []   # mapping numbers to number or args (or -1)
 opname = {}      # mapping numbers to the original names, for debugging
 oparity = []     # mapping numbers to the arity of the operation or -1
 opwithdescr = [] # mapping numbers to a flag "takes a descr"
@@ -564,6 +571,7 @@ def setup(debug_print=False):
         else:
             cls = None
         opclasses.append(cls)
+        opargnum.append(arity)
         oparity.append(arity)
         opwithdescr.append(withdescr)
         opboolresult.append(boolresult)

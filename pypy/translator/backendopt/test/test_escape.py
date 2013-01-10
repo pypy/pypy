@@ -5,11 +5,9 @@ from pypy.translator.backendopt.escape import malloc_like_graphs
 from pypy.rlib.objectmodel import instantiate
 from pypy import conftest
 
-import py
-
 def build_adi(function, types):
-    t = Translation(function)
-    t.rtype(types)
+    t = Translation(function, types)
+    t.rtype()
     if conftest.option.view:
         t.view()
     adi = AbstractDataFlowInterpreter(t.context)

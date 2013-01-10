@@ -19,10 +19,14 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import FieldDescr, ArrayDescr
 from pypy.jit.backend.llsupport.descr import CallDescr, SizeDescr
 from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
+from pypy.jit.backend.llsupport.descr import unpack_arraydescr
+from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
-     TempBox
+     TempBox, compute_vars_longevity, is_comparison_or_ovf_op
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
+from pypy.jit.backend.x86 import rx86
 from pypy.rlib.rarithmetic import r_longlong
 
 class X86RegisterManager(RegisterManager):
@@ -165,16 +169,18 @@ class RegAlloc(object):
         self.jump_target_descr = None
         self.close_stack_struct = 0
         self.final_jump_op = None
-        self.min_bytes_before_label = 0
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
-        self.param_depth = 0
+        self.min_frame_depth = 0
         cpu = self.assembler.cpu
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        self._compute_vars_longevity(inputargs, operations)
+        longevity, last_real_usage = compute_vars_longevity(
+                                                    inputargs, operations)
+        self.longevity = longevity
+        self.last_real_usage = last_real_usage
         self.rm = gpr_reg_mgr_cls(self.longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
@@ -194,15 +200,25 @@ class RegAlloc(object):
             self.min_bytes_before_label = 13
         return operations
 
-    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
-                       allgcrefs):
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs):
         operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
-        self.param_depth = prev_depths[1]
+        self.min_bytes_before_label = 0
         return operations
 
-    def reserve_param(self, n):
-        self.param_depth = max(self.param_depth, n)
+    def ensure_next_label_is_at_least_at_position(self, at_least_position):
+        self.min_bytes_before_label = max(self.min_bytes_before_label,
+                                          at_least_position)
+
+    def needed_extra_stack_locations(self, n):
+        # call *after* you needed extra stack locations: (%esp), (%esp+4)...
+        min_frame_depth = self.fm.get_frame_depth() + n
+        if min_frame_depth > self.min_frame_depth:
+            self.min_frame_depth = min_frame_depth
+
+    def get_final_frame_depth(self):
+        self.needed_extra_stack_locations(0)  # update min_frame_depth
+        return self.min_frame_depth
 
     def _set_initial_bindings(self, inputargs):
         if IS_X86_64:
@@ -306,16 +322,6 @@ class RegAlloc(object):
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
 
-    #def _compute_loop_consts(self, inputargs, jump, looptoken):
-    #    if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
-    #        loop_consts = {}
-    #    else:
-    #        loop_consts = {}
-    #        for i in range(len(inputargs)):
-    #            if inputargs[i] is jump.getarg(i):
-    #                loop_consts[inputargs[i]] = i
-    #    return loop_consts
-
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
         used = {}
@@ -372,25 +378,12 @@ class RegAlloc(object):
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
 
-    def get_current_depth(self):
-        # return (self.fm.frame_depth, self.param_depth), but trying to share
-        # the resulting tuple among several calls
-        arg0 = self.fm.get_frame_depth()
-        arg1 = self.param_depth
-        result = self.assembler._current_depths_cache
-        if result[0] != arg0 or result[1] != arg1:
-            result = (arg0, arg1)
-            self.assembler._current_depths_cache = result
-        return result
-
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
         self.rm.position += 1
         self.xrm.position += 1
-        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
-                                                   arglocs, result_loc,
-                                                   current_depths)
+                                                   arglocs, result_loc)
         if op.result is not None:
             self.possibly_free_var(op.result)
         self.possibly_free_vars(guard_op.getfailargs())
@@ -403,10 +396,8 @@ class RegAlloc(object):
                                                       arglocs))
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
-        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
-                                              result_loc,
-                                              current_depths)
+                                              result_loc)
         self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
@@ -468,64 +459,14 @@ class RegAlloc(object):
         self.assembler.mc.mark_op(None) # end of the loop
 
     def flush_loop(self):
-        # rare case: if the loop is too short, pad with NOPs
+        # rare case: if the loop is too short, or if we are just after
+        # a GUARD_NOT_INVALIDATED, pad with NOPs.  Important!  This must
+        # be called to ensure that there are enough bytes produced,
+        # because GUARD_NOT_INVALIDATED or redirect_call_assembler()
+        # will maybe overwrite them.
         mc = self.assembler.mc
         while mc.get_relative_pos() < self.min_bytes_before_label:
             mc.NOP()
-
-    def _compute_vars_longevity(self, inputargs, operations):
-        # compute a dictionary that maps variables to index in
-        # operations that is a "last-time-seen"
-
-        # returns a pair longevity/useful. Non-useful variables are ones that
-        # never appear in the assembler or it does not matter if they appear on
-        # stack or in registers. Main example is loop arguments that go
-        # only to guard operations or to jump or to finish
-        produced = {}
-        last_used = {}
-        last_real_usage = {}
-        for i in range(len(operations)-1, -1, -1):
-            op = operations[i]
-            if op.result:
-                if op.result not in last_used and op.has_no_side_effect():
-                    continue
-                assert op.result not in produced
-                produced[op.result] = i
-            opnum = op.getopnum()
-            for j in range(op.numargs()):
-                arg = op.getarg(j)
-                if not isinstance(arg, Box):
-                    continue
-                if arg not in last_used:
-                    last_used[arg] = i
-                if opnum != rop.JUMP and opnum != rop.LABEL:
-                    if arg not in last_real_usage:
-                        last_real_usage[arg] = i
-            if op.is_guard():
-                for arg in op.getfailargs():
-                    if arg is None: # hole
-                        continue
-                    assert isinstance(arg, Box)
-                    if arg not in last_used:
-                        last_used[arg] = i
-        self.last_real_usage = last_real_usage
-        #
-        longevity = {}
-        for arg in produced:
-            if arg in last_used:
-                assert isinstance(arg, Box)
-                assert produced[arg] < last_used[arg]
-                longevity[arg] = (produced[arg], last_used[arg])
-                del last_used[arg]
-        for arg in inputargs:
-            assert isinstance(arg, Box)
-            if arg not in last_used:
-                longevity[arg] = (-1, -1)
-            else:
-                longevity[arg] = (0, last_used[arg])
-                del last_used[arg]
-        assert len(last_used) == 0
-        self.longevity = longevity
 
     def loc(self, v):
         if v is None: # xxx kludgy
@@ -545,20 +486,22 @@ class RegAlloc(object):
     consider_guard_isnull = _consider_guard
 
     def consider_finish(self, op):
-        locs = [self.loc(op.getarg(i)) for i in range(op.numargs())]
-        locs_are_ref = [op.getarg(i).type == REF for i in range(op.numargs())]
-        fail_index = self.assembler.cpu.get_fail_descr_number(op.getdescr())
-        # note: no exception should currently be set in llop.get_exception_addr
-        # even if this finish may be an exit_frame_with_exception (in this case
-        # the exception instance is in locs[0]).
-        self.assembler.generate_failure(fail_index, locs, False,
-                                        locs_are_ref)
-        self.possibly_free_vars_for_op(op)
+        loc = self.loc(op.getarg(0))
+        self.Perform(op, [loc], None)
+        self.possibly_free_var(op.getarg(0))
 
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)
 
-    consider_guard_not_invalidated = consider_guard_no_exception
+    def consider_guard_not_invalidated(self, op):
+        mc = self.assembler.mc
+        n = mc.get_relative_pos()
+        self.perform_guard(op, [], None)
+        assert n == mc.get_relative_pos()
+        # ensure that the next label is at least 5 bytes farther than
+        # the current position.  Otherwise, when invalidating the guard,
+        # we would overwrite randomly the next label's position.
+        self.ensure_next_label_is_at_least_at_position(n + 5)
 
     def consider_guard_exception(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
@@ -604,9 +547,31 @@ class RegAlloc(object):
         loc, argloc = self._consider_binop_part(op)
         self.Perform(op, [loc, argloc], loc)
 
-    consider_int_add = _consider_binop
+    def _consider_lea(self, op, loc):
+        argloc = self.loc(op.getarg(1))
+        self.rm.possibly_free_var(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result)
+        self.Perform(op, [loc, argloc], resloc)
+
+    def consider_int_add(self, op):
+        loc = self.loc(op.getarg(0))
+        y = op.getarg(1)
+        if (isinstance(loc, RegLoc) and
+            isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value)):
+            self._consider_lea(op, loc)
+        else:
+            self._consider_binop(op)
+
+    def consider_int_sub(self, op):
+        loc = self.loc(op.getarg(0))
+        y = op.getarg(1)
+        if (isinstance(loc, RegLoc) and
+            isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value)):
+            self._consider_lea(op, loc)
+        else:
+            self._consider_binop(op)
+
     consider_int_mul = _consider_binop
-    consider_int_sub = _consider_binop
     consider_int_and = _consider_binop
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop
@@ -770,6 +735,32 @@ class RegAlloc(object):
         self.Perform(op, [loc0, loctmp], loc1)
 
     consider_cast_singlefloat_to_float = consider_cast_int_to_float
+
+    def consider_convert_float_bytes_to_longlong(self, op):
+        if longlong.is_64_bit:
+            loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
+            loc1 = self.rm.force_allocate_reg(op.result)
+            self.Perform(op, [loc0], loc1)
+            self.xrm.possibly_free_var(op.getarg(0))
+        else:
+            arg0 = op.getarg(0)
+            loc0 = self.xrm.loc(arg0)
+            loc1 = self.xrm.force_allocate_reg(op.result, forbidden_vars=[arg0])
+            self.Perform(op, [loc0], loc1)
+            self.xrm.possibly_free_var(arg0)
+
+    def consider_convert_longlong_bytes_to_float(self, op):
+        if longlong.is_64_bit:
+            loc0 = self.rm.make_sure_var_in_reg(op.getarg(0))
+            loc1 = self.xrm.force_allocate_reg(op.result)
+            self.Perform(op, [loc0], loc1)
+            self.rm.possibly_free_var(op.getarg(0))
+        else:
+            arg0 = op.getarg(0)
+            loc0 = self.xrm.make_sure_var_in_reg(arg0)
+            loc1 = self.xrm.force_allocate_reg(op.result, forbidden_vars=[arg0])
+            self.Perform(op, [loc0], loc1)
+            self.xrm.possibly_free_var(arg0)
 
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
@@ -959,16 +950,6 @@ class RegAlloc(object):
         # or setarrayitem_gc. It avoids loading it twice from the memory.
         arglocs = [self.rm.make_sure_var_in_reg(op.getarg(i), args)
                    for i in range(N)]
-        # add eax, ecx and edx as extra "arguments" to ensure they are
-        # saved and restored.  Fish in self.rm to know which of these
-        # registers really need to be saved (a bit of a hack).  Moreover,
-        # we don't save and restore any SSE register because the called
-        # function, a GC write barrier, is known not to touch them.
-        # See remember_young_pointer() in rpython/memory/gc/generation.py.
-        for v, reg in self.rm.reg_bindings.items():
-            if (reg in self.rm.save_around_call_regs
-                and self.rm.stays_alive(v)):
-                arglocs.append(reg)
         self.PerformDiscard(op, arglocs)
         self.rm.possibly_free_vars_for_op(op)
 
@@ -992,33 +973,11 @@ class RegAlloc(object):
             gc_ll_descr.get_nursery_top_addr(),
             size)
 
-    def _unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, ArrayDescr)
-        ofs = arraydescr.basesize
-        size = arraydescr.itemsize
-        sign = arraydescr.is_item_signed()
-        return size, ofs, sign
-
-    def _unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, FieldDescr)
-        ofs = fielddescr.offset
-        size = fielddescr.field_size
-        sign = fielddescr.is_field_signed()
-        return imm(ofs), imm(size), sign
-    _unpack_fielddescr._always_inline_ = True
-
-    def _unpack_interiorfielddescr(self, descr):
-        assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs = arraydescr.basesize
-        itemsize = arraydescr.itemsize
-        fieldsize = descr.fielddescr.field_size
-        sign = descr.fielddescr.is_field_signed()
-        ofs += descr.fielddescr.offset
-        return imm(ofs), imm(itemsize), imm(fieldsize), sign
 
     def consider_setfield_gc(self, op):
-        ofs_loc, size_loc, _ = self._unpack_fielddescr(op.getdescr())
+        ofs, size, _ = unpack_fielddescr(op.getdescr())
+        ofs_loc = imm(ofs)
+        size_loc = imm(size)
         assert isinstance(size_loc, ImmedLoc)
         if size_loc.value == 1:
             need_lower_byte = True
@@ -1034,8 +993,8 @@ class RegAlloc(object):
     consider_setfield_raw = consider_setfield_gc
 
     def consider_setinteriorfield_gc(self, op):
-        t = self._unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, _ = t
+        t = unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize = imm(t[0]), imm(t[1]), imm(t[2])
         args = op.getarglist()
         if fieldsize.value == 1:
             need_lower_byte = True
@@ -1049,14 +1008,18 @@ class RegAlloc(object):
         # If 'index_loc' is not an immediate, then we need a 'temp_loc' that
         # is a register whose value will be destroyed.  It's fine to destroy
         # the same register as 'index_loc', but not the other ones.
-        self.rm.possibly_free_var(box_index)
         if not isinstance(index_loc, ImmedLoc):
+            # ...that is, except in a corner case where 'index_loc' would be
+            # in the same register as 'value_loc'...
+            if index_loc is not value_loc:
+                self.rm.possibly_free_var(box_index)
             tempvar = TempBox()
             temp_loc = self.rm.force_allocate_reg(tempvar, [box_base,
                                                             box_value])
             self.rm.possibly_free_var(tempvar)
         else:
             temp_loc = None
+        self.rm.possibly_free_var(box_index)
         self.rm.possibly_free_var(box_base)
         self.possibly_free_var(box_value)
         self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
@@ -1076,7 +1039,7 @@ class RegAlloc(object):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op):
-        itemsize, ofs, _ = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         if itemsize == 1:
@@ -1091,9 +1054,12 @@ class RegAlloc(object):
                                  imm(itemsize), imm(ofs)])
 
     consider_setarrayitem_raw = consider_setarrayitem_gc
+    consider_raw_store = consider_setarrayitem_gc
 
     def consider_getfield_gc(self, op):
-        ofs_loc, size_loc, sign = self._unpack_fielddescr(op.getdescr())
+        ofs, size, sign = unpack_fielddescr(op.getdescr())
+        ofs_loc = imm(ofs)
+        size_loc = imm(size)
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.rm.possibly_free_vars(args)
@@ -1109,7 +1075,7 @@ class RegAlloc(object):
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op):
-        itemsize, ofs, sign = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
@@ -1124,10 +1090,12 @@ class RegAlloc(object):
 
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
+    consider_getarrayitem_raw_pure = consider_getarrayitem_gc
+    consider_raw_load = consider_getarrayitem_gc
 
     def consider_getinteriorfield_gc(self, op):
-        t = self._unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = t
+        t = unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
         if sign:
             sign_loc = imm1
         else:
@@ -1155,8 +1123,6 @@ class RegAlloc(object):
         self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, temp_loc, sign_loc], result_loc)
 
-    consider_getinteriorfield_raw = consider_getinteriorfield_gc
-
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register
         argloc = self.loc(op.getarg(0))
@@ -1176,6 +1142,12 @@ class RegAlloc(object):
         self.Perform(op, [argloc], resloc)
     consider_cast_ptr_to_int = consider_same_as
     consider_cast_int_to_ptr = consider_same_as
+
+    def consider_int_force_ge_zero(self, op):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        self.possibly_free_var(op.getarg(0))
+        self.Perform(op, [argloc], resloc)
 
     def consider_strlen(self, op):
         args = op.getarglist()
@@ -1388,7 +1360,7 @@ class RegAlloc(object):
         self.force_spill_var(op.getarg(0))
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape(IS_X86_64)
+        shape = gcrootmap.get_basic_shape()
         for v, val in self.fm.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)
@@ -1474,6 +1446,9 @@ class RegAlloc(object):
         if jump_op is not None and jump_op.getdescr() is descr:
             self._compute_hint_frame_locations_from_descr(descr)
 
+    def consider_keepalive(self, op):
+        pass
+
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
 
@@ -1486,16 +1461,6 @@ oplist_with_guard = [RegAlloc.not_implemented_op_with_guard] * rop._LAST
 
 def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)
-
-def is_comparison_or_ovf_op(opnum):
-    from pypy.jit.metainterp.resoperation import opclasses
-    cls = opclasses[opnum]
-    # hack hack: in theory they are instance method, but they don't use
-    # any instance field, we can use a fake object
-    class Fake(cls):
-        pass
-    op = Fake(None)
-    return op.is_comparison() or op.is_ovf()
 
 for name, value in RegAlloc.__dict__.iteritems():
     if name.startswith('consider_'):

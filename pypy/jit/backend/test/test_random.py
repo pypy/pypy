@@ -331,6 +331,15 @@ class CastIntToFloatOperation(AbstractFloatOperation):
     def produce_into(self, builder, r):
         self.put(builder, [r.choice(builder.intvars)])
 
+class CastLongLongToFloatOperation(AbstractFloatOperation):
+    def produce_into(self, builder, r):
+        if longlong.is_64_bit:
+            self.put(builder, [r.choice(builder.intvars)])
+        else:
+            if not builder.floatvars:
+                raise CannotProduceOperation
+            self.put(builder, [r.choice(builder.floatvars)])
+
 class CastFloatToIntOperation(AbstractFloatOperation):
     def produce_into(self, builder, r):
         if not builder.floatvars:
@@ -455,10 +464,22 @@ for _op in [rop.FLOAT_NEG,
 
 OPERATIONS.append(CastFloatToIntOperation(rop.CAST_FLOAT_TO_INT))
 OPERATIONS.append(CastIntToFloatOperation(rop.CAST_INT_TO_FLOAT))
+OPERATIONS.append(CastFloatToIntOperation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG))
+OPERATIONS.append(CastLongLongToFloatOperation(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT))
 
 OperationBuilder.OPERATIONS = OPERATIONS
 
 # ____________________________________________________________
+
+def do_assert(condition, error_message):
+    if condition:
+        return
+    seed = pytest.config.option.randomseed
+    message = "%s\nPython: %s\nRandom seed: %r" % (
+        error_message,
+        sys.executable,
+        seed)
+    raise AssertionError(message)
 
 def Random():
     import random
@@ -500,19 +521,19 @@ def Random():
 
 def get_cpu():
     if pytest.config.option.backend == 'llgraph':
-        from pypy.jit.backend.llgraph.runner import LLtypeCPU
-        return LLtypeCPU(None)
+        from pypy.jit.backend.llgraph.runner import LLGraphCPU
+        return LLGraphCPU(None)
     elif pytest.config.option.backend == 'cpu':
         from pypy.jit.backend.detect_cpu import getcpuclass
         return getcpuclass()(None, None)
     else:
         assert 0, "unknown backend %r" % pytest.config.option.backend
 
-# ____________________________________________________________    
+# ____________________________________________________________
 
 class RandomLoop(object):
     dont_generate_more = False
-    
+
     def __init__(self, cpu, builder_factory, r, startvars=None):
         self.cpu = cpu
         if startvars is None:
@@ -539,6 +560,7 @@ class RandomLoop(object):
         self.startvars = startvars
         self.prebuilt_ptr_consts = []
         self.r = r
+        self.subloops = []
         self.build_random_loop(cpu, builder_factory, r, startvars, allow_delay)
 
     def build_random_loop(self, cpu, builder_factory, r, startvars, allow_delay):
@@ -658,29 +680,35 @@ class RandomLoop(object):
     def run_loop(self):
         cpu = self.builder.cpu
         self.clear_state()
-        exc = cpu.grab_exc_value()
-        assert not exc
+        # disable check for now
+        # exc = cpu.grab_exc_value()
+        # assert not exc
 
         arguments = [box.value for box in self.loop.inputargs]
-        fail = cpu.execute_token(self.runjitcelltoken(), *arguments)
-        assert fail is self.should_fail_by.getdescr()
+        deadframe = cpu.execute_token(self.runjitcelltoken(), *arguments)
+        fail = cpu.get_latest_descr(deadframe)
+        do_assert(fail is self.should_fail_by.getdescr(),
+                  "Got %r, expected %r" % (fail,
+                                           self.should_fail_by.getdescr()))
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
-                value = cpu.get_latest_value_float(i)
+                value = cpu.get_latest_value_float(deadframe, i)
             else:
-                value = cpu.get_latest_value_int(i)
-            assert value == self.expected[v], (
+                value = cpu.get_latest_value_int(deadframe, i)
+            do_assert(value == self.expected[v],
                 "Got %r, expected %r for value #%d" % (value,
                                                        self.expected[v],
                                                        i)
                 )
-        exc = cpu.grab_exc_value()
+        exc = cpu.grab_exc_value(deadframe)
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
             if self.guard_op.getopnum() == rop.GUARD_NO_EXCEPTION:
-                assert exc
+                do_assert(exc,
+                          "grab_exc_value() should not be %r" % (exc,))
         else:
-            assert not exc
+            do_assert(not exc,
+                      "unexpected grab_exc_value(): %r" % (exc,))
 
     def build_bridge(self):
         def exc_handling(guard_op):
@@ -705,6 +733,7 @@ class RandomLoop(object):
             return False
         # generate the branch: a sequence of operations that ends in a FINISH
         subloop = DummyLoop([])
+        self.subloops.append(subloop)   # keep around for debugging
         if guard_op.is_guard_exception():
             subloop.operations.append(exc_handling(guard_op))
         bridge_builder = self.builder.fork(self.builder.cpu, subloop,
@@ -741,9 +770,6 @@ class RandomLoop(object):
             args = [x.clonebox() for x in subset]
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
-            dump(rl.loop)
-            self.cpu.compile_loop(rl.loop.inputargs, rl.loop.operations,
-                                  rl.loop._jitcelltoken)
             # done
             self.should_fail_by = rl.should_fail_by
             self.expected = rl.expected

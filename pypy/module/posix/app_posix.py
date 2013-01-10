@@ -1,6 +1,7 @@
 # NOT_RPYTHON
 
 from _structseq import structseqtype, structseqfield
+from __pypy__ import validate_fd
 
 # XXX we need a way to access the current module's globals more directly...
 import sys
@@ -65,19 +66,12 @@ class stat_result:
             self.__dict__['st_ctime'] = self[9]
 
 if osname == 'posix':
-    def _validate_fd(fd):
-        try:
-            import fcntl
-        except ImportError:
-            return
-        try:
-            fcntl.fcntl(fd, fcntl.F_GETFD)
-        except IOError, e:
-            raise OSError(e.errno, e.strerror, e.filename)
+    # POSIX: we want to check the file descriptor when fdopen() is called,
+    # not later when we read or write data.  So we call fstat(), letting
+    # it raise if fd is invalid.
+    _validate_fd = posix.fstat
 else:
-    def _validate_fd(fd):
-        # XXX for the moment
-        return
+    _validate_fd = validate_fd
 
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.
@@ -204,7 +198,7 @@ if osname == 'posix':
     def wait3(options):
         """ wait3(options) -> (pid, status, rusage)
 
-        Wait for completion of a child process and provides resource usage informations
+        Wait for completion of a child process and provides resource usage information
         """
         from _pypy_wait import wait3
         return wait3(options)
@@ -212,7 +206,7 @@ if osname == 'posix':
     def wait4(pid, options):
         """ wait4(pid, options) -> (pid, status, rusage)
 
-        Wait for completion of the child process "pid" and provides resource usage informations
+        Wait for completion of the child process "pid" and provides resource usage information
         """
         from _pypy_wait import wait4
         return wait4(pid, options)
@@ -317,6 +311,13 @@ else:
             self._stream.close()
             return self._proc.wait() or None    # 0 => None
         __del__ = close
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *k):
+            self.close()
+
         def __getattr__(self, name):
             return getattr(self._stream, name)
         def __iter__(self):

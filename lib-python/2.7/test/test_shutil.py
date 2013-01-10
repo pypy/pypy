@@ -349,6 +349,8 @@ class TestShutil(unittest.TestCase):
         self.write_file([tmpdir, 'sub', 'file3'], 'xxx')
 
         tmpdir2 = self.mkdtemp()
+        # force shutil to create the directory
+        os.rmdir(tmpdir2)
         unittest.skipUnless(splitdrive(tmpdir)[0] == splitdrive(tmpdir2)[0],
                             "source and target should be on same drive")
 
@@ -464,6 +466,8 @@ class TestShutil(unittest.TestCase):
         self.write_file([tmpdir, 'file2'], 'xxx')
 
         tmpdir2 = self.mkdtemp()
+        # force shutil to create the directory
+        os.rmdir(tmpdir2)
         base_name = os.path.join(tmpdir2, 'archive')
         _make_zipfile(base_name, tmpdir)
 
@@ -804,6 +808,24 @@ class TestCopyFile(unittest.TestCase):
         self.assertFalse(destfile._raised)
         self.assertTrue(srcfile._exited_with[0] is None)
         self.assertTrue(srcfile._raised)
+
+    def test_move_dir_caseinsensitive(self):
+        # Renames a folder to the same name
+        # but a different case.
+
+        self.src_dir = tempfile.mkdtemp()
+        dst_dir = os.path.join(
+                os.path.dirname(self.src_dir),
+                os.path.basename(self.src_dir).upper())
+        self.assertNotEqual(self.src_dir, dst_dir)
+
+        try:
+            shutil.move(self.src_dir, dst_dir)
+            self.assertTrue(os.path.isdir(dst_dir))
+        finally:
+            if os.path.exists(dst_dir):
+                os.rmdir(dst_dir)
+
 
 
 def test_main():

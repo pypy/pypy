@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 import py
-from pypy.interpreter.argument import (Arguments, ArgumentsForTranslation,
-    ArgErr, ArgErrUnknownKwds, ArgErrMultipleValues, ArgErrCount, rawshape,
-    Signature)
+from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
+        ArgErrMultipleValues, ArgErrCount, Signature)
 from pypy.interpreter.error import OperationError
 
 
@@ -57,6 +56,9 @@ class dummy_wrapped_dict(dict):
     def __nonzero__(self):
         raise NotImplementedError
 
+class kwargsdict(dict):
+    pass
+
 class DummySpace(object):
     def newtuple(self, items):
         return tuple(items)
@@ -75,7 +77,14 @@ class DummySpace(object):
     def unpackiterable(self, it):
         return list(it)
 
-    def newdict(self):
+    def view_as_kwargs(self, x):
+        if len(x) == 0:
+            return [], []
+        return None, None
+
+    def newdict(self, kwargs=False):
+        if kwargs:
+            return kwargsdict()
         return {}
 
     def newlist(self, l=[]):
@@ -296,6 +305,22 @@ class TestArgumentsNormal(object):
             args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
             assert l == [1, 2, 3, {'d': 4}]
 
+    def test_match_kwds_creates_kwdict(self):
+        space = DummySpace()
+        kwds = [("c", 3), ('d', 4)]
+        for i in range(4):
+            kwds_w = dict(kwds[:i])
+            keywords = kwds_w.keys()
+            keywords_w = kwds_w.values()
+            w_kwds = dummy_wrapped_dict(kwds[i:])
+            if i == 3:
+                w_kwds = None
+            args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
+            assert l == [1, 2, 3, {'d': 4}]
+            assert isinstance(l[-1], kwargsdict)
+
     def test_duplicate_kwds(self):
         space = DummySpace()
         excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
@@ -488,38 +513,102 @@ class TestArgumentsNormal(object):
         assert len(l) == 1
         assert l[0] == space.wrap(5)
 
+    def test_starstarargs_special(self):
+        class kwargs(object):
+            def __init__(self, k, v):
+                self.k = k
+                self.v = v
+        class MyDummySpace(DummySpace):
+            def view_as_kwargs(self, kw):
+                if isinstance(kw, kwargs):
+                    return kw.k, kw.v
+                return None, None
+        space = MyDummySpace()
+        for i in range(3):
+            kwds = [("c", 3)]
+            kwds_w = dict(kwds[:i])
+            keywords = kwds_w.keys()
+            keywords_w = kwds_w.values()
+            rest = dict(kwds[i:])
+            w_kwds = kwargs(rest.keys(), rest.values())
+            if i == 2:
+                w_kwds = None
+            assert len(keywords) == len(keywords_w)
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c"]), defaults_w=[4])
+            assert l == [1, 2, 3]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "b1", "c"]), defaults_w=[4, 5])
+            assert l == [1, 2, 4, 3]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c", "d"]), defaults_w=[4, 5])
+            assert l == [1, 2, 3, 5]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            py.test.raises(ArgErr, args._match_signature, None, l,
+                           Signature(["c", "b", "a", "d"]), defaults_w=[4, 5])
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            py.test.raises(ArgErr, args._match_signature, None, l,
+                           Signature(["a", "b", "c1", "d"]), defaults_w=[4, 5])
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None]
+            args._match_signature(None, l, Signature(["a", "b"], None, "**"))
+            assert l == [1, 2, {'c': 3}]
+        excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
+                                 [1], w_starstararg=kwargs(["a"], [2]))
+        assert excinfo.value.w_type is TypeError
+
+
+
 class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
         # defaults_w, missing_args
-        err = ArgErrCount(1, 0, 0, False, False, None, 0)
+        sig = Signature([], None, None)
+        err = ArgErrCount(1, 0, sig, None, 0)
         s = err.getmsg()
         assert s == "takes no arguments (1 given)"
-        err = ArgErrCount(0, 0, 1, False, False, [], 1)
+
+        sig = Signature(['a'], None, None)
+        err = ArgErrCount(0, 0, sig, [], 1)
         s = err.getmsg()
         assert s == "takes exactly 1 argument (0 given)"
-        err = ArgErrCount(3, 0, 2, False, False, [], 0)
+
+        sig = Signature(['a', 'b'], None, None)
+        err = ArgErrCount(3, 0, sig, [], 0)
         s = err.getmsg()
         assert s == "takes exactly 2 arguments (3 given)"
-        err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
+        err = ArgErrCount(3, 0, sig, ['a'], 0)
         s = err.getmsg()
         assert s == "takes at most 2 arguments (3 given)"
-        err = ArgErrCount(1, 0, 2, True, False, [], 1)
+
+        sig = Signature(['a', 'b'], '*', None)
+        err = ArgErrCount(1, 0, sig, [], 1)
         s = err.getmsg()
         assert s == "takes at least 2 arguments (1 given)"
-        err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
+        err = ArgErrCount(0, 1, sig, ['a'], 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, [], 0)
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCount(2, 1, sig, [], 0)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (2 given)"
-        err = ArgErrCount(0, 1, 1, False, True, [], 1)
+        err = ArgErrCount(0, 1, sig, [], 1)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (0 given)"
-        err = ArgErrCount(0, 1, 1, True, True, [], 1)
+
+        sig = Signature(['a'], '*', '**')
+        err = ArgErrCount(0, 1, sig, [], 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCount(2, 1, sig, ['a'], 0)
         s = err.getmsg()
         assert s == "takes at most 1 non-keyword argument (2 given)"
 
@@ -542,11 +631,14 @@ class TestErrorHandling(object):
 
     def test_unknown_keywords(self):
         space = DummySpace()
-        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [True, False], None)
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [0], None)
         s = err.getmsg()
         assert s == "got an unexpected keyword argument 'b'"
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [1], None)
+        s = err.getmsg()
+        assert s == "got an unexpected keyword argument 'a'"
         err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
-                                [True, False, False], None)
+                                [0], None)
         s = err.getmsg()
         assert s == "got 2 unexpected keyword arguments"
 
@@ -556,7 +648,7 @@ class TestErrorHandling(object):
                 defaultencoding = 'utf-8'
         space = DummySpaceUnicode()
         err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
-                                [True, False, True, True],
+                                [0, 3, 2],
                                 [unichr(0x1234), u'b', u'c'])
         s = err.getmsg()
         assert s == "got an unexpected keyword argument '\xe1\x88\xb4'"
@@ -594,206 +686,3 @@ class AppTestArgument:
         def f(x): pass
         e = raises(TypeError, "f(**{u'ü' : 19})")
         assert "?" in str(e.value)
-
-def make_arguments_for_translation(space, args_w, keywords_w={},
-                                   w_stararg=None, w_starstararg=None):
-    return ArgumentsForTranslation(space, args_w, keywords_w.keys(),
-                                   keywords_w.values(), w_stararg,
-                                   w_starstararg)
-
-class TestArgumentsForTranslation(object):
-
-    def test_prepend(self):
-        space = DummySpace()
-        args = ArgumentsForTranslation(space, ["0"])
-        args1 = args.prepend("thingy")
-        assert args1 is not args
-        assert args1.arguments_w == ["thingy", "0"]
-        assert args1.keywords is args.keywords
-        assert args1.keywords_w is args.keywords_w
-
-    def test_unmatch_signature(self):
-        space = DummySpace()
-        args = make_arguments_for_translation(space, [1,2,3])
-        sig = Signature(['a', 'b', 'c'], None, None)
-        data = args.match_signature(sig, [])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1])
-        sig = Signature(['a', 'b', 'c'], None, None)
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1,2,3,4,5])
-        sig = Signature(['a', 'b', 'c'], 'r', None)
-        data = args.match_signature(sig, [])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1], {'c': 3, 'b': 2})
-        sig = Signature(['a', 'b', 'c'], None, None)
-        data = args.match_signature(sig, [])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1], {'c': 5})
-        sig = Signature(['a', 'b', 'c'], None, None)
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1], {'c': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], None, 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1,2,3,4,5], {'e': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], 'r', 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [], {},
-                                       w_stararg=[1],
-                                       w_starstararg={'c': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], None, 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1,2], {'g': 9},
-                                       w_stararg=[3,4,5],
-                                       w_starstararg={'e': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], 'r', 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-    def test_rawshape(self):
-        space = DummySpace()
-        args = make_arguments_for_translation(space, [1,2,3])
-        assert rawshape(args) == (3, (), False, False)
-
-        args = make_arguments_for_translation(space, [1])
-        assert rawshape(args, 2) == (3, (), False, False)
-
-        args = make_arguments_for_translation(space, [1,2,3,4,5])
-        assert rawshape(args) == (5, (), False, False)
-
-        args = make_arguments_for_translation(space, [1], {'c': 3, 'b': 2})
-        assert rawshape(args) == (1, ('b', 'c'), False, False)
-
-        args = make_arguments_for_translation(space, [1], {'c': 5})
-        assert rawshape(args) == (1, ('c', ), False, False)
-
-        args = make_arguments_for_translation(space, [1], {'c': 5, 'd': 7})
-        assert rawshape(args) == (1, ('c', 'd'), False, False)
-
-        args = make_arguments_for_translation(space, [1,2,3,4,5], {'e': 5, 'd': 7})
-        assert rawshape(args) == (5, ('d', 'e'), False, False)
-
-        args = make_arguments_for_translation(space, [], {},
-                                       w_stararg=[1],
-                                       w_starstararg={'c': 5, 'd': 7})
-        assert rawshape(args) == (0, (), True, True)
-
-        args = make_arguments_for_translation(space, [1,2], {'g': 9},
-                                       w_stararg=[3,4,5],
-                                       w_starstararg={'e': 5, 'd': 7})
-        assert rawshape(args) == (2, ('g', ), True, True)
-
-    def test_copy_and_shape(self):
-        space = DummySpace()
-        args = ArgumentsForTranslation(space, ['a'], ['x'], [1],
-                                       ['w1'], {'y': 'w2'})
-        args1 = args.copy()
-        args.combine_if_necessary()
-        assert rawshape(args1) == (1, ('x',), True, True)
-
-
-    def test_flatten(self):
-        space = DummySpace()
-        args = make_arguments_for_translation(space, [1,2,3])
-        assert args.flatten() == ((3, (), False, False), [1, 2, 3])
-
-        args = make_arguments_for_translation(space, [1])
-        assert args.flatten() == ((1, (), False, False), [1])
-
-        args = make_arguments_for_translation(space, [1,2,3,4,5])
-        assert args.flatten() == ((5, (), False, False), [1,2,3,4,5])
-
-        args = make_arguments_for_translation(space, [1], {'c': 3, 'b': 2})
-        assert args.flatten() == ((1, ('b', 'c'), False, False), [1, 2, 3])
-
-        args = make_arguments_for_translation(space, [1], {'c': 5})
-        assert args.flatten() == ((1, ('c', ), False, False), [1, 5])
-
-        args = make_arguments_for_translation(space, [1], {'c': 5, 'd': 7})
-        assert args.flatten() == ((1, ('c', 'd'), False, False), [1, 5, 7])
-
-        args = make_arguments_for_translation(space, [1,2,3,4,5], {'e': 5, 'd': 7})
-        assert args.flatten() == ((5, ('d', 'e'), False, False), [1, 2, 3, 4, 5, 7, 5])
-
-        args = make_arguments_for_translation(space, [], {},
-                                       w_stararg=[1],
-                                       w_starstararg={'c': 5, 'd': 7})
-        assert args.flatten() == ((0, (), True, True), [[1], {'c': 5, 'd': 7}])
-
-        args = make_arguments_for_translation(space, [1,2], {'g': 9},
-                                       w_stararg=[3,4,5],
-                                       w_starstararg={'e': 5, 'd': 7})
-        assert args.flatten() == ((2, ('g', ), True, True), [1, 2, 9, [3, 4, 5], {'e': 5, 'd': 7}])
-
-    def test_stararg_flowspace_variable(self):
-        space = DummySpace()
-        var = object()
-        shape = ((2, ('g', ), True, False), [1, 2, 9, var])
-        args = make_arguments_for_translation(space, [1,2], {'g': 9},
-                                       w_stararg=var)
-        assert args.flatten() == shape
-
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-
-    def test_fromshape(self):
-        space = DummySpace()
-        shape = ((3, (), False, False), [1, 2, 3])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((1, (), False, False), [1])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((5, (), False, False), [1,2,3,4,5])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((1, ('b', 'c'), False, False), [1, 2, 3])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((1, ('c', ), False, False), [1, 5])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((1, ('c', 'd'), False, False), [1, 5, 7])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((5, ('d', 'e'), False, False), [1, 2, 3, 4, 5, 7, 5])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((0, (), True, True), [[1], {'c': 5, 'd': 7}])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((2, ('g', ), True, True), [1, 2, 9, [3, 4, 5], {'e': 5, 'd': 7}])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-

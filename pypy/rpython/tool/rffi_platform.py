@@ -62,6 +62,14 @@ def getdefinedinteger(macro, c_header_source):
         DEFINED = DefinedConstantInteger(macro)
     return configure(CConfig)['DEFINED']
 
+def getintegerfunctionresult(function, args=None, c_header_source='', includes=[]):
+    class CConfig:
+        _compilation_info_ = eci_from_header(c_header_source)
+        RESULT = IntegerFunctionResult(function, args)
+    if includes:
+        CConfig._compilation_info_.includes = includes
+    return configure(CConfig)['RESULT']
+
 def has(name, c_header_source, include_dirs=None):
     class CConfig:
         _compilation_info_ = eci_from_header(c_header_source, include_dirs)
@@ -320,13 +328,14 @@ class Struct(CConfigEntry):
         allfields = tuple(['c_' + name for name, _ in fields])
         padfields = tuple(padfields)
         name = self.name
-        padding_drop = PaddingDrop(name, allfields, padfields,
-                                   config_result.CConfig._compilation_info_)
+        eci = config_result.CConfig._compilation_info_
+        padding_drop = PaddingDrop(name, allfields, padfields, eci)
         hints = {'align': info['align'],
                  'size': info['size'],
                  'fieldoffsets': tuple(fieldoffsets),
                  'padding': padfields,
-                 'get_padding_drop': padding_drop}
+                 'get_padding_drop': padding_drop,
+                 'eci': eci}
         if name.startswith('struct '):
             name = name[7:]
         else:
@@ -379,12 +388,34 @@ class ConstantInteger(CConfigEntry):
         self.name = name
 
     def prepare_code(self):
-        yield 'if ((%s) < 0) {' % (self.name,)
+        yield 'if ((%s) <= 0) {' % (self.name,)
         yield '    long long x = (long long)(%s);' % (self.name,)
         yield '    printf("value: %lld\\n", x);'
         yield '} else {'
         yield '    unsigned long long x = (unsigned long long)(%s);' % (
                         self.name,)
+        yield '    printf("value: %llu\\n", x);'
+        yield '}'
+
+    def build_result(self, info, config_result):
+        return expose_value_as_rpython(info['value'])
+
+class IntegerFunctionResult(CConfigEntry):
+    """An entry in a CConfig class that stands for an externally
+    defined integer constant.
+    """
+    def __init__(self, name, args=None):
+        self.name = name
+        self.args = args if args else []
+
+    def prepare_code(self):
+        yield 'long int result = %s(%s);' % (self.name,
+                            ', '.join([str(s) for s in self.args]))
+        yield 'if ((result) <= 0) {'
+        yield '    long long x = (long long)(result);'
+        yield '    printf("value: %lld\\n", x);'
+        yield '} else {'
+        yield '    unsigned long long x = (unsigned long long)(result);'
         yield '    printf("value: %llu\\n", x);'
         yield '}'
 
@@ -401,7 +432,7 @@ class DefinedConstantInteger(CConfigEntry):
     def prepare_code(self):
         yield '#ifdef %s' % self.macro
         yield 'dump("defined", 1);'
-        yield 'if ((%s) < 0) {' % (self.macro,)
+        yield 'if ((%s) <= 0) {' % (self.macro,)
         yield '    long long x = (long long)(%s);' % (self.macro,)
         yield '    printf("value: %lld\\n", x);'
         yield '} else {'
@@ -660,8 +691,8 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
     if isinstance(fieldtype, lltype.FixedSizeArray):
         size, _ = expected_size_and_sign
         return lltype.FixedSizeArray(fieldtype.OF, size/_sizeof(fieldtype.OF))
-    raise TypeError("conflicting field type %r for %r" % (fieldtype,
-                                                          fieldname))
+    raise TypeError("conflict between translating python and compiler field"
+                    " type %r for %r" % (fieldtype, fieldname))
 
 def expose_value_as_rpython(value):
     if intmask(value) == value:
@@ -688,7 +719,7 @@ void dump(char* key, int value) {
 """
 
 def run_example_code(filepath, eci, ignore_errors=False):
-    eci = eci.convert_sources_to_files(being_main=True)
+    eci = eci.convert_sources_to_files()
     files = [filepath]
     output = build_executable_cache(files, eci, ignore_errors=ignore_errors)
     section = None
@@ -710,9 +741,13 @@ def run_example_code(filepath, eci, ignore_errors=False):
 PYPY_EXTERNAL_DIR = py.path.local(pypydir).join('..', '..')
 # XXX make this configurable
 if sys.platform == 'win32':
-    libdir = py.path.local('c:/buildslave/support') # on the bigboard buildbot
-    if libdir.check():
-        PYPY_EXTERNAL_DIR = libdir
+    for libdir in [
+        py.path.local('c:/buildslave/support'), # on the bigboard buildbot
+        py.path.local('d:/myslave'), # on the snakepit buildbot
+        ]:
+        if libdir.check():
+            PYPY_EXTERNAL_DIR = libdir
+            break
 
 def configure_external_library(name, eci, configurations,
                                symbol=None, _cache={}):
@@ -790,9 +825,15 @@ def configure_boehm(platform=None):
     if platform is None:
         from pypy.translator.platform import platform
     if sys.platform == 'win32':
-        library_dir = 'Release'
-        libraries = ['gc']
-        includes=['gc.h']
+        import platform as host_platform # just to ask for the arch. Confusion-alert!
+        if host_platform.architecture()[0] == '32bit':
+            library_dir = 'Release'
+            libraries = ['gc']
+            includes=['gc.h']
+        else:
+            library_dir = ''
+            libraries = ['gc64_dll']
+            includes = ['gc.h']
     else:
         library_dir = ''
         libraries = ['gc', 'dl']

@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestWeakref(object):
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_weakref',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_weakref',))
                     
     def test_simple(self):
         import _weakref, gc
@@ -118,19 +114,28 @@ class AppTestWeakref(object):
         class A(object):
             def __eq__(self, other):
                 return True
+            def __ne__(self, other):
+                return False
         a1 = A()
         a2 = A()
         ref1 = _weakref.ref(a1)
         ref2 = _weakref.ref(a2)
         assert ref1 == ref2
+        assert not (ref1 != ref2)
+        assert not (ref1 == [])
+        assert ref1 != []
         del a1
         gc.collect()
         assert not ref1 == ref2
         assert ref1 != ref2
+        assert not (ref1 == [])
+        assert ref1 != []
         del a2
         gc.collect()
         assert not ref1 == ref2
         assert ref1 != ref2
+        assert not (ref1 == [])
+        assert ref1 != []
 
     def test_getweakrefs(self):
         import _weakref, gc
@@ -302,11 +307,16 @@ class AppTestWeakref(object):
         if seen_callback:
             assert seen_callback == [True, True, True]
 
+    def test_type_weakrefable(self):
+        import _weakref, gc
+        w = _weakref.ref(list)
+        assert w() is list
+        gc.collect()
+        assert w() is list
+
 
 class AppTestProxy(object):
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_weakref',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_weakref',))
                     
     def test_simple(self):
         import _weakref, gc
@@ -441,6 +451,8 @@ class AppTestProxy(object):
         class A(object):
             def __eq__(self, other):
                 return True
+            def __ne__(self, other):
+                return False
 
         a = A()
         assert _weakref.ref(a) == a

@@ -1,9 +1,5 @@
-import py
-from pypy.conftest import gettestobjspace
-
 class AppTestIdentityDict:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['__pypy__'])
+    spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_numbers(self):
         from __pypy__ import identity_dict

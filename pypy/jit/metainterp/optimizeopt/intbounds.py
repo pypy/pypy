@@ -202,10 +202,13 @@ class OptIntBounds(Optimization):
         # GUARD_OVERFLOW, then the loop is invalid.
         lastop = self.last_emitted_operation
         if lastop is None:
-            raise InvalidLoop
+            raise InvalidLoop('An INT_xxx_OVF was proven not to overflow but' +
+                              'guarded with GUARD_OVERFLOW')
         opnum = lastop.getopnum()
         if not lastop.is_ovf():
-            raise InvalidLoop
+            raise InvalidLoop('An INT_xxx_OVF was proven not to overflow but' +
+                              'guarded with GUARD_OVERFLOW')
+                             
         self.emit_operation(op)
 
     def optimize_INT_ADD_OVF(self, op):

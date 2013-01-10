@@ -2,7 +2,6 @@
 The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
-import types
 from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy, Sig
@@ -12,6 +11,8 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import extregistry
 from pypy.objspace.flow.model import Constant
 from pypy.translator.simplify import get_functype
+from pypy.rpython.rmodel import warning
+from pypy.rlib.objectmodel import specialize
 
 class KeyComp(object):
     def __init__(self, val):
@@ -37,8 +38,6 @@ class KeyComp(object):
     __repr__ = __str__
 
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
-    allow_someobjects = False
-
     def __init__(pol, rtyper=None):
         pol.rtyper = rtyper
 
@@ -483,11 +482,15 @@ def cast_object_to_ptr(PTR, object):
     """NOT_RPYTHON: hack. The object may be disguised as a PTR now.
     Limited to casting a given object to a single type.
     """
+    if hasattr(object, '_freeze_'):
+        warning("Trying to cast a frozen object to pointer")
     if isinstance(PTR, lltype.Ptr):
         TO = PTR.TO
     else:
         TO = PTR
     if not hasattr(object, '_carry_around_for_tests'):
+        if object is None:
+            return lltype.nullptr(PTR.TO)
         assert not hasattr(object, '_TYPE')
         object._carry_around_for_tests = True
         object._TYPE = TO
@@ -501,13 +504,13 @@ def cast_object_to_ptr(PTR, object):
     else:
         raise NotImplementedError("cast_object_to_ptr(%r, ...)" % PTR)
 
+@specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
     return cast_object_to_ptr(base_ptr_lltype(), instance)
-cast_instance_to_base_ptr._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.argtype(0)
 def cast_instance_to_base_obj(instance):
     return cast_object_to_ptr(base_obj_ootype(), instance)
-cast_instance_to_base_obj._annspecialcase_ = 'specialize:argtype(0)'
 
 def base_ptr_lltype():
     from pypy.rpython.lltypesystem.rclass import OBJECTPTR
@@ -543,11 +546,11 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
         else:
             assert False
 
+        hop.exception_cannot_occur()
         if isinstance(hop.args_r[1], rpbc.NoneFrozenPBCRepr):
             return hop.inputconst(PTR, null)
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, T)
-        hop.exception_cannot_occur()
         return hop.genop(opname, [v_arg], resulttype = PTR)
 
 
@@ -557,6 +560,8 @@ def cast_base_ptr_to_instance(Class, ptr):
     """NOT_RPYTHON: hack. Reverse the hacking done in cast_object_to_ptr()."""
     if isinstance(lltype.typeOf(ptr), lltype.Ptr):
         ptr = ptr._as_obj()
+        if ptr is None:
+            return None
     if not isinstance(ptr, Class):
         raise NotImplementedError("cast_base_ptr_to_instance: casting %r to %r"
                                   % (ptr, Class))

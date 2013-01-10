@@ -1,5 +1,6 @@
 import py
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
+from pypy.module.pypyjit.test_pypy_c.model import OpMatcher
 
 class TestCall(BaseTestPyPyC):
 
@@ -27,6 +28,7 @@ class TestCall(BaseTestPyPyC):
             ...
             p53 = call_assembler(..., descr=...)
             guard_not_forced(descr=...)
+            keepalive(...)
             guard_no_exception(descr=...)
             ...
         """)
@@ -243,6 +245,7 @@ class TestCall(BaseTestPyPyC):
         print guards
         assert len(guards) <= 20
 
+
     def test_stararg_virtual(self):
         def main(x):
             def g(*args):
@@ -367,14 +370,17 @@ class TestCall(BaseTestPyPyC):
             # make sure that the "block" is not allocated
             ...
             i20 = force_token()
-            p22 = new_with_vtable(19511408)
+            p22 = new_with_vtable(...)
             p24 = new_array(1, descr=<ArrayP .>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
+            {{{
             setfield_gc(p0, i20, descr=<FieldS .*PyFrame.vable_token .*>)
+            setfield_gc(p22, 1, descr=<FieldU pypy.interpreter.argument.Arguments.inst__jit_few_keywords .*>)
             setfield_gc(p26, ConstPtr(ptr22), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
             setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
             setfield_gc(p22, p24, descr=<FieldP .*Arguments.inst_arguments_w .*>)
-            p32 = call_may_force(11376960, p18, p22, descr=<Callr . rr EF=6>)
+            }}}
+            p32 = call_may_force(..., p18, p22, descr=<Callr . rr EF=6>)
             ...
         """)
 
@@ -485,3 +491,131 @@ class TestCall(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
+
+    def test_kwargs_virtual2(self):
+        log = self.run("""
+        def f(*args, **kwargs):
+            kwargs['a'] = kwargs['z'] * 0
+            return g(1, *args, **kwargs)
+
+        def g(x, y, z=2, a=1):
+            return x - y + z + a
+
+        def main(stop):
+            res = 0
+            i = 0
+            while i < stop:
+                res = f(res, z=i) # ID: call
+                i += 1
+            return res""", [1000])
+        assert log.result == 500
+        loop, = log.loops_by_id('call')
+        assert loop.match("""
+            i65 = int_lt(i58, i29)
+            guard_true(i65, descr=...)
+            guard_not_invalidated(..., descr=...)
+            i66 = force_token()
+            i67 = force_token()
+            i69 = int_sub_ovf(1, i56)
+            guard_no_overflow(..., descr=...)
+            i70 = int_add_ovf(i69, i58)
+            guard_no_overflow(..., descr=...)
+            i71 = int_add(i58, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)
+
+    def test_kwargs_virtual3(self):
+        log = self.run("""
+        def f(a, b, c):
+            pass
+
+        def main(stop):
+            i = 0
+            while i < stop:
+                d = {'a': 2, 'b': 3, 'c': 4}
+                f(**d) # ID: call
+                i += 1
+            return 13
+        """, [1000])
+        assert log.result == 13
+        loop, = log.loops_by_id('call')
+        allops = loop.allops()
+        calls = [op for op in allops if op.name.startswith('call')]
+        assert len(calls) == 0
+        assert len([op for op in allops if op.name.startswith('new')]) == 0
+
+    def test_kwargs_non_virtual(self):
+        log = self.run("""
+        def f(a, b, c):
+            pass
+
+        def main(stop):
+            d = {'a': 2, 'b': 3, 'c': 4}
+            i = 0
+            while i < stop:
+                f(**d) # ID: call
+                i += 1
+            return 13
+        """, [1000])
+        assert log.result == 13
+        loop, = log.loops_by_id('call')
+        allops = loop.allops()
+        calls = [op for op in allops if op.name.startswith('call')]
+        assert OpMatcher(calls).match('''
+        p93 = call(ConstClass(view_as_kwargs), p35, p12, descr=<.*>)
+        i103 = call(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, p94, p98, 0, descr=<.*>)
+        ''')
+        assert len([op for op in allops if op.name.startswith('new')]) == 1
+        # 1 alloc
+
+    def test_complex_case(self):
+        log = self.run("""
+        def f(x, y, a, b, c=3, d=4):
+            pass
+
+        def main(stop):
+            i = 0
+            while i < stop:
+                a = [1, 2]
+                d = {'a': 2, 'b': 3, 'd':4}
+                f(*a, **d) # ID: call
+                i += 1
+            return 13        
+        """, [1000])
+        loop, = log.loops_by_id('call')
+        assert loop.match_by_id('call', '''
+        guard_not_invalidated(descr=<.*>)
+        i1 = force_token()
+        ''')
+
+    def test_complex_case_global(self):
+        log = self.run("""
+        def f(x, y, a, b, c=3, d=4):
+            pass
+
+        a = [1, 2]
+        d = {'a': 2, 'b': 3, 'd':4}
+
+        def main(stop):
+            i = 0
+            while i < stop:
+                f(*a, **d) # ID: call
+                i += 1
+            return 13        
+        """, [1000])
+
+    def test_complex_case_loopconst(self):
+        log = self.run("""
+        def f(x, y, a, b, c=3, d=4):
+            pass
+
+        def main(stop):
+            i = 0
+            a = [1, 2]
+            d = {'a': 2, 'b': 3, 'd':4}
+            while i < stop:
+                f(*a, **d) # ID: call
+                i += 1
+            return 13        
+        """, [1000])

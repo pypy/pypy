@@ -1,25 +1,27 @@
 import py
+import sys
 
-from pypy.conftest import gettestobjspace
+# add a larger timeout for slow ARM machines
+import platform
 
 
 class AppTestEpoll(object):
+    spaceconfig = {
+        "usemodules": ["select", "_socket", "posix", "rctime"],
+    }
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
-
-        import errno
-        import select
-
-        if not hasattr(select, "epoll"):
-            py.test.skip("test requires linux 2.6")
-        try:
-            select.epoll()
-        except IOError, e:
-            if e.errno == errno.ENOSYS:
-                py.test.skip("kernel doesn't support epoll()")
+        # NB. we should ideally py.test.skip() if running on an old linux
+        # where the kernel doesn't support epoll()
+        if not sys.platform.startswith('linux'):
+            py.test.skip("test requires linux (assumed >= 2.6)")
 
     def setup_method(self, meth):
         self.w_sockets = self.space.wrap([])
+        if platform.machine().startswith('arm'):
+            self.w_timeout = self.space.wrap(0.06)
+        else:
+            self.w_timeout = self.space.wrap(0.02)
 
     def teardown_method(self, meth):
         for socket in self.space.unpackiterable(self.w_sockets):
@@ -138,7 +140,7 @@ class AppTestEpoll(object):
         expected.sort()
 
         assert events == expected
-        assert then - now < 0.02
+        assert then - now < self.timeout
 
         now = time.time()
         events = ep.poll(timeout=2.1, maxevents=4)
@@ -151,7 +153,7 @@ class AppTestEpoll(object):
         now = time.time()
         events = ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.02
+        assert then - now < self.timeout
 
         events.sort()
         expected = [
@@ -168,7 +170,7 @@ class AppTestEpoll(object):
         now = time.time()
         events = ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.02
+        assert then - now < self.timeout
 
         expected = [(server.fileno(), select.EPOLLOUT)]
         assert events == expected
@@ -192,7 +194,14 @@ class AppTestEpoll(object):
         now = time.time()
         ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.02
+        assert then - now < self.timeout
 
         server.close()
         ep.unregister(fd)
+
+    def test_close_twice(self):
+        import select
+
+        ep = select.epoll()
+        ep.close()
+        ep.close()

@@ -5,27 +5,35 @@ from pypy.rpython.ootypesystem import ootype
 top_set = object()
 empty_set = frozenset()
 
+
 class WriteAnalyzer(graphanalyze.GraphAnalyzer):
-
-    @staticmethod
-    def join_two_results(result1, result2):
-        if result1 is top_set:
-            return top_set
-        if result2 is top_set:
-            return top_set
-        return result1.union(result2)
-
-    @staticmethod
-    def bottom_result():
+    def bottom_result(self):
         return empty_set
 
-    @staticmethod
-    def top_result():
+    def top_result(self):
         return top_set
 
-    @staticmethod
-    def is_top_result(result):
+    def is_top_result(self, result):
         return result is top_set
+
+    def result_builder(self):
+        return set()
+
+    def add_to_result(self, result, other):
+        if other is top_set:
+            return top_set
+        result.update(other)
+        return result
+
+    def finalize_builder(self, result):
+        if result is top_set:
+            return result
+        return frozenset(result)
+
+    def join_two_results(self, result1, result2):
+        if result1 is top_set or result2 is top_set:
+            return top_set
+        return result1.union(result2)
 
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ("setfield", "oosetfield"):

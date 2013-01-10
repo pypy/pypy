@@ -1,14 +1,18 @@
-import py
 import sys
-from pypy.translator.translator import TranslationContext, graphof
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
-from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
-from pypy.rpython.error import TyperError
+
+import py
+
 from pypy.objspace.flow.model import summary
+from pypy.rlib.rarithmetic import r_longlong
+from pypy.rpython.lltypesystem.lltype import (typeOf, Signed, getRuntimeTypeInfo,
+    identityhash)
+from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.error import TyperError
+from pypy.rpython.rclass import (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY,
+    IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY)
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.translator.translator import TranslationContext, graphof
+
 
 class EmptyBase(object):
     pass
@@ -958,6 +962,16 @@ class BaseTestRclass(BaseRtypingTest):
                 found.append(op.args[1].value)
         assert found == ['mutate_c']
 
+    def test_calling_object_init(self):
+        class A(object):
+            pass
+        class B(A):
+            def __init__(self):
+                A.__init__(self)
+        def f():
+            B()
+        self.gengraph(f, [])
+
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
@@ -1085,6 +1099,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
                 return annmodel.SomeInteger()
             def specialize_call(self, hop):
                 [v_instance] = hop.inputargs(*hop.args_r)
+                hop.exception_is_here()
                 return hop.gendirectcall(ll_my_gethash, v_instance)
 
         def f(n):
@@ -1141,6 +1156,62 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
             assert summary(graph) == {opname: 1,
                                       'cast_pointer': 1,
                                       'setfield': 1}
+
+    def test_iter(self):
+        class Iterable(object):
+            def __init__(self):
+                self.counter = 0
+            
+            def __iter__(self):
+                return self
+
+            def next(self):
+                if self.counter == 5:
+                    raise StopIteration
+                self.counter += 1
+                return self.counter - 1
+
+        def f():
+            i = Iterable()
+            s = 0
+            for elem in i:
+                s += elem
+            return s
+
+        assert self.interpret(f, []) == f()
+
+    def test_iter_2_kinds(self):
+        class BaseIterable(object):
+            def __init__(self):
+                self.counter = 0
+            
+            def __iter__(self):
+                return self
+
+            def next(self):
+                if self.counter >= 5:
+                    raise StopIteration
+                self.counter += self.step
+                return self.counter - 1
+        
+        class Iterable(BaseIterable):
+            step = 1
+
+        class OtherIter(BaseIterable):
+            step = 2
+
+        def f(k):
+            if k:
+                i = Iterable()
+            else:
+                i = OtherIter()
+            s = 0
+            for elem in i:
+                s += elem
+            return s
+
+        assert self.interpret(f, [True]) == f(True)
+        assert self.interpret(f, [False]) == f(False)
 
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):

@@ -430,6 +430,7 @@ class _Unmarshaller:
 def _read(self, n):
     pos = self.bufpos
     newpos = pos + n
+    if newpos > len(self.bufstr): raise EOFError
     ret = self.bufstr[pos : newpos]
     self.bufpos = newpos
     return ret

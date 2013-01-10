@@ -130,6 +130,11 @@ def PyString_FromString(space, char_p):
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
 def PyString_AsString(space, ref):
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+        pass    # typecheck returned "ok" without forcing 'ref' at all
+    elif not PyString_Check(space, ref):   # otherwise, use the alternate way
+        raise OperationError(space.w_TypeError, space.wrap(
+            "PyString_AsString only support strings"))
     ref_str = rffi.cast(PyStringObject, ref)
     if not ref_str.c_buffer:
         # copy string buffer
@@ -250,6 +255,26 @@ def PyString_InternFromString(space, string):
     s = rffi.charp2str(string)
     return space.new_interned_str(s)
 
+@cpython_api([PyObjectP], lltype.Void)
+def PyString_InternInPlace(space, string):
+    """Intern the argument *string in place.  The argument must be the
+    address of a pointer variable pointing to a Python string object.
+    If there is an existing interned string that is the same as
+    *string, it sets *string to it (decrementing the reference count
+    of the old string object and incrementing the reference count of
+    the interned string object), otherwise it leaves *string alone and
+    interns it (incrementing its reference count).  (Clarification:
+    even though there is a lot of talk about reference counts, think
+    of this function as reference-count-neutral; you own the object
+    after the call if and only if you owned it before the call.)
+
+    This function is not available in 3.x and does not have a PyBytes
+    alias."""
+    w_str = from_ref(space, string[0])
+    w_str = space.new_interned_w_str(w_str)
+    Py_DecRef(space, string[0])
+    string[0] = make_ref(space, w_str)
+
 @cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_AsEncodedObject(space, w_str, encoding, errors):
     """Encode a string object using the codec registered for encoding and return
@@ -268,6 +293,26 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
+
+@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
+def PyString_AsDecodedObject(space, w_str, encoding, errors):
+    """Decode a string object by passing it to the codec registered
+    for encoding and return the result as Python object. encoding and
+    errors have the same meaning as the parameters of the same name in
+    the string encode() method.  The codec to be used is looked up
+    using the Python codec registry. Return NULL if an exception was
+    raised by the codec.
+
+    This function is not available in 3.x and does not have a PyBytes alias."""
+    if not PyString_Check(space, w_str):
+        PyErr_BadArgument(space)
+
+    w_encoding = w_errors = space.w_None
+    if encoding:
+        w_encoding = space.wrap(rffi.charp2str(encoding))
+    if errors:
+        w_errors = space.wrap(rffi.charp2str(errors))
+    return space.call_method(w_str, "decode", w_encoding, w_errors)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def _PyString_Join(space, w_sep, w_seq):

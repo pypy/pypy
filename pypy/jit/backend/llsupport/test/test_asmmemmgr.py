@@ -217,7 +217,8 @@ def test_blockbuildermixin(translated=True):
     encoded = ''.join(writtencode).encode('hex').upper()
     ataddr = '@%x' % addr
     assert log == [('test-logname-section',
-                    [('debug_print', 'CODE_DUMP', ataddr, '+0 ', encoded)])]
+                    [('debug_print', 'SYS_EXECUTABLE', '??'),
+                     ('debug_print', 'CODE_DUMP', ataddr, '+0 ', encoded)])]
     
     lltype.free(p, flavor='raw')
 

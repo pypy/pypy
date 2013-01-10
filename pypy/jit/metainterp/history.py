@@ -2,9 +2,10 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
+from pypy.rlib.objectmodel import we_are_translated, Symbolic
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.rlib.rarithmetic import r_int64
+from pypy.rlib.rarithmetic import r_int64, is_valid_int
+
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -38,7 +39,7 @@ def getkind(TYPE, supports_floats=True,
         # XXX fix this for oo...
         if (TYPE != llmemory.Address and
             rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
-            if supports_longlong:
+            if supports_longlong and TYPE is not lltype.LongFloat:
                 assert rffi.sizeof(TYPE) == 8
                 return 'float'
             raise NotImplementedError("type %s is too large" % TYPE)
@@ -136,8 +137,10 @@ class AbstractValue(object):
     def same_box(self, other):
         return self is other
 
+
 class AbstractDescr(AbstractValue):
     __slots__ = ()
+    llopaque = True
 
     def repr_of_descr(self):
         return '%r' % (self,)
@@ -150,10 +153,21 @@ class AbstractDescr(AbstractValue):
             assert clone.__class__ is self.__class__
         return clone
 
+    def hide(self, cpu):
+        descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
+        return cpu.ts.cast_to_ref(descr_ptr)
+
+    @staticmethod
+    def show(cpu, descr_gcref):
+        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+        descr_ptr = cpu.ts.cast_to_baseclass(descr_gcref)
+        return cast_base_ptr_to_instance(AbstractDescr, descr_ptr)
+
+
 class AbstractFailDescr(AbstractDescr):
     index = -1
 
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
@@ -213,7 +227,7 @@ class ConstInt(Const):
 
     def __init__(self, value):
         if not we_are_translated():
-            if isinstance(value, int):
+            if is_valid_int(value):
                 value = int(value)    # bool -> int
             else:
                 assert isinstance(value, Symbolic)
@@ -448,10 +462,10 @@ class BoxInt(Box):
 
     def __init__(self, value=0):
         if not we_are_translated():
-            if isinstance(value, int):
+            if is_valid_int(value):
                 value = int(value)    # bool -> int
             else:
-                assert isinstance(value, Symbolic)
+                assert lltype.typeOf(value) == lltype.Signed
         self.value = value
 
     def forget_value(self):
@@ -705,6 +719,7 @@ class TargetToken(AbstractDescr):
 
         self.virtual_state = None
         self.exported_state = None
+        self.short_preamble = None
 
     def repr_of_descr(self):
         return 'TargetToken(%d)' % compute_unique_id(self)

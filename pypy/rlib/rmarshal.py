@@ -9,6 +9,7 @@ from pypy.tool.pairtype import pair, pairtype
 from pypy.rlib.rarithmetic import r_longlong, intmask, LONG_BIT
 from pypy.rlib.rfloat import formatd, rstring_to_float
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rstring import assert_str0
 
 class CannotMarshal(Exception):
     pass
@@ -223,12 +224,33 @@ def load_single_char(loader):
     return readchr(loader)
 add_loader(annmodel.SomeChar(), load_single_char)
 
+def load_string_nonul(loader):
+    if readchr(loader) != TYPE_STRING:
+        raise ValueError("expected a string")
+    length = readlong(loader)
+    return assert_str0(readstr(loader, length))
+add_loader(annmodel.SomeString(can_be_None=False, no_nul=True),
+           load_string_nonul)
+
 def load_string(loader):
     if readchr(loader) != TYPE_STRING:
         raise ValueError("expected a string")
     length = readlong(loader)
     return readstr(loader, length)
-add_loader(annmodel.SomeString(can_be_None=False), load_string)
+add_loader(annmodel.SomeString(can_be_None=False, no_nul=False),
+           load_string)
+
+def load_string_or_none_nonul(loader):
+    t = readchr(loader)
+    if t == TYPE_STRING:
+        length = readlong(loader)
+        return assert_str0(readstr(loader, length))
+    elif t == TYPE_NONE:
+        return None
+    else:
+        raise ValueError("expected a string or None")
+add_loader(annmodel.SomeString(can_be_None=True, no_nul=True),
+           load_string_or_none_nonul)
 
 def load_string_or_none(loader):
     t = readchr(loader)
@@ -239,7 +261,8 @@ def load_string_or_none(loader):
         return None
     else:
         raise ValueError("expected a string or None")
-add_loader(annmodel.SomeString(can_be_None=True), load_string_or_none)
+add_loader(annmodel.SomeString(can_be_None=True, no_nul=False),
+           load_string_or_none)
 
 # ____________________________________________________________
 #

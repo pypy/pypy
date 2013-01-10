@@ -1,6 +1,7 @@
 import copy
 import unittest
-from test.test_support import run_unittest, TestFailed, check_warnings
+from test.test_support import (
+    run_unittest, TestFailed, check_warnings, check_impl_detail)
 
 
 # Fake a number that implements numeric methods through __coerce__
@@ -306,12 +307,18 @@ class CoercionTest(unittest.TestCase):
         self.assertNotEqual(cmp(u'fish', evil_coercer), 0)
         self.assertNotEqual(cmp(slice(1), evil_coercer), 0)
         # ...but that this still works
-        class WackyComparer(object):
-            def __cmp__(slf, other):
-                self.assertTrue(other == 42, 'expected evil_coercer, got %r' % other)
-                return 0
-            __hash__ = None # Invalid cmp makes this unhashable
-        self.assertEqual(cmp(WackyComparer(), evil_coercer), 0)
+        if check_impl_detail():
+            # NB. I (arigo) would consider the following as implementation-
+            # specific.  For example, in CPython, if we replace 42 with 42.0
+            # both below and in CoerceTo() above, then the test fails.  This
+            # hints that the behavior is really dependent on some obscure
+            # internal details.
+            class WackyComparer(object):
+                def __cmp__(slf, other):
+                    self.assertTrue(other == 42, 'expected evil_coercer, got %r' % other)
+                    return 0
+                __hash__ = None # Invalid cmp makes this unhashable
+            self.assertEqual(cmp(WackyComparer(), evil_coercer), 0)
         # ...and classic classes too, since that code path is a little different
         class ClassicWackyComparer:
             def __cmp__(slf, other):

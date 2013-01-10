@@ -10,6 +10,10 @@ from pypy.tool import sourcetools
 
 
 @specialize.argtype(1)
+@jit.look_inside_iff(lambda space, s, start, end:
+       jit.isconstant(s) and
+       jit.isconstant(start) and
+       jit.isconstant(end))
 def _parse_int(space, s, start, end):
     """Parse a number and check for overflows"""
     result = 0
@@ -91,9 +95,18 @@ def make_template_formatting_class():
                         if s[i] == "{":
                             i += 1
                             markup_follows = False
-                    # Attach literal data
+                    # Attach literal data, ending with { or }
                     out.append_slice(s, last_literal, i - 1)
                     if not markup_follows:
+                        if self.parser_list_w is not None:
+                            end_literal = i - 1
+                            assert end_literal > last_literal
+                            literal = self.template[last_literal:end_literal]
+                            w_entry = space.newtuple([
+                                space.wrap(literal),
+                                space.w_None, space.w_None, space.w_None])
+                            self.parser_list_w.append(w_entry)
+                            self.last_end = i
                         last_literal = i
                         continue
                     nested = 1

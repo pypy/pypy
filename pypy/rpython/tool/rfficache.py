@@ -4,16 +4,17 @@
 
 import py
 import os
-import distutils
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.udir import udir
-from pypy.tool.autopath import pypydir
 from pypy.rlib import rarithmetic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.gcc_cache import build_executable_cache
 
-def ask_gcc(question, add_source=""):
+def ask_gcc(question, add_source="", ignore_errors=False):
+    from pypy.translator.platform import platform
     includes = ['stdlib.h', 'stdio.h', 'sys/types.h']
+    if platform.name != 'msvc':
+        includes += ['inttypes.h']
     include_string = "\n".join(["#include <%s>" % i for i in includes])
     c_source = py.code.Source('''
     // includes
@@ -31,7 +32,7 @@ def ask_gcc(question, add_source=""):
     c_file = udir.join("gcctest.c")
     c_file.write(str(c_source) + '\n')
     eci = ExternalCompilationInfo()
-    return build_executable_cache([c_file], eci)
+    return build_executable_cache([c_file], eci, ignore_errors=ignore_errors)
 
 def sizeof_c_type(c_typename, **kwds):
     return sizeof_c_types([c_typename], **kwds)[0]

@@ -16,34 +16,37 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
 
     OPNUM = -123
 
-    def __init__(self, opnum, args, result, descr=None):
-        assert opnum == self.OPNUM
-        self.result = result
-        self.initarglist(args)
-        self.setdescr(descr)
-
     def getopnum(self):
         return self.OPNUM
 
+    def getopname(self):
+        return 'escape'
+
     def clone(self):
-        return ESCAPE_OP(self.OPNUM, self.getarglist()[:], self.result, self.getdescr())
+        op = ESCAPE_OP(self.result)
+        op.initarglist(self.getarglist()[:])
+        return op
 
 class FORCE_SPILL(UnaryOp, PlainResOp):
 
     OPNUM = -124
 
-    def __init__(self, opnum, args, result=None, descr=None):
-        assert result is None
-        assert descr is None
-        assert opnum == self.OPNUM
-        self.result = result
-        self.initarglist(args)
-
     def getopnum(self):
         return self.OPNUM
 
+    def getopname(self):
+        return 'force_spill'
+
     def clone(self):
-        return FORCE_SPILL(self.OPNUM, self.getarglist()[:])
+        op = FORCE_SPILL(self.result)
+        op.initarglist(self.getarglist()[:])
+        return op
+
+    def copy_and_change(self, opnum, args=None, result=None, descr=None):
+        assert opnum == self.OPNUM
+        newop = FORCE_SPILL(result or self.result)
+        newop.initarglist(args or self.getarglist())
+        return newop
 
 
 def default_fail_descr(model, fail_args=None):
@@ -257,9 +260,15 @@ class OpParser(object):
 
     def create_op(self, opnum, args, result, descr):
         if opnum == ESCAPE_OP.OPNUM:
-            return ESCAPE_OP(opnum, args, result, descr)
+            op = ESCAPE_OP(result)
+            op.initarglist(args)
+            assert descr is None
+            return op
         if opnum == FORCE_SPILL.OPNUM:
-            return FORCE_SPILL(opnum, args, result, descr)
+            op = FORCE_SPILL(result)
+            op.initarglist(args)
+            assert descr is None
+            return op
         else:
             return ResOperation(opnum, args, result, descr)
 

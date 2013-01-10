@@ -1,6 +1,6 @@
 from pypy.annotation.model import SomeObject, s_ImpossibleValue
 from pypy.annotation.model import SomeList, SomeString
-from pypy.annotation.model import unionof, TLS, UnionError, isdegenerated
+from pypy.annotation.model import unionof, TLS, UnionError
 
 
 class TooLateForChange(Exception):
@@ -86,18 +86,14 @@ class ListItem(object):
             read_locations = self.read_locations.copy()
             other_read_locations = other.read_locations.copy()
             self.read_locations.update(other.read_locations)
-            self.patch()    # which should patch all refs to 'other'
             s_value = self.s_value
             s_other_value = other.s_value
             s_new_value = unionof(s_value, s_other_value)
-            if isdegenerated(s_new_value):
-                if self.bookkeeper:
-                    self.bookkeeper.ondegenerated(self, s_new_value)
-                elif other.bookkeeper:
-                    other.bookkeeper.ondegenerated(other, s_new_value)
             if s_new_value != s_value:
                 if self.dont_change_any_more:
                     raise TooLateForChange
+            self.patch()    # which should patch all refs to 'other'
+            if s_new_value != s_value:
                 self.s_value = s_new_value
                 # reflow from reading points
                 for position_key in read_locations:
@@ -113,8 +109,6 @@ class ListItem(object):
 
     def generalize(self, s_other_value):
         s_new_value = unionof(self.s_value, s_other_value)
-        if isdegenerated(s_new_value) and self.bookkeeper:
-            self.bookkeeper.ondegenerated(self, s_new_value)        
         updated = s_new_value != self.s_value
         if updated:
             if self.dont_change_any_more:
@@ -156,12 +150,8 @@ class ListDef(object):
         return self.listitem is other.listitem
 
     def union(self, other):
-        if (self.same_as(MOST_GENERAL_LISTDEF) or
-            other.same_as(MOST_GENERAL_LISTDEF)):
-            return MOST_GENERAL_LISTDEF   # without merging
-        else:
-            self.listitem.merge(other.listitem)
-            return self
+        self.listitem.merge(other.listitem)
+        return self
 
     def agree(self, other):
         s_self_value = self.read_item()
@@ -220,6 +210,5 @@ class ListDef(object):
         #else: it's fine, don't set immutable=True at all (see
         #      test_can_merge_immutable_list_with_regular_list)
 
-MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
-
-s_list_of_strings = SomeList(ListDef(None, SomeString(), resized = True))
+s_list_of_strings = SomeList(ListDef(None, SomeString(no_nul=True),
+                                     resized = True))

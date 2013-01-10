@@ -290,8 +290,8 @@ class TestX86(LLtypeBackendTest):
                     ops[-2].setfailargs([i1])
                     looptoken = JitCellToken()
                     self.cpu.compile_loop([b], ops, looptoken)
-                    self.cpu.execute_token(looptoken, b.value)
-                    result = self.cpu.get_latest_value_int(0)
+                    deadframe = self.cpu.execute_token(looptoken, b.value)
+                    result = self.cpu.get_latest_value_int(deadframe, 0)
                     if guard == rop.GUARD_FALSE:
                         assert result == execute(self.cpu, None,
                                                  op, None, b).value
@@ -337,8 +337,8 @@ class TestX86(LLtypeBackendTest):
                     looptoken = JitCellToken()
                     self.cpu.compile_loop(inputargs, ops, looptoken)
                     inputvalues = [box.value for box in inputargs]
-                    self.cpu.execute_token(looptoken, *inputvalues)
-                    result = self.cpu.get_latest_value_int(0)
+                    deadframe = self.cpu.execute_token(looptoken, *inputvalues)
+                    result = self.cpu.get_latest_value_int(deadframe, 0)
                     expected = execute(self.cpu, None, op, None, a, b).value
                     if guard == rop.GUARD_FALSE:
                         assert result == expected
@@ -371,7 +371,7 @@ class TestX86(LLtypeBackendTest):
 
         operations = [
             ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello"), 0], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello"), 0, 0], None),
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
@@ -390,7 +390,7 @@ class TestX86(LLtypeBackendTest):
         bridge = [
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye"), 0], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye"), 0, 0], None),
             ResOperation(rop.JUMP, [i1b], None, descr=targettoken),
         ]
         bridge[1].setfailargs([i1b])
@@ -403,9 +403,10 @@ class TestX86(LLtypeBackendTest):
         assert address >= loopaddress + loopsize
         assert size >= 10 # randomish number
 
-        fail = self.cpu.execute_token(looptoken, 2)
+        deadframe = self.cpu.execute_token(looptoken, 2)
+        fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
-        res = self.cpu.get_latest_value_int(0)
+        res = self.cpu.get_latest_value_int(deadframe, 0)
         assert res == 20
 
     def test_ops_offset(self):
@@ -458,10 +459,8 @@ class TestX86(LLtypeBackendTest):
                 mc.RET16_i(40)
             rawstart = mc.materialize(cpu.asmmemmgr, [])
             #
-            calldescr = cpu.calldescrof_dynamic([types.slong] * 10,
-                                                types.slong,
-                                                EffectInfo.MOST_GENERAL,
-                                                ffi_flags=-1)
+            calldescr = cpu._calldescr_dynamic_for_tests([types.slong] * 10,
+                                                         types.slong)
             calldescr.get_call_conv = lambda: ffi      # <==== hack
             # ^^^ we patch get_call_conv() so that the test also makes sense
             #     on Linux, because clibffi.get_call_conv() would always
@@ -510,12 +509,13 @@ class TestX86(LLtypeBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop([i1, i2], ops, looptoken)
 
-            fail = self.cpu.execute_token(looptoken, 123450, 123408)
+            deadframe = self.cpu.execute_token(looptoken, 123450, 123408)
+            fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 0
-            assert self.cpu.get_latest_value_int(0) == 42
-            assert self.cpu.get_latest_value_int(1) == 42
-            assert self.cpu.get_latest_value_int(2) == 42
-            assert self.cpu.get_latest_value_int(3) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 0) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 1) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 2) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 3) == 42
 
 
 class TestDebuggingAssembler(object):
@@ -531,12 +531,12 @@ class TestDebuggingAssembler(object):
         loop = """
         [i0]
         label(i0, descr=preambletoken)
-        debug_merge_point('xyz', 0)
+        debug_merge_point('xyz', 0, 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
         label(i1, descr=targettoken)
-        debug_merge_point('xyz', 0)
+        debug_merge_point('xyz', 0, 0)
         i11 = int_add(i1, 1)
         i12 = int_ge(i11, 10)
         guard_false(i12) []
@@ -569,7 +569,7 @@ class TestDebuggingAssembler(object):
         loop = """
         [i0]
         label(i0, descr=targettoken)
-        debug_merge_point('xyz', 0)
+        debug_merge_point('xyz', 0, 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []

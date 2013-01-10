@@ -1,16 +1,12 @@
-import py
-import types, sys
-import inspect
-from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import checkgraph, FunctionGraph, SpaceOperation
-from pypy.annotation import model as annmodel
-from pypy.annotation import description
-from pypy.tool.sourcetools import has_varargs, valid_identifier
-from pypy.tool.sourcetools import func_with_new_name
+from pypy.annotation import model as annmodel, description
+from pypy.interpreter.argument import Signature
+from pypy.objspace.flow.model import (Variable, Constant, Block, Link,
+    checkgraph, FunctionGraph, SpaceOperation)
+from pypy.rlib.objectmodel import ComputedIntSymbolic
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import getgcflavor
-from pypy.rlib.objectmodel import instantiate, ComputedIntSymbolic
-from pypy.interpreter.argument import Signature
+from pypy.tool.sourcetools import valid_identifier
+
 
 def normalize_call_familes(annotator):
     for callfamily in annotator.bookkeeper.pbc_maximal_call_families.infos():
@@ -39,8 +35,9 @@ def normalize_calltable(annotator, callfamily):
                                                               row)
             if did_something:
                 assert not callfamily.normalized, "change in call family normalisation"
-                assert nshapes == 1, "XXX call table too complex"
-    while True: 
+                if nshapes != 1:
+                    raise_call_table_too_complex_error(callfamily, annotator)
+    while True:
         progress = False
         for shape, table in callfamily.calltables.items():
             for row in table:
@@ -49,6 +46,38 @@ def normalize_calltable(annotator, callfamily):
         if not progress:
             return   # done
         assert not callfamily.normalized, "change in call family normalisation"
+
+def raise_call_table_too_complex_error(callfamily, annotator):
+    msg = []
+    items = callfamily.calltables.items()
+    for i, (shape1, table1) in enumerate(items):
+        for shape2, table2 in items[i + 1:]:
+            if shape1 == shape2:
+                continue
+            row1 = table1[0]
+            row2 = table2[0]
+            problematic_function_graphs = set(row1.values()).union(set(row2.values()))
+            pfg = [str(graph) for graph in problematic_function_graphs]
+            pfg.sort()
+            msg.append("the following functions:")
+            msg.append("    %s" % ("\n    ".join(pfg), ))
+            msg.append("are called with inconsistent numbers of arguments")
+            if shape1[0] != shape2[0]:
+                msg.append("sometimes with %s arguments, sometimes with %s" % (shape1[0], shape2[0]))
+            else:
+                pass # XXX better message in this case
+            callers = []
+            msg.append("the callers of these functions are:")
+            for tag, (caller, callee) in annotator.translator.callgraph.iteritems():
+                if callee not in problematic_function_graphs:
+                    continue
+                if str(caller) in callers:
+                    continue
+                callers.append(str(caller))
+            callers.sort()
+            for caller in callers:
+                msg.append("    %s" % (caller, ))
+    raise TyperError("\n".join(msg))
 
 def normalize_calltable_row_signature(annotator, shape, row):
     graphs = row.values()
@@ -62,7 +91,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
             break
     else:
         return False   # nothing to do, all signatures already match
-    
+
     shape_cnt, shape_keys, shape_star, shape_stst = shape
     assert not shape_star, "XXX not implemented"
     assert not shape_stst, "XXX not implemented"
@@ -72,7 +101,6 @@ def normalize_calltable_row_signature(annotator, shape, row):
     call_nbargs = shape_cnt + len(shape_keys)
 
     did_something = False
-    NODEFAULT = object()
 
     for graph in graphs:
         argnames, varargname, kwargname = graph.signature
@@ -90,7 +118,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
             inlist = []
             defaults = graph.defaults or ()
             num_nondefaults = len(inputargs_s) - len(defaults)
-            defaults = [NODEFAULT] * num_nondefaults + list(defaults)
+            defaults = [description.NODEFAULT] * num_nondefaults + list(defaults)
             newdefaults = []
             for j in argorder:
                 v = Variable(graph.getargs()[j])
@@ -108,7 +136,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
                     v = inlist[i]
                 except ValueError:
                     default = defaults[j]
-                    if default is NODEFAULT:
+                    if default is description.NODEFAULT:
                         raise TyperError(
                             "call pattern has %d positional arguments, "
                             "but %r takes at least %d arguments" % (
@@ -118,11 +146,11 @@ def normalize_calltable_row_signature(annotator, shape, row):
             newblock.closeblock(Link(outlist, oldblock))
             graph.startblock = newblock
             for i in range(len(newdefaults)-1,-1,-1):
-                if newdefaults[i] is NODEFAULT:
+                if newdefaults[i] is description.NODEFAULT:
                     newdefaults = newdefaults[i:]
                     break
             graph.defaults = tuple(newdefaults)
-            graph.signature = Signature([argnames[j] for j in argorder], 
+            graph.signature = Signature([argnames[j] for j in argorder],
                                         None, None)
             # finished
             checkgraph(graph)
@@ -245,14 +273,14 @@ def create_instantiate_functions(annotator):
     # build the 'instantiate() -> instance of C' functions for the vtables
 
     needs_generic_instantiate = annotator.bookkeeper.needs_generic_instantiate
-    
+
     for classdef in needs_generic_instantiate:
         assert getgcflavor(classdef) == 'gc'   # only gc-case
         create_instantiate_function(annotator, classdef)
 
 def create_instantiate_function(annotator, classdef):
     # build the graph of a function that looks like
-    # 
+    #
     # def my_instantiate():
     #     return instantiate(cls)
     #
@@ -261,7 +289,7 @@ def create_instantiate_function(annotator, classdef):
     v = Variable()
     block = Block([])
     block.operations.append(SpaceOperation('instantiate1', [], v))
-    name = valid_identifier('instantiate_'+classdef.name)
+    name = valid_identifier('instantiate_' + classdef.name)
     graph = FunctionGraph(name, block)
     block.closeblock(Link([v], graph.returnblock))
     annotator.setbinding(v, annmodel.SomeInstance(classdef))
@@ -292,6 +320,7 @@ class TotalOrderSymbolic(ComputedIntSymbolic):
     # see pypy.jit.metainterp.pyjitpl.opimpl_int_between
     def __sub__(self, other):
         return self.compute_fn() - other
+
     def __rsub__(self, other):
         return other - self.compute_fn()
 

@@ -29,7 +29,7 @@ if HAVE_LIBINTL:
             HAVE_LIBINTL = False
 
 class CConfig:
-    includes = ['locale.h', 'limits.h', 'ctype.h']
+    includes = ['locale.h', 'limits.h', 'ctype.h', 'wchar.h']
     libraries = libraries
 
     if HAVE_LANGINFO:

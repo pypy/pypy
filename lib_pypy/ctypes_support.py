@@ -12,6 +12,8 @@ import sys
 if sys.platform == 'win32':
     import _ffi
     standard_c_lib = ctypes.CDLL('msvcrt', handle=_ffi.get_libc())
+elif sys.platform == 'cygwin':
+    standard_c_lib = ctypes.CDLL(ctypes.util.find_library('cygwin'))
 else:
     standard_c_lib = ctypes.CDLL(ctypes.util.find_library('c'))
 

@@ -54,7 +54,7 @@ class TestLogger(object):
         class FakeJitDriver(object):
             class warmstate(object):
                 get_location_str = staticmethod(lambda args: "dupa")
-        
+
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
             cpu.ts = self.ts
@@ -77,7 +77,7 @@ class TestLogger(object):
             equaloplists(loop.operations, oloop.operations)
             assert oloop.inputargs == loop.inputargs
         return logger, loop, oloop
-    
+
     def test_simple(self):
         inp = '''
         [i0, i1, i2, p3, p4, p5]
@@ -104,6 +104,17 @@ class TestLogger(object):
         '''
         self.reparse(inp)
 
+    def test_guard_not_invalidated(self):
+        inp = '''
+        []
+        guard_not_invalidated(descr=descr) []
+        finish()
+        '''
+        loop = pure_parse(inp, namespace={'descr': Descr()})
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop, {'descr': Descr()})
+        assert 'guard_not_invalidated(descr=' in output
+
     def test_guard_w_hole(self):
         inp = '''
         [i0]
@@ -116,12 +127,13 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point(0, 0)
+        debug_merge_point(0, 0, 0)
         '''
         _, loop, oloop = self.reparse(inp, check_equal=False)
         assert loop.operations[0].getarg(1).getint() == 0
-        assert oloop.operations[0].getarg(1)._get_str() == "dupa"
-        
+        assert loop.operations[0].getarg(2).getint() == 0
+        assert oloop.operations[0].getarg(2)._get_str() == "dupa"
+
     def test_floats(self):
         inp = '''
         [f0]
@@ -142,7 +154,7 @@ class TestLogger(object):
         output = logger.log_loop(loop)
         assert output.splitlines()[-1] == "jump(i0, descr=<Loop3>)"
         pure_parse(output)
-        
+
     def test_guard_descr(self):
         namespace = {'fdescr': BasicFailDescr()}
         inp = '''
@@ -154,7 +166,7 @@ class TestLogger(object):
         output = logger.log_loop(loop)
         assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard0>) [i0]"
         pure_parse(output)
-        
+
         logger = Logger(self.make_metainterp_sd(), guard_number=False)
         output = logger.log_loop(loop)
         lastline = output.splitlines()[-1]

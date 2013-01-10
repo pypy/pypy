@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 
 import os, sys, py
@@ -20,9 +19,7 @@ else:
     canSaveKey = True
 
 class AppTestHKey:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_winreg',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_winreg',))
 
     def test_repr(self):
         import _winreg
@@ -30,10 +27,11 @@ class AppTestHKey:
         assert str(k) == "<PyHKEY:0x123>"
 
 class AppTestFfi:
+    spaceconfig = dict(usemodules=('_winreg',))
+
     def setup_class(cls):
         import _winreg
-        space = gettestobjspace(usemodules=('_winreg',))
-        cls.space = space
+        space = cls.space
         cls.root_key = _winreg.HKEY_CURRENT_USER
         cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
         cls.w_root_key = space.wrap(cls.root_key)
@@ -198,7 +196,10 @@ class AppTestFfi:
         import nt
         r = ExpandEnvironmentStrings(u"%windir%\\test")
         assert isinstance(r, unicode)
-        assert r == nt.environ["WINDIR"] + "\\test"
+        if 'WINDIR' in nt.environ.keys():
+            assert r == nt.environ["WINDIR"] + "\\test"
+        else:
+            assert r == nt.environ["windir"] + "\\test"
 
     def test_long_key(self):
         from _winreg import (
@@ -218,7 +219,14 @@ class AppTestFfi:
 
     def test_dynamic_key(self):
         from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
-        EnumValue(HKEY_PERFORMANCE_DATA, 0)
+        try:
+            EnumValue(HKEY_PERFORMANCE_DATA, 0)
+        except WindowsError, e:
+            import errno
+            if e.errno in (errno.EPERM, errno.EACCES):
+                skip("access denied to registry key "
+                     "(are you running in a non-interactive session?)")
+            raise
         QueryValueEx(HKEY_PERFORMANCE_DATA, None)
 
     def test_reflection_unsupported(self):

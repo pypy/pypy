@@ -1,9 +1,9 @@
-import py
+
 from pypy.objspace.fake.objspace import FakeObjSpace, is_root
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
-
+from pypy.rpython.test.test_llinterp import interpret
 
 def make_checker():
     check = []
@@ -61,3 +61,18 @@ def test_gettypefor_untranslated():
     assert not check
     space.translates()
     assert check
+
+def test_gettype_mro_untranslated():
+    space = FakeObjSpace()
+    w_type = space.type(space.wrap(1))
+    assert len(w_type.mro_w) == 2
+
+def test_gettype_mro():
+    space = FakeObjSpace()
+
+    def f(i):
+        w_x = space.wrap(i)
+        w_type = space.type(w_x)
+        return len(w_type.mro_w)
+
+    assert interpret(f, [1]) == 2

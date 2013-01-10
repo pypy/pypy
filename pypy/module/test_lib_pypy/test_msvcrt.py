@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import py
 import sys

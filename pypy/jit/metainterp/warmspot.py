@@ -6,6 +6,7 @@ from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
@@ -13,6 +14,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import fatalerror
 from pypy.rlib.rstackovf import StackOverflow
 from pypy.translator.simplify import get_functype
+from pypy.translator.backendopt import removenoops
 from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
@@ -78,10 +80,6 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         translator.config.translation.list_comprehension_operations = True
     except ConfigError:
         pass
-    try:
-        translator.config.translation.jit_ffi = True
-    except ConfigError:
-        pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
@@ -100,7 +98,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
     if not kwds.get('translate_support_code', False):
         warmrunnerdesc.metainterp_sd.profiler.finish()
         warmrunnerdesc.metainterp_sd.cpu.finish_once()
-    print '~~~ return value:', res
+    print '~~~ return value:', repr(res)
     while repeat > 1:
         print '~' * 79
         res1 = interp.eval_graph(graph, args)
@@ -188,6 +186,7 @@ class WarmRunnerDesc(object):
         self.set_translator(translator)
         self.memory_manager = memmgr.MemoryManager()
         self.build_cpu(CPUClass, **kwds)
+        self.inline_inlineable_portals()
         self.find_portals()
         self.codewriter = codewriter.CodeWriter(self.cpu, self.jitdrivers_sd)
         if policy is None:
@@ -221,7 +220,7 @@ class WarmRunnerDesc(object):
         self.rewrite_access_helpers()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
-        self.rewrite_set_param()
+        self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
         self.rewrite_force_quasi_immutable()
         self.add_finish()
@@ -243,15 +242,153 @@ class WarmRunnerDesc(object):
         self.rtyper = translator.rtyper
         self.gcdescr = gc.get_description(translator.config)
 
+    def inline_inlineable_portals(self):
+        """
+        Find all the graphs which have been decorated with @jitdriver.inline
+        and inline them in the callers, making them JIT portals. Then, create
+        a fresh copy of the jitdriver for each of those new portals, because
+        they cannot share the same one.  See
+        test_ajit::test_inline_jit_merge_point
+        """
+        from pypy.translator.backendopt.inline import (
+            get_funcobj, inlinable_static_callers, auto_inlining)
+
+        jmp_calls = {}
+        def get_jmp_call(graph, _inline_jit_merge_point_):
+            # there might be multiple calls to the @inlined function: the
+            # first time we see it, we remove the call to the jit_merge_point
+            # and we remember the corresponding op. Then, we create a new call
+            # to it every time we need a new one (i.e., for each callsite
+            # which becomes a new portal)
+            try:
+                op, jmp_graph = jmp_calls[graph]
+            except KeyError:
+                op, jmp_graph = fish_jmp_call(graph, _inline_jit_merge_point_)
+                jmp_calls[graph] = op, jmp_graph
+            #
+            # clone the op
+            newargs = op.args[:]
+            newresult = Variable()
+            newresult.concretetype = op.result.concretetype
+            op = SpaceOperation(op.opname, newargs, newresult)
+            return op, jmp_graph
+
+        def fish_jmp_call(graph, _inline_jit_merge_point_):
+            # graph is function which has been decorated with
+            # @jitdriver.inline, so its very first op is a call to the
+            # function which contains the actual jit_merge_point: fish it!
+            jmp_block, op_jmp_call = next(callee.iterblockops())
+            msg = ("The first operation of an _inline_jit_merge_point_ graph must be "
+                   "a direct_call to the function passed to @jitdriver.inline()")
+            assert op_jmp_call.opname == 'direct_call', msg
+            jmp_funcobj = get_funcobj(op_jmp_call.args[0].value)
+            assert jmp_funcobj._callable is _inline_jit_merge_point_, msg
+            jmp_block.operations.remove(op_jmp_call)
+            return op_jmp_call, jmp_funcobj.graph
+
+        # find all the graphs which call an @inline_in_portal function
+        callgraph = inlinable_static_callers(self.translator.graphs, store_calls=True)
+        new_callgraph = []
+        new_portals = set()
+        inlined_jit_merge_points = set()
+        for caller, block, op_call, callee in callgraph:
+            func = getattr(callee, 'func', None)
+            _inline_jit_merge_point_ = getattr(func, '_inline_jit_merge_point_', None)
+            if _inline_jit_merge_point_:
+                _inline_jit_merge_point_._always_inline_ = True
+                inlined_jit_merge_points.add(_inline_jit_merge_point_)
+                op_jmp_call, jmp_graph = get_jmp_call(callee, _inline_jit_merge_point_)
+                #
+                # now we move the op_jmp_call from callee to caller, just
+                # before op_call. We assume that the args passed to
+                # op_jmp_call are the very same which are received by callee
+                # (i.e., the one passed to op_call)
+                assert len(op_call.args) == len(op_jmp_call.args)
+                op_jmp_call.args[1:] = op_call.args[1:]
+                idx = block.operations.index(op_call)
+                block.operations.insert(idx, op_jmp_call)
+                #
+                # finally, we signal that we want to inline op_jmp_call into
+                # caller, so that finally the actuall call to
+                # driver.jit_merge_point will be seen there
+                new_callgraph.append((caller, jmp_graph))
+                new_portals.add(caller)
+
+        # inline them!
+        inline_threshold = 0.1 # we rely on the _always_inline_ set above
+        auto_inlining(self.translator, inline_threshold, new_callgraph)
+        # clean up _always_inline_ = True, it can explode later
+        for item in inlined_jit_merge_points:
+            del item._always_inline_
+
+        # make a fresh copy of the JitDriver in all newly created
+        # jit_merge_points
+        self.clone_inlined_jit_merge_points(new_portals)
+
+    def clone_inlined_jit_merge_points(self, graphs):
+        """
+        Find all the jit_merge_points in the given graphs, and replace the
+        original JitDriver with a fresh clone.
+        """
+        if not graphs:
+            return
+        for graph, block, pos in find_jit_merge_points(graphs):
+            op = block.operations[pos]
+            v_driver = op.args[1]
+            driver = v_driver.value
+            if not driver.inline_jit_merge_point:
+                continue
+            new_driver = driver.clone()
+            c_new_driver = Constant(new_driver, v_driver.concretetype)
+            op.args[1] = c_new_driver
+
+
     def find_portals(self):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
-        for jit_merge_point_pos in find_jit_merge_points(graphs):
-            self.split_graph_and_record_jitdriver(*jit_merge_point_pos)
+        for graph, block, pos in find_jit_merge_points(graphs):
+            self.autodetect_jit_markers_redvars(graph)
+            self.split_graph_and_record_jitdriver(graph, block, pos)
         #
         assert (len(set([jd.jitdriver for jd in self.jitdrivers_sd])) ==
                 len(self.jitdrivers_sd)), \
                 "there are multiple jit_merge_points with the same jitdriver"
+
+    def autodetect_jit_markers_redvars(self, graph):
+        # the idea is to find all the jit_merge_point and can_enter_jit and
+        # add all the variables across the links to the reds.
+        for block, op in graph.iterblockops():
+            if op.opname == 'jit_marker':
+                jitdriver = op.args[1].value
+                if not jitdriver.autoreds:
+                    continue
+                # if we want to support also can_enter_jit, we should find a
+                # way to detect a consistent set of red vars to pass *both* to
+                # jit_merge_point and can_enter_jit. The current simple
+                # solution doesn't work because can_enter_jit might be in
+                # another block, so the set of alive_v will be different.
+                methname = op.args[0].value
+                assert methname == 'jit_merge_point', (
+                    "reds='auto' is supported only for jit drivers which " 
+                    "calls only jit_merge_point. Found a call to %s" % methname)
+                #
+                # compute the set of live variables before the jit_marker
+                alive_v = set(block.inputargs)
+                for op1 in block.operations:
+                    if op1 is op:
+                        break # stop when the meet the jit_marker
+                    if op1.result.concretetype != lltype.Void:
+                        alive_v.add(op1.result)
+                greens_v = op.args[2:]
+                reds_v = alive_v - set(greens_v)
+                reds_v = [v for v in reds_v if v.concretetype is not lltype.Void]
+                reds_v = support.sort_vars(reds_v)
+                op.args.extend(reds_v)
+                if jitdriver.numreds is None:
+                    jitdriver.numreds = len(reds_v)
+                else:
+                    assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
+
 
     def split_graph_and_record_jitdriver(self, graph, block, pos):
         op = block.operations[pos]
@@ -259,10 +396,20 @@ class WarmRunnerDesc(object):
         jd._jit_merge_point_in = graph
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
-        jd._portal_args_s = [s_binding(v) for v in args]
+        if op.args[1].value.autoreds:
+            # _portal_args_s is used only by _make_hook_graph, but for now we
+            # declare the various set_jitcell_at, get_printable_location,
+            # etc. as incompatible with autoreds
+            jd._portal_args_s = None
+        else:
+            jd._portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
+        # XXX this is incredibly obscure, but this is sometiems necessary
+        #     so we don't explode in checkgraph. for reasons unknown this
+        #     is not contanied within simplify_graph
+        removenoops.remove_same_as(graph)
         # a crash in the following checkgraph() means that you forgot
         # to list some variable in greens=[] or reds=[] in JitDriver,
         # or that a jit_merge_point() takes a constant as an argument.
@@ -453,7 +600,7 @@ class WarmRunnerDesc(object):
                     if sys.stdout == sys.__stdout__:
                         import pdb; pdb.post_mortem(tb)
                     raise e.__class__, e, tb
-                fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
+                fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
         if self.translator.rtyper.type_system.name == 'lltypesystem':
@@ -468,11 +615,7 @@ class WarmRunnerDesc(object):
                 maybe_compile_and_run(state.increment_threshold, *args)
             maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
-
-        def maybe_enter_from_start(*args):
-            maybe_compile_and_run(state.increment_function_threshold, *args)
-        maybe_enter_from_start._always_inline_ = True
-        jd._maybe_enter_from_start_fn = maybe_enter_from_start
+        jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
     def make_driverhook_graphs(self):
         from pypy.rlib.jit import BaseJitCell
@@ -507,6 +650,9 @@ class WarmRunnerDesc(object):
         if func is None:
             return None
         #
+        assert not jitdriver_sd.jitdriver.autoreds, (
+            "reds='auto' is not compatible with JitDriver hooks such as "
+            "{get,set}_jitcell_at, get_printable_location, confirm_enter_jit, etc.")
         extra_args_s = []
         if s_first_arg is not None:
             extra_args_s.append(s_first_arg)
@@ -548,7 +694,7 @@ class WarmRunnerDesc(object):
         else:
             assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [lltype.Signed, llmemory.GCREF], ASMRESTYPE)
+            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
 
     def rewrite_can_enter_jits(self):
         sublists = {}
@@ -632,14 +778,22 @@ class WarmRunnerDesc(object):
             self.rewrite_access_helper(op)
 
     def rewrite_access_helper(self, op):
-        ARGS = [arg.concretetype for arg in op.args[2:]]
-        RESULT = op.result.concretetype
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        func = func_with_new_name(func, func.func_name + '_compiled')
-        ptr = self.helper_func(FUNCPTR, func)
+        if func.func_name.startswith('stats_'):
+            # get special treatment since we rewrite it to a call that accepts
+            # jit driver
+            func = func_with_new_name(func, func.func_name + '_compiled')
+            def new_func(ignored, *args):
+                return func(self, *args)
+            ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
+        else:
+            ARGS = [arg.concretetype for arg in op.args[2:]]
+            new_func = func_with_new_name(func, func.func_name + '_compiled')
+        RESULT = op.result.concretetype
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        ptr = self.helper_func(FUNCPTR, new_func)
         op.opname = 'direct_call'
         op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
 
@@ -710,13 +864,26 @@ class WarmRunnerDesc(object):
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
         ts = self.cpu.ts
+        state = jd.warmstate
+        maybe_compile_and_run = jd._maybe_compile_and_run_fn
 
         def ll_portal_runner(*args):
             start = True
             while 1:
                 try:
+                    # maybe enter from the function's start.  Note that the
+                    # 'start' variable is constant-folded away because it's
+                    # the first statement in the loop.
                     if start:
-                        jd._maybe_enter_from_start_fn(*args)
+                        maybe_compile_and_run(
+                            state.increment_function_threshold, *args)
+                    #
+                    # then run the normal portal function, i.e. the
+                    # interpreter's main loop.  It might enter the jit
+                    # via maybe_enter_jit(), which typically ends with
+                    # handle_fail() being called, which raises on the
+                    # following exceptions --- catched here, because we
+                    # want to interrupt the whole interpreter loop.
                     return support.maybe_on_top_of_llinterp(rtyper,
                                                       portal_ptr)(*args)
                 except self.ContinueRunningNormally, e:
@@ -792,15 +959,18 @@ class WarmRunnerDesc(object):
             EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
+        gc_set_extra_threshold = getattr(self.cpu, 'gc_set_extra_threshold',
+                                         lambda: None)
 
-        def assembler_call_helper(failindex, virtualizableref):
-            fail_descr = self.cpu.get_fail_descr_from_number(failindex)
+        def assembler_call_helper(deadframe, virtualizableref):
+            gc_set_extra_threshold()    # XXX temporary hack
+            fail_descr = self.cpu.get_latest_descr(deadframe)
             if vinfo is not None:
                 virtualizable = lltype.cast_opaque_ptr(
                     vinfo.VTYPEPTR, virtualizableref)
                 vinfo.reset_vable_token(virtualizable)
             try:
-                fail_descr.handle_fail(self.metainterp_sd, jd)
+                fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
             except JitException, e:
                 return handle_jitexception(e)
             else:
@@ -846,6 +1016,9 @@ class WarmRunnerDesc(object):
         origblock.operations.append(newop)
         origblock.exitswitch = None
         origblock.recloseblock(Link([v_result], origportalgraph.returnblock))
+        # the origportal now can raise (even if it did not raise before),
+        # which means that we cannot inline it anywhere any more, but that's
+        # fine since any forced inlining has been done before
         #
         checkgraph(origportalgraph)
 
@@ -859,7 +1032,7 @@ class WarmRunnerDesc(object):
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
 
-    def rewrite_set_param(self):
+    def rewrite_set_param_and_get_stats(self):
         from pypy.rpython.lltypesystem.rstr import STR
 
         closures = {}

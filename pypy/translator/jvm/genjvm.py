@@ -2,28 +2,32 @@
 Backend for the JVM.
 """
 
-import sys
+from __future__ import with_statement
 import os
+import re
+import subprocess
+import sys
 
 import py
-import subprocess
+from pypy.rpython.ootypesystem import ootype
 from pypy.tool.udir import udir
-from pypy.translator.translator import TranslationContext
-from pypy.translator.oosupport.genoo import GenOO
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
+from pypy.translator.oosupport.genoo import GenOO
+from pypy.translator.translator import TranslationContext
 
-from pypy.translator.jvm.generator import JasminGenerator
-from pypy.translator.jvm.option import getoption
+from pypy.translator.jvm.constant import (
+    JVMConstantGenerator, JVMStaticMethodConst, JVMCustomDictConst,
+    JVMWeakRefConst)
 from pypy.translator.jvm.database import Database
+from pypy.translator.jvm.generator import JasminGenerator
 from pypy.translator.jvm.log import log
 from pypy.translator.jvm.node import EntryPoint, Function
 from pypy.translator.jvm.opcodes import opcodes
-from pypy.rpython.ootypesystem import ootype
-from pypy.translator.jvm.constant import \
-     JVMConstantGenerator, JVMStaticMethodConst, JVMCustomDictConst, \
-     JVMWeakRefConst
+from pypy.translator.jvm.option import getoption
 from pypy.translator.jvm.prebuiltnodes import create_interlink_node
+
+MIN_JAVA_VERSION = '1.6.0'
 
 class JvmError(Exception):
     """ Indicates an error occurred in JVM backend """
@@ -42,17 +46,17 @@ class JvmSubprogramError(JvmError):
 
     def __str__(self):
         return "Error code %d running %s" % (self.res, repr(self.args))
-        
+
     def pretty_print(self):
         JvmError.pretty_print(self)
         print "vvv Stdout vvv\n"
         print self.stdout
         print "vvv Stderr vvv\n"
         print self.stderr
-        
+
 
 class JvmGeneratedSource(object):
-    
+
     """
     An object which represents the generated sources. Contains methods
     to find out where they are located, to compile them, and to execute
@@ -81,13 +85,13 @@ class JvmGeneratedSource(object):
         self.package = package
         self.compiled = False
         self.jasmin_files = None
-        
+
         # Determine various paths:
         self.thisdir = py.path.local(__file__).dirpath()
         self.rootdir = self.thisdir.join('src')
         self.srcdir = self.rootdir.join('pypy')
         self.jnajar = self.rootdir.join('jna.jar')
-        self.jasminjar = self.rootdir.join('jasmin.jar')        
+        self.jasminjar = self.rootdir.join('jasmin.jar')
 
         # Compute directory where .j files are
         self.javadir = self.tmpdir
@@ -138,10 +142,11 @@ class JvmGeneratedSource(object):
         Compiles the .java sources into .class files, ready for execution.
         """
         jascmd = [
-            getoption('java'), 
+            getoption('java'),
+            '-Djava.awt.headless=true',
             '-jar', str(self.jasminjar),
-            '-g', 
-            '-d', 
+            '-g',
+            '-d',
             str(self.javadir)]
 
         def split_list(files):
@@ -152,7 +157,7 @@ class JvmGeneratedSource(object):
             #     path_to_jre/java -jar path_to_jasmin/jasmin.jar $*
             # So we limit the length of arguments files to:
             MAXLINE = 1500
-    
+
             chunk = []
             chunklen = 0
             for f in files:
@@ -170,7 +175,7 @@ class JvmGeneratedSource(object):
             #print "Invoking jasmin on %s" % files
             self._invoke(jascmd + files, False)
             #print "... completed!"
-                           
+
         self.compiled = True
         self._compile_helper()
 
@@ -189,6 +194,7 @@ class JvmGeneratedSource(object):
         strargs = [self._make_str(a) for a in args]
         cmd = [getoption('java'),
                '-Xmx256M', # increase the heapsize so the microbenchmarks run
+               '-Djava.awt.headless=true',
                '-cp',
                str(self.javadir)+os.pathsep+str(self.jnajar),
                self.package+".Main"] + strargs
@@ -199,13 +205,13 @@ class JvmGeneratedSource(object):
         return stdout, stderr, retval
 
 def generate_source_for_function(func, annotation, backendopt=False):
-    
+
     """
     Given a Python function and some hints about its argument types,
     generates JVM sources that call it and print the result.  Returns
     the JvmGeneratedSource object.
     """
-    
+
     if hasattr(func, 'im_func'):
         func = func.im_func
     t = TranslationContext()
@@ -222,12 +228,35 @@ def generate_source_for_function(func, annotation, backendopt=False):
     jvm = GenJvm(tmpdir, t, EntryPoint(main_graph, True, True))
     return jvm.generate_source()
 
+_missing_support_programs = None
+
 def detect_missing_support_programs():
-    def check(exechelper):
-        if py.path.local.sysfind(exechelper) is None:
-            py.test.skip("%s is not on your path" % exechelper)
-    check(getoption('javac'))
-    check(getoption('java'))
+    global _missing_support_programs
+    if _missing_support_programs is not None:
+        if _missing_support_programs:
+            py.test.skip(_missing_support_programs)
+        return
+
+    def missing(msg):
+        global _missing_support_programs
+        _missing_support_programs = msg
+        py.test.skip(msg)
+
+    for cmd in 'javac', 'java':
+        if py.path.local.sysfind(getoption(cmd)) is None:
+            missing("%s is not on your path" % cmd)
+    if not _check_java_version(MIN_JAVA_VERSION):
+        missing('Minimum of Java %s required' % MIN_JAVA_VERSION)
+    _missing_support_programs = False
+
+def _check_java_version(version):
+    """Determine if java meets the specified version"""
+    cmd = [getoption('java'), '-version']
+    with open(os.devnull, 'w') as devnull:
+        stderr = subprocess.Popen(cmd, stdout=devnull,
+                                  stderr=subprocess.PIPE).communicate()[1]
+    search = re.search('[\.0-9]+', stderr)
+    return search and search.group() >= version
 
 class GenJvm(GenOO):
 
@@ -236,7 +265,7 @@ class GenJvm(GenOO):
     generate_source().  *You can not use one of these objects more than
     once.* """
 
-    TypeSystem = lambda X, db: db # TypeSystem and Database are the same object 
+    TypeSystem = lambda X, db: db # TypeSystem and Database are the same object
     Function = Function
     Database = Database
     opcodes = opcodes
@@ -246,7 +275,7 @@ class GenJvm(GenOO):
     CustomDictConst   = JVMCustomDictConst
     StaticMethodConst = JVMStaticMethodConst
     WeakRefConst = JVMWeakRefConst
-    
+
     def __init__(self, tmpdir, translator, entrypoint):
         """
         'tmpdir' --- where the generated files will go.  In fact, we will
@@ -272,5 +301,3 @@ class GenJvm(GenOO):
         configuration.  Right now, however, there is only one kind of
         generator: JasminGenerator """
         return JasminGenerator(self.db, self.jvmsrc.javadir)
-        
-        

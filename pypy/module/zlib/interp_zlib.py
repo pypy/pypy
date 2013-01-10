@@ -20,7 +20,7 @@ else:
         return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
 
 
-@unwrap_spec(string='bufferstr', start='truncatedint')
+@unwrap_spec(string='bufferstr', start='truncatedint_w')
 def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     """
     crc32(string[, start]) -- Compute a CRC-32 checksum of string.
@@ -41,7 +41,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     return space.wrap(checksum)
 
 
-@unwrap_spec(string='bufferstr', start='truncatedint')
+@unwrap_spec(string='bufferstr', start='truncatedint_w')
 def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     """
     adler32(string[, start]) -- Compute an Adler-32 checksum of string.

@@ -304,6 +304,42 @@ class TestTypeDef:
         assert_method(w_o1, "c", True)
         assert_method(w_o2, "c", False)
 
+    def test_total_ordering(self):
+        class W_SomeType(Wrappable):
+            def __init__(self, space, x):
+                self.space = space
+                self.x = x
+
+            def descr__lt(self, w_other):
+                assert isinstance(w_other, W_SomeType)
+                return self.space.wrap(self.x < w_other.x)
+
+            def descr__eq(self, w_other):
+                assert isinstance(w_other, W_SomeType)
+                return self.space.wrap(self.x == w_other.x)
+
+        W_SomeType.typedef = typedef.TypeDef(
+            'some_type',
+            __total_ordering__ = 'auto',
+            __lt__ = interp2app(W_SomeType.descr__lt),
+            __eq__ = interp2app(W_SomeType.descr__eq),
+            )
+        space = self.space
+        w_b = space.wrap(W_SomeType(space, 2))
+        w_c = space.wrap(W_SomeType(space, 2))
+        w_a = space.wrap(W_SomeType(space, 1))
+        # explicitly defined
+        assert space.is_true(space.lt(w_a, w_b))
+        assert not space.is_true(space.eq(w_a, w_b))
+        assert space.is_true(space.eq(w_b, w_c))
+        # automatically defined
+        assert space.is_true(space.le(w_a, w_b))
+        assert space.is_true(space.le(w_b, w_c))
+        assert space.is_true(space.gt(w_b, w_a))
+        assert space.is_true(space.ge(w_b, w_a))
+        assert space.is_true(space.ge(w_b, w_c))
+        assert space.is_true(space.ne(w_a, w_b))
+        assert not space.is_true(space.ne(w_b, w_c))
 
 class AppTestTypeDef:
 

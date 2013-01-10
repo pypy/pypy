@@ -18,7 +18,7 @@ class Module(MixedModule):
     def buildloaders(cls):
         from pypy.module.mmap import interp_mmap
         for constant, value in rmmap.constants.iteritems():
-            if isinstance(value, int):
+            if isinstance(value, (int, long)):
                 Module.interpleveldefs[constant] = "space.wrap(%r)" % value
         
         super(Module, cls).buildloaders()

@@ -16,11 +16,10 @@ default_plugins = (
  "junitxml resultlog doctest").split()
 
 class TagTracer:
-    def __init__(self, prefix="[pytest] "):
+    def __init__(self):
         self._tag2proc = {}
         self.writer = None
         self.indent = 0
-        self.prefix = prefix
 
     def get(self, name):
         return TagTracerSub(self, (name,))
@@ -30,7 +29,7 @@ class TagTracer:
             if args:
                 indent = "  " * self.indent
                 content = " ".join(map(str, args))
-                self.writer("%s%s%s\n" %(self.prefix, indent, content))
+                self.writer("%s%s [%s]\n" %(indent, content, ":".join(tags)))
         try:
             self._tag2proc[tags](tags, args)
         except KeyError:
@@ -211,6 +210,14 @@ class PluginManager(object):
         else:
             self.register(mod, modname)
             self.consider_module(mod)
+
+    def pytest_configure(self, config):
+        config.addinivalue_line("markers",
+            "tryfirst: mark a hook implementation function such that the "
+            "plugin machinery will try to call it first/as early as possible.")
+        config.addinivalue_line("markers",
+            "trylast: mark a hook implementation function such that the "
+            "plugin machinery will try to call it last/as late as possible.")
 
     def pytest_plugin_registered(self, plugin):
         import pytest
@@ -432,10 +439,7 @@ _preinit = []
 def _preloadplugins():
     _preinit.append(PluginManager(load=True))
 
-def main(args=None, plugins=None):
-    """ returned exit code integer, after an in-process testing run
-    with the given command line arguments, preloading an optional list
-    of passed in plugin objects. """
+def _prepareconfig(args=None, plugins=None):
     if args is None:
         args = sys.argv[1:]
     elif isinstance(args, py.path.local):
@@ -449,13 +453,19 @@ def main(args=None, plugins=None):
     else: # subsequent calls to main will create a fresh instance
         _pluginmanager = PluginManager(load=True)
     hook = _pluginmanager.hook
+    if plugins:
+        for plugin in plugins:
+            _pluginmanager.register(plugin)
+    return hook.pytest_cmdline_parse(
+            pluginmanager=_pluginmanager, args=args)
+
+def main(args=None, plugins=None):
+    """ returned exit code integer, after an in-process testing run
+    with the given command line arguments, preloading an optional list
+    of passed in plugin objects. """
     try:
-        if plugins:
-            for plugin in plugins:
-                _pluginmanager.register(plugin)
-        config = hook.pytest_cmdline_parse(
-                pluginmanager=_pluginmanager, args=args)
-        exitstatus = hook.pytest_cmdline_main(config=config)
+        config = _prepareconfig(args, plugins)
+        exitstatus = config.hook.pytest_cmdline_main(config=config)
     except UsageError:
         e = sys.exc_info()[1]
         sys.stderr.write("ERROR: %s\n" %(e.args[0],))

@@ -1,26 +1,44 @@
 import sys
-from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import r_longlong
+
+from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic, CDefinedIntSymbolic
+from pypy.rlib.rarithmetic import r_longlong, is_emulated_long
 from pypy.rlib.rfloat import isinf, isnan
-from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi, llgroup
-from pypy.rpython.lltypesystem.llmemory import Address, \
-     AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
-     CompositeOffset, ArrayLengthOffset, \
-     GCHeaderOffset, GCREF, AddressAsInt
+from pypy.rpython.lltypesystem.llmemory import (Address, AddressOffset,
+    ItemOffset, ArrayItemsOffset, FieldOffset, CompositeOffset,
+    ArrayLengthOffset, GCHeaderOffset, GCREF, AddressAsInt)
+from pypy.rpython.lltypesystem.lltype import (Signed, SignedLongLong, Unsigned,
+    UnsignedLongLong, Float, SingleFloat, LongFloat, Char, UniChar, Bool, Void,
+    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf)
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
+
+
+SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
 
 # ____________________________________________________________
 #
 # Primitives
 
+# win64: we need different constants, since we emulate 64 bit long.
+# this function simply replaces 'L' by 'LL' in a format string
+if is_emulated_long:
+    def lll(fmt):
+        return fmt.replace('L', 'LL')
+else:
+    def lll(fmt):
+        return fmt
+
 def name_signed(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, FieldOffset):
             structnode = db.gettypedefnode(value.TYPE)
-            return 'offsetof(%s, %s)'%(
+            if isinstance(value.TYPE, FixedSizeArray):
+                assert value.fldname.startswith('item')
+                repeat = value.fldname[4:]
+                size = 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE.OF), ''),)
+                return '(%s * %s)' % (size, repeat)
+            return 'offsetof(%s, %s)' % (
                 cdecl(db.gettype(value.TYPE), ''),
                 structnode.c_struct_field_name(value.fldname))
         elif isinstance(value, ItemOffset):
@@ -36,12 +54,12 @@ def name_signed(value, db):
                 barebonearray(value.TYPE)):
                 return '0'
             elif value.TYPE.OF != Void:
-                return 'offsetof(%s, items)'%(
+                return 'offsetof(%s, items)' % (
                     cdecl(db.gettype(value.TYPE), ''))
             else:
-                return 'sizeof(%s)'%(cdecl(db.gettype(value.TYPE), ''),)
+                return 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE), ''),)
         elif isinstance(value, ArrayLengthOffset):
-            return 'offsetof(%s, length)'%(
+            return 'offsetof(%s, length)' % (
                 cdecl(db.gettype(value.TYPE), ''))
         elif isinstance(value, CompositeOffset):
             names = [name_signed(item, db) for item in value.offsets]
@@ -61,22 +79,22 @@ def name_signed(value, db):
         elif isinstance(value, llgroup.CombinedSymbolic):
             name = name_small_integer(value.lowpart, db)
             assert (value.rest & value.MASK) == 0
-            return '(%s+%dL)' % (name, value.rest)
+            return lll('(%s+%dL)') % (name, value.rest)
         elif isinstance(value, AddressAsInt):
-            return '((long)%s)' % name_address(value.adr, db)
+            return '((Signed)%s)' % name_address(value.adr, db)
         else:
-            raise Exception("unimplemented symbolic %r"%value)
+            raise Exception("unimplemented symbolic %r" % value)
     if value is None:
         assert not db.completed
         return None
     if value == -sys.maxint-1:   # blame C
-        return '(-%dL-1L)' % sys.maxint
+        return lll('(-%dL-1L)') % sys.maxint
     else:
-        return '%dL' % value
+        return lll('%dL') % value
 
 def name_unsigned(value, db):
     assert value >= 0
-    return '%dUL' % value
+    return lll('%dUL') % value
 
 def name_unsignedlonglong(value, db):
     assert value >= 0
@@ -89,6 +107,12 @@ def name_signedlonglong(value, db):
     else:
         return '%dLL' % value
 
+def is_positive_nan(value):
+    # bah.  we don't have math.copysign() if we're running Python 2.5
+    import struct
+    c = struct.pack("!d", value)[0]
+    return {'\x7f': True, '\xff': False}[c]
+
 def name_float(value, db):
     if isinf(value):
         if value > 0:
@@ -96,7 +120,10 @@ def name_float(value, db):
         else:
             return '(-Py_HUGE_VAL)'
     elif isnan(value):
-        return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+        if is_positive_nan(value):
+            return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+        else:
+            return '(-(Py_HUGE_VAL/Py_HUGE_VAL))'
     else:
         x = repr(value)
         assert not x.startswith('n')
@@ -112,7 +139,10 @@ def name_singlefloat(value, db):
             return '((float)-Py_HUGE_VAL)'
     elif isnan(value):
         # XXX are these expressions ok?
-        return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+        if is_positive_nan(value):
+            return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+        else:
+            return '(-(float)(Py_HUGE_VAL/Py_HUGE_VAL))'
     else:
         return repr(value) + 'f'
 
@@ -172,6 +202,7 @@ def name_small_integer(value, db):
 
 # On 64 bit machines, SignedLongLong and Signed are the same, so the
 # order matters, because we want the Signed implementation.
+# (some entries collapse during dict creation)
 PrimitiveName = {
     SignedLongLong:   name_signedlonglong,
     Signed:   name_signed,
@@ -190,9 +221,9 @@ PrimitiveName = {
 
 PrimitiveType = {
     SignedLongLong:   'long long @',
-    Signed:   'long @',
+    Signed:   'Signed @',
     UnsignedLongLong: 'unsigned long long @',
-    Unsigned: 'unsigned long @',
+    Unsigned: 'Unsigned @',
     Float:    'double @',
     SingleFloat: 'float @',
     LongFloat: 'long double @',
@@ -212,7 +243,7 @@ def define_c_primitive(ll_type, c_name, suffix=''):
     else:
         name_str = '((%s) %%d%s)' % (c_name, suffix)
         PrimitiveName[ll_type] = lambda value, db: name_str % value
-    PrimitiveType[ll_type] = '%s @'% c_name
+    PrimitiveType[ll_type] = '%s @' % c_name
 
 define_c_primitive(rffi.SIGNEDCHAR, 'signed char')
 define_c_primitive(rffi.UCHAR, 'unsigned char')
@@ -225,3 +256,5 @@ define_c_primitive(rffi.LONG, 'long', 'L')
 define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
+if SUPPORT_INT128:
+    define_c_primitive(rffi.__INT128_T, '__int128_t', 'LL') # Unless it's a 128bit platform, LL is the biggest

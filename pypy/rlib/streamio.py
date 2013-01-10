@@ -41,6 +41,7 @@ import os, sys, errno
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.rlib import rposix
+from pypy.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 O_BINARY = getattr(os, "O_BINARY", 0)
@@ -141,8 +142,7 @@ def decode_mode(mode):
 def construct_stream_tower(stream, buffering, universal, reading, writing,
                            binary):
     if buffering == 0:   # no buffering
-        if reading:      # force some minimal buffering for readline()
-            stream = ReadlineInputStream(stream)
+        pass
     elif buffering == 1:   # line-buffering
         if writing:
             stream = LineBufferingOutputStream(stream)
@@ -175,24 +175,23 @@ StreamErrors = (OSError, StreamError)     # errors that can generally be raised
 
 
 if sys.platform == "win32":
-    from pypy.rlib import rwin32
+    from pypy.rlib.rwin32 import BOOL, HANDLE, get_osfhandle, GetLastError
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     from pypy.rpython.lltypesystem import rffi
-    import errno
 
     _eci = ExternalCompilationInfo()
-    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.LONG,
-                                     compilation_info=_eci)
     _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
                                compilation_info=_eci)
-    SetEndOfFile = rffi.llexternal('SetEndOfFile', [rffi.LONG], rwin32.BOOL,
+    SetEndOfFile = rffi.llexternal('SetEndOfFile', [HANDLE], BOOL,
                                    compilation_info=_eci)
 
     # HACK: These implementations are specific to MSVCRT and the C backend.
     # When generating on CLI or JVM, these are patched out.
     # See PyPyTarget.target() in targetpypystandalone.py
     def _setfd_binary(fd):
-        _setmode(fd, os.O_BINARY)
+        #Allow this to succeed on invalid fd's
+        if rposix.is_valid_fd(fd):
+            _setmode(fd, os.O_BINARY)
 
     def ftruncate_win32(fd, size):
         curpos = os.lseek(fd, 0, 1)
@@ -200,11 +199,9 @@ if sys.platform == "win32":
             # move to the position to be truncated
             os.lseek(fd, size, 0)
             # Truncate.  Note that this may grow the file!
-            handle = _get_osfhandle(fd)
-            if handle == -1:
-                raise OSError(errno.EBADF, "Invalid file handle")
+            handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
-                raise WindowsError(rwin32.GetLastError(),
+                raise WindowsError(GetLastError(),
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case
@@ -271,6 +268,9 @@ class Stream(object):
         return False
 
     def close(self):
+        self.close1(True)
+
+    def close1(self, closefileno):
         pass
 
     def peek(self):
@@ -298,15 +298,47 @@ class DiskFile(Stream):
 
     def read(self, n):
         assert isinstance(n, int)
-        return os.read(self.fd, n)
+        while True:
+            try:
+                return os.read(self.fd, n)
+            except OSError, e:
+                if e.errno != errno.EINTR:
+                    raise
+                # else try again
+
+    def readline(self):
+        # mostly inefficient, but not as laughably bad as with the default
+        # readline() from Stream
+        result = StringBuilder()
+        while True:
+            try:
+                c = os.read(self.fd, 1)
+            except OSError, e:
+                if e.errno != errno.EINTR:
+                    raise
+                else:
+                    continue   # try again
+            if not c:
+                break
+            c = c[0]
+            result.append(c)
+            if c == '\n':
+                break
+        return result.build()
 
     def write(self, data):
         while data:
-            n = os.write(self.fd, data)
-            data = data[n:]
+            try:
+                n = os.write(self.fd, data)
+            except OSError, e:
+                if e.errno != errno.EINTR:
+                    raise
+            else:
+                data = data[n:]
 
-    def close(self):
-        os.close(self.fd)
+    def close1(self, closefileno):
+        if closefileno:
+            os.close(self.fd)
 
     if sys.platform == "win32":
         def truncate(self, size):
@@ -347,9 +379,10 @@ class MMapFile(Stream):
         size = os.fstat(self.fd).st_size
         self.mm = mmap.mmap(self.fd, size, access=self.access)
 
-    def close(self):
+    def close1(self, closefileno):
         self.mm.close()
-        os.close(self.fd)
+        if closefileno:
+            os.close(self.fd)
 
     def tell(self):
         return self.pos
@@ -442,7 +475,7 @@ STREAM_METHODS = dict([
     ("truncate", [r_longlong]),
     ("flush", []),
     ("flushable", []),
-    ("close", []),
+    ("close1", [int]),
     ("peek", []),
     ("try_to_find_file_descriptor", []),
     ("getnewlines", []),
@@ -503,7 +536,7 @@ class BufferingInputStream(Stream):
         if self.buf:
             try:
                 self.do_seek(self.tell(), 0)
-            except MyNotImplementedError:
+            except (MyNotImplementedError, OSError):
                 pass
             else:
                 self.buf = ""
@@ -687,114 +720,7 @@ class BufferingInputStream(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
-    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
-                                              flush_buffers=False)
-
-
-class ReadlineInputStream(Stream):
-
-    """Minimal buffering input stream.
-
-    Only does buffering for readline().  The other kinds of reads, and
-    all writes, are not buffered at all.
-    """
-
-    bufsize = 2**13 # 8 K
-
-    def __init__(self, base, bufsize=-1):
-        self.base = base
-        self.do_read = base.read   # function to fill buffer some more
-        self.do_seek = base.seek   # seek to a byte offset
-        if bufsize == -1:     # Get default from the class
-            bufsize = self.bufsize
-        self.bufsize = bufsize  # buffer size (hint only)
-        self.buf = None         # raw data (may contain "\n")
-        self.bufstart = 0
-
-    def flush_buffers(self):
-        if self.buf is not None:
-            try:
-                self.do_seek(self.bufstart-len(self.buf), 1)
-            except MyNotImplementedError:
-                pass
-            else:
-                self.buf = None
-                self.bufstart = 0
-
-    def readline(self):
-        if self.buf is not None:
-            i = self.buf.find('\n', self.bufstart)
-        else:
-            self.buf = ''
-            i = -1
-        #
-        if i < 0:
-            self.buf = self.buf[self.bufstart:]
-            self.bufstart = 0
-            while True:
-                bufsize = max(self.bufsize, len(self.buf) >> 2)
-                data = self.do_read(bufsize)
-                if not data:
-                    result = self.buf              # end-of-file reached
-                    self.buf = None
-                    return result
-                startsearch = len(self.buf)   # there is no '\n' in buf so far
-                self.buf += data
-                i = self.buf.find('\n', startsearch)
-                if i >= 0:
-                    break
-        #
-        i += 1
-        result = self.buf[self.bufstart:i]
-        self.bufstart = i
-        return result
-
-    def peek(self):
-        if self.buf is None:
-            return ''
-        if self.bufstart > 0:
-            self.buf = self.buf[self.bufstart:]
-            self.bufstart = 0
-        return self.buf
-
-    def tell(self):
-        pos = self.base.tell()
-        if self.buf is not None:
-            pos -= (len(self.buf) - self.bufstart)
-        return pos
-
-    def readall(self):
-        result = self.base.readall()
-        if self.buf is not None:
-            result = self.buf[self.bufstart:] + result
-            self.buf = None
-            self.bufstart = 0
-        return result
-
-    def read(self, n):
-        if self.buf is None:
-            return self.do_read(n)
-        else:
-            m = n - (len(self.buf) - self.bufstart)
-            start = self.bufstart
-            if m > 0:
-                result = self.buf[start:] + self.do_read(m)
-                self.buf = None
-                self.bufstart = 0
-                return result
-            elif n >= 0:
-                self.bufstart = start + n
-                return self.buf[start : self.bufstart]
-            else:
-                return ''
-
-    seek       = PassThrough("seek",      flush_buffers=True)
-    write      = PassThrough("write",     flush_buffers=True)
-    truncate   = PassThrough("truncate",  flush_buffers=True)
-    flush      = PassThrough("flush",     flush_buffers=True)
-    flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -849,7 +775,7 @@ class BufferingOutputStream(Stream):
     seek       = PassThrough("seek",     flush_buffers=True)
     truncate   = PassThrough("truncate", flush_buffers=True)
     flush      = PassThrough("flush",    flush_buffers=True)
-    close      = PassThrough("close",    flush_buffers=True)
+    close1     = PassThrough("close1",   flush_buffers=True)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -917,7 +843,7 @@ class CRLFFilter(Stream):
 
     flush    = PassThrough("flush", flush_buffers=False)
     flushable= PassThrough("flushable", flush_buffers=False)
-    close    = PassThrough("close", flush_buffers=False)
+    close1   = PassThrough("close1", flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -971,7 +897,10 @@ class TextCRLFFilter(Stream):
 
     def flush_buffers(self):
         if self.lfbuffer:
-            self.base.seek(-len(self.lfbuffer), 1)
+            try:
+                self.base.seek(-len(self.lfbuffer), 1)
+            except (MyNotImplementedError, OSError):
+                return
             self.lfbuffer = ""
         self.do_flush()
 
@@ -983,7 +912,7 @@ class TextCRLFFilter(Stream):
     truncate = PassThrough("truncate", flush_buffers=True)
     flush    = PassThrough("flush", flush_buffers=False)
     flushable= PassThrough("flushable", flush_buffers=False)
-    close    = PassThrough("close", flush_buffers=False)
+    close1   = PassThrough("close1", flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
     
@@ -1105,7 +1034,7 @@ class TextInputFilter(Stream):
         if self.buf:
             try:
                 self.base.seek(-len(self.buf), 1)
-            except MyNotImplementedError:
+            except (MyNotImplementedError, OSError):
                 pass
             else:
                 self.buf = ""
@@ -1117,7 +1046,7 @@ class TextInputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -1143,7 +1072,7 @@ class TextOutputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -1167,7 +1096,7 @@ class CallbackReadFilter(Stream):
     peek       = PassThrough("peek",      flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     write      = PassThrough("write",     flush_buffers=False)
     truncate   = PassThrough("truncate",  flush_buffers=False)
     getnewlines= PassThrough("getnewlines",flush_buffers=False)
@@ -1220,7 +1149,7 @@ class DecodingInputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -1248,6 +1177,6 @@ class EncodingOutputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)

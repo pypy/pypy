@@ -6,6 +6,7 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.tool.sourcetools import rpython_wrapper
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -103,7 +104,6 @@ def _get_args(func):
     import inspect
 
     args, varargs, varkw, defaults = inspect.getargspec(func)
-    args = ["v%s" % (i, ) for i in range(len(args))]
     assert varargs is None and varkw is None
     assert not defaults
     return args
@@ -118,11 +118,11 @@ def elidable_promote(promote_args='all'):
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
-            args = [('v%d' % int(i)) for i in promote_args.split(",")]
+            args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
             code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
-        code.append("    return func(%s)\n" % (argstring, ))
-        d = {"func": func, "hint": hint}
+        code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
+        d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
         result.func_name = func.func_name + "_promote"
@@ -148,6 +148,8 @@ def look_inside_iff(predicate):
             thing._annspecialcase_ = "specialize:call_location"
 
         args = _get_args(func)
+        predicateargs = _get_args(predicate)
+        assert len(args) == len(predicateargs), "%s and predicate %s need the same numbers of arguments" % (func, predicate)
         d = {
             "dont_look_inside": dont_look_inside,
             "predicate": predicate,
@@ -159,8 +161,7 @@ def look_inside_iff(predicate):
             def trampoline(%(arguments)s):
                 return func(%(arguments)s)
             if hasattr(func, "oopspec"):
-                # XXX: This seems like it should be here, but it causes errors.
-                # trampoline.oopspec = func.oopspec
+                trampoline.oopspec = func.oopspec
                 del func.oopspec
             trampoline.__name__ = func.__name__ + "_trampoline"
             trampoline._annspecialcase_ = "specialize:call_location"
@@ -171,6 +172,7 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
+            f._always_inline = True
         """ % {"arguments": ", ".join(args)}).compile() in d
         return d["f"]
     return inner
@@ -203,6 +205,14 @@ def isvirtual(value):
     """
     return NonConstant(False)
 isvirtual._annspecialcase_ = "specialize:call_location"
+
+LIST_CUTOFF = 2
+
+@specialize.call_location()
+def loop_unrolling_heuristic(lst, size):
+    """ In which cases iterating over items of lst can be unrolled
+    """
+    return isvirtual(lst) or (isconstant(size) and size <= LIST_CUTOFF)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -382,7 +392,7 @@ class Entry(ExtRegistryEntry):
         pass
 
     def specialize_call(self, hop):
-        pass
+        hop.exception_cannot_occur()
 
 vref_None = non_virtual_ref(None)
 
@@ -391,6 +401,9 @@ vref_None = non_virtual_ref(None)
 
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
+
+ENABLE_ALL_OPTS = (
+    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll')
 
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
@@ -402,7 +415,8 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
-    'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
+    'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
+                   'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -413,11 +427,10 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'loop_longevity': 1000,
               'retrace_limit': 5,
               'max_retrace_guards': 15,
-              'max_unroll_loops': 4,
+              'max_unroll_loops': 0,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
-DEFAULT = object()
 
 # ____________________________________________________________
 
@@ -431,6 +444,7 @@ class JitDriver(object):
     active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
     name = 'jitdriver'
+    inline_jit_merge_point = False
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
@@ -440,16 +454,31 @@ class JitDriver(object):
         if greens is not None:
             self.greens = greens
         self.name = name
-        if reds is not None:
-            self.reds = reds
+        if reds == 'auto':
+            self.autoreds = True
+            self.reds = []
+            self.numreds = None # see warmspot.autodetect_jit_markers_redvars
+            for hook in (get_jitcell_at, set_jitcell_at, get_printable_location,
+                         confirm_enter_jit):
+                assert hook is None, "reds='auto' is not compatible with JitDriver hooks"
+        else:
+            if reds is not None:
+                self.reds = reds
+            self.autoreds = False
+            self.numreds = len(self.reds)
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
         for v in self.virtualizables:
             assert v in self.reds
-        self._alllivevars = dict.fromkeys(
-            [name for name in self.greens + self.reds if '.' not in name])
+        # if reds are automatic, they won't be passed to jit_merge_point, so
+        # _check_arguments will receive only the green ones (i.e., the ones
+        # which are listed explicitly). So, it is fine to just ignore reds
+        self._somelivevars = set([name for name in
+                                  self.greens + (self.reds or [])
+                                  if '.' not in name])
+        self._heuristic_order = {}   # check if 'reds' and 'greens' are ordered
         self._make_extregistryentries()
         self.get_jitcell_at = get_jitcell_at
         self.set_jitcell_at = set_jitcell_at
@@ -461,17 +490,91 @@ class JitDriver(object):
     def _freeze_(self):
         return True
 
+    def _check_arguments(self, livevars):
+        assert set(livevars) == self._somelivevars
+        # check heuristically that 'reds' and 'greens' are ordered as
+        # the JIT will need them to be: first INTs, then REFs, then
+        # FLOATs.
+        if len(self._heuristic_order) < len(livevars):
+            from pypy.rlib.rarithmetic import (r_singlefloat, r_longlong,
+                                               r_ulonglong, r_uint)
+            added = False
+            for var, value in livevars.items():
+                if var not in self._heuristic_order:
+                    if (r_ulonglong is not r_uint and
+                            isinstance(value, (r_longlong, r_ulonglong))):
+                        assert 0, ("should not pass a r_longlong argument for "
+                                   "now, because on 32-bit machines it needs "
+                                   "to be ordered as a FLOAT but on 64-bit "
+                                   "machines as an INT")
+                    elif isinstance(value, (int, long, r_singlefloat)):
+                        kind = '1:INT'
+                    elif isinstance(value, float):
+                        kind = '3:FLOAT'
+                    elif isinstance(value, (str, unicode)) and len(value) != 1:
+                        kind = '2:REF'
+                    elif isinstance(value, (list, dict)):
+                        kind = '2:REF'
+                    elif (hasattr(value, '__class__')
+                          and value.__class__.__module__ != '__builtin__'):
+                        if hasattr(value, '_freeze_'):
+                            continue   # value._freeze_() is better not called
+                        elif getattr(value, '_alloc_flavor_', 'gc') == 'gc':
+                            kind = '2:REF'
+                        else:
+                            kind = '1:INT'
+                    else:
+                        continue
+                    self._heuristic_order[var] = kind
+                    added = True
+            if added:
+                for color in ('reds', 'greens'):
+                    lst = getattr(self, color)
+                    allkinds = [self._heuristic_order.get(name, '?')
+                                for name in lst]
+                    kinds = [k for k in allkinds if k != '?']
+                    assert kinds == sorted(kinds), (
+                        "bad order of %s variables in the jitdriver: "
+                        "must be INTs, REFs, FLOATs; got %r" %
+                        (color, allkinds))
+
     def jit_merge_point(_self, **livevars):
         # special-cased by ExtRegistryEntry
-        assert dict.fromkeys(livevars) == _self._alllivevars
+        _self._check_arguments(livevars)
 
     def can_enter_jit(_self, **livevars):
+        if _self.autoreds:
+            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
         # special-cased by ExtRegistryEntry
-        assert dict.fromkeys(livevars) == _self._alllivevars
+        _self._check_arguments(livevars)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry
         pass
+
+    def inline(self, call_jit_merge_point):
+        assert self.autoreds, "@inline works only with reds='auto'"
+        self.inline_jit_merge_point = True
+        def decorate(func):
+            template = """
+                def {name}({arglist}):
+                    {call_jit_merge_point}({arglist})
+                    return {original}({arglist})
+            """
+            templateargs = {'call_jit_merge_point': call_jit_merge_point.__name__}
+            globaldict = {call_jit_merge_point.__name__: call_jit_merge_point}
+            result = rpython_wrapper(func, template, templateargs, **globaldict)
+            result._inline_jit_merge_point_ = call_jit_merge_point
+            return result
+
+        return decorate
+        
+
+    def clone(self):
+        assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
+        newdriver = object.__new__(self.__class__)
+        newdriver.__dict__ = self.__dict__.copy()
+        return newdriver
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
@@ -490,7 +593,7 @@ class JitDriver(object):
 def _set_param(driver, name, value):
     # special-cased by ExtRegistryEntry
     # (internal, must receive a constant 'name')
-    # if value is DEFAULT, sets the default value.
+    # if value is None, sets the default value.
     assert name in PARAMETERS
 
 @specialize.arg(0, 1)
@@ -502,7 +605,7 @@ def set_param(driver, name, value):
 @specialize.arg(0, 1)
 def set_param_to_default(driver, name):
     """Reset one of the tunable JIT parameters to its default value."""
-    _set_param(driver, name, DEFAULT)
+    _set_param(driver, name, None)
 
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
@@ -538,7 +641,6 @@ def set_user_param(driver, text):
             else:
                 raise ValueError
 set_user_param._annspecialcase_ = 'specialize:arg(0)'
-
 
 # ____________________________________________________________
 #
@@ -580,11 +682,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             self.bookkeeper._jit_annotation_cache[driver] = cache
         for key, s_value in kwds_s.items():
             s_previous = cache.get(key, annmodel.s_ImpossibleValue)
-            s_value = annmodel.unionof(s_previous, s_value)
-            if annmodel.isdegenerated(s_value):
-                raise JitHintError("mixing incompatible types in argument %s"
-                                   " of jit_merge_point/can_enter_jit" %
-                                   key[2:])
+            s_value = annmodel.unionof(s_previous, s_value)  # where="mixing incompatible types in argument %s of jit_merge_point/can_enter_jit" % key[2:]
             cache[key] = s_value
 
         # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
@@ -714,11 +812,11 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_driver, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
-            if s_name.const == 'enable_opts':
-                assert annmodel.SomeString(can_be_None=True).contains(s_value)
-            else:
-                assert annmodel.SomeInteger().contains(s_value)
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
+        else: 
+            assert (s_value == annmodel.s_None or
+                    annmodel.SomeInteger().contains(s_value))
         return annmodel.s_None
 
     def specialize_call(self, hop):
@@ -734,7 +832,7 @@ class ExtSetParam(ExtRegistryEntry):
         else:
             repr = lltype.Signed
         if (isinstance(hop.args_v[2], Constant) and
-            hop.args_v[2].value is DEFAULT):
+            hop.args_v[2].value is None):
             value = PARAMETERS[name]
             v_value = hop.inputconst(repr, value)
         else:
@@ -840,11 +938,6 @@ class JitHookInterface(object):
         instance, overwrite for custom behavior
         """
 
-    def get_stats(self):
-        """ Returns various statistics
-        """
-        raise NotImplementedError
-
 def record_known_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is not a precise
@@ -871,3 +964,39 @@ class Entry(ExtRegistryEntry):
         v_cls = hop.inputarg(classrepr, arg=1)
         return hop.genop('jit_record_known_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
+
+class Counters(object):
+    counters="""
+    TRACING
+    BACKEND
+    OPS
+    RECORDED_OPS
+    GUARDS
+    OPT_OPS
+    OPT_GUARDS
+    OPT_FORCINGS
+    ABORT_TOO_LONG
+    ABORT_BRIDGE
+    ABORT_BAD_LOOP
+    ABORT_ESCAPE
+    ABORT_FORCE_QUASIIMMUT
+    NVIRTUALS
+    NVHOLES
+    NVREUSED
+    TOTAL_COMPILED_LOOPS
+    TOTAL_COMPILED_BRIDGES
+    TOTAL_FREED_LOOPS
+    TOTAL_FREED_BRIDGES
+    """
+
+    counter_names = []
+
+    @staticmethod
+    def _setup():
+        names = Counters.counters.split()
+        for i, name in enumerate(names):
+            setattr(Counters, name, i)
+            Counters.counter_names.append(name)
+        Counters.ncounters = len(names)
+
+Counters._setup()

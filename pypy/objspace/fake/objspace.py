@@ -1,17 +1,15 @@
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
-from pypy.interpreter import argument, gateway
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.annotation.model import SomeInstance, s_None
-from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.lltypesystem import lltype
-from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.interpreter import argument, gateway
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, SpaceCache
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib.objectmodel import instantiate, we_are_translated
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rarithmetic import r_uint, r_singlefloat
-from pypy.translator.translator import TranslationContext
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.lltypesystem import lltype
 from pypy.tool.option import make_config
+from pypy.tool.sourcetools import compile2, func_with_new_name
+from pypy.translator.translator import TranslationContext
 
 
 class W_MyObject(Wrappable):
@@ -55,6 +53,9 @@ class W_MyObject(Wrappable):
         from pypy.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
+class W_MyType(W_MyObject):
+    def __init__(self):
+        self.mro_w = [w_some_obj(), w_some_obj()]
 
 def w_some_obj():
     if NonConstant(False):
@@ -65,6 +66,9 @@ def w_obj_or_none():
     if NonConstant(False):
         return None
     return w_some_obj()
+
+def w_some_type():
+    return W_MyType()
 
 def is_root(w_obj):
     assert isinstance(w_obj, W_Root)
@@ -86,6 +90,7 @@ class Entry(ExtRegistryEntry):
         return s_None
 
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
 
 # ____________________________________________________________
@@ -109,7 +114,7 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
+    def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):
         return w_some_obj()
 
@@ -138,6 +143,9 @@ class FakeObjSpace(ObjSpace):
     def newcomplex(self, x, y):
         return w_some_obj()
 
+    def newlong_from_rbigint(self, x):
+        return w_some_obj()
+
     def marshal_w(self, w_obj):
         "NOT_RPYTHON"
         raise NotImplementedError
@@ -151,6 +159,8 @@ class FakeObjSpace(ObjSpace):
         if isinstance(x, r_singlefloat):
             self._wrap_not_rpython(x)
         if isinstance(x, list):
+            if x == []: # special case: it is used e.g. in sys/__init__.py
+                return w_some_obj()
             self._wrap_not_rpython(x)
         return w_some_obj()
     wrap._annspecialcase_ = "specialize:argtype(1)"
@@ -207,12 +217,20 @@ class FakeObjSpace(ObjSpace):
         is_arguments(args)
         return w_some_obj()
 
+    def get_and_call_function(space, w_descr, w_obj, *args_w):
+        args = argument.Arguments(space, list(args_w))
+        w_impl = space.get(w_descr, w_obj)
+        return space.call_args(w_impl, args)
+
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 
     def gettypeobject(self, typedef):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
+
+    def type(self, w_obj):
+        return w_some_type()
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         is_root(w_iterable)
@@ -258,7 +276,6 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
-        ann.policy.allow_someobjects = False
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         #
@@ -281,10 +298,13 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
                   'dict', 'unicode', 'complex', 'slice', 'bool',
-                  'type', 'basestring', 'object']):
+                  'basestring', 'object']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
+    FakeObjSpace.w_type = w_some_type()
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:
+        if name == 'type':
+            continue
         args = ['w_%d' % i for i in range(arity)]
         params = args[:]
         d = {'is_root': is_root,
@@ -326,4 +346,5 @@ class FakeModule(Wrappable):
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
+FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.builtin = FakeModule()

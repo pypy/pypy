@@ -42,6 +42,7 @@ _register = [  # (module, [(method name, arg types, return type), ...], ...)
        ('sqrt', [float], float),
        ('log', [float], float),
        ('log10', [float], float),
+       ('log1p', [float], float),
        ('sin', [float], float),
        ('cos', [float], float),
        ('atan2', [float, float], float),
@@ -85,7 +86,8 @@ import os.path
 # llinterpreter
 
 path_functions = [
-    ('join',     [str, str], str),
+    ('join',     [ll_os.str0, ll_os.str0], ll_os.str0),
+    ('dirname',  [ll_os.str0], ll_os.str0),
     ]
 
 for name, args, res in path_functions:

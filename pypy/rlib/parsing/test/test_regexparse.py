@@ -1,8 +1,4 @@
-import py
-from pypy.rlib.parsing.regexparse import make_runner, unescape, RegexParser
-from pypy.rlib.parsing import regex
-import operator
-from pypy.rlib.parsing.makepackrat import PackratParser as _PackratParser
+from pypy.rlib.parsing.regexparse import make_runner
 
 
 
@@ -170,7 +166,7 @@ def test_number():
     assert r.recognize("-0.912E+0001")
     assert not r.recognize("-0.a912E+0001")
     assert r.recognize("5")
-    
+
 def test_charclass():
     r = make_runner(r"\d")
     assert r.recognize('0')

@@ -84,3 +84,10 @@ class TestParsetring:
         s = '"""' + '\\' + '\n"""'
         w_ret = parsestring.parsestr(space, None, s)
         assert space.str_w(w_ret) == ''
+
+    def test_bug1(self):
+        space = self.space
+        expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
+        input = ["'", 'x', ' ', chr(0xc3), chr(0xa9), ' ', chr(92), 'n', "'"]
+        w_ret = parsestring.parsestr(space, 'utf8', ''.join(input))
+        assert space.str_w(w_ret) == ''.join(expected)

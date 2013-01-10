@@ -1,6 +1,5 @@
 
 import py
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr
@@ -14,8 +13,7 @@ from pypy.module.pypyjit.interp_jit import pypyjitdriver
 from pypy.module.pypyjit.policy import pypy_hooks
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.typesystem import llhelper
-from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
-from pypy.rlib.jit import JitDebugInfo, AsmInfo
+from pypy.rlib.jit import JitDebugInfo, AsmInfo, Counters
 
 class MockJitDriverSD(object):
     class warmstate(object):
@@ -36,12 +34,11 @@ class MockSD(object):
     jitdrivers_sd = [MockJitDriverSD]
 
 class AppTestJitHook(object):
+    spaceconfig = dict(usemodules=('pypyjit',))
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("Can't run this test with -A")
-        space = gettestobjspace(usemodules=('pypyjit',))
-        cls.space = space
-        w_f = space.appexec([], """():
+        w_f = cls.space.appexec([], """():
         def function():
             pass
         return function
@@ -54,7 +51,7 @@ class AppTestJitHook(object):
         oplist = parse("""
         [i1, i2, p2]
         i3 = int_add(i1, i2)
-        debug_merge_point(0, 0, 0, 0, ConstPtr(ptr0))
+        debug_merge_point(0, 0, 0, 0, 0, ConstPtr(ptr0))
         guard_nonnull(p2) []
         guard_true(i3) []
         """, namespace={'ptr0': code_gcref}).operations
@@ -64,8 +61,10 @@ class AppTestJitHook(object):
             if i != 1:
                offset[op] = i
 
-        di_loop = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
-                               oplist, 'loop', greenkey)
+        token = JitCellToken()
+        token.number = 0
+        di_loop = JitDebugInfo(MockJitDriverSD, logger, token, oplist, 'loop',
+                   greenkey)
         di_loop_optimize = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
                                         oplist, 'loop', greenkey)
         di_loop.asminfo = AsmInfo(offset, 0, 0)
@@ -85,9 +84,10 @@ class AppTestJitHook(object):
             pypy_hooks.before_compile(di_loop_optimize)
 
         def interp_on_abort():
-            pypy_hooks.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey,
-                                'blah')
-        
+            pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
+                                greenkey, 'blah')
+
+        space = cls.space
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
@@ -95,6 +95,7 @@ class AppTestJitHook(object):
         cls.w_dmp_num = space.wrap(rop.DEBUG_MERGE_POINT)
         cls.w_on_optimize = space.wrap(interp2app(interp_on_optimize))
         cls.orig_oplist = oplist
+        cls.w_sorted_keys = space.wrap(sorted(Counters.counter_names))
 
     def setup_method(self, meth):
         self.__class__.oplist = self.orig_oplist[:]
@@ -103,28 +104,35 @@ class AppTestJitHook(object):
         import pypyjit
         all = []
 
-        def hook(name, looptype, tuple_or_guard_no, ops, asmstart, asmlen):
-            all.append((name, looptype, tuple_or_guard_no, ops))
-        
+        def hook(info):
+            all.append(info)
+
         self.on_compile()
         pypyjit.set_compile_hook(hook)
         assert not all
         self.on_compile()
         assert len(all) == 1
-        elem = all[0]
-        assert elem[0] == 'pypyjit'
-        assert elem[2][0].co_name == 'function'
-        assert elem[2][1] == 0
-        assert elem[2][2] == False
-        assert len(elem[3]) == 4
-        int_add = elem[3][0]
-        dmp = elem[3][1]
+        info = all[0]
+        assert info.jitdriver_name == 'pypyjit'
+        assert info.greenkey[0].co_name == 'function'
+        assert info.greenkey[1] == 0
+        assert info.greenkey[2] == False
+        assert info.loop_no == 0
+        assert info.type == 'loop'
+        raises(TypeError, 'info.bridge_no')
+        assert len(info.operations) == 4
+        int_add = info.operations[0]
+        dmp = info.operations[1]
         assert isinstance(dmp, pypyjit.DebugMergePoint)
         assert dmp.pycode is self.f.func_code
         assert dmp.greenkey == (self.f.func_code, 0, False)
-        #assert int_add.name == 'int_add'
+        assert dmp.call_depth == 0
+        assert dmp.call_id == 0
+        assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
         self.on_compile_bridge()
+        code_repr = "(<code object function, file '?', line 2>, 0, False)"
+        assert repr(all[0]) == '<JitLoopInfo pypyjit, 4 operations, starting at <%s>>' % code_repr
         assert len(all) == 2
         pypyjit.set_compile_hook(None)
         self.on_compile()
@@ -150,28 +158,28 @@ class AppTestJitHook(object):
     def test_non_reentrant(self):
         import pypyjit
         l = []
-        
+
         def hook(*args):
             l.append(None)
             self.on_compile()
             self.on_compile_bridge()
-        
+
         pypyjit.set_compile_hook(hook)
         self.on_compile()
         assert len(l) == 1 # and did not crash
         self.on_compile_bridge()
         assert len(l) == 2 # and did not crash
-        
+
     def test_on_compile_types(self):
         import pypyjit
         l = []
 
-        def hook(*args):
-            l.append(args)
+        def hook(info):
+            l.append(info)
 
         pypyjit.set_compile_hook(hook)
         self.on_compile()
-        op = l[0][3][1]
+        op = l[0].operations[1]
         assert isinstance(op, pypyjit.ResOperation)
         assert 'function' in repr(op)
 
@@ -181,7 +189,7 @@ class AppTestJitHook(object):
 
         def hook(jitdriver_name, greenkey, reason):
             l.append((jitdriver_name, reason))
-        
+
         pypyjit.set_abort_hook(hook)
         self.on_abort()
         assert l == [('pypyjit', 'ABORT_TOO_LONG')]
@@ -190,17 +198,17 @@ class AppTestJitHook(object):
         import pypyjit
         l = []
 
-        def hook(name, looptype, tuple_or_guard_no, ops, *args):
-            l.append(ops)
+        def hook(info):
+            l.append(info.jitdriver_name)
 
-        def optimize_hook(name, looptype, tuple_or_guard_no, ops):
+        def optimize_hook(info):
             return []
 
         pypyjit.set_compile_hook(hook)
         pypyjit.set_optimize_hook(optimize_hook)
         self.on_optimize()
         self.on_compile()
-        assert l == [[]]
+        assert l == ['pypyjit']
 
     def test_creation(self):
         from pypyjit import Box, ResOperation
@@ -223,11 +231,24 @@ class AppTestJitHook(object):
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', (f.func_code, 0, 0))
+        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, 3, (f.func_code, 0, 0))
         assert op.bytecode_no == 0
         assert op.pycode is f.func_code
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
         assert op.num == self.dmp_num
-        op = DebugMergePoint([Box(0)], 'repr', 'notmain', ('str',))
+        assert op.call_depth == 2
+        assert op.call_id == 3
+        op = DebugMergePoint([Box(0)], 'repr', 'notmain', 5, 4, ('str',))
         raises(AttributeError, 'op.pycode')
+        assert op.call_depth == 5
+
+    def test_get_stats_snapshot(self):
+        skip("a bit no idea how to test it")
+        from pypyjit import get_stats_snapshot
+
+        stats = get_stats_snapshot() # we can't do much here, unfortunately
+        assert stats.w_loop_run_times == []
+        assert isinstance(stats.w_counters, dict)
+        assert sorted(stats.w_counters.keys()) == self.sorted_keys
+

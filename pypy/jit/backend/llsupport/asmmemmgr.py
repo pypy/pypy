@@ -277,6 +277,8 @@ class BlockBuilderMixin(object):
             from pypy.jit.backend.hlinfo import highleveljitinfo
             if highleveljitinfo.sys_executable:
                 debug_print('SYS_EXECUTABLE', highleveljitinfo.sys_executable)
+            else:
+                debug_print('SYS_EXECUTABLE', '??')
             #
             HEX = '0123456789ABCDEF'
             dump = []

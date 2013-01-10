@@ -8,6 +8,15 @@
 (defun set-truncate-lines ()
   (setq truncate-lines t))
 
+(defun pypytrace-beginning-of-defun ()
+  (search-backward "{")
+  (beginning-of-line))
+
+(defun pypytrace-end-of-defun ()
+  (search-forward "}")
+  (end-of-line))
+
+
 ;; to generate the list of keywords:
 ;; from pypy.jit.metainterp import resoperation
 ;; print ' '.join(sorted('"%s"' % op.lower() for op in resoperation.opname.values() if not op.startswith('GUARD')))
@@ -39,7 +48,12 @@
      (4 'escape-glyph t)
      (5 'custom-variable-tag t)))
   '("\\.trace$")
-  '(set-truncate-lines)
+  '(set-truncate-lines
+    (lambda ()
+      (set (make-local-variable 'beginning-of-defun-function)
+           'pypytrace-beginning-of-defun)
+      (set (make-local-variable 'end-of-defun-function) 'pypytrace-end-of-defun))
+    )
   "A mode for pypy traces files")
 
 ;; debug helpers

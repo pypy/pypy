@@ -79,6 +79,18 @@ class RegAllocForTests(RegAlloc):
     def _compute_next_usage(self, v, _):
         return -1
 
+
+def get_zero_division_error(self):
+    # for tests, a random emulated ll_inst will do
+    ll_inst = lltype.malloc(rclass.OBJECT)
+    ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
+                                    immortal=True)
+    _zer_error_vtable = llmemory.cast_ptr_to_adr(ll_inst.typeptr)
+    zer_vtable = self.cast_adr_to_int(_zer_error_vtable)
+    zer_inst = lltype.cast_opaque_ptr(llmemory.GCREF, ll_inst)
+    return zer_vtable, zer_inst
+
+
 class BaseTestRegalloc(object):
     cpu = CPU(None, None)
     cpu.setup_once()
@@ -89,7 +101,7 @@ class BaseTestRegalloc(object):
                               zero_division_value)
     FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
     raising_fptr = llhelper(FPTR, raising_func)
-    zero_division_tp, zero_division_value = cpu.get_zero_division_error()
+    zero_division_tp, zero_division_value = get_zero_division_error(cpu)
     zd_addr = cpu.cast_int_to_adr(zero_division_tp)
     zero_division_error = llmemory.cast_adr_to_ptr(zd_addr,
                                             lltype.Ptr(rclass.OBJECT_VTABLE))
@@ -155,7 +167,7 @@ class BaseTestRegalloc(object):
                 arguments.append(llgcref)
         loop._jitcelltoken = looptoken
         if run:
-            self.cpu.execute_token(looptoken, *arguments)
+            self.deadframe = self.cpu.execute_token(looptoken, *arguments)
         return loop
 
     def prepare_loop(self, ops):
@@ -166,21 +178,22 @@ class BaseTestRegalloc(object):
         return regalloc
 
     def getint(self, index):
-        return self.cpu.get_latest_value_int(index)
+        return self.cpu.get_latest_value_int(self.deadframe, index)
 
     def getfloat(self, index):
-        return self.cpu.get_latest_value_float(index)
+        return self.cpu.get_latest_value_float(self.deadframe, index)
 
     def getints(self, end):
-        return [self.cpu.get_latest_value_int(index) for
+        return [self.cpu.get_latest_value_int(self.deadframe, index) for
                 index in range(0, end)]
 
     def getfloats(self, end):
-        return [longlong.getrealfloat(self.cpu.get_latest_value_float(index))
+        return [longlong.getrealfloat(
+                    self.cpu.get_latest_value_float(self.deadframe, index))
                 for index in range(0, end)]
 
     def getptr(self, index, T):
-        gcref = self.cpu.get_latest_value_ref(index)
+        gcref = self.cpu.get_latest_value_ref(self.deadframe, index)
         return lltype.cast_opaque_ptr(T, gcref)
 
     def attach_bridge(self, ops, loop, guard_op_index, **kwds):
@@ -195,7 +208,8 @@ class BaseTestRegalloc(object):
         return bridge
 
     def run(self, loop, *arguments):
-        return self.cpu.execute_token(loop._jitcelltoken, *arguments)
+        self.deadframe = self.cpu.execute_token(loop._jitcelltoken, *arguments)
+        return self.cpu.get_latest_descr(self.deadframe)
 
 class TestRegallocSimple(BaseTestRegalloc):
     def test_simple_loop(self):
@@ -253,7 +267,6 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         S = lltype.GcStruct('S')
         ptr = lltype.malloc(S)
-        self.cpu.clear_latest_values(2)
         self.interpret(ops, [0, ptr])
         assert self.getptr(0, lltype.Ptr(S)) == ptr
 
@@ -606,35 +619,49 @@ class TestRegallocFloats(BaseTestRegalloc):
         assert self.getints(9) == [0, 1, 1, 1, 1, 1, 1, 1, 1]
 
 class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
-    def expected_param_depth(self, num_args):
+    def expected_frame_depth(self, num_call_args, num_pushed_input_args=0):
         # Assumes the arguments are all non-float
         if IS_X86_32:
-            return num_args
+            extra_esp = num_call_args
+            return extra_esp
         elif IS_X86_64:
-            return max(num_args - 6, 0)
+            # 'num_pushed_input_args' is for X86_64 only
+            extra_esp = max(num_call_args - 6, 0)
+            return num_pushed_input_args + extra_esp
 
     def test_one_call(self):
         ops = '''
-        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i9b]
         i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
-        finish(i10, i1, i2, i3, i4, i5, i6, i7, i8, i9)
+        guard_false(i10) [i10, i1, i2, i3, i4, i5, i6, i7, i8, i9, i9b]
         '''
-        loop = self.interpret(ops, [4, 7, 9, 9 ,9, 9, 9, 9, 9, 9])
-        assert self.getints(10) == [5, 7, 9, 9, 9, 9, 9, 9, 9, 9]
+        loop = self.interpret(ops, [4, 7, 9, 9 ,9, 9, 9, 9, 9, 9, 8])
+        assert self.getints(11) == [5, 7, 9, 9, 9, 9, 9, 9, 9, 9, 8]
         clt = loop._jitcelltoken.compiled_loop_token
-        assert clt.param_depth == self.expected_param_depth(1)
+        assert clt.frame_depth == self.expected_frame_depth(1, 5)
+
+    def test_one_call_reverse(self):
+        ops = '''
+        [i1, i2, i3, i4, i5, i6, i7, i8, i9, i9b, i0]
+        i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
+        guard_false(i10) [i10, i1, i2, i3, i4, i5, i6, i7, i8, i9, i9b]
+        '''
+        loop = self.interpret(ops, [7, 9, 9 ,9, 9, 9, 9, 9, 9, 8, 4])
+        assert self.getints(11) == [5, 7, 9, 9, 9, 9, 9, 9, 9, 9, 8]
+        clt = loop._jitcelltoken.compiled_loop_token
+        assert clt.frame_depth == self.expected_frame_depth(1, 6)
 
     def test_two_calls(self):
         ops = '''
         [i0, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
         i11 = call(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)        
-        finish(i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9)
+        guard_false(i5) [i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         loop = self.interpret(ops, [4, 7, 9, 9 ,9, 9, 9, 9, 9, 9])
         assert self.getints(10) == [5*7, 7, 9, 9, 9, 9, 9, 9, 9, 9]
         clt = loop._jitcelltoken.compiled_loop_token
-        assert clt.param_depth == self.expected_param_depth(2)
+        assert clt.frame_depth == self.expected_frame_depth(2, 5)
 
     def test_call_many_arguments(self):
         # NB: The first and last arguments in the call are constants. This
@@ -648,25 +675,31 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         loop = self.interpret(ops, [2, 3, 4, 5, 6, 7, 8, 9])
         assert self.getint(0) == 55
         clt = loop._jitcelltoken.compiled_loop_token
-        assert clt.param_depth == self.expected_param_depth(10)
+        assert clt.frame_depth == self.expected_frame_depth(10)
 
     def test_bridge_calls_1(self):
         ops = '''
         [i0, i1]
         i2 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
-        guard_value(i2, 0, descr=fdescr1) [i2, i1]
-        finish(i1)
+        guard_value(i2, 0, descr=fdescr1) [i2, i0, i1]
+        guard_false(i1) [i1]
         '''
         loop = self.interpret(ops, [4, 7])
         assert self.getint(0) == 5
+        clt = loop._jitcelltoken.compiled_loop_token
+        orgdepth = clt.frame_depth
+        assert orgdepth == self.expected_frame_depth(1, 2)
+
         ops = '''
-        [i2, i1]
+        [i2, i0, i1]
         i3 = call(ConstClass(f2ptr), i2, i1, descr=f2_calldescr)        
-        finish(i3, descr=fdescr2)        
+        guard_false(i0, descr=fdescr2) [i3, i0]
         '''
         bridge = self.attach_bridge(ops, loop, -2)
 
-        assert loop.operations[-2].getdescr()._x86_bridge_param_depth == self.expected_param_depth(2)
+        assert clt.frame_depth == max(orgdepth, self.expected_frame_depth(2, 2))
+        assert loop.operations[-2].getdescr()._x86_bridge_frame_depth == \
+            self.expected_frame_depth(2, 2)
 
         self.run(loop, 4, 7)
         assert self.getint(0) == 5*7
@@ -676,18 +709,24 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         [i0, i1]
         i2 = call(ConstClass(f2ptr), i0, i1, descr=f2_calldescr)
         guard_value(i2, 0, descr=fdescr1) [i2]
-        finish(i1)
+        guard_false(i2) [i2]
         '''
         loop = self.interpret(ops, [4, 7])
         assert self.getint(0) == 4*7
+        clt = loop._jitcelltoken.compiled_loop_token
+        orgdepth = clt.frame_depth
+        assert orgdepth == self.expected_frame_depth(2)
+
         ops = '''
         [i2]
         i3 = call(ConstClass(f1ptr), i2, descr=f1_calldescr)        
-        finish(i3, descr=fdescr2)        
+        guard_false(i3, descr=fdescr2) [i3]
         '''
         bridge = self.attach_bridge(ops, loop, -2)
 
-        assert loop.operations[-2].getdescr()._x86_bridge_param_depth == self.expected_param_depth(2)
+        assert clt.frame_depth == max(orgdepth, self.expected_frame_depth(1))
+        assert loop.operations[-2].getdescr()._x86_bridge_frame_depth == \
+            self.expected_frame_depth(1)
 
         self.run(loop, 4, 7)
         assert self.getint(0) == 29

@@ -10,6 +10,10 @@ from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython import annlowlevel
 from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rlib.rarithmetic import is_valid_int
+
+
+MAX_CONST_LEN = 100
 
 
 class StrOrUnicode(object):
@@ -129,6 +133,7 @@ class VStringPlainValue(VAbstractStringValue):
         # Also, as long as self.is_virtual(), then we know that no-one else
         # could have written to the string, so we know that in this case
         # "None" corresponds to "really uninitialized".
+        assert size <= MAX_CONST_LEN
         self._chars = [None] * size
 
     def setup_slice(self, longerlist, start, stop):
@@ -403,7 +408,7 @@ class OptString(optimizer.Optimization):
 
     def _optimize_NEWSTR(self, op, mode):
         length_box = self.get_constant_box(op.getarg(0))
-        if length_box:
+        if length_box and length_box.getint() <= MAX_CONST_LEN:
             # if the original 'op' did not have a ConstInt as argument,
             # build a new one with the ConstInt argument
             if not isinstance(op.getarg(0), ConstInt):
@@ -487,6 +492,7 @@ class OptString(optimizer.Optimization):
 
     def optimize_COPYSTRCONTENT(self, op):
         self._optimize_COPYSTRCONTENT(op, mode_string)
+
     def optimize_COPYUNICODECONTENT(self, op):
         self._optimize_COPYSTRCONTENT(op, mode_unicode)
 
@@ -505,14 +511,28 @@ class OptString(optimizer.Optimization):
 
         if length.is_constant() and length.box.getint() == 0:
             return
-        copy_str_content(self,
-            src.force_box(self),
-            dst.force_box(self),
-            srcstart.force_box(self),
-            dststart.force_box(self),
-            length.force_box(self),
-            mode, need_next_offset=False
-        )
+        elif ((src.is_virtual() or src.is_constant()) and
+              isinstance(dst, VStringPlainValue) and dst.is_virtual() and
+              srcstart.is_constant() and dststart.is_constant() and
+              length.is_constant()):
+            src_start = srcstart.force_box(self).getint()
+            dst_start = dststart.force_box(self).getint()
+            # 'length' must be <= MAX_CONST_LEN here, because 'dst' is a
+            # VStringPlainValue, which is limited to MAX_CONST_LEN.
+            actual_length = length.force_box(self).getint()
+            assert actual_length <= MAX_CONST_LEN
+            for index in range(actual_length):
+                vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
+                dst.setitem(index + dst_start, vresult)
+        else:
+            copy_str_content(self,
+                src.force_box(self),
+                dst.force_box(self),
+                srcstart.force_box(self),
+                dststart.force_box(self),
+                length.force_box(self),
+                mode, need_next_offset=False
+            )
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
@@ -721,7 +741,7 @@ def _findall_call_oopspec():
     for name in dir(OptString):
         if name.startswith(prefix):
             value = getattr(EffectInfo, 'OS_' + name[len(prefix):])
-            assert isinstance(value, int) and value != 0
+            assert is_valid_int(value) and value != 0
             result.append((value, getattr(OptString, name)))
     return unrolling_iterable(result)
 opt_call_oopspec_ops = _findall_call_oopspec()

@@ -5,12 +5,13 @@ from __future__ import with_statement
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint, is_emulated_long
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLOpenError, DLLHANDLE
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import specialize
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -27,6 +28,7 @@ py.log.setconsumer("libffi", ansi_log)
 _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
+_WIN64 = _WIN32 and is_emulated_long
 _MAC_OS = platform.name == "darwin"
 _FREEBSD_7 = platform.name == "freebsd7"
 
@@ -113,12 +115,18 @@ elif _MINGW:
         )
 
     eci = rffi_platform.configure_external_library(
-        'libffi', eci,
+        'libffi-5', eci,
         [dict(prefix='libffi-',
               include_dir='include', library_dir='.libs'),
+         dict(prefix=r'c:\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
+    USE_C_LIBFFI_MSVC = True
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
+    if not _WIN64:
+        asm_ifc = 'win32.c'
+    else:
+        asm_ifc = 'win64.asm'
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32'],
@@ -126,7 +134,7 @@ else:
         separate_module_sources = separate_module_sources,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
-                                 libffidir.join('win32.c'),
+                                 libffidir.join(asm_ifc),
                                  libffidir.join('pypy_ffi.c'),
                                  ],
         export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
@@ -135,6 +143,7 @@ else:
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
 FFI_TYPE_PP = rffi.CArrayPtr(FFI_TYPE_P)
+FFI_TYPE_NULL = lltype.nullptr(FFI_TYPE_P.TO)
 
 class CConfig:
     _compilation_info_ = eci
@@ -142,19 +151,21 @@ class CConfig:
     FFI_OK = rffi_platform.ConstantInteger('FFI_OK')
     FFI_BAD_TYPEDEF = rffi_platform.ConstantInteger('FFI_BAD_TYPEDEF')
     FFI_DEFAULT_ABI = rffi_platform.ConstantInteger('FFI_DEFAULT_ABI')
-    if _WIN32:
+    if _WIN32 and not _WIN64:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
 
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
 
     size_t = rffi_platform.SimpleType("size_t", rffi.ULONG)
     ffi_abi = rffi_platform.SimpleType("ffi_abi", rffi.USHORT)
+    ffi_arg = rffi_platform.SimpleType("ffi_arg", lltype.Signed)
 
     ffi_type = rffi_platform.Struct('ffi_type', [('size', rffi.ULONG),
                                                  ('alignment', rffi.USHORT),
                                                  ('type', rffi.USHORT),
                                                  ('elements', FFI_TYPE_PP)])
 
+    ffi_cif = rffi_platform.Struct('ffi_cif', [])
     ffi_closure = rffi_platform.Struct('ffi_closure', [])
 
 def add_simple_type(type_name):
@@ -192,7 +203,8 @@ for k, v in rffi_platform.configure(CConfig).items():
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
-ffi_abi = cConfig.ffi_abi
+FFI_ABI = cConfig.ffi_abi
+ffi_arg = cConfig.ffi_arg
 
 for name in type_names:
     locals()[name] = configure_simple_type(name)
@@ -228,6 +240,7 @@ __int_type_map = [
     (rffi.LONGLONG, _signed_type_for(rffi.LONGLONG)),
     (lltype.UniChar, _unsigned_type_for(lltype.UniChar)),
     (lltype.Bool, _unsigned_type_for(lltype.Bool)),
+    (lltype.Char, _signed_type_for(lltype.Char)),
     ]
 
 __float_type_map = [
@@ -312,16 +325,16 @@ if _WIN32:
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
-if _WIN32:
+if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
-FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)
+FFI_CIFP = lltype.Ptr(cConfig.ffi_cif)
 
 FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
-c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, ffi_abi, rffi.UINT,
+c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, FFI_ABI, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 if _MSVC:
     c_ffi_call_return_type = rffi.INT
@@ -339,11 +352,13 @@ FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
                                         ('ffistruct', FFI_TYPE_P.TO),
                                         ('members', lltype.Array(FFI_TYPE_P))))
 
-def make_struct_ffitype_e(size, aligment, field_types):
+@specialize.arg(3)
+def make_struct_ffitype_e(size, aligment, field_types, track_allocation=True):
     """Compute the type of a structure.  Returns a FFI_STRUCT_P out of
        which the 'ffistruct' member is a regular FFI_TYPE.
     """
-    tpe = lltype.malloc(FFI_STRUCT_P.TO, len(field_types)+1, flavor='raw')
+    tpe = lltype.malloc(FFI_STRUCT_P.TO, len(field_types)+1, flavor='raw',
+                        track_allocation=track_allocation)
     tpe.ffistruct.c_type = rffi.cast(rffi.USHORT, FFI_TYPE_STRUCT)
     tpe.ffistruct.c_size = rffi.cast(rffi.SIZE_T, size)
     tpe.ffistruct.c_alignment = rffi.cast(rffi.USHORT, aligment)
@@ -422,6 +437,9 @@ class StackCheckError(ValueError):
     def __init__(self, message):
         self.message = message
 
+class LibFFIError(Exception):
+    pass
+
 CHUNK = 4096
 CLOSURES = rffi.CArrayPtr(FFI_CLOSUREP.TO)
 
@@ -458,7 +476,7 @@ FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
 def get_call_conv(flags, from_jit):
-    if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
+    if _WIN32 and not _WIN64 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:
         return FFI_DEFAULT_ABI
@@ -498,7 +516,7 @@ class AbstractFuncPtr(object):
                              rffi.cast(rffi.UINT, argnum), restype,
                              self.ll_argtypes)
         if not res == FFI_OK:
-            raise OSError(-1, "Wrong typedef")
+            raise LibFFIError
 
     def __del__(self):
         if self.ll_cif:
@@ -528,7 +546,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
                                  ll_callback, rffi.cast(rffi.VOIDP,
                                                         self.ll_userdata))
         if not res == FFI_OK:
-            raise OSError(-1, "Unspecified error calling ffi_prep_closure")
+            raise LibFFIError
 
     def __del__(self):
         AbstractFuncPtr.__del__(self)

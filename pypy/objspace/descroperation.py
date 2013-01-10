@@ -43,6 +43,13 @@ def type_eq(space):
     return w_eq
 type_eq._annspecialcase_ = 'specialize:memo'
 
+def list_iter(space):
+    "Utility that returns the app-level descriptor list.__iter__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_list,
+                                               '__iter__')
+    return w_iter
+list_iter._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space)
@@ -222,13 +229,15 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        method = "__nonzero__"
-        w_descr = space.lookup(w_obj, method)
+        w_descr = space.lookup(w_obj, "__nonzero__")
         if w_descr is None:
-            method = "__len__"
-            w_descr = space.lookup(w_obj, method)
+            w_descr = space.lookup(w_obj, "__len__")
             if w_descr is None:
                 return True
+            # call __len__
+            w_res = space.get_and_call_function(w_descr, w_obj)
+            return space._check_len_result(w_res) != 0
+        # call __nonzero__
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
         if space.is_w(w_res, space.w_False):
@@ -238,11 +247,10 @@ class DescrOperation(object):
         w_restype = space.type(w_res)
         # Note there is no check for bool here because the only possible
         # instances of bool are w_False and w_True, which are checked above.
-        if (space.is_w(w_restype, space.w_int) or
-            space.is_w(w_restype, space.w_long)):
+        if space.is_w(w_restype, space.w_int):
             return space.int_w(w_res) != 0
         else:
-            msg = "%s should return bool or integer" % (method,)
+            msg = "__nonzero__ should return bool or integer"
             raise OperationError(space.w_TypeError, space.wrap(msg))
 
     def nonzero(space, w_obj):
@@ -407,7 +415,8 @@ class DescrOperation(object):
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
-            return space.get_and_call_function(w_descr, w_container, w_item)
+            w_result = space.get_and_call_function(w_descr, w_container, w_item)
+            return space.nonzero(w_result)
         return space._contains(w_container, w_item)
 
     def _contains(space, w_container, w_item):
@@ -685,7 +694,7 @@ def _make_binop_impl(symbol, specialnames):
             # sanity reasons, we just compare the two places where the
             # __xxx__ and __rxxx__ methods where found by identity.
             # Note that space.is_w() is potentially not happy if one of them
-            # is None (e.g. with the thunk space)...
+            # is None...
             if w_left_src is not w_right_src:    # XXX
                 # -- cpython bug compatibility: see objspace/std/test/
                 # -- test_unicodeobject.test_str_unicode_concat_overrides.

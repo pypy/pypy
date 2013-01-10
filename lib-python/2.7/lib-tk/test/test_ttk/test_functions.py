@@ -136,15 +136,17 @@ class InternalFunctionsTest(unittest.TestCase):
         # minimum acceptable for image type
         self.assertEqual(ttk._format_elemcreate('image', False, 'test'),
             ("test ", ()))
-        # specifiyng a state spec
+        # specifying a state spec
         self.assertEqual(ttk._format_elemcreate('image', False, 'test',
             ('', 'a')), ("test {} a", ()))
         # state spec with multiple states
         self.assertEqual(ttk._format_elemcreate('image', False, 'test',
             ('a', 'b', 'c')), ("test {a b} c", ()))
         # state spec and options
-        self.assertEqual(ttk._format_elemcreate('image', False, 'test',
-            ('a', 'b'), a='x', b='y'), ("test a b", ("-a", "x", "-b", "y")))
+        res = ttk._format_elemcreate('image', False, 'test',
+                                     ('a', 'b'), a='x', b='y')
+        self.assertEqual(res[0], "test a b")
+        self.assertEqual(set(res[1]), {"-a", "x", "-b", "y"})
         # format returned values as a tcl script
         # state spec with multiple states and an option with a multivalue
         self.assertEqual(ttk._format_elemcreate('image', True, 'test',

@@ -8,3 +8,9 @@ def test_list_ddl():
     cursor.execute('CREATE TABLE foo (bar INTEGER)')
     result = list(cursor)
     assert result == []
+    cursor.execute('INSERT INTO foo (bar) VALUES (42)')
+    result = list(cursor)
+    assert result == []
+    cursor.execute('SELECT * FROM foo')
+    result = list(cursor)
+    assert result == [(42,)]

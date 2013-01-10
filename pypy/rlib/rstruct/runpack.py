@@ -4,11 +4,10 @@ if necessary
 """
 
 import py
-from struct import pack, unpack
+from struct import unpack
 from pypy.rlib.rstruct.formatiterator import FormatIterator
 from pypy.rlib.rstruct.error import StructError
 from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
-from pypy.rpython.extregistry import ExtRegistryEntry
 
 class MasterReader(object):
     def __init__(self, s):

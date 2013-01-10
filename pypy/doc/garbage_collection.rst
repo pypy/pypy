@@ -33,8 +33,8 @@ GC (which is the default when translating) is the last one below.
 Mark and Sweep
 --------------
 
-Classical Mark and Sweep collector.  Also contains a lot of experimental
-and half-unmaintained features.  See `pypy/rpython/memory/gc/marksweep.py`_.
+Classical Mark and Sweep collector.  Also contained a lot of experimental
+and half-unmaintained features.  Was removed.
 
 Semispace copying collector
 ---------------------------
@@ -91,6 +91,9 @@ source code, in `pypy/rpython/memory/gc/hybrid.py`_.
 Mark & Compact GC
 -----------------
 
+Killed in trunk.  The following documentation is for historical purposes
+only.
+
 Inspired, at least partially, by Squeak's garbage collector, this is a
 single-arena GC in which collection compacts the objects in-place.  The
 main point of this GC is to save as much memory as possible (to be not
@@ -123,9 +126,6 @@ surviving object is needed to make a backup of (half of) the surviving
 objects' header, in order to let the collector store temporary relation
 information in the regular headers.
 
-More details are available as comments at the start of the source
-in `pypy/rpython/memory/gc/markcompact.py`_.
-
 Minimark GC
 -----------
 
@@ -142,10 +142,9 @@ generation objects without needing to store a list of pointers to them.
 So as a first approximation, when compared to the Hybrid GC, the
 Minimark GC saves one word of memory per old object.
 
-There are a number of environment variables that can be tweaked to
-influence the GC.  (Their default value should be ok for most usages.)
-You can read more about them at the start of
-`pypy/rpython/memory/gc/minimark.py`_.
+There are :ref:`a number of environment variables
+<minimark-environment-variables>` that can be tweaked to influence the
+GC.  (Their default value should be ok for most usages.)
 
 In more detail:
 
@@ -210,6 +209,5 @@ In more detail:
   next minor collection, we move it there, and so its id() and hash()
   are preserved.  If the object dies then the pre-reserved location
   becomes free garbage, to be collected at the next major collection.
-
 
 .. include:: _ref.txt

@@ -190,10 +190,13 @@ class Timer:
         else:
             it = [None] * number
         gcold = gc.isenabled()
-        gc.disable()
-        timing = self.inner(it, self.timer)
-        if gcold:
-            gc.enable()
+        if '__pypy__' not in sys.builtin_module_names:
+            gc.disable()    # only do that on CPython
+        try:
+            timing = self.inner(it, self.timer)
+        finally:
+            if gcold:
+                gc.enable()
         return timing
 
     def repeat(self, repeat=default_repeat, number=default_number):

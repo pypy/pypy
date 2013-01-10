@@ -620,3 +620,13 @@ class TestLLtypeUnicode(TestLLtype):
             return result
         res = self.meta_interp(main, [9])
         assert res == main(9)
+
+    def test_bytearray(self):
+        py.test.skip("implement it")
+        def f(i):
+            b = bytearray("abc")
+            b[1] = i
+            return b[1]
+
+        res = self.interp_operations(f, [13])
+        assert res == 13

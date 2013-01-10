@@ -9,13 +9,13 @@ converting them back and forth.
 import sys
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import rarithmetic, longlong2float
+from pypy.rlib.objectmodel import compute_hash
 
 
 if sys.maxint > 2147483647:
     # ---------- 64-bit platform ----------
     # the type FloatStorage is just a float
 
-    from pypy.rlib.objectmodel import compute_hash
 
     is_64_bit = True
     supports_longlong = False

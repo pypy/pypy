@@ -456,6 +456,68 @@ class BaseBytesTest(unittest.TestCase):
         self.assertEqual([ord(b[i:i+1]) for i in range(len(b))],
                          [0, 65, 127, 128, 255])
 
+    def test_none_arguments(self):
+        # issue 11828
+        b = self.type2test(b'hello')
+        l = self.type2test(b'l')
+        h = self.type2test(b'h')
+        x = self.type2test(b'x')
+        o = self.type2test(b'o')
+
+        self.assertEqual(2, b.find(l, None))
+        self.assertEqual(3, b.find(l, -2, None))
+        self.assertEqual(2, b.find(l, None, -2))
+        self.assertEqual(0, b.find(h, None, None))
+
+        self.assertEqual(3, b.rfind(l, None))
+        self.assertEqual(3, b.rfind(l, -2, None))
+        self.assertEqual(2, b.rfind(l, None, -2))
+        self.assertEqual(0, b.rfind(h, None, None))
+
+        self.assertEqual(2, b.index(l, None))
+        self.assertEqual(3, b.index(l, -2, None))
+        self.assertEqual(2, b.index(l, None, -2))
+        self.assertEqual(0, b.index(h, None, None))
+
+        self.assertEqual(3, b.rindex(l, None))
+        self.assertEqual(3, b.rindex(l, -2, None))
+        self.assertEqual(2, b.rindex(l, None, -2))
+        self.assertEqual(0, b.rindex(h, None, None))
+
+        self.assertEqual(2, b.count(l, None))
+        self.assertEqual(1, b.count(l, -2, None))
+        self.assertEqual(1, b.count(l, None, -2))
+        self.assertEqual(0, b.count(x, None, None))
+
+        self.assertEqual(True, b.endswith(o, None))
+        self.assertEqual(True, b.endswith(o, -2, None))
+        self.assertEqual(True, b.endswith(l, None, -2))
+        self.assertEqual(False, b.endswith(x, None, None))
+
+        self.assertEqual(True, b.startswith(h, None))
+        self.assertEqual(True, b.startswith(l, -2, None))
+        self.assertEqual(True, b.startswith(h, None, -2))
+        self.assertEqual(False, b.startswith(x, None, None))
+
+    def test_find_etc_raise_correct_error_messages(self):
+        # issue 11828
+        b = self.type2test(b'hello')
+        x = self.type2test(b'x')
+        self.assertRaisesRegexp(TypeError, r'\bfind\b', b.find,
+                                x, None, None, None)
+        self.assertRaisesRegexp(TypeError, r'\brfind\b', b.rfind,
+                                x, None, None, None)
+        self.assertRaisesRegexp(TypeError, r'\bindex\b', b.index,
+                                x, None, None, None)
+        self.assertRaisesRegexp(TypeError, r'\brindex\b', b.rindex,
+                                x, None, None, None)
+        self.assertRaisesRegexp(TypeError, r'\bcount\b', b.count,
+                                x, None, None, None)
+        self.assertRaisesRegexp(TypeError, r'\bstartswith\b', b.startswith,
+                                x, None, None, None)
+        self.assertRaisesRegexp(TypeError, r'\bendswith\b', b.endswith,
+                                x, None, None, None)
+
 
 class ByteArrayTest(BaseBytesTest):
     type2test = bytearray
@@ -632,6 +694,7 @@ class ByteArrayTest(BaseBytesTest):
         self.assertEqual(b, b1)
         self.assertTrue(b is b1)
 
+    @test.test_support.impl_detail("undocumented bytes.__alloc__()")
     def test_alloc(self):
         b = bytearray()
         alloc = b.__alloc__()
@@ -695,7 +758,7 @@ class ByteArrayTest(BaseBytesTest):
         self.assertEqual(b.pop(0), ord('w'))
         self.assertEqual(b.pop(-2), ord('r'))
         self.assertRaises(IndexError, lambda: b.pop(10))
-        self.assertRaises(OverflowError, lambda: bytearray().pop())
+        self.assertRaises(IndexError, lambda: bytearray().pop())
         # test for issue #6846
         self.assertEqual(bytearray(b'\xff').pop(), 0xff)
 
@@ -759,6 +822,8 @@ class ByteArrayTest(BaseBytesTest):
         self.assertEqual(b, b"")
         self.assertEqual(c, b"")
 
+    @test.test_support.impl_detail(
+        "resizing semantics of CPython rely on refcounting")
     def test_resize_forbidden(self):
         # #4509: can't resize a bytearray when there are buffer exports, even
         # if it wouldn't reallocate the underlying buffer.
@@ -790,6 +855,26 @@ class ByteArrayTest(BaseBytesTest):
             b[1:-1:2] = b""
         self.assertRaises(BufferError, delslice)
         self.assertEqual(b, orig)
+
+    @test.test_support.impl_detail("resizing semantics", cpython=False)
+    def test_resize_forbidden_non_cpython(self):
+        # on non-CPython implementations, we cannot prevent changes to
+        # bytearrays just because there are buffers around.  Instead,
+        # we get (on PyPy) a buffer that follows the changes and resizes.
+        b = bytearray(range(10))
+        for v in [memoryview(b), buffer(b)]:
+            b[5] = 99
+            self.assertIn(v[5], (99, chr(99)))
+            b[5] = 100
+            b += b
+            b += b
+            b += b
+            self.assertEquals(len(v), 80)
+            self.assertIn(v[5], (100, chr(100)))
+            self.assertIn(v[79], (9, chr(9)))
+            del b[10:]
+            self.assertRaises(IndexError, lambda: v[10])
+            self.assertEquals(len(v), 10)
 
     def test_empty_bytearray(self):
         # Issue #7561: operations on empty bytearrays could crash in many

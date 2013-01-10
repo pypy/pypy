@@ -2,6 +2,7 @@ import py
 from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.error import TyperError
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.normalizecalls import TotalOrderSymbolic, MAX
@@ -157,6 +158,39 @@ class TestNormalize(object):
         assert res == 1
         res = llinterp.eval_graph(graphof(translator, dummyfn), [2])
         assert res == -2
+
+    def test_methods_with_defaults(self):
+        class Base:
+            def fn(self):
+                raise NotImplementedError
+        class Sub1(Base):
+            def fn(self, x=1):
+                return 1 + x
+        class Sub2(Base):
+            def fn(self):
+                return -2
+        def otherfunc(x):
+            return x.fn()
+        def dummyfn(n):
+            if n == 1:
+                x = Sub1()
+                n = x.fn(2)
+            else:
+                x = Sub2()
+            return otherfunc(x) + x.fn()
+
+        excinfo = py.test.raises(TyperError, "self.rtype(dummyfn, [int], int)")
+        msg = """the following functions:
+    .+Base.fn
+    .+Sub1.fn
+    .+Sub2.fn
+are called with inconsistent numbers of arguments
+sometimes with 2 arguments, sometimes with 1
+the callers of these functions are:
+    .+otherfunc
+    .+dummyfn"""
+        import re
+        assert re.match(msg, excinfo.value.args[0])
 
 
 class PBase:

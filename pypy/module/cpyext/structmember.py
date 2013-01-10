@@ -10,7 +10,7 @@ from pypy.module.cpyext.stringobject import (
     PyString_FromString, PyString_FromStringAndSize)
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.module.cpyext.longobject import (
-    PyLong_AsLongLong, PyLong_AsUnsignedLongLong)
+    PyLong_AsLongLong, PyLong_AsUnsignedLongLong, PyLong_AsSsize_t)
 from pypy.module.cpyext.typeobjectdefs import PyMemberDef
 from pypy.rlib.unroll import unrolling_iterable
 
@@ -28,6 +28,7 @@ integer_converters = unrolling_iterable([
     (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble),
     (T_LONGLONG,  rffi.LONGLONG,  PyLong_AsLongLong),
     (T_ULONGLONG, rffi.ULONGLONG, PyLong_AsUnsignedLongLong),
+    (T_PYSSIZET, rffi.SSIZE_T, PyLong_AsSsize_t),
     ])
 
 

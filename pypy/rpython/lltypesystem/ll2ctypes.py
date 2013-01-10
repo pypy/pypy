@@ -14,12 +14,14 @@ if sys.version_info >= (2, 6):
 else:
     load_library_kwargs = {}
 
-import os
+import os, platform as host_platform
+from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
+from pypy.rlib.rarithmetic import is_emulated_long, maxint
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -31,6 +33,12 @@ try:
 except ImportError:
     class tlsobject(object):
         pass
+
+_POSIX = os.name == "posix"
+_MS_WINDOWS = os.name == "nt"
+_LINUX = "linux" in sys.platform
+_64BIT = "64bit" in host_platform.architecture()[0]
+
 
 # ____________________________________________________________
 
@@ -68,17 +76,22 @@ def do_allocation_in_far_regions():
     global far_regions
     if not far_regions:
         from pypy.rlib import rmmap
-        if sys.maxint > 0x7FFFFFFF:
+        if _64BIT:
             PIECESIZE = 0x80000000
         else:
-            if sys.platform == 'linux':
+            if _LINUX:
                 PIECESIZE = 0x10000000
             else:
                 PIECESIZE = 0x08000000
         PIECES = 10
-        m = rmmap.mmap(-1, PIECES * PIECESIZE,
-                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
-                       rmmap.PROT_READ|rmmap.PROT_WRITE)
+        flags = (0,)
+        if _LINUX:
+            flags = (rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
+                     rmmap.PROT_READ|rmmap.PROT_WRITE)
+        if _MS_WINDOWS:
+            flags = (rmmap.MEM_RESERVE,)
+            # XXX seems not to work
+        m = rmmap.mmap(-1, PIECES * PIECESIZE, *flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
         m._ll2ctypes_pieces = []
@@ -93,9 +106,17 @@ _eci_cache = {}
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
+
+    if is_emulated_long:
+        signed_as_ctype = ctypes.c_longlong
+        unsigned_as_ctypes = ctypes.c_ulonglong
+    else:
+        signed_as_ctype = ctypes.c_long
+        unsigned_as_ctypes = ctypes.c_ulong
+
     _ctypes_cache.update({
-        lltype.Signed:   ctypes.c_long,
-        lltype.Unsigned: ctypes.c_ulong,
+        lltype.Signed:   signed_as_ctype,
+        lltype.Unsigned: unsigned_as_ctypes,
         lltype.Char:     ctypes.c_ubyte,
         rffi.DOUBLE:     ctypes.c_double,
         rffi.FLOAT:      ctypes.c_float,
@@ -117,6 +138,9 @@ def _setup_ctypes_cache():
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
         })
+        
+    if '__int128_t' in rffi.TYPES:
+        _ctypes_cache[rffi.__INT128_T] = ctypes.c_longlong # XXX: Not right at all. But for some reason, It started by while doing JIT compile after a merge with default. Can't extend ctypes, because thats a python standard, right?
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
     # automatically converts arrays into unicode strings.
@@ -144,7 +168,12 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
             fields.append((fieldname, cls))
         CStruct._fields_ = fields
 
-    class CStruct(ctypes.Structure):
+    if S._hints.get('union', False):
+        base = ctypes.Union
+    else:
+        base = ctypes.Structure
+
+    class CStruct(base):
         # no _fields_: filled later by builder()
 
         def _malloc(cls, n=None):
@@ -176,10 +205,26 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
+    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
+    for n in [maxint, 2**31]:
+        MAX_SIZE = n/64
+        try:
+            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
+        except (OverflowError, AttributeError), e:
+            pass      #        ^^^ bah, blame ctypes
+        else:
+            break
+    else:
+        raise e
 
     class CArray(ctypes.Structure):
+        if is_emulated_long:
+            lentype = ctypes.c_longlong
+        else:
+            lentype = ctypes.c_long
+
         if not A._hints.get('nolength'):
-            _fields_ = [('length', ctypes.c_long),
+            _fields_ = [('length', lentype),
                         ('items',  max_n * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
@@ -201,11 +246,16 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if cls._ptrtype:
                 return cls._ptrtype
             # ctypes can raise OverflowError on 64-bit builds
-            for n in [sys.maxint, 2**31]:
-                cls.MAX_SIZE = n/64
+            # on windows it raises AttributeError even for 2**31 (_length_ missing)
+            if _MS_WINDOWS:
+                other_limit = 2**31-1
+            else:
+                other_limit = 2**31
+            for n in [maxint, other_limit]:
+                cls.MAX_SIZE = n / ctypes.sizeof(ctypes_item)
                 try:
                     cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
-                except OverflowError, e:
+                except (OverflowError, AttributeError), e:
                     pass
                 else:
                     break
@@ -289,7 +339,12 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = None
             else:
                 restype = get_ctypes_type(T.TO.RESULT)
-            return ctypes.CFUNCTYPE(restype, *argtypes)
+            try:
+                kwds = {'use_errno': True}
+                return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
+            except TypeError:
+                # unexpected 'use_errno' argument, old ctypes version
+                return ctypes.CFUNCTYPE(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
         else:
@@ -566,7 +621,7 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
 
     def getbounds(self):
         # we have no clue, so we allow whatever index
-        return 0, sys.maxint
+        return 0, maxint
 
     def getitem(self, index, uninitialized_ok=False):
         res = self._storage.contents._getitem(index, boundscheck=False)
@@ -630,6 +685,7 @@ _all_callbacks_results = []
 _int2obj = {}
 _callback_exc_info = None
 _opaque_objs = [None]
+_opaque_objs_seen = {}
 
 def get_rtyper():
     llinterp = LLInterpreter.current_interpreter
@@ -671,8 +727,12 @@ def lltype2ctypes(llobj, normalize=True):
             # otherwise it came from integer and we want a c_void_p with
             # the same value
             if getattr(container, 'llopaque', None):
-                no = len(_opaque_objs)
-                _opaque_objs.append(container)
+                try:
+                    no = _opaque_objs_seen[container]
+                except KeyError:
+                    no = len(_opaque_objs)
+                    _opaque_objs.append(container)
+                    _opaque_objs_seen[container] = no
                 return no * 2 + 1
         else:
             container = llobj._obj
@@ -1030,19 +1090,14 @@ def get_ctypes_callable(funcptr, calling_conv):
     try:
         eci = _eci_cache[old_eci]
     except KeyError:
-        eci = old_eci.compile_shared_lib()
+        eci = old_eci.compile_shared_lib(ignore_a_files=True)
         _eci_cache[old_eci] = eci
 
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks
 
     FUNCTYPE = lltype.typeOf(funcptr).TO
-    if not libraries:
-        cfunc = get_on_lib(standard_c_lib, funcname)
-        # XXX magic: on Windows try to load the function from 'kernel32' too
-        if cfunc is None and hasattr(ctypes, 'windll'):
-            cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
-    else:
-        cfunc = None
+    cfunc = None
+    if libraries:
         not_found = []
         for libname in libraries:
             libpath = None
@@ -1073,6 +1128,12 @@ def get_ctypes_callable(funcptr, calling_conv):
                     break
             else:
                 not_found.append(libname)
+
+    if cfunc is None:
+        cfunc = get_on_lib(standard_c_lib, funcname)
+        # XXX magic: on Windows try to load the function from 'kernel32' too
+        if cfunc is None and hasattr(ctypes, 'windll'):
+            cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
 
     if cfunc is None:
         # function name not found in any of the libraries
@@ -1183,6 +1244,8 @@ def force_cast(RESTYPE, value):
         cvalue = ord(cvalue)     # character -> integer
     elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
         cvalue = int(cvalue)
+    elif isinstance(cvalue, r_longfloat):
+        cvalue = cvalue.value
 
     if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
@@ -1191,6 +1254,8 @@ def force_cast(RESTYPE, value):
         # upgrade to a more recent ctypes (e.g. 1.0.2) if you get
         # an OverflowError on the following line.
         cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
+    elif RESTYPE == lltype.Bool:
+        cvalue = bool(cvalue)
     else:
         try:
             cvalue = cresulttype(cvalue).value   # mask high bits off if needed
@@ -1325,8 +1390,8 @@ def cast_adr_to_int(addr):
             res = force_cast(lltype.Signed, addr.ptr)
     else:
         res = addr._cast_to_int()
-    if res > sys.maxint:
-        res = res - 2*(sys.maxint + 1)
+    if res > maxint:
+        res = res - 2*(maxint + 1)
         assert int(res) == res
         return int(res)
     return res

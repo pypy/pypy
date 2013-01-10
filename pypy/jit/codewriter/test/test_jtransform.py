@@ -123,6 +123,7 @@ class FakeBuiltinCallControl:
             INT = lltype.Signed
             UNICHAR = lltype.UniChar
             FLOAT = lltype.Float
+            ARRAYPTR = rffi.CArrayPtr(lltype.Signed)
             argtypes = {
              EI.OS_MATH_SQRT:  ([FLOAT], FLOAT),
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
@@ -139,16 +140,26 @@ class FakeBuiltinCallControl:
              EI.OS_UNIEQ_NONNULL_CHAR:   ([PUNICODE, UNICHAR], INT),
              EI.OS_UNIEQ_CHECKNULL_CHAR: ([PUNICODE, UNICHAR], INT),
              EI.OS_UNIEQ_LENGTHOK:       ([PUNICODE, PUNICODE], INT),
+             EI.OS_RAW_MALLOC_VARSIZE:   ([INT], ARRAYPTR),
+             EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
             }
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
             if oopspecindex == EI.OS_STR2UNICODE:
                 assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
+            elif oopspecindex == EI.OS_RAW_MALLOC_VARSIZE:
+                assert extraeffect == EI.EF_CAN_RAISE
+            elif oopspecindex == EI.OS_RAW_FREE:
+                assert extraeffect == EI.EF_CANNOT_RAISE
             else:
                 assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
+
     def calldescr_canraise(self, calldescr):
+        EI = effectinfo.EffectInfo
+        if calldescr == 'calldescr-%d' % EI.OS_RAW_MALLOC_VARSIZE:
+            return True
         return False
 
 
@@ -326,9 +337,9 @@ def residual_call_test(argtypes, restype, expectedkind):
     assert op0.opname == 'residual_call_%s_%s' % (expectedkind, reskind)
     assert op0.result == op.result
     assert op0.args[0] == op.args[0]
-    assert op0.args[1] == 'calldescr'
-    assert len(op0.args) == 2 + len(expectedkind)
-    for sublist, kind1 in zip(op0.args[2:], expectedkind):
+    assert op0.args[-1] == 'calldescr'
+    assert len(op0.args) == 1 + len(expectedkind) + 1
+    for sublist, kind1 in zip(op0.args[1:-1], expectedkind):
         assert sublist.kind.startswith(kind1)
         assert list(sublist) == [v for v in op.args[1:]
                                  if getkind(v.concretetype) == sublist.kind]
@@ -374,9 +385,9 @@ def indirect_residual_call_test(argtypes, restype, expectedkind):
     assert op0.opname == 'residual_call_%s_%s' % (expectedkind, reskind)
     assert op0.result == op.result
     assert op0.args[0] == op.args[0]
-    assert op0.args[1] == 'calldescr'
-    assert len(op0.args) == 2 + len(expectedkind)
-    for sublist, kind1 in zip(op0.args[2:], expectedkind):
+    assert op0.args[-1] == 'calldescr'
+    assert len(op0.args) == 1 + len(expectedkind) + 1
+    for sublist, kind1 in zip(op0.args[1:-1], expectedkind):
         assert sublist.kind.startswith(kind1)
         assert list(sublist) == [v for v in op.args[1:]
                                  if getkind(v.concretetype)==sublist.kind]
@@ -408,11 +419,11 @@ def indirect_regular_call_test(argtypes, restype, expectedkind):
     assert op0.opname == 'residual_call_%s_%s' % (expectedkind, reskind)
     assert op0.result == op.result
     assert op0.args[0] == op.args[0]
-    assert op0.args[1] == 'calldescr'
-    assert isinstance(op0.args[2], IndirectCallTargets)
-    assert op0.args[2].lst == ['somejitcode1', 'somejitcode2']
-    assert len(op0.args) == 3 + len(expectedkind)
-    for sublist, kind1 in zip(op0.args[3:], expectedkind):
+    assert isinstance(op0.args[1], IndirectCallTargets)
+    assert op0.args[1].lst == ['somejitcode1', 'somejitcode2']
+    assert op0.args[-1] == 'calldescr'
+    assert len(op0.args) == 2 + len(expectedkind) + 1
+    for sublist, kind1 in zip(op0.args[2:-1], expectedkind):
         assert sublist.kind.startswith(kind1)
         assert list(sublist) == [v for v in op.args[1:]
                                  if getkind(v.concretetype)==sublist.kind]
@@ -494,7 +505,7 @@ def test_setfield():
         op1 = Transformer(FakeCPU()).rewrite_operation(op)
         assert op1.opname == 'setfield_gc_' + suffix
         fielddescr = ('fielddescr', S, name)
-        assert op1.args == [v_parent, fielddescr, v_newvalue]
+        assert op1.args == [v_parent, v_newvalue, fielddescr]
         assert op1.result is None
 
 def test_malloc_new():
@@ -536,7 +547,7 @@ def test_malloc_new_with_destructor():
     op0, op1 = oplist
     assert op0.opname == 'residual_call_r_r'
     assert op0.args[0].value == 'alloc_with_del'    # pseudo-function as a str
-    assert list(op0.args[2]) == []
+    assert list(op0.args[1]) == []
     assert op1.opname == '-live-'
     assert op1.args == []
 
@@ -547,10 +558,13 @@ def test_raw_malloc():
     flags = Constant({'flavor': 'raw'}, lltype.Void)
     op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
                                            v1], v)
-    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op0, op1 = tr.rewrite_operation(op)
     assert op0.opname == 'residual_call_ir_i'
     assert op0.args[0].value == 'raw_malloc_varsize' # pseudo-function as a str
+    assert (op0.args[-1] == 'calldescr-%d' %
+            effectinfo.EffectInfo.OS_RAW_MALLOC_VARSIZE)
+
     assert op1.opname == '-live-'
     assert op1.args == []
 
@@ -591,21 +605,28 @@ def test_raw_malloc_fixedsize():
     assert op1.args == []
 
 def test_raw_free():
-    S = lltype.Struct('dummy', ('x', lltype.Signed))
-    for flag in [True, False]:
-        flags = Constant({'flavor': 'raw', 'track_allocation': flag},
-                         lltype.Void)
-        op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
-                            varoftype(lltype.Void))
-        tr = Transformer(FakeCPU(), FakeResidualCallControl())
-        op0, op1 = tr.rewrite_operation(op)
-        assert op0.opname == 'residual_call_ir_v'
-        if flag:
-            pseudo_op_name = 'raw_free'
-        else:
-            pseudo_op_name = 'raw_free_no_track_allocation'
-        assert op0.args[0].value == pseudo_op_name   # pseudo-function as a str
-        assert op1.opname == '-live-'
+    S = rffi.CArray(lltype.Signed)
+    flags = Constant({'flavor': 'raw', 'track_allocation': True},
+                     lltype.Void)
+    op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
+                        varoftype(lltype.Void))
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op0 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_v'
+    assert op0.args[0].value == 'raw_free'
+    assert op0.args[-1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_RAW_FREE
+
+def test_raw_free_no_track_allocation():
+    S = rffi.CArray(lltype.Signed)
+    flags = Constant({'flavor': 'raw', 'track_allocation': False},
+                     lltype.Void)
+    op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
+                        varoftype(lltype.Void))
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_v'
+    assert op0.args[0].value == 'raw_free_no_track_allocation'
+    assert op1.opname == '-live-'
 
 def test_rename_on_links():
     v1 = Variable()
@@ -620,6 +641,13 @@ def test_rename_on_links():
     assert block.operations == []
     assert block.exits[0].target is block2
     assert block.exits[0].args == [v1]
+
+def test_cast_ptr_to_adr():
+    t = Transformer(FakeCPU(), None)
+    v = varoftype(lltype.Ptr(lltype.Array()))
+    v2 = varoftype(llmemory.Address)
+    op1 = t.rewrite_operation(SpaceOperation('cast_ptr_to_adr', [v], v2))
+    assert op1 is None
 
 def test_int_eq():
     v1 = varoftype(lltype.Signed)
@@ -830,6 +858,30 @@ def test_dict_setinteriorfield():
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert not op1
 
+def test_raw_store():
+    v_storage = varoftype(llmemory.Address)
+    v_index = varoftype(lltype.Signed)
+    v_item = varoftype(lltype.Signed) # for example
+    op = SpaceOperation('raw_store', [v_storage, v_index, v_item], None)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'raw_store_i'
+    assert op1.args[0] == v_storage
+    assert op1.args[1] == v_index
+    assert op1.args[2] == v_item
+    assert op1.args[3] == ('arraydescr', rffi.CArray(lltype.Signed))
+
+def test_raw_load():
+    v_storage = varoftype(llmemory.Address)
+    v_index = varoftype(lltype.Signed)
+    v_res = varoftype(lltype.Signed) # for example
+    op = SpaceOperation('raw_load', [v_storage, v_index], v_res)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'raw_load_i'
+    assert op1.args[0] == v_storage
+    assert op1.args[1] == v_index
+    assert op1.args[2] == ('arraydescr', rffi.CArray(lltype.Signed))
+    assert op1.result == v_res
+
 def test_promote_1():
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
@@ -872,6 +924,7 @@ def test_jit_merge_point_1():
             active = True
             greens = ['green1', 'green2', 'voidgreen3']
             reds = ['red1', 'red2', 'voidred3']
+            numreds = 3
     jd = FakeJitDriverSD()
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
@@ -975,8 +1028,8 @@ def test_str_concat():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_r'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR_CONCAT
-    assert op1.args[2] == ListOfKind('ref', [v1, v2])
+    assert op1.args[1] == ListOfKind('ref', [v1, v2])
+    assert op1.args[2] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR_CONCAT
     assert op1.result == v3
 
 def test_str_promote():
@@ -1009,14 +1062,14 @@ def test_unicode_concat():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_r'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_UNI_CONCAT
-    assert op1.args[2] == ListOfKind('ref', [v1, v2])
+    assert op1.args[1] == ListOfKind('ref', [v1, v2])
+    assert op1.args[2] == 'calldescr-%d' % effectinfo.EffectInfo.OS_UNI_CONCAT
     assert op1.result == v3
     #
     # check the callinfo_for_oopspec
     got = cc.callinfocollection.seen[0]
     assert got[0] == effectinfo.EffectInfo.OS_UNI_CONCAT
-    assert got[1] == op1.args[1]    # the calldescr
+    assert got[1] == op1.args[2]    # the calldescr
     assert heaptracker.int2adr(got[2]) == llmemory.cast_ptr_to_adr(func)
 
 def test_str_slice():
@@ -1035,9 +1088,9 @@ def test_str_slice():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_ir_r'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR_SLICE
-    assert op1.args[2] == ListOfKind('int', [v2, v3])
-    assert op1.args[3] == ListOfKind('ref', [v1])
+    assert op1.args[1] == ListOfKind('int', [v2, v3])
+    assert op1.args[2] == ListOfKind('ref', [v1])
+    assert op1.args[3] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR_SLICE
     assert op1.result == v4
 
 def test_unicode_slice():
@@ -1056,9 +1109,9 @@ def test_unicode_slice():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_ir_r'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_UNI_SLICE
-    assert op1.args[2] == ListOfKind('int', [v2, v3])
-    assert op1.args[3] == ListOfKind('ref', [v1])
+    assert op1.args[1] == ListOfKind('int', [v2, v3])
+    assert op1.args[2] == ListOfKind('ref', [v1])
+    assert op1.args[3] == 'calldescr-%d' % effectinfo.EffectInfo.OS_UNI_SLICE
     assert op1.result == v4
 
 def test_str2unicode():
@@ -1075,8 +1128,8 @@ def test_str2unicode():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_r'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR2UNICODE
-    assert op1.args[2] == ListOfKind('ref', [v1])
+    assert op1.args[1] == ListOfKind('ref', [v1])
+    assert op1.args[2] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR2UNICODE
     assert op1.result == v2
 
 def test_unicode_eq_checknull_char():
@@ -1094,8 +1147,8 @@ def test_unicode_eq_checknull_char():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_i'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_UNI_EQUAL
-    assert op1.args[2] == ListOfKind('ref', [v1, v2])
+    assert op1.args[1] == ListOfKind('ref', [v1, v2])
+    assert op1.args[2] == 'calldescr-%d' % effectinfo.EffectInfo.OS_UNI_EQUAL
     assert op1.result == v3
     # test that the OS_UNIEQ_* functions are registered
     cic = cc.callinfocollection
@@ -1120,9 +1173,9 @@ def test_list_ll_arraycopy():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_ir_v'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_ARRAYCOPY
-    assert op1.args[2] == ListOfKind('int', [v3, v4, v5])
-    assert op1.args[3] == ListOfKind('ref', [v1, v2])
+    assert op1.args[1] == ListOfKind('int', [v3, v4, v5])
+    assert op1.args[2] == ListOfKind('ref', [v1, v2])
+    assert op1.args[3] == 'calldescr-%d' % effectinfo.EffectInfo.OS_ARRAYCOPY
 
 def test_math_sqrt():
     # test that the oopspec is present and correctly transformed
@@ -1137,10 +1190,10 @@ def test_math_sqrt():
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_irf_f'
     assert op1.args[0].value == func
-    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_MATH_SQRT
-    assert op1.args[2] == ListOfKind("int", [])
-    assert op1.args[3] == ListOfKind("ref", [])
-    assert op1.args[4] == ListOfKind('float', [v1])
+    assert op1.args[1] == ListOfKind("int", [])
+    assert op1.args[2] == ListOfKind("ref", [])
+    assert op1.args[3] == ListOfKind('float', [v1])
+    assert op1.args[4] == 'calldescr-%d' % effectinfo.EffectInfo.OS_MATH_SQRT
     assert op1.result == v2
 
 def test_quasi_immutable():
@@ -1210,3 +1263,11 @@ def test_cast_opaque_ptr():
     assert op1.args == [v1]
     assert op1.result is None
     assert op2 is None
+
+def test_unknown_operation():
+    op = SpaceOperation('foobar', [], varoftype(lltype.Void))
+    tr = Transformer()
+    try:
+        tr.rewrite_operation(op)
+    except Exception, e:
+        assert 'foobar' in str(e)

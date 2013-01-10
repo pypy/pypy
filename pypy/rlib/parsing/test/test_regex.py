@@ -1,19 +1,13 @@
-import py
 from pypy.rlib.parsing.regex import *
+from pypy.translator.c.test.test_genc import compile
+
 
 def compile_rex(rex):
-    try:
-        from pypy.translator.interactive import Translation
-    except ImportError:
-        py.test.skip("pypy not found")
     fda = rex.make_automaton().make_deterministic()
     fda.optimize()
     fn = fda.make_code()
-    t = Translation(fn)
-    t.backendopt([str], backend="c")
-    if py.test.config.option.view:
-        t.view()
-    return t.compile_c()
+    return compile(fn, [str])
+
 
 def test_simple():
     r = StringExpression("hallo")
@@ -25,6 +19,7 @@ def test_simple():
     assert not r.recognize("")
     assert r.recognize("hallo")
 
+
 def test_string_add():
     r1 = StringExpression("Hello")
     r2 = StringExpression(", World!\n")
@@ -32,6 +27,7 @@ def test_string_add():
     r = fda.get_runner()
     assert r.recognize("Hello, World!\n")
     assert not r.recognize("asfdasdfasDF")
+
 
 def test_kleene():
     r1 = StringExpression("ab")
@@ -42,6 +38,7 @@ def test_kleene():
     assert r.recognize("ab")
     assert r.recognize("abab")
     assert not r.recognize("ababababababb")
+
 
 def test_or():
     r1 = StringExpression("ab").kleene() | StringExpression("cd").kleene()
@@ -78,11 +75,12 @@ def test_even_number_of_as():
     assert not r.recognize("acbbcbcaaccacacccc")
     assert r.recognize("aaaa")
 
+
 def test_bigger_than_101001():
     O = StringExpression("0")
     l = StringExpression("1")
     d = O | l
-    rex = ((l + d + d + d + d + d + +d) | (l + l + d + d + d + d) | 
+    rex = ((l + d + d + d + d + d + +d) | (l + l + d + d + d + d) |
            (l + O + l + l + d + d) | (l + O + l + O + l + d))
     nda = rex.make_automaton()
     fda = nda.make_deterministic()
@@ -104,7 +102,7 @@ def test_bigger_than_101001():
     assert fn("101010")
     assert fn("101100")
     assert fn("110000")
-    
+
 
 def test_even_length():
     a = StringExpression("a")

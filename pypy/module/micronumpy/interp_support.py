@@ -1,15 +1,14 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module.micronumpy import interp_dtype
+from pypy.module.micronumpy import interp_dtype, loop
 from pypy.objspace.std.strutil import strip_spaces
-
+from pypy.rlib.rarithmetic import maxint
+from pypy.module.micronumpy.base import W_NDimArray
 
 FLOAT_SIZE = rffi.sizeof(lltype.Float)
 
 def _fromstring_text(space, s, count, sep, length, dtype):
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray
-
     sep_stripped = strip_spaces(sep)
     skip_bad_vals = len(sep_stripped) == 0
 
@@ -51,16 +50,17 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
 
-    a = W_NDimArray(num_items, [num_items], dtype=dtype)
-    for i, val in enumerate(items):
-        a.dtype.setitem(a.storage, i, val)
-    
+    a = W_NDimArray.from_shape([num_items], dtype=dtype)
+    ai = a.create_iter()
+    for val in items:
+        ai.setitem(val)
+        ai.next()
+
     return space.wrap(a)
 
 def _fromstring_bin(space, s, count, length, dtype):
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray
-    
     itemsize = dtype.itemtype.get_element_size()
+    assert itemsize >= 0
     if count == -1:
         count = length / itemsize
     if length % itemsize != 0:
@@ -71,14 +71,11 @@ def _fromstring_bin(space, s, count, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
         
-    a = W_NDimArray(count, [count], dtype=dtype)
-    for i in range(count):
-        val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
-        a.dtype.setitem(a.storage, i, val)
-        
+    a = W_NDimArray.from_shape([count], dtype=dtype)
+    loop.fromstring_loop(a, dtype, itemsize, s)
     return space.wrap(a)
 
-@unwrap_spec(s=str, count=int, sep=str)
+@unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))
 def fromstring(space, s, w_dtype=None, count=-1, sep=''):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
@@ -88,3 +85,16 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
         return _fromstring_bin(space, s, count, length, dtype)
     else:
         return _fromstring_text(space, s, count, sep, length, dtype)
+
+def unwrap_axis_arg(space, shapelen, w_axis):
+    if space.is_none(w_axis):
+        axis = maxint
+    else:
+        axis = space.int_w(w_axis)
+        if axis < -shapelen or axis>= shapelen:
+            raise operationerrfmt(space.w_ValueError,
+                "axis entry %d is out of bounds [%d, %d)", axis,
+                -shapelen, shapelen)
+        if axis < 0:
+            axis += shapelen
+    return axis

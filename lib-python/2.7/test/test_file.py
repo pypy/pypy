@@ -12,7 +12,7 @@ from weakref import proxy
 import io
 import _pyio as pyio
 
-from test.test_support import TESTFN, run_unittest
+from test.test_support import TESTFN, run_unittest, gc_collect
 from UserList import UserList
 
 class AutoFileTests(unittest.TestCase):
@@ -33,6 +33,7 @@ class AutoFileTests(unittest.TestCase):
         self.assertEqual(self.f.tell(), p.tell())
         self.f.close()
         self.f = None
+        gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'tell')
 
     def testAttributes(self):
@@ -157,7 +158,12 @@ class OtherFileTests(unittest.TestCase):
     def testStdin(self):
         # This causes the interpreter to exit on OSF1 v5.1.
         if sys.platform != 'osf1V5':
-            self.assertRaises((IOError, ValueError), sys.stdin.seek, -1)
+            if sys.stdin.isatty():
+                self.assertRaises((IOError, ValueError), sys.stdin.seek, -1)
+            else:
+                print((
+                    '  Skipping sys.stdin.seek(-1): stdin is not a tty.'
+                    ' Test manually.'), file=sys.__stdout__)
         else:
             print((
                 '  Skipping sys.stdin.seek(-1), it may crash the interpreter.'

@@ -3,13 +3,15 @@ from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.primitive import SimpleType, _SimpleCData
 from _ctypes.basics import ArgumentError, keepalive_key
 from _ctypes.basics import is_struct_shape
-from _ctypes.builtin import set_errno, set_last_error
+from _ctypes.builtin import get_errno, set_errno, get_last_error, set_last_error
 import _rawffi
 import _ffi
 import sys
 import traceback
 import warnings
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
 
 # XXX this file needs huge refactoring I fear
 
@@ -34,6 +36,7 @@ def get_com_error(errcode, riid, pIunk):
     from _ctypes import COMError
     return COMError(errcode, None, None)
 
+@builtinify
 def call_function(func, args):
     "Only for debugging so far: So that we can call CFunction instances"
     funcptr = CFuncPtr(func)
@@ -350,16 +353,24 @@ class CFuncPtr(_CData):
     def _call_funcptr(self, funcptr, *newargs):
 
         if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
-            set_errno(_rawffi.get_errno())
+            tmp = _rawffi.get_errno()
+            _rawffi.set_errno(get_errno())
+            set_errno(tmp)
         if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
-            set_last_error(_rawffi.get_last_error())
+            tmp = _rawffi.get_last_error()
+            _rawffi.set_last_error(get_last_error())
+            set_last_error(tmp)
         try:
             result = funcptr(*newargs)
         finally:
             if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
-                set_errno(_rawffi.get_errno())
+                tmp = _rawffi.get_errno()
+                _rawffi.set_errno(get_errno())
+                set_errno(tmp)
             if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
-                set_last_error(_rawffi.get_last_error())
+                tmp = _rawffi.get_last_error()
+                _rawffi.set_last_error(get_last_error())
+                set_last_error(tmp)
         #
         try:
             return self._build_result(self._restype_, result, newargs)
@@ -383,7 +394,7 @@ class CFuncPtr(_CData):
         address = self._get_address()
         ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
         ffires = restype.get_ffi_argtype()
-        return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
+        return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires, self._flags_)
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and (argtypes is self._argtypes_ or argtypes == self._argtypes_):
@@ -404,7 +415,7 @@ class CFuncPtr(_CData):
             ptr = thisarg[0][self._com_index - 0x1000]
             ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
             ffires = restype.get_ffi_argtype()
-            return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires)
+            return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires, self._flags_)
         
         cdll = self.dll._handle
         try:
@@ -436,10 +447,6 @@ class CFuncPtr(_CData):
 
     @classmethod
     def _conv_param(cls, argtype, arg):
-        if isinstance(argtype, _CDataMeta):
-            cobj, ffiparam = argtype.get_ffi_param(arg)
-            return cobj, ffiparam, argtype
-        
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):

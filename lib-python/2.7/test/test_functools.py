@@ -45,6 +45,8 @@ class TestPartial(unittest.TestCase):
         # attributes should not be writable
         if not isinstance(self.thetype, type):
             return
+        if not test_support.check_impl_detail():
+            return
         self.assertRaises(TypeError, setattr, p, 'func', map)
         self.assertRaises(TypeError, setattr, p, 'args', (1, 2))
         self.assertRaises(TypeError, setattr, p, 'keywords', dict(a=1, b=2))
@@ -136,6 +138,7 @@ class TestPartial(unittest.TestCase):
         p = proxy(f)
         self.assertEqual(f.func, p.func)
         f = None
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'func')
 
     def test_with_bound_and_unbound_methods(self):
@@ -172,7 +175,7 @@ class TestUpdateWrapper(unittest.TestCase):
                       updated=functools.WRAPPER_UPDATES):
         # Check attributes were assigned
         for name in assigned:
-            self.assertTrue(getattr(wrapper, name) is getattr(wrapped, name))
+            self.assertTrue(getattr(wrapper, name) == getattr(wrapped, name), name)
         # Check attributes were updated
         for name in updated:
             wrapper_attr = getattr(wrapper, name)
@@ -361,6 +364,8 @@ class TestTotalOrdering(unittest.TestCase):
                 self.value = value
             def __lt__(self, other):
                 return self.value < other.value
+            def __eq__(self, other):
+                return self.value == other.value
         self.assertTrue(A(1) < A(2))
         self.assertTrue(A(2) > A(1))
         self.assertTrue(A(1) <= A(2))
@@ -375,6 +380,8 @@ class TestTotalOrdering(unittest.TestCase):
                 self.value = value
             def __le__(self, other):
                 return self.value <= other.value
+            def __eq__(self, other):
+                return self.value == other.value
         self.assertTrue(A(1) < A(2))
         self.assertTrue(A(2) > A(1))
         self.assertTrue(A(1) <= A(2))
@@ -389,6 +396,8 @@ class TestTotalOrdering(unittest.TestCase):
                 self.value = value
             def __gt__(self, other):
                 return self.value > other.value
+            def __eq__(self, other):
+                return self.value == other.value
         self.assertTrue(A(1) < A(2))
         self.assertTrue(A(2) > A(1))
         self.assertTrue(A(1) <= A(2))
@@ -403,6 +412,8 @@ class TestTotalOrdering(unittest.TestCase):
                 self.value = value
             def __ge__(self, other):
                 return self.value >= other.value
+            def __eq__(self, other):
+                return self.value == other.value
         self.assertTrue(A(1) < A(2))
         self.assertTrue(A(2) > A(1))
         self.assertTrue(A(1) <= A(2))
@@ -427,6 +438,22 @@ class TestTotalOrdering(unittest.TestCase):
             @functools.total_ordering
             class A:
                 pass
+
+    def test_bug_10042(self):
+        @functools.total_ordering
+        class TestTO:
+            def __init__(self, value):
+                self.value = value
+            def __eq__(self, other):
+                if isinstance(other, TestTO):
+                    return self.value == other.value
+                return False
+            def __lt__(self, other):
+                if isinstance(other, TestTO):
+                    return self.value < other.value
+                raise TypeError
+        with self.assertRaises(TypeError):
+            TestTO(8) <= ()
 
 def test_main(verbose=None):
     test_classes = (

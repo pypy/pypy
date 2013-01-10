@@ -22,7 +22,5 @@ def timer_user():
 
 def test_compile_timer():
     policy = AnnotatorPolicy()
-    policy.allow_someobjects = False
     f_compiled = compile(timer_user, [], annotatorpolicy=policy)
-    f_compiled(expected_extra_mallocs=2)
-
+    f_compiled()

@@ -5,7 +5,8 @@ from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
-from pypy.conftest import gettestobjspace
+from pypy.tool.option import make_config
+from pypy.tool.pytest.objspace import maketestobjspace
 import pytest
 import sys, os
 import tempfile, marshal
@@ -38,7 +39,7 @@ def setup_directory_structure(space):
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload; reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
-                    itertools = "hello_world = 42\n",
+                    _md5 = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
@@ -104,11 +105,10 @@ def setup_directory_structure(space):
         filename = str(p.join("x.py"))
         stream = streamio.open_file_as_stream(filename, "r")
         try:
-            importing.load_source_module(space,
-                                         w_modname,
-                                         w(importing.Module(space, w_modname)),
-                                         filename,
-                                         stream.readall())
+            importing.load_source_module(
+                space, w_modname, w(importing.Module(space, w_modname)),
+                filename, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             stream.close()
         if space.config.objspace.usepycfiles:
@@ -139,23 +139,25 @@ def _setup(space):
 
 def _teardown(space, w_saved_modules):
     space.appexec([w_saved_modules], """
-        ((saved_path, saved_modules)): 
+        ((saved_path, saved_modules)):
             import sys
             sys.path[:] = saved_path
             sys.modules.clear()
             sys.modules.update(saved_modules)
     """)
 
-class AppTestImport:
 
-    def setup_class(cls): # interpreter-level
-        cls.space = gettestobjspace(usemodules=['itertools'])
+class AppTestImport:
+    spaceconfig = {
+        "usemodules": ['_md5', 'rctime'],
+    }
+
+    def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
-        
-    def teardown_class(cls): # interpreter-level
+    def teardown_class(cls):
         _teardown(cls.space, cls.saved_modules)
 
     def test_set_sys_modules_during_import(self):
@@ -357,7 +359,7 @@ class AppTestImport:
 
     def test_cannot_write_pyc(self):
         import sys, os
-        p = os.path.join(sys.path[-1], 'readonly')
+        p = os.path.join(sys.path[0], 'readonly')
         try:
             os.chmod(p, 0555)
         except:
@@ -369,6 +371,15 @@ class AppTestImport:
 
     def test__import__empty_string(self):
         raises(ValueError, __import__, "")
+
+    def test_py_directory(self):
+        import imp, os, sys
+        source = os.path.join(sys.path[0], 'foo.py')
+        os.mkdir(source)
+        try:
+            raises(ImportError, imp.find_module, 'foo')
+        finally:
+            os.rmdir(source)
 
     def test_invalid__name__(self):
         glob = {}
@@ -589,40 +600,53 @@ class AppTestImport:
 
     def test_shadow_extension_1(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find itertools.py if there is
+        # 'import _md5' is supposed to find _md5.py if there is
         # one in sys.path.
         import sys
-        assert 'itertools' not in sys.modules
-        import itertools
-        assert hasattr(itertools, 'hello_world')
-        assert not hasattr(itertools, 'count')
-        assert '(built-in)' not in repr(itertools)
-        del sys.modules['itertools']
+        assert '_md5' not in sys.modules
+        import _md5
+        assert hasattr(_md5, 'hello_world')
+        assert not hasattr(_md5, 'count')
+        assert '(built-in)' not in repr(_md5)
+        del sys.modules['_md5']
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find the built-in module even
+        # 'import _md5' is supposed to find the built-in module even
         # if there is also one in sys.path as long as it is *after* the
         # special entry '.../lib_pypy/__extensions__'.  (Note that for now
-        # there is one in lib_pypy/itertools.py, which should not be seen
+        # there is one in lib_pypy/_md5.py, which should not be seen
         # either; hence the (built-in) test below.)
         import sys
-        assert 'itertools' not in sys.modules
+        assert '_md5' not in sys.modules
         sys.path.append(sys.path.pop(0))
         try:
-            import itertools
-            assert not hasattr(itertools, 'hello_world')
-            assert hasattr(itertools, 'izip')
-            assert '(built-in)' in repr(itertools)
+            import _md5
+            assert not hasattr(_md5, 'hello_world')
+            assert hasattr(_md5, 'digest_size')
+            assert '(built-in)' in repr(_md5)
         finally:
             sys.path.insert(0, sys.path.pop())
-        del sys.modules['itertools']
+        del sys.modules['_md5']
+
+    def test_invalid_pathname(self):
+        import imp
+        import pkg
+        import os
+
+        info = ('.py', 'r', imp.PY_SOURCE)
+        pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
+        
+        module = imp.load_module('a', open(pathname),
+                                 'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
+        assert module.__name__ == 'a'
+        assert module.__file__ == 'invalid_path_name'
 
 
 class TestAbi:
     def test_abi_tag(self):
-        space1 = gettestobjspace(soabi='TEST')
-        space2 = gettestobjspace(soabi='')
+        space1 = maketestobjspace(make_config(None, soabi='TEST'))
+        space2 = maketestobjspace(make_config(None, soabi=''))
         if sys.platform == 'win32':
             assert importing.get_so_extension(space1) == '.TESTi.pyd'
             assert importing.get_so_extension(space2) == '.pyd'
@@ -783,11 +807,10 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -806,12 +829,11 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall(),
-                                                 write_pyc=False)
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor(),
+                write_pyc=False)
         finally:
             stream.close()
         cpathname = udir.join('test.pyc')
@@ -826,11 +848,10 @@ class TestPycStuff:
         try:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_True)
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_False)
@@ -846,11 +867,10 @@ class TestPycStuff:
         pathname = _testfilesource(source="<Syntax Error>")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         except OperationError:
             # OperationError("Syntax Error")
             pass
@@ -867,11 +887,10 @@ class TestPycStuff:
         pathname = _testfilesource(source="a = unknown_name")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         except OperationError:
             # OperationError("NameError", "global name 'unknown_name' is not defined")
             pass
@@ -937,7 +956,7 @@ class TestPycStuff:
         allspaces = [self.space]
         for opcodename in self.space.config.objspace.opcodes.getpaths():
             key = 'objspace.opcodes.' + opcodename
-            space2 = gettestobjspace(**{key: True})
+            space2 = maketestobjspace(make_config(None, **{key: True}))
             allspaces.append(space2)
         for space1 in allspaces:
             for space2 in allspaces:
@@ -975,18 +994,39 @@ def test_PYTHONPATH_takes_precedence(space):
     extrapath.join("urllib.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
-    try: 
+    try:
         os.environ['PYTHONPATH'] = str(extrapath)
-        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' % 
-                                 (sys.executable, pypypath) )
-        assert output.strip() == '42' 
-    finally: 
-        if old: 
-            os.environ['PYTHONPATH'] = old 
+        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' %
+                                 (sys.executable, pypypath))
+        assert output.strip() == '42'
+    finally:
+        if old:
+            os.environ['PYTHONPATH'] = old
         if oldlang:
             os.environ['LANG'] = oldlang
 
+
 class AppTestImportHooks(object):
+    spaceconfig = {
+        "usemodules": ['struct', 'itertools', 'rctime'],
+    }
+
+    def setup_class(cls):
+        mydir = os.path.dirname(__file__)
+        cls.w_hooktest = cls.space.wrap(os.path.join(mydir, 'hooktest'))
+        cls.space.appexec([cls.space.wrap(mydir)], """
+            (mydir):
+                import sys
+                sys.path.append(mydir)
+        """)
+
+    def teardown_class(cls):
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.path.pop()
+        """)
+
     def test_meta_path(self):
         tried_imports = []
         class Importer(object):
@@ -1110,7 +1150,7 @@ class AppTestImportHooks(object):
         sys.path_hooks.append(ImpWrapper)
         sys.path_importer_cache.clear()
         try:
-            mnames = ("colorsys", "urlparse", "distutils.core", "compiler.misc")
+            mnames = ("colorsys", "urlparse", "email.mime", "compiler.misc")
             for mname in mnames:
                 parent = mname.split(".")[0]
                 for n in sys.modules.keys():
@@ -1123,11 +1163,28 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
             sys.path_hooks.pop()
 
+    def test_path_hooks_module(self):
+        "Verify that non-sibling imports from module loaded by path hook works"
+
+        import sys
+        import hooktest
+
+        hooktest.__path__.append(self.hooktest) # Avoid importing os at applevel
+
+        sys.path_hooks.append(hooktest.Importer)
+
+        try:
+            import hooktest.foo
+            def import_nonexisting():
+                import hooktest.errno
+            raises(ImportError, import_nonexisting)
+        finally:
+            sys.path_hooks.pop()
 
 class AppTestPyPyExtension(object):
+    spaceconfig = dict(usemodules=['imp', 'zipimport', '__pypy__'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['imp', 'zipimport',
-                                                '__pypy__'])
         cls.w_udir = cls.space.wrap(str(udir))
 
     def test_run_compiled_module(self):
@@ -1208,3 +1265,46 @@ class AppTestLonePycFile(AppTestNoPycFile):
         "objspace.usepycfiles": True,
         "objspace.lonepycfiles": True
     }
+
+
+class AppTestMultithreadedImp(object):
+    spaceconfig = dict(usemodules=['thread', 'rctime'])
+
+    def setup_class(cls):
+        #if not conftest.option.runappdirect:
+        #    py.test.skip("meant as an -A test")
+        tmpfile = udir.join('test_multithreaded_imp.py')
+        tmpfile.write('''if 1:
+            x = 666
+            import time
+            for i in range(1000): time.sleep(0.001)
+            x = 42
+        ''')
+        cls.w_tmppath = cls.space.wrap(str(udir))
+
+    def test_multithreaded_import(self):
+        import sys, thread, time
+        oldpath = sys.path[:]
+        try:
+            sys.path.insert(0, self.tmppath)
+            got = []
+
+            def check():
+                import test_multithreaded_imp
+                got.append(getattr(test_multithreaded_imp, 'x', '?'))
+
+            for i in range(5):
+                thread.start_new_thread(check, ())
+
+            for n in range(100):
+                for i in range(105): time.sleep(0.001)
+                if len(got) == 5:
+                    break
+            else:
+                raise AssertionError("got %r so far but still waiting" %
+                                     (got,))
+
+            assert got == [42] * 5, got
+
+        finally:
+            sys.path[:] = oldpath

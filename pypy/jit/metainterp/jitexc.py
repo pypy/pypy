@@ -12,7 +12,6 @@ class JitException(Exception):
     """
     _go_through_llinterp_uncaught_ = True     # ugh
 
-
 def _get_standard_error(rtyper, Class):
     exdata = rtyper.getexceptiondata()
     clsdef = rtyper.annotator.bookkeeper.getuniqueclassdef(Class)

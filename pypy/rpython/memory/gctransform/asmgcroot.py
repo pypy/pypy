@@ -1,13 +1,13 @@
-from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
-from pypy.rpython.memory.gctransform.framework import BaseRootWalker
+from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
+     copygraph, SpaceOperation)
+from pypy.rlib.debug import ll_assert
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.memory.gctransform.framework import (
+     BaseFrameworkGCTransformer, BaseRootWalker)
 from pypy.rpython.rbuiltin import gen_cast
-from pypy.rpython.annlowlevel import llhelper
-from pypy.objspace.flow.model import Constant, Variable, Block, Link, copygraph
-from pypy.objspace.flow.model import SpaceOperation
 from pypy.translator.unsimplify import copyvar
-from pypy.rlib.debug import ll_assert
 import sys
 
 
@@ -20,7 +20,7 @@ import sys
 
 IS_64_BITS = sys.maxint > 2147483647
 
-class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
+class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
     _asmgcc_save_restore_arguments = None
 
     def push_roots(self, hop, keep_current_args=False):
@@ -53,7 +53,7 @@ class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
         if close_stack:
             self.handle_call_with_close_stack(hop)
         else:
-            FrameworkGCTransformer.gct_direct_call(self, hop)
+            BaseFrameworkGCTransformer.gct_direct_call(self, hop)
 
     def handle_call_with_close_stack(self, hop):
         fnptr = hop.spaceop.args[0].value
@@ -442,6 +442,8 @@ class AsmStackRootWalker(BaseRootWalker):
         ll_assert(location >= 0, "negative location")
         kind = location & LOC_MASK
         offset = location & ~ LOC_MASK
+        if IS_64_BITS:
+            offset <<= 1
         if kind == LOC_REG:   # register
             if location == LOC_NOWHERE:
                 return llmemory.NULL
@@ -531,10 +533,11 @@ if sys.platform == 'win32':
         # The initial gcmap table contains addresses to a JMP
         # instruction that jumps indirectly to the real code.
         # Replace them with the target addresses.
+        assert rffi.SIGNEDP is rffi.LONGP, "win64 support missing"
         while start < end:
             code = rffi.cast(rffi.CCHARP, start.address[0])[0]
             if code == '\xe9': # jmp
-                rel32 = rffi.cast(rffi.LONGP, start.address[0]+1)[0]
+                rel32 = rffi.cast(rffi.SIGNEDP, start.address[0]+1)[0]
                 target = start.address[0] + (rel32 + 5)
                 start.address[0] = target
             start += arrayitemsize

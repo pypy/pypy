@@ -2,12 +2,14 @@
 Unary operations on SomeValues.
 """
 
+from __future__ import absolute_import
+
 from types import MethodType
 from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
      SomeDict, SomeTuple, SomeImpossibleValue, SomeUnicodeCodePoint, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
-     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
+     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, SomeType, \
      s_ImpossibleValue, s_Bool, s_None, \
      unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
      SomeGenericCallable, SomeWeakRef, SomeUnicodeString
@@ -39,14 +41,7 @@ class __extend__(SomeObject):
     def type(obj, *moreargs):
         if moreargs:
             raise Exception, 'type() called with more than one argument'
-        if obj.is_constant():
-            if isinstance(obj, SomeInstance):
-                r = SomePBC([obj.classdef.classdesc])
-            else:
-                r = immutablevalue(obj.knowntype)
-        else:
-            r = SomeObject()
-            r.knowntype = type
+        r = SomeType()
         bk = getbookkeeper()
         fn, block, i = bk.position_key
         annotator = bk.annotator
@@ -83,7 +78,7 @@ class __extend__(SomeObject):
         s_obj.is_true_behavior(r)
 
         bk = getbookkeeper()
-        knowntypedata = r.knowntypedata = {}
+        knowntypedata = {}
         fn, block, i = bk.position_key
         op = block.operations[i]
         assert op.opname == "is_true" or op.opname == "nonzero"
@@ -93,8 +88,8 @@ class __extend__(SomeObject):
         if s_obj.can_be_none():
             s_nonnone_obj = s_obj.nonnoneify()
         add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
+        r.set_knowntypedata(knowntypedata)
         return r
-        
 
     def nonzero(obj):
         return obj.is_true()
@@ -133,9 +128,6 @@ class __extend__(SomeObject):
     def float(obj):
         return SomeFloat()
 
-    def long(obj):
-        return SomeObject()   # XXX
-
     def delattr(obj, s_attr):
         if obj.__class__ != SomeObject or obj.knowntype != object:
             getbookkeeper().warning(
@@ -154,18 +146,17 @@ class __extend__(SomeObject):
     def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has
         # a corresponding method to handle it
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            s_method = obj.find_method(attr)
-            if s_method is not None:
-                return s_method
-            # if the SomeObject is itself a constant, allow reading its attrs
-            if obj.is_immutable_constant() and hasattr(obj.const, attr):
-                return immutablevalue(getattr(obj.const, attr))
-        else:
-            getbookkeeper().warning('getattr(%r, %r) is not RPythonic enough' %
-                                    (obj, s_attr))
-        return SomeObject()
+        if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+            raise AnnotatorError("getattr(%r, %r) has non-constant argument"
+                                 % (obj, s_attr))
+        attr = s_attr.const
+        s_method = obj.find_method(attr)
+        if s_method is not None:
+            return s_method
+        # if the SomeObject is itself a constant, allow reading its attrs
+        if obj.is_immutable_constant() and hasattr(obj.const, attr):
+            return immutablevalue(getattr(obj.const, attr))
+        raise AnnotatorError("Cannot find attribute %r on %r" % (attr, obj))
     getattr.can_only_throw = []
 
     def bind_callables_under(obj, classdef, name):
@@ -480,24 +471,25 @@ class __extend__(SomeString,
         return SomeInteger(nonneg=True)
 
     def method_strip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_lstrip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_rstrip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_join(str, s_list):
         if s_None.contains(s_list):
             return SomeImpossibleValue()
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()
-        if isinstance(s_item, SomeImpossibleValue):
+        if s_None.contains(s_item):
             if isinstance(str, SomeUnicodeString):
                 return immutablevalue(u"")
             return immutablevalue("")
-        return str.basestringclass()
+        no_nul = str.no_nul and s_item.no_nul
+        return str.basestringclass(no_nul=no_nul)
 
     def iter(str):
         return SomeIterator(str)
@@ -508,30 +500,40 @@ class __extend__(SomeString,
 
     def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
-        return getbookkeeper().newlist(str.basestringclass())
+        s_item = str.basestringclass(no_nul=str.no_nul)
+        return getbookkeeper().newlist(s_item)
 
     def method_rsplit(str, patt, max=-1):
         getbookkeeper().count("str_rsplit", str, patt)
-        return getbookkeeper().newlist(str.basestringclass())
+        s_item = str.basestringclass(no_nul=str.no_nul)
+        return getbookkeeper().newlist(s_item)
 
     def method_replace(str, s1, s2):
         return str.basestringclass()
 
     def getslice(str, s_start, s_stop):
         check_negative_slice(s_start, s_stop)
-        return str.basestringclass()
+        result = str.basestringclass(no_nul=str.no_nul)
+        return result
 
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
         if not s_enc.is_constant():
             raise TypeError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1'):
+        if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise TypeError("Encoding %s not supported for unicode" % (enc,))
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
 
+
 class __extend__(SomeString):
+    def method_isdigit(chr):
+        return s_Bool
+
+    def method_isalpha(chr):
+        return s_Bool
+
     def method_upper(str):
         return SomeString()
 
@@ -549,7 +551,7 @@ class __extend__(SomeString):
         if not s_enc.is_constant():
             raise TypeError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1'):
+        if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise TypeError("Encoding %s not supported for strings" % (enc,))
         return SomeUnicodeString()
     method_decode.can_only_throw = [UnicodeDecodeError]
@@ -567,12 +569,6 @@ class __extend__(SomeChar):
     def method_isspace(chr):
         return s_Bool
 
-    def method_isdigit(chr):
-        return s_Bool
-
-    def method_isalpha(chr):
-        return s_Bool
-
     def method_isalnum(chr):
         return s_Bool
 
@@ -581,6 +577,12 @@ class __extend__(SomeChar):
 
     def method_isupper(chr):
         return s_Bool
+
+    def method_lower(chr):
+        return chr
+
+    def method_upper(chr):
+        return chr
 
 class __extend__(SomeIterator):
 
@@ -605,33 +607,36 @@ class __extend__(SomeIterator):
 
 class __extend__(SomeInstance):
 
+    def _true_getattr(ins, attr):
+        if attr == '__class__':
+            return ins.classdef.read_attr__class__()
+        attrdef = ins.classdef.find_attribute(attr)
+        position = getbookkeeper().position_key
+        attrdef.read_locations[position] = True
+        s_result = attrdef.getvalue()
+        # hack: if s_result is a set of methods, discard the ones
+        #       that can't possibly apply to an instance of ins.classdef.
+        # XXX do it more nicely
+        if isinstance(s_result, SomePBC):
+            s_result = ins.classdef.lookup_filter(s_result, attr,
+                                                  ins.flags)
+        elif isinstance(s_result, SomeImpossibleValue):
+            ins.classdef.check_missing_attribute_update(attr)
+            # blocking is harmless if the attribute is explicitly listed
+            # in the class or a parent class.
+            for basedef in ins.classdef.getmro():
+                if basedef.classdesc.all_enforced_attrs is not None:
+                    if attr in basedef.classdesc.all_enforced_attrs:
+                        raise HarmlesslyBlocked("get enforced attr")
+        elif isinstance(s_result, SomeList):
+            s_result = ins.classdef.classdesc.maybe_return_immutable_list(
+                attr, s_result)
+        return s_result
+
     def getattr(ins, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            if attr == '__class__':
-                return ins.classdef.read_attr__class__()
-            attrdef = ins.classdef.find_attribute(attr)
-            position = getbookkeeper().position_key
-            attrdef.read_locations[position] = True
-            s_result = attrdef.getvalue()
-            # hack: if s_result is a set of methods, discard the ones
-            #       that can't possibly apply to an instance of ins.classdef.
-            # XXX do it more nicely
-            if isinstance(s_result, SomePBC):
-                s_result = ins.classdef.lookup_filter(s_result, attr,
-                                                      ins.flags)
-            elif isinstance(s_result, SomeImpossibleValue):
-                ins.classdef.check_missing_attribute_update(attr)
-                # blocking is harmless if the attribute is explicitly listed
-                # in the class or a parent class.
-                for basedef in ins.classdef.getmro():
-                    if basedef.classdesc.all_enforced_attrs is not None:
-                        if attr in basedef.classdesc.all_enforced_attrs:
-                            raise HarmlesslyBlocked("get enforced attr")
-            elif isinstance(s_result, SomeList):
-                s_result = ins.classdef.classdesc.maybe_return_immutable_list(
-                    attr, s_result)
-            return s_result
+            return ins._true_getattr(attr)
         return SomeObject()
     getattr.can_only_throw = []
 
@@ -653,6 +658,19 @@ class __extend__(SomeInstance):
         if not ins.can_be_None:
             s.const = True
 
+    def iter(ins):
+        s_iterable = ins._true_getattr('__iter__')
+        bk = getbookkeeper()
+        # record for calltables
+        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
+        return s_iterable.call(bk.build_args("simple_call", []))
+
+    def next(ins):
+        s_next = ins._true_getattr('next')
+        bk = getbookkeeper()
+        # record for calltables
+        bk.emulate_pbc_call(bk.position_key, s_next, [])
+        return s_next.call(bk.build_args("simple_call", []))
 
 class __extend__(SomeBuiltin):
     def _can_only_throw(bltn, *args):

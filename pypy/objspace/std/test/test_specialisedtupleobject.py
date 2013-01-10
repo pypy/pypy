@@ -3,7 +3,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObject
 from pypy.objspace.std.specialisedtupleobject import _specialisations
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace, option
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.objspace.std.test import test_tupleobject
 from pypy.interpreter import gateway
 
@@ -13,9 +13,7 @@ for cls in _specialisations:
 
 
 class TestW_SpecialisedTupleObject():
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
+    spaceconfig = {"objspace.std.withspecialisedtuple": True}
 
     def test_isspecialisedtupleobjectintint(self):
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
@@ -57,9 +55,9 @@ class TestW_SpecialisedTupleObject():
 
 
 class AppTestW_SpecialisedTupleObject:
+    spaceconfig = {"objspace.std.withspecialisedtuple": True}
 
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
         def forbid_delegation(space, w_tuple):
             def delegation_forbidden():
                 # haaaack
@@ -69,7 +67,7 @@ class AppTestW_SpecialisedTupleObject:
                 raise OperationError(space.w_ReferenceError, w_tuple)
             w_tuple.delegating = delegation_forbidden
             return w_tuple
-        if option.runappdirect:
+        if cls.runappdirect:
             cls.w_forbid_delegation = lambda self, x: x
             cls.test_delegation = lambda self: skip("runappdirect")
         else:

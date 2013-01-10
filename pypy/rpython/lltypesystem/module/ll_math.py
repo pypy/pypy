@@ -58,6 +58,7 @@ else:
 math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
+math_log1p = math_llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal(underscore + 'copysign',
                            [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
@@ -114,10 +115,8 @@ VERY_LARGE_FLOAT = 1.0
 while VERY_LARGE_FLOAT * 100.0 != INFINITY:
     VERY_LARGE_FLOAT *= 64.0
 
-_lib_isnan = rffi.llexternal("_isnan", [lltype.Float], lltype.Signed,
-                             compilation_info=eci)
-_lib_finite = rffi.llexternal("_finite", [lltype.Float], lltype.Signed,
-                             compilation_info=eci)
+_lib_isnan = llexternal("_isnan", [lltype.Float], lltype.Signed)
+_lib_finite = llexternal("_finite", [lltype.Float], lltype.Signed)
 
 def ll_math_isnan(y):
     # By not calling into the external function the JIT can inline this.
@@ -365,6 +364,15 @@ def ll_math_log10(x):
         raise ValueError("math domain error")
     return math_log10(x)
 
+def ll_math_log1p(x):
+    if x == 0.0:
+        return x      # returns 0.0 or -0.0
+    if x <= -1.0:
+        if x == -1:
+            raise OverflowError("math range  error")
+        raise ValueError("math domain error")
+    return math_log1p(x)
+
 def ll_math_sin(x):
     if isinf(x):
         raise ValueError("math domain error")
@@ -415,13 +423,13 @@ unary_math_functions = [
     'acos', 'asin', 'atan',
     'ceil', 'cosh', 'exp', 'fabs',
     'sinh', 'tan', 'tanh',
-    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
+    'acosh', 'asinh', 'atanh', 'expm1',
     ]
 unary_math_functions_can_overflow = [
-    'cosh', 'exp', 'log1p', 'sinh', 'expm1',
+    'cosh', 'exp', 'sinh', 'expm1',
     ]
 unary_math_functions_c99 = [
-    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
+    'acosh', 'asinh', 'atanh', 'expm1',
     ]
 
 for name in unary_math_functions:

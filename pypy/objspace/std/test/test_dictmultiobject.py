@@ -5,13 +5,7 @@ from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      StringDictStrategy, ObjectDictStrategy
 
-from pypy.conftest import gettestobjspace
-from pypy.conftest import option
-
 class TestW_DictObject:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace()
 
     def test_empty(self):
         space = self.space
@@ -131,6 +125,60 @@ class TestW_DictObject:
         assert self.space.eq_w(space.call_function(get, w("33")), w(None))
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
+    def test_fromkeys_fastpath(self):
+        space = self.space
+        w = space.wrap
+
+        w_l = self.space.newlist([w("a"),w("b")])
+        w_l.getitems = None
+        w_d = space.call_method(space.w_dict, "fromkeys", w_l)
+
+        assert space.eq_w(w_d.getitem_str("a"), space.w_None)
+        assert space.eq_w(w_d.getitem_str("b"), space.w_None)
+
+    def test_listview_str_dict(self):
+        w = self.space.wrap
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
+        assert self.space.listview_str(w_d) == ["a", "b"]
+
+    def test_listview_unicode_dict(self):
+        w = self.space.wrap
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
+        assert self.space.listview_unicode(w_d) == [u"a", u"b"]
+
+    def test_listview_int_dict(self):
+        w = self.space.wrap
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
+        assert self.space.listview_int(w_d) == [1, 2]
+
+    def test_keys_on_string_unicode_int_dict(self, monkeypatch):
+        w = self.space.wrap
+        
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_int(w_l)) == [1,2]
+        
+        # make sure that .keys() calls newlist_str for string dicts
+        def not_allowed(*args):
+            assert False, 'should not be called'
+        monkeypatch.setattr(self.space, 'newlist', not_allowed)
+        #
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_str(w_l)) == ["a", "b"]
+
+        # XXX: it would be nice if the test passed without monkeypatch.undo(),
+        # but we need space.newlist_unicode for it
+        monkeypatch.undo() 
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -415,6 +463,8 @@ class AppTest_DictObject:
         class E(dict):
             pass
         assert isinstance(D.fromkeys([1, 2]), E)
+        assert dict.fromkeys({"a": 2, "b": 3}) == {"a": None, "b": None}
+        assert dict.fromkeys({"a": 2, 1: 3}) == {"a": None, 1: None}
 
     def test_str_uses_repr(self):
         class D(dict):
@@ -613,6 +663,7 @@ class AppTestDictViews:
         assert len(keys) == 2
         assert set(keys) == set([1, "a"])
         assert keys == set([1, "a"])
+        assert keys == frozenset([1, "a"])
         assert keys != set([1, "a", "b"])
         assert keys != set([1, "b"])
         assert keys != set([1])
@@ -633,6 +684,7 @@ class AppTestDictViews:
         assert len(items) == 2
         assert set(items) == set([(1, 10), ("a", "ABC")])
         assert items == set([(1, 10), ("a", "ABC")])
+        assert items == frozenset([(1, 10), ("a", "ABC")])
         assert items != set([(1, 10), ("a", "ABC"), "junk"])
         assert items != set([(1, 10), ("a", "def")])
         assert items != set([(1, 10)])
@@ -734,7 +786,7 @@ class AppTestDictViews:
 
 class AppTestStrategies(object):
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
 
     def w_get_strategy(self, obj):
@@ -756,6 +808,16 @@ class AppTestStrategies(object):
         o.a = 1
         assert "StringDictStrategy" in self.get_strategy(d)
 
+    def test_empty_to_unicode(self):
+        d = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        d[u"a"] = 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        assert d[u"a"] == 1
+        assert d["a"] == 1
+        assert d.keys() == [u"a"]
+        assert type(d.keys()[0]) is unicode
+
     def test_empty_to_int(self):
         import sys
         d = {}
@@ -763,8 +825,35 @@ class AppTestStrategies(object):
         assert "IntDictStrategy" in self.get_strategy(d)
         assert d[1L] == "hi"
 
+    def test_iter_dict_length_change(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d[7] = 8
+        # 'd' is now length 4
+        raises(RuntimeError, it.next)
 
-class FakeString(str):
+    def test_iter_dict_strategy_only_change_1(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        class Foo(object):
+            def __eq__(self, other):
+                return False
+        assert d.get(Foo()) is None    # this changes the strategy of 'd'
+        lst = list(it)  # but iterating still works
+        assert sorted(lst) == [(1, 2), (3, 4), (5, 6)]
+
+    def test_iter_dict_strategy_only_change_2(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d['foo'] = 'bar'
+        del d[1]
+        # 'd' is still length 3, but its strategy changed.  we are
+        # getting a RuntimeError because iterating over the old storage
+        # gives us (1, 2), but 1 is not in the dict any longer.
+        raises(RuntimeError, list, it)
+
+
+class FakeWrapper(object):
     hash_count = 0
     def unwrap(self, space):
         self.unwrapped = True
@@ -773,6 +862,12 @@ class FakeString(str):
     def __hash__(self):
         self.hash_count += 1
         return str.__hash__(self)
+
+class FakeString(FakeWrapper, str):
+    pass
+
+class FakeUnicode(FakeWrapper, unicode):
+    pass
 
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
@@ -791,7 +886,9 @@ class FakeSpace:
         return x == y
     eq_w = eq
     def newlist(self, l):
-        return []
+        return l
+    def newlist_str(self, l):
+        return l
     DictObjectCls = W_DictMultiObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
@@ -815,10 +912,12 @@ class FakeSpace:
     def newtuple(self, l):
         return tuple(l)
 
-    def newdict(self, module=False, instance=False, classofinstance=None):
+    def newdict(self, module=False, instance=False):
         return W_DictMultiObject.allocate_and_init_instance(
-                self, module=module, instance=instance,
-                classofinstance=classofinstance)
+                self, module=module, instance=instance)
+
+    def view_as_kwargs(self, w_d):
+        return w_d.view_as_kwargs() # assume it's a multidict
 
     def finditem_str(self, w_dict, s):
         return w_dict.getitem_str(s) # assume it's a multidict
@@ -842,6 +941,7 @@ class FakeSpace:
     w_bool = bool
     w_float = float
     StringObjectCls = FakeString
+    UnicodeObjectCls = FakeUnicode
     w_dict = W_DictMultiObject
     iter = iter
     fixedview = list
@@ -898,6 +998,20 @@ class BaseTestRDictImplementation:
         assert type(self.impl.strategy) is self.StrategyClass
         #assert self.impl.r_dict_content is None
 
+    def test_popitem(self):
+        self.fill_impl()
+        assert self.impl.length() == 2
+        a, b = self.impl.popitem()
+        assert self.impl.length() == 1
+        if a == self.string:
+            assert b == 1000
+            assert self.impl.getitem(self.string2) == 2000
+        else:
+            assert a == self.string2
+            assert b == 2000
+            assert self.impl.getitem_str(self.string) == 1000
+        self.check_not_devolved()
+
     def test_setitem(self):
         self.impl.setitem(self.string, 1000)
         assert self.impl.length() == 1
@@ -931,7 +1045,7 @@ class BaseTestRDictImplementation:
 
     def test_keys(self):
         self.fill_impl()
-        keys = self.impl.keys()
+        keys = self.impl.w_keys() # wrapped lists = lists in the fake space
         keys.sort()
         assert keys == [self.string, self.string2]
         self.check_not_devolved()
@@ -952,10 +1066,10 @@ class BaseTestRDictImplementation:
 
     def test_iter(self):
         self.fill_impl()
-        iteratorimplementation = self.impl.iter()
+        iteratorimplementation = self.impl.iteritems()
         items = []
         while 1:
-            item = iteratorimplementation.next()
+            item = iteratorimplementation.next_item()
             if item == (None, None):
                 break
             items.append(item)
@@ -1009,8 +1123,8 @@ class BaseTestRDictImplementation:
         d.setitem("s", 12)
         d.delitem(F())
 
-        assert "s" not in d.keys()
-        assert F() not in d.keys()
+        assert "s" not in d.w_keys()
+        assert F() not in d.w_keys()
 
 class TestStrDictImplementation(BaseTestRDictImplementation):
     StrategyClass = StringDictStrategy
@@ -1021,6 +1135,10 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         s = FakeString(self.string)
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
+
+    def test_view_as_kwargs(self):
+        self.fill_impl()
+        assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
 ## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
 ##     ImplementionClass = MeasuringDictImplementation

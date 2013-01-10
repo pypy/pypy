@@ -21,7 +21,8 @@ def expect(f, g, fnname, args, result, resulttype=None):
         g.flush()
 
 def compile(f, gc='ref'):
-    t = Translation(f, backend='c', standalone=True, sandbox=True, gc=gc)
+    t = Translation(f, backend='c', sandbox=True, gc=gc,
+                    check_str_without_nul=True)
     return str(t.compile())
 
 
@@ -115,6 +116,21 @@ def test_time():
     f.close()
     assert tail == ""
 
+def test_getcwd():
+    def entry_point(argv):
+        t = os.getcwd()
+        os.dup(len(t))
+        return 0
+
+    exe = compile(entry_point)
+    g, f = os.popen2(exe, "t", 0)
+    expect(f, g, "ll_os.ll_os_getcwd", (), "/tmp/foo/bar")
+    expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"),), 3)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+
 def test_oserror():
     def entry_point(argv):
         try:
@@ -145,9 +161,9 @@ def test_hybrid_gc():
     g = pipe.stdin
     f = pipe.stdout
     expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GENERATIONGC_NURSERY",), None)
-    if sys.platform.startswith('linux'):  # on Mac, uses another (sandboxsafe) approach
-        expect(f, g, "ll_os.ll_os_open", ("/proc/cpuinfo", 0, 420),
-               OSError(5232, "xyz"))
+    #if sys.platform.startswith('linux'):
+    #    expect(f, g, "ll_os.ll_os_open", ("/proc/cpuinfo", 0, 420),
+    #           OSError(5232, "xyz"))
     expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GC_DEBUG",), None)
     g.close()
     tail = f.read()

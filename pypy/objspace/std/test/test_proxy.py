@@ -2,11 +2,8 @@
 """ test transparent proxy features
 """
 
-from pypy.conftest import gettestobjspace
-
 class AppProxyBasic(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
+    spaceconfig = {"objspace.std.withtproxy": True}
         
     def setup_method(self, meth):
         self.w_Controller = self.space.appexec([], """():

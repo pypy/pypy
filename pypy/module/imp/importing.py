@@ -49,6 +49,10 @@ def get_so_extension(space):
 
     return '.' + soabi + SO
 
+def file_exists(path):
+    """Tests whether the given path is an existing regular file."""
+    return os.path.isfile(path) and case_ok(path)
+
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
     which is a path without extension.  Returns PY_SOURCE, PY_COMPILED or
@@ -56,13 +60,13 @@ def find_modtype(space, filepart):
     """
     # check the .py file
     pyfile = filepart + ".py"
-    if os.path.exists(pyfile) and case_ok(pyfile):
+    if file_exists(pyfile):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
     if CHECK_FOR_PYW:
         pyfile = filepart + ".pyw"
-        if os.path.exists(pyfile) and case_ok(pyfile):
+        if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
 
     # The .py file does not exist.  By default on PyPy, lonepycfiles
@@ -73,14 +77,14 @@ def find_modtype(space, filepart):
     # check the .pyc file
     if space.config.objspace.usepycfiles and space.config.objspace.lonepycfiles:
         pycfile = filepart + ".pyc"
-        if os.path.exists(pycfile) and case_ok(pycfile):
+        if file_exists(pycfile):
             # existing .pyc file
             return PY_COMPILED, ".pyc", "rb"
 
     if space.config.objspace.usemodules.cpyext:
         so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
-        if os.path.exists(pydfile) and case_ok(pydfile):
+        if file_exists(pydfile):
             return C_EXTENSION, so_extension, "rb"
 
     return SEARCH_ERROR, None, None
@@ -138,7 +142,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
         try:
-            ctxt_package = space.str_w(ctxt_w_package)
+            ctxt_package = space.str0_w(ctxt_w_package)
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -187,7 +191,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
-                ctxt_name = space.str_w(ctxt_w_name)
+                ctxt_name = space.str0_w(ctxt_w_name)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -230,11 +234,10 @@ def _get_relative_name(space, modulename, level, w_globals):
     return rel_modulename, rel_level
 
 
-@unwrap_spec(name=str, level=int)
+@unwrap_spec(name='str0', level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
-    space.timer.start_name("importhook", modulename)
     if not modulename and level < 0:
         raise OperationError(
             space.w_ValueError,
@@ -263,7 +266,7 @@ def importhook(space, name, w_globals=None,
                 w_mod = check_sys_modules_w(space, rel_modulename)
                 if w_mod is not None and space.is_w(w_mod, space.w_None):
                     # if we already find space.w_None, it means that we
-                    # already tried and failed and falled back to the
+                    # already tried and failed and fell back to the
                     # end of this function.
                     w_mod = None
                 else:
@@ -273,20 +276,24 @@ def importhook(space, name, w_globals=None,
                 w_mod = absolute_import(space, rel_modulename, rel_level,
                                         fromlist_w, tentative=False)
             if w_mod is not None:
-                space.timer.stop_name("importhook", modulename)
                 return w_mod
 
     w_mod = absolute_import(space, modulename, 0, fromlist_w, tentative=0)
     if rel_modulename is not None:
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
-    space.timer.stop_name("importhook", modulename)
     return w_mod
 
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
-    # Short path: check in sys.modules
-    w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
-    if w_mod is not None and not space.is_w(w_mod, space.w_None):
-        return w_mod
+    # Short path: check in sys.modules, but only if there is no conflict
+    # on the import lock.  In the situation of 'import' statements
+    # inside tight loops, this should be true, and absolute_import_try()
+    # should be followed by the JIT and turned into not much code.  But
+    # if the import lock is currently held by another thread, then we
+    # have to wait, and so shouldn't use the fast path.
+    if not getimportlock(space).lock_held_by_someone_else():
+        w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
+        if w_mod is not None and not space.is_w(w_mod, space.w_None):
+            return w_mod
     return absolute_import_with_lock(space, modulename, baselevel,
                                      fromlist_w, tentative)
 
@@ -377,8 +384,8 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
                     fromlist_w = space.fixedview(w_all)
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
-                    load_part(space, w_path, prefix, space.str_w(w_name), w_mod,
-                              tentative=1)
+                    load_part(space, w_path, prefix, space.str0_w(w_name),
+                              w_mod, tentative=1)
         return w_mod
     else:
         return first
@@ -423,7 +430,12 @@ def _getimporter(space, w_pathitem):
 def find_in_path_hooks(space, w_modulename, w_pathitem):
     w_importer = _getimporter(space, w_pathitem)
     if w_importer is not None and space.is_true(w_importer):
-        w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        try:
+            w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        except OperationError, e:
+            if e.match(space, space.w_ImportError):
+                return None
+            raise
         if space.is_true(w_loader):
             return w_loader
 
@@ -432,7 +444,7 @@ class W_NullImporter(Wrappable):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path=str)
+    @unwrap_spec(path='str0')
     def descr_init(self, space, path):
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(
@@ -513,7 +525,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if w_loader:
                     return FindInfo.fromLoader(w_loader)
 
-            path = space.str_w(w_pathitem)
+            path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
             if os.path.isdir(filepart) and case_ok(filepart):
                 initfile = os.path.join(filepart, '__init__')
@@ -591,8 +603,10 @@ def load_module(space, w_modulename, find_info, reuse=False):
 
         try:
             if find_info.modtype == PY_SOURCE:
-                load_source_module(space, w_modulename, w_mod, find_info.filename,
-                                   find_info.stream.readall())
+                load_source_module(
+                    space, w_modulename, w_mod, 
+                    find_info.filename, find_info.stream.readall(),
+                    find_info.stream.try_to_find_file_descriptor())
                 return w_mod
             elif find_info.modtype == PY_COMPILED:
                 magic = _r_long(find_info.stream)
@@ -671,7 +685,7 @@ def reload(space, w_module):
             space.wrap("reload() argument must be module"))
 
     w_modulename = space.getattr(w_module, space.wrap("__name__"))
-    modulename = space.str_w(w_modulename)
+    modulename = space.str0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
         raise operationerrfmt(
             space.w_ImportError,
@@ -740,6 +754,9 @@ class ImportRLock:
         self.lock = None
         self.lockowner = None
         self.lockcounter = 0
+
+    def lock_held_by_someone_else(self):
+        return self.lockowner is not None and not self.lock_held()
 
     def lock_held(self):
         me = self.space.getexecutioncontext()   # used as thread ident
@@ -864,7 +881,7 @@ def exec_code_module(space, w_mod, code_w):
 
 
 @jit.dont_look_inside
-def load_source_module(space, w_modulename, w_mod, pathname, source,
+def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
                        write_pyc=True):
     """
     Load a source module from a given file and return its module
@@ -873,8 +890,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
     w = space.wrap
 
     if space.config.objspace.usepycfiles:
+        src_stat = os.fstat(fd)
         cpathname = pathname + 'c'
-        src_stat = os.stat(pathname)
         mtime = int(src_stat[stat.ST_MTIME])
         mode = src_stat[stat.ST_MODE]
         stream = check_compiled_module(space, cpathname, mtime)

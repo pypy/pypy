@@ -232,7 +232,7 @@ def test_intlong_unique():
     B = Signed
     db = LowLevelDatabase()
     assert db.gettype(A) == "int @"
-    assert db.gettype(B) == "long @"
+    assert db.gettype(B) == "Signed @"
 
 
 def test_recursive_struct():

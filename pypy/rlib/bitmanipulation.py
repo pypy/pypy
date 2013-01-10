@@ -1,5 +1,6 @@
 from pypy.rlib import unroll
 
+
 class BitSplitter(dict):
     def __getitem__(self, lengths):
         if isinstance(lengths, int):

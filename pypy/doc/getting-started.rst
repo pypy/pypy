@@ -53,14 +53,14 @@ Installing PyPy
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
 file, with no need to install it in any specific location::
 
-    $ tar xf pypy-1.7-linux.tar.bz2
-
-    $ ./pypy-1.7/bin/pypy
-    Python 2.7.1 (?, Apr 27 2011, 12:44:21)
-    [PyPy 1.7.0 with GCC 4.4.3] on linux2
+    $ tar xf pypy-2.0-beta1-linux.tar.bz2
+    $ ./pypy-2.0-beta1/bin/pypy
+    Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
+    [PyPy 2.0.0-beta1 with GCC 4.7.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``implementing LOGO in LOGO:
-    "turtles all the way down"''
+    And now for something completely different: ``PyPy is an exciting technology
+    that lets you to write fast, portable, multi-platform interpreters with less
+    effort''
     >>>>
 
 If you want to make PyPy available system-wide, you can put a symlink to the
@@ -75,14 +75,14 @@ install distribute_ and pip_:
 
     $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
 
-    $ ./pypy-1.7/bin/pypy distribute_setup.py
+    $ ./pypy-2.0-beta1/bin/pypy distribute_setup.py
 
-    $ ./pypy-1.7/bin/pypy get-pip.py
+    $ ./pypy-2.0-beta1/bin/pypy get-pip.py
 
-    $ ./pypy-1.7/bin/pip install pygments  # for example
+    $ ./pypy-2.0-beta1/bin/pip install pygments  # for example
 
-3rd party libraries will be installed in ``pypy-1.7/site-packages``, and
-the scripts in ``pypy-1.7/bin``.
+3rd party libraries will be installed in ``pypy-2.0-beta1/site-packages``, and
+the scripts in ``pypy-2.0-beta1/bin``.
 
 Installing using virtualenv
 ---------------------------

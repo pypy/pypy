@@ -2,8 +2,7 @@
 Type inference for user-defined classes.
 """
 from pypy.annotation.model import SomePBC, s_ImpossibleValue, unionof
-from pypy.annotation.model import SomeInteger, isdegenerated, SomeTuple,\
-     SomeString
+from pypy.annotation.model import SomeInteger, SomeTuple, SomeString
 from pypy.annotation import description
 
 
@@ -79,11 +78,7 @@ class Attribute(object):
         if source.instance_level:
             # a prebuilt instance source forces readonly=False, see above
             self.modified(classdef)
-        s_new_value = unionof(self.s_value, s_value)       
-        if isdegenerated(s_new_value):            
-            self.bookkeeper.ondegenerated("source %r attr %s" % (source, self.name),
-                                          s_new_value)
-                
+        s_new_value = unionof(self.s_value, s_value)    # XXX "source %r attr %s" % (source, self.name),
         self.s_value = s_new_value
 
     def getvalue(self):
@@ -92,11 +87,7 @@ class Attribute(object):
 
     def merge(self, other, classdef='?'):
         assert self.name == other.name
-        s_new_value = unionof(self.s_value, other.s_value)
-        if isdegenerated(s_new_value):
-            what = "%s attr %s" % (classdef, self.name)
-            self.bookkeeper.ondegenerated(what, s_new_value)
-
+        s_new_value = unionof(self.s_value, other.s_value)  # XXX "%s attr %s" % (classdef, self.name)
         self.s_value = s_new_value
         if not other.readonly:
             self.modified(classdef)
@@ -134,13 +125,19 @@ class Attribute(object):
             if self.name not in homedef.classdesc.all_enforced_attrs:
                 self.attr_allowed = False
                 if not self.readonly:
-                    raise NoSuchAttrError(homedef, self.name)
+                    raise NoSuchAttrError(
+                        "setting forbidden attribute %r on %r" % (
+                        self.name, homedef))
 
     def modified(self, classdef='?'):
         self.readonly = False
         if not self.attr_allowed:
-            raise NoSuchAttrError(classdef, self.name)
-
+            raise NoSuchAttrError(
+                "Attribute %r on %r should be read-only.\n" % (self.name,
+                                                               classdef) +
+                "This error can be caused by another 'getattr' that promoted\n"
+                "the attribute here; the list of read locations is:\n" +
+                '\n'.join([str(loc[0]) for loc in self.read_locations]))
 
 class ClassDef(object):
     "Wraps a user class."

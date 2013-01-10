@@ -7,7 +7,7 @@ from pypy.tool.runsubprocess import run_subprocess as _run_subprocess
 from pypy.tool.udir import udir
 
 log = py.log.Producer("platform")
-py.log.setconsumer("platform", ansi_log)
+
 
 class CompilationError(Exception):
     def __init__(self, out, err):
@@ -215,7 +215,7 @@ class Platform(object):
         largs = self._link_args_from_eci(eci, standalone)
         return self._link(cc_link, ofiles, largs, standalone, exe_name)
 
-    # below are some detailed informations for platforms
+    # below are some detailed information for platforms
 
     def include_dirs_for_libffi(self):
         dirs = self._include_dirs_for_libffi()
@@ -240,12 +240,15 @@ class Platform(object):
 
 
 if sys.platform.startswith('linux'):
-    from pypy.translator.platform.linux import Linux, Linux64
+    from pypy.translator.platform.linux import Linux, LinuxPIC
     import platform
-    if platform.architecture()[0] == '32bit':
-        host_factory = Linux
+    # Only required on armhf and mips{,el}, not armel. But there's no way to
+    # detect armhf without shelling out
+    if (platform.architecture()[0] == '64bit'
+            or platform.machine().startswith(('arm', 'mips'))):
+        host_factory = LinuxPIC
     else:
-        host_factory = Linux64
+        host_factory = Linux
 elif sys.platform == 'darwin':
     from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
     import platform
@@ -257,6 +260,13 @@ elif sys.platform == 'darwin':
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
+elif "gnukfreebsd" in sys.platform:
+    from pypy.translator.platform.freebsd import GNUkFreebsd, GNUkFreebsd_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = GNUkFreebsd
+    else:
+        host_factory = GNUkFreebsd_64
 elif "freebsd" in sys.platform:
     from pypy.translator.platform.freebsd import Freebsd, Freebsd_64
     import platform
@@ -272,8 +282,19 @@ elif "openbsd" in sys.platform:
     else:
         host_factory = OpenBSD_64
 elif os.name == 'nt':
-    from pypy.translator.platform.windows import Windows
-    host_factory = Windows
+    from pypy.translator.platform.windows import Windows, Windows_x64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Windows
+    else:
+        host_factory = Windows_x64
+elif sys.platform == 'cygwin':
+    from pypy.translator.platform.cygwin import Cygwin, Cygwin64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Cygwin
+    else:
+        host_factory = Cygwin64
 else:
     # pray
     from pypy.translator.platform.distutils_platform import DistutilsPlatform
@@ -287,6 +308,9 @@ def pick_platform(new_platform, cc):
     elif new_platform == 'maemo':
         from pypy.translator.platform.maemo import Maemo
         return Maemo(cc)
+    elif new_platform == 'arm':
+        from pypy.translator.platform.arm import ARM
+        return ARM(cc)
     elif new_platform == 'distutils':
         from pypy.translator.platform.distutils_platform import DistutilsPlatform
         return DistutilsPlatform()
@@ -295,8 +319,11 @@ def pick_platform(new_platform, cc):
 
 def set_platform(new_platform, cc):
     global platform
-    log.msg("Setting platform to %r cc=%s" % (new_platform,cc))
     platform = pick_platform(new_platform, cc)
+    if not platform:
+        raise ValueError("pick_platform(%r, %s) failed"%(new_platform, cc))
+    log.msg("Set platform with %r cc=%s, using cc=%r" % (new_platform, cc,
+                    getattr(platform, 'cc','Unknown')))
 
     if new_platform == 'host':
         global host

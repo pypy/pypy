@@ -102,15 +102,7 @@ static void _PyPy_set_387controlword(unsigned short cw) {
 #endif  /* !PYPY_CPU_HAS_STANDARD_PRECISION */
 
 
-/* implementations */
-
-#ifndef PYPY_NOT_MAIN_FILE
-
-#  if 0   /* disabled */
-void op_int_overflowed(void)
-{
-  FAIL_OVF("integer operation");
-}
-#  endif
-
+#ifdef PYPY_X86_CHECK_SSE2
+#define PYPY_X86_CHECK_SSE2_DEFINED
+extern void pypy_x86_check_sse2(void);
 #endif

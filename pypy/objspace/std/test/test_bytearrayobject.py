@@ -168,7 +168,6 @@ class AppTestBytesArray:
         assert bytearray('hello').count('l') == 2
         assert bytearray('hello').count(bytearray('l')) == 2
         assert bytearray('hello').count(memoryview('l')) == 2
-        assert bytearray('hello').count(ord('l')) == 2
 
         assert bytearray('hello').index('e') == 1
         assert bytearray('hello').rindex('l') == 3
@@ -270,7 +269,7 @@ class AppTestBytesArray:
         assert b.pop(0) == ord('w')
         assert b.pop(-2) == ord('r')
         raises(IndexError, b.pop, 10)
-        raises(OverflowError, bytearray().pop)
+        raises(IndexError, bytearray().pop)
         assert bytearray('\xff').pop() == 0xff
 
     def test_remove(self):
@@ -439,6 +438,14 @@ class AppTestBytesArray:
 
     def test_int(self):
         assert int(bytearray('-1234')) == -1234
+
+    def test_float(self):
+        assert float(bytearray(b'10.4')) == 10.4
+        assert float(bytearray('-1.7e-1')) == -1.7e-1
+        assert float(bytearray(u'.9e10', 'utf-8')) == .9e10
+        import math
+        assert math.isnan(float(bytearray('nan')))
+        raises(ValueError, float, bytearray('not_a_number'))
 
     def test_reduce(self):
         assert bytearray('caf\xe9').__reduce__() == (

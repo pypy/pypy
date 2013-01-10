@@ -111,6 +111,16 @@ class BaseTestRdict(BaseRtypingTest):
         assert self.interpret(func, [42, 0]) == False
         assert self.interpret(func, [42, 42]) == True
 
+    def test_contains_2(self):
+        d = {'5': None, '7': None}
+        def func(x):
+            return chr(x) in d
+        #assert self.interpret(func, [ord('5')]) == True
+        #assert self.interpret(func, [ord('6')]) == False
+
+        def func(n):
+            return str(n) in d
+        assert self.interpret(func, [512]) == False
 
     def test_dict_iteration(self):
         def func(i, j):
@@ -449,6 +459,21 @@ class BaseTestRdict(BaseRtypingTest):
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
+    def test_identity_hash_is_fast(self):
+        class A(object):
+            pass
+
+        def f():
+            return {A(): 1}
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        r_dict = rtyper.getrepr(s)
+        assert not hasattr(r_dict.lowleveltype.TO.entries.TO.OF, "f_hash")
+
     def test_tuple_dict(self):
         def f(i):
             d = {}
@@ -734,13 +759,20 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         assert count_frees >= 3
 
     def test_dict_resize(self):
+        # XXX we no longer automatically resize on 'del'.  We need to
+        # hack a bit in this test to trigger a resize by continuing to
+        # fill the dict's table while keeping the actual size very low
+        # in order to force a resize to shrink the table back
         def func(want_empty):
             d = {}
-            for i in range(rdict.DICT_INITSIZE):
+            for i in range(rdict.DICT_INITSIZE << 1):
                 d[chr(ord('a') + i)] = i
             if want_empty:
-                for i in range(rdict.DICT_INITSIZE):
+                for i in range(rdict.DICT_INITSIZE << 1):
                     del d[chr(ord('a') + i)]
+                for i in range(rdict.DICT_INITSIZE << 3):
+                    d[chr(ord('A') - i)] = i
+                    del d[chr(ord('A') - i)]
             return d
         res = self.interpret(func, [0])
         assert len(res.entries) > rdict.DICT_INITSIZE
@@ -937,6 +969,39 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         assert llres.item0 == 1
         DICT = lltype.typeOf(llres.item1)
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
+
+    def test_memoryerror_should_not_insert(self):
+        # This shows a misbehaviour that also exists in CPython 2.7, but not
+        # any more in CPython 3.3.  The behaviour is that even if a dict
+        # insertion raises MemoryError, the new item is still inserted.
+        # If we catch the MemoryError, we can keep inserting new items until
+        # the dict table is completely full.  Then the next insertion loops
+        # forever.  This test only checks that after a MemoryError the
+        # new item was not inserted.
+        def _check_small_range(self, n):
+            if n >= 128:
+                raise MemoryError
+            return range(n)
+        original_check_range = lltype._array._check_range
+        try:
+            lltype._array._check_range = _check_small_range
+            #
+            def do_insert(d, i):
+                d[i] = i
+            def func():
+                d = {}
+                i = 0
+                while True:
+                    try:
+                        do_insert(d, i)
+                    except MemoryError:
+                        return (i in d)
+                    i += 1
+            res = self.interpret(func, [])
+            assert res == 0
+            #
+        finally:
+            lltype._array._check_range = original_check_range
 
     # ____________________________________________________________
 
