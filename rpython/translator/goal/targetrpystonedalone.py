@@ -1,12 +1,8 @@
 import os, sys
 from rpython.translator.test import rpystone
 from rpython.translator.goal import richards
-import pypy.interpreter.gateway # needed before sys, order of imports !!!
-from pypy.tool.version import get_repo_version_info
 
 # __________  Entry point  __________
-
-VERSION = get_repo_version_info()[2]
 
 # note that we have %f but no length specifiers in RPython
 
@@ -14,8 +10,8 @@ def pystones_main(loops):
     benchtime, stones = rpystone.pystones(abs(loops))
     s = '' # annotator happiness
     if loops >= 0:
-        s = ("RPystone(%s) time for %d passes = %f" %
-             (VERSION, loops, benchtime) + '\n' + (
+        s = ("RPystone time for %d passes = %f" %
+             (loops, benchtime) + '\n' + (
              "This machine benchmarks at %f pystones/second\n" % stones))
     os.write(1, s)
     if loops == 12345:
