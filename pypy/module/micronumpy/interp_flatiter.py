@@ -9,6 +9,7 @@ class FakeArrayImplementation(BaseArrayImplementation):
     like a real array for descr_eq and friends
     """
     def __init__(self, base):
+        assert isinstance(base, BaseArrayImplementation)
         self.base = base
         self.dtype = base.get_dtype()
         self.shape = [base.get_size()]
@@ -17,6 +18,7 @@ class FakeArrayImplementation(BaseArrayImplementation):
         return self.shape
 
     def create_iter(self, shape=None):
+        assert isinstance(self.base, BaseArrayImplementation)
         return self.base.create_iter()
 
 class W_FlatIterator(W_NDimArray):

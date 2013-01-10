@@ -3,6 +3,12 @@ class BaseArrayImplementation(object):
     def is_scalar(self):
         return False
 
+    def base(self):
+        raise NotImplementedError
+
+    def create_iter(self, shape=None):
+        raise NotImplementedError
+
 class BaseArrayIterator(object):
     def next(self):
         raise NotImplementedError # purely abstract base class

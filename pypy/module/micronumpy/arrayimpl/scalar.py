@@ -86,7 +86,7 @@ class Scalar(base.BaseArrayImplementation):
     def create_axis_iter(self, shape, dim, cum):
         raise Exception("axis iter should not happen on scalar")
 
-    def swapaxes(self, axis1, axis2):
+    def swapaxes(self, orig_array, axis1, axis2):
         raise Exception("should not be called")
 
     def fill(self, w_value):

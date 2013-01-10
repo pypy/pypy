@@ -602,17 +602,27 @@ def diagonal_simple(space, arr, out, offset, axis1, axis2, size):
 def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
     out_iter = out.create_iter()
     iter = PureShapeIterator(shape, [])
-    shapelen = len(shape)
+    shapelen_minus_1 = len(shape) - 1
+    assert shapelen_minus_1 >= 0
+    if axis1 < axis2:
+        a = axis1
+        b = axis2 - 1
+    else:
+        a = axis2
+        b = axis1 - 1
+    assert a >= 0
+    assert b >= 0
     while not iter.done():
         last_index = iter.indexes[-1]
         if axis1 < axis2:
-            indexes = (iter.indexes[:axis1] + [last_index] +
-                       iter.indexes[axis1:axis2 - 1] + [last_index + offset] +
-                       iter.indexes[axis2 - 1:shapelen - 1])
+            indexes = (iter.indexes[:a] + [last_index] +
+                       iter.indexes[a:b] + [last_index + offset] +
+                       iter.indexes[b:shapelen_minus_1])
         else:
-            indexes = (iter.indexes[:axis2] + [last_index + offset] +
-                       iter.indexes[axis2:axis1 - 1] + [last_index] +
-                       iter.indexes[axis1 - 1:shapelen - 1])
+            indexes = (iter.indexes[:a] + [last_index + offset] +
+                       iter.indexes[a:b] + [last_index] +
+                       iter.indexes[b:shapelen_minus_1])
         out_iter.setitem(arr.getitem_index(space, indexes))
         iter.next()
         out_iter.next()
+       

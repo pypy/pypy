@@ -18,6 +18,7 @@ from pypy.module.micronumpy.interp_arrayops import repeat
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
+from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 
 def _find_shape(space, w_size):
     if space.is_none(w_size):
@@ -208,6 +209,7 @@ class __extend__(W_NDimArray):
         return s.build()
 
     def create_iter(self, shape=None):
+        assert isinstance(self.implementation, BaseArrayImplementation)
         return self.implementation.create_iter(shape)
 
     def create_axis_iter(self, shape, dim, cum):
@@ -414,7 +416,11 @@ class __extend__(W_NDimArray):
         return self.implementation.astype(space, dtype)
 
     def descr_get_base(self, space):
-        return self.implementation.base()
+        impl = self.implementation
+        ret = impl.base()
+        if ret is None:
+            return space.w_None
+        return ret    
 
     @unwrap_spec(inplace=bool)
     def descr_byteswap(self, space, inplace=False):
