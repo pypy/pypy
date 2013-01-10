@@ -573,9 +573,7 @@ class LLGraphCPU(model.AbstractCPU):
         return read_timestamp()
 
     def bh_new_raw_buffer(self, size):
-        ## def do_new_raw_buffer(size):
-        ##     return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-        return llimpl.do_new_raw_buffer(size)
+        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
 
 
 class LLDeadFrame(object):
