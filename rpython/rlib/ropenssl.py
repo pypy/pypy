@@ -316,6 +316,13 @@ EVP_MD_CTX_copy = external(
 EVP_MD_CTX_cleanup = external(
     'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
 
+# HASH_MALLOC_SIZE is the size of EVP_MD, EVP_MD_CTX plus their points
+# Used for adding memory pressure. Last number is an (under?)estimate of
+# EVP_PKEY_CTX's size.
+# XXX: Make a better estimate here
+HASH_MALLOC_SIZE = EVP_MD_SIZE + EVP_MD_CTX_SIZE \
+        + rffi.sizeof(EVP_MD) * 2 + 208
+
 def init_ssl():
     libssl_SSL_load_error_strings()
     libssl_SSL_library_init()
