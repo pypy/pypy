@@ -303,8 +303,7 @@ def test_size_prediction():
         assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
 
 class TestTypeSpecializedAttributes(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
+    spaceconfig = {"objspace.std.withmapdict": True}
 
     def test_attributes(self):
         space = self.space
