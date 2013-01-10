@@ -290,8 +290,8 @@ class TestX86(LLtypeBackendTest):
                     ops[-2].setfailargs([i1])
                     looptoken = JitCellToken()
                     self.cpu.compile_loop([b], ops, looptoken)
-                    self.cpu.execute_token(looptoken, b.value)
-                    result = self.cpu.get_latest_value_int(0)
+                    deadframe = self.cpu.execute_token(looptoken, b.value)
+                    result = self.cpu.get_latest_value_int(deadframe, 0)
                     if guard == rop.GUARD_FALSE:
                         assert result == execute(self.cpu, None,
                                                  op, None, b).value
@@ -337,8 +337,8 @@ class TestX86(LLtypeBackendTest):
                     looptoken = JitCellToken()
                     self.cpu.compile_loop(inputargs, ops, looptoken)
                     inputvalues = [box.value for box in inputargs]
-                    self.cpu.execute_token(looptoken, *inputvalues)
-                    result = self.cpu.get_latest_value_int(0)
+                    deadframe = self.cpu.execute_token(looptoken, *inputvalues)
+                    result = self.cpu.get_latest_value_int(deadframe, 0)
                     expected = execute(self.cpu, None, op, None, a, b).value
                     if guard == rop.GUARD_FALSE:
                         assert result == expected
@@ -403,9 +403,10 @@ class TestX86(LLtypeBackendTest):
         assert address >= loopaddress + loopsize
         assert size >= 10 # randomish number
 
-        fail = self.cpu.execute_token(looptoken, 2)
+        deadframe = self.cpu.execute_token(looptoken, 2)
+        fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
-        res = self.cpu.get_latest_value_int(0)
+        res = self.cpu.get_latest_value_int(deadframe, 0)
         assert res == 20
 
     def test_ops_offset(self):
@@ -508,12 +509,13 @@ class TestX86(LLtypeBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop([i1, i2], ops, looptoken)
 
-            fail = self.cpu.execute_token(looptoken, 123450, 123408)
+            deadframe = self.cpu.execute_token(looptoken, 123450, 123408)
+            fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 0
-            assert self.cpu.get_latest_value_int(0) == 42
-            assert self.cpu.get_latest_value_int(1) == 42
-            assert self.cpu.get_latest_value_int(2) == 42
-            assert self.cpu.get_latest_value_int(3) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 0) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 1) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 2) == 42
+            assert self.cpu.get_latest_value_int(deadframe, 3) == 42
 
 
 class TestDebuggingAssembler(object):

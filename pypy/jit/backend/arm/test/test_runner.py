@@ -60,16 +60,18 @@ class TestARM(LLtypeBackendTest):
             ]
         cpu.compile_loop(inp, operations, looptoken)
         args = [i for i in range(1, 15)]
-        self.cpu.execute_token(looptoken, *args)
-        output = [self.cpu.get_latest_value_int(i - 1) for i in range(1, 15)]
+        deadframe = self.cpu.execute_token(looptoken, *args)
+        output = [self.cpu.get_latest_value_int(deadframe, i - 1) for i in range(1, 15)]
         expected = [3, 7, 11, 15, 19, 23, 27, 3, 7, 11, 15, 19, 23, 27]
         assert output == expected
 
-    def test_redirect_call_assember2(self):
-        def assembler_helper(failindex, virtualizable):
-            return self.cpu.get_latest_value_int(0)
+    def test_redirect_call_assembler2(self):
+        def assembler_helper(deadframe, virtualizable):
+            x = self.cpu.get_latest_value_int(deadframe, 0)
+            assert x == 11
+            return 7
 
-        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF],
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF],
                                              lltype.Signed))
 
         class FakeJitDriverSD:
@@ -101,12 +103,12 @@ class TestARM(LLtypeBackendTest):
         self.cpu.compile_loop(loop2.inputargs, loop2.operations, lt2)
         self.cpu.compile_loop(loop3.inputargs, loop3.operations, lt3)
         self.cpu.compile_loop(loop1.inputargs, loop1.operations, lt1)
-        self.cpu.execute_token(lt1, 11)
-        assert self.cpu.get_latest_value_int(0) == 12
+        df = self.cpu.execute_token(lt1, 10)
+        assert self.cpu.get_latest_value_int(df, 0) == 7
 
         self.cpu.redirect_call_assembler(lt2, lt3)
-        self.cpu.execute_token(lt1, 11)
-        assert self.cpu.get_latest_value_int(0) == 10
+        df = self.cpu.execute_token(lt1, 12)
+        assert self.cpu.get_latest_value_int(df, 0) == 7
 
     SFloat = lltype.GcForwardReference()
     SFloat.become(lltype.GcStruct('SFloat', ('parent', rclass.OBJECT),
@@ -202,8 +204,8 @@ class TestARM(LLtypeBackendTest):
             ARGS = [lltype.Signed] * numargs
             RES = lltype.Signed
             args = [i+1 for i in range(numargs)]
-            res = self.cpu.execute_token(looptoken, *args)
-            assert self.cpu.get_latest_value_int(0) == sum(args)
+            deadframe = self.cpu.execute_token(looptoken, *args)
+            assert self.cpu.get_latest_value_int(deadframe, 0) == sum(args)
 
     def test_debugger_on(self):
         from pypy.rlib import debug

@@ -26,8 +26,8 @@ def jittest(driver):
     get_policy = driver.extra['jitpolicy']
     jitpolicy = get_policy(driver)
 
-    from pypy.jit.backend.llgraph.runner import LLtypeCPU
-    apply_jit(jitpolicy, interp, graph, LLtypeCPU)
+    from pypy.jit.backend.llgraph.runner import LLGraphCPU
+    apply_jit(jitpolicy, interp, graph, LLGraphCPU)
 
 
 def apply_jit(policy, interp, graph, CPUClass):

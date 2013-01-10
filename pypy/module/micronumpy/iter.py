@@ -158,6 +158,7 @@ class PureShapeIterator(object):
         return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
+    _immutable_fields_ = ['dtype', 'skip', 'size']
     def __init__(self, array):
         self.array = array
         self.offset = 0
@@ -166,10 +167,10 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         self.size = array.size
 
     def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
+        self.dtype.setitem(self.array, self.offset, elem)
 
     def getitem(self):
-        return self.array.getitem(self.offset)
+        return self.dtype.getitem(self.array, self.offset)
 
     def getitem_bool(self):
         return self.dtype.getitem_bool(self.array, self.offset)
@@ -187,13 +188,16 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         self.offset %= self.size
 
 class OneDimViewIterator(ConcreteArrayIterator):
-    def __init__(self, array):
+    ''' The view iterator dtype can be different from the
+    array.dtype, this is what makes it a View
+    '''
+    def __init__(self, array, dtype, start, strides, shape):
         self.array = array
-        self.offset = array.start
-        self.skip = array.strides[0]
-        self.dtype = array.dtype
+        self.dtype = dtype
+        self.offset = start
+        self.skip = strides[0]
         self.index = 0
-        self.size = array.shape[0]
+        self.size = shape[0]
 
     def next(self):
         self.offset += self.skip
@@ -210,9 +214,13 @@ class OneDimViewIterator(ConcreteArrayIterator):
         self.offset %= self.size
 
 class MultiDimViewIterator(ConcreteArrayIterator):
-    def __init__(self, array, start, strides, backstrides, shape):
+    ''' The view iterator dtype can be different from the
+    array.dtype, this is what makes it a View
+    '''
+    def __init__(self, array, dtype, start, strides, backstrides, shape):
         self.indexes = [0] * len(shape)
         self.array = array
+        self.dtype = dtype
         self.shape = shape
         self.offset = start
         self.shapelen = len(shape)
@@ -261,8 +269,8 @@ class MultiDimViewIterator(ConcreteArrayIterator):
 class AxisIterator(base.BaseArrayIterator):
     def __init__(self, array, shape, dim, cumultative):
         self.shape = shape
-        strides = array.strides
-        backstrides = array.backstrides
+        strides = array.get_strides()
+        backstrides = array.get_backstrides()
         if cumultative:
             self.strides = strides
             self.backstrides = backstrides
@@ -279,12 +287,13 @@ class AxisIterator(base.BaseArrayIterator):
         self.offset = array.start
         self.dim = dim
         self.array = array
+        self.dtype = array.dtype
         
     def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
+        self.dtype.setitem(self.array, self.offset, elem)
 
     def getitem(self):
-        return self.array.getitem(self.offset)
+        return self.dtype.getitem(self.array, self.offset)
 
     @jit.unroll_safe
     def next(self):

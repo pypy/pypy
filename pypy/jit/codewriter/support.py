@@ -1,15 +1,13 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, rclass, rffi
+from pypy.rpython.lltypesystem import lltype, rclass, rffi, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
-from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Constant
@@ -648,6 +646,15 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
+    def _ll_1_weakref_create(obj):
+        return llop.weakref_create(llmemory.WeakRefPtr, obj)
+
+    def _ll_1_weakref_deref(TP, obj):
+        return llop.weakref_deref(lltype.Ptr(TP), obj)
+    _ll_1_weakref_deref.need_result_type = True
+
+    def _ll_1_gc_add_memory_pressure(num):
+        llop.gc_add_memory_pressure(lltype.Void, num)
 
 class OOtypeHelpers:
 

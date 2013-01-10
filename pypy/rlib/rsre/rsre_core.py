@@ -166,6 +166,8 @@ class AbstractMatchContext(object):
 class StrMatchContext(AbstractMatchContext):
     """Concrete subclass for matching in a plain string."""
 
+    _immutable_fields_ = ["_string"]
+
     def __init__(self, pattern, string, match_start, end, flags):
         AbstractMatchContext.__init__(self, pattern, match_start, end, flags)
         self._string = string
@@ -186,6 +188,8 @@ class StrMatchContext(AbstractMatchContext):
 
 class UnicodeMatchContext(AbstractMatchContext):
     """Concrete subclass for matching in a unicode string."""
+
+    _immutable_fields_ = ["_unicodestr"]
 
     def __init__(self, pattern, unicodestr, match_start, end, flags):
         AbstractMatchContext.__init__(self, pattern, match_start, end, flags)

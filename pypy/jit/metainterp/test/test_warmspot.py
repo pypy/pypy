@@ -519,8 +519,46 @@ class WarmspotTests(object):
         self.check_trace_count(1)
 
 
+    def test_callback_jit_merge_point(self):
+        from pypy.rlib.objectmodel import register_around_callback_hook
+        from pypy.rpython.lltypesystem import lltype, rffi
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        
+        callback_jit_driver = JitDriver(greens = ['name'], reds = 'auto')
+        
+        def callback_merge_point(name):
+            callback_jit_driver.jit_merge_point(name=name)
+    
+        @callback_jit_driver.inline(callback_merge_point)
+        def callback_hook(name):
+            pass
+
+        def callback(a, b):
+            if a > b:
+                return 1
+            return -1
+
+        CB_TP = rffi.CCallback([lltype.Signed, lltype.Signed], lltype.Signed)
+        eci = ExternalCompilationInfo(includes=['stdlib.h'])
+        qsort = rffi.llexternal('qsort',
+                                [rffi.VOIDP, lltype.Signed, lltype.Signed,
+                                 CB_TP], lltype.Void, compilation_info=eci)
+        ARR = rffi.CArray(lltype.Signed)
+
+        def main():
+            register_around_callback_hook(callback_hook)
+            raw = lltype.malloc(ARR, 10, flavor='raw')
+            for i in range(10):
+                raw[i] = 10 - i
+            qsort(raw, 10, rffi.sizeof(lltype.Signed), callback)
+            lltype.free(raw, flavor='raw')
+
+        self.meta_interp(main, [])
+        self.check_trace_count(1)
+
+
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
-    CPUClass = runner.LLtypeCPU
+    CPUClass = runner.LLGraphCPU
     type_system = 'lltype'
 
 class TestOOWarmspot(WarmspotTests, OOJitMixin):
@@ -540,8 +578,9 @@ class TestWarmspotDirect(object):
         class FakeFailDescr(object):
             def __init__(self, no):
                 self.no = no
-            def handle_fail(self, metainterp_sd, jitdrivers_sd):
+            def handle_fail(self, deadframe, metainterp_sd, jitdrivers_sd):
                 no = self.no
+                assert deadframe._no == no
                 if no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
                 if no == 1:
@@ -555,6 +594,10 @@ class TestWarmspotDirect(object):
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
                 assert 0
 
+        class FakeDeadFrame:
+            def __init__(self, no):
+                self._no = no
+
         class FakeDescr:
             def as_vtable_size_descr(self):
                 return self
@@ -566,6 +609,10 @@ class TestWarmspotDirect(object):
             ts = llhelper
             translate_support_code = False
             stats = "stats"
+
+            def get_latest_descr(self, deadframe):
+                assert isinstance(deadframe, FakeDeadFrame)
+                return self.get_fail_descr_from_number(deadframe._no)
 
             def get_fail_descr_number(self, d):
                 return -1
@@ -600,15 +647,17 @@ class TestWarmspotDirect(object):
         translator = rtyper.annotator.translator
         translator.config.translation.gc = 'hybrid'
         cls.desc = WarmRunnerDesc(translator, CPUClass=FakeCPU)
+        cls.FakeDeadFrame = FakeDeadFrame
 
     def test_call_helper(self):
         from pypy.rpython.llinterp import LLException
 
         [jd] = self.desc.jitdrivers_sd
-        assert jd._assembler_call_helper(0, 0) == 3
-        assert jd._assembler_call_helper(1, 0) == 10
+        FakeDeadFrame = self.FakeDeadFrame
+        assert jd._assembler_call_helper(FakeDeadFrame(0), 0) == 3
+        assert jd._assembler_call_helper(FakeDeadFrame(1), 0) == 10
         try:
-            jd._assembler_call_helper(3, 0)
+            jd._assembler_call_helper(FakeDeadFrame(3), 0)
         except LLException, lle:
             assert lle[0] == self.exc_vtable
         else:

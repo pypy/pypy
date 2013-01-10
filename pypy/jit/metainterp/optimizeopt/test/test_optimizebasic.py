@@ -216,40 +216,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_constfold_all(self):
-        from pypy.jit.backend.llgraph.llimpl import TYPES     # xxx fish
-        from pypy.jit.metainterp.executor import execute_nonspec
-        from pypy.jit.metainterp.history import BoxInt
-        import random
-        for opnum in range(rop.INT_ADD, rop.SAME_AS+1):
-            try:
-                op = opname[opnum]
-            except KeyError:
-                continue
-            if 'FLOAT' in op:
-                continue
-            argtypes, restype = TYPES[op.lower()]
-            args = []
-            for argtype in argtypes:
-                assert argtype in ('int', 'bool')
-                args.append(random.randrange(1, 20))
-            assert restype in ('int', 'bool')
-            ops = """
-            []
-            i1 = %s(%s)
-            escape(i1)
-            jump()
-            """ % (op.lower(), ', '.join(map(str, args)))
-            argboxes = [BoxInt(a) for a in args]
-            expected_value = execute_nonspec(self.cpu, None, opnum,
-                                             argboxes).getint()
-            expected = """
-            []
-            escape(%d)
-            jump()
-            """ % expected_value
-            self.optimize_loop(ops, expected)
-
     # ----------
 
     def test_remove_guard_class_1(self):
@@ -658,8 +624,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
         p1sub = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p1sub, i1, descr=valuedescr)
+        setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p1, p1sub, descr=nextdescr)
         jump(i1, p1, p2)
         """
@@ -994,10 +960,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [f0, f1, f2, f3]
         p0 = new_array(2, descr=complexarraydescr)
-        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
-        setinteriorfield_gc(p0, 1, f2, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         setinteriorfield_gc(p0, 1, f3, descr=compleximagdescr)
+        setinteriorfield_gc(p0, 1, f2, descr=complexrealdescr)
         f4 = getinteriorfield_gc(p0, 0, descr=complexrealdescr)
         f5 = getinteriorfield_gc(p0, 1, descr=complexrealdescr)
         f6 = float_mul(f4, f5)
@@ -1032,8 +998,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [f0, f1]
         f2 = float_mul(f0, f1)
         p0 = new_array(1, descr=complexarraydescr)
-        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
         i0 = escape(f2, p0)
         finish(i0)
         """

@@ -32,38 +32,38 @@ clean:
 	-rm -rf $(BUILDDIR)/*
 
 html:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 dirhtml:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
 
 pickle:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b pickle $(ALLSPHINXOPTS) $(BUILDDIR)/pickle
 	@echo
 	@echo "Build finished; now you can process the pickle files."
 
 json:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b json $(ALLSPHINXOPTS) $(BUILDDIR)/json
 	@echo
 	@echo "Build finished; now you can process the JSON files."
 
 htmlhelp:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b htmlhelp $(ALLSPHINXOPTS) $(BUILDDIR)/htmlhelp
 	@echo
 	@echo "Build finished; now you can run HTML Help Workshop with the" \
 	      ".hhp project file in $(BUILDDIR)/htmlhelp."
 
 qthelp:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b qthelp $(ALLSPHINXOPTS) $(BUILDDIR)/qthelp
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
@@ -73,7 +73,7 @@ qthelp:
 	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/PyPy.qhc"
 
 latex:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo
 	@echo "Build finished; the LaTeX files are in $(BUILDDIR)/latex."
@@ -81,26 +81,26 @@ latex:
 	      "run these through (pdf)latex."
 
 man:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b man $(ALLSPHINXOPTS) $(BUILDDIR)/man
 	@echo
 	@echo "Build finished. The manual pages are in $(BUILDDIR)/man"
 
 changes:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b changes $(ALLSPHINXOPTS) $(BUILDDIR)/changes
 	@echo
 	@echo "The overview file is in $(BUILDDIR)/changes."
 
 linkcheck:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
 	@echo
 	@echo "Link check complete; look for any errors in the above output " \
 	      "or in $(BUILDDIR)/linkcheck/output.txt."
 
 doctest:
-	python config/generate.py
+	# python config/generate.py #readthedocs will not run this Makefile
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."

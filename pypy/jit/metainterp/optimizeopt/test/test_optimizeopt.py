@@ -1,21 +1,14 @@
 import py
 from pypy.rlib.objectmodel import instantiate
 from pypy.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, Storage, _sortboxes, convert_old_style_to_targets)
-import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
-import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, build_opt_chain
+    LLtypeMixin, BaseTest, convert_old_style_to_targets)
+from pypy.jit.metainterp.optimizeopt import build_opt_chain
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
-from pypy.jit.metainterp.history import TreeLoop, JitCellToken, TargetToken
-from pypy.jit.metainterp.jitprof import EmptyProfiler
-from pypy.jit.metainterp import executor, compile, resume, history
-from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
-from pypy.jit.tool.oparser import pure_parse
-from pypy.jit.metainterp.optimizeopt.util import args_dict
+from pypy.jit.metainterp.history import TreeLoop
+from pypy.jit.metainterp import compile, resume
+from pypy.jit.metainterp.resoperation import rop, opname, opargnum
 from pypy.jit.metainterp.optimizeopt.test.test_optimizebasic import FakeMetaInterpStaticData
-from pypy.config.pypyoption import get_pypy_config
-from pypy.jit.metainterp.optimizeopt.unroll import Inliner
 
 def test_build_opt_chain():
     def check(chain, expected_names):
@@ -185,9 +178,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_constfold_all(self):
-        from pypy.jit.backend.llgraph.llimpl import TYPES     # xxx fish
         from pypy.jit.metainterp.executor import execute_nonspec
-        from pypy.jit.metainterp.history import BoxInt
         import random
         for opnum in range(rop.INT_ADD, rop.SAME_AS+1):
             try:
@@ -196,12 +187,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 continue
             if 'FLOAT' in op:
                 continue
-            argtypes, restype = TYPES[op.lower()]
             args = []
-            for argtype in argtypes:
-                assert argtype in ('int', 'bool')
+            for _ in range(opargnum[opnum]):
                 args.append(random.randrange(1, 20))
-            assert restype in ('int', 'bool')
             ops = """
             []
             i1 = %s(%s)
@@ -836,8 +824,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i3)
         p4 = new_with_vtable(ConstClass(node_vtable))
         p1sub = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p4, i1, descr=valuedescr)
         setfield_gc(p1sub, i1, descr=valuedescr)
+        setfield_gc(p4, i1, descr=valuedescr)
         setfield_gc(p4, p1sub, descr=nextdescr)
         jump(i1, p4)
         """
@@ -1168,13 +1156,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
         i4 = same_as(i2) # This same_as should be killed by backend
-        jump(i3, i2, i1)
+        jump(i3, i1, i2)
         """
         expected = """
         [i0, i1, i1bis]
-        i2 = int_sub(i1, 1)
-        i3 = int_add(i0, i1)
-        jump(i3, i2, i1)
+        i2 = int_sub(i1bis, 1)
+        i3 = int_add(i0, i1bis)
+        jump(i3, i1bis, i2)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -1226,8 +1214,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(ConstClass(node_vtable2))
         p2 = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p0, p1, descr=nextdescr)
         jump(p1)
@@ -1239,8 +1227,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(ConstClass(node_vtable2))
         p2 = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p0, p1, descr=nextdescr)
         jump(p1)

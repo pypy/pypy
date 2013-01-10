@@ -71,6 +71,32 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                               new_shape, self, orig_array)
         else:
             return None
+    
+    def get_real(self):
+        strides = self.get_strides()
+        backstrides = self.get_backstrides()
+        if self.dtype.is_complex_type():
+            dtype =  self.dtype.float_type
+            return SliceArray(self.start, strides, backstrides,
+                          self.get_shape(), self, dtype=dtype)
+        return SliceArray(self.start, strides, backstrides, 
+                          self.get_shape(), self)
+
+    def get_imag(self):
+        strides = self.get_strides()
+        backstrides = self.get_backstrides()
+        if self.dtype.is_complex_type():
+            dtype =  self.dtype.float_type
+            return SliceArray(self.start + dtype.get_size(), strides, 
+                    backstrides, self.get_shape(), self, dtype=dtype)
+        if self.dtype.is_flexible_type():
+            # numpy returns self for self.imag
+            return SliceArray(self.start, strides, backstrides,
+                    self.get_shape(), self)
+        impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
+                             backstrides)
+        impl.fill(self.dtype.box(0))
+        return impl
 
     # -------------------- applevel get/setitem -----------------------
 
@@ -228,7 +254,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def create_dot_iter(self, shape, skip):
         r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),
                                   shape, skip)
-        return iter.MultiDimViewIterator(self, self.start, r[0], r[1], shape)
+        return iter.MultiDimViewIterator(self, self.dtype, self.start, r[0], r[1], shape)
 
     def swapaxes(self, orig_arr, axis1, axis2):
         shape = self.get_shape()[:]
@@ -268,7 +294,7 @@ class ConcreteArray(BaseConcreteArray):
         r = calculate_broadcast_strides(self.get_strides(),
                                         self.get_backstrides(),
                                         self.get_shape(), shape)
-        return iter.MultiDimViewIterator(self, 0, r[0], r[1], shape)
+        return iter.MultiDimViewIterator(self, self.dtype, 0, r[0], r[1], shape)
 
     def fill(self, box):
         self.dtype.fill(self.storage, box, 0, self.size)
@@ -292,6 +318,12 @@ class ConcreteArray(BaseConcreteArray):
 
     def base(self):
         return None
+
+class NonWritableArray(ConcreteArray):
+    def descr_setitem(self, space, w_index, w_value):
+        raise OperationError(space.w_RuntimeError, space.wrap(
+            "array is not writable"))
+        
 
 class SliceArray(BaseConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent, orig_arr,
@@ -322,11 +354,12 @@ class SliceArray(BaseConcreteArray):
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
                                             self.get_shape(), shape)
-            return iter.MultiDimViewIterator(self.parent,
+            return iter.MultiDimViewIterator(self.parent, self.dtype,
                                              self.start, r[0], r[1], shape)
         if len(self.get_shape()) == 1:
-            return iter.OneDimViewIterator(self)
-        return iter.MultiDimViewIterator(self.parent, self.start,
+            return iter.OneDimViewIterator(self.parent, self.dtype, self.start, 
+                    self.get_strides(), self.get_shape())
+        return iter.MultiDimViewIterator(self.parent, self.dtype, self.start,
                                     self.get_strides(),
                                     self.get_backstrides(), self.get_shape())
 

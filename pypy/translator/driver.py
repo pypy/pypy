@@ -362,7 +362,7 @@ class TranslationDriver(SimpleTaskEngine):
     @taskdef([RTYPE], "JIT compiler generation")
     def task_pyjitpl_lltype(self):
         """ Generate bytecodes for JIT and flow the JIT helper functions
-        ootype version
+        lltype version
         """
         get_policy = self.extra['jitpolicy']
         self.jitpolicy = get_policy(self)

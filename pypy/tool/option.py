@@ -6,7 +6,7 @@ from pypy.config.config import Config, OptionDescription, to_optparse
 import optparse
 
 extra_useage = """For detailed descriptions of all the options see
-http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html"""
+http://doc.pypy.org/en/latest/config/commandline.html"""
 
 def get_standard_options():
     config = get_pypy_config()

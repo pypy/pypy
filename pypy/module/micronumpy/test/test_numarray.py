@@ -1169,8 +1169,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
    
     def test_eye(self):
-        from _numpypy import eye, array
-        from _numpypy import int32, float64, dtype
+        from _numpypy import eye
+        from _numpypy import int32, dtype
         a = eye(0)
         assert len(a) == 0
         assert a.dtype == dtype('float64')
@@ -1344,6 +1344,42 @@ class AppTestNumArray(BaseNumpyAppTest):
         c[:] = 3
         assert b[0] == 3
         assert b[1] == 2
+
+    def test_realimag_views(self):
+        from _numpypy import arange, array
+        a = arange(15)
+        b = a.real
+        b[5]=50
+        assert a[5] == 50
+        b = a.imag
+        assert b[7] == 0
+        raises(RuntimeError, 'b[7] = -2')
+        raises(TypeError, 'a.imag = -2')
+        a = array(['abc','def'],dtype='S3')
+        b = a.real
+        assert a[0] == b[0]
+        assert a[1] == b[1]
+        b[1] = 'xyz'
+        assert a[1] == 'xyz'
+        assert a.imag[0] == 'abc'
+        raises(TypeError, 'a.imag = "qop"')
+        a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]]) 
+        assert a.real[0,1] == 2
+        a.real[0,1] = -20
+        assert a[0,1].real == -20
+        b = a.imag
+        assert b[1,2] == -1
+        b[1,2] = 30
+        assert a[1,2].imag == 30
+        a.real = 13
+        assert a[1,1].real == 13
+        a=array([1+1j, 2-3j, 4+5j, -6+7j, 8-9j, -2-1j]) 
+        a.real = 13
+        assert a[3].real == 13
+        a.imag = -5
+        a.imag[3] = -10
+        assert a[3].imag == -10
+        assert a[2].imag == -5
 
     def test_tolist_scalar(self):
         from _numpypy import int32, bool_
@@ -2393,7 +2429,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0]['x'] == 'a'
 
     def test_stringarray(self):
-        from _numpypy import array, flexible
+        from _numpypy import array
         a = array(['abc'],'S3')
         assert str(a.dtype) == '|S3'
         a = array(['abc'])
@@ -2413,7 +2449,6 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_flexible_repr(self):
         # import overrides str(), repr() for array
-        from numpypy.core import arrayprint
         from _numpypy import array
         a = array(['abc'],'S3')
         s = repr(a)

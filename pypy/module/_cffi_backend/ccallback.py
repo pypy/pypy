@@ -3,10 +3,10 @@ Callbacks.
 """
 import os
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
-from pypy.rlib import clibffi, rweakref, rgc
-from pypy.rlib.rarithmetic import r_ulonglong
+from pypy.rlib import clibffi, rweakref
+from pypy.rlib import jit
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
@@ -77,6 +77,7 @@ class W_CDataCallback(W_CData):
                                  space.wrap("expected a function ctype"))
         return ctype
 
+    @jit.unroll_safe
     def invoke(self, ll_args):
         space = self.space
         ctype = self.getfunctype()

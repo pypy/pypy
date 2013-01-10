@@ -808,7 +808,6 @@ def test_typedef():
     assert F.RESULT == Signed
     assert F.ARGS == (Signed,)
 
-
 class TestTrackAllocation:
     def test_automatic_tracking(self):
         # calls to start_tracking_allocations/stop_tracking_allocations

@@ -134,9 +134,14 @@ class CallControl(object):
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
             targetgraph = funcobj.graph
-            if (hasattr(targetgraph, 'func') and
-                hasattr(targetgraph.func, 'oopspec')):
-                return 'builtin'
+            if hasattr(targetgraph, 'func'):
+                # must never produce JitCode for a function with
+                # _gctransformer_hint_close_stack_ set!
+                if getattr(targetgraph.func,
+                           '_gctransformer_hint_close_stack_', False):
+                    return 'residual'
+                if hasattr(targetgraph.func, 'oopspec'):
+                    return 'builtin'
         elif op.opname == 'oosend':
             SELFTYPE, methname, opargs = support.decompose_oosend(op)
             if SELFTYPE.oopspec_name is not None:
@@ -164,6 +169,13 @@ class CallControl(object):
         try:
             return self.jitcodes[graph]
         except KeyError:
+            # must never produce JitCode for a function with
+            # _gctransformer_hint_close_stack_ set!
+            if hasattr(graph, 'func') and getattr(graph.func,
+                    '_gctransformer_hint_close_stack_', False):
+                raise AssertionError(
+                    '%s has _gctransformer_hint_close_stack_' % (graph,))
+            #
             fnaddr, calldescr = self.get_jitcode_calldescr(graph)
             jitcode = JitCode(graph.name, fnaddr, calldescr,
                               called_from=called_from)
@@ -208,6 +220,7 @@ class CallControl(object):
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
         loopinvariant = False
+        call_release_gil_target = llmemory.NULL
         if op.opname == "direct_call":
             funcobj = get_funcobj(op.args[0].value)
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
@@ -218,6 +231,10 @@ class CallControl(object):
             if loopinvariant:
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
+            if getattr(func, "_call_aroundstate_target_", None):
+                call_release_gil_target = func._call_aroundstate_target_
+                call_release_gil_target = llmemory.cast_ptr_to_adr(
+                    call_release_gil_target)
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
@@ -241,7 +258,7 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex, can_invalidate)
+            oopspecindex, can_invalidate, call_release_gil_target)
         #
         assert effectinfo is not None
         if elidable or loopinvariant:

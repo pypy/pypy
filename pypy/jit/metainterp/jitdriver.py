@@ -19,6 +19,7 @@ class JitDriverStaticData(object):
     #    self.handle_jitexc_from_bh pypy.jit.metainterp.warmspot
     #    self.no_loop_header    ... pypy.jit.metainterp.warmspot
     #    self.portal_finishtoken... pypy.jit.metainterp.pyjitpl
+    #    self.propagate_exc_descr.. pypy.jit.metainterp.pyjitpl
     #    self.index             ... pypy.jit.codewriter.call
     #    self.mainjitcode       ... pypy.jit.codewriter.call
 

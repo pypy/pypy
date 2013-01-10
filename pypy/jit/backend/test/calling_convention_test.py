@@ -113,8 +113,8 @@ class TestCallingConv(Runner):
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             argvals, expected_result = self._prepare_args(args, floats, ints)
 
-            res = self.cpu.execute_token(looptoken, *argvals)
-            x = longlong.getrealfloat(cpu.get_latest_value_float(0))
+            deadframe = self.cpu.execute_token(looptoken, *argvals)
+            x = longlong.getrealfloat(cpu.get_latest_value_float(deadframe, 0))
             assert abs(x - expected_result) < 0.0001
 
     def test_call_aligned_with_imm_values(self):
@@ -257,9 +257,9 @@ class TestCallingConv(Runner):
             self.cpu.compile_loop(called_loop.inputargs, called_loop.operations, called_looptoken)
 
             argvals, expected_result = self._prepare_args(args, floats, ints)
-            res = cpu.execute_token(called_looptoken, *argvals)
-            assert res.identifier == 3
-            t = longlong.getrealfloat(cpu.get_latest_value_float(0))
+            deadframe = cpu.execute_token(called_looptoken, *argvals)
+            assert cpu.get_latest_descr(deadframe).identifier == 3
+            t = longlong.getrealfloat(cpu.get_latest_value_float(deadframe, 0))
             assert abs(t - expected_result) < 0.0001
 
             ARGS = []
@@ -287,9 +287,10 @@ class TestCallingConv(Runner):
 
                 # prepare call to called_loop
                 argvals, _ = self._prepare_args(args, floats, ints)
-                res = cpu.execute_token(othertoken, *argvals)
-                x = longlong.getrealfloat(cpu.get_latest_value_float(0))
-                assert res.identifier == 4
+                deadframe = cpu.execute_token(othertoken, *argvals)
+                x = longlong.getrealfloat(
+                    cpu.get_latest_value_float(deadframe, 0))
+                assert cpu.get_latest_descr(deadframe).identifier == 4
                 assert abs(x - expected_result) < 0.0001
             finally:
                 del self.cpu.done_with_this_frame_float_v
