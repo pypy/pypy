@@ -11,7 +11,7 @@ from rpython.conftest import cdir
 import py
 import sys
 from rpython.rlib import jit, rposix
-from rpython.rlib.rarithmetic import intmask, is_valid_int
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsignal import *
 
 

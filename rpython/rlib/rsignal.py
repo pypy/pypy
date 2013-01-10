@@ -5,6 +5,7 @@ from rpython.conftest import cdir
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rarithmetic import is_valid_int
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
