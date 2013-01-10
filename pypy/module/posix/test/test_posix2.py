@@ -7,6 +7,7 @@ from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.conftest import pypydir
 from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.translator.c.test.test_extfunc import need_sparse_files
 import os
 import py
 import sys
@@ -42,11 +43,7 @@ def setup_module(mod):
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
-def need_sparse_files():
-    if sys.platform == 'darwin':
-        py.test.skip("no sparse files on default Mac OS X file system")
-    if os.name == 'nt':
-        py.test.skip("no sparse files on Windows")
+
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
