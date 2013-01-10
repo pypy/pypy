@@ -482,12 +482,13 @@ class LLGraphCPU(model.AbstractCPU):
             return self.bh_raw_load_i(struct, offset, descr)
 
     def unpack_arraydescr_size(self, arraydescr):
-        # so far this is used only by optimizeopt.virtualize for
-        # {GET,SET}ARRAYITEM_RAW: for now we just return dummy values for
-        # basesize and is_signed
-        assert isinstance(arraydescr, Descr)
-        XXX # ???
-        return 0, arraydescr.width, True
+        from pypy.jit.backend.llsupport.symbolic import get_array_token
+        from pypy.jit.backend.llsupport.descr import get_type_flag, FLAG_SIGNED
+        assert isinstance(arraydescr, ArrayDescr)
+        basesize, itemsize, _ = get_array_token(arraydescr.A, False)
+        flag = get_type_flag(arraydescr.A.OF)
+        is_signed = (flag == FLAG_SIGNED)
+        return basesize, itemsize, is_signed
 
     def bh_raw_store_i(self, struct, offset, newvalue, descr):
         ll_p = rffi.cast(rffi.CCHARP, struct)
