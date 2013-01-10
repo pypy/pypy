@@ -412,7 +412,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
 # ____________________________________________________________
 
 class _DoneWithThisFrameDescr(AbstractFailDescr):
-    pass
+    final_descr = True
 
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):

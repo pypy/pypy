@@ -4,7 +4,7 @@
 
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                         ResOperation, BoxPtr, ConstFloat,
+                                         BoxPtr, ConstFloat,
                                          BoxFloat, INT, REF, FLOAT,
                                          TargetToken, JitCellToken)
 from pypy.jit.backend.x86.regloc import *
@@ -13,18 +13,17 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.x86.jump import remap_frame_layout_mixed
-from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.codewriter import longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.llsupport.descr import FieldDescr, ArrayDescr
-from pypy.jit.backend.llsupport.descr import CallDescr, SizeDescr
-from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
+from pypy.jit.backend.llsupport.descr import ArrayDescr
+from pypy.jit.backend.llsupport.descr import CallDescr
 from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.jit.backend.llsupport.descr import unpack_fielddescr
 from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox, compute_vars_longevity, is_comparison_or_ovf_op
-from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
+from pypy.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
 from pypy.jit.backend.x86 import rx86
 from pypy.rlib.rarithmetic import r_longlong
@@ -133,10 +132,7 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
 class X86FrameManager(FrameManager):
     @staticmethod
     def frame_pos(i, box_type):
-        if IS_X86_32 and box_type == FLOAT:
-            return StackLoc(i, get_ebp_ofs(i+1), box_type)
-        else:
-            return StackLoc(i, get_ebp_ofs(i), box_type)
+        return StackLoc(i, get_ebp_ofs(i), box_type)
     @staticmethod
     def frame_size(box_type):
         if IS_X86_32 and box_type == FLOAT:
@@ -498,11 +494,13 @@ class RegAlloc(object):
         # the frame is in ebp, but we have to point where in the frame is
         # the potential argument to FINISH
         descr = op.getdescr()
-        self.force_spill_var(op.getarg(0))
-        loc = self.loc(op.getarg(0))
-        descr._x86_result_offset = loc.value
         fail_no = self.assembler.cpu.get_fail_descr_number(descr)
-        self.Perform(op, [imm(fail_no)], None)
+        if op.numargs() == 1:
+            loc = self.make_sure_var_in_reg(op.getarg(0))
+            locs = [loc, imm(fail_no)]
+        else:
+            locs = [imm(fail_no)]
+        self.Perform(op, locs, None)
         self.possibly_free_var(op.getarg(0))
 
     def consider_guard_no_exception(self, op):
@@ -1481,9 +1479,9 @@ for name, value in RegAlloc.__dict__.iteritems():
 
 def get_ebp_ofs(position):
     # Argument is a frame position (0, 1, 2...).
-    # Returns (ebp-20), (ebp-24), (ebp-28)...
+    # Returns (ebp+20), (ebp+24), (ebp+28)...
     # i.e. the n'th word beyond the fixed frame size.
-    return WORD * position
+    return WORD * (position + JITFRAME_FIXED_SIZE)
 
 def _valid_addressing_size(size):
     return size == 1 or size == 2 or size == 4 or size == 8

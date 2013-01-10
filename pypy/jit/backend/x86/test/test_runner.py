@@ -33,9 +33,6 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    def find_pos_on_faildescr(self, descr):
-        return descr._x86_result_offset
-
     add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
     if WORD == 4:
         bridge_loop_instructions = ['lea', 'jmp']

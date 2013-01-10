@@ -332,6 +332,8 @@ class CompiledLoopToken(object):
     asmmemmgr_blocks = None
     asmmemmgr_gcroots = 0
 
+    frame_depth = 0
+
     def __init__(self, cpu, number):
         cpu.total_compiled_loops += 1
         self.cpu = cpu

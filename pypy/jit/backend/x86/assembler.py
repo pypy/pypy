@@ -1951,6 +1951,8 @@ class Assembler386(object):
         # no malloc allowed here!!  xxx apart from one, hacking a lot
         #self.fail_ebp = allregisters[16 + ebp.value]
         num = 0
+        import pdb
+        pdb.set_trace()
         XXX
         deadframe = lltype.nullptr(jitframe.DEADFRAME)
         # step 1: lots of mess just to count the final value of 'num'
@@ -2156,7 +2158,14 @@ class Assembler386(object):
         self.mc = None
 
     def genop_finish(self, op, arglocs, result_loc):
-        [argloc] = arglocs
+        if len(arglocs) == 2:
+            [return_val, argloc] = arglocs
+            if op.getarg(0).type == FLOAT:
+                self.mc.MOVSD_bx(0, return_val.value)
+            else:
+                self.mc.MOV_br(0, return_val.value)
+        else:
+            [argloc] = arglocs
         if argloc is not eax:
             self.mov(argloc, eax)
         # exit function

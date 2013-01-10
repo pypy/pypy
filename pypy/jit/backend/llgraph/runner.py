@@ -49,6 +49,7 @@ class LLTrace(object):
 class WeakrefDescr(AbstractDescr):
     def __init__(self, realdescr):
         self.realdescrref = weakref.ref(realdescr)
+        self.final_descr = getattr(realdescr, 'final_descr', False)
 
 class ExecutionFinished(Exception):
     def __init__(self, deadframe):

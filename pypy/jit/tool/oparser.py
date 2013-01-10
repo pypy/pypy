@@ -49,7 +49,9 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
         return newop
 
 
-def default_fail_descr(model, fail_args=None):
+def default_fail_descr(model, opnum, fail_args=None):
+    if opnum == rop.FINISH:
+        return model.BasicFinalDescr()
     return model.BasicFailDescr()
 
 
@@ -244,14 +246,14 @@ class OpParser(object):
                                 "Unknown var in fail_args: %s" % arg)
                     fail_args.append(fail_arg)
             if descr is None and self.invent_fail_descr:
-                descr = self.invent_fail_descr(self.model, fail_args)
+                descr = self.invent_fail_descr(self.model, opnum, fail_args)
             if hasattr(descr, '_oparser_uses_descr_of_guard'):
                 descr._oparser_uses_descr_of_guard(self, fail_args)
         else:
             fail_args = None
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.invent_fail_descr(self.model, fail_args)
+                    descr = self.invent_fail_descr(self.model, opnum, fail_args)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
                     descr = self.original_jitcell_token

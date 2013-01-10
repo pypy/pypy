@@ -8,7 +8,8 @@ from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS, IS_X86_32
+from pypy.jit.backend.x86.arch import (FORCE_INDEX_OFS, IS_X86_32,
+                                       JITFRAME_FIXED_SIZE)
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.llsupport import jitframe
@@ -114,7 +115,8 @@ class AbstractX86CPU(AbstractLLCPU):
             addr = executable_token._x86_function_addr
             func = rffi.cast(FUNCPTR, addr)
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-            frame = lltype.malloc(jitframe.JITFRAME, clt.frame_depth)
+            frame = lltype.malloc(jitframe.JITFRAME, clt.frame_depth +
+                                  JITFRAME_FIXED_SIZE)
             frame.jf_frame_info = clt.frame_info
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             prev_interpreter = None   # help flow space
@@ -123,7 +125,7 @@ class AbstractX86CPU(AbstractLLCPU):
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
                 # XXX RPythonize
-                num = 0
+                num = JITFRAME_FIXED_SIZE * WORD
                 for arg in args:
                     if isinstance(arg, int):
                         self.set_int_value(frame, num, arg)
@@ -207,17 +209,17 @@ class AbstractX86CPU(AbstractLLCPU):
         """
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
-        self.write_int_at_mem(newframe, ofs + index * WORD, WORD, 1, value)
+        self.write_int_at_mem(newframe, ofs + index, WORD, 1, value)
 
     def set_ref_value(self, newframe, index, value):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
-        self.write_ref_at_mem(newframe, ofs + index * WORD, value)
+        self.write_ref_at_mem(newframe, ofs + index, value)
 
     def set_float_value(self, newframe, index, value):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
-        self.write_float_at_mem(newframe, ofs + index * WORD, value)
+        self.write_float_at_mem(newframe, ofs + index, value)
 
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'

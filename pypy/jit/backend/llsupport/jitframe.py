@@ -32,7 +32,7 @@ JITFRAME = lltype.GcStruct(
     # exception is not stored there, but is simply kept as a variable there)
     ('jf_guard_exc', llmemory.GCREF),
     # the actual frame
-    ('jf_frame', lltype.Array(lltype.Signed))
+    ('jf_frame', lltype.Array(lltype.Signed, hints={'nolength': True}))
 )
 
 JITFRAMEPTR = lltype.Ptr(JITFRAME)

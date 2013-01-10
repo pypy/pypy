@@ -1279,17 +1279,6 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def write_a_float(self, index, float):
         self.blackholeinterp.setarg_f(index, float)
 
-def resume_renum(list_of_positions, storage):
-    num = storage.rd_numb
-    while num:
-        i = 0
-        while i < len(num.nums):
-            pos, flags = untag(num.nums[i])
-            if flags == TAGBOX:
-                num.nums[i] = tag(list_of_positions[pos], TAGBOX)
-            i += 1
-        num = num.prev
-
 # ____________________________________________________________
 
 def dump_storage(storage, liveboxes):

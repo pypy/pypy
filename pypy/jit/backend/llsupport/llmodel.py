@@ -274,20 +274,30 @@ class AbstractLLCPU(AbstractCPU):
         descr = deadframe.jf_descr
         return history.AbstractDescr.show(self, descr)
 
+    def _decode_pos(self, deadframe, index):
+        descr = self.get_latest_descr(deadframe)
+        if descr.final_descr:
+            assert index == 0
+            return 0
+        xxx
+
     def get_int_value(self, deadframe, index):
+        pos = self._decode_pos(deadframe, index)
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
-        return self.read_int_at_mem(deadframe, index + ofs, 1, WORD)
+        return self.read_int_at_mem(deadframe, pos + ofs, 1, WORD)
 
     def get_ref_value(self, deadframe, index):
+        pos = self._decode_pos(deadframe, index)
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
-        return self.read_ref_at_mem(deadframe, index + ofs)
+        return self.read_ref_at_mem(deadframe, pos + ofs)
 
     def get_float_value(self, deadframe, index):
+        pos = self._decode_pos(deadframe, index)
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
-        return self.read_float_at_mem(deadframe, index + ofs)
+        return self.read_float_at_mem(deadframe, pos + ofs)
 
     # ____________________ RAW PRIMITIVES ________________________
 

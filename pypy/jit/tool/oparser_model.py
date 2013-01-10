@@ -6,7 +6,7 @@ def get_real_model():
         from pypy.jit.metainterp.history import TreeLoop, JitCellToken
         from pypy.jit.metainterp.history import Box, BoxInt, BoxFloat
         from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
-        from pypy.jit.metainterp.history import BasicFailDescr, TargetToken
+        from pypy.jit.metainterp.history import BasicFailDescr, BasicFinalDescr, TargetToken
         from pypy.jit.metainterp.typesystem import llhelper
 
         from pypy.jit.metainterp.history import get_const_ptr_for_string
@@ -47,6 +47,9 @@ def get_mock_model():
                 pass
 
         class BasicFailDescr(object):
+            I_am_a_descr = True
+
+        class BasicFinalDescr(object):
             I_am_a_descr = True
 
         class Box(object):

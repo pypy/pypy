@@ -166,11 +166,18 @@ class AbstractDescr(AbstractValue):
 
 class AbstractFailDescr(AbstractDescr):
     index = -1
+    final_descr = False
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
+
+class BasicFinalDescr(AbstractFailDescr):
+    final_descr = True
+    
+    def __init__(self, identifier=None):
+        self.identifier = identifier      # for testing
 
 class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):

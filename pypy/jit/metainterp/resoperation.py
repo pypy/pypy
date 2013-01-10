@@ -6,6 +6,10 @@ def ResOperation(opnum, args, result, descr=None):
     op.initarglist(args)
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
+        if opnum == rop.FINISH:
+            assert descr.final_descr
+        elif op.is_guard():
+            assert not descr.final_descr
         op.setdescr(descr)
     return op
 
