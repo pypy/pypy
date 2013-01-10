@@ -1013,7 +1013,7 @@ class LowLevelOpList(list):
 # and the rtyper_chooserepr() methods
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rrange
-from pypy.rpython import rstr, rdict, rlist
+from pypy.rpython import rstr, rdict, rlist, rbytearray
 from pypy.rpython import rclass, rbuiltin, rpbc
 from pypy.rpython import rexternalobj
 from pypy.rpython import rptr

@@ -1,4 +1,4 @@
-import sys
+
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi, jit
 

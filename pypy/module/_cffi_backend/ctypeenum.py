@@ -67,7 +67,7 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-        if space.isinstance_w(w_ob, space.w_str):
+        if space.isinstance_w(w_ob, space.w_basestring):
             value = self.convert_enum_string_to_int(space.str_w(w_ob))
             value = r_ulonglong(value)
             misc.write_raw_signed_data(cdata, value, self.size)
@@ -78,11 +78,14 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         space = self.space
         return self.convert_enum_string_to_int(space.str_w(w_ob))
 
+    def cast_unicode(self, w_ob):
+        return self.cast_str(w_ob)
+
     def convert_enum_string_to_int(self, s):
         space = self.space
         if s.startswith('#'):
             try:
-                return int(s[1:])     # xxx is it RPython?
+                return int(s[1:])
             except ValueError:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("invalid literal after '#'"))

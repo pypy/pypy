@@ -194,7 +194,7 @@ class AppTestFcntl:
             os._exit(0)
         try:
             # We're the parent, we want TIOCGPGRP calls after child started but before it dies
-            time.sleep(0)
+            time.sleep(0.5)
 
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)

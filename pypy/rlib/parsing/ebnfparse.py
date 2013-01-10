@@ -246,9 +246,10 @@ class ParserBuilder(object):
                     real_expansions.append(expansion)
                     real_changes.append(change)
                     continue
-                assert n != len(expansion), (
-                    "currently an expansion needs at least one"
-                    "symbol that always has to occur")
+                if n == len(expansion):
+                    raise ValueError("Rule %r's expansion needs "
+                        "at least one symbol with >0 repetitions"
+                        % rule.nonterminal)
                 slices = []
                 start = 0
                 for i, (maybe, symbol) in enumerate(

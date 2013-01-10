@@ -137,8 +137,10 @@ class AbstractValue(object):
     def same_box(self, other):
         return self is other
 
+
 class AbstractDescr(AbstractValue):
     __slots__ = ()
+    llopaque = True
 
     def repr_of_descr(self):
         return '%r' % (self,)
@@ -151,10 +153,21 @@ class AbstractDescr(AbstractValue):
             assert clone.__class__ is self.__class__
         return clone
 
+    def hide(self, cpu):
+        descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
+        return cpu.ts.cast_to_ref(descr_ptr)
+
+    @staticmethod
+    def show(cpu, descr_gcref):
+        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+        descr_ptr = cpu.ts.cast_to_baseclass(descr_gcref)
+        return cast_base_ptr_to_instance(AbstractDescr, descr_ptr)
+
+
 class AbstractFailDescr(AbstractDescr):
     index = -1
 
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
@@ -451,7 +464,7 @@ class BoxInt(Box):
             if is_valid_int(value):
                 value = int(value)    # bool -> int
             else:
-                assert isinstance(value, Symbolic)
+                assert lltype.typeOf(value) == lltype.Signed
         self.value = value
 
     def forget_value(self):

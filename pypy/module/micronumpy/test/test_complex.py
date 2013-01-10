@@ -139,7 +139,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_fmax(self):
         from _numpypy import fmax, array
-        import math
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
         a = array((complex(ninf, 10), complex(10, ninf), 
                    complex( inf, 10), complex(10,  inf),
@@ -167,7 +166,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_fmin(self):
         from _numpypy import fmin, array
-        import math
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
         a = array((complex(ninf, 10), complex(10, ninf), 
                    complex( inf, 10), complex(10,  inf),
@@ -198,7 +196,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, signbit, complex(1,1))
 
     def test_reciprocal(self):
-        from _numpypy import array, reciprocal, complex64, complex128
+        from _numpypy import array, reciprocal, complex64, complex128, clongdouble
 
         inf = float('inf')
         nan = float('nan')
@@ -214,7 +212,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     complex(-r, i), 
                     -0j, 0j, cnan, 
                     cnan, cnan, cnan]
-        for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), ):
+        for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), (clongdouble, 2e-15)):
             actual = reciprocal(array([orig], dtype=c))
             for b, a, e in zip(orig, actual, expected):
                 assert (a[0].real - e.real) < rel_err
@@ -234,13 +232,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, copysign, a, b)
 
     def test_exp2(self):
-        import math 
-        from _numpypy import array, exp2, complex128, complex64
+        from _numpypy import array, exp2, complex128, complex64, clongfloat
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7), (clongfloat, 2e-15)):
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -499,7 +496,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_basic(self):
         from _numpypy import (complex128, complex64, add, array, dtype,
             subtract as sub, multiply, divide, negative, abs, floor_divide,
-            real, imag, sign)
+            real, imag, sign, clongfloat)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
         assert real(4.0) == 4.0
@@ -507,7 +504,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array([complex(3.0, 4.0)])
         b = a.real
         assert b.dtype == dtype(float)
-        for complex_ in complex64, complex128:
+        for complex_ in complex64, complex128, clongfloat:
 
             O = complex(0, 0)
             c0 = complex_(complex(2.5, 0))
