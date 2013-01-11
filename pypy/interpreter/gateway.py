@@ -14,7 +14,8 @@ import types
 import py
 
 from pypy.interpreter.eval import Code
-from pypy.interpreter.argument import Arguments, Signature
+from pypy.interpreter.argument import Arguments
+from rpython.rtyper.signature import Signature
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
     SpaceCache, DescrMismatch)
 from pypy.interpreter.error import OperationError

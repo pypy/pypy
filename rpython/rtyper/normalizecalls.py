@@ -1,5 +1,5 @@
 from rpython.annotator import model as annmodel, description
-from pypy.interpreter.argument import Signature
+from rpython.rtyper.signature import Signature
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
     checkgraph, FunctionGraph, SpaceOperation)
 from rpython.rlib.objectmodel import ComputedIntSymbolic

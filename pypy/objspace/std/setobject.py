@@ -4,11 +4,11 @@ from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Signature
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 from rpython.rlib import rerased
 from rpython.rlib.objectmodel import instantiate
+from rpython.rtyper.signature import Signature
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject

@@ -12,7 +12,7 @@ from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
                                    resizelist_hint)
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib import rerased, jit, debug
-from pypy.interpreter.argument import Signature
+from rpython.rtyper.signature import Signature
 from rpython.tool.sourcetools import func_with_new_name
 
 UNROLL_CUTOFF = 5
