@@ -1,0 +1,46 @@
+
+RPyAssert(i < len(lst)): if lst is global this turns into tons of code
+
+------------------------------------------------------------
+
+signal module: plan:
+
+    signal handler:
+        
+        d = main thread's thread_descriptor
+        d->reads_size_limit = GOT_SIGNAL ( = -1)
+        this makes stm_should_break_transaction(d) return 1
+
+
+    def _runs_normal_handler():
+        if rstm.should_break_transaction():
+            if d->reads_size_limit == GOT_SIGNAL:
+                checksignals()
+                return not rstm.should_break_transaction()
+            return False
+        return True
+
+
+    def checksignals():
+        if d->reads_size_limit == GOT_SIGNAL:
+            turn inevitable
+            reset d->reads_size_limit
+            handle the signal
+
+------------------------------------------------------------
+
+after an abort, keep old global_to_local and access it using special code
+
+------------------------------------------------------------
+
+GC: major collections
+
+------------------------------------------------------------
+
+JIT: finish (missing: the call in execute_token(), reorganize pypy source, ?)
+
+------------------------------------------------------------
+
+investigate abusing jitdriver to do rstm.perform_transaction()
+
+------------------------------------------------------------
