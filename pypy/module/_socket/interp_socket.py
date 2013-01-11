@@ -21,23 +21,23 @@ class SignalChecker:
 
 # XXX Hack to seperate rpython and pypy
 def addr_as_object(addr, fd, space):
-    if addr.family == rsocket.AF_INET:
+    if hasattr(addr, 'family') and addr.family == rsocket.AF_INET:
         return space.newtuple([space.wrap(addr.get_host()),
                                space.wrap(addr.get_port())])
-    if addr.family == rsocket.AF_INET6:
+    if hasattr(addr, 'family') and addr.family == rsocket.AF_INET6:
         return space.newtuple([space.wrap(addr.get_host()),
                                space.wrap(addr.get_port()),
                                space.wrap(addr.get_flowinfo()),
                                space.wrap(addr.get_scope_id())])
-    if 'AF_PACKET' in rsocket.constants and addr.family == rsocket.AF_PACKET:
+    if hasattr(addr, 'family') and hasattr(rsocket, 'AF_PACKET') and addr.family == rsocket.AF_PACKET:
         return space.newtuple([space.wrap(addr.get_ifname(fd)),
                                space.wrap(addr.get_protocol()),
                                space.wrap(addr.get_pkttype()),
                                space.wrap(addr.get_hatype()),
                                space.wrap(addr.get_addr())])
-    if 'AF_UNIX' in rsocket.constants and addr.family == rsocket.AF_UNIX:
+    if hasattr(addr, 'family') and hasattr(rsocket, 'AF_UNIX') and addr.family == rsocket.AF_UNIX:
         return space.wrap(addr.get_path())
-    if 'AF_NETLINK' in rsocket.constants and addr.family == rsocket.AF_NETLINK:
+    if hasattr(addr, 'family') and hasattr(rsocket, 'AF_NETLINK') and addr.family == rsocket.AF_NETLINK:
         return space.newtuple([space.wrap(addr.get_pid()),
                                space.wrap(addr.get_groups())])
     # If we don't know the address family, don't raise an
@@ -53,16 +53,16 @@ def addr_as_object(addr, fd, space):
 # XXX Hack to seperate rpython and pypy
 # XXX a bit of code duplication
 def fill_from_object(addr, space, w_address):
-    if addr.family == rsocket.AF_INET:
-        from pypy.interpreter.error import OperationError
+    from rpython.rlib import _rsocket_rffi as _c
+    from pypy.interpreter.error import OperationError
+    if hasattr(addr, 'family') and addr.family == rsocket.AF_INET:
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         a = addr.lock(_c.sockaddr_in)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         addr.unlock()
-    elif addr.family == rsocket.AF_INET6:
-        from pypy.interpreter.error import OperationError
+    elif hasattr(addr, 'family') and addr.family == rsocket.AF_INET6:
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
