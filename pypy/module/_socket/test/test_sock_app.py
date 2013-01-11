@@ -242,6 +242,7 @@ def test_unknown_addr_as_object():
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 
 def test_addr_raw_packet():
+    from pypy.module._socket.interp_socket import addr_as_object
     if not hasattr(rsocket._c, 'sockaddr_ll'):
         py.test.skip("posix specific test")
     # HACK: To get the correct interface numer of lo, which in most cases is 1,
@@ -266,7 +267,7 @@ def test_addr_raw_packet():
     # fd needs to be somehow valid
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     fd = s.fileno()
-    w_obj = rsocket.make_address(c_addr, addrlen).as_object(fd, space)
+    w_obj = addr_as_object(rsocket.make_address(c_addr, addrlen), (fd, space))
     lltype.free(c_addr_ll, flavor='raw')
     assert space.is_true(space.eq(w_obj, space.newtuple([
         space.wrap('lo'),

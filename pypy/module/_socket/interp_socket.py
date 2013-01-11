@@ -3,6 +3,7 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib.rarithmetic import intmask
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
@@ -129,6 +130,7 @@ def make_ushort_port(space, port):
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
+    from rpython.rlib.rsocket import makeipaddr
     host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
     addr = makeipaddr(host)
     addr_fill_from_object(addr, space, w_sockaddr)
