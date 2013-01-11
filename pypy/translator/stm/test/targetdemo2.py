@@ -65,10 +65,10 @@ def check_chained_list(node):
     print "check ok!"
 
 
-jitdriver_hash   = jit.JitDriver(greens=[], reds=['self'])
-jitdriver_inev   = jit.JitDriver(greens=[], reds=['self'])
+jitdriver_hash   = jit.JitDriver(greens=[], reds=['value', 'self'])
+jitdriver_inev   = jit.JitDriver(greens=[], reds=['value', 'self'])
 jitdriver_ptreq  = jit.JitDriver(greens=[], reds=['self'])
-jitdriver_really = jit.JitDriver(greens=[], reds=['self'])
+jitdriver_really = jit.JitDriver(greens=[], reds=['value', 'self'])
 
 
 class ThreadRunner(object):
@@ -81,12 +81,9 @@ class ThreadRunner(object):
 
     def run(self):
         try:
-            self.value = 0
             self.lst = []
             self.do_check_hash()
-            self.value = 0
             self.do_check_inev()
-            self.value = 0
             self.arg = Arg()
             self.glob_p = lltype.malloc(STRUCT)
             self.do_check_ptr_equality()
@@ -95,44 +92,47 @@ class ThreadRunner(object):
             self.finished_lock.release()
 
     def do_run_really(self):
+        value = 0
         while True:
-            jitdriver_really.jit_merge_point(self=self)
-            if not self.run_really(0):
+            jitdriver_really.jit_merge_point(self=self, value=value)
+            if not self.run_really(value):
                 break
+            value += 1
 
-    def run_really(self, retry_counter):
-        if self.value == glob.LENGTH // 2:
+    def run_really(self, value):
+        if value == glob.LENGTH // 2:
             print "atomic!"
             assert not rstm.is_atomic()
             rstm.increment_atomic()
             assert rstm.is_atomic()
-        if self.value == glob.LENGTH * 2 // 3:
+        if value == glob.LENGTH * 2 // 3:
             print "--------------- done atomic"
             assert rstm.is_atomic()
             rstm.decrement_atomic()
             assert not rstm.is_atomic()
         #
-        add_at_end_of_chained_list(glob.anchor, self.value, self.index)
-        self.value += 1
-        return self.value < glob.LENGTH
+        add_at_end_of_chained_list(glob.anchor, value, self.index)
+        return (value+1) < glob.LENGTH
 
     def do_check_ptr_equality(self):
         jitdriver_ptreq.jit_merge_point(self=self)
         self.check_ptr_equality(0)
 
-    def check_ptr_equality(self, retry_counter):
+    def check_ptr_equality(self, foo):
         assert self.glob_p != lltype.nullptr(STRUCT)
         res = _check_pointer(self.arg)    # 'self.arg' reads a GLOBAL object
         ll_assert(res is self.arg, "ERROR: bogus pointer equality")
-        raw1 = rffi.cast(rffi.CCHARP, retry_counter)
+        raw1 = rffi.cast(rffi.CCHARP, foo)
         raw2 = rffi.cast(rffi.CCHARP, -1)
-        ll_assert(raw1 != raw2, "ERROR: retry_counter == -1")
+        ll_assert(raw1 != raw2, "ERROR: foo == -1")
 
     def do_check_inev(self):
+        value = 0
         while True:
-            jitdriver_inev.jit_merge_point(self=self)
-            if not self.check_inev(0):
+            jitdriver_inev.jit_merge_point(self=self, value=value)
+            if not self.check_inev(value):
                 break
+            value += 1
 
     def _check_content(self, content):
         ll_assert(glob.othernode2.value == content, "bogus value after inev")
@@ -144,38 +144,40 @@ class ThreadRunner(object):
         self._check_content(read_value)
     _check_inev._dont_inline_ = True
 
-    def check_inev(self, retry_counter):
-        self.value += 1
-        new_value = self.index * 1000000 + self.value
+    def check_inev(self, value):
+        value += 1
+        new_value = self.index * 1000000 + value
         self._check_inev()
         glob.othernode1.value = new_value
         for n in glob.othernodes:   # lots of unrelated writes in-between
             n.value = new_value
         glob.othernode2.value = new_value
-        return self.value < glob.LENGTH
+        return value < glob.LENGTH
 
     def do_check_hash(self):
+        value = 0
         while True:
-            jitdriver_hash.jit_merge_point(self=self)
-            if not self.check_hash(0):
+            jitdriver_hash.jit_merge_point(self=self, value=value)
+            value = self.check_hash(value)
+            if value >= glob.LENGTH:
                 break
 
-    def check_hash(self, retry_counter):
-        if self.value == 0:
+    def check_hash(self, value):
+        if value == 0:
             glob.othernode2hash = compute_identity_hash(glob.othernode2)
         assert glob.othernode1hash == compute_identity_hash(glob.othernode1)
         assert glob.othernode2hash == compute_identity_hash(glob.othernode2)
-        x = Node(retry_counter)
+        x = Node(0)
         lst = self.lst
         lst.append((x, compute_identity_hash(x)))
         for i in range(len(lst)):
             x, expected_hash = lst[i]
             assert compute_identity_hash(x) == expected_hash
-            if i % 7 == retry_counter:
+            if i % 7 == 0:
                 x.value += 1
             assert compute_identity_hash(x) == expected_hash
-        self.value += 20
-        return self.value < glob.LENGTH
+        value += 20
+        return value
 
 class Arg:
     foobar = 42
