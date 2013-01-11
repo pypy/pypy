@@ -131,14 +131,19 @@ class AbstractAttribute(object):
         return None
 
     @jit.elidable
-    def _get_new_attr(self, name, index, attrclass):
-        key = name, index, attrclass.key_for_attr_cache
+    def _get_new_attr(self, name, index, attrclass_key):
+        key = name, index, attrclass_key
         cache = self.cache_attrs
         if cache is None:
             cache = self.cache_attrs = {}
         attr = cache.get(key, None)
         if attr is None:
-            attr = attrclass((name, index), self)
+            # XXX not so nice that the classes have to be listed
+            if attrclass_key == PlainAttribute.attrclass_key:
+                attr = PlainAttribute((name, index), self)
+            else:
+                assert attrclass_key == IntAttribute.attrclass_key
+                attr = IntAttribute((name, index), self)
             cache[key] = attr
         return attr
 
@@ -149,7 +154,8 @@ class AbstractAttribute(object):
     def add_attr(self, obj, selector, w_value):
         attrclass = get_attrclass_from_value(self.space, w_value)
         # grumble, jit needs this
-        attr = self._get_new_attr(selector[0], selector[1], attrclass)
+        attr = self._get_new_attr(selector[0], selector[1],
+                                  attrclass.attrclass_key)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             size_est = (oldattr._size_estimate + attr.size_estimate()
@@ -332,7 +338,7 @@ class AbstractStoredAttribute(AbstractAttribute):
         return "<PlainAttribute %s %s %r>" % (self.selector, self.position, self.back)
 
 class PlainAttribute(AbstractStoredAttribute):
-    key_for_attr_cache = 0
+    attrclass_key = 0
 
     erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage object item")
     erase_item = staticmethod(erase_item)
@@ -348,7 +354,7 @@ class PlainAttribute(AbstractStoredAttribute):
         obj._mapdict_write_storage(self.position, erased)
 
 class IntAttribute(AbstractStoredAttribute):
-    key_for_attr_cache = 1
+    attrclass_key = 1
 
     erase_item, unerase_item = rerased.erase_int, rerased.unerase_int
     erase_item = staticmethod(erase_item)
