@@ -2,7 +2,7 @@ from rpython.rlib.rsre import rsre_char
 from rpython.rlib.rsre.rsre_char import SRE_FLAG_LOCALE, SRE_FLAG_UNICODE
 
 def setup_module(mod):
-    from pypy.module.unicodedata import unicodedb
+    from rpython.rlib.unicodedata import unicodedb
     rsre_char.set_unicode_db(unicodedb)
 
 UPPER_PI = 0x3a0
