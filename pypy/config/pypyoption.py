@@ -238,6 +238,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    requires=[("objspace.std.getattributeshortcut", True),
                              ("objspace.std.withmethodcache", True),
+                             ("translation.taggedpointers", True),
                        ]),
 
         BoolOption("withrangelist",
