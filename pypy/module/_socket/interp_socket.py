@@ -7,7 +7,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
-from rpython.rlib.rsocket import INETAddress, INET6Address
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 
@@ -54,7 +53,6 @@ def addr_as_object(addr, fd, space):
 # XXX a bit of code duplication
 def fill_from_object(addr, space, w_address):
     from rpython.rlib import _rsocket_rffi as _c
-    from pypy.interpreter.error import OperationError
     if hasattr(addr, 'family') and addr.family == rsocket.AF_INET:
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
@@ -92,9 +90,8 @@ def addr_from_object(family, space, w_address):
         host = space.str_w(w_host)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
-        return INETAddress(host, port)
+        return rsocket.INETAddress(host, port)
     if family == rsocket.AF_INET6:
-        from pypy.interpreter.error import OperationError
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise TypeError("AF_INET6 address must be a tuple of length 2 "
@@ -110,19 +107,16 @@ def addr_from_object(family, space, w_address):
             raise OperationError(space.w_OverflowError, space.wrap(
                 "flowinfo must be 0-1048575."))
         flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
-        return INET6Address(host, port, flowinfo, scope_id)
+        return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if 'AF_UNIX' in rsocket.constants and family == rsocket.AF_UNIX:
-        from rpython.rlib.rsocket import UNIXAddress
-        return UNIXAddress(space.str_w(w_address))
+        return rsocket.UNIXAddress(space.str_w(w_address))
     if 'AF_NETLINK' in rsocket.constants and family == rsocket.AF_NETLINK:
-        from rpython.rlib.rsocket import NETLINKAddress
         w_pid, w_groups = space.unpackiterable(w_address, 2)
-        return NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
+        return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
     raise RSocketError("unknown address family")
 
 # XXX Hack to seperate rpython and pypy
 def make_ushort_port(space, port):
-    from pypy.interpreter.error import OperationError
     if port < 0 or port > 0xffff:
         raise OperationError(space.w_ValueError, space.wrap(
             "port must be 0-65535."))
@@ -130,9 +124,8 @@ def make_ushort_port(space, port):
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
-    from rpython.rlib.rsocket import makeipaddr
     host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
-    addr = makeipaddr(host)
+    addr = rsocket.makeipaddr(host)
     fill_from_object(addr, space, w_sockaddr)
     return addr
 
