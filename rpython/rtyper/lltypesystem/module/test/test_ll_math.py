@@ -1,7 +1,7 @@
 """ Try to test systematically all cases of ll_math.py.
 """
 
-import math
+import sys, math
 from rpython.rtyper.lltypesystem.module import ll_math
 from rpython.translator.c.test.test_genc import compile
 from rpython.rlib.rfloat import isinf, isnan, INFINITY, NAN
