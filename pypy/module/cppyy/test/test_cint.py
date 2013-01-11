@@ -335,6 +335,7 @@ class AppTestCINTTTree:
 
         mytree.Branch("my_bool",   ba, "my_bool/O")
         mytree.Branch("my_int",    ia, "my_int/I")
+        mytree.Branch("my_int2",   ia, "my_int2/I")
         mytree.Branch("my_double", da, "my_double/D")
 
         for i in range(self.N):
@@ -366,6 +367,21 @@ class AppTestCINTTTree:
         assert (i-1) == self.N
 
         f.Close()
+
+    def test09_user_read_builtin(self):
+        """Test user-directed reading of builtins"""
+
+        from cppyy import gbl
+        from cppyy.gbl import TFile
+
+        f = TFile(self.fname)
+        mytree = f.Get(self.tname)
+
+        # note, this is an old, annoted tree from test08
+        for i in range(3, mytree.GetEntriesFast()):
+            mytree.GetEntry(i)
+            assert mytree.my_int  == i+1
+            assert mytree.my_int2 == i+1
 
 
 class AppTestRegression:

@@ -188,19 +188,26 @@ def ttree_getattr(space, w_self, args_w):
     if not space.is_true(w_branch):
         raise OperationError(space.w_AttributeError, args_w[0])
     activate_branch(space, w_branch)
+
+    # figure out from where we're reading
+    entry = space.int_w(space.call_method(w_self, "GetReadEntry"))
+    if entry == -1:
+        entry = 0
+
+    # setup cache structure
     w_klassname = space.call_method(w_branch, "GetClassName")
     if space.is_true(w_klassname):
         # some instance
         klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
         w_obj = klass.construct()
         space.call_method(w_branch, "SetObject", w_obj)
-        space.call_method(w_branch, "GetEntry", space.wrap(0))
+        space.call_method(w_branch, "GetEntry", space.wrap(entry))
         space.setattr(w_self, args_w[0], w_obj)
         return w_obj
     else:
         # builtin data
         w_leaf = space.call_method(w_self, "GetLeaf", args_w[0])
-        space.call_method(w_branch, "GetEntry", space.wrap(0))
+        space.call_method(w_branch, "GetEntry", space.wrap(entry))
 
         # location
         w_address = space.call_method(w_leaf, "GetValuePointer")
