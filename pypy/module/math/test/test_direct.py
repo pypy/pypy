@@ -4,7 +4,7 @@
 import py, sys, math
 from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem.module.test.test_ll_math import (MathTests,
-                                                                  getTester)
+                                                                  get_tester)
 
 consistent_host = True
 if '__pypy__' not in sys.builtin_module_names:
