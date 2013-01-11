@@ -2,7 +2,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.module.struct.formatiterator import PackFormatIterator, UnpackFormatIterator
 from rpython.rlib import jit
-from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
 
