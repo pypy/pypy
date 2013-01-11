@@ -41,6 +41,7 @@ def addr_as_object(addr, fd, space):
                                space.wrap(addr.get_groups())])
     # If we don't know the address family, don't raise an
     # exception -- return it as a tuple.
+    from rpython.rlib import _rsocket_rffi as _c
     a = addr.lock()
     family = rffi.cast(lltype.Signed, a.c_sa_family)
     datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
