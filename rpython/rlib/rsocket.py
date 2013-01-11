@@ -112,38 +112,6 @@ class Address(object):
         """
         keepalive_until_here(self)
 
-    def as_object(self, fd, space):
-        """Convert the address to an app-level object."""
-        # If we don't know the address family, don't raise an
-        # exception -- return it as a tuple.
-        addr = self.lock()
-        family = rffi.cast(lltype.Signed, addr.c_sa_family)
-        datalen = self.addrlen - offsetof(_c.sockaddr, 'c_sa_data')
-        rawdata = ''.join([addr.c_sa_data[i] for i in range(datalen)])
-        self.unlock()
-        return space.newtuple([space.wrap(family),
-                               space.wrap(rawdata)])
-
-    def from_object(space, w_address):
-        """Convert an app-level object to an Address."""
-        # It's a static method but it's overridden and must be called
-        # on the correct subclass.
-        raise RSocketError("unknown address family")
-    from_object = staticmethod(from_object)
-
-    @staticmethod
-    def make_ushort_port(space, port):
-        from pypy.interpreter.error import OperationError
-        if port < 0 or port > 0xffff:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "port must be 0-65535."))
-        return rffi.cast(rffi.USHORT, port)
-
-    def fill_from_object(self, space, w_address):
-        """ Purely abstract
-        """
-        raise NotImplementedError
-
 # ____________________________________________________________
 
 def makeipaddr(name, result=None):
@@ -268,12 +236,6 @@ if 'AF_PACKET' in constants:
             self.unlock()
             return res
 
-        def as_object(self, fd, space):
-            return space.newtuple([space.wrap(self.get_ifname(fd)),
-                                   space.wrap(self.get_protocol()),
-                                   space.wrap(self.get_pkttype()),
-                                   space.wrap(self.get_hatype()),
-                                   space.wrap(self.get_addr())])
 
 class INETAddress(IPAddress):
     family = AF_INET
@@ -303,29 +265,6 @@ class INETAddress(IPAddress):
         return (isinstance(other, INETAddress) and
                 self.get_host() == other.get_host() and
                 self.get_port() == other.get_port())
-
-    def as_object(self, fd, space):
-        return space.newtuple([space.wrap(self.get_host()),
-                               space.wrap(self.get_port())])
-
-    def from_object(space, w_address):
-        # Parse an app-level object representing an AF_INET address
-        w_host, w_port = space.unpackiterable(w_address, 2)
-        host = space.str_w(w_host)
-        port = space.int_w(w_port)
-        port = Address.make_ushort_port(space, port)
-        return INETAddress(host, port)
-    from_object = staticmethod(from_object)
-
-    def fill_from_object(self, space, w_address):
-        # XXX a bit of code duplication
-        from pypy.interpreter.error import OperationError
-        _, w_port = space.unpackiterable(w_address, 2)
-        port = space.int_w(w_port)
-        port = self.make_ushort_port(space, port)
-        a = self.lock(_c.sockaddr_in)
-        rffi.setintfield(a, 'c_sin_port', htons(port))
-        self.unlock()
 
     def from_in_addr(in_addr):
         result = instantiate(INETAddress)
@@ -392,55 +331,6 @@ class INET6Address(IPAddress):
                 self.get_port() == other.get_port() and
                 self.get_flowinfo() == other.get_flowinfo() and
                 self.get_scope_id() == other.get_scope_id())
-
-    def as_object(self, fd, space):
-        return space.newtuple([space.wrap(self.get_host()),
-                               space.wrap(self.get_port()),
-                               space.wrap(self.get_flowinfo()),
-                               space.wrap(self.get_scope_id())])
-
-    def from_object(space, w_address):
-        from pypy.interpreter.error import OperationError
-        pieces_w = space.unpackiterable(w_address)
-        if not (2 <= len(pieces_w) <= 4):
-            raise TypeError("AF_INET6 address must be a tuple of length 2 "
-                               "to 4, not %d" % len(pieces_w))
-        host = space.str_w(pieces_w[0])
-        port = space.int_w(pieces_w[1])
-        port = Address.make_ushort_port(space, port)
-        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
-        else:                 flowinfo = 0
-        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
-        else:                 scope_id = 0
-        if flowinfo < 0 or flowinfo > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "flowinfo must be 0-1048575."))
-        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
-        return INET6Address(host, port, flowinfo, scope_id)
-    from_object = staticmethod(from_object)
-
-    def fill_from_object(self, space, w_address):
-        # XXX a bit of code duplication
-        from pypy.interpreter.error import OperationError
-        pieces_w = space.unpackiterable(w_address)
-        if not (2 <= len(pieces_w) <= 4):
-            raise RSocketError("AF_INET6 address must be a tuple of length 2 "
-                               "to 4, not %d" % len(pieces_w))
-        port = space.int_w(pieces_w[1])
-        port = self.make_ushort_port(space, port)
-        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
-        else:                 flowinfo = 0
-        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
-        else:                 scope_id = 0
-        if flowinfo < 0 or flowinfo > 0xfffff:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "flowinfo must be 0-1048575."))
-        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
-        a = self.lock(_c.sockaddr_in6)
-        rffi.setintfield(a, 'c_sin6_port', htons(port))
-        rffi.setintfield(a, 'c_sin6_flowinfo', htonl(flowinfo))
-        rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
-        self.unlock()
 
     def from_in6_addr(in6_addr):
         result = instantiate(INET6Address)
@@ -509,13 +399,6 @@ if 'AF_UNIX' in constants:
             return (isinstance(other, UNIXAddress) and
                     self.get_path() == other.get_path())
 
-        def as_object(self, fd, space):
-            return space.wrap(self.get_path())
-
-        def from_object(space, w_address):
-            return UNIXAddress(space.str_w(w_address))
-        from_object = staticmethod(from_object)
-
 if 'AF_NETLINK' in constants:
     class NETLINKAddress(Address):
         family = AF_NETLINK
@@ -543,15 +426,6 @@ if 'AF_NETLINK' in constants:
 
         def __repr__(self):
             return '<NETLINKAddress %r>' % (self.get_pid(), self.get_groups())
-        
-        def as_object(self, fd, space):
-            return space.newtuple([space.wrap(self.get_pid()),
-                                   space.wrap(self.get_groups())])
-
-        def from_object(space, w_address):
-            w_pid, w_groups = space.unpackiterable(w_address, 2)
-            return NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
-        from_object = staticmethod(from_object)
 
 # ____________________________________________________________
 
@@ -595,12 +469,6 @@ def make_null_address(family):
     rffi.setintfield(rffi.cast(_c.sockaddr_ptr, buf), 'c_sa_family', family)
     result.setdata(buf, 0)
     return result, klass.maxlen
-
-def ipaddr_from_object(space, w_sockaddr):
-    host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
-    addr = makeipaddr(host)
-    addr.fill_from_object(space, w_sockaddr)
-    return addr
 
 # ____________________________________________________________
 
@@ -700,15 +568,6 @@ class RSocket(object):
         
     def error_handler(self):
         return last_error()
-
-    # convert an Address into an app-level object
-    def addr_as_object(self, space, address):
-        return address.as_object(self.fd, space)
-
-    # convert an app-level object into an Address
-    # based on the current socket's family
-    def addr_from_object(self, space, w_address):
-        return af_get(self.family).from_object(space, w_address)
 
     # build a null address object, ready to be used as output argument to
     # C functions that return an address.  It must be unlock()ed after you

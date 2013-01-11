@@ -229,13 +229,14 @@ def test_getaddrinfo():
     assert space.unwrap(w_l) == info
 
 def test_unknown_addr_as_object():    
+    from pypy.module._socket.interp_socket import addr_as_object
     c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
     c_addr.c_sa_data[0] = 'c'
     rffi.setintfield(c_addr, 'c_sa_family', 15)
     # XXX what size to pass here? for the purpose of this test it has
     #     to be short enough so we have some data, 1 sounds good enough
     #     + sizeof USHORT
-    w_obj = rsocket.Address(c_addr, 1 + 2).as_object(-1, space)
+    w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), t(-1, space))
     assert space.is_true(space.isinstance(w_obj, space.w_tuple))
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
