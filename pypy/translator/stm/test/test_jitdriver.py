@@ -35,3 +35,17 @@ class TestJitDriver(BaseTestTransform):
 
         res = self.interpret(f1, ['\x03', rffi.cast(rffi.SHORT, 4), 2])
         assert res == 'X'
+
+    def test_loop_void_result(self):
+        class X:
+            counter = 10
+        x = X()
+        myjitdriver = JitDriver(greens=[], reds=[])
+
+        def f1():
+            while x.counter > 0:
+                myjitdriver.jit_merge_point()
+                x.counter -= 1
+
+        res = self.interpret(f1, [])
+        assert res == None

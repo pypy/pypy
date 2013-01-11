@@ -1,10 +1,10 @@
 import time
 from pypy.module.thread import ll_thread
-from pypy.rlib import rstm
+from pypy.rlib import rstm, jit
 from pypy.rlib.objectmodel import invoke_around_extcall, we_are_translated
 from pypy.rlib.objectmodel import compute_identity_hash
 from pypy.rlib.debug import ll_assert
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, rclass
 
 
 class Node:
@@ -65,6 +65,12 @@ def check_chained_list(node):
     print "check ok!"
 
 
+jitdriver_hash   = jit.JitDriver(greens=[], reds=['self'])
+jitdriver_inev   = jit.JitDriver(greens=[], reds=['self'])
+jitdriver_ptreq  = jit.JitDriver(greens=[], reds=['self'])
+jitdriver_really = jit.JitDriver(greens=[], reds=['self'])
+
+
 class ThreadRunner(object):
     arg = None
 
@@ -77,20 +83,22 @@ class ThreadRunner(object):
         try:
             self.value = 0
             self.lst = []
-            rstm.perform_transaction(ThreadRunner.check_hash,
-                                     ThreadRunner, self)
+            self.do_check_hash()
             self.value = 0
-            rstm.perform_transaction(ThreadRunner.check_inev,
-                                     ThreadRunner, self)
+            self.do_check_inev()
             self.value = 0
             self.arg = Arg()
             self.glob_p = lltype.malloc(STRUCT)
-            rstm.perform_transaction(ThreadRunner.check_ptr_equality,
-                                     ThreadRunner, self)
-            rstm.perform_transaction(ThreadRunner.run_really,
-                                     ThreadRunner, self)
+            self.do_check_ptr_equality()
+            self.do_run_really()
         finally:
             self.finished_lock.release()
+
+    def do_run_really(self):
+        while True:
+            jitdriver_really.jit_merge_point(self=self)
+            if not self.run_really(0):
+                break
 
     def run_really(self, retry_counter):
         if self.value == glob.LENGTH // 2:
@@ -106,7 +114,11 @@ class ThreadRunner(object):
         #
         add_at_end_of_chained_list(glob.anchor, self.value, self.index)
         self.value += 1
-        return int(self.value < glob.LENGTH)
+        return self.value < glob.LENGTH
+
+    def do_check_ptr_equality(self):
+        jitdriver_ptreq.jit_merge_point(self=self)
+        self.check_ptr_equality(0)
 
     def check_ptr_equality(self, retry_counter):
         assert self.glob_p != lltype.nullptr(STRUCT)
@@ -115,7 +127,12 @@ class ThreadRunner(object):
         raw1 = rffi.cast(rffi.CCHARP, retry_counter)
         raw2 = rffi.cast(rffi.CCHARP, -1)
         ll_assert(raw1 != raw2, "ERROR: retry_counter == -1")
-        return 0
+
+    def do_check_inev(self):
+        while True:
+            jitdriver_inev.jit_merge_point(self=self)
+            if not self.check_inev(0):
+                break
 
     def _check_content(self, content):
         ll_assert(glob.othernode2.value == content, "bogus value after inev")
@@ -135,7 +152,13 @@ class ThreadRunner(object):
         for n in glob.othernodes:   # lots of unrelated writes in-between
             n.value = new_value
         glob.othernode2.value = new_value
-        return int(self.value < glob.LENGTH)
+        return self.value < glob.LENGTH
+
+    def do_check_hash(self):
+        while True:
+            jitdriver_hash.jit_merge_point(self=self)
+            if not self.check_hash(0):
+                break
 
     def check_hash(self, retry_counter):
         if self.value == 0:
@@ -152,7 +175,7 @@ class ThreadRunner(object):
                 x.value += 1
             assert compute_identity_hash(x) == expected_hash
         self.value += 20
-        return int(self.value < glob.LENGTH)
+        return self.value < glob.LENGTH
 
 class Arg:
     foobar = 42
@@ -180,9 +203,8 @@ class Bootstrapper(object):
         bootstrapper.lock = None
         bootstrapper.args = None
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.reinit()
-        return False
 
     @staticmethod
     def bootstrap():
