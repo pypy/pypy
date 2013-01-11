@@ -20,3 +20,18 @@ class TestJitDriver(BaseTestTransform):
 
         res = self.interpret(f1, [])
         assert res == 'X'
+
+    def test_loop_args(self):
+        class X:
+            counter = 100
+        x = X()
+        myjitdriver = JitDriver(greens=['a'], reds=['b', 'c'])
+
+        def f1(a, b, c):
+            while x.counter > 0:
+                myjitdriver.jit_merge_point(a=a, b=b, c=c)
+                x.counter -= (ord(a) + rffi.cast(lltype.Signed, b) + c)
+            return 'X'
+
+        res = self.interpret(f1, ['\x03', rffi.cast(rffi.SHORT, 4), 2])
+        assert res == 'X'

@@ -82,7 +82,6 @@ def make_perform_transaction(func, CONTAINERP):
         llcontainer = rffi.cast(CONTAINERP, llcontainer)
         try:
             res = func(llcontainer, retry_counter)
-            llcontainer.got_exception = lltype.nullptr(rclass.OBJECT)
         except Exception, e:
             res = 0     # stop perform_transaction() and returns
             lle = cast_instance_to_base_ptr(e)

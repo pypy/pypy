@@ -56,6 +56,9 @@ class BaseTestTransform(object):
         if option.view:
             self.translator.view()
         #
+        if self.do_jit_driver:
+            import py
+            py.test.skip("XXX how to test?")
         result = interp.eval_graph(self.graph, args)
         return result
 
