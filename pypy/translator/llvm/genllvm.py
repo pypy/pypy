@@ -682,7 +682,7 @@ class FuncType(Type):
             else:
                 name = database.unique_name('@rpy_' + obj._name)
             ptr_type.refs[obj] = name
-            if hasattr(obj, 'graph'): # XXX: case without graph needs test
+            if hasattr(obj, 'graph'):
                 writer = FunctionWriter()
                 writer.write_graph(name, obj.graph,
                                    obj in database.genllvm.entrypoints)

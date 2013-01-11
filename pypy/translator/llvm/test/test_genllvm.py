@@ -626,6 +626,56 @@ class TestSpecialCases(_LLVMMixin):
         assert fc(10, 10) == 19
         assert fc(maxint, 10) == maxint
 
+    def test_recursive_llhelper(self): # ported from GenC
+        from pypy.rpython.annlowlevel import llhelper
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rlib.objectmodel import specialize
+        FT = lltype.ForwardReference()
+        FTPTR = lltype.Ptr(FT)
+        STRUCT = lltype.Struct("foo", ("bar", FTPTR))
+        FT.become(lltype.FuncType([lltype.Ptr(STRUCT)], lltype.Signed))
+
+        class A:
+            def __init__(self, func, name):
+                self.func = func
+                self.name = name
+            def _freeze_(self):
+                return True
+            @specialize.memo()
+            def make_func(self):
+                f = getattr(self, "_f", None)
+                if f is not None:
+                    return f
+                f = lambda *args: self.func(*args)
+                f.c_name = self.name
+                f.relax_sig_check = True
+                f.__name__ = "WRAP%s" % (self.name, )
+                self._f = f
+                return f
+            def get_llhelper(self):
+                return llhelper(FTPTR, self.make_func())
+        def f(s):
+            if s.bar == t.bar:
+                lltype.free(s, flavor="raw")
+                return 1
+            lltype.free(s, flavor="raw")
+            return 0
+        def g(x):
+            return 42
+        def chooser(x):
+            s = lltype.malloc(STRUCT, flavor="raw")
+            if x:
+                s.bar = llhelper(FTPTR, a_f.make_func())
+            else:
+                s.bar = llhelper(FTPTR, a_g.make_func())
+            return f(s)
+        a_f = A(f, "f")
+        a_g = A(g, "g")
+        t = lltype.malloc(STRUCT, flavor="raw", immortal=True)
+        t.bar = llhelper(FTPTR, a_f.make_func())
+        fn = self.getcompiled(chooser, [bool])
+        assert fn(True)
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_union(self):
