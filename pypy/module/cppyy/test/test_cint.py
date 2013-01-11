@@ -318,7 +318,7 @@ class AppTestCINTTTree:
         assert i == self.N
 
     def test07_write_builtin(self):
-        """Test writing of a builtins"""
+        """Test writing of builtins"""
 
         from cppyy import gbl               # bootstraps, only needed for tests
         from cppyy.gbl import TFile, TTree
@@ -329,21 +329,25 @@ class AppTestCINTTTree:
         mytree._python_owns = False
 
         import array
-        a = array.array('i', [0])
-        b = array.array('d', [0.])
+        ba = array.array('c', [chr(0)])
+        ia = array.array('i', [0])
+        da = array.array('d', [0.])
 
-        mytree.Branch("myi", a, "myi/I")
-        mytree.Branch("myd", b, "myd/D")
+        mytree.Branch("my_bool",   ba, "my_bool/O")
+        mytree.Branch("my_int",    ia, "my_int/I")
+        mytree.Branch("my_double", da, "my_double/D")
 
         for i in range(self.N):
-            a[0] = i+1                 # make sure value is different from default (0)
-            b[0] = (i+1)/2.            # id. 0.
+            # make sure value is different from default (0)
+            ba[0] = i%2 and chr(0) or chr(1)
+            ia[0] = i+1
+            da[0] = (i+1)/2.
             mytree.Fill()
         f.Write()
         f.Close()
 
     def test08_read_builtin(self):
-        """Test reading of a single branched TTree with an std::vector<double>"""
+        """Test reading of builtins"""
 
         from cppyy import gbl
         from cppyy.gbl import TFile
@@ -351,10 +355,13 @@ class AppTestCINTTTree:
         f = TFile(self.fname)
         mytree = f.Get(self.tname)
 
+        raises(AttributeError, getattr, mytree, "does_not_exist")
+
         i = 1
         for event in mytree:
-            assert event.myi == i
-            assert event.myd == i/2.
+            assert event.my_bool   == (i-1)%2 and 0 or 1
+            assert event.my_int    == i
+            assert event.my_double == i/2.
             i += 1
         assert (i-1) == self.N
 
