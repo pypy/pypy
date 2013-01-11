@@ -15,7 +15,7 @@ def _calcsize(space, format):
     try:
         fmtiter.interpret(format)
     except StructOverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(self.msg))
+        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
     except StructError, e:
         w_module = space.getbuiltinmodule('struct')
         w_error = space.getattr(w_module, space.wrap('error'))
@@ -32,7 +32,7 @@ def pack(space, format, args_w):
     try:
         fmtiter.interpret(format)
     except StructOverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(self.msg))
+        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
     except StructError, e:
         w_module = space.getbuiltinmodule('struct')
         w_error = space.getattr(w_module, space.wrap('error'))
@@ -46,7 +46,7 @@ def unpack(space, format, input):
     try:
         fmtiter.interpret(format)
     except StructOverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(self.msg))
+        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
     except StructError, e:
         w_module = space.getbuiltinmodule('struct')
         w_error = space.getattr(w_module, space.wrap('error'))
