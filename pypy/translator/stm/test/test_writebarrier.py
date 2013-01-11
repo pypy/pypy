@@ -4,7 +4,6 @@ from pypy.translator.stm.test.transform2_support import BaseTestTransform
 
 class TestTransform(BaseTestTransform):
     do_write_barrier = True
-    do_turn_inevitable = False
 
     def test_simple_read(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))

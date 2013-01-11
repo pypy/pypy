@@ -21,6 +21,9 @@ class _stmptr(lltype._ptr):
 
 
 class BaseTestTransform(object):
+    do_write_barrier = False
+    do_turn_inevitable = False
+    do_jit_driver = False
 
     def build_state(self):
         self.writemode = set()
@@ -44,6 +47,8 @@ class BaseTestTransform(object):
         #
         self.translator = interp.typer.annotator.translator
         self.stmtransformer = STMTransformer(self.translator)
+        if self.do_jit_driver:
+            self.stmtransformer.transform_jit_driver()
         if self.do_write_barrier:
             self.stmtransformer.transform_write_barrier()
         if self.do_turn_inevitable:

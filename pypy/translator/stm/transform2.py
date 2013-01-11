@@ -7,6 +7,7 @@ class STMTransformer(object):
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
+        self.transform_jit_driver()
         self.transform_write_barrier()
         self.transform_turn_inevitable()
         self.print_logs()
@@ -26,6 +27,12 @@ class STMTransformer(object):
         #
         for graph in self.translator.graphs:
             insert_turn_inevitable(graph)
+
+    def transform_jit_driver(self):
+        from pypy.translator.stm.jitdriver import reorganize_around_jit_driver
+        #
+        for graph in self.translator.graphs:
+            reorganize_around_jit_driver(self, graph)
 
     def start_log(self):
         from pypy.translator.c.support import log
