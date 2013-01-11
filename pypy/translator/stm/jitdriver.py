@@ -1,11 +1,12 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.objspace.flow.model import checkgraph, copygraph
 from pypy.objspace.flow.model import Block, Link, SpaceOperation, Constant
 from pypy.translator.unsimplify import split_block, varoftype
 from pypy.translator.stm.stmgcintf import StmOperations
 from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.annotation.model import lltype_to_annotation, s_Int
-from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+from pypy.rpython.annlowlevel import (MixLevelHelperAnnotator,
+                                      cast_base_ptr_to_instance)
 from pypy.rlib import rstm
 
 
@@ -47,14 +48,9 @@ class JitDriverSplitter(object):
     #     if p.got_exception: raise p.got_exception
     #     return p.result_value
     #
-    # def callback(p):
-    #     try:
-    #         return run_callback(p)
-    #     except e:
-    #         p.got_exception = e
-    #         return 0         # stop perform_tr() and returns
+    # (note that perform_transaction() itself will fill p.got_exception)
     #
-    # def run_callback(p):
+    # def callback(p, retry_counter):
     #     fish (green args, red args) from p
     #     while 1:
     #         stuff_after
@@ -77,7 +73,6 @@ class JitDriverSplitter(object):
         #
         rtyper = self.stmtransformer.translator.rtyper
         self.mixlevelannotator = MixLevelHelperAnnotator(rtyper)
-        self.make_run_callback_function()
         self.make_callback_function()
         self.make_invoke_stm_function()
         self.rewrite_main_graph()
@@ -97,7 +92,8 @@ class JitDriverSplitter(object):
 
     def make_container_type(self):
         self.CONTAINER = lltype.GcStruct('StmArgs',
-                                         ('result_value', self.RESTYPE))
+                                         ('result_value', self.RESTYPE),
+                                         ('got_exception', rclass.OBJECTPTR))
         self.CONTAINERP = lltype.Ptr(self.CONTAINER)
 
     def add_call_should_break_transaction(self, block):
@@ -143,12 +139,14 @@ class JitDriverSplitter(object):
     def make_invoke_stm_function(self):
         CONTAINER = self.CONTAINER
         callback = self.callback_function
+        perform_transaction = rstm.make_perform_transaction(callback,
+                                                            self.CONTAINERP)
         #
         def ll_invoke_stm():
             p = lltype.malloc(CONTAINER)
-            rstm.perform_transaction(callback, p)
-            #if p.got_exception:
-            #    raise p.got_exception
+            perform_transaction(p)
+            if p.got_exception:
+                raise cast_base_ptr_to_instance(Exception, p.got_exception)
             return p.result_value
         #
         mix = self.mixlevelannotator
@@ -157,41 +155,35 @@ class JitDriverSplitter(object):
         self.c_invoke_stm_func = c_func
 
     def make_callback_function(self):
-        run_callback = self.run_callback_function
-        #
-        def ll_callback(p):
-            #try:
-                return run_callback(p)
-            #except Exception, e:
-            #    p.got_exception = e
-            #    return 0         # stop perform_tr() and returns
-        #
-        mix = self.mixlevelannotator
-        args_s = [lltype_to_annotation(self.CONTAINERP)]
-        self.callback_function = mix.delayedfunction(ll_callback,
-                                                     args_s, s_Int)
-
-    def make_run_callback_function(self):
         # make a copy of the 'main_graph'
-        run_callback_graph = copygraph(self.main_graph)
-        self.run_callback_graph = run_callback_graph
+        callback_graph = copygraph(self.main_graph)
+        callback_graph.name += '_stm'
+        self.callback_graph = callback_graph
+        #for v1, v2 in zip(
+        #    self.main_graph.getargs() + [self.main_graph.getreturnvar()],
+        #    callback_graph.getargs() + [callback_graph.getreturnvar()]):
+        #    self.stmtransformer.translator.annotator.transfer_binding(v2, v1)
         #
         # make a new startblock
         v_p = varoftype(self.CONTAINERP)
-        blockst = Block([v_p])
+        v_retry_counter = varoftype(lltype.Signed)
+        blockst = Block([v_p, v_retry_counter])
+        annotator = self.stmtransformer.translator.annotator
+        annotator.setbinding(v_p, lltype_to_annotation(self.CONTAINERP))
+        annotator.setbinding(v_retry_counter, s_Int)
         #
         # change the startblock of callback_graph to point just after the
         # jit_merge_point
-        block1, i = find_jit_merge_point(run_callback_graph)
+        block1, i = find_jit_merge_point(callback_graph)
         assert i == len(block1.operations) - 1
         del block1.operations[i]
         [link] = block1.exits
-        run_callback_graph.startblock = blockst
+        callback_graph.startblock = blockst
         blockst.closeblock(Link([], link.target))
         #
         # hack at the regular return block, to set the result into
         # 'p.result_value', clear 'p.got_exception', and return 0
-        blockr = run_callback_graph.returnblock
+        blockr = callback_graph.returnblock
         c_result_value = Constant('result_value', lltype.Void)
         blockr.operations = [
             SpaceOperation('setfield',
@@ -199,20 +191,24 @@ class JitDriverSplitter(object):
                            varoftype(lltype.Void)),
             #...
             ]
-        v = varoftype(self.RESTYPE)
+        v = varoftype(lltype.Signed)
+        annotator.setbinding(v, s_Int)
         newblockr = Block([v])
         newblockr.operations = ()
         newblockr.closeblock()
         blockr.recloseblock(Link([Constant(0, lltype.Signed)], newblockr))
-        run_callback_graph.returnblock = newblockr
+        callback_graph.returnblock = newblockr
         #
         # add 'should_break_transaction()' at the end of the loop
         blockf = self.add_call_should_break_transaction(block1)
         # ...store stuff...
         blockf.closeblock(Link([Constant(1, lltype.Signed)], newblockr))
         #
-        SSA_to_SSI(run_callback_graph)   # to pass 'p' everywhere
-        checkgraph(run_callback_graph)
+        SSA_to_SSI(callback_graph)   # to pass 'p' everywhere
+        checkgraph(callback_graph)
         #
+        FUNCTYPE = lltype.FuncType([self.CONTAINERP, lltype.Signed],
+                                   lltype.Signed)
         mix = self.mixlevelannotator
-        self.run_callback_function = mix.graph2delayed(run_callback_graph)
+        self.callback_function = mix.graph2delayed(callback_graph,
+                                                   FUNCTYPE=FUNCTYPE)

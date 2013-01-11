@@ -6,8 +6,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rposix import get_errno, set_errno
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
-                                      cast_instance_to_base_ptr,
+from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
                                       llhelper)
 
 def is_inevitable():
@@ -75,33 +74,32 @@ leave_callback_call._transaction_break_ = True
 
 # ____________________________________________________________
 
-@specialize.memo()
-def _get_stm_callback(func, argcls):
-    def _stm_callback(llarg, retry_counter):
+def make_perform_transaction(func, CONTAINERP):
+    #
+    def _stm_callback(llcontainer, retry_counter):
         if not is_atomic():
             llop.stm_start_transaction(lltype.Void)
-        llarg = rffi.cast(rclass.OBJECTPTR, llarg)
-        arg = cast_base_ptr_to_instance(argcls, llarg)
+        llcontainer = rffi.cast(CONTAINERP, llcontainer)
         try:
-            res = func(arg, retry_counter)
-        except:
-            fatalerror("no exception allowed in stm_callback")
-            assert 0
+            res = func(llcontainer, retry_counter)
+            llcontainer.got_exception = lltype.nullptr(rclass.OBJECT)
+        except Exception, e:
+            res = 0     # stop perform_transaction() and returns
+            lle = cast_instance_to_base_ptr(e)
+            llcontainer.got_exception = lle
         if not is_atomic():
             llop.stm_stop_transaction(lltype.Void)
         return res
-    return _stm_callback
-
-@specialize.arg(0, 1)
-def perform_transaction(func, argcls, arg):
-    ll_assert(arg is None or isinstance(arg, argcls),
-              "perform_transaction: wrong class")
-    before_external_call()
-    llarg = cast_instance_to_base_ptr(arg)
-    adr_of_top = llop.gc_adr_of_root_stack_top(llmemory.Address)
-    callback = _get_stm_callback(func, argcls)
-    llcallback = llhelper(stmgcintf.StmOperations.CALLBACK_TX, callback)
-    stmgcintf.StmOperations.perform_transaction(llcallback, llarg, adr_of_top)
-    after_external_call()
-    keepalive_until_here(arg)
-perform_transaction._transaction_break_ = True
+    #
+    def perform_transaction(llcontainer):
+        before_external_call()
+        adr_of_top = llop.gc_adr_of_root_stack_top(llmemory.Address)
+        llcallback = llhelper(stmgcintf.StmOperations.CALLBACK_TX,
+                              _stm_callback)
+        stmgcintf.StmOperations.perform_transaction(llcallback, llcontainer,
+                                                    adr_of_top)
+        after_external_call()
+        keepalive_until_here(llcontainer)
+    perform_transaction._transaction_break_ = True
+    #
+    return perform_transaction
