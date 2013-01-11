@@ -3979,6 +3979,8 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             rgc.add_memory_pressure(1234)
             return 3
 
+        self.interp_operations(f, [])
+
     def test_external_call(self):
         from pypy.rlib.objectmodel import invoke_around_extcall
         
