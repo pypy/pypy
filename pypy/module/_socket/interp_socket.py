@@ -133,7 +133,7 @@ def ipaddr_from_object(space, w_sockaddr):
     from rpython.rlib.rsocket import makeipaddr
     host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
     addr = makeipaddr(host)
-    addr_fill_from_object(addr, space, w_sockaddr)
+    fill_from_object(addr, space, w_sockaddr)
     return addr
 
 

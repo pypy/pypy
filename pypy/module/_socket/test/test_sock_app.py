@@ -236,7 +236,7 @@ def test_unknown_addr_as_object():
     # XXX what size to pass here? for the purpose of this test it has
     #     to be short enough so we have some data, 1 sounds good enough
     #     + sizeof USHORT
-    w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), t(-1, space))
+    w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
     assert space.is_true(space.isinstance(w_obj, space.w_tuple))
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
@@ -267,7 +267,7 @@ def test_addr_raw_packet():
     # fd needs to be somehow valid
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     fd = s.fileno()
-    w_obj = addr_as_object(rsocket.make_address(c_addr, addrlen), (fd, space))
+    w_obj = addr_as_object(rsocket.make_address(c_addr, addrlen), fd, space)
     lltype.free(c_addr_ll, flavor='raw')
     assert space.is_true(space.eq(w_obj, space.newtuple([
         space.wrap('lo'),
