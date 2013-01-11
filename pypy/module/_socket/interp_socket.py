@@ -6,7 +6,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
-from rpython.rlib.socket import INETAddress, INET6Address
+from rpython.rlib.rsocket import INETAddress, INET6Address
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 
