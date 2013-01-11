@@ -1,7 +1,7 @@
 import py
 import StringIO
 
-from pypy.module.unicodedata import triegenerator
+from rpython.rlib.unicodedata import triegenerator
 
 def setup_module(mod):
     mod.tmpdir = py.test.ensuretemp(mod.__name__)

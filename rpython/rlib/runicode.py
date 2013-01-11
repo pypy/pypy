@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import we_are_translated, specialize, enforceargs
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rarithmetic import r_uint, intmask
-from pypy.module.unicodedata import unicodedb
+from rpython.rlib.unicodedata import unicodedb
 
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff

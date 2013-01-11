@@ -8,9 +8,9 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
 import sys
 
-from pypy.module.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
 
 # Contants for Hangul characters
 SBase = 0xAC00
