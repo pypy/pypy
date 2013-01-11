@@ -58,6 +58,9 @@ compare_dispatch_table = [
 unrolling_compare_dispatch_table = unrolling_iterable(
     enumerate(compare_dispatch_table))
 
+stmonly_jitdriver = jit.JitDriver(greens=[], reds=['self', 'co_code',
+                                                   'next_instr', 'ec'])
+
 
 class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
@@ -77,56 +80,15 @@ class __extend__(pyframe.PyFrame):
         co_code = pycode.co_code
 
         try:
-            while self._runs_normal_handler():
+            while True:
+                if self.space.config.translation.stm:
+                    stmonly_jitdriver.jit_merge_point(
+                        self=self, co_code=co_code,
+                        next_instr=next_instr, ec=ec)
+                    self = self._hints_for_stm()
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
             return self.popvalue()
-        #
-        # we only get here if _runs_normal_handler() returned False
-        return self._dispatch_stm_breaking_transaction(next_instr)
-
-    def _runs_normal_handler(self):
-        if self.space.config.translation.stm and we_are_translated():
-            from pypy.rlib import rstm
-            return not rstm.should_break_transaction()
-        return True
-
-    def _dispatch_stm_breaking_transaction(self, next_instr):
-        # STM: entered the first time this frame is asked to introduce
-        # a transaction break.  This is done by invoking the C function
-        # rstm.perform_transaction(), which calls back
-        # _dispatch_new_stm_transaction().
-        from pypy.rlib import rstm
-        self.last_instr = intmask(next_instr)     # save this value
-        rstm.perform_transaction(pyframe.PyFrame._dispatch_new_stm_transaction,
-                                 self.space.FrameClass, self)
-        e = self.__reraise
-        if e is None:
-            return self.popvalue()    # normal exit path
-        else:
-            self.__reraise = None
-            raise e                   # re-raise the exception we got
-
-    def _dispatch_new_stm_transaction(self, retry_counter):
-        self = self._hints_for_stm()
-        co_code = self.pycode.co_code
-        next_instr = r_uint(self.last_instr)    # restore this value
-        ec = self.space.getexecutioncontext()
-
-        # a loop similar to the one in dispatch()
-        try:
-            while self._runs_normal_handler():
-                next_instr = self.handle_bytecode(co_code, next_instr, ec)
-        except ExitFrame:
-            self.__reraise = None
-            return 0     # stop perform_transaction() and returns
-        except Exception, e:
-            self.__reraise = e
-            return 0     # stop perform_transaction() and returns
-        #
-        # we get there if _runs_normal_handler() return False again
-        self.last_instr = intmask(next_instr)      # save this value
-        return 1     # causes perform_transaction() to loop and call us again
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
