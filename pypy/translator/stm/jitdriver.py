@@ -3,7 +3,6 @@ from pypy.objspace.flow.model import checkgraph, copygraph
 from pypy.objspace.flow.model import Block, Link, SpaceOperation, Constant
 from pypy.translator.unsimplify import split_block, varoftype
 from pypy.translator.stm.stmgcintf import StmOperations
-from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.annotation.model import lltype_to_annotation, s_Int
 from pypy.rpython.annlowlevel import (MixLevelHelperAnnotator,
                                       cast_base_ptr_to_instance)
@@ -131,7 +130,7 @@ class JitDriverSplitter(object):
         blockf = self.add_call_should_break_transaction(block1)
         #
         # fill in blockf with a call to invoke_stm()
-        v = varoftype(self.RESTYPE)
+        v = varoftype(self.RESTYPE, 'result')
         op = SpaceOperation('direct_call',
                             [self.c_invoke_stm_func] + blockf.inputargs, v)
         blockf.operations.append(op)
@@ -169,6 +168,9 @@ class JitDriverSplitter(object):
                                lltype_to_annotation(self.RESTYPE))
         self.c_invoke_stm_func = c_func
 
+    def container_var(self):
+        return varoftype(self.CONTAINERP, 'stmargs')
+
     def make_callback_function(self):
         # make a copy of the 'main_graph'
         callback_graph = copygraph(self.main_graph)
@@ -181,9 +183,10 @@ class JitDriverSplitter(object):
         #    self.stmtransformer.translator.annotator.transfer_binding(v2, v1)
         #
         # make a new startblock
-        v_p = varoftype(self.CONTAINERP)
-        v_retry_counter = varoftype(lltype.Signed)
-        blockst = Block([v_p, v_retry_counter])
+        v_p = self.container_var()
+        v_retry_counter = varoftype(lltype.Signed, 'retry_counter')
+        blockst = Block([v_retry_counter])   # 'v_p' inserted below
+        renamed_p = {blockst: v_p}
         annotator = self.stmtransformer.translator.annotator
         annotator.setbinding(v_p, lltype_to_annotation(self.CONTAINERP))
         annotator.setbinding(v_retry_counter, s_Int)
@@ -213,6 +216,8 @@ class JitDriverSplitter(object):
         c_got_exception = Constant('got_exception', lltype.Void)
         c_null = Constant(lltype.nullptr(self.CONTAINER.got_exception.TO),
                           self.CONTAINER.got_exception)
+        v_p = self.container_var()
+        renamed_p[blockr] = v_p
         blockr.operations = [
             SpaceOperation('setfield',
                            [v_p, c_result_value, blockr.inputargs[0]],
@@ -232,6 +237,8 @@ class JitDriverSplitter(object):
         # add 'should_break_transaction()' at the end of the loop
         blockf = self.add_call_should_break_transaction(block1)
         # store the variables again into v_p
+        v_p = self.container_var()
+        renamed_p[blockf] = v_p
         for i in range(len(self.TYPES)):
             c_a_i = Constant('a%d' % i, lltype.Void)
             v_a_i = blockf.inputargs[i]
@@ -241,7 +248,16 @@ class JitDriverSplitter(object):
                                varoftype(lltype.Void)))
         blockf.closeblock(Link([Constant(1, lltype.Signed)], newblockr))
         #
-        SSA_to_SSI(callback_graph)   # to pass 'p' everywhere
+        # now pass the original 'v_p' everywhere
+        for block in callback_graph.iterblocks():
+            if block.operations == ():    # skip return and except blocks
+                continue
+            v_p = renamed_p.get(block, self.container_var())
+            block.inputargs = [v_p] + block.inputargs
+            for link in block.exits:
+                if link.target.operations != ():   # to return or except block
+                    link.args = [v_p] + link.args
+        #
         checkgraph(callback_graph)
         #
         FUNCTYPE = lltype.FuncType([self.CONTAINERP, lltype.Signed],
