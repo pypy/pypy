@@ -58,8 +58,8 @@ compare_dispatch_table = [
 unrolling_compare_dispatch_table = unrolling_iterable(
     enumerate(compare_dispatch_table))
 
-stmonly_jitdriver = jit.JitDriver(greens=[], reds=['self', 'co_code',
-                                                   'next_instr', 'ec'])
+stmonly_jitdriver = jit.JitDriver(greens=[], reds=['next_instr', 'ec',
+                                                   'self', 'co_code'])
 
 
 class __extend__(pyframe.PyFrame):
