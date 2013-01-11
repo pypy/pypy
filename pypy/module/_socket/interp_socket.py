@@ -43,7 +43,7 @@ def addr_as_object(addr, fd, space):
     # exception -- return it as a tuple.
     a = addr.lock()
     family = rffi.cast(lltype.Signed, a.c_sa_family)
-    datalen = addr.addrlen - offsetof(_c.sockaddr, 'c_sa_data')
+    datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
     rawdata = ''.join([a.c_sa_data[i] for i in range(datalen)])
     addr.unlock()
     return space.newtuple([space.wrap(family),
@@ -58,7 +58,7 @@ def fill_from_object(addr, space, w_address):
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         a = addr.lock(_c.sockaddr_in)
-        rffi.setintfield(a, 'c_sin_port', htons(port))
+        rffi.setintfield(a, 'c_sin_port', rsocket.htons(port))
         addr.unlock()
     elif hasattr(addr, 'family') and addr.family == rsocket.AF_INET6:
         pieces_w = space.unpackiterable(w_address)
@@ -76,8 +76,8 @@ def fill_from_object(addr, space, w_address):
                 "flowinfo must be 0-1048575."))
         flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
         a = addr.lock(_c.sockaddr_in6)
-        rffi.setintfield(a, 'c_sin6_port', htons(port))
-        rffi.setintfield(a, 'c_sin6_flowinfo', htonl(flowinfo))
+        rffi.setintfield(a, 'c_sin6_port', rsocket.htons(port))
+        rffi.setintfield(a, 'c_sin6_flowinfo', rsocket.htonl(flowinfo))
         rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
         addr.unlock()
     else:
