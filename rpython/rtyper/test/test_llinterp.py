@@ -12,7 +12,7 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.model import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
 from rpython.tool import leakfinder
-from pypy import conftest
+from rpython.conftest import option
 
 
 # switch on logging of interp to show more info on failing tests

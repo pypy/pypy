@@ -1,4 +1,4 @@
-from pypy import conftest
+from rpython.conftest import option
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase

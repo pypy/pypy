@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.oosupport.treebuilder import build_trees, SubOperation
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.rtyper.test.test_rlist import BaseTestRlist
 from rpython.rtyper.test.tool import BaseRtypingTest, OORtypeMixin
 from rpython.rtyper.test.test_llinterp import get_interpreter

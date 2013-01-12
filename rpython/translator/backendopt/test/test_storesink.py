@@ -4,7 +4,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.storesink import storesink_graph
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import last_exception, checkgraph
-from pypy.conftest import option
+from rpython.conftest import option
 
 class TestStoreSink(object):
     # not sure if it makes any sense on ootype, maybe worth trying

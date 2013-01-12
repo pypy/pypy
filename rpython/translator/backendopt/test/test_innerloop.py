@@ -1,6 +1,6 @@
 from rpython.translator.translator import TranslationContext
 from rpython.translator.backendopt.innerloop import find_inner_loops
-from pypy.conftest import option
+from rpython.conftest import option
 
 def test_simple_loop():
     def snippet_fn(x, y):

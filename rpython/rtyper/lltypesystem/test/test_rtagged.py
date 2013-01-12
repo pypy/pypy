@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import UnboxedValue
 from rpython.translator.translator import graphof
 from rpython.flowspace.model import summary
 from rpython.translator.backendopt.all import backend_optimizations
-from pypy import conftest
+from rpython.conftest import option
 
 
 class A(object):
@@ -205,7 +205,7 @@ def test_optimize_method():
     t = interp.typer.annotator.translator
     t.config.translation.backendopt.constfold = True
     backend_optimizations(t)
-    if conftest.option.view:
+    if option.view:
         t.view()
 
     LLFrame = interp.frame_class

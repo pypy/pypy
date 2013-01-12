@@ -6,7 +6,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist

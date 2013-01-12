@@ -3,7 +3,6 @@ import sys
 
 import py
 
-from pypy import conftest
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from rpython.jit.metainterp import pyjitpl, history

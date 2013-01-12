@@ -4,11 +4,11 @@ if len(sys.argv) >= 4 and sys.argv[1] == '--sub':
     # XXX we don't invokve py.test machinery but try to make sure
     # pypy support code sees the test options from the invoking 
     # process
-    import pypy.conftest
+    import rpython.conftest
     class opt:
         pass
-    pypy.conftest.option = opt()
-    pypy.conftest.option.__dict__.update(eval(sys.argv[3]))
+    rpython.conftest.option = opt()
+    rpython.conftest.option.__dict__.update(eval(sys.argv[3]))
 
 import py
 from rpython.jit.metainterp.memmgr import MemoryManager
@@ -231,7 +231,7 @@ def test_all():
         py.test.skip(
             "passing repr() to subprocess.Popen probably doesn't work")
     import os, subprocess
-    from pypy.conftest import option
+    from rpython.conftest import option
     thisfile = os.path.abspath(__file__)
     p = subprocess.Popen([sys.executable, thisfile,
                           '--sub', repr(sys.path), repr(option.__dict__)])

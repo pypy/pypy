@@ -11,7 +11,7 @@ from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInf
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
 from rpython.conftest import cdir
-from pypy.conftest import option
+from rpython.conftest import option
 
 
 class StandaloneTests(object):

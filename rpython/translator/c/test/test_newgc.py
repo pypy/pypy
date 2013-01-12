@@ -5,7 +5,7 @@ import sys
 
 import py
 
-from pypy import conftest
+from rpython.conftest import option
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash
 from rpython.rlib.rstring import StringBuilder
@@ -47,7 +47,7 @@ class UsingFrameworkTest(object):
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_debug_defines=True)
         t.rtype()
-        if conftest.option.view:
+        if option.view:
             t.viewcg()
         exename = t.compile()
 

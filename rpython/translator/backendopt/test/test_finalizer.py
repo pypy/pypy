@@ -6,7 +6,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.unsimplify import varoftype
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.rlib import rgc
 
 

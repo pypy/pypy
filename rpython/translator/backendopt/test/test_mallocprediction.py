@@ -5,7 +5,7 @@ from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.flowspace.model import checkgraph, Block
-from pypy.conftest import option
+from rpython.conftest import option
 import sys
 
 from rpython.translator.backendopt.mallocprediction import *

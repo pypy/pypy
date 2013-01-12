@@ -5,7 +5,7 @@ from rpython.annotator import model
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from rpython.rtyper.test.test_llinterp import interpret
-from pypy.conftest import option
+from rpython.conftest import option
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant

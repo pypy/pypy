@@ -10,7 +10,7 @@ from rpython.flowspace.model import checkgraph, Block
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
-from pypy import conftest
+from rpython.conftest import option
 
 import py
 log = py.log.Producer('test_backendoptimization')
@@ -24,7 +24,7 @@ def get_graph(fn, signature, all_opts=True):
                               constfold=False,
                               raisingop2direct_call=False)
     graph = graphof(t, fn)
-    if conftest.option.view:
+    if option.view:
         t.view()
     return graph, t
 
@@ -148,7 +148,7 @@ def test_remove_duplicate_casts():
     num_cast_pointer = len(getops(graph_getsum)['cast_pointer'])
     changed = remove_duplicate_casts(graph_getsum, t)
     assert changed
-    if conftest.option.view:
+    if option.view:
         t.view()
     check_graph(graph, [10, True], 75, t)
     ops = getops(graph_getsum)

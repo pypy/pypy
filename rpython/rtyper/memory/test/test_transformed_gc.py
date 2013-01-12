@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop, void
 from rpython.rlib.objectmodel import compute_unique_id, we_are_translated
 from rpython.rlib.debug import ll_assert
 from rpython.rlib import rgc
-from pypy import conftest
+from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
 
@@ -32,7 +32,7 @@ def rtype(func, inputtypes, specialize=True, gcname='ref',
     if backendopt:
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
-    if conftest.option.view:
+    if option.view:
         t.viewcg()
     return t
 
@@ -109,7 +109,7 @@ class GCTest(object):
         db = cbuild.generate_graphs_for_llinterp()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph
-        if conftest.option.view:
+        if option.view:
             t.viewcg()
 
         cls.name_to_func = name_to_func

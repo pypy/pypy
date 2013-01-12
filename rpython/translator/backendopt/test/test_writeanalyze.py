@@ -6,7 +6,7 @@ from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
-from pypy.conftest import option
+from rpython.conftest import option
 
 
 class BaseTest(object):

@@ -4,7 +4,7 @@ from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.rtyper.test.tool import LLRtypeMixin, OORtypeMixin
-from pypy.conftest import option
+from rpython.conftest import option
 
 class BaseTestCanRaise(object):
     type_system = None

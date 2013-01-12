@@ -6,7 +6,7 @@ from rpython.rlib.jit import hint
 from rpython.flowspace.model import summary
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
-from pypy import conftest
+from rpython.conftest import option
 
 
 class V(object):

@@ -15,7 +15,6 @@ else:
     load_library_kwargs = {}
 
 import os, platform as host_platform
-from pypy import conftest
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.extfunc import ExtRegistryEntry
 from rpython.rlib.objectmodel import Symbolic, ComputedIntSymbolic

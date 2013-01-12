@@ -8,7 +8,7 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib import objectmodel
-from pypy.conftest import option
+from rpython.conftest import option
 
 class BaseMallocRemovalTest(object):
     type_system = None

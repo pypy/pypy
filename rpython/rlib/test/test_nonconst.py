@@ -6,7 +6,7 @@ from rpython.rlib.nonconst import NonConstant
 
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.annotator.annrpython import RPythonAnnotator
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.annotator.model import SomeInstance
 
 def test_nonconst():

@@ -13,7 +13,7 @@ from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import objectmodel
 from rpython.rlib.rarithmetic import ovfcheck
-from pypy.conftest import option
+from rpython.conftest import option
 
 DONT_CHECK_RESULT = object()
 class CHECK_RAISES:

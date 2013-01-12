@@ -1,4 +1,4 @@
-from pypy.conftest import option
+from rpython.conftest import option
 
 _defaultopt = dict(wd = False, source = False, nostop = False, stdout = False)
 

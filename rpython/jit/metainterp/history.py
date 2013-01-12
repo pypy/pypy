@@ -6,7 +6,7 @@ from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
 
-from pypy.conftest import option
+from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.codewriter import heaptracker, longlong

@@ -3,12 +3,12 @@ from rpython.translator.translator import graphof
 from rpython.translator.backendopt.escape import AbstractDataFlowInterpreter
 from rpython.translator.backendopt.escape import malloc_like_graphs
 from rpython.rlib.objectmodel import instantiate
-from pypy import conftest
+from rpython.conftest import option
 
 def build_adi(function, types):
     t = Translation(function, types)
     t.rtype()
-    if conftest.option.view:
+    if option.view:
         t.view()
     adi = AbstractDataFlowInterpreter(t.context)
     graph = graphof(t.context, function)

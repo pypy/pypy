@@ -1,5 +1,5 @@
 import py
-from pypy import conftest
+from rpython.conftest import option
 from rpython.rtyper.ootypesystem.ootype import *
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.ootypesystem.rlist import ListRepr
@@ -16,10 +16,10 @@ def gengraph(f, args=[], viewBefore=False, viewAfter=False, mangle=True):
     t = TranslationContext()
     t.config.translation.ootype.mangle = mangle
     t.buildannotator().build_types(f, args)
-    if viewBefore or conftest.option.view:
+    if viewBefore or option.view:
         t.view()
     t.buildrtyper(type_system="ootype").specialize()
-    if viewAfter or conftest.option.view:
+    if viewAfter or option.view:
         t.view()
     return graphof(t, f)
 
@@ -184,7 +184,7 @@ def test_is_exception_instance():
 
     t = TranslationContext()
     t.buildannotator().build_types(f, [])
-    if conftest.option.view:
+    if option.view:
         t.view()
     rtyper = t.buildrtyper(type_system="ootype")
     rtyper.specialize()

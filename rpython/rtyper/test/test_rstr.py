@@ -957,10 +957,10 @@ class AbstractTestRstr(BaseRtypingTest):
             return const("head")+tail
         def f():
             return g(const("tail"))
-        from pypy import conftest
+        from rpython.conftest import option
 
         t, typer, fgraph = self.gengraph(f, [], backendopt=True)
-        if conftest.option.view:
+        if option.view:
             t.view()
         assert summary(fgraph) == {}
 

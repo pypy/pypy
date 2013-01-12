@@ -35,37 +35,14 @@ def pytest_configure(config):
     global option
     option = config.option
 
-def _set_platform(opt, opt_str, value, parser):
-    from rpython.config.translationoption import PLATFORMS
-    from rpython.translator.platform import set_platform
-    if value not in PLATFORMS:
-        raise ValueError("%s not in %s" % (value, PLATFORMS))
-    set_platform(value, None)
-
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
-    group.addoption('--view', action="store_true", dest="view", default=False,
-           help="view translation tests' flow graphs with Pygame")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
            help="run applevel tests directly on python interpreter (not through PyPy)")
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
-    group.addoption('-P', '--platform', action="callback", type="string",
-           default="host", callback=_set_platform,
-           help="set up tests to use specified platform as compile/run target")
-    group = parser.getgroup("JIT options")
-    group.addoption('--viewloops', action="store_true",
-           default=False, dest="viewloops",
-           help="show only the compiled loops")
-
-def pytest_sessionstart():
-    # have python subprocesses avoid startup customizations by default
-    try:
-        del os.environ['PYTHONSTARTUP']
-    except KeyError:
-        pass
 
 def pytest_funcarg__space(request):
     from pypy.tool.pytest.objspace import gettestobjspace

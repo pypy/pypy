@@ -16,7 +16,7 @@ from rpython.rtyper.test.tool import LLRtypeMixin, OORtypeMixin
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.translator.test.snippet import is_perfect_number
 from rpython.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import summary
 

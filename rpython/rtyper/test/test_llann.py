@@ -1,7 +1,7 @@
 import py
 
 from rpython.annotator import model as annmodel
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
     MixLevelHelperAnnotator, PseudoHighLevelCallable, llhelper,

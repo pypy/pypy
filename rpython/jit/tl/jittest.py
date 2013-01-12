@@ -4,7 +4,7 @@ target --jittest.  Feel free to hack it as needed; it is imported
 only after the '---> Checkpoint' fork.
 """
 
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llstr

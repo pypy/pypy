@@ -5,14 +5,14 @@ from rpython.translator import exceptiontransform
 from rpython.flowspace.model import summary
 from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.translator.backendopt.all import backend_optimizations
-from pypy import conftest
+from rpython.conftest import option
 import sys
 
 def check_debug_build():
-    # the 'not conftest.option.view' is because debug builds rarely
+    # the 'not option.view' is because debug builds rarely
     # have pygame, so if you want to see the graphs pass --view and
     # don't be surprised when the test then passes when it shouldn't.
-    if not hasattr(sys, 'gettotalrefcount') and not conftest.option.view:
+    if not hasattr(sys, 'gettotalrefcount') and not option.view:
         py.test.skip("test needs a debug build of Python")
 
 _already_transformed = {}
@@ -33,7 +33,7 @@ class BaseTestExceptionTransform:
         t = TranslationContext()
         t.buildannotator().build_types(fn, inputtypes)
         t.buildrtyper(type_system=self.type_system).specialize()
-        if conftest.option.view:
+        if option.view:
             t.view()
         if backendopt:
             backend_optimizations(t)
@@ -41,7 +41,7 @@ class BaseTestExceptionTransform:
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)
         join_blocks(g)
-        if conftest.option.view:
+        if option.view:
             t.view()
         return t, g
 

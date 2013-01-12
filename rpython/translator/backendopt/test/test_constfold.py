@@ -7,19 +7,19 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rclass
 from rpython.rlib import objectmodel
 from rpython.translator.backendopt.constfold import constant_fold_graph
-from pypy import conftest
+from rpython.conftest import option
 
 def get_graph(fn, signature):
     t = TranslationContext()
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
     graph = graphof(t, fn)
-    if conftest.option.view:
+    if option.view:
         t.view()
     return graph, t
 
 def check_graph(graph, args, expected_result, t):
-    if conftest.option.view:
+    if option.view:
         t.view()
     checkgraph(graph)
     interp = LLInterpreter(t.rtyper)
@@ -254,7 +254,7 @@ def test_fold_exitswitch_along_one_path():
     inline.auto_inline_graphs(t, t.graphs, threshold=999)
     constant_fold_graph(graph)
     removenoops.remove_same_as(graph)
-    if conftest.option.view:
+    if option.view:
         t.view()
     # check that the graph starts with a condition (which should be 'n==42')
     # and that if this condition is true, it goes directly to 'return 100'.
@@ -276,7 +276,7 @@ def test_knownswitch_after_exitswitch():
     from rpython.translator.backendopt import removenoops
     removenoops.remove_same_as(graph)
     constant_fold_graph(graph)
-    if conftest.option.view:
+    if option.view:
         t.view()
     assert summary(graph) == {'int_gt': 1}
     check_graph(graph, [2], 17, t)
@@ -296,7 +296,7 @@ def test_coalesce_exitswitchs():
     inline.auto_inline_graphs(t, t.graphs, threshold=999)
     removenoops.remove_same_as(graph)
     constant_fold_graph(graph)
-    if conftest.option.view:
+    if option.view:
         t.view()
     # check that the graph starts with a condition (which should be 'n > 5')
     # and that if this condition is false, it goes directly to 'return 0'.

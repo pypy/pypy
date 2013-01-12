@@ -5,7 +5,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.translator.c import genc
 from rpython.translator.c.test.test_genc import compile
 from rpython.rtyper.lltypesystem import lltype
-from pypy import conftest
+from rpython.conftest import option
 
 def compile_func(func, args):
     return compile(func, args, gcpolicy='ref')

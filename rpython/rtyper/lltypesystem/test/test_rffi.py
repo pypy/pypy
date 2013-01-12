@@ -15,7 +15,7 @@ from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.translator import graphof
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.flowspace.model import summary
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import r_singlefloat

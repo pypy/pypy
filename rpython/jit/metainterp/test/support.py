@@ -129,7 +129,7 @@ def _run_with_pyjitpl(testself, args):
     try:
         metainterp.compile_and_run_once(jitdriver_sd, *args)
     except DoneWithThisFrame, e:
-        #if conftest.option.view:
+        #if option.view:
         #    metainterp.stats.view()
         return e.args[0]
     else:

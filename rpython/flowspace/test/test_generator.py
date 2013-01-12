@@ -1,4 +1,4 @@
-from pypy.conftest import option
+from rpython.conftest import option
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.flowspace.model import Variable
 from rpython.flowspace.generator import (make_generatoriterator_class,
