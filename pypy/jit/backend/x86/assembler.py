@@ -563,17 +563,14 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         descr_number = self.cpu.get_fail_descr_number(faildescr)
-        failure_recovery = self._find_failure_recovery_bytecode(faildescr)
 
         self.setup(original_loop_token)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
 
-        arglocs = self.rebuild_faillocs_from_descr(failure_recovery)
-        if not we_are_translated():
-            assert ([loc.assembler() for loc in arglocs] ==
-                    [loc.assembler() for loc in faildescr._x86_debug_faillocs])
+        descr = self.cpu.get_fail_descr_from_number(descr_number)
+        arglocs = self.rebuild_faillocs_from_descr(descr)
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(inputargs, arglocs,
@@ -687,24 +684,7 @@ class Assembler386(object):
             struct.number = compute_unique_id(token)
         self.loop_run_counters.append(struct)
         return struct
-
-    def _find_failure_recovery_bytecode(self, faildescr):
-        adr_jump_offset = faildescr._x86_adr_jump_offset
-        if adr_jump_offset == 0:
-            # This case should be prevented by the logic in compile.py:
-            # look for CNT_BUSY_FLAG, which disables tracing from a guard
-            # when another tracing from the same guard is already in progress.
-            raise BridgeAlreadyCompiled
-        # follow the JMP/Jcond
-        p = rffi.cast(rffi.INTP, adr_jump_offset)
-        adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
-        # skip the CALL
-        if WORD == 4:
-            adr_target += 5     # CALL imm
-        else:
-            adr_target += 13    # MOV r11, imm-as-8-bytes; CALL *r11 xxxxxxxxxx
-        return adr_target
-
+ 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
         assert adr_jump_offset != 0
@@ -1846,7 +1826,6 @@ class Assembler386(object):
             XXX
             mc.writechar(chr(self.CODE_FORCED))
         positions = [0] * len(guardtok.fail_locs)
-        assert IS_X86_64
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
                 positions[i] = -1
@@ -1854,11 +1833,28 @@ class Assembler386(object):
                 xxx
             else:
                 assert isinstance(loc, RegLoc)
-                positions[i] = (loc.value + loc.is_xmm * 16) * WORD
+                v = (gpr_reg_mgr_cls.all_reg_indexes[loc.value] +
+                     loc.is_xmm * len(gpr_reg_mgr_cls.all_regs))
+                positions[i] = v * WORD
         guardtok.faildescr.rd_locs = positions
         # write fail_index too
         # for testing the decoding, write a final byte 0xCC
         return startpos
+
+    def rebuild_faillocs_from_descr(self, descr):
+        locs = []
+        for pos in descr.rd_locs:
+            if pos == -1:
+                pass
+            elif pos < self.cpu.NUM_REGS * WORD:
+                locs.append(gpr_reg_mgr_cls.all_regs[pos // WORD])
+            elif pos < self.cpu.NUM_REGS * 2 * WORD:
+                locs.append(xmm_reg_mgr_cls.xrm.all_regs[pos // WORD])
+            else:
+                i = pos // WORD - 2 * self.cpu.NUM_REGS
+                tp = xxx
+                locs.append(StackLoc(i, pos, tp))
+        return locs
 
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
@@ -1868,8 +1864,8 @@ class Assembler386(object):
         self.mc = mc
 
         # Push all general purpose registers
-        for gpr in range(self.cpu.NUM_REGS):
-            mc.MOV_br(gpr * WORD, gpr)
+        for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
+            mc.MOV_br(i * WORD, gpr.value)
 
         if exc:
             # We might have an exception pending.  Load it into ebx
@@ -1879,8 +1875,9 @@ class Assembler386(object):
             mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
 
         if withfloats:
+            ofs = len(gpr_reg_mgr_cls.all_regs)
             for i in range(self.cpu.NUM_REGS):
-                mc.MOVSD_bx((16 + i) * WORD, i)
+                mc.MOVSD_bx((ofs + i) * WORD, i)
 
         if exc:
             # save ebx into 'jf_guard_exc'

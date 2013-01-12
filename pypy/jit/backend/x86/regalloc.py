@@ -64,6 +64,7 @@ class X86RegisterManager(RegisterManager):
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
+    
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
@@ -153,6 +154,9 @@ elif WORD == 8:
 else:
     raise AssertionError("Word size should be 4 or 8")
 
+gpr_reg_mgr_cls.all_reg_indexes = [-1] * WORD * 2 # eh, happens to be true
+for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
+    gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
 
 class RegAlloc(object):
 
@@ -501,7 +505,8 @@ class RegAlloc(object):
         else:
             locs = [imm(fail_no)]
         self.Perform(op, locs, None)
-        self.possibly_free_var(op.getarg(0))
+        if op.numargs() == 1:
+            self.possibly_free_var(op.getarg(0))
 
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)
