@@ -2,12 +2,12 @@ import py
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, rstr
 from pypy.rpython.lltypesystem import ll2ctypes
-from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
+from pypy.rpython.lltypesystem.llmemory import cast_ptr_to_adr
 from pypy.rpython.lltypesystem.llmemory import itemoffsetof, raw_memcopy
 from pypy.annotation.model import lltype_to_annotation
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import Symbolic
+from pypy.rlib.objectmodel import keepalive_until_here, enforceargs
 from pypy.rlib import rarithmetic, rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
@@ -795,6 +795,7 @@ def make_string_mappings(strtype):
 
     # (char*, str, int, int) -> None
     @jit.dont_look_inside
+    @enforceargs(None, None, int, int)
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
@@ -833,6 +834,7 @@ def make_string_mappings(strtype):
             lltype.free(raw_buf, flavor='raw')
 
     # char* -> str, with an upper bound on the length in case there is no \x00
+    @enforceargs(None, int)
     def charp2strn(cp, maxlen):
         b = builder_class(maxlen)
         i = 0
