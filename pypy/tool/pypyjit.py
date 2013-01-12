@@ -8,7 +8,7 @@ Run it with py.test -s --pdb pypyjit.py [--ootype]
 import py, os
 
 from pypy.objspace.std import Space
-from pypy.config.translationoption import set_opt_level
+from rpython.config.translationoption import set_opt_level
 from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
 from pypy.objspace.std import multimethod
 from rpython.rtyper.annlowlevel import llhelper, llstr, oostr, hlstr

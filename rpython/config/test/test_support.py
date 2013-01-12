@@ -1,6 +1,6 @@
 
 from cStringIO import StringIO
-from pypy.config import support
+from rpython.config import support
 import os, sys, py
 
 cpuinfo = """

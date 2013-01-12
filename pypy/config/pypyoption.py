@@ -2,9 +2,9 @@ import sys
 
 import py
 
-from pypy.config.config import (OptionDescription, BoolOption, IntOption,
+from rpython.config.config import (OptionDescription, BoolOption, IntOption,
   ChoiceOption, StrOption, to_optparse, ConflictConfigError)
-from pypy.config.translationoption import IS_64_BITS
+from rpython.config.translationoption import IS_64_BITS
 
 
 modulepath = py.path.local(__file__).dirpath().dirpath().join("module")

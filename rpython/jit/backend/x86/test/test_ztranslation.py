@@ -10,7 +10,7 @@ from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
-from pypy.config.translationoption import DEFL_GC
+from rpython.config.translationoption import DEFL_GC
 from rpython.rlib import rgc
 
 class TestTranslationX86(CCompiledMixin):

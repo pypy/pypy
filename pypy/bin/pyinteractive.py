@@ -12,9 +12,9 @@ import time
 import pypy
 from pypy.tool import option
 from optparse import make_option
-from pypy.interpreter import main, interactive, error, gateway
-from pypy.config.config import OptionDescription, BoolOption, StrOption
-from pypy.config.config import Config, to_optparse
+from rpython.interpreter import main, interactive, error, gateway
+from rpython.config.config import OptionDescription, BoolOption, StrOption
+from rpython.config.config import Config, to_optparse
 from pypy.config import pypyoption
 
 

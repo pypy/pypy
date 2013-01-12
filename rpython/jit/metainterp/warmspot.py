@@ -70,7 +70,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     inline=False, loop_longevity=0, retrace_limit=5,
                     function_threshold=4,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, **kwds):
-    from pypy.config.config import ConfigError
+    from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
         translator.config.translation.gc = "boehm"

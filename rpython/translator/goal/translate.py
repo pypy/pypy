@@ -16,9 +16,9 @@ try:
 except Exception:
     pass
 
-from pypy.config.config import (to_optparse, OptionDescription, BoolOption,
+from rpython.config.config import (to_optparse, OptionDescription, BoolOption,
     ArbitraryOption, StrOption, IntOption, Config, ChoiceOption, OptHelpFormatter)
-from pypy.config.translationoption import (get_combined_translation_config,
+from rpython.config.translationoption import (get_combined_translation_config,
     set_opt_level, final_check_config, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform)
 
 

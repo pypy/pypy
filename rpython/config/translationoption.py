@@ -1,8 +1,8 @@
 import py, os, sys
-from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
-from pypy.config.config import ConfigError
-from pypy.config.support import detect_number_of_processors
+from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
+from rpython.config.config import ChoiceOption, StrOption, to_optparse, Config
+from rpython.config.config import ConfigError
+from rpython.config.support import detect_number_of_processors
 
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.

@@ -9,7 +9,7 @@ from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.translator.translator import TranslationContext
-from pypy.config.translationoption import DEFL_GC
+from rpython.config.translationoption import DEFL_GC
 from rpython.rlib import rgc
 from rpython.jit.backend.arm.test.support import skip_unless_run_slow_tests
 skip_unless_run_slow_tests()

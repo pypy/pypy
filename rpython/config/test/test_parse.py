@@ -1,4 +1,4 @@
-from pypy.config.parse import parse_info
+from rpython.config.parse import parse_info
 
 
 def test_parse_new_format():

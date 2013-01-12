@@ -3,7 +3,7 @@ import shutil
 
 import py
 import subprocess
-from pypy.config.config import Config
+from rpython.config.config import Config
 from rpython.translator.oosupport.genoo import GenOO
 from rpython.translator.cli import conftest
 from rpython.translator.cli.ilgenerator import IlasmGenerator

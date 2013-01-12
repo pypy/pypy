@@ -12,8 +12,8 @@ from rpython.flowspace.objspace import FlowObjSpace
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.sourcetools import nice_repr_for_func
 from pypy.config.pypyoption import pypy_optiondescription
-from pypy.config.translationoption import get_combined_translation_config
-from pypy.config.translationoption import get_platform
+from rpython.config.translationoption import get_combined_translation_config
+from rpython.config.translationoption import get_platform
 import py
 log = py.log.Producer("flowgraph")
 py.log.setconsumer("flowgraph", ansi_log)

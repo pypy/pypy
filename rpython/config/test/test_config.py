@@ -1,4 +1,4 @@
-from pypy.config.config import *
+from rpython.config.config import *
 import py, sys
 
 def make_description():
