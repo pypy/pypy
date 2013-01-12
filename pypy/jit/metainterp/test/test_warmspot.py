@@ -383,6 +383,23 @@ class WarmspotTests(object):
         assert res == expected
         self.check_resops(int_sub=2, int_mul=0, int_add=2)
 
+    def test_loop_automatic_reds_not_too_many_redvars(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def one():
+            return 1
+        def f(n, m):
+            res = 0
+            while n > 0:
+                n -= one()
+                myjitdriver.jit_merge_point(m=m)
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        oplabel = get_stats().loops[0].operations[0]
+        assert len(oplabel.getarglist()) == 2     # 'n', 'res' in some order
+
     def test_inline_jit_merge_point(self):
         # test that the machinery to inline jit_merge_points in callers
         # works. The final user does not need to mess manually with the
