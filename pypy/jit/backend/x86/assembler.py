@@ -1875,8 +1875,8 @@ class Assembler386(object):
             from pypy.jit.backend.llsupport.descr import unpack_fielddescr
             descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
             offset, size, _ = unpack_fielddescr(descrs.jf_guard_exc)
-            # XXX ebp relative, not eax relative
-            mc.MOV_mr((eax.value, offset), ebx.value)
+            _, base_offset, _ = unpack_arraydescr(descrs.arraydescr)
+            mc.MOV_br(offset - base_offset, ebx.value)
 
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The LEA in _call_footer below
