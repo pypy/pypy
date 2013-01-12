@@ -129,11 +129,7 @@ From all times, sorting has always been a Great Art! :-)
 __all__ = ['heappush', 'heappop', 'heapify', 'heapreplace', 'merge',
            'nlargest', 'nsmallest', 'heappushpop']
 
-try:
-    from itertools import islice, repeat, count, imap, izip, tee, chain
-except:
-    import sys
-    print sys.path
+from itertools import islice, repeat, count, imap, izip, tee, chain
 from operator import itemgetter
 import bisect
 

@@ -224,8 +224,7 @@ class WindowsSignalTests(unittest.TestCase):
             signal.signal(-1, handler)
 
         with self.assertRaises(ValueError):
-            pass
-            #signal.signal(7, handler)
+            signal.signal(7, handler)
         
         print 'ok'
 
