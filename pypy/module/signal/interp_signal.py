@@ -40,6 +40,7 @@ if sys.platform == 'win32' and not hasattr(cpy_signal,'CTRL_C_EVENT'):
 includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')
+WIN32 = sys.platform == 'win32'
 
 cdir = py.path.local(autopath.pypydir).join('translator', 'c')
 
@@ -236,7 +237,7 @@ def getsignal(space, signum):
     None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
     anything else -- the callable Python object used as a handler
     """
-    if sys.platform == 'win32':
+    if WIN32:
         check_signum_exists(space, signum)
     else:
         check_signum_in_range(space, signum)
