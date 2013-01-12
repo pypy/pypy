@@ -699,7 +699,6 @@ class Assembler386(object):
         p = rffi.cast(rffi.INTP, adr_jump_offset)
         adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
         # skip the CALL
-        XXX
         if WORD == 4:
             adr_target += 5     # CALL imm
         else:
