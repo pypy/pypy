@@ -342,7 +342,7 @@ class BaseBackendTest(Runner):
             
             def __setattr__(self, name, value):
                 if (name == 'index' or name == '_carry_around_for_tests'
-                        or name == '_TYPE'):
+                        or name == '_TYPE' or name == '_cpu'):
                     return AbstractFailDescr.__setattr__(self, name, value)
                 py.test.fail("finish descrs should not be touched")
         faildescr = UntouchableFailDescr() # to check that is not touched

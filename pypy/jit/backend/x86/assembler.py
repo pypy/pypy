@@ -12,36 +12,25 @@ from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
-
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
-                                       IS_X86_32, IS_X86_64,
-                                       JITFRAME_FIXED_SIZE)
-
-from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
-                                         esp, ebp, esi, edi,
-                                         xmm0, xmm1, xmm2, xmm3,
-                                         xmm4, xmm5, xmm6, xmm7,
-                                         r8, r9, r10, r11,
-                                         r12, r13, r14, r15,
-                                         X86_64_SCRATCH_REG,
-                                         X86_64_XMM_SCRATCH_REG,
-                                         RegLoc, StackLoc, ConstFloatLoc,
-                                         ImmedLoc, AddressLoc, imm,
-                                         imm0, imm1, FloatImmedLoc)
-
+                                       IS_X86_32, IS_X86_64)
+from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi, edi,
+    xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11,
+    r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
+    RegLoc, StackLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
+    imm0, imm1, FloatImmedLoc, RawStackLoc)
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.jit.backend.x86 import rx86, regloc, codebuf
+from pypy.jit.backend.x86 import rx86, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86 import support
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
-                             have_debug_prints, fatalerror)
+                             have_debug_prints)
 from pypy.rlib import rgc
 from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import longlong2float
 from pypy.rlib.objectmodel import compute_unique_id
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
@@ -1903,10 +1892,11 @@ class Assembler386(object):
     def genop_finish(self, op, arglocs, result_loc):
         if len(arglocs) == 2:
             [return_val, argloc] = arglocs
-            if op.getarg(0).type == FLOAT:
-                self.mc.MOVSD_bx(0, return_val.value)
+            if op.getarg(0).type == FLOAT and not IS_X86_64:
+                size = WORD * 2
             else:
-                self.mc.MOV_br(0, return_val.value)
+                size = WORD
+            self.save_into_mem(raw_stack(0), return_val, imm(size))
         else:
             [argloc] = arglocs
         if argloc is not eax:
@@ -2437,6 +2427,9 @@ def addr_add_const(reg_or_imm1, offset):
 
 def mem(loc, offset):
     return AddressLoc(loc, imm0, 0, offset)
+
+def raw_stack(offset, type=INT):
+    return RawStackLoc(offset, type)
 
 def heap(addr):
     return AddressLoc(ImmedLoc(addr), imm0, 0, 0)

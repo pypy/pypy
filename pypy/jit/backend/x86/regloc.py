@@ -41,19 +41,15 @@ class AssemblerLocation(object):
 
     def find_unused_reg(self): return eax
 
-class StackLoc(AssemblerLocation):
+class RawStackLoc(AssemblerLocation):
+    """ The same as stack location, but does not know it's position.
+    Mostly usable for raw frame access
+    """
     _immutable_ = True
     _location_code = 'b'
 
-    def __init__(self, position, ebp_offset, type):
-        # _getregkey() returns self.value; the value returned must not
-        # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
-        # so let it fail the following assert if it no longer does.
-        assert ebp_offset >= 0
-        #assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
-        self.position = position
-        self.value = ebp_offset
-        # One of INT, REF, FLOAT
+    def __init__(self, value, type):
+        self.value = value
         self.type = type
 
     def _getregkey(self):
@@ -69,6 +65,18 @@ class StackLoc(AssemblerLocation):
 
     def assembler(self):
         return repr(self)
+
+class StackLoc(RawStackLoc):
+    def __init__(self, position, ebp_offset, type):
+        # _getregkey() returns self.value; the value returned must not
+        # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
+        # so let it fail the following assert if it no longer does.
+        assert ebp_offset >= 0
+        #assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
+        self.position = position
+        self.value = ebp_offset
+        # One of INT, REF, FLOAT
+        self.type = type
 
 class RegLoc(AssemblerLocation):
     _immutable_ = True
