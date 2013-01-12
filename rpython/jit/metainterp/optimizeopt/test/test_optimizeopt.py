@@ -14,7 +14,6 @@ from rpython.jit.metainterp.resoperation import rop, opname, ResOperation
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import FakeMetaInterpStaticData
-from pypy.config.pypyoption import get_pypy_config
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 
 def test_build_opt_chain():
