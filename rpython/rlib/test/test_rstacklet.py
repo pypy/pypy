@@ -226,8 +226,8 @@ def entry_point(argv):
 class BaseTestStacklet(StandaloneTests):
 
     def setup_class(cls):
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
+        from rpython.config.translationoption import get_combined_translation_config
+        config = get_combined_translation_config(translating=True)
         config.translation.gc = cls.gc
         if cls.gcrootfinder is not None:
             config.translation.continuation = True

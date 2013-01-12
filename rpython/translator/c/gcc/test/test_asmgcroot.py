@@ -27,8 +27,8 @@ class AbstractTestAsmGCRoot:
     def make_config(cls):
         if _MSVC and _WIN64:
             py.test.skip("all asmgcroot tests disabled for MSVC X64")
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
+        from rpython.config.translationoption import get_combined_translation_config
+        config = get_combined_translation_config(translating=True)
         config.translation.gc = cls.gcpolicy
         config.translation.gcrootfinder = "asmgcc"
         config.translation.taggedpointers = getattr(cls, "taggedpointers", False)

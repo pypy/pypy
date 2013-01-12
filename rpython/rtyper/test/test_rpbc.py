@@ -1963,8 +1963,8 @@ def test_hlinvoke_pbc_method_hltype():
 
 class TestLLtypeSmallFuncSets(TestLLtype):
     def setup_class(cls):
-        from pypy.config.pypyoption import get_pypy_config
-        cls.config = get_pypy_config(translating=True)
+        from rpython.config.translationoption import get_combined_translation_config
+        cls.config = get_combined_translation_config(translating=True)
         cls.config.translation.withsmallfuncsets = 3
 
     def interpret(self, fn, args, **kwds):
@@ -1973,9 +1973,9 @@ class TestLLtypeSmallFuncSets(TestLLtype):
 
 def test_smallfuncsets_basic():
     from rpython.translator.translator import TranslationContext, graphof
-    from pypy.config.pypyoption import get_pypy_config
+    from rpython.config.translationoption import get_combined_translation_config
     from rpython.rtyper.llinterp import LLInterpreter
-    config = get_pypy_config(translating=True)
+    config = get_combined_translation_config(translating=True)
     config.translation.withsmallfuncsets = 10
 
     def g(x):

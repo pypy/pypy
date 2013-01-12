@@ -64,8 +64,8 @@ class BaseDirectGCTest(object):
     GC_PARAMS = {}
 
     def setup_method(self, meth):
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True).translation
+        from rpython.config.translationoption import get_combined_translation_config
+        config = get_combined_translation_config(translating=True).translation
         self.stackroots = []
         GC_PARAMS = self.GC_PARAMS.copy()
         if hasattr(meth, 'GC_PARAMS'):

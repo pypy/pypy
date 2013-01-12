@@ -18,7 +18,7 @@ from rpython.jit.tool.oparser import parse, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
-from pypy.config.pypyoption import get_pypy_config
+from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import rop, opname, ResOperation
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 
@@ -345,7 +345,7 @@ class FakeMetaInterpStaticData(object):
         self.profiler = EmptyProfiler()
         self.options = Fake()
         self.globaldata = Fake()
-        self.config = get_pypy_config(translating=True)
+        self.config = get_combined_translation_config(translating=True)
 
     class logger_noopt:
         @classmethod

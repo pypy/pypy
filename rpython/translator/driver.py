@@ -79,8 +79,8 @@ class TranslationDriver(SimpleTaskEngine):
         self.log = log
 
         if config is None:
-            from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(translating=True)
+            from rpython.config.translationoption import get_combined_translation_config
+            config = get_combined_translation_config(translating=True)
         self.config = config
         if overrides is not None:
             self.config.override(overrides)

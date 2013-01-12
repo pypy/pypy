@@ -409,8 +409,8 @@ class TestStandalone(StandaloneTests):
         assert 'bok' in data
         #
         # finally, check compiling with logging disabled
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
+        from rpython.config.translationoption import get_combined_translation_config
+        config = get_combined_translation_config(translating=True)
         config.translation.log = False
         self.config = config
         t, cbuilder = self.compile(entry_point)
@@ -819,8 +819,8 @@ class TestMaemo(TestStandalone):
         py.test.skip("TestMaemo: tests skipped for now")
         from rpython.translator.platform.maemo import check_scratchbox
         check_scratchbox()
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
+        from rpython.config.translationoption import get_combined_translation_config
+        config = get_combined_translation_config(translating=True)
         config.translation.platform = 'maemo'
         cls.config = config
 

@@ -1,4 +1,4 @@
-from pypy.config.pypyoption import get_pypy_config
+from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.history import TargetToken, ConstInt, History, Stats
 from rpython.jit.metainterp.history import BoxInt, INT
 from rpython.jit.metainterp.compile import compile_loop
@@ -41,7 +41,7 @@ class FakeMetaInterpStaticData(object):
     
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
-    config = get_pypy_config(translating=True)
+    config = get_combined_translation_config(translating=True)
 
     stats = Stats()
     profiler = jitprof.EmptyProfiler()

@@ -34,8 +34,8 @@ class GenOO(object):
         self.entrypoint = entrypoint
         self.db = self.Database(self)
         if config is None:
-            from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(translating=True)
+            from rpython.config.translationoption import get_combined_translation_config
+            config = get_combined_translation_config(translating=True)
         self.config = config
 
         # XXX: move this option out of the 'cli' section

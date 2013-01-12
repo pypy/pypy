@@ -1407,8 +1407,8 @@ class MetaInterpStaticData(object):
         if warmrunnerdesc:
             self.config = warmrunnerdesc.translator.config
         else:
-            from pypy.config.pypyoption import get_pypy_config
-            self.config = get_pypy_config(translating=True)
+            from rpython.config.translationoption import get_combined_translation_config
+            self.config = get_combined_translation_config(translating=True)
 
         backendmodule = self.cpu.__module__
         backendmodule = backendmodule.split('.')[-2]

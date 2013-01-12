@@ -13,6 +13,6 @@ class TestThreadedAsmGcc(test_standalone.TestThread):
 
     def setup_class(cls):
         if sys.platform == 'win32':
-            from pypy.config.pypyoption import get_pypy_config
-            cls.config = get_pypy_config(translating=True)
+            from rpython.config.translationoption import get_combined_translation_config
+            cls.config = get_combined_translation_config(translating=True)
             cls.config.translation.cc = 'mingw32'

@@ -27,8 +27,8 @@ class TranslationContext(object):
 
     def __init__(self, config=None, **flowing_flags):
         if config is None:
-            from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(translating=True)
+            from rpython.config.translationoption import get_combined_translation_config
+            config = get_combined_translation_config(translating=True)
         # ZZZ should go away in the end
         for attr in ['verbose', 'simplifying',
                      'list_comprehension_operations']:
