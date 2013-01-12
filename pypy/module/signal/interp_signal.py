@@ -236,7 +236,10 @@ def getsignal(space, signum):
     None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
     anything else -- the callable Python object used as a handler
     """
-    check_signum_in_range(space, signum)
+    if sys.platform == 'win32':
+        check_signum_exists(space, signum)
+    else:
+        check_signum_in_range(space, signum)
     action = space.check_signal_action
     if signum in action.handlers_w:
         return action.handlers_w[signum]
