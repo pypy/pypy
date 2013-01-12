@@ -304,7 +304,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 ])
 
 def get_pypy_config(overrides=None, translating=False):
-    from pypy.config.translationoption import get_combined_translation_config
+    from rpython.config.translationoption import get_combined_translation_config
     return get_combined_translation_config(
             pypy_optiondescription, overrides=overrides,
             translating=translating)
