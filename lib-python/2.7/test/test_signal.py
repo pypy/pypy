@@ -225,8 +225,6 @@ class WindowsSignalTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             signal.signal(7, handler)
-        
-        print 'ok'
 
 
 @unittest.skipIf(sys.platform == "win32", "Not valid on Windows")
