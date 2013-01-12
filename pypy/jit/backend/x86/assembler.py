@@ -1830,7 +1830,7 @@ class Assembler386(object):
             if loc is None:
                 positions[i] = -1
             elif isinstance(loc, StackLoc):
-                positions[i] = (loc.value + JITFRAME_FIXED_SIZE) * WORD
+                positions[i] = loc.value
             else:
                 assert isinstance(loc, RegLoc)
                 v = (gpr_reg_mgr_cls.all_reg_indexes[loc.value] +

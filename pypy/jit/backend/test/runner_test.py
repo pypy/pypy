@@ -314,7 +314,7 @@ class BaseBackendTest(Runner):
         operations[0].setfailargs([i0])
         self.cpu.compile_loop(inputargs, operations, looptoken)
 
-        i1list = [BoxInt() for i in range(1000)]
+        i1list = [BoxInt() for i in range(150)]
         bridge = []
         iprev = i0
         for i1 in i1list:
@@ -331,7 +331,7 @@ class BaseBackendTest(Runner):
         deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 3
-        for i in range(1000):
+        for i in range(len(i1list)):
             res = self.cpu.get_int_value(deadframe, i)
             assert res == 2 + i
 
