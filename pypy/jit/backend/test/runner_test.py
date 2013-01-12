@@ -1168,7 +1168,8 @@ class BaseBackendTest(Runner):
                     values.append(longlong.getfloatstorage(r.random()))
             #
             looptoken = JitCellToken()
-            faildescr = BasicFinalDescr(42)
+            guarddescr = BasicFailDescr(42)
+            faildescr = BasicFinalDescr(43)
             operations = []
             retboxes = []
             retvalues = []
@@ -1197,9 +1198,13 @@ class BaseBackendTest(Runner):
                 retboxes.insert(kk, newbox)
                 retvalues.insert(kk, y)
             #
-            operations.append(
-                ResOperation(rop.FINISH, retboxes, None, descr=faildescr)
-                )
+            zero = BoxInt()
+            operations.extend([
+                ResOperation(rop.SAME_AS, [ConstInt(0)], zero),
+                ResOperation(rop.GUARD_TRUE, [zero], None, descr=guarddescr),
+                ResOperation(rop.FINISH, [], None, descr=faildescr)
+                ])
+            operations[-2].setfailargs(retboxes)
             print inputargs
             for op in operations:
                 print op
@@ -1319,13 +1324,16 @@ class BaseBackendTest(Runner):
         i2 = BoxInt()
         targettoken = TargetToken()
         faildescr1 = BasicFailDescr(1)
-        faildescr2 = BasicFinalDescr(2)
+        faildescr2 = BasicFailDescr(2)
+        faildescr3 = BasicFinalDescr(3)
         operations = [
             ResOperation(rop.LABEL, fboxes, None, descr=targettoken),
             ResOperation(rop.FLOAT_LE, [fboxes[0], constfloat(9.2)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
-            ResOperation(rop.FINISH, fboxes, None, descr=faildescr2),
+            ResOperation(rop.GUARD_FALSE, [i2], None, descr=faildescr2),
+            ResOperation(rop.FINISH, [], None, descr=faildescr3),
             ]
+        operations[-3].setfailargs(fboxes)
         operations[-2].setfailargs(fboxes)
         looptoken = JitCellToken()
         self.cpu.compile_loop(fboxes, operations, looptoken)
@@ -1357,7 +1365,8 @@ class BaseBackendTest(Runner):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
         fboxes = [BoxFloat() for i in range(3)]
-        faildescr1 = BasicFinalDescr(100)
+        faildescr1 = BasicFailDescr(100)
+        faildescr2 = BasicFinalDescr(102)
         loopops = """
         [i0,f1, f2]
         f3 = float_add(f1, f2)
@@ -1382,9 +1391,13 @@ class BaseBackendTest(Runner):
         assert longlong.getrealfloat(f2) == 0.75
         assert longlong.getrealfloat(f3) == 133.0
 
+        zero = BoxInt()
         bridgeops = [
-            ResOperation(rop.FINISH, fboxes, None, descr=faildescr1),
+            ResOperation(rop.SAME_AS, [ConstInt(0)], zero),
+            ResOperation(rop.GUARD_TRUE, [zero], None, descr=faildescr1),
+            ResOperation(rop.FINISH, [], None, descr=faildescr2),
             ]
+        bridgeops[-2].setfailargs(fboxes[:])
         self.cpu.compile_bridge(loop.operations[-2].getdescr(), fboxes,
                                                         bridgeops, looptoken)
         args = [1,
@@ -1978,7 +1991,7 @@ class LLtypeBackendTest(BaseBackendTest):
         i1 = same_as(1)
         call(ConstClass(fptr), i0, descr=calldescr)
         p0 = guard_exception(ConstClass(xtp)) [i1]
-        finish(0, p0)
+        finish(p0)
         '''
         FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
         fptr = llhelper(FPTR, func)
@@ -1999,8 +2012,7 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 1)
-        assert self.cpu.get_int_value(deadframe, 0) == 0
-        assert self.cpu.get_ref_value(deadframe, 1) == xptr
+        assert self.cpu.get_ref_value(deadframe, 0) == xptr
         excvalue = self.cpu.grab_exc_value(deadframe)
         assert not excvalue
         deadframe = self.cpu.execute_token(looptoken, 0)

@@ -15,6 +15,9 @@ Implement __lenght_hint__ according to PEP 424
 
 .. branch: numpypy-longdouble
 Long double support for numpypy
+.. branch: numpypy-real-as-view
+Convert real, imag from ufuncs to views. This involves the beginning of 
+view() functionality
 
 .. branch: signatures
 Improved RPython typing

@@ -347,48 +347,12 @@ class WarmRunnerDesc(object):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
         for graph, block, pos in find_jit_merge_points(graphs):
-            self.autodetect_jit_markers_redvars(graph)
+            support.autodetect_jit_markers_redvars(graph)
             self.split_graph_and_record_jitdriver(graph, block, pos)
         #
         assert (len(set([jd.jitdriver for jd in self.jitdrivers_sd])) ==
                 len(self.jitdrivers_sd)), \
                 "there are multiple jit_merge_points with the same jitdriver"
-
-    def autodetect_jit_markers_redvars(self, graph):
-        # the idea is to find all the jit_merge_point and can_enter_jit and
-        # add all the variables across the links to the reds.
-        for block, op in graph.iterblockops():
-            if op.opname == 'jit_marker':
-                jitdriver = op.args[1].value
-                if not jitdriver.autoreds:
-                    continue
-                # if we want to support also can_enter_jit, we should find a
-                # way to detect a consistent set of red vars to pass *both* to
-                # jit_merge_point and can_enter_jit. The current simple
-                # solution doesn't work because can_enter_jit might be in
-                # another block, so the set of alive_v will be different.
-                methname = op.args[0].value
-                assert methname == 'jit_merge_point', (
-                    "reds='auto' is supported only for jit drivers which " 
-                    "calls only jit_merge_point. Found a call to %s" % methname)
-                #
-                # compute the set of live variables before the jit_marker
-                alive_v = set(block.inputargs)
-                for op1 in block.operations:
-                    if op1 is op:
-                        break # stop when the meet the jit_marker
-                    if op1.result.concretetype != lltype.Void:
-                        alive_v.add(op1.result)
-                greens_v = op.args[2:]
-                reds_v = alive_v - set(greens_v)
-                reds_v = [v for v in reds_v if v.concretetype is not lltype.Void]
-                reds_v = support.sort_vars(reds_v)
-                op.args.extend(reds_v)
-                if jitdriver.numreds is None:
-                    jitdriver.numreds = len(reds_v)
-                else:
-                    assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
-
 
     def split_graph_and_record_jitdriver(self, graph, block, pos):
         op = block.operations[pos]
@@ -717,6 +681,9 @@ class WarmRunnerDesc(object):
             jitdriver = op.args[1].value
             assert jitdriver in sublists, \
                    "can_enter_jit with no matching jit_merge_point"
+            assert not jitdriver.autoreds, (
+                   "can_enter_jit not supported with a jitdriver that "
+                   "has reds='auto'")
             jd, sublist = sublists[jitdriver]
             origportalgraph = jd._jit_merge_point_in
             if graph is not origportalgraph:
