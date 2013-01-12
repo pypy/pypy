@@ -1830,7 +1830,7 @@ class Assembler386(object):
             if loc is None:
                 positions[i] = -1
             elif isinstance(loc, StackLoc):
-                xxx
+                positions[i] = (loc.value + JITFRAME_FIXED_SIZE) * WORD
             else:
                 assert isinstance(loc, RegLoc)
                 v = (gpr_reg_mgr_cls.all_reg_indexes[loc.value] +
@@ -1843,12 +1843,14 @@ class Assembler386(object):
 
     def rebuild_faillocs_from_descr(self, descr):
         locs = []
+        GPR_REGS = len(gpr_reg_mgr_cls.all_regs)
+        XMM_REGS = len(xmm_reg_mgr_cls.all_regs)
         for pos in descr.rd_locs:
             if pos == -1:
                 pass
-            elif pos < self.cpu.NUM_REGS * WORD:
+            elif pos < GPR_REGS * WORD:
                 locs.append(gpr_reg_mgr_cls.all_regs[pos // WORD])
-            elif pos < self.cpu.NUM_REGS * 2 * WORD:
+            elif pos < (GPR_REGS + XMM_REGS) * WORD:
                 locs.append(xmm_reg_mgr_cls.xrm.all_regs[pos // WORD])
             else:
                 i = pos // WORD - 2 * self.cpu.NUM_REGS
