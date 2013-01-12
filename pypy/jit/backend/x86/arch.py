@@ -48,14 +48,15 @@ if WORD == 4:
     FORCE_INDEX_OFS = 0
     SAVED_REGISTERS = 1    # range(1, 5)
     MY_COPY_OF_REGS = 5    # range(5, 9)
-    JITFRAME_FIXED_SIZE = 1
+    XXX
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + 11 extra words + force_index = 18
     FRAME_FIXED_SIZE = 18 # 18 aligned to 16 bytes = 2 * WORD
     FORCE_INDEX_OFS = 0
     SAVED_REGISTERS = 1    # range(1, 7)
     MY_COPY_OF_REGS = 7    # range(7, 18)
-    JITFRAME_FIXED_SIZE = 1
+    JITFRAME_FIXED_SIZE = 32 # 1 for the number and 32 for all the registers,
+                             # but they're never used together
 
 # "My copy of regs" has room for almost all registers, apart from eax and edx
 # which are used in the malloc itself.  They are:

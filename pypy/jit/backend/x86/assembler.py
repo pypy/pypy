@@ -14,7 +14,8 @@ from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
 
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
-                                       IS_X86_32, IS_X86_64)
+                                       IS_X86_32, IS_X86_64,
+                                       JITFRAME_FIXED_SIZE)
 
 from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
                                          esp, ebp, esi, edi,
@@ -698,6 +699,7 @@ class Assembler386(object):
         p = rffi.cast(rffi.INTP, adr_jump_offset)
         adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
         # skip the CALL
+        XXX
         if WORD == 4:
             adr_target += 5     # CALL imm
         else:
@@ -1834,279 +1836,41 @@ class Assembler386(object):
         exc = guardtok.exc
         target = self.failure_recovery_code[exc + 2 * withfloats]
         if WORD == 4:
-            mc.CALL(imm(target))
+            mc.PUSH(imm(fail_index))
+            mc.JMP(imm(target))
         else:
-            # Generate exactly 13 bytes:
-            #        MOV r11, target-as-8-bytes
-            #        CALL *r11
-            # Keep the number 13 in sync with _find_failure_recovery_bytecode.
-            start = mc.get_relative_pos()
             mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
-            mc.CALL_r(X86_64_SCRATCH_REG.value)
-            assert mc.get_relative_pos() == start + 13
+            mc.PUSH(imm(fail_index))
+            mc.JMP_r(X86_64_SCRATCH_REG.value)
         # write tight data that describes the failure recovery
         if guardtok.is_guard_not_forced:
+            XXX
             mc.writechar(chr(self.CODE_FORCED))
-        self.write_failure_recovery_description(mc, guardtok.failargs,
-                                                guardtok.fail_locs)
-        # write the fail_index too
-        mc.writeimm32(fail_index)
+        positions = [0] * len(guardtok.fail_locs)
+        assert IS_X86_64
+        for i, loc in enumerate(guardtok.fail_locs):
+            if loc is None:
+                positions[i] = -1
+            elif isinstance(loc, StackLoc):
+                xxx
+            else:
+                assert isinstance(loc, RegLoc)
+                positions[i] = (loc.value + loc.is_xmm * 16) * WORD
+        guardtok.faildescr.rd_locs = positions
+        # write fail_index too
         # for testing the decoding, write a final byte 0xCC
-        if not we_are_translated():
-            mc.writechar('\xCC')
-            faillocs = [loc for loc in guardtok.fail_locs if loc is not None]
-            guardtok.faildescr._x86_debug_faillocs = faillocs
         return startpos
 
-    DESCR_REF       = 0x00
-    DESCR_INT       = 0x01
-    DESCR_FLOAT     = 0x02
-    DESCR_SPECIAL   = 0x03
-    CODE_FROMSTACK  = 4 * (8 + 8*IS_X86_64)
-    CODE_STOP       = 0 | DESCR_SPECIAL
-    CODE_HOLE       = 4 | DESCR_SPECIAL
-    CODE_INPUTARG   = 8 | DESCR_SPECIAL
-    CODE_FORCED     = 12 | DESCR_SPECIAL
-
-    def write_failure_recovery_description(self, mc, failargs, locs):
-        for i in range(len(failargs)):
-            arg = failargs[i]
-            if arg is not None:
-                if arg.type == REF:
-                    kind = self.DESCR_REF
-                elif arg.type == INT:
-                    kind = self.DESCR_INT
-                elif arg.type == FLOAT:
-                    kind = self.DESCR_FLOAT
-                else:
-                    raise AssertionError("bogus kind")
-                loc = locs[i]
-                if isinstance(loc, StackLoc):
-                    pos = loc.position
-                    if pos < 0:
-                        mc.writechar(chr(self.CODE_INPUTARG))
-                        pos = ~pos
-                    n = self.CODE_FROMSTACK//4 + pos
-                else:
-                    assert isinstance(loc, RegLoc)
-                    n = loc.value
-                n = kind + 4*n
-                while n > 0x7F:
-                    mc.writechar(chr((n & 0x7F) | 0x80))
-                    n >>= 7
-            else:
-                n = self.CODE_HOLE
-            mc.writechar(chr(n))
-        mc.writechar(chr(self.CODE_STOP))
-
-    def rebuild_faillocs_from_descr(self, bytecode):
-        from pypy.jit.backend.x86.regalloc import X86FrameManager
-        descr_to_box_type = [REF, INT, FLOAT]
-        bytecode = rffi.cast(rffi.UCHARP, bytecode)
-        arglocs = []
-        code_inputarg = False
-        while 1:
-            # decode the next instruction from the bytecode
-            code = rffi.cast(lltype.Signed, bytecode[0])
-            bytecode = rffi.ptradd(bytecode, 1)
-            if code >= self.CODE_FROMSTACK:
-                # 'code' identifies a stack location
-                if code > 0x7F:
-                    shift = 7
-                    code &= 0x7F
-                    while True:
-                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
-                        bytecode = rffi.ptradd(bytecode, 1)
-                        code |= (nextcode & 0x7F) << shift
-                        shift += 7
-                        if nextcode <= 0x7F:
-                            break
-                kind = code & 3
-                code = (code - self.CODE_FROMSTACK) >> 2
-                if code_inputarg:
-                    code = ~code
-                    code_inputarg = False
-                loc = X86FrameManager.frame_pos(code, descr_to_box_type[kind])
-            elif code == self.CODE_STOP:
-                break
-            elif code == self.CODE_HOLE:
-                continue
-            elif code == self.CODE_INPUTARG:
-                code_inputarg = True
-                continue
-            else:
-                # 'code' identifies a register
-                kind = code & 3
-                code >>= 2
-                if kind == self.DESCR_FLOAT:
-                    loc = regloc.XMMREGLOCS[code]
-                else:
-                    loc = regloc.REGLOCS[code]
-            arglocs.append(loc)
-        return arglocs[:]
-
-    @staticmethod
-    @rgc.no_collect
-    def grab_frame_values(cpu, bytecode, frame_addr, allregisters):
-        # no malloc allowed here!!  xxx apart from one, hacking a lot
-        #self.fail_ebp = allregisters[16 + ebp.value]
-        num = 0
-        import pdb
-        pdb.set_trace()
-        XXX
-        deadframe = lltype.nullptr(jitframe.DEADFRAME)
-        # step 1: lots of mess just to count the final value of 'num'
-        bytecode1 = bytecode
-        while 1:
-            code = rffi.cast(lltype.Signed, bytecode1[0])
-            bytecode1 = rffi.ptradd(bytecode1, 1)
-            if code >= Assembler386.CODE_FROMSTACK:
-                while code > 0x7F:
-                    code = rffi.cast(lltype.Signed, bytecode1[0])
-                    bytecode1 = rffi.ptradd(bytecode1, 1)
-            else:
-                kind = code & 3
-                if kind == Assembler386.DESCR_SPECIAL:
-                    if code == Assembler386.CODE_HOLE:
-                        num += 1
-                        continue
-                    if code == Assembler386.CODE_INPUTARG:
-                        continue
-                    if code == Assembler386.CODE_FORCED:
-                        # resuming from a GUARD_NOT_FORCED
-                        token = allregisters[16 + ebp.value]
-                        deadframe = (
-                            cpu.assembler.force_token_to_dead_frame.pop(token))
-                        deadframe = lltype.cast_opaque_ptr(
-                            jitframe.DEADFRAMEPTR, deadframe)
-                        continue
-                    assert code == Assembler386.CODE_STOP
-                    break
-            num += 1
-        # allocate the deadframe
-        if not deadframe:
-            # Remove the "reserve" at the end of the nursery.  This means
-            # that it is guaranteed that the following malloc() works
-            # without requiring a collect(), but it needs to be re-added
-            # as soon as possible.
-            assert num <= cpu.get_failargs_limit()
-            try:
-                deadframe = lltype.malloc(jitframe.DEADFRAME, num)
-            except MemoryError:
-                fatalerror("memory usage error in grab_frame_values")
-        # fill it
-        code_inputarg = False
-        num = 0
-        value_hi = 0
-        while 1:
-            # decode the next instruction from the bytecode
-            code = rffi.cast(lltype.Signed, bytecode[0])
-            bytecode = rffi.ptradd(bytecode, 1)
-            if code >= Assembler386.CODE_FROMSTACK:
-                if code > 0x7F:
-                    shift = 7
-                    code &= 0x7F
-                    while True:
-                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
-                        bytecode = rffi.ptradd(bytecode, 1)
-                        code |= (nextcode & 0x7F) << shift
-                        shift += 7
-                        if nextcode <= 0x7F:
-                            break
-                # load the value from the stack
-                kind = code & 3
-                code = (code - Assembler386.CODE_FROMSTACK) >> 2
-                if code_inputarg:
-                    code = ~code
-                    code_inputarg = False
-                stackloc = frame_addr + get_ebp_ofs(code)
-                value = rffi.cast(rffi.LONGP, stackloc)[0]
-                if kind == Assembler386.DESCR_FLOAT and WORD == 4:
-                    value_hi = value
-                    value = rffi.cast(rffi.LONGP, stackloc - 4)[0]
-            else:
-                kind = code & 3
-                if kind == Assembler386.DESCR_SPECIAL:
-                    if code == Assembler386.CODE_HOLE:
-                        num += 1
-                        continue
-                    if code == Assembler386.CODE_INPUTARG:
-                        code_inputarg = True
-                        continue
-                    if code == Assembler386.CODE_FORCED:
-                        continue
-                    assert code == Assembler386.CODE_STOP
-                    break
-                # 'code' identifies a register: load its value
-                code >>= 2
-                if kind == Assembler386.DESCR_FLOAT:
-                    if WORD == 4:
-                        value = allregisters[2*code]
-                        value_hi = allregisters[2*code + 1]
-                    else:
-                        value = allregisters[code]
-                else:
-                    value = allregisters[16 + code]
-
-            # store the loaded value into fail_boxes_<type>
-            if kind == Assembler386.DESCR_INT:
-                deadframe.jf_values[num].int = value
-            elif kind == Assembler386.DESCR_REF:
-                deadframe.jf_values[num].ref = rffi.cast(llmemory.GCREF, value)
-            elif kind == Assembler386.DESCR_FLOAT:
-                if WORD == 4:
-                    assert not longlong.is_64_bit
-                    floatvalue = rffi.cast(lltype.SignedLongLong, value_hi)
-                    floatvalue <<= 32
-                    floatvalue |= rffi.cast(lltype.SignedLongLong,
-                                            rffi.cast(lltype.Unsigned, value))
-                else:
-                    assert longlong.is_64_bit
-                    floatvalue = longlong2float.longlong2float(value)
-                deadframe.jf_values[num].float = floatvalue
-            else:
-                assert 0, "bogus kind"
-            num += 1
-        #
-        assert num == len(deadframe.jf_values)
-        if not we_are_translated():
-            assert bytecode[4] == 0xCC
-        #self.fail_boxes_count = num
-        fail_index = rffi.cast(rffi.INTP, bytecode)[0]
-        fail_descr = cpu.get_fail_descr_from_number(fail_index)
-        deadframe.jf_descr = fail_descr.hide(cpu)
-        return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
-
     def setup_failure_recovery(self):
-        @rgc.no_collect
-        def failure_recovery_func(registers):
-            # 'registers' is a pointer to a structure containing the
-            # original value of the registers, optionally the original
-            # value of XMM registers, and finally a reference to the
-            # recovery bytecode.  See _build_failure_recovery() for details.
-            stack_at_ebp = registers[ebp.value]
-            bytecode = rffi.cast(rffi.UCHARP, registers[self.cpu.NUM_REGS])
-            allregisters = rffi.ptradd(registers, -16)
-            return self.grab_frame_values(self.cpu, bytecode, stack_at_ebp,
-                                          allregisters)
-
-        self.failure_recovery_func = failure_recovery_func
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    _FAILURE_RECOVERY_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
-                                                        llmemory.GCREF))
-
     def _build_failure_recovery(self, exc, withfloats=False):
-        failure_recovery_func = llhelper(self._FAILURE_RECOVERY_FUNC,
-                                         self.failure_recovery_func)
-        failure_recovery_func = rffi.cast(lltype.Signed,
-                                          failure_recovery_func)
         mc = codebuf.MachineCodeBlockWrapper()
         self.mc = mc
 
         # Push all general purpose registers
-        for gpr in range(self.cpu.NUM_REGS-1, -1, -1):
-            mc.PUSH_r(gpr)
+        for gpr in range(self.cpu.NUM_REGS):
+            mc.MOV_br(gpr * WORD, gpr)
 
         if exc:
             # We might have an exception pending.  Load it into ebx
@@ -2115,42 +1879,23 @@ class Assembler386(object):
             mc.MOV(heap(self.cpu.pos_exception()), imm0)
             mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
 
-        # Load the current esp value into edi.  On 64-bit, this is the
-        # argument.  On 32-bit, it will be pushed as argument below.
-        mc.MOV_rr(edi.value, esp.value)
-
         if withfloats:
-            # Push all float registers
-            mc.SUB_ri(esp.value, self.cpu.NUM_REGS*8)
             for i in range(self.cpu.NUM_REGS):
-                mc.MOVSD_sx(8*i, i)
-
-        # the following call saves all values from the stack and from
-        # registers to a fresh new deadframe object.
-        # Note that the registers are saved so far in esi[0] to esi[7],
-        # as pushed above, plus optionally in esi[-16] to esi[-1] for
-        # the XMM registers.  Moreover, esi[8] is a pointer to the recovery
-        # bytecode, pushed just before by the CALL instruction written by
-        # generate_quick_failure().
-
-        if IS_X86_32:
-            mc.SUB_ri(esp.value, 3*WORD)    # for stack alignment
-            mc.PUSH_r(edi.value)
-
-        mc.CALL(imm(failure_recovery_func))
-        # returns in eax the deadframe object
+                mc.MOVSD_bx((16 + i) * WORD, i)
 
         if exc:
             # save ebx into 'jf_guard_exc'
             from pypy.jit.backend.llsupport.descr import unpack_fielddescr
             descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
             offset, size, _ = unpack_fielddescr(descrs.jf_guard_exc)
+            # XXX ebp relative, not eax relative
             mc.MOV_mr((eax.value, offset), ebx.value)
 
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The LEA in _call_footer below
         # throws away most of the frame, including all the PUSHes that we
         # did just above.
+        mc.POP(eax)
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])

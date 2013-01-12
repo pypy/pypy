@@ -279,7 +279,7 @@ class AbstractLLCPU(AbstractCPU):
         if descr.final_descr:
             assert index == 0
             return 0
-        xxx
+        return descr.rd_locs[index]
 
     def get_int_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
