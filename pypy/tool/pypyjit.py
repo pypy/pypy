@@ -98,7 +98,7 @@ def entry_point():
     code.exec_code(space, w_dict, w_dict)
 
 def test_run_translation():
-    from rpython.translator.goal.ann_override import PyPyAnnotatorPolicy
+    from pypy.tool.ann_override import PyPyAnnotatorPolicy
     from rpython.rtyper.test.test_llinterp import get_interpreter
 
     # first annotate and rtype
