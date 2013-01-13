@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.jit import AsmInfo
+from rpython.rlib import longlong2float
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)

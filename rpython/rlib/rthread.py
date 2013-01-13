@@ -196,6 +196,7 @@ def release_NOAUTO(ll_lock):
 # Thread integration.
 # These are six completely ad-hoc operations at the moment.
 
+@jit.dont_look_inside
 def gc_thread_prepare():
     """To call just before thread.start_new_thread().  This
     allocates a new shadow stack to be used by the future
@@ -206,6 +207,7 @@ def gc_thread_prepare():
     if we_are_translated():
         llop.gc_thread_prepare(lltype.Void)
 
+@jit.dont_look_inside
 def gc_thread_run():
     """To call whenever the current thread (re-)acquired the GIL.
     """
@@ -213,12 +215,14 @@ def gc_thread_run():
         llop.gc_thread_run(lltype.Void)
 gc_thread_run._always_inline_ = True
 
+@jit.dont_look_inside
 def gc_thread_start():
     """To call at the beginning of a new thread.
     """
     if we_are_translated():
         llop.gc_thread_start(lltype.Void)
 
+@jit.dont_look_inside
 def gc_thread_die():
     """To call just before the final GIL release done by a dying
     thread.  After a thread_die(), no more gc operation should
@@ -228,6 +232,7 @@ def gc_thread_die():
         llop.gc_thread_die(lltype.Void)
 gc_thread_die._always_inline_ = True
 
+@jit.dont_look_inside
 def gc_thread_before_fork():
     """To call just before fork().  Prepares for forking, after
     which only the current thread will be alive.
@@ -237,6 +242,7 @@ def gc_thread_before_fork():
     else:
         return llmemory.NULL
 
+@jit.dont_look_inside
 def gc_thread_after_fork(result_of_fork, opaqueaddr):
     """To call just after fork().
     """
