@@ -401,7 +401,7 @@ class CStandaloneBuilder(CBuilder):
                 ('profopt', '', [
                 '$(MAKENOPROF)',
                 '$(MAKE) CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)" $(TARGET)',
-                'cd $(PYPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)',
+                'cd $(RPYDIR)/translator/goal && $(ABS_TARGET) $(PROFOPT)',
                 '$(MAKE) clean_noprof',
                 '$(MAKE) CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)" $(TARGET)']))
         for rule in rules:
@@ -452,22 +452,22 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
+                         'cmd /c $(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
-                        'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
+                        'cmd /c $(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
 
             else:
                 mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
                 mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         [
-                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                             '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                              '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                         [
-                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                             '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                              '$(GCMAPFILES) > $@.tmp',
                          'mv $@.tmp $@'])
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")

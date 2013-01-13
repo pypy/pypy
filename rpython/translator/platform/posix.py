@@ -2,8 +2,10 @@
 
 import py, os, sys
 
-from pypy.conftest import pypydir
 from rpython.translator.platform import Platform, log, _run_subprocess
+
+import rpython
+rpydir = os.path.dirname(rpython.__file__)
 
 class BasePosix(Platform):
     exe_ext = ''
@@ -88,7 +90,7 @@ class BasePosix(Platform):
         if path is None:
             path = cfiles[0].dirpath()
 
-        pypypath = py.path.local(pypydir)
+        rpypath = py.path.local(rpydir)
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
@@ -116,11 +118,11 @@ class BasePosix(Platform):
         m.exe_name = exe_name
         m.eci = eci
 
-        def pypyrel(fpath):
+        def rpyrel(fpath):
             lpath = py.path.local(fpath)
-            rel = lpath.relto(pypypath)
+            rel = lpath.relto(rpypath)
             if rel:
-                return os.path.join('$(PYPYDIR)', rel)
+                return os.path.join('$(RPYDIR)', rel)
             m_dir = m.makefile_dir
             if m_dir == lpath:
                 return '.'
@@ -132,14 +134,14 @@ class BasePosix(Platform):
         rel_ofiles = [rel_cfile[:rel_cfile.rfind('.')]+'.o' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
-        rel_includedirs = [pypyrel(incldir) for incldir in
+        rel_includedirs = [rpyrel(incldir) for incldir in
                            self.preprocess_include_dirs(eci.include_dirs)]
-        rel_libdirs = [pypyrel(libdir) for libdir in
+        rel_libdirs = [rpyrel(libdir) for libdir in
                        self.preprocess_library_dirs(eci.library_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('PYPYDIR', '"%s"' % pypydir),
+            ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),

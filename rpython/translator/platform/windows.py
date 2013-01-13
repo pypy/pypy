@@ -7,6 +7,9 @@ from rpython.translator.platform import CompilationError
 from rpython.translator.platform import log, _run_subprocess
 from rpython.translator.platform import Platform, posix
 
+import rpython
+rpydir = os.path.dirname(rpython.__file__)
+
 def _get_compiler_type(cc, x64_flag):
     import subprocess
     if not cc:
@@ -252,7 +255,7 @@ class MsvcPlatform(Platform):
         if path is None:
             path = cfiles[0].dirpath()
 
-        pypypath = py.path.local(pypydir)
+        rpypath = py.path.local(rpydir)
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
@@ -279,10 +282,10 @@ class MsvcPlatform(Platform):
         else:
             target_name = exe_name.basename
 
-        def pypyrel(fpath):
-            rel = py.path.local(fpath).relto(pypypath)
+        def rpyrel(fpath):
+            rel = py.path.local(fpath).relto(rpypath)
             if rel:
-                return os.path.join('$(PYPYDIR)', rel)
+                return os.path.join('$(RPYDIR)', rel)
             else:
                 return fpath
 
@@ -290,11 +293,11 @@ class MsvcPlatform(Platform):
         rel_ofiles = [rel_cfile[:rel_cfile.rfind('.')]+'.obj' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
-        rel_includedirs = [pypyrel(incldir) for incldir in eci.include_dirs]
+        rel_includedirs = [rpyrel(incldir) for incldir in eci.include_dirs]
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('PYPYDIR', pypydir),
+            ('RPYDIR', rpydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),

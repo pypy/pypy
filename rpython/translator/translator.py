@@ -11,7 +11,6 @@ from rpython.flowspace.model import FunctionGraph, checkgraph, Block
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.sourcetools import nice_repr_for_func
-from pypy.config.pypyoption import pypy_optiondescription
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.config.translationoption import get_platform
 import py

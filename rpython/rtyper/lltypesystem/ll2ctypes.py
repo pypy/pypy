@@ -785,7 +785,7 @@ def lltype2ctypes(llobj, normalize=True):
                     return callback_internal(*cargs)
                 except:
                     import sys
-                    #if option.usepdb:
+                    #if conftest.option.usepdb:
                     #    import pdb; pdb.post_mortem(sys.exc_traceback)
                     global _callback_exc_info
                     _callback_exc_info = sys.exc_info()

@@ -163,7 +163,7 @@ class BaseTest(BaseRtypingTest):
         op_getfield = block.operations[-1]
         assert op_getfield.opname in ('getfield', 'oogetfield')
         funcptr = self.replace_force_virtualizable(rtyper, [graph])
-        if getattr(option, 'view', False):
+        if getattr(conftest.option, 'view', False):
             graph.show()
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]

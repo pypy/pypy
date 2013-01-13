@@ -68,7 +68,7 @@ class UsingFrameworkTest(object):
         for fullname in dir(cls):
             if not fullname.startswith('define'):
                 continue
-            keyword = option.keyword
+            keyword = conftest.option.keyword
             if keyword.startswith('test_'):
                 keyword = keyword[len('test_'):]
                 if keyword not in fullname:

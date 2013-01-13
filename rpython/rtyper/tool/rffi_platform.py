@@ -11,7 +11,6 @@ from rpython.tool.gcc_cache import build_executable_cache, try_compile_cache
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.tool.udir import udir
-from pypy.conftest import pypydir
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 
 # ____________________________________________________________
@@ -738,7 +737,10 @@ def run_example_code(filepath, eci, ignore_errors=False):
 
 # ____________________________________________________________
 
-PYPY_EXTERNAL_DIR = py.path.local(pypydir).join('..', '..')
+from os.path import dirname
+import rpython
+
+PYPY_EXTERNAL_DIR = py.path.local(dirname(rpython.__file__)).join('..', '..')
 # XXX make this configurable
 if sys.platform == 'win32':
     for libdir in [
