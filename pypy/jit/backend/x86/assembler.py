@@ -490,6 +490,7 @@ class Assembler386(object):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
         clt.allgcrefs = []
+        clt.frame_info.jfi_frame_depth = 0 # for now
         looptoken.compiled_loop_token = clt
         if not we_are_translated():
             # Arguments should be unique
