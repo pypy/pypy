@@ -8,8 +8,7 @@ from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.arch import (FORCE_INDEX_OFS, IS_X86_32,
-                                       JITFRAME_FIXED_SIZE)
+from pypy.jit.backend.x86.arch import IS_X86_32, JITFRAME_FIXED_SIZE
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.llsupport import jitframe
@@ -33,8 +32,6 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
-        if gcdescr is not None:
-            gcdescr.force_index_ofs = FORCE_INDEX_OFS
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
@@ -159,26 +156,13 @@ class AbstractX86CPU(AbstractLLCPU):
                                        immortal=True)
 
     def force(self, addr_of_force_token):
-        TP = rffi.CArrayPtr(lltype.Signed)
-        addr_of_force_index = addr_of_force_token + FORCE_INDEX_OFS
-        fail_index = rffi.cast(TP, addr_of_force_index)[0]
-        assert fail_index >= 0, "already forced!"
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token - ofs)
+        fail_index = frame.jf_force_index
         faildescr = self.get_fail_descr_from_number(fail_index)
-        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
-        frb = self.assembler._find_failure_recovery_bytecode(faildescr)
-        bytecode = rffi.cast(rffi.UCHARP, frb)
-        assert (rffi.cast(lltype.Signed, bytecode[0]) ==
-                self.assembler.CODE_FORCED)
-        bytecode = rffi.ptradd(bytecode, 1)
-        deadframe = self.assembler.grab_frame_values(
-            self,
-            bytecode,
-            addr_of_force_token,
-            self.all_null_registers)
-        assert self.get_latest_descr(deadframe) is faildescr
-        self.assembler.force_token_to_dead_frame[addr_of_force_token] = (
-            deadframe)
-        return deadframe
+        frame.jf_descr = cast_instance_to_gcref(faildescr)
+        return frame
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)

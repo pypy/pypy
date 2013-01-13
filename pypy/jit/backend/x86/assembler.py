@@ -12,7 +12,7 @@ from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
-from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
+from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD,
                                        IS_X86_32, IS_X86_64)
 from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi, edi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11,
@@ -79,7 +79,6 @@ class Assembler386(object):
         self.propagate_exception_path = 0
         self.gcrootmap_retaddr_forced = 0
         self.teardown()
-        self.force_token_to_dead_frame = {}    # XXX temporary hack
 
     def set_debug(self, v):
         r = self._debug
@@ -559,7 +558,7 @@ class Assembler386(object):
                                                      'b', descr_number)
 
         descr = self.cpu.get_fail_descr_from_number(descr_number)
-        arglocs = self.rebuild_faillocs_from_descr(descr)
+        arglocs = self.rebuild_faillocs_from_descr(descr, inputargs)
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(inputargs, arglocs,
@@ -1154,7 +1153,6 @@ class Assembler386(object):
             dst_locs.append(r10)
             x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        # align
         self.mc.CALL(x)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
@@ -1172,6 +1170,7 @@ class Assembler386(object):
         # instruction that doesn't already have a force_index.
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
+            xxx
             clt = self.current_clt
             force_index = clt.reserve_and_record_some_faildescr_index()
             self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
@@ -1794,9 +1793,6 @@ class Assembler386(object):
             mc.PUSH(imm(fail_index))
             mc.JMP_r(X86_64_SCRATCH_REG.value)
         # write tight data that describes the failure recovery
-        if guardtok.is_guard_not_forced:
-            XXX
-            mc.writechar(chr(self.CODE_FORCED))
         positions = [0] * len(guardtok.fail_locs)
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
@@ -1805,29 +1801,34 @@ class Assembler386(object):
                 positions[i] = loc.value
             else:
                 assert isinstance(loc, RegLoc)
-                v = (gpr_reg_mgr_cls.all_reg_indexes[loc.value] +
-                     loc.is_xmm * len(gpr_reg_mgr_cls.all_regs))
+                if loc.is_xmm:
+                    v = len(gpr_reg_mgr_cls.all_regs) + loc.value
+                else:
+                    v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 positions[i] = v * WORD
         guardtok.faildescr.rd_locs = positions
         # write fail_index too
         # for testing the decoding, write a final byte 0xCC
         return startpos
 
-    def rebuild_faillocs_from_descr(self, descr):
+    def rebuild_faillocs_from_descr(self, descr, inputargs):
         locs = []
         GPR_REGS = len(gpr_reg_mgr_cls.all_regs)
         XMM_REGS = len(xmm_reg_mgr_cls.all_regs)
+        input_i = 0
         for pos in descr.rd_locs:
             if pos == -1:
-                pass
+                continue
             elif pos < GPR_REGS * WORD:
                 locs.append(gpr_reg_mgr_cls.all_regs[pos // WORD])
             elif pos < (GPR_REGS + XMM_REGS) * WORD:
-                locs.append(xmm_reg_mgr_cls.xrm.all_regs[pos // WORD])
+                pos = pos // WORD - GPR_REGS
+                locs.append(xmm_reg_mgr_cls.all_regs[pos])
             else:
                 i = pos // WORD - 2 * self.cpu.NUM_REGS
-                tp = xxx
+                tp = inputargs[input_i].type
                 locs.append(StackLoc(i, pos, tp))
+            input_i += 1
         return locs
 
     def setup_failure_recovery(self):
@@ -1961,13 +1962,18 @@ class Assembler386(object):
                                    arglocs, result_loc):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        base_ofs = self.cpu.unpack_arraydescr(descrs.arraydescr)
+        ofs = self.cpu.unpack_fielddescr(descrs.jf_force_index)
+        self.mc.MOV_bi(ofs - base_ofs, fail_index)
         self._genop_call(op, arglocs, result_loc, fail_index)
-        self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
-        self.implement_guard(guard_token, 'L')
+        ofs_fail = self.cpu.unpack_fielddescr(descrs.jf_descr)
+        self.mc.CMP_bi(ofs_fail - base_ofs, 0)
+        self.implement_guard(guard_token, 'NE')
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
+        xxx
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
@@ -2087,6 +2093,7 @@ class Assembler386(object):
 
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
+        xxx
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)

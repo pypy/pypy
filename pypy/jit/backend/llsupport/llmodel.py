@@ -169,13 +169,11 @@ class AbstractLLCPU(AbstractCPU):
         return deadframe.jf_guard_exc
 
     def set_savedata_ref(self, deadframe, data):
-        XXX
-        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         deadframe.jf_savedata = data
 
     def get_savedata_ref(self, deadframe):
-        XXXX
-        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         return deadframe.jf_savedata
 
     def free_loop_and_bridges(self, compiled_loop_token):

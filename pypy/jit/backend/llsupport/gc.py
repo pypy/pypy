@@ -117,6 +117,8 @@ class GcLLDescription(GcCache):
         descrs.jf_descr = cpu.fielddescrof(jitframe.JITFRAME, 'jf_descr')
         descrs.jf_guard_exc = cpu.fielddescrof(jitframe.JITFRAME,
                                                'jf_guard_exc')
+        descrs.jf_force_index = cpu.fielddescrof(jitframe.JITFRAME,
+                                                 'jf_force_index')
         descrs.jf_frame_info = cpu.fielddescrof(jitframe.JITFRAME,
                                                 'jf_frame_info')
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,

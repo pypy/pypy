@@ -24,6 +24,8 @@ JITFRAME = lltype.GcStruct(
     # This field is also set immediately before doing CALL_MAY_FORCE
     # or CALL_ASSEMBLER.
     ('jf_descr', llmemory.GCREF),
+    # index of guard_not_force
+    ('jf_force_index', lltype.Signed),
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),
     # For GUARD_(NO)_EXCEPTION and GUARD_NOT_FORCED: the exception we
@@ -32,7 +34,8 @@ JITFRAME = lltype.GcStruct(
     # exception is not stored there, but is simply kept as a variable there)
     ('jf_guard_exc', llmemory.GCREF),
     # the actual frame
-    ('jf_frame', lltype.Array(lltype.Signed, hints={'nolength': True}))
+    ('jf_frame', lltype.Array(lltype.Signed))
+    # it should be: , hints={'nolength': True})), but ll2ctypes is complaining
 )
 
 JITFRAMEPTR = lltype.Ptr(JITFRAME)
