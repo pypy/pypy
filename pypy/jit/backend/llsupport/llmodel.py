@@ -259,6 +259,7 @@ class AbstractLLCPU(AbstractCPU):
                                                       abiname)
 
     def get_latest_descr(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
         return history.AbstractDescr.show(self, descr)
 

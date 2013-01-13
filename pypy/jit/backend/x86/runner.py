@@ -14,7 +14,9 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.llsupport import jitframe
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.llsupport.symbolic import WORD
-from pypy.jit.backend.llsupport.descr import unpack_arraydescr
+from pypy.jit.backend.llsupport.descr import ArrayDescr, FLAG_POINTER,\
+     FLAG_FLOAT
+        
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -231,12 +233,22 @@ class CPU_X86_64(AbstractX86CPU):
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**63 - 1)
         super(CPU_X86_64, self).__init__(*args, **kwargs)
+        descrs = self.gc_ll_descr.getframedescrs(self)
+        ad = descrs.arraydescr
+        # the same as normal JITFRAME, however with an array of pointers
+        self.refarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
+                                        FLAG_POINTER)
+        self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
+                                          FLAG_FLOAT)
 
     def getarraydescr_for_frame(self, type, index):
-        if type != history.INT:
-            xxx
+        if type == history.FLOAT:
+            descr = self.floatarraydescr
+        elif type == history.REF:
+            descr = self.refarraydescr
         else:
             descrs = self.gc_ll_descr.getframedescrs(self)
-            return JITFRAME_FIXED_SIZE + index, descrs.arraydescr
+            descr = descrs.arraydescr
+        return JITFRAME_FIXED_SIZE + index, descr
 
 CPU = CPU386

@@ -2163,9 +2163,9 @@ class Assembler386(object):
             self.mc.MOV_rb(eax.value, frame_loc.value)
             kind = op.result.type
             if kind == FLOAT:
-                xxx
-                t = unpack_interiorfielddescr(descrs.as_float)
-                self.mc.MOVSD_xm(xmm0.value, (eax.value, t[0]))
+                _, descr = self.cpu.getarraydescr_for_frame(kind, 0)
+                ofs = self.cpu.unpack_arraydescr(descr)
+                self.mc.MOVSD_xm(xmm0.value, (eax.value, ofs))
                 if result_loc is not xmm0:
                     self.mc.MOVSD(result_loc, xmm0)
             else:
