@@ -1132,7 +1132,7 @@ class Assembler386(object):
                     dst_locs.append(RawEspLoc(on_stack * WORD, INT))
                     on_stack += 1
 
-        align = align_stack_words(on_stack)
+        align = align_stack_words(on_stack + 1) - 1
         if align:
             self.mc.SUB_ri(esp.value, align * WORD)
 
