@@ -134,7 +134,7 @@ class AbstractX86CPU(AbstractLLCPU):
                         if IS_X86_32:
                             num += WORD
                     else:
-                        xxx
+                        self.set_ref_value(frame, num, arg)
                     num += WORD
                 descr_no = func(ll_frame)
             finally:
