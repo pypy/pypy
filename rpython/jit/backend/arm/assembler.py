@@ -574,7 +574,7 @@ class AssemblerARM(ResOpAssembler):
             mc.BL(rffi.cast(lltype.Signed, failure_recovery))
             if exc:
                 # save ebx into 'jf_guard_exc'
-                from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+                from rpython.jit.backend.llsupport.descr import unpack_fielddescr
                 descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
                 offset, size, _ = unpack_fielddescr(descrs.jf_guard_exc)
                 mc.STR_rr(r.r4.value, r.r0.value, offset, cond=c.AL)

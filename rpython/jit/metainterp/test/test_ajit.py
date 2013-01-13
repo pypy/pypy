@@ -3973,7 +3973,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert self.interp_operations(f, [3]) == 6
 
     def test_gc_add_memory_pressure(self):
-        from pypy.rlib import rgc
+        from rpython.rlib import rgc
 
         def f():
             rgc.add_memory_pressure(1234)
@@ -3982,7 +3982,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.interp_operations(f, [])
 
     def test_external_call(self):
-        from pypy.rlib.objectmodel import invoke_around_extcall
+        from rpython.rlib.objectmodel import invoke_around_extcall
         
         T = rffi.CArrayPtr(rffi.TIME_T)
         external = rffi.llexternal("time", [T], rffi.TIME_T)

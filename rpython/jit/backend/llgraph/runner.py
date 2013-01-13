@@ -11,8 +11,8 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 
-from pypy.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
-from pypy.rlib.rtimer import read_timestamp
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
+from rpython.rlib.rtimer import read_timestamp
 
 class LLTrace(object):
     has_been_freed = False
@@ -159,7 +159,7 @@ _example_res = {'v': None,
                 'f': 0.0}
 
 class LLGraphCPU(model.AbstractCPU):
-    from pypy.jit.metainterp.typesystem import llhelper as ts
+    from rpython.jit.metainterp.typesystem import llhelper as ts
     supports_floats = True
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
@@ -338,7 +338,7 @@ class LLGraphCPU(model.AbstractCPU):
     def _calldescr_dynamic_for_tests(self, atypes, rtype,
                                      abiname='FFI_DEFAULT_ABI'):
         # XXX WTF is that and why it breaks all abstractions?
-        from pypy.jit.backend.llsupport import ffisupport
+        from rpython.jit.backend.llsupport import ffisupport
         return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
                                                       abiname)
 
@@ -892,7 +892,7 @@ class LLFrame(object):
         return x
 
     def execute_debug_merge_point(self, descr, *args):
-        from pypy.jit.metainterp.warmspot import get_stats
+        from rpython.jit.metainterp.warmspot import get_stats
         try:
             stats = get_stats()
         except AttributeError:
@@ -925,7 +925,7 @@ def _getdescr(op):
 
 def _setup():
     def _make_impl_from_blackhole_interp(opname):
-        from pypy.jit.metainterp.blackhole import BlackholeInterpreter
+        from rpython.jit.metainterp.blackhole import BlackholeInterpreter
         name = 'bhimpl_' + opname.lower()
         try:
             func = BlackholeInterpreter.__dict__[name]

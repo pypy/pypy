@@ -169,7 +169,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
 =======
                                  can_invalidate=False,
                                  call_release_gil_target=llmemory.NULL):
-    from pypy.translator.backendopt.writeanalyze import top_set
+    from rpython.translator.backendopt.writeanalyze import top_set
 >>>>>>> other
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None

@@ -45,7 +45,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
-        from pypy.jit.backend.llsupport import jitframe
+        from rpython.jit.backend.llsupport import jitframe
         self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
                                                   self.get_failargs_limit())
 

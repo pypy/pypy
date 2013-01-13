@@ -1118,8 +1118,8 @@ class ResOpAssembler(object):
                 value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        from pypy.jit.backend.llsupport.descr import unpack_fielddescr
-        from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
+        from rpython.jit.backend.llsupport.descr import unpack_fielddescr
+        from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
         fail_descr = self.cpu.get_fail_descr_from_number(value)

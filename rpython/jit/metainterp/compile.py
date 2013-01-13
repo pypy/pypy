@@ -658,7 +658,7 @@ class AllVirtuals:
         return cpu.ts.cast_to_ref(ptr)
     @staticmethod
     def show(cpu, gcref):
-        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+        from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
         ptr = cpu.ts.cast_to_baseclass(gcref)
         return cast_base_ptr_to_instance(AllVirtuals, ptr)
 

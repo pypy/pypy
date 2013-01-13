@@ -31,7 +31,7 @@ def create_entry_point(space, w_dict):
 
     if withjit:
         from pypy.module.pypyjit.interp_jit import callback_hook
-        from pypy.rlib import objectmodel
+        from rpython.rlib import objectmodel
         objectmodel.register_around_callback_hook(callback_hook)
 
     def entry_point(argv):

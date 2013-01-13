@@ -105,8 +105,8 @@ class FfiCallTests(object):
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     def test_jit_fii_vref(self):
-        from pypy.rlib import clibffi
-        from pypy.rlib.jit_libffi import jit_ffi_prep_cif, jit_ffi_call
+        from rpython.rlib import clibffi
+        from rpython.rlib.jit_libffi import jit_ffi_prep_cif, jit_ffi_call
 
         math_sin = intmask(ctypes.cast(ctypes.CDLL(None).sin,
                                        ctypes.c_void_p).value)

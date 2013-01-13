@@ -176,7 +176,7 @@ def test_releases_gil_analyzer():
 <<<<<<< local
     from rpython.jit.backend.llgraph.runner import LLtypeCPU
 =======
-    from pypy.jit.backend.llgraph.runner import LLGraphCPU
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
 >>>>>>> other
 
     T = rffi.CArrayPtr(rffi.TIME_T)
@@ -199,7 +199,7 @@ def test_releases_gil_analyzer():
     assert call_descr.extrainfo.is_call_release_gil() is False
 
 def test_call_release_gil():
-    from pypy.jit.backend.llgraph.runner import LLGraphCPU
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
     T = rffi.CArrayPtr(rffi.TIME_T)
     external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)

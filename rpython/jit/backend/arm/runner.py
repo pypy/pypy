@@ -23,7 +23,7 @@ class AbstractARMCPU(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
-        from pypy.jit.backend.llsupport import jitframe
+        from rpython.jit.backend.llsupport import jitframe
         self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
                                                   self.get_failargs_limit())
 
