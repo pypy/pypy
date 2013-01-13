@@ -563,6 +563,9 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_read_timestamp(self):
         return read_timestamp()
 
+    def store_fail_descr(self, deadframe, descr):
+        pass # I *think*
+
 
 class LLDeadFrame(object):
     _TYPE = llmemory.GCREF
@@ -875,7 +878,7 @@ class LLFrame(object):
         #
         assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
         try:
-            result = assembler_helper_ptr(pframe, vable)
+            result = assembler_helper_ptr(failindex, pframe, vable)
         except LLException, lle:
             assert self.last_exception is None, "exception left behind"
             self.last_exception = lle
@@ -913,6 +916,7 @@ class LLFrame(object):
 
     def execute_keepalive(self, descr, x):
         pass
+
 
 def _getdescr(op):
     d = op.getdescr()
