@@ -618,6 +618,7 @@ class RandomLoop(object):
             if v not in used_later:
                 endvars.append(v)
         r.shuffle(endvars)
+        endvars = endvars[:1]
         loop.operations.append(ResOperation(rop.FINISH, endvars, None,
                                             descr=BasicFailDescr()))
         if builder.should_fail_by:
