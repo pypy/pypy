@@ -1,5 +1,6 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.jit import JitDriver
+import re
 
 class IntBox(object):
     def __init__(self, val):
@@ -29,6 +30,7 @@ class UnknonwOpCode(Exception):
 
 class RandomLoopBase(object):
     def check(self, bytecode, args=(0,0,0,0,0), **kwargs):
+        bytecode = re.subn('\s', '', bytecode)[0]
         offsets = self.offsets(bytecode)
         def get_printable_location(pc):
             return bytecode[pc]
@@ -101,8 +103,6 @@ class RandomLoopBase(object):
                         pc += offsets[pc]
                 elif op == ')':
                     value = IntBox(0)
-                elif op in ' \n':
-                    pass
                 else:
                     raise UnknonwOpCode
 
