@@ -163,14 +163,9 @@ EffectInfo.MOST_GENERAL = EffectInfo(None, None, None, None,
 def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
-<<<<<<< local
-                                 can_invalidate=False):
-    from rpython.translator.backendopt.writeanalyze import top_set
-=======
                                  can_invalidate=False,
                                  call_release_gil_target=llmemory.NULL):
     from rpython.translator.backendopt.writeanalyze import top_set
->>>>>>> other
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
         readonly_descrs_arrays = None

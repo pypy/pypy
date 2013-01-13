@@ -173,11 +173,7 @@ def test_jit_force_virtualizable_effectinfo():
     py.test.skip("XXX add a test for CallControl.getcalldescr() -> EF_xxx")
 
 def test_releases_gil_analyzer():
-<<<<<<< local
-    from rpython.jit.backend.llgraph.runner import LLtypeCPU
-=======
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
->>>>>>> other
 
     T = rffi.CArrayPtr(rffi.TIME_T)
     external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
