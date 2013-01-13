@@ -12,8 +12,8 @@ from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
-from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD,
-                                       IS_X86_32, IS_X86_64)
+from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
+                                       JITFRAME_FIXED_SIZE, IS_X86_32)
 from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi, edi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -509,8 +509,7 @@ class Assembler386(object):
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         frame_depth = self._assemble(regalloc, operations)
-        clt.frame_depth = frame_depth
-        clt.frame_info.jfi_frame_depth = frame_depth
+        clt.frame_info.jfi_frame_depth = frame_depth + JITFRAME_FIXED_SIZE
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -583,8 +582,8 @@ class Assembler386(object):
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
         self.fixup_target_tokens(rawstart)
-        frame_depth = max(self.current_clt.frame_depth, frame_depth)
-        self.current_clt.frame_depth = frame_depth
+        frame_depth = max(self.current_clt.frame_depth,
+                          frame_depth + JITFRAME_FIXED_SIZE)
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
         self.teardown()
         # oprofile support
@@ -741,7 +740,7 @@ class Assembler386(object):
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            target_frame_depth = jump_target_descr._x86_clt.frame_depth
+            target_frame_depth = jump_target_descr._x86_clt.frame_info.frame_depth
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
@@ -825,6 +824,7 @@ class Assembler386(object):
             self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        xxx
         # some minimal sanity checking
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
@@ -1958,18 +1958,27 @@ class Assembler386(object):
                 srcloc = eax
             self.load_from_mem(eax, srcloc, sizeloc, signloc)
 
-    def genop_guard_call_may_force(self, op, guard_op, guard_token,
-                                   arglocs, result_loc):
+    def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         base_ofs = self.cpu.unpack_arraydescr(descrs.arraydescr)
         ofs = self.cpu.unpack_fielddescr(descrs.jf_force_index)
         self.mc.MOV_bi(ofs - base_ofs, fail_index)
-        self._genop_call(op, arglocs, result_loc, fail_index)
+        return fail_index
+
+    def _emit_guard_not_forced(self, guard_token):
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        base_ofs = self.cpu.unpack_arraydescr(descrs.arraydescr)
         ofs_fail = self.cpu.unpack_fielddescr(descrs.jf_descr)
         self.mc.CMP_bi(ofs_fail - base_ofs, 0)
         self.implement_guard(guard_token, 'NE')
+
+    def genop_guard_call_may_force(self, op, guard_op, guard_token,
+                                   arglocs, result_loc):
+        fail_index = self._store_force_index(guard_op)
+        self._genop_call(op, arglocs, result_loc, fail_index)
+        self._emit_guard_not_forced()
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
@@ -1978,20 +1987,13 @@ class Assembler386(object):
         if gcrootmap:
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-        base_ofs = self.cpu.unpack_arraydescr(descrs.arraydescr)
-        ofs = self.cpu.unpack_fielddescr(descrs.jf_force_index)
-        self.mc.MOV_bi(ofs - base_ofs, fail_index)
+        fail_index = self._store_force_index(guard_op)
         self._genop_call(op, arglocs, result_loc, fail_index)
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, result_loc)
         # finally, the guard_not_forced
-        ofs_fail = self.cpu.unpack_fielddescr(descrs.jf_descr)
-        self.mc.CMP_bi(ofs_fail - base_ofs, 0)
-        self.implement_guard(guard_token, 'NE')
+        self._emit_guard_not_forced(guard_token)
 
     def call_release_gil(self, gcrootmap, save_registers):
         # First, we need to save away the registers listed in
@@ -2096,17 +2098,16 @@ class Assembler386(object):
 
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
-        xxx
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
+        fail_index = self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        assert len(arglocs) - 2 == descr.compiled_loop_token._debug_nbargs
+        frame_loc = arglocs[0]
         #
         # Write a call to the target assembler
+        # we need to allocate the frame, keep in sync with runner's
+        # execute_token
         self._emit_call(fail_index, imm(descr._x86_function_addr),
-                        arglocs, 2, tmp=eax)
+                        [frame_loc], 0, tmp=eax)
         if op.result is None:
             assert result_loc is None
             value = self.cpu.done_with_this_frame_void_v
@@ -2123,19 +2124,7 @@ class Assembler386(object):
             else:
                 raise AssertionError(kind)
 
-        from pypy.jit.backend.llsupport.descr import unpack_fielddescr
-        from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
-        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-        _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
-        fail_descr = self.cpu.get_fail_descr_from_number(value)
-        value = fail_descr.hide(self.cpu)
-        rgc._make_sure_does_not_move(value)
-        value = rffi.cast(lltype.Signed, value)
-        if rx86.fits_in_32bits(value):
-            self.mc.CMP_mi((eax.value, _offset), value)
-        else:
-            self.mc.MOV_ri(X86_64_SCRATCH_REG.value, value)
-            self.mc.CMP_mr((eax.value, _offset), X86_64_SCRATCH_REG.value)
+        self.mc.CMP_ri(eax.value, value)    
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
         je_location = self.mc.get_relative_pos()
@@ -2144,8 +2133,8 @@ class Assembler386(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self._emit_call(fail_index, imm(asm_helper_adr), [eax, arglocs[1]], 0,
-                        tmp=ecx)
+        self._emit_call(fail_index, imm(asm_helper_adr),
+                        [eax, frame_loc, imm0], 0, tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
             self.mc.FSTPL_b(result_loc.value)
         #else: result_loc is already either eax or None, checked below
@@ -2159,6 +2148,7 @@ class Assembler386(object):
         #
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
+            xxx
             from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
@@ -2169,26 +2159,26 @@ class Assembler386(object):
         #
         if op.result is not None:
             # load the return value from the dead frame's value index 0
+            assert isinstance(frame_loc, StackLoc)
+            self.mc.MOV_rb(eax.value, frame_loc.value)
             kind = op.result.type
             if kind == FLOAT:
+                xxx
                 t = unpack_interiorfielddescr(descrs.as_float)
                 self.mc.MOVSD_xm(xmm0.value, (eax.value, t[0]))
                 if result_loc is not xmm0:
                     self.mc.MOVSD(result_loc, xmm0)
             else:
                 assert result_loc is eax
-                if kind == INT:
-                    t = unpack_interiorfielddescr(descrs.as_int)
-                else:
-                    t = unpack_interiorfielddescr(descrs.as_ref)
-                self.mc.MOV_rm(eax.value, (eax.value, t[0]))
+                _, descr = self.cpu.getarraydescr_for_frame(kind, 0)
+                ofs = self.cpu.unpack_arraydescr(descr)
+                self.mc.MOV_rm(eax.value, (eax.value, ofs))
         #
         # Here we join Path A and Path B again
         offset = self.mc.get_relative_pos() - jmp_location
         assert 0 <= offset <= 127
         self.mc.overwrite(jmp_location - 1, chr(offset))
-        self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
-        self.implement_guard(guard_token, 'L')
+        self._emit_guard_not_forced(guard_token)
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         # Write code equivalent to write_barrier() in the GC: it checks

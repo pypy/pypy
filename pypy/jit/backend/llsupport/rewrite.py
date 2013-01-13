@@ -158,9 +158,9 @@ class GcRewriterAssembler(object):
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
         for i, arg in enumerate(op.getarglist()):
-            descr = self.cpu.getarraydescr_for_frame(arg.type, i)
+            index, descr = self.cpu.getarraydescr_for_frame(arg.type, i)
             self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
-                                            [frame, ConstInt(i), arg],
+                                            [frame, ConstInt(index), arg],
                                             None, descr))
         self.newops.append(ResOperation(rop.CALL_ASSEMBLER, [frame],
                                         op.result, op.getdescr()))

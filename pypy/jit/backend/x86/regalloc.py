@@ -936,17 +936,13 @@ class RegAlloc(object):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
-        assert jd is not None
-        size = jd.portal_calldescr.get_result_size()
+        # we attached a frame as a first arg, move index of virtualizable by one
         vable_index = jd.index_of_virtualizable
+        self.rm._sync_var(op.getarg(0))
+        frame_loc = self.fm.loc(op.getarg(0))
         if vable_index >= 0:
-            self.rm._sync_var(op.getarg(vable_index))
-            vable = self.fm.loc(op.getarg(vable_index))
-        else:
-            vable = imm0
-        self._call(op, [imm(size), vable] +
-                   [self.loc(op.getarg(i)) for i in range(op.numargs())],
-                   guard_not_forced_op=guard_op)
+            xxx
+        self._call(op, [frame_loc], guard_not_forced_op=guard_op)
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None

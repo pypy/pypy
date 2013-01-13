@@ -14,12 +14,13 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, cast_instance_to_gcref
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib import longlong2float
 from pypy.rlib.rarithmetic import intmask, is_valid_int
 from pypy.jit.backend.detect_cpu import autodetect_main_model_and_size
+from pypy.jit.backend.llsupport import jitframe
 
 
 def boxfloat(x):
@@ -2756,12 +2757,17 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_assembler_call(self):
         called = []
-        def assembler_helper(deadframe, virtualizable):
+        def assembler_helper(failindex, deadframe, virtualizable):
+            deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR,
+                                               deadframe)
+            faildescr = self.cpu.get_fail_descr_from_number(failindex)
+            deadframe.jf_descr = cast_instance_to_gcref(faildescr)
             assert self.cpu.get_int_value(deadframe, 0) == 97
             called.append(self.cpu.get_latest_descr(deadframe))
             return 4 + 9
 
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF],
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF,
+                                              llmemory.GCREF],
                                              lltype.Signed))
         class FakeJitDriverSD:
             index_of_virtualizable = -1

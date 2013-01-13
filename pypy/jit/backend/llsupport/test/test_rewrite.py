@@ -102,8 +102,8 @@ class BaseFakeCPU(object):
 
     def getarraydescr_for_frame(self, tp, index):
         if tp == history.FLOAT:
-            return self.floatframedescr
-        return self.signedframedescr
+            return index, self.floatframedescr
+        return index, self.signedframedescr
     
     def arraydescrof(self, ARRAY):
         try:

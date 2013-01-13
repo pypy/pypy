@@ -112,9 +112,10 @@ class AbstractX86CPU(AbstractLLCPU):
             addr = executable_token._x86_function_addr
             func = rffi.cast(FUNCPTR, addr)
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-            frame = lltype.malloc(jitframe.JITFRAME, clt.frame_depth +
-                                  JITFRAME_FIXED_SIZE, zero=True)
-            frame.jf_frame_info = clt.frame_info
+            frame_info = clt.frame_info
+            frame = lltype.malloc(jitframe.JITFRAME, frame_info.jfi_frame_depth,
+                                  zero=True)
+            frame.jf_frame_info = frame_info
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
@@ -230,5 +231,12 @@ class CPU_X86_64(AbstractX86CPU):
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**63 - 1)
         super(CPU_X86_64, self).__init__(*args, **kwargs)
+
+    def getarraydescr_for_frame(self, type, index):
+        if type != history.INT:
+            xxx
+        else:
+            descrs = self.gc_ll_descr.getframedescrs(self)
+            return JITFRAME_FIXED_SIZE + index, descrs.arraydescr
 
 CPU = CPU386
