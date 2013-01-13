@@ -1,9 +1,11 @@
 from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport.gc import *
+from pypy.jit.backend.llsupport import jitframe
 from pypy.jit.metainterp.gc import get_description
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.optimizeopt.util import equaloplists
 from pypy.jit.codewriter.heaptracker import register_known_gctype
+from pypy.jit.metainterp.history import JitCellToken
 
 
 class Evaluator(object):
@@ -12,6 +14,9 @@ class Evaluator(object):
     def __getitem__(self, key):
         return eval(key, self.scope)
 
+
+class FakeLoopToken(object):
+    pass
 
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
@@ -60,6 +65,17 @@ class RewriteTests(object):
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
+
+        casmdescr = JitCellToken()
+        clt = FakeLoopToken()
+        frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
+        ll_frame_info = lltype.cast_opaque_ptr(llmemory.GCREF, frame_info)
+        clt.frame_info = frame_info
+        frame_info.jfi_frame_depth = 13
+        framedescrs = self.gc_ll_descr.getframedescrs(self.cpu)
+        jfi_frame_depth = framedescrs.jfi_frame_depth
+        jf_frame_info = framedescrs.jf_frame_info
+        casmdescr.compiled_loop_token = clt
         #
         namespace.update(locals())
         #
@@ -76,10 +92,29 @@ class RewriteTests(object):
                                                         [])
         equaloplists(operations, expected.operations)
 
+class BaseFakeCPU(object):
+    def __init__(self):
+        self._cache = {}
+    
+    def arraydescrof(self, ARRAY):
+        try:
+            return self._cache[ARRAY]
+        except KeyError:
+            r = ArrayDescr(1, 2, FieldDescr('len', 0, 0, 0), 0)
+            self._cache[ARRAY] = r
+            return r
+    def fielddescrof(self, STRUCT, fname):
+        key = (STRUCT, fname)
+        try:
+            return self._cache[key]
+        except KeyError:
+            r = FieldDescr(fname, 1, 1, 1)
+            self._cache[key] = r
+            return r
 
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
-        class FakeCPU(object):
+        class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
                 return SizeDescrWithVTable(102)
         self.cpu = FakeCPU()
@@ -215,7 +250,7 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
             lambda cpu: True)
         #
-        class FakeCPU(object):
+        class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
                 descr = SizeDescrWithVTable(104)
                 descr.tid = 9315
@@ -677,3 +712,17 @@ class TestFramework(RewriteTests):
             setfield_raw(p0, p1, descr=tzdescr)
             jump()
         """)
+
+    def test_rewrite_call_assembler(self):
+        self.check_rewrite("""
+        [i0]
+        i1 = call_assembler(i0, descr=casmdescr)
+        """, """
+        [i0]
+        i1 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_depth)
+        p1 = call_malloc_gc(ConstClass(malloc_array_nonstandard), 1, 2, 0, 0, i1, descr=malloc_array_nonstandard_descr)
+        setfield_gc(p1, ConstPtr(ll_frame_info), descr=jf_frame_info)
+        i2 = call_assembler(p1, i0, descr=casmdescr)
+        """)
+        # XXX we want call_malloc_nursery actually, but let's not care
+        # for now, the array is a bit non-standard

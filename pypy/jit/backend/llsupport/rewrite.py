@@ -7,6 +7,7 @@ from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.symbolic import WORD
 from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from pypy.jit.backend.llsupport import jitframe
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 
 class GcRewriterAssembler(object):
@@ -65,7 +66,11 @@ class GcRewriterAssembler(object):
                 if op.getopnum() == rop.SETARRAYITEM_GC:
                     self.handle_write_barrier_setarrayitem(op)
                     continue
-            # ----------
+            # ---------- call assembler -----------
+            if op.getopnum() == rop.CALL_ASSEMBLER:
+                self.handle_call_assembler(op)
+                continue
+            #
             self.newops.append(op)
         return self.newops
 
@@ -132,6 +137,27 @@ class GcRewriterAssembler(object):
                 self.gen_malloc_unicode(v_length, op.result)
             else:
                 raise NotImplementedError(op.getopname())
+
+    def handle_call_assembler(self, op):
+        descrs = self.gc_ll_descr.getframedescrs(self.cpu)
+        loop_token = op.getdescr()
+        assert isinstance(loop_token, history.JitCellToken)
+        lgt_box = history.BoxInt()
+        frame = history.BoxPtr()
+        jfi = loop_token.compiled_loop_token.frame_info
+        llref = lltype.cast_opaque_ptr(llmemory.GCREF, jfi)
+        op0 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(llref)], lgt_box,
+                           descr=descrs.jfi_frame_depth)
+        self.newops.append(op0)
+        op1 = ResOperation(rop.NEW_ARRAY, [lgt_box], frame,
+                           descr=descrs.arraydescr)
+        self.handle_new_array(descrs.arraydescr, op1)
+        op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
+                           None, descr=descrs.jf_frame_info)
+        self.newops.append(op2)
+        lst = op.getarglist()
+        self.newops.append(ResOperation(rop.CALL_ASSEMBLER, [frame] + lst,
+                                        op.result, op.getdescr()))
 
     # ----------
 
