@@ -1,12 +1,12 @@
 import py, weakref
-from pypy.jit.backend import model
-from pypy.jit.backend.llgraph import support
-from pypy.jit.metainterp.history import AbstractDescr
-from pypy.jit.metainterp.history import Const, getkind
-from pypy.jit.metainterp.history import INT, REF, FLOAT, VOID
-from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.codewriter import longlong, heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.backend import model
+from rpython.jit.backend.llgraph import support
+from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import Const, getkind
+from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
+from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.codewriter import longlong, heaptracker
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
