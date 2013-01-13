@@ -54,14 +54,14 @@ def addr_as_object(addr, fd, space):
 # XXX a bit of code duplication
 def fill_from_object(addr, space, w_address):
     from rpython.rlib import _rsocket_rffi as _c
-    if hasattr(addr, 'family') and addr.family == rsocket.AF_INET:
+    if isinstance(addr, rsocket.INETAddress):
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
         port = make_ushort_port(space, port)
         a = addr.lock(_c.sockaddr_in)
         rffi.setintfield(a, 'c_sin_port', rsocket.htons(port))
         addr.unlock()
-    elif hasattr(addr, 'family') and addr.family == rsocket.AF_INET6:
+    elif isinstance(addr, rsocket.INET6Address):
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
@@ -109,9 +109,9 @@ def addr_from_object(family, space, w_address):
                 "flowinfo must be 0-1048575."))
         flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
-    if 'AF_UNIX' in rsocket.constants and family == rsocket.AF_UNIX:
+    if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
         return rsocket.UNIXAddress(space.str_w(w_address))
-    if 'AF_NETLINK' in rsocket.constants and family == rsocket.AF_NETLINK:
+    if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
     raise RSocketError("unknown address family")
