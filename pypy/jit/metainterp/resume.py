@@ -974,11 +974,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             num += len(self.liveboxes)
             assert num >= 0
         if kind == INT:
-            box = BoxInt(self.cpu.get_latest_value_int(self.deadframe, num))
+            box = BoxInt(self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = BoxPtr(self.cpu.get_latest_value_ref(self.deadframe, num))
+            box = BoxPtr(self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = BoxFloat(self.cpu.get_latest_value_float(self.deadframe,num))
+            box = BoxFloat(self.cpu.get_float_value(self.deadframe,num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
@@ -1244,7 +1244,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             assert tag == TAGBOX
             if num < 0:
                 num += self.cpu.get_latest_value_count(self.deadframe)
-            return self.cpu.get_latest_value_int(self.deadframe, num)
+            return self.cpu.get_int_value(self.deadframe, num)
 
     def decode_ref(self, tagged):
         num, tag = untag(tagged)
@@ -1258,7 +1258,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             assert tag == TAGBOX
             if num < 0:
                 num += self.cpu.get_latest_value_count(self.deadframe)
-            return self.cpu.get_latest_value_ref(self.deadframe, num)
+            return self.cpu.get_ref_value(self.deadframe, num)
 
     def decode_float(self, tagged):
         num, tag = untag(tagged)
@@ -1268,7 +1268,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             assert tag == TAGBOX
             if num < 0:
                 num += self.cpu.get_latest_value_count(self.deadframe)
-            return self.cpu.get_latest_value_float(self.deadframe, num)
+            return self.cpu.get_float_value(self.deadframe, num)
 
     def write_an_int(self, index, int):
         self.blackholeinterp.setarg_i(index, int)

@@ -422,26 +422,26 @@ class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
-        result = metainterp_sd.cpu.get_latest_value_int(deadframe, 0)
+        result = metainterp_sd.cpu.get_int_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameInt(result)
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
-        result = cpu.get_latest_value_ref(deadframe, 0)
+        result = cpu.get_ref_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
-        result = metainterp_sd.cpu.get_latest_value_float(deadframe, 0)
+        result = metainterp_sd.cpu.get_float_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameFloat(result)
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
-        value = cpu.get_latest_value_ref(deadframe, 0)
+        value = cpu.get_ref_value(deadframe, 0)
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
@@ -573,7 +573,7 @@ class ResumeGuardDescr(ResumeDescr):
             typetag = self._counter & self.CNT_TYPE_MASK
             counters = self._counters
             if typetag == self.CNT_INT:
-                intvalue = metainterp_sd.cpu.get_latest_value_int(
+                intvalue = metainterp_sd.cpu.get_int_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersInt()
@@ -581,7 +581,7 @@ class ResumeGuardDescr(ResumeDescr):
                     assert isinstance(counters, ResumeGuardCountersInt)
                 counter = counters.see_int(intvalue)
             elif typetag == self.CNT_REF:
-                refvalue = metainterp_sd.cpu.get_latest_value_ref(
+                refvalue = metainterp_sd.cpu.get_ref_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersRef()
@@ -589,7 +589,7 @@ class ResumeGuardDescr(ResumeDescr):
                     assert isinstance(counters, ResumeGuardCountersRef)
                 counter = counters.see_ref(refvalue)
             elif typetag == self.CNT_FLOAT:
-                floatvalue = metainterp_sd.cpu.get_latest_value_float(
+                floatvalue = metainterp_sd.cpu.get_float_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersFloat()
