@@ -125,6 +125,13 @@ class GcLLDescription(GcCache):
                                                   'jfi_frame_depth')
         return descrs
 
+    def getarraydescr_for_frame(self, type, index):
+        """ This function returns a tuple (descr, index) for storing
+        index inside a frame array. It's a little bit delicate, because on
+        say x86 32bit, we can't express all indexes of floats.
+        """
+        raise NotImplementedError # cpu specific
+
 class JitFrameDescrs:
     def _freeze_(self):
         return True

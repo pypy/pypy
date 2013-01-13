@@ -149,14 +149,20 @@ class GcRewriterAssembler(object):
         op0 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(llref)], lgt_box,
                            descr=descrs.jfi_frame_depth)
         self.newops.append(op0)
+        # XXX for now it generates call_malloc_gc, instead of
+        # call_malloc_nursery, because the array is strange
         op1 = ResOperation(rop.NEW_ARRAY, [lgt_box], frame,
                            descr=descrs.arraydescr)
         self.handle_new_array(descrs.arraydescr, op1)
         op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
-        lst = op.getarglist()
-        self.newops.append(ResOperation(rop.CALL_ASSEMBLER, [frame] + lst,
+        for i, arg in enumerate(op.getarglist()):
+            descr = self.cpu.getarraydescr_for_frame(arg.type, i)
+            self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
+                                            [frame, ConstInt(i), arg],
+                                            None, descr))
+        self.newops.append(ResOperation(rop.CALL_ASSEMBLER, [frame],
                                         op.result, op.getdescr()))
 
     # ----------

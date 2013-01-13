@@ -75,6 +75,8 @@ class RewriteTests(object):
         framedescrs = self.gc_ll_descr.getframedescrs(self.cpu)
         jfi_frame_depth = framedescrs.jfi_frame_depth
         jf_frame_info = framedescrs.jf_frame_info
+        signedframedescr = self.cpu.signedframedescr
+        floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
         #
         namespace.update(locals())
@@ -95,6 +97,13 @@ class RewriteTests(object):
 class BaseFakeCPU(object):
     def __init__(self):
         self._cache = {}
+        self.signedframedescr = ArrayDescr(3, 8, FieldDescr('len', 0, 0, 0), 0)
+        self.floatframedescr = ArrayDescr(5, 8, FieldDescr('len', 0, 0, 0), 0)
+
+    def getarraydescr_for_frame(self, tp, index):
+        if tp == history.FLOAT:
+            return self.floatframedescr
+        return self.signedframedescr
     
     def arraydescrof(self, ARRAY):
         try:
@@ -103,6 +112,7 @@ class BaseFakeCPU(object):
             r = ArrayDescr(1, 2, FieldDescr('len', 0, 0, 0), 0)
             self._cache[ARRAY] = r
             return r
+        
     def fielddescrof(self, STRUCT, fname):
         key = (STRUCT, fname)
         try:
@@ -715,14 +725,16 @@ class TestFramework(RewriteTests):
 
     def test_rewrite_call_assembler(self):
         self.check_rewrite("""
-        [i0]
-        i1 = call_assembler(i0, descr=casmdescr)
+        [i0, f0]
+        i2 = call_assembler(i0, f0, descr=casmdescr)
         """, """
-        [i0]
+        [i0, f0]
         i1 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_depth)
         p1 = call_malloc_gc(ConstClass(malloc_array_nonstandard), 1, 2, 0, 0, i1, descr=malloc_array_nonstandard_descr)
         setfield_gc(p1, ConstPtr(ll_frame_info), descr=jf_frame_info)
-        i2 = call_assembler(p1, i0, descr=casmdescr)
+        setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
+        setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
+        i2 = call_assembler(p1, descr=casmdescr)
         """)
         # XXX we want call_malloc_nursery actually, but let's not care
         # for now, the array is a bit non-standard
