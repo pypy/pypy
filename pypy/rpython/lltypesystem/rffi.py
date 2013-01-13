@@ -279,14 +279,16 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     callable_name = getattr(callable, '__name__', '?')
     if callbackholder is not None:
         callbackholder.callbacks[callable] = True
-    callable_name_descr = str(callable).replace('"', '\\"')
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
+    invoke_hook = getattr(callable, '_callback_hook_', None)
+    assert invoke_hook is None or isinstance(invoke_hook, str)
+
     source = py.code.Source(r"""
         def inner_wrapper(%(args)s):
-            if aroundstate is not None:
+            if invoke_hook is not None and aroundstate is not None:
                 callback_hook = aroundstate.callback_hook
                 if callback_hook:
-                    callback_hook(llstr("%(callable_name_descr)s"))
+                    callback_hook(llstr(invoke_hook))
             return callable(%(args)s)
         inner_wrapper._never_inline_ = True
         

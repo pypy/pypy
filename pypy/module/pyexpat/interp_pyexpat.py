@@ -312,6 +312,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
     """ % locals())
 
     exec str(src)
+    callback._callback_hook_ = "XML_" + name
 
     c_name = 'XML_Set' + name
     callback_type = lltype.Ptr(lltype.FuncType(
@@ -340,6 +341,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     else:
         result = 1
     return rffi.cast(rffi.INT, result)
+UnknownEncodingHandlerData_callback._callback_hook_ = None    # no jit needed
 callback_type = lltype.Ptr(lltype.FuncType(
     [rffi.VOIDP, rffi.CCHARP, XML_Encoding_Ptr], rffi.INT))
 XML_SetUnknownEncodingHandler = expat_external(
