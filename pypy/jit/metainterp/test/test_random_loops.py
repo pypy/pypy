@@ -14,6 +14,16 @@ class IntBox(object):
     def sub(self, other):
         return IntBox(self.value() - other.value())
 
+    def gt(self, other):
+        return IntBox(self.value() > other.value())
+
+    def lt(self, other):
+        return IntBox(self.value() < other.value())
+
+    def eq(self, other):
+        return IntBox(self.value() == other.value())
+
+
 class UnknonwOpCode(Exception):
     pass
 
@@ -63,12 +73,25 @@ class RandomLoopBase(object):
                     value = prev.add(value)
                 elif op == '-':
                     value = prev.sub(value)
+                elif op == '>':
+                    value = prev.gt(value)
+                elif op == '<':
+                    value = prev.lt(value)
+                elif op == '=':
+                    value = prev.eq(value)
                 elif op == '{':
                     pass
                 elif op == '}':
                     if value.value():
                         pc -= offsets[pc]
                         myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev)
+                elif op == '(':
+                    if not value.value():
+                        value = IntBox(1)
+                        pc += offsets[pc]
+                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev)
+                elif op == ')':
+                    value = IntBox(0)
                 else:
                     raise UnknonwOpCode
 
@@ -109,6 +132,9 @@ class BaseTests(RandomLoopBase):
 
     def test_loop(self):
         self.check('0A9B{ab+Ab1-Bb}', a=45)
+
+    def test_conditional(self):
+        self.check('0A0C9B{b4<(a1+A)(c1+C)b1-Bb}', c=6, a=3)
 
 class TestLLtype(BaseTests, LLJitMixin):
     pass
