@@ -536,44 +536,6 @@ class WarmspotTests(object):
         self.check_trace_count(1)
 
 
-    def test_callback_jit_merge_point(self):
-        from pypy.rlib.objectmodel import register_around_callback_hook
-        from pypy.rpython.lltypesystem import lltype, rffi
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        
-        callback_jit_driver = JitDriver(greens = ['name'], reds = 'auto')
-        
-        def callback_merge_point(name):
-            callback_jit_driver.jit_merge_point(name=name)
-    
-        @callback_jit_driver.inline(callback_merge_point)
-        def callback_hook(name):
-            pass
-
-        def callback(a, b):
-            if a > b:
-                return 1
-            return -1
-
-        CB_TP = rffi.CCallback([lltype.Signed, lltype.Signed], lltype.Signed)
-        eci = ExternalCompilationInfo(includes=['stdlib.h'])
-        qsort = rffi.llexternal('qsort',
-                                [rffi.VOIDP, lltype.Signed, lltype.Signed,
-                                 CB_TP], lltype.Void, compilation_info=eci)
-        ARR = rffi.CArray(lltype.Signed)
-
-        def main():
-            register_around_callback_hook(callback_hook)
-            raw = lltype.malloc(ARR, 10, flavor='raw')
-            for i in range(10):
-                raw[i] = 10 - i
-            qsort(raw, 10, rffi.sizeof(lltype.Signed), callback)
-            lltype.free(raw, flavor='raw')
-
-        self.meta_interp(main, [])
-        self.check_trace_count(1)
-
-
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLGraphCPU
     type_system = 'lltype'

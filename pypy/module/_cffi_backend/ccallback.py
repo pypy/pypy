@@ -152,6 +152,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
 
 STDERR = 2
 
+@jit.jit_callback("CFFI")
 def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
@@ -201,4 +202,3 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         callback.write_error_return_value(ll_res)
     if ec is not None:
         cerrno.restore_errno_from(ec)
-invoke_callback._callback_hook_ = "CFFI"

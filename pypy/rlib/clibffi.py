@@ -421,6 +421,7 @@ USERDATA_P.TO.become(lltype.Struct('userdata',
                                    hints={'callback':True}))
 
 
+@jit.jit_callback("CLIBFFI")
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
@@ -431,7 +432,6 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     userdata.callback(ll_args, ll_res, userdata)
-ll_callback._callback_hook_ = "CLIBFFI"
 
 class StackCheckError(ValueError):
     message = None
