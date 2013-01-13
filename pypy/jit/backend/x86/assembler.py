@@ -2101,13 +2101,13 @@ class Assembler386(object):
         fail_index = self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        frame_loc = arglocs[0]
+        [frame_loc, argloc] = arglocs
         #
         # Write a call to the target assembler
         # we need to allocate the frame, keep in sync with runner's
         # execute_token
         self._emit_call(fail_index, imm(descr._x86_function_addr),
-                        [frame_loc], 0, tmp=eax)
+                        [argloc], 0, tmp=eax)
         if op.result is None:
             assert result_loc is None
             value = self.cpu.done_with_this_frame_void_v

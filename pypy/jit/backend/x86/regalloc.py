@@ -942,7 +942,8 @@ class RegAlloc(object):
         frame_loc = self.fm.loc(op.getarg(0))
         if vable_index >= 0:
             xxx
-        self._call(op, [frame_loc], guard_not_forced_op=guard_op)
+        self._call(op, [frame_loc, self.loc(op.getarg(0))],
+                   guard_not_forced_op=guard_op)
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
