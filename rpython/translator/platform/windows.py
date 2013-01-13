@@ -2,7 +2,6 @@
 
 import py, os, sys, re
 
-from pypy.conftest import pypydir
 from rpython.translator.platform import CompilationError
 from rpython.translator.platform import log, _run_subprocess
 from rpython.translator.platform import Platform, posix
