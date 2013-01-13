@@ -29,14 +29,19 @@ class UnknonwOpCode(Exception):
     pass
 
 class RandomLoopBase(object):
-    def check(self, bytecode, args=(0,0,0,0,0), **kwargs):
+    def check(self, bytecode, args=(0,0,0,0,0), max_back_jumps=-1, **kwargs):
         bytecode = re.subn('\s', '', bytecode)[0]
         offsets = self.offsets(bytecode)
+        assert len(args) == 5
+        for n in kwargs.keys():
+            assert n in 'abcde'
+        args = tuple(args) + (max_back_jumps,)
         def get_printable_location(pc):
             return bytecode[pc]
-        myjitdriver = JitDriver(greens = ['pc'], reds = ['a', 'b', 'c', 'd', 'e', 'value', 'prev', 'loop_stack'],
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['max_back_jumps', 'a', 'b', 'c', 'd', 'e', 
+                                                         'value', 'prev', 'loop_stack'],
                                 get_printable_location=get_printable_location)
-        def interpreter(_a, _b, _c, _d, _e):
+        def interpreter(_a, _b, _c, _d, _e, max_back_jumps):
             pc = 0
             value = prev = IntBox(0)
             a = IntBox(_a)
@@ -47,7 +52,7 @@ class RandomLoopBase(object):
             loop_stack = []
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev, 
-                                            loop_stack=loop_stack)
+                                            loop_stack=loop_stack, max_back_jumps=max_back_jumps)
                 op = bytecode[pc]
                 current = value
 
@@ -89,8 +94,12 @@ class RandomLoopBase(object):
                     if value.value():
                         pc -= offsets[pc] - 1
                         prev = current
+                        if max_back_jumps > 0:
+                            max_back_jumps -= 1
+                            if not max_back_jumps:
+                                break
                         myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev,
-                                                  loop_stack=loop_stack)
+                                                  loop_stack=loop_stack, max_back_jumps=max_back_jumps)
                         continue
                     else:
                         loop_stack.pop()
@@ -134,7 +143,6 @@ class RandomLoopBase(object):
         return offsets
 
 
-
 class BaseTests(RandomLoopBase):
     def test_basic(self):
         self.check('1A2B3C4D5E', a=1, b=2, c=3, d=4, e=5)
@@ -163,6 +171,9 @@ class BaseTests(RandomLoopBase):
                         b1-B
                         b0= (x)
                       1}''', a=810)
+
+    def test_jump_limit(self):
+        self.check('0A{a1+A1}', max_back_jumps=10, a=10)
 
 class TestLLtype(BaseTests, LLJitMixin):
     pass
