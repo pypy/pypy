@@ -32,7 +32,7 @@ class RandomLoopBase(object):
         offsets = self.offsets(bytecode)
         def get_printable_location(pc):
             return bytecode[pc]
-        myjitdriver = JitDriver(greens = ['pc'], reds = ['a', 'b', 'c', 'd', 'e', 'value', 'prev'],
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['a', 'b', 'c', 'd', 'e', 'value', 'prev', 'loop_stack'],
                                 get_printable_location=get_printable_location)
         def interpreter(_a, _b, _c, _d, _e):
             pc = 0
@@ -42,8 +42,10 @@ class RandomLoopBase(object):
             c = IntBox(_c)
             d = IntBox(_d)
             e = IntBox(_e)
+            loop_stack = []
             while pc < len(bytecode):
-                myjitdriver.jit_merge_point(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev)
+                myjitdriver.jit_merge_point(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev, 
+                                            loop_stack=loop_stack)
                 op = bytecode[pc]
                 current = value
 
@@ -80,18 +82,27 @@ class RandomLoopBase(object):
                 elif op == '=':
                     value = prev.eq(value)
                 elif op == '{':
-                    pass
+                    loop_stack.append(pc)
                 elif op == '}':
                     if value.value():
                         pc -= offsets[pc]
-                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev)
+                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev,
+                                                  loop_stack=loop_stack)
+                    else:
+                        loop_stack.pop()
+                elif op == 'x':
+                    pc = loop_stack.pop()
+                    pc += offsets[pc]
                 elif op == '(':
                     if not value.value():
                         value = IntBox(1)
                         pc += offsets[pc]
-                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev)
+                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev,
+                                                  loop_stack=loop_stack)
                 elif op == ')':
                     value = IntBox(0)
+                elif op in ' \n':
+                    pass
                 else:
                     raise UnknonwOpCode
 
@@ -99,14 +110,15 @@ class RandomLoopBase(object):
                 pc += 1
             return a.value(), b.value(), c.value(), d.value(), e.value()
         
-        obj = self.meta_interp(interpreter, args)._obj
-        res = {'a': obj.item0, 'b': obj.item1, 'c': obj.item2, 'd': obj.item3, 'e': obj.item4}
         obj = interpreter(*args)
         expected = {'a': obj[0], 'b': obj[1], 'c': obj[2], 'd': obj[3], 'e': obj[4]}
+        for var, val in kwargs.items():
+            assert expected[var] == val
+
+        obj = self.meta_interp(interpreter, args)._obj
+        res = {'a': obj.item0, 'b': obj.item1, 'c': obj.item2, 'd': obj.item3, 'e': obj.item4}
         assert res == expected
 
-        for var, val in kwargs.items():
-            assert res[var] == val
         return res
 
     def offsets(self, bytecode):
@@ -135,6 +147,22 @@ class BaseTests(RandomLoopBase):
 
     def test_conditional(self):
         self.check('0A0C9B{b4<(a1+A)(c1+C)b1-Bb}', c=6, a=3)
+
+    def test_break(self):
+        self.check('0A9B{ab+Ab1-Bb0=(x)1}', a=45)
+
+    def test_nested(self):
+        self.check('''0A
+                      9B{
+                        9C{
+                          ab+A
+                          ac+A
+                          c1-C
+                          c0= (x)
+                        1}
+                        b1-B
+                        b0= (x)
+                      1}''', a=810)
 
 class TestLLtype(BaseTests, LLJitMixin):
     pass
