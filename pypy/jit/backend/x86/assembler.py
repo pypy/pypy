@@ -1973,7 +1973,6 @@ class Assembler386(object):
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
-        xxx
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
@@ -1981,14 +1980,18 @@ class Assembler386(object):
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        base_ofs = self.cpu.unpack_arraydescr(descrs.arraydescr)
+        ofs = self.cpu.unpack_fielddescr(descrs.jf_force_index)
+        self.mc.MOV_bi(ofs - base_ofs, fail_index)
         self._genop_call(op, arglocs, result_loc, fail_index)
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, result_loc)
         # finally, the guard_not_forced
-        self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
-        self.implement_guard(guard_token, 'L')
+        ofs_fail = self.cpu.unpack_fielddescr(descrs.jf_descr)
+        self.mc.CMP_bi(ofs_fail - base_ofs, 0)
+        self.implement_guard(guard_token, 'NE')
 
     def call_release_gil(self, gcrootmap, save_registers):
         # First, we need to save away the registers listed in
