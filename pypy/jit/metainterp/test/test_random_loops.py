@@ -14,9 +14,16 @@ class IntBox(object):
     def sub(self, other):
         return IntBox(self.value() - other.value())
 
+class UnknonwOpCode(Exception):
+    pass
+
 class RandomLoopBase(object):
     def check(self, bytecode, args=(0,0,0,0,0), **kwargs):
-        myjitdriver = JitDriver(greens = ['pc'], reds = ['a', 'b', 'c', 'd', 'e', 'value', 'prev'])
+        offsets = self.offsets(bytecode)
+        def get_printable_location(pc):
+            return bytecode[pc]
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['a', 'b', 'c', 'd', 'e', 'value', 'prev'],
+                                get_printable_location=get_printable_location)
         def interpreter(_a, _b, _c, _d, _e):
             pc = 0
             value = prev = IntBox(0)
@@ -56,8 +63,14 @@ class RandomLoopBase(object):
                     value = prev.add(value)
                 elif op == '-':
                     value = prev.sub(value)
+                elif op == '{':
+                    pass
+                elif op == '}':
+                    if value.value():
+                        pc -= offsets[pc]
+                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev)
                 else:
-                    assert False
+                    raise UnknonwOpCode
 
                 prev = current
                 pc += 1
@@ -73,6 +86,18 @@ class RandomLoopBase(object):
             assert res[var] == val
         return res
 
+    def offsets(self, bytecode):
+        offsets = [0] * len(bytecode)
+        stack = []
+        for pc, op in enumerate(bytecode):
+            if op in '{[(':
+                stack.append((pc, op))
+            elif op in ')]}':
+                start_pc, start_op = stack.pop()
+                assert start_op + op in ('()', '[]', '{}')
+                offsets[start_pc] = offsets[pc] = pc - start_pc
+        return offsets
+
 
 
 class BaseTests(RandomLoopBase):
@@ -81,6 +106,9 @@ class BaseTests(RandomLoopBase):
         self.check('1', [6,7,8,9,0], a=6, b=7, c=8, d=9, e=0)
         self.check('1a+A2b+B3c+C4d+D5e+E', [6,7,8,9,0], a=7, b=9, c=11, d=13, e=5)
         self.check('ea+Eeb+Eec+Eed+E', [6,7,8,9,0], a=6, b=7, c=8, d=9, e=30)
+
+    def test_loop(self):
+        self.check('0A9B{ab+Ab1-Bb}', a=45)
 
 class TestLLtype(BaseTests, LLJitMixin):
     pass
