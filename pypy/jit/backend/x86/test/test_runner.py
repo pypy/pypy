@@ -4,7 +4,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import ResOperation, TargetToken, JitCellToken
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstFloat,
                                          ConstPtr, Box, BoxFloat,
-                                         BasicFailDescr)
+                                         BasicFailDescr, BasicFinalDescr)
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.arch import WORD
 from pypy.jit.backend.x86.rx86 import fits_in_32bits
@@ -34,11 +34,7 @@ class TestX86(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
-    if WORD == 4:
-        bridge_loop_instructions = ['lea', 'jmp']
-    else:
-        # the 'mov' is part of the 'jmp' so far
-        bridge_loop_instructions = ['lea', 'mov', 'jmp']
+    bridge_loop_instructions = ['mov', 'jmp']
 
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
@@ -285,13 +281,13 @@ class TestX86(LLtypeBackendTest):
                         ResOperation(guard, [f], None,
                                      descr=BasicFailDescr()),
                         ResOperation(rop.FINISH, [ConstInt(0)], None,
-                                     descr=BasicFailDescr()),
+                                     descr=BasicFinalDescr()),
                         ]
                     ops[-2].setfailargs([i1])
                     looptoken = JitCellToken()
                     self.cpu.compile_loop([b], ops, looptoken)
                     deadframe = self.cpu.execute_token(looptoken, b.value)
-                    result = self.cpu.get_latest_value_int(deadframe, 0)
+                    result = self.cpu.get_int_value(deadframe, 0)
                     if guard == rop.GUARD_FALSE:
                         assert result == execute(self.cpu, None,
                                                  op, None, b).value
@@ -330,7 +326,7 @@ class TestX86(LLtypeBackendTest):
                         ResOperation(guard, [res], None,
                                      descr=BasicFailDescr()),
                         ResOperation(rop.FINISH, [ConstInt(0)], None,
-                                     descr=BasicFailDescr()),
+                                     descr=BasicFinalDescr()),
                         ]
                     ops[-2].setfailargs([i1])
                     inputargs = [i for i in (a, b) if isinstance(i, Box)]
@@ -338,7 +334,7 @@ class TestX86(LLtypeBackendTest):
                     self.cpu.compile_loop(inputargs, ops, looptoken)
                     inputvalues = [box.value for box in inputargs]
                     deadframe = self.cpu.execute_token(looptoken, *inputvalues)
-                    result = self.cpu.get_latest_value_int(deadframe, 0)
+                    result = self.cpu.get_int_value(deadframe, 0)
                     expected = execute(self.cpu, None, op, None, a, b).value
                     if guard == rop.GUARD_FALSE:
                         assert result == expected
@@ -406,7 +402,7 @@ class TestX86(LLtypeBackendTest):
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
-        res = self.cpu.get_latest_value_int(deadframe, 0)
+        res = self.cpu.get_int_value(deadframe, 0)
         assert res == 20
 
     def test_ops_offset(self):
@@ -515,10 +511,10 @@ class TestX86(LLtypeBackendTest):
             deadframe = self.cpu.execute_token(looptoken, 123450, 123408)
             fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 0
-            assert self.cpu.get_latest_value_int(deadframe, 0) == 42
-            assert self.cpu.get_latest_value_int(deadframe, 1) == 42
-            assert self.cpu.get_latest_value_int(deadframe, 2) == 42
-            assert self.cpu.get_latest_value_int(deadframe, 3) == 42
+            assert self.cpu.get_int_value(deadframe, 0) == 42
+            assert self.cpu.get_int_value(deadframe, 1) == 42
+            assert self.cpu.get_int_value(deadframe, 2) == 42
+            assert self.cpu.get_int_value(deadframe, 3) == 42
 
 
 class TestDebuggingAssembler(object):

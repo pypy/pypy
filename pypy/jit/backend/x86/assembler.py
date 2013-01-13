@@ -1978,7 +1978,7 @@ class Assembler386(object):
                                    arglocs, result_loc):
         fail_index = self._store_force_index(guard_op)
         self._genop_call(op, arglocs, result_loc, fail_index)
-        self._emit_guard_not_forced()
+        self._emit_guard_not_forced(guard_token)
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
