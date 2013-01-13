@@ -582,7 +582,7 @@ class Assembler386(object):
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
         self.fixup_target_tokens(rawstart)
-        frame_depth = max(self.current_clt.frame_depth,
+        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth + JITFRAME_FIXED_SIZE)
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
         self.teardown()
@@ -740,7 +740,7 @@ class Assembler386(object):
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            target_frame_depth = jump_target_descr._x86_clt.frame_info.frame_depth
+            target_frame_depth = jump_target_descr._x86_clt.frame_info.jfi_frame_depth
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
@@ -824,7 +824,6 @@ class Assembler386(object):
             self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
-        xxx
         # some minimal sanity checking
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs

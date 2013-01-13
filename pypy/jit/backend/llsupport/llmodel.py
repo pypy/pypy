@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr,\
+     cast_instance_to_gcref
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
@@ -262,6 +263,11 @@ class AbstractLLCPU(AbstractCPU):
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
         return history.AbstractDescr.show(self, descr)
+
+    def store_fail_descr(self, deadframe, failindex):
+        faildescr = self.get_fail_descr_from_number(failindex)
+        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
+        frame.jf_descr = cast_instance_to_gcref(faildescr)
 
     def _decode_pos(self, deadframe, index):
         descr = self.get_latest_descr(deadframe)

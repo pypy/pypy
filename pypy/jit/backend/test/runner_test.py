@@ -2758,9 +2758,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_assembler_call(self):
         called = []
         def assembler_helper(failindex, deadframe, virtualizable):
-            faildescr = self.cpu.get_fail_descr_from_number(failindex)
-            frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
-            frame.jf_descr = cast_instance_to_gcref(faildescr)
+            self.cpu.store_fail_descr(deadframe, failindex)
             assert self.cpu.get_int_value(deadframe, 0) == 97
             called.append(self.cpu.get_latest_descr(deadframe))
             return 4 + 9
@@ -2836,9 +2834,7 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("requires floats")
         called = []
         def assembler_helper(failindex, deadframe, virtualizable):
-            frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
-            faildescr = self.cpu.get_fail_descr_from_number(failindex)
-            frame.jf_descr = cast_instance_to_gcref(faildescr)
+            self.cpu.store_fail_descr(deadframe, failindex)
             x = self.cpu.get_float_value(deadframe, 0)
             assert longlong.getrealfloat(x) == 1.2 + 3.2
             called.append(self.cpu.get_latest_descr(deadframe))
@@ -2935,13 +2931,15 @@ class LLtypeBackendTest(BaseBackendTest):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
         called = []
-        def assembler_helper(deadframe, virtualizable):
+        def assembler_helper(failindex, deadframe, virtualizable):
+            self.cpu.store_fail_descr(deadframe, failindex)
             x = self.cpu.get_float_value(deadframe, 0)
             assert longlong.getrealfloat(x) == 1.25 + 3.25
             called.append(self.cpu.get_latest_descr(deadframe))
             return 13.5
 
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF],
+        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed,
+                                              llmemory.GCREF, llmemory.GCREF],
                                              lltype.Float))
         class FakeJitDriverSD:
             index_of_virtualizable = -1
