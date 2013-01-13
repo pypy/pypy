@@ -29,6 +29,11 @@ def create_entry_point(space, w_dict):
     w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
     withjit = space.config.objspace.usemodules.pypyjit
 
+    if withjit:
+        from pypy.module.pypyjit.interp_jit import callback_hook
+        from pypy.rlib import objectmodel
+        objectmodel.register_around_callback_hook(callback_hook)
+
     def entry_point(argv):
         if withjit:
             from rpython.jit.backend.hlinfo import highleveljitinfo

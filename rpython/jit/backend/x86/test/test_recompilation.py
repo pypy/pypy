@@ -45,7 +45,8 @@ class TestRecompilation(BaseTestRegalloc):
         force_spill(i5)
         i8 = int_add(i7, 1)
         i9 = int_add(i8, 1)
-        finish(i3, i4, i5, i6, i7, i8, i9, descr=fdescr2)
+        guard_false(i3, descr=fdescr2) [i3, i4, i5, i6, i7, i8, i9]
+        finish()
         '''
         bridge = self.attach_bridge(ops, loop, -2)
         descr = loop.operations[3].getdescr()

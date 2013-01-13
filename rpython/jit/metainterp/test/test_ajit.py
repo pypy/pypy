@@ -1,23 +1,19 @@
-import math
 import sys
 
 import py
 
-from rpython.jit.codewriter import longlong
-from rpython.jit.codewriter.policy import JitPolicy, StopAtXPolicy
-from rpython.jit.metainterp import pyjitpl, history
-from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
+from rpython.jit.codewriter.policy import StopAtXPolicy
+from rpython.jit.metainterp import history
 from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
-from rpython.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from rpython.jit.metainterp.warmspot import get_stats
 from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, promote_string, set_param, record_known_class)
+    isconstant, isvirtual, set_param, record_known_class)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.ootypesystem import ootype
 
 
@@ -3961,3 +3957,60 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return 42
         self.interp_operations(f, [1, 2, 3])
         self.check_operations_history(call=1, guard_no_exception=0)
+
+    def test_weakref(self):
+        import weakref
+        
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+
+        def f(i):
+            a = A(i)
+            w = weakref.ref(a)
+            return w().x + a.x
+
+        assert self.interp_operations(f, [3]) == 6
+
+    def test_gc_add_memory_pressure(self):
+        from pypy.rlib import rgc
+
+        def f():
+            rgc.add_memory_pressure(1234)
+            return 3
+
+        self.interp_operations(f, [])
+
+    def test_external_call(self):
+        from pypy.rlib.objectmodel import invoke_around_extcall
+        
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        external = rffi.llexternal("time", [T], rffi.TIME_T)
+
+        class Oups(Exception):
+            pass
+        class State:
+            pass
+        state = State()
+
+        def before():
+            if we_are_jitted():
+                raise Oups
+            state.l.append("before")
+
+        def after():
+            if we_are_jitted():
+                raise Oups
+            state.l.append("after")
+
+        def f():
+            state.l = []
+            invoke_around_extcall(before, after)
+            external(lltype.nullptr(T.TO))
+            return len(state.l)
+
+        res = self.interp_operations(f, [])
+        assert res == 2
+        res = self.interp_operations(f, [])
+        assert res == 2
+        self.check_operations_history(call_release_gil=1, call_may_force=0)

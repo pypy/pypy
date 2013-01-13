@@ -2,25 +2,13 @@
 """ Tests for register allocation for common constructs
 """
 
-import py
-from rpython.jit.metainterp.history import BoxInt, \
-     BoxPtr, TreeLoop, TargetToken
-from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.codewriter import heaptracker
-from rpython.jit.backend.llsupport.descr import GcCache
-from rpython.jit.backend.llsupport.gc import GcLLDescription
+from rpython.jit.metainterp.history import TargetToken
+from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.arm.arch import WORD
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import rclass
-from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 
-from rpython.jit.backend.arm.test.test_regalloc import MockAssembler
 from rpython.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
-from rpython.jit.backend.arm.regalloc import ARMFrameManager, VFPRegisterManager
-from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.backend.arm.regalloc import Regalloc
 
 CPU = getcpuclass()
 
@@ -44,23 +32,14 @@ class MockGcRootMap(object):
         return ['compressed'] + shape[1:]
 
 
-class MockGcDescr(GcCache):
-    get_malloc_slowpath_addr = None
-    write_barrier_descr = None
-    moving_gc = True
+class MockGcDescr(GcLLDescr_boehm):
     gcrootmap = MockGcRootMap()
-
-    def initialize(self):
-        pass
-
-    _record_constptrs = GcLLDescr_framework._record_constptrs.im_func
-    rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)
-    cpu.gc_ll_descr = MockGcDescr(False)
+    cpu.gc_ll_descr = MockGcDescr(None, None, None)
     cpu.setup_once()
     
     S = lltype.GcForwardReference()

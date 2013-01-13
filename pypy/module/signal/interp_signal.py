@@ -14,6 +14,7 @@ from rpython.rlib import jit, rposix
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsignal import *
 
+WIN32 = sys.platform == 'win32'
 
 class SignalActionFlag(AbstractActionFlag):
     # This class uses the C-level pypysig_counter variable as the tick
@@ -144,7 +145,10 @@ def getsignal(space, signum):
     None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
     anything else -- the callable Python object used as a handler
     """
-    check_signum_in_range(space, signum)
+    if WIN32:
+        check_signum_exists(space, signum)
+    else:
+        check_signum_in_range(space, signum)
     action = space.check_signal_action
     if signum in action.handlers_w:
         return action.handlers_w[signum]

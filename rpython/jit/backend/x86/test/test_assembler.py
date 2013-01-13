@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from rpython.jit.backend.detect_cpu import getcpuclass 
 from rpython.jit.backend.x86.regalloc import X86RegisterManager, X86_64_RegisterManager, X86XMMRegisterManager, X86_64_XMMRegisterManager
+from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.codewriter import longlong
 import ctypes
 import py
@@ -21,14 +22,31 @@ class FakeCPU:
     supports_floats = True
     NUM_REGS = ACTUAL_CPU.NUM_REGS
 
+    class gc_ll_descr:
+        kind = "boehm"
+
     def fielddescrof(self, STRUCT, name):
         return 42
+
+    def get_fail_descr_from_number(self, num):
+        assert num == 0x1C3
+        return FakeFailDescr()
+
+    def gc_clear_extra_threshold(self):
+        pass
+
+    def get_failargs_limit(self):
+        return 1000
 
 class FakeMC:
     def __init__(self):
         self.content = []
     def writechar(self, char):
         self.content.append(ord(char))
+
+class FakeFailDescr:
+    def hide(self, cpu):
+        return rffi.cast(llmemory.GCREF, 123)
 
 def test_write_failure_recovery_description():
     assembler = Assembler386(FakeCPU())
@@ -149,9 +167,9 @@ def do_failure_recovery_func(withfloats):
     stacklen = baseloc + 30
     stack = lltype.malloc(rffi.LONGP.TO, stacklen, flavor='raw',
                           immortal=True)
-    expected_ints = [0] * len(content)
-    expected_ptrs = [lltype.nullptr(llmemory.GCREF.TO)] * len(content)
-    expected_floats = [longlong.ZEROF] * len(content)
+    expected_ints = [None] * len(content)
+    expected_ptrs = [None] * len(content)
+    expected_floats = [None] * len(content)
 
     def write_in_stack(loc, value):
         assert loc >= 0
@@ -223,27 +241,21 @@ def do_failure_recovery_func(withfloats):
 
     # run!
     assembler = Assembler386(FakeCPU())
-    assembler.fail_boxes_int.get_addr_for_num(len(content)-1)   # preallocate
-    assembler.fail_boxes_ptr.get_addr_for_num(len(content)-1)
-    assembler.fail_boxes_float.get_addr_for_num(len(content)-1)
-    res = assembler.failure_recovery_func(registers)
-    assert res == 0x1C3
+    deadframe = assembler.failure_recovery_func(registers)
+    deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+    assert deadframe.jf_descr == rffi.cast(llmemory.GCREF, 123)
 
     # check the fail_boxes
     for i in range(len(content)):
-        assert assembler.fail_boxes_int.getitem(i) == expected_ints[i]
-        assert assembler.fail_boxes_ptr.getitem(i) == expected_ptrs[i]
+        if expected_ints[i] is not None:
+            assert deadframe.jf_values[i].int == expected_ints[i]
+        if expected_ptrs[i] is not None:
+            assert deadframe.jf_values[i].ref == expected_ptrs[i]
         # note: we expect *exact* results below.  If you have only
         # an approximate result, it might mean that only the first 32
         # bits of the float were correctly saved and restored.
-        assert assembler.fail_boxes_float.getitem(i) == expected_floats[i]
-
-    # verify that until clear_latest_values() is called, reading the
-    # same values multiple times work
-    for i in range(len(content)):
-        assert assembler.fail_boxes_int.getitem(i) == expected_ints[i]
-        assert assembler.fail_boxes_ptr.getitem(i) == expected_ptrs[i]
-        assert assembler.fail_boxes_float.getitem(i) == expected_floats[i]
+        if expected_floats[i] is not None:
+            assert deadframe.jf_values[i].float == expected_floats[i]
 
 # ____________________________________________________________
 

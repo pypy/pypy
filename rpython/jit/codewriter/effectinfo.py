@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.rtyper.lltypesystem.rclass import OBJECT
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 
@@ -87,7 +87,8 @@ class EffectInfo(object):
                 write_descrs_fields, write_descrs_arrays,
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
-                can_invalidate=False):
+                can_invalidate=False,
+                call_release_gil_target=llmemory.NULL):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
                frozenset_or_none(write_descrs_fields),
@@ -95,6 +96,8 @@ class EffectInfo(object):
                extraeffect,
                oopspecindex,
                can_invalidate)
+        if call_release_gil_target:
+            key += (object(),)    # don't care about caching in this case
         if key in cls._cache:
             return cls._cache[key]
         if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
@@ -121,6 +124,7 @@ class EffectInfo(object):
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
+        result.call_release_gil_target = call_release_gil_target
         if result.check_can_raise():
             assert oopspecindex in cls._OS_CANRAISE
         cls._cache[key] = result
@@ -142,6 +146,9 @@ class EffectInfo(object):
     def has_random_effects(self):
         return self.extraeffect >= self.EF_RANDOM_EFFECTS
 
+    def is_call_release_gil(self):
+        return bool(self.call_release_gil_target)
+
 
 def frozenset_or_none(x):
     if x is None:
@@ -156,8 +163,14 @@ EffectInfo.MOST_GENERAL = EffectInfo(None, None, None, None,
 def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
+<<<<<<< local
                                  can_invalidate=False):
     from rpython.translator.backendopt.writeanalyze import top_set
+=======
+                                 can_invalidate=False,
+                                 call_release_gil_target=llmemory.NULL):
+    from pypy.translator.backendopt.writeanalyze import top_set
+>>>>>>> other
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
         readonly_descrs_arrays = None
@@ -204,7 +217,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       write_descrs_arrays,
                       extraeffect,
                       oopspecindex,
-                      can_invalidate)
+                      can_invalidate,
+                      call_release_gil_target)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:

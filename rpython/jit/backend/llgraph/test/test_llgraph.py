@@ -14,7 +14,7 @@ class TestLLTypeLLGraph(LLtypeBackendTest):
     # for individual tests see:
     # ====> ../../test/runner_test.py
     
-    from rpython.jit.backend.llgraph.runner import LLtypeCPU as cpu_type
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU as cpu_type
 
     def setup_method(self, _):
         self.cpu = self.cpu_type(None)

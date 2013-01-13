@@ -21,7 +21,7 @@ def test_really_run():
 
     cap = py.io.StdCaptureFD()
     try:
-        ll_meta_interp(f, [10], CPUClass=runner.LLtypeCPU, type_system='lltype',
+        ll_meta_interp(f, [10], CPUClass=runner.LLGraphCPU, type_system='lltype',
                        ProfilerClass=Profiler)
     finally:
         out, err = cap.reset()

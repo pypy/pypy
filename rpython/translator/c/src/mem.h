@@ -150,6 +150,7 @@ void boehm_gc_finalizer_notifier(void);
 #define OP_GC_GET_RPY_TYPE_INDEX(x, r)   r = -1
 #define OP_GC_IS_RPY_INSTANCE(x, r)      r = 0
 #define OP_GC_DUMP_RPY_HEAP(fd, r)       r = 0
+#define OP_GC_SET_EXTRA_THRESHOLD(x, r)  /* nothing */
 
 /****************************/
 /* The "asmgcc" root finder */

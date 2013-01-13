@@ -304,6 +304,8 @@ class Transformer(object):
 
     rewrite_op_convert_float_bytes_to_longlong = _noop_rewrite
     rewrite_op_convert_longlong_bytes_to_float = _noop_rewrite
+    cast_ptr_to_weakrefptr = _noop_rewrite
+    cast_weakrefptr_to_ptr = _noop_rewrite
 
     # ----------
     # Various kinds of calls
@@ -450,6 +452,7 @@ class Transformer(object):
                                                    resulttype, extra, extrakey)
         return SpaceOperation('direct_call', [c_func] + args, op.result)
 
+
     def _do_builtin_call(self, op, oopspec_name=None, args=None,
                          extra=None, extrakey=None):
         if oopspec_name is None: oopspec_name = op.opname
@@ -482,6 +485,9 @@ class Transformer(object):
     rewrite_op_uint_mod        = _do_builtin_call
     rewrite_op_cast_float_to_uint = _do_builtin_call
     rewrite_op_cast_uint_to_float = _do_builtin_call
+    rewrite_op_weakref_create = _do_builtin_call
+    rewrite_op_weakref_deref = _do_builtin_call
+    rewrite_op_gc_add_memory_pressure = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.

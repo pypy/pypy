@@ -11,26 +11,31 @@ def test_bug_rshift():
     v2 = BoxInt()
     v3 = BoxInt()
     v4 = BoxInt()
+    zero = BoxInt()
     inputargs = [v1]
     operations = [
         ResOperation(rop.INT_ADD, [v1, v1], v2),
         ResOperation(rop.INT_INVERT, [v2], v3),
         ResOperation(rop.UINT_RSHIFT, [v1, ConstInt(3)], v4),
-        ResOperation(rop.FINISH, [v4, v3], None, descr=BasicFailDescr()),
+        ResOperation(rop.SAME_AS, [ConstInt(0)], zero),
+        ResOperation(rop.GUARD_TRUE, [zero], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [], None, descr=BasicFailDescr())
         ]
+    operations[-2].setfailargs([v4, v3])
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, 9)
-    assert cpu.get_latest_value_int(0) == (9 >> 3)
-    assert cpu.get_latest_value_int(1) == (~18)
+    deadframe = cpu.execute_token(looptoken, 9)
+    assert cpu.get_latest_value_int(deadframe, 0) == (9 >> 3)
+    assert cpu.get_latest_value_int(deadframe, 1) == (~18)
 
 def test_bug_int_is_true_1():
     v1 = BoxInt()
     v2 = BoxInt()
     v3 = BoxInt()
     v4 = BoxInt()
+    zero = BoxInt()
     tmp5 = BoxInt()
     inputargs = [v1]
     operations = [
@@ -38,16 +43,19 @@ def test_bug_int_is_true_1():
         ResOperation(rop.INT_MUL, [v2, v1], v3),
         ResOperation(rop.INT_IS_TRUE, [v2], tmp5),
         ResOperation(rop.INT_IS_ZERO, [tmp5], v4),
-        ResOperation(rop.FINISH, [v4, v3, tmp5], None, descr=BasicFailDescr()),
+        ResOperation(rop.SAME_AS, [ConstInt(0)], zero),
+        ResOperation(rop.GUARD_TRUE, [zero], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [], None, descr=BasicFailDescr())
             ]
+    operations[-2].setfailargs([v4, v3, tmp5])
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, -10)
-    assert cpu.get_latest_value_int(0) == 0
-    assert cpu.get_latest_value_int(1) == -1000
-    assert cpu.get_latest_value_int(2) == 1
+    deadframe = cpu.execute_token(looptoken, -10)
+    assert cpu.get_latest_value_int(deadframe, 0) == 0
+    assert cpu.get_latest_value_int(deadframe, 1) == -1000
+    assert cpu.get_latest_value_int(deadframe, 2) == 1
 
 def test_bug_0():
     v1 = BoxInt()
@@ -90,6 +98,7 @@ def test_bug_0():
     v38 = BoxInt()
     v39 = BoxInt()
     v40 = BoxInt()
+    zero = BoxInt()
     tmp41 = BoxInt()
     tmp42 = BoxInt()
     tmp43 = BoxInt()
@@ -134,27 +143,32 @@ def test_bug_0():
         ResOperation(rop.UINT_GT, [v33, ConstInt(-11)], v38),
         ResOperation(rop.INT_NEG, [v7], v39),
         ResOperation(rop.INT_GT, [v24, v32], v40),
-        ResOperation(rop.FINISH, [v40, v36, v37, v31, v16, v34, v35, v23, v22, v29, v14, v39, v30, v38], None, descr=BasicFailDescr()),
+        ResOperation(rop.SAME_AS, [ConstInt(0)], zero),
+        ResOperation(rop.GUARD_TRUE, [zero], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [], None, descr=BasicFailDescr())
             ]
+    operations[-2].setfailargs([v40, v36, v37, v31, v16, v34, v35, v23,
+                                v22, v29, v14, v39, v30, v38])
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, -13, 10, 10, 8, -8, -16, -18, 46, -12, 26)
-    assert cpu.get_latest_value_int(0) == 0
-    assert cpu.get_latest_value_int(1) == 0
-    assert cpu.get_latest_value_int(2) == 0
-    assert cpu.get_latest_value_int(3) == 0
-    assert cpu.get_latest_value_int(4) == 1
-    assert cpu.get_latest_value_int(5) == -7
-    assert cpu.get_latest_value_int(6) == 1
-    assert cpu.get_latest_value_int(7) == 0
-    assert cpu.get_latest_value_int(8) == -2
-    assert cpu.get_latest_value_int(9) == 18
-    assert cpu.get_latest_value_int(10) == 1
-    assert cpu.get_latest_value_int(11) == 18
-    assert cpu.get_latest_value_int(12) == -1
-    assert cpu.get_latest_value_int(13) == 0
+    deadframe = cpu.execute_token(looptoken, -13, 10, 10, 8, -8,
+                                  -16, -18, 46, -12, 26)
+    assert cpu.get_latest_value_int(deadframe, 0) == 0
+    assert cpu.get_latest_value_int(deadframe, 1) == 0
+    assert cpu.get_latest_value_int(deadframe, 2) == 0
+    assert cpu.get_latest_value_int(deadframe, 3) == 0
+    assert cpu.get_latest_value_int(deadframe, 4) == 1
+    assert cpu.get_latest_value_int(deadframe, 5) == -7
+    assert cpu.get_latest_value_int(deadframe, 6) == 1
+    assert cpu.get_latest_value_int(deadframe, 7) == 0
+    assert cpu.get_latest_value_int(deadframe, 8) == -2
+    assert cpu.get_latest_value_int(deadframe, 9) == 18
+    assert cpu.get_latest_value_int(deadframe, 10) == 1
+    assert cpu.get_latest_value_int(deadframe, 11) == 18
+    assert cpu.get_latest_value_int(deadframe, 12) == -1
+    assert cpu.get_latest_value_int(deadframe, 13) == 0
 
 def test_bug_1():
     v1 = BoxInt()
@@ -197,6 +211,7 @@ def test_bug_1():
     v38 = BoxInt()
     v39 = BoxInt()
     v40 = BoxInt()
+    zero = BoxInt()
     tmp41 = BoxInt()
     tmp42 = BoxInt()
     tmp43 = BoxInt()
@@ -239,34 +254,40 @@ def test_bug_1():
         ResOperation(rop.INT_GT, [v4, v11], v38),
         ResOperation(rop.INT_LT, [v27, v22], v39),
         ResOperation(rop.INT_NEG, [v27], v40),
-        ResOperation(rop.FINISH, [v40, v10, v36, v26, v13, v30, v21, v33, v18, v25, v31, v32, v28, v29, v35, v38, v20, v39, v34, v23, v37], None, descr=BasicFailDescr()),
+        ResOperation(rop.SAME_AS, [ConstInt(0)], zero),
+        ResOperation(rop.GUARD_TRUE, [zero], None, descr=BasicFailDescr()),
+        ResOperation(rop.FINISH, [], None, descr=BasicFailDescr())
             ]
+    operations[-2].setfailargs([v40, v10, v36, v26, v13, v30, v21, v33,
+                                v18, v25, v31, v32, v28, v29, v35, v38,
+                                v20, v39, v34, v23, v37])
     cpu = CPU(None, None)
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, 17, -20, -6, 6, 1, 13, 13, 9, 49, 8)
-    assert cpu.get_latest_value_int(0) == 0
-    assert cpu.get_latest_value_int(1) == 8
-    assert cpu.get_latest_value_int(2) == 1
-    assert cpu.get_latest_value_int(3) == 131072
-    assert cpu.get_latest_value_int(4) == 20
-    assert cpu.get_latest_value_int(5) == -1
-    assert cpu.get_latest_value_int(6) == 0
-    assert cpu.get_latest_value_int(7) == -19
-    assert cpu.get_latest_value_int(8) == 6
-    assert cpu.get_latest_value_int(9) == 26
-    assert cpu.get_latest_value_int(10) == 12
-    assert cpu.get_latest_value_int(11) == 0
-    assert cpu.get_latest_value_int(12) == 0
-    assert cpu.get_latest_value_int(13) == 2
-    assert cpu.get_latest_value_int(14) == 2
-    assert cpu.get_latest_value_int(15) == 1
-    assert cpu.get_latest_value_int(16) == -57344
-    assert cpu.get_latest_value_int(17) == 1
-    assert cpu.get_latest_value_int(18) == -1
+    deadframe = cpu.execute_token(looptoken, 17, -20, -6, 6, 1,
+                                  13, 13, 9, 49, 8)
+    assert cpu.get_latest_value_int(deadframe, 0) == 0
+    assert cpu.get_latest_value_int(deadframe, 1) == 8
+    assert cpu.get_latest_value_int(deadframe, 2) == 1
+    assert cpu.get_latest_value_int(deadframe, 3) == 131072
+    assert cpu.get_latest_value_int(deadframe, 4) == 20
+    assert cpu.get_latest_value_int(deadframe, 5) == -1
+    assert cpu.get_latest_value_int(deadframe, 6) == 0
+    assert cpu.get_latest_value_int(deadframe, 7) == -19
+    assert cpu.get_latest_value_int(deadframe, 8) == 6
+    assert cpu.get_latest_value_int(deadframe, 9) == 26
+    assert cpu.get_latest_value_int(deadframe, 10) == 12
+    assert cpu.get_latest_value_int(deadframe, 11) == 0
+    assert cpu.get_latest_value_int(deadframe, 12) == 0
+    assert cpu.get_latest_value_int(deadframe, 13) == 2
+    assert cpu.get_latest_value_int(deadframe, 14) == 2
+    assert cpu.get_latest_value_int(deadframe, 15) == 1
+    assert cpu.get_latest_value_int(deadframe, 16) == -57344
+    assert cpu.get_latest_value_int(deadframe, 17) == 1
+    assert cpu.get_latest_value_int(deadframe, 18) == -1
     if WORD == 4:
-        assert cpu.get_latest_value_int(19) == -2147483648
+        assert cpu.get_latest_value_int(deadframe, 19) == -2147483648
     elif WORD == 8:
-        assert cpu.get_latest_value_int(19) == 19327352832
-    assert cpu.get_latest_value_int(20) == -49
+        assert cpu.get_latest_value_int(deadframe, 19) == 19327352832
+    assert cpu.get_latest_value_int(deadframe, 20) == -49

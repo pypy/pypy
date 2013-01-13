@@ -134,6 +134,46 @@ def test_ll_arraycopy_5(monkeypatch):
 
     assert check.called
 
+def test_ll_arraycopy_array_of_structs():
+    TP = lltype.GcArray(lltype.Struct('x', ('x', lltype.Signed),
+                                      ('y', lltype.Signed)))
+    def f():
+        a1 = lltype.malloc(TP, 3)
+        a2 = lltype.malloc(TP, 3)
+        for i in range(3):
+            a1[i].x = 2 * i
+            a1[i].y = 2 * i + 1
+        rgc.ll_arraycopy(a1, a2, 0, 0, 3)
+        for i in range(3):
+            assert a2[i].x == 2 * i
+            assert a2[i].y == 2 * i + 1
+
+
+    interpret(f, [])
+    a1 = lltype.malloc(TP, 3)
+    a2 = lltype.malloc(TP, 3)
+    a1[1].x = 3
+    a1[1].y = 15
+    rgc.copy_struct_item(a1, a2, 1, 2)
+    assert a2[2].x == 3
+    assert a2[2].y == 15
+
+def test__contains_gcptr():
+    assert not rgc._contains_gcptr(lltype.Signed)
+    assert not rgc._contains_gcptr(
+        lltype.Struct('x', ('x', lltype.Signed)))
+    assert rgc._contains_gcptr(
+        lltype.Struct('x', ('x', lltype.Signed),
+                      ('y', lltype.Ptr(lltype.GcArray(lltype.Signed)))))
+    assert rgc._contains_gcptr(
+        lltype.Struct('x', ('x', lltype.Signed),
+                      ('y', llmemory.GCREF)))
+    assert rgc._contains_gcptr(lltype.Ptr(lltype.GcStruct('x')))
+    assert not rgc._contains_gcptr(lltype.Ptr(lltype.Struct('x')))
+    GCPTR = lltype.Ptr(lltype.GcStruct('x'))
+    assert rgc._contains_gcptr(
+        lltype.Struct('FOO', ('s', lltype.Struct('BAR', ('y', GCPTR)))))
+
 def test_ll_arraycopy_small():
     TYPE = lltype.GcArray(lltype.Signed)
     for length in range(5):

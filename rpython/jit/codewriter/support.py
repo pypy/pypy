@@ -1,18 +1,16 @@
 import sys
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper import rlist
 from rpython.rtyper.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
-from rpython.rtyper.lltypesystem import rlist as lltypesystem_rlist
 from rpython.rtyper.lltypesystem.module import ll_math
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.ootypesystem import rdict as oo_rdict
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.translator.simplify import get_funcobj
 from rpython.translator.unsimplify import split_block
-from rpython.flowspace.model import Constant
+from rpython.flowspace.model import Variable, Constant
 from rpython.translator.translator import TranslationContext
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator import model as annmodel
@@ -60,6 +58,45 @@ def annotate(func, values, inline=None, backendoptimize=True,
 def getgraph(func, values):
     rtyper = annotate(func, values)
     return rtyper.annotator.translator.graphs[0]
+
+def autodetect_jit_markers_redvars(graph):
+    # the idea is to find all the jit_merge_point and
+    # add all the variables across the links to the reds.
+    for block, op in graph.iterblockops():
+        if op.opname == 'jit_marker':
+            jitdriver = op.args[1].value
+            if not jitdriver.autoreds:
+                continue
+            # if we want to support also can_enter_jit, we should find a
+            # way to detect a consistent set of red vars to pass *both* to
+            # jit_merge_point and can_enter_jit. The current simple
+            # solution doesn't work because can_enter_jit might be in
+            # another block, so the set of alive_v will be different.
+            methname = op.args[0].value
+            assert methname == 'jit_merge_point', (
+                "reds='auto' is supported only for jit drivers which " 
+                "calls only jit_merge_point. Found a call to %s" % methname)
+            #
+            # compute the set of live variables across the jit_marker
+            alive_v = set()
+            for link in block.exits:
+                alive_v.update(link.args)
+                alive_v.difference_update(link.getextravars())
+            for op1 in block.operations[::-1]:
+                if op1 is op:
+                    break # stop when the meet the jit_marker
+                alive_v.discard(op1.result)
+                alive_v.update(op1.args)
+            greens_v = op.args[2:]
+            reds_v = alive_v - set(greens_v)
+            reds_v = [v for v in reds_v if isinstance(v, Variable) and
+                                           v.concretetype is not lltype.Void]
+            reds_v = sort_vars(reds_v)
+            op.args.extend(reds_v)
+            if jitdriver.numreds is None:
+                jitdriver.numreds = len(reds_v)
+            else:
+                assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Split the block just before the 'jit_merge_point',
@@ -648,6 +685,15 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
+    def _ll_1_weakref_create(obj):
+        return llop.weakref_create(llmemory.WeakRefPtr, obj)
+
+    def _ll_1_weakref_deref(TP, obj):
+        return llop.weakref_deref(lltype.Ptr(TP), obj)
+    _ll_1_weakref_deref.need_result_type = True
+
+    def _ll_1_gc_add_memory_pressure(num):
+        llop.gc_add_memory_pressure(lltype.Void, num)
 
 class OOtypeHelpers:
 

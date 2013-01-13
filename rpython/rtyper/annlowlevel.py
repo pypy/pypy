@@ -13,6 +13,7 @@ from rpython.rtyper import extregistry
 from rpython.flowspace.model import Constant
 from rpython.translator.simplify import get_functype
 from rpython.rtyper.rmodel import warning
+from rpython.rlib.objectmodel import specialize
 
 class KeyComp(object):
     def __init__(self, val):
@@ -504,13 +505,13 @@ def cast_object_to_ptr(PTR, object):
     else:
         raise NotImplementedError("cast_object_to_ptr(%r, ...)" % PTR)
 
+@specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
     return cast_object_to_ptr(base_ptr_lltype(), instance)
-cast_instance_to_base_ptr._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.argtype(0)
 def cast_instance_to_base_obj(instance):
     return cast_object_to_ptr(base_obj_ootype(), instance)
-cast_instance_to_base_obj._annspecialcase_ = 'specialize:argtype(0)'
 
 def base_ptr_lltype():
     from rpython.rtyper.lltypesystem.rclass import OBJECTPTR

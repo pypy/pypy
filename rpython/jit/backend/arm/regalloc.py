@@ -644,15 +644,9 @@ class Regalloc(object):
         return args
 
     def prepare_op_finish(self, op, fcond):
-        args = [None] * (op.numargs() + 1)
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            if arg:
-                args[i] = self.loc(arg)
-                self.possibly_free_var(arg)
-        n = self.cpu.get_fail_descr_number(op.getdescr())
-        args[-1] = imm(n)
-        return args
+        loc = self.loc(op.getarg(0))
+        self.possibly_free_var(op.getarg(0))
+        return [loc]
 
     def prepare_op_guard_true(self, op, fcond):
         l0 = self.make_sure_var_in_reg(op.getarg(0))

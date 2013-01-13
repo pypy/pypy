@@ -3,31 +3,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.backend.x86.arch import WORD
 
-
-def values_array(TP, size):
-    ATP = lltype.GcArray(TP)
-    
-    class ValuesArray(object):
-        SIZE = size
-
-        def __init__(self):
-            self.ar = lltype.malloc(ATP, size, zero=True, immortal=True)
-
-        def get_addr_for_num(self, i):
-            return rffi.cast(lltype.Signed, lltype.direct_ptradd(
-                lltype.direct_arrayitems(self.ar), i))
-
-        def setitem(self, i, v):
-            self.ar[i] = v
-
-        def getitem(self, i):
-            return self.ar[i]
-
-        def _freeze_(self):
-            return True
-
-    return ValuesArray()
-
 # ____________________________________________________________
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,

@@ -167,7 +167,12 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
             fields.append((fieldname, cls))
         CStruct._fields_ = fields
 
-    class CStruct(ctypes.Structure):
+    if S._hints.get('union', False):
+        base = ctypes.Union
+    else:
+        base = ctypes.Structure
+
+    class CStruct(base):
         # no _fields_: filled later by builder()
 
         def _malloc(cls, n=None):
@@ -679,6 +684,7 @@ _all_callbacks_results = []
 _int2obj = {}
 _callback_exc_info = None
 _opaque_objs = [None]
+_opaque_objs_seen = {}
 
 def get_rtyper():
     llinterp = LLInterpreter.current_interpreter
@@ -720,8 +726,12 @@ def lltype2ctypes(llobj, normalize=True):
             # otherwise it came from integer and we want a c_void_p with
             # the same value
             if getattr(container, 'llopaque', None):
-                no = len(_opaque_objs)
-                _opaque_objs.append(container)
+                try:
+                    no = _opaque_objs_seen[container]
+                except KeyError:
+                    no = len(_opaque_objs)
+                    _opaque_objs.append(container)
+                    _opaque_objs_seen[container] = no
                 return no * 2 + 1
         else:
             container = llobj._obj

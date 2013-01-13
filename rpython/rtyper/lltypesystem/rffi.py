@@ -1,19 +1,19 @@
 import py
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rtyper.lltypesystem import ll2ctypes
-from rpython.rtyper.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
+from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 from rpython.rtyper.lltypesystem.llmemory import itemoffsetof, raw_memcopy
 from rpython.annotator.model import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import Symbolic
+from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.tool.rfficache import platform, sizeof_c_type
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, llstr
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from rpython.rlib import jit
@@ -171,6 +171,7 @@ def llexternal(name, args, result, _callable=None,
         call_external_function._dont_inline_ = True
         call_external_function._annspecialcase_ = 'specialize:ll'
         call_external_function._gctransformer_hint_close_stack_ = True
+        call_external_function._call_aroundstate_target_ = funcptr
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
         # don't inline, as a hack to guarantee that no GC pointer is alive
@@ -278,9 +279,18 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     callable_name = getattr(callable, '__name__', '?')
     if callbackholder is not None:
         callbackholder.callbacks[callable] = True
+    callable_name_descr = str(callable).replace('"', '\\"')
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
-        def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+        def inner_wrapper(%(args)s):
+            if aroundstate is not None:
+                callback_hook = aroundstate.callback_hook
+                if callback_hook:
+                    callback_hook(llstr("%(callable_name_descr)s"))
+            return callable(%(args)s)
+        inner_wrapper._never_inline_ = True
+        
+        def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
@@ -289,7 +299,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
-                result = callable(%s)
+                result = inner_wrapper(%(args)s)
             except Exception, e:
                 os.write(2,
                     "Warning: uncaught exception in callback: %%s %%s\n" %%
@@ -307,10 +317,11 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
             return result
-    """ % (args, args))
+    """ % locals())
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
+    miniglobals['llstr'] = llstr
     miniglobals['we_are_translated'] = we_are_translated
     miniglobals['stackcounter'] = stackcounter
     exec source.compile() in miniglobals
@@ -318,10 +329,14 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+CallbackHookPtr = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)], lltype.Void))
+
 class AroundState:
+    callback_hook = None
+    
     def _cleanup_(self):
-        self.before = None    # or a regular RPython function
-        self.after = None     # or a regular RPython function
+        self.before = None        # or a regular RPython function
+        self.after = None         # or a regular RPython function
 aroundstate = AroundState()
 aroundstate._cleanup_()
 
@@ -780,6 +795,7 @@ def make_string_mappings(strtype):
 
     # (char*, str, int, int) -> None
     @jit.dont_look_inside
+    @enforceargs(None, None, int, int)
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
@@ -818,6 +834,7 @@ def make_string_mappings(strtype):
             lltype.free(raw_buf, flavor='raw')
 
     # char* -> str, with an upper bound on the length in case there is no \x00
+    @enforceargs(None, int)
     def charp2strn(cp, maxlen):
         b = builder_class(maxlen)
         i = 0

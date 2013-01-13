@@ -102,13 +102,17 @@ class MyCPU:
         CONST_NULL = ConstPtr(gcrefnull)
     def __init__(self, values):
         self.values = values
-    def get_latest_value_count(self):
+    def get_latest_value_count(self, deadframe):
+        assert deadframe == "deadframe"
         return len(self.values)
-    def get_latest_value_int(self, index):
+    def get_latest_value_int(self, deadframe, index):
+        assert deadframe == "deadframe"
         return self.values[index]
-    def get_latest_value_ref(self, index):
+    def get_latest_value_ref(self, deadframe, index):
+        assert deadframe == "deadframe"
         return self.values[index]
-    def get_latest_value_float(self, index):
+    def get_latest_value_float(self, deadframe, index):
+        assert deadframe == "deadframe"
         return self.values[index]
 
 class MyBlackholeInterp:
@@ -181,12 +185,12 @@ def test_simple_read():
     #
     cpu = MyCPU([42, gcref1, -66])
     metainterp = MyMetaInterp(cpu)
-    reader = ResumeDataDirectReader(metainterp, storage)
+    reader = ResumeDataDirectReader(metainterp, storage, "deadframe")
     _next_section(reader, 42, 111, gcrefnull, 42, gcref1)
     _next_section(reader, 222, 333)
     _next_section(reader, 42, gcref1, -66)
     #
-    reader = ResumeDataBoxReader(storage, metainterp)
+    reader = ResumeDataBoxReader(storage, "deadframe", metainterp)
     bi, br, bf = [None]*3, [None]*2, [None]*0
     info = MyBlackholeInterp([lltype.Signed, lltype.Signed,
                               llmemory.GCREF, lltype.Signed,
@@ -222,7 +226,7 @@ def test_simple_read_tagged_ints():
     storage.rd_numb = numb
     #
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
     _next_section(reader, 100)
 
 
@@ -240,7 +244,8 @@ def test_prepare_virtuals():
     class FakeMetainterp(object):
         _already_allocated_resume_virtuals = None
         cpu = None
-    reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage())
+    reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage(),
+                                    "deadframe")
     assert reader.force_all_virtuals() == ["allocated", reader.virtual_default]
 
 # ____________________________________________________________
@@ -959,7 +964,7 @@ def test_virtual_adder_int_constants():
     liveboxes = modifier.finish(FakeOptimizer({}))
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
     _next_section(reader, sys.maxint, 2**16, -65)
     _next_section(reader, 2, 3)
     _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)

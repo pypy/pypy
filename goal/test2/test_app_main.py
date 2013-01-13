@@ -376,6 +376,30 @@ class TestInteraction:
         child.expect('Traceback')
         child.expect('NameError')
 
+    def test_pythonstartup_file1(self, monkeypatch):
+        monkeypatch.setenv('PYTHONPATH', None)
+        monkeypatch.setenv('PYTHONSTARTUP', demo_script)
+        child = self.spawn([])
+        child.expect('File: [^\n]+\.py')
+        child.expect('goodbye')
+        child.expect('>>> ')
+        child.sendline('[myvalue]')
+        child.expect(re.escape('[42]'))
+        child.expect('>>> ')
+        child.sendline('__file__')
+        child.expect('Traceback')
+        child.expect('NameError')
+
+    def test_pythonstartup_file2(self, monkeypatch):
+        monkeypatch.setenv('PYTHONPATH', None)
+        monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
+        child = self.spawn([])
+        child.expect('Traceback')
+        child.expect('>>> ')
+        child.sendline('__file__')
+        child.expect('Traceback')
+        child.expect('NameError')
+
     def test_ignore_python_startup(self):
         old = os.environ.get('PYTHONSTARTUP', '')
         try:

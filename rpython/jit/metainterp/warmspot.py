@@ -290,11 +290,13 @@ class WarmRunnerDesc(object):
         callgraph = inlinable_static_callers(self.translator.graphs, store_calls=True)
         new_callgraph = []
         new_portals = set()
+        inlined_jit_merge_points = set()
         for caller, block, op_call, callee in callgraph:
             func = getattr(callee, 'func', None)
             _inline_jit_merge_point_ = getattr(func, '_inline_jit_merge_point_', None)
             if _inline_jit_merge_point_:
                 _inline_jit_merge_point_._always_inline_ = True
+                inlined_jit_merge_points.add(_inline_jit_merge_point_)
                 op_jmp_call, jmp_graph = get_jmp_call(callee, _inline_jit_merge_point_)
                 #
                 # now we move the op_jmp_call from callee to caller, just
@@ -315,6 +317,9 @@ class WarmRunnerDesc(object):
         # inline them!
         inline_threshold = 0.1 # we rely on the _always_inline_ set above
         auto_inlining(self.translator, inline_threshold, new_callgraph)
+        # clean up _always_inline_ = True, it can explode later
+        for item in inlined_jit_merge_points:
+            del item._always_inline_
 
         # make a fresh copy of the JitDriver in all newly created
         # jit_merge_points
@@ -342,48 +347,12 @@ class WarmRunnerDesc(object):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
         for graph, block, pos in find_jit_merge_points(graphs):
-            self.autodetect_jit_markers_redvars(graph)
+            support.autodetect_jit_markers_redvars(graph)
             self.split_graph_and_record_jitdriver(graph, block, pos)
         #
         assert (len(set([jd.jitdriver for jd in self.jitdrivers_sd])) ==
                 len(self.jitdrivers_sd)), \
                 "there are multiple jit_merge_points with the same jitdriver"
-
-    def autodetect_jit_markers_redvars(self, graph):
-        # the idea is to find all the jit_merge_point and can_enter_jit and
-        # add all the variables across the links to the reds.
-        for block, op in graph.iterblockops():
-            if op.opname == 'jit_marker':
-                jitdriver = op.args[1].value
-                if not jitdriver.autoreds:
-                    continue
-                # if we want to support also can_enter_jit, we should find a
-                # way to detect a consistent set of red vars to pass *both* to
-                # jit_merge_point and can_enter_jit. The current simple
-                # solution doesn't work because can_enter_jit might be in
-                # another block, so the set of alive_v will be different.
-                methname = op.args[0].value
-                assert methname == 'jit_merge_point', (
-                    "reds='auto' is supported only for jit drivers which " 
-                    "calls only jit_merge_point. Found a call to %s" % methname)
-                #
-                # compute the set of live variables before the jit_marker
-                alive_v = set(block.inputargs)
-                for op1 in block.operations:
-                    if op1 is op:
-                        break # stop when the meet the jit_marker
-                    if op1.result.concretetype != lltype.Void:
-                        alive_v.add(op1.result)
-                greens_v = op.args[2:]
-                reds_v = alive_v - set(greens_v)
-                reds_v = [v for v in reds_v if v.concretetype is not lltype.Void]
-                reds_v = support.sort_vars(reds_v)
-                op.args.extend(reds_v)
-                if jitdriver.numreds is None:
-                    jitdriver.numreds = len(reds_v)
-                else:
-                    assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
-
 
     def split_graph_and_record_jitdriver(self, graph, block, pos):
         op = block.operations[pos]
@@ -689,7 +658,7 @@ class WarmRunnerDesc(object):
         else:
             assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [lltype.Signed, llmemory.GCREF], ASMRESTYPE)
+            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
 
     def rewrite_can_enter_jits(self):
         sublists = {}
@@ -712,6 +681,9 @@ class WarmRunnerDesc(object):
             jitdriver = op.args[1].value
             assert jitdriver in sublists, \
                    "can_enter_jit with no matching jit_merge_point"
+            assert not jitdriver.autoreds, (
+                   "can_enter_jit not supported with a jitdriver that "
+                   "has reds='auto'")
             jd, sublist = sublists[jitdriver]
             origportalgraph = jd._jit_merge_point_in
             if graph is not origportalgraph:
@@ -954,15 +926,18 @@ class WarmRunnerDesc(object):
             EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
+        gc_set_extra_threshold = getattr(self.cpu, 'gc_set_extra_threshold',
+                                         lambda: None)
 
-        def assembler_call_helper(failindex, virtualizableref):
-            fail_descr = self.cpu.get_fail_descr_from_number(failindex)
+        def assembler_call_helper(deadframe, virtualizableref):
+            gc_set_extra_threshold()    # XXX temporary hack
+            fail_descr = self.cpu.get_latest_descr(deadframe)
             if vinfo is not None:
                 virtualizable = lltype.cast_opaque_ptr(
                     vinfo.VTYPEPTR, virtualizableref)
                 vinfo.reset_vable_token(virtualizable)
             try:
-                fail_descr.handle_fail(self.metainterp_sd, jd)
+                fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
             except JitException, e:
                 return handle_jitexception(e)
             else:
@@ -1008,6 +983,9 @@ class WarmRunnerDesc(object):
         origblock.operations.append(newop)
         origblock.exitswitch = None
         origblock.recloseblock(Link([v_result], origportalgraph.returnblock))
+        # the origportal now can raise (even if it did not raise before),
+        # which means that we cannot inline it anywhere any more, but that's
+        # fine since any forced inlining has been done before
         #
         checkgraph(origportalgraph)
 
