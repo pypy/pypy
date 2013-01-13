@@ -565,10 +565,11 @@ class BaseBackendTest(Runner):
                                          [funcbox, ConstInt(num), BoxInt(num)],
                                          'int', descr=calldescr)
             assert res.value == 2 * num
-            
 
         if cpu.supports_floats:
             def func(f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9):
+                import pdb
+                pdb.set_trace()
                 return f0 + f1 + f2 + f3 + f4 + f5 + f6 + float(i0 + i1) + f7 + f8 + f9
             F = lltype.Float
             I = lltype.Signed

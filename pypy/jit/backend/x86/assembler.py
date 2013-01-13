@@ -18,7 +18,7 @@ from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi, edi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, StackLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
-    imm0, imm1, FloatImmedLoc, RawStackLoc)
+    imm0, imm1, FloatImmedLoc, RawStackLoc, RawEspLoc)
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -749,9 +749,9 @@ class Assembler386(object):
     def _call_header(self):
         # NB. the shape of the frame is hard-coded in get_basic_shape() too.
         # Also, make sure this is consistent with FRAME_FIXED_SIZE.
-        self.mc.PUSH_r(ebp.value)
         # XXX should be LEA?
-        self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
+        self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
+        self.mc.MOV_sr(0, ebp.value)
         if IS_X86_64:
             descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
             _, ofs, _ = unpack_arraydescr(descrs.arraydescr)
@@ -759,8 +759,8 @@ class Assembler386(object):
         else:
             xxx
 
-        for loc in self.cpu.CALLEE_SAVE_REGISTERS:
-            self.mc.PUSH_r(loc.value)
+        for i, loc in enumerate(self.cpu.CALLEE_SAVE_REGISTERS):
+            self.mc.MOV_sr((i + 1) * WORD, loc.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -785,16 +785,16 @@ class Assembler386(object):
         self._call_header()
 
     def _call_footer(self):
-        self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
-
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
 
         for i in range(len(self.cpu.CALLEE_SAVE_REGISTERS)-1, -1, -1):
-            self.mc.POP_r(self.cpu.CALLEE_SAVE_REGISTERS[i].value)
+            self.mc.MOV_rs(self.cpu.CALLEE_SAVE_REGISTERS[i].value,
+                           (i + 1) * WORD)
 
-        self.mc.POP_r(ebp.value)
+        self.mc.MOV_rs(ebp.value, 0)
+        self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.RET()
 
     def _call_header_shadowstack(self, gcrootmap):
@@ -1056,7 +1056,7 @@ class Assembler386(object):
                    argtypes=None, callconv=FFI_DEFAULT_ABI):
         if IS_X86_64:
             return self._emit_call_64(force_index, x, arglocs, start, argtypes)
-
+        XXX
         p = 0
         n = len(arglocs)
         for i in range(start, n):
@@ -1099,60 +1099,42 @@ class Assembler386(object):
         dst_locs = []
         xmm_src_locs = []
         xmm_dst_locs = []
-        pass_on_stack = []
         singlefloats = None
 
         # In reverse order for use with pop()
         unused_gpr = [r9, r8, ecx, edx, esi, edi]
         unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
 
+        on_stack = 0
         for i in range(start, len(arglocs)):
             loc = arglocs[i]
-            # XXX: Should be much simplier to tell whether a location is a
-            # float! It's so ugly because we have to "guard" the access to
-            # .type with isinstance, since not all AssemblerLocation classes
-            # are "typed"
-            if ((isinstance(loc, RegLoc) and loc.is_xmm) or
-                (isinstance(loc, StackLoc) and loc.type == FLOAT) or
-                (isinstance(loc, ConstFloatLoc))):
+            if loc.is_float():
+                xmm_src_locs.append(loc)
                 if len(unused_xmm) > 0:
-                    xmm_src_locs.append(loc)
                     xmm_dst_locs.append(unused_xmm.pop())
                 else:
-                    pass_on_stack.append(loc)
+                    xmm_dst_locs.append(RawEspLoc(on_stack * WORD, FLOAT))
+                    on_stack += 1
             elif argtypes is not None and argtypes[i-start] == 'S':
                 # Singlefloat argument
                 if len(unused_xmm) > 0:
-                    if singlefloats is None: singlefloats = []
+                    if singlefloats is None:
+                        singlefloats = []
                     singlefloats.append((loc, unused_xmm.pop()))
                 else:
-                    pass_on_stack.append(loc)
+                    singlefloats.append((loc, RawEspLoc(on_stack * WORD, INT)))
+                    on_stack += 1
             else:
+                src_locs.append(loc)
                 if len(unused_gpr) > 0:
-                    src_locs.append(loc)
                     dst_locs.append(unused_gpr.pop())
                 else:
-                    pass_on_stack.append(loc)
+                    dst_locs.append(RawEspLoc(on_stack * WORD, INT))
+                    on_stack += 1
 
-        # Emit instructions to pass the stack arguments
-        # XXX: Would be nice to let remap_frame_layout take care of this, but
-        # we'd need to create something like StackLoc, but relative to esp,
-        # and I don't know if it's worth it.
-        for i in range(len(pass_on_stack)):
-            loc = pass_on_stack[i]
-            if not isinstance(loc, RegLoc):
-                if isinstance(loc, StackLoc) and loc.type == FLOAT:
-                    self.mc.MOVSD(X86_64_XMM_SCRATCH_REG, loc)
-                    self.mc.MOVSD_sx(i*WORD, X86_64_XMM_SCRATCH_REG.value)
-                else:
-                    self.mc.MOV(X86_64_SCRATCH_REG, loc)
-                    self.mc.MOV_sr(i*WORD, X86_64_SCRATCH_REG.value)
-            else:
-                # It's a register
-                if loc.is_xmm:
-                    self.mc.MOVSD_sx(i*WORD, loc.value)
-                else:
-                    self.mc.MOV_sr(i*WORD, loc.value)
+        align = align_stack_words(on_stack)
+        if align:
+            self.mc.SUB_ri(esp.value, align * WORD)
 
         # Handle register arguments: first remap the xmm arguments
         remap_frame_layout(self, xmm_src_locs, xmm_dst_locs,
@@ -1172,10 +1154,11 @@ class Assembler386(object):
             dst_locs.append(r10)
             x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-
+        # align
         self.mc.CALL(x)
+        if align:
+            self.mc.ADD_ri(esp.value, align * WORD)
         self.mark_gc_roots(force_index)
-        self._regalloc.needed_extra_stack_locations(len(pass_on_stack))
 
     def call(self, addr, args, res):
         force_index = self.write_new_force_index()

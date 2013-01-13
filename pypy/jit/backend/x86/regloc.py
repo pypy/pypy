@@ -53,7 +53,7 @@ class RawStackLoc(AssemblerLocation):
         self.type = type
 
     def _getregkey(self):
-        return -(self.value + 1)
+        return -(self.value * 2 + 2)
 
     def get_width(self):
         if self.type == FLOAT:
@@ -65,6 +65,36 @@ class RawStackLoc(AssemblerLocation):
 
     def assembler(self):
         return repr(self)
+
+    def is_float(self):
+        return self.type == FLOAT
+
+class RawEspLoc(AssemblerLocation):
+    """ Esp-based location
+    """
+    _immutable_ = True
+    _location_code = 's'
+
+    def __init__(self, value, type):
+        self.value = value
+        self.type = type
+
+    def _getregkey(self):
+        return -(self.value * 2 + 1)
+
+    def get_width(self):
+        if self.type == FLOAT:
+            return 8
+        return WORD
+
+    def __repr__(self):
+        return '%d(%%esp)' % (self.value,)
+
+    def assembler(self):
+        return repr(self)
+
+    def is_float(self):
+        return self.type == FLOAT
 
 class StackLoc(RawStackLoc):
     def __init__(self, position, ebp_offset, type):
@@ -116,6 +146,9 @@ class RegLoc(AssemblerLocation):
         else:
             return eax
 
+    def is_float(self):
+        return self.is_xmm
+
 class ImmediateAssemblerLocation(AssemblerLocation):
     _immutable_ = True
 
@@ -123,10 +156,11 @@ class ImmedLoc(ImmediateAssemblerLocation):
     _immutable_ = True
     _location_code = 'i'
 
-    def __init__(self, value):
+    def __init__(self, value, is_float=False):
         from pypy.rpython.lltypesystem import rffi, lltype
         # force as a real int
         self.value = rffi.cast(lltype.Signed, value)
+        self._is_float = is_float
 
     def getint(self):
         return self.value
@@ -142,6 +176,9 @@ class ImmedLoc(ImmediateAssemblerLocation):
         if val > 0x7F:
             val -= 0x100
         return ImmedLoc(val)
+
+    def is_float(self):
+        return self._is_float
 
 class AddressLoc(AssemblerLocation):
     _immutable_ = True
@@ -176,6 +213,10 @@ class AddressLoc(AssemblerLocation):
 
     def get_width(self):
         return WORD
+
+    def is_float(self):
+        return False # not 100% true, but we don't use AddressLoc for locations
+        # really, so it's ok
 
     def value_a(self):
         return self.loc_a
@@ -224,6 +265,9 @@ class ConstFloatLoc(ImmediateAssemblerLocation):
     def __repr__(self):
         return '<ConstFloatLoc @%s>' % (self.value,)
 
+    def is_float(self):
+        return True
+
 if IS_X86_32:
     class FloatImmedLoc(ImmediateAssemblerLocation):
         # This stands for an immediate float.  It cannot be directly used in
@@ -255,11 +299,14 @@ if IS_X86_32:
             floatvalue = longlong.getrealfloat(self.aslonglong)
             return '<FloatImmedLoc(%s)>' % (floatvalue,)
 
+        def is_float(self):
+            return True
+
 if IS_X86_64:
     def FloatImmedLoc(floatstorage):
         from pypy.rlib.longlong2float import float2longlong
         value = intmask(float2longlong(floatstorage))
-        return ImmedLoc(value)
+        return ImmedLoc(value, True)
 
 
 REGLOCS = [RegLoc(i, is_xmm=False) for i in range(16)]
