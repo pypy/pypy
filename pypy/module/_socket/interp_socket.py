@@ -20,23 +20,23 @@ class SignalChecker:
 
 # XXX Hack to seperate rpython and pypy
 def addr_as_object(addr, fd, space):
-    if hasattr(addr, 'family') and addr.family == rsocket.AF_INET:
+    if isinstance(addr, rsocket.INETAddress):
         return space.newtuple([space.wrap(addr.get_host()),
                                space.wrap(addr.get_port())])
-    if hasattr(addr, 'family') and addr.family == rsocket.AF_INET6:
+    elif isinstance(addr, rsocket.INET6Address):
         return space.newtuple([space.wrap(addr.get_host()),
                                space.wrap(addr.get_port()),
                                space.wrap(addr.get_flowinfo()),
                                space.wrap(addr.get_scope_id())])
-    if hasattr(addr, 'family') and hasattr(rsocket, 'AF_PACKET') and addr.family == rsocket.AF_PACKET:
+    elif rsocket.HAS_AF_PACKET and isinstance(addr, rsocket.PacketAddress):
         return space.newtuple([space.wrap(addr.get_ifname(fd)),
                                space.wrap(addr.get_protocol()),
                                space.wrap(addr.get_pkttype()),
                                space.wrap(addr.get_hatype()),
                                space.wrap(addr.get_addr())])
-    if hasattr(addr, 'family') and hasattr(rsocket, 'AF_UNIX') and addr.family == rsocket.AF_UNIX:
+    elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
         return space.wrap(addr.get_path())
-    if hasattr(addr, 'family') and hasattr(rsocket, 'AF_NETLINK') and addr.family == rsocket.AF_NETLINK:
+    elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
         return space.newtuple([space.wrap(addr.get_pid()),
                                space.wrap(addr.get_groups())])
     # If we don't know the address family, don't raise an

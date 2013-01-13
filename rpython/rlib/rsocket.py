@@ -181,7 +181,8 @@ class IPAddress(Address):
 
 # ____________________________________________________________
 
-if 'AF_PACKET' in constants:
+HAS_AF_PACKET = 'AF_PACKET' in constants
+if HAS_AF_PACKET:
     class PacketAddress(Address):
         family = AF_PACKET
         struct = _c.sockaddr_ll
@@ -350,7 +351,8 @@ class INET6Address(IPAddress):
 
 # ____________________________________________________________
 
-if 'AF_UNIX' in constants:
+HAS_AF_UNIX = 'AF_UNIX' in constants
+if HAS_AF_UNIX:
     class UNIXAddress(Address):
         family = AF_UNIX
         struct = _c.sockaddr_un
@@ -399,7 +401,8 @@ if 'AF_UNIX' in constants:
             return (isinstance(other, UNIXAddress) and
                     self.get_path() == other.get_path())
 
-if 'AF_NETLINK' in constants:
+HAS_AF_NETLINK = 'AF_NETLINK' in constants
+if HAS_AF_NETLINK:
     class NETLINKAddress(Address):
         family = AF_NETLINK
         struct = _c.sockaddr_nl
