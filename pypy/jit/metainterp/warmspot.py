@@ -360,13 +360,7 @@ class WarmRunnerDesc(object):
         jd._jit_merge_point_in = graph
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
-        if op.args[1].value.autoreds:
-            # _portal_args_s is used only by _make_hook_graph, but for now we
-            # declare the various set_jitcell_at, get_printable_location,
-            # etc. as incompatible with autoreds
-            jd._portal_args_s = None
-        else:
-            jd._portal_args_s = [s_binding(v) for v in args]
+        jd._portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
@@ -614,9 +608,10 @@ class WarmRunnerDesc(object):
         if func is None:
             return None
         #
-        assert not jitdriver_sd.jitdriver.autoreds, (
-            "reds='auto' is not compatible with JitDriver hooks such as "
-            "{get,set}_jitcell_at, get_printable_location, confirm_enter_jit, etc.")
+        if not onlygreens:
+            assert not jitdriver_sd.jitdriver.autoreds, (
+                "reds='auto' is not compatible with JitDriver hooks such as "
+                "confirm_enter_jit")
         extra_args_s = []
         if s_first_arg is not None:
             extra_args_s.append(s_first_arg)

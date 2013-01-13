@@ -1,6 +1,6 @@
 import py
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.rlib.jit import JitDriver, set_param, unroll_safe
+from pypy.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback
 from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -534,6 +534,24 @@ class WarmspotTests(object):
         assert res == expected
         self.check_resops(int_eq=2, int_add=4)
         self.check_trace_count(1)
+
+
+    def test_callback_jit_merge_point(self):
+        @jit_callback("testing")
+        def callback(a, b):
+            if a > b:
+                return 1
+            return -1
+
+        def main():
+            total = 0
+            for i in range(10):
+                total += callback(i, 2)
+            return total
+
+        res = self.meta_interp(main, [])
+        assert res == 7 - 3
+        self.check_trace_count(2)
 
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
