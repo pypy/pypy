@@ -4,9 +4,9 @@ import os, sys
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from rpython.translator.goal.ann_override import PyPyAnnotatorPolicy
-from pypy.config.config import Config, to_optparse, make_dict, SUPPRESS_USAGE
-from pypy.config.config import ConflictConfigError
+from pypy.tool.ann_override import PyPyAnnotatorPolicy
+from rpython.config.config import Config, to_optparse, make_dict, SUPPRESS_USAGE
+from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
 from pypy.conftest import pypydir
 
