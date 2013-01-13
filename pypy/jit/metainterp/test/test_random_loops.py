@@ -85,9 +85,11 @@ class RandomLoopBase(object):
                     loop_stack.append(pc)
                 elif op == '}':
                     if value.value():
-                        pc -= offsets[pc]
+                        pc -= offsets[pc] - 1
+                        prev = current
                         myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev,
                                                   loop_stack=loop_stack)
+                        continue
                     else:
                         loop_stack.pop()
                 elif op == 'x':
@@ -97,8 +99,6 @@ class RandomLoopBase(object):
                     if not value.value():
                         value = IntBox(1)
                         pc += offsets[pc]
-                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev,
-                                                  loop_stack=loop_stack)
                 elif op == ')':
                     value = IntBox(0)
                 elif op in ' \n':
