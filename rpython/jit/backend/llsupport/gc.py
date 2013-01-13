@@ -10,7 +10,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.history import ConstPtr, AbstractDescr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.backend.llsupport import symbolic, , jitframe
+from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
