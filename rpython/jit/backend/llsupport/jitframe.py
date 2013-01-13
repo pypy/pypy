@@ -1,5 +1,5 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.jit.codewriter import longlong
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.jit.codewriter import longlong
 
 
 # XXX not an actual union for now

@@ -1,11 +1,11 @@
 
-from pypy.jit.codewriter import longlong
-from pypy.jit.codewriter import heaptracker
+from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter import heaptracker
 
-from pypy.jit.metainterp.history import getkind
+from rpython.jit.metainterp.history import getkind
 
-from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 
 IS_32_BIT = r_ulonglong is not r_uint
 

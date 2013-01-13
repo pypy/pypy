@@ -1,6 +1,6 @@
 
-from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.rlib import jit
+from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.rlib import jit
 
 class TestCall(LLJitMixin):
     def test_indirect_call(self):

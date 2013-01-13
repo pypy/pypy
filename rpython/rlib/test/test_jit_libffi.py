@@ -1,10 +1,10 @@
 import math
 import ctypes
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib import clibffi
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.jit_libffi import CIF_DESCRIPTION
-from pypy.rlib.jit_libffi import jit_ffi_prep_cif, jit_ffi_call
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import clibffi
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.jit_libffi import CIF_DESCRIPTION
+from rpython.rlib.jit_libffi import jit_ffi_prep_cif, jit_ffi_call
 
 
 math_sin = intmask(ctypes.cast(ctypes.CDLL(None).sin, ctypes.c_void_p).value)
