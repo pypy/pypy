@@ -313,9 +313,9 @@ class TestTypeSpecializedAttributes(object):
         assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
 
         obj2 = cls.instantiate()
-        w_str = space.wrap("string")
-        obj2.setdictvalue(space, "x", w_str)
-        assert space.eq_w(obj2.getdictvalue(space, "x"), w_str)
+        w1 = W_Root()
+        obj2.setdictvalue(space, "x", w1)
+        assert obj2.getdictvalue(space, "x") is w1
 
         assert obj1.map is not obj2.map
         assert isinstance(obj1.map, IntAttribute)
@@ -327,7 +327,7 @@ class TestTypeSpecializedAttributes(object):
         assert obj1.map is obj3.map
 
         assert IntAttribute.unerase_item(obj1.storage[0]) == 1
-        assert PlainAttribute.unerase_item(obj2.storage[0]) == w_str
+        assert PlainAttribute.unerase_item(obj2.storage[0]) == w1
 
     def test_add_more_attributes(self):
         space = self.space
@@ -341,11 +341,12 @@ class TestTypeSpecializedAttributes(object):
 
         obj2 = cls.instantiate()
         obj2.setdictvalue(space, "x", space.wrap(5)) # this is shared
-        obj2.setdictvalue(space, "y", space.wrap("str")) # this not
+        w1 = W_Root()
+        obj2.setdictvalue(space, "y", w1) # this not
         assert space.eq_w(obj2.getdictvalue(space, "x"), space.wrap(5))
-        assert space.eq_w(obj2.getdictvalue(space, "y"), space.wrap("str"))
+        assert obj2.getdictvalue(space, "y") is w1
 
-    def test_switch_attribute_types(self):
+    def test_switch_int_attribute_types(self):
         space = self.space
         cls = Class(sp=space)
         obj1 = cls.instantiate()
@@ -354,11 +355,12 @@ class TestTypeSpecializedAttributes(object):
         assert isinstance(obj1.map, IntAttribute)
         assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
 
-        obj1.setdictvalue(space, "y", space.wrap("str"))
+        w1 = W_Root()
+        obj1.setdictvalue(space, "y", w1)
         assert isinstance(obj1.map, PlainAttribute)
-        assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap("str"))
+        assert obj1.getdictvalue(space, "y") is w1
 
-    def test_overwrite_attribute_with_another_type(self):
+    def test_overwrite_int_attribute_with_another_type(self):
         space = self.space
         cls = Class(sp=space)
         obj1 = cls.instantiate()
@@ -367,11 +369,12 @@ class TestTypeSpecializedAttributes(object):
         assert isinstance(obj1.map, IntAttribute)
         assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
 
-        obj1.setdictvalue(space, "x", space.wrap("a"))
+        w1 = W_Root()
+        obj1.setdictvalue(space, "x", w1)
         assert isinstance(obj1.map, PlainAttribute)
-        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap("a"))
+        assert obj1.getdictvalue(space, "x") is w1
 
-    def test_overwrite_attribute_with_another_type2(self):
+    def test_overwrite_int_attribute_with_another_type2(self):
         space = self.space
         cls = Class(sp=space)
         obj1 = cls.instantiate()
@@ -385,9 +388,10 @@ class TestTypeSpecializedAttributes(object):
         assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap(2))
 
         # overwrite 'x' with new type
-        obj1.setdictvalue(space, "x", space.wrap("a"))
+        w1 = W_Root()
+        obj1.setdictvalue(space, "x", w1)
         assert isinstance(obj1.map, PlainAttribute)
-        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap("a"))
+        assert obj1.getdictvalue(space, "x") is w1
 
         # check if 'y' is still reachable
         assert isinstance(obj1.map.back, IntAttribute)
