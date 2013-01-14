@@ -228,6 +228,8 @@ class BaseTests(RandomLoopBase):
         for i in xrange(1000):
             yield self.check, self.random_loop(), [randrange(100) for i in xrange(5)], 1000
 
+    def test_failure1(self):
+        self.check('{{c3+A{cc+Dda<({2b=}c7=(cd-Aae-Exe8+Ax)aa+Ab5-D2a-Dba=(0d+Be7-D6e+Bd3-A)0e+D)(a0=(x{79>})(0e>(x)9c+Ce3-Ccb>(5d=(08-Axx)da+B4d<(04-B7d+Eba+Axx09+B15-E))()33-Bc9<()({xba+Ec1+C0a=}4c+C79+Dxda<(0c+A)(5e+D9b+C2d-Bcc+D8b-A99-B3c-De4-Cc9+C)58-Bcc-Ae1-Be9-D)ae+A)xcc=(3c=(d5>(23+Bad+Bx8c-De5-Dac-Cd3-Cea+Ax)(xx)33-A{dc-D0b-Ab8-Cb1+Bd1+A28=}65+Aba<(x5c+Axba-C57+A3b-Deb+C)(cd+Bec+B30+Bbb+D45-De4-C)b8-Eae<(aa+Ce4-E1a+Dxa1+E)(d5-Ea2-Ex62+Bxx6a-D)be+B)c6+C3e+A)(5e+C4e-Ec9+Bx26-Ca8=()x)a3<(x10-Cd8-Aba-Ex{5c=})55+C)xd2-Ax98>}1}1}', [49, 30, 28, 93, 22], 1000)
 
 class TestLLtype(BaseTests, LLJitMixin):
     pass
