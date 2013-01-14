@@ -571,6 +571,7 @@ class Assembler386(object):
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs)
+        self._check_frame_depth()
         frame_depth = self._assemble(regalloc, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -649,6 +650,9 @@ class Assembler386(object):
                 mc = codebuf.MachineCodeBlockWrapper()
                 mc.writeimm32(self.error_trampoline_64 - pos_after_jz)
                 mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
+
+    def _check_frame_depth(self):
+        pass
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token

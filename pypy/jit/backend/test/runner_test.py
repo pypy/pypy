@@ -3725,3 +3725,64 @@ class LLtypeBackendTest(BaseBackendTest):
         # make sure that force reads the registers from a zeroed piece of
         # memory
         assert values[0] == 0
+
+    def test_compile_bridge_while_running(self):        
+        def func():
+            bridge = parse("""
+            [i1, i2]
+            i3 = int_add(i1, i2)
+            i4 = int_add(i1, i3)
+            i5 = int_add(i1, i4)
+            i6 = int_add(i4, i5)
+            i7 = int_add(i6, i5)
+            i8 = int_add(i5, 1)
+            i9 = int_add(i8, 1)
+            force_spill(i1)
+            force_spill(i2)
+            force_spill(i3)
+            force_spill(i4)
+            force_spill(i5)
+            force_spill(i6)
+            force_spill(i7)
+            force_spill(i8)
+            force_spill(i9)
+            call(ConstClass(func2_ptr), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, descr=calldescr2)
+            guard_true(i1, descr=guarddescr) [i1, i2, i3, i4, i5, i6, i7, i8, i9]
+            finish(i1, descr=finaldescr)
+            """, namespace={'finaldescr': finaldescr, 'calldescr2': calldescr2,
+                            'guarddescr': guarddescr, 'func2_ptr': func2_ptr})
+            self.cpu.compile_bridge(faildescr, bridge.inputargs,
+                                    bridge.operations, looptoken)
+
+        cpu = self.cpu
+        finaldescr = BasicFinalDescr(13)
+        finaldescr2 = BasicFinalDescr(133)
+        guarddescr = BasicFailDescr(8)
+
+        FUNC = self.FuncType([], lltype.Void)
+        FPTR = self.Ptr(FUNC)
+        func_ptr = llhelper(FPTR, func)
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+
+        def func2(a, b, c, d, e, f, g, h, i, j, k, l):
+            pass
+
+        FUNC2 = self.FuncType([lltype.Signed] * 12, lltype.Void)
+        FPTR2 = self.Ptr(FUNC2)
+        func2_ptr = llhelper(FPTR2, func2)
+        calldescr2 = cpu.calldescrof(FUNC2, FUNC2.ARGS, FUNC2.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+        
+        faildescr = BasicFailDescr(0)
+        
+        looptoken = JitCellToken()
+        loop = parse("""
+        [i0, i1, i2]
+        call(ConstClass(func_ptr), descr=calldescr)
+        guard_true(i0, descr=faildescr) [i1, i2]
+        finish(i2, descr=finaldescr2)
+        """, namespace=locals())
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        frame = self.cpu.execute_token(looptoken, 0, 0, 3)
+        assert self.cpu.get_latest_descr(frame) is guarddescr
