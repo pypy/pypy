@@ -522,9 +522,10 @@ class CSub2(CBase):
 def methodcall_is_precise(cond):
     if cond:
         x = CSub1()
+        x.m()
     else:
         x = CSub2()
-    x.m()
+        x.m()
     return CSub1().m()
 
 
@@ -540,18 +541,6 @@ def flow_usertype_info(ob):
         return ob
     else:
         return WithMoreInit(1, 2)
-
-def flow_identity_info(x=object, y=object):
-    if x is None:
-        if y is None:
-            return (x, y)
-        else:
-            return (x, None)
-    else:
-        if y is None:
-            return (None, y)
-        else:
-            return (None, None)
 
 def star_args0(*args):
     return args[0] / 2
@@ -657,13 +646,6 @@ def _somebug1(n=int):
         l[7] = 5 # raises an exception 
         break 
     return v
-
-def _inheritance_nonrunnable():
-    d = D()
-    d.stuff = (-12, -12)
-    e = E()
-    e.stuff = (3, "world")
-    return C().stuff
 
 def _getstuff(x):
     return x.stuff
@@ -788,7 +770,7 @@ def dict_keys():
 def dict_keys2():
     d = {"a" : 1}
     keys = d.keys()
-    d[1] = 12
+    d["123"] = 12
     return keys
 
 def dict_values():
@@ -796,9 +778,9 @@ def dict_values():
     return d.values()
 
 def dict_values2():
-    d = {"a" : "a"}
+    d = {54312 : "a"}
     values = d.values()
-    d[1] = 12
+    d[1] = "12"
     return values
 
 def dict_items():
@@ -940,94 +922,6 @@ def exc_deduction_our_excs_plus_others():
 def call_two_funcs_but_one_can_only_raise(n):
     fn = [witness, always_raising][n]
     return fn(n)
-
-
-class BltinCode:
-  def __init__(self, func, framecls):
-    self.func = func
-    self.framecls = framecls
-
-  def call(self, x):
-     return self.framecls(self).run(x)
-
-class BltinFrame:
-  def __init__(self, code):
-    self.code = code
-
-def bltin_code_frame_f(x):
-  return x
-
-def bltin_code_frame_g(x):
-  return x
-
-class FBltinFrame(BltinFrame):
-
-  def run(self, x):
-     return self.code.func(x)
-
-class GBltinFrame(BltinFrame):
-
-  def run(self, x):
-     return self.code.func(x)
-
-bltin_code_for_f = BltinCode(bltin_code_frame_f, FBltinFrame)
-bltin_code_for_g = BltinCode(bltin_code_frame_g, GBltinFrame)
-
-def bltin_code_frame_confusion():
-  a = bltin_code_for_f.call(0)
-  a1 = bltin_code_for_f.call(1)
-  b = bltin_code_for_g.call("a")
-  b1 = bltin_code_for_g.call("b")
-  return (a,a1,b,b1)
-
-
-# reorg
-
-class BltinCodeReorg:
-  def __init__(self, framecls):
-    self.framecls = framecls
-
-  def call(self, x):
-     frame = self.framecls()
-     frame.set(x)
-     return frame.run()
-
-class BltinFrameReorg:
-  def __init__(self):
-      pass
-
-  def set(self,x):
-      pass
-
-  def run(self):
-      pass
-
-class FBltinFrameReorg(BltinFrameReorg):
-
-  def set(self, x):
-      self.arg = int(x)
-
-  def run(self):
-     return bltin_code_frame_f(self.arg)
-
-class GBltinFrameReorg(BltinFrameReorg):
-
-  def set(self, x):
-      self.arg = str(x)
-
-  def run(self):
-     return bltin_code_frame_g(self.arg)
-
-
-bltin_code_for_f_reorg = BltinCodeReorg(FBltinFrameReorg)
-bltin_code_for_g_reorg = BltinCodeReorg(GBltinFrameReorg)
-
-def bltin_code_frame_reorg():
-  a = bltin_code_for_f_reorg.call(0)
-  a1 = bltin_code_for_f_reorg.call(1)
-  b = bltin_code_for_g_reorg.call("a")
-  b1 = bltin_code_for_g_reorg.call("b")
-  return (a,a1,b,b1)
 
 
 # constant instances with __init__ vs. __new__

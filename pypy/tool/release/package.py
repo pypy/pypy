@@ -93,7 +93,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
-    for file in ['LICENSE', 'README']:
+    for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
     if sys.platform == 'win32':
@@ -122,7 +122,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     try:
         os.chdir(str(builddir))
         #
-        # 'strip' fun: see https://codespeak.net/issue/pypy-dev/issue587
+        # 'strip' fun: see issue #587
         for source, target in binaries:
             if sys.platform == 'win32':
                 pass

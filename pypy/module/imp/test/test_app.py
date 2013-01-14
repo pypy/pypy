@@ -1,7 +1,12 @@
 from __future__ import with_statement
 MARKER = 42
 
+
 class AppTestImpModule:
+    spaceconfig = {
+        "usemodules": ['imp', 'itertools', 'binascii', 'rctime'],
+    }
+
     def setup_class(cls):
         cls.w_imp = cls.space.getbuiltinmodule('imp')
         cls.w_file_module = cls.space.wrap(__file__)

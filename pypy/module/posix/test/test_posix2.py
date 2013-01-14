@@ -4,7 +4,7 @@
 from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.autopath import pypydir
 from pypy.rpython.module.ll_os import RegisterOs
 import os
@@ -13,11 +13,13 @@ import sys
 import signal
 
 def setup_module(mod):
+    usemodules = ['binascii', 'posix', 'struct', 'rctime']
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct'])
+        usemodules += ['fcntl']
     else:
         # On windows, os.popen uses the subprocess module
-        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct'])
+        usemodules += ['_rawffi', 'thread']
+    mod.space = gettestobjspace(usemodules=usemodules)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -38,7 +40,7 @@ def setup_module(mod):
     os.stat_float_times(True)
 
     # Initialize sys.filesystemencoding
-    space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
+    # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
 def need_sparse_files():
     if sys.platform == 'darwin':
@@ -48,7 +50,9 @@ def need_sparse_files():
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
+
 class AppTestPosix:
+
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -321,7 +325,11 @@ class AppTestPosix:
             u = "caf\xe9".decode(sys.getfilesystemencoding())
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
-            assert (str, "caf\xe9") in typed_result
+            if sys.platform != 'darwin':
+                assert (str, "caf\xe9") in typed_result
+            else:
+                # darwin 'normalized' it
+                assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
 
@@ -500,6 +508,13 @@ class AppTestPosix:
             res = stream.read()
             assert res == '1\n'
             assert stream.close() is None
+
+    def test_popen_with(self):
+        os = self.posix
+        stream = os.popen('echo 1')
+        with stream as fp:
+            res = fp.read()
+            assert res == '1\n'
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -802,6 +817,33 @@ class AppTestPosix:
             os.symlink('foobar', self.path)
             os.lchown(self.path, os.getuid(), os.getgid())
 
+    if hasattr(os, 'fchown'):
+        def test_fchown(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchown(f.fileno(), os.getuid(), os.getgid())
+            f.close()
+
+    if hasattr(os, 'chmod'):
+        def test_chmod(self):
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.chmod, self.path, 0600)
+            f = open(self.path, "w")
+            f.write("this is a test")
+            f.close()
+            os.chmod(self.path, 0200)
+            assert (os.stat(self.path).st_mode & 0777) == 0200
+
+    if hasattr(os, 'fchmod'):
+        def test_fchmod(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchmod(f.fileno(), 0200)
+            assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
+            f.close()
+            assert (os.stat(self.path).st_mode & 0777) == 0200
+
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
             os = self.posix
@@ -1008,7 +1050,7 @@ class AppTestPosixUnicode:
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
-        if py.test.config.option.runappdirect:
+        if cls.runappdirect:
             # Can't change encoding
             try:
                 u"ą".encode(sys.getfilesystemencoding())

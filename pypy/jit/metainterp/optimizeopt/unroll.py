@@ -4,6 +4,7 @@ from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.history import TreeLoop, TargetToken, JitCellToken
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.optimize import InvalidLoop
+from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from pypy.jit.metainterp.inliner import Inliner
@@ -317,7 +318,7 @@ class UnrollOptimizer(Optimization):
         except BadVirtualState:
             raise InvalidLoop('The state of the optimizer at the end of ' +
                               'peeled loop is inconsistent with the ' +
-                              'VirtualState at the begining of the peeled ' +
+                              'VirtualState at the beginning of the peeled ' +
                               'loop')
         jumpop.initarglist(jumpargs)
 

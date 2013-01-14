@@ -1,5 +1,4 @@
 
-from pypy.conftest import gettestobjspace
 import marshal
 import py, os
 import time
@@ -8,15 +7,20 @@ from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
 from pypy.tool.udir import udir
-from zipfile import ZIP_STORED, ZIP_DEFLATED, ZipInfo
+from zipfile import ZIP_STORED, ZIP_DEFLATED
+
 
 class AppTestZipimport:
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
     compression = ZIP_STORED
+    spaceconfig = {
+        "usemodules": ['zipimport', 'rctime', 'struct', 'itertools', 'binascii'],
+    }
     pathsep = os.path.sep
-    
+
+    @classmethod
     def make_pyc(cls, space, co, mtime):
         data = marshal.dumps(co)
         if type(mtime) is type(0.0):
@@ -33,7 +37,8 @@ class AppTestZipimport:
             s.write(imp.get_magic())
         pyc = s.getvalue() + struct.pack("<i", int(mtime)) + data
         return pyc
-    make_pyc = classmethod(make_pyc)
+
+    @classmethod
     def make_class(cls):
         # XXX: this is (mostly) wrong: .compile() compiles the code object
         # using the host python compiler, but then in the tests we load it
@@ -46,12 +51,8 @@ class AppTestZipimport:
             return __file__
         """).compile()
 
-        if cls.compression == ZIP_DEFLATED:
-            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime', 'struct'])
-        else:
-            space = gettestobjspace(usemodules=['zipimport', 'rctime', 'struct'])
-            
-        cls.space = space
+        space = cls.space
+
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
         now = time.time()
         cls.w_now = space.wrap(now)
@@ -62,9 +63,7 @@ class AppTestZipimport:
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
         ziptestmodule = tmpdir.join("somezip.zip")
         cls.w_tmpzip = space.wrap(str(ziptestmodule))
-        cls.w_co = space.wrap(co)
         cls.tmpdir = tmpdir
-    make_class = classmethod(make_class)
 
     def setup_class(cls):
         cls.make_class()
@@ -164,7 +163,7 @@ class AppTestZipimport:
         for key, val in expected.items():
             assert mod.__dict__[key] == val
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.py')
-    
+
     def test_pyc(self):
         import sys, os
         self.writefile("uuu.pyc", self.test_pyc)
@@ -314,7 +313,7 @@ class AppTestZipimport:
 
     def test_subdirectory_twice(self):
         #import os, zipimport
- 
+
         self.writefile("package/__init__.py", "")
         self.writefile("package/subpackage/__init__.py", "")
         self.writefile("package/subpackage/foo.py", "")
@@ -357,6 +356,9 @@ def get_co_filename():
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
+    spaceconfig = {
+        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'itertools', 'binascii'],
+    }
 
     def setup_class(cls):
         try:

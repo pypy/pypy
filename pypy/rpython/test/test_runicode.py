@@ -257,7 +257,7 @@ class BaseTestRUnicode(AbstractTestRstr):
         def percentS(ch):
             x = "%s" % (ch + "bc")
             y = u"%s" % (unichr(ord(ch)) + u"bc")
-            return len(x)+len(y)
+            return len(x) + len(y)
         #
         res = self.interpret(percentS, ["a"])
         assert res == 6
@@ -266,6 +266,8 @@ class BaseTestRUnicode(AbstractTestRstr):
         py.test.skip("not supported")
 
     test_char_isxxx = unsupported
+    test_isdigit = unsupported
+    test_str_isalpha = unsupported
     test_upper = unsupported
     test_lower = unsupported
     test_splitlines = unsupported

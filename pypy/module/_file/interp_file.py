@@ -32,6 +32,7 @@ class W_File(W_AbstractStream):
     encoding = None
     errors   = None
     fd       = -1
+    cffi_fileobj = None    # pypy/module/_cffi_backend
 
     newlines = 0     # Updated when the stream is closed
 
@@ -148,7 +149,14 @@ class W_File(W_AbstractStream):
                 del openstreams[stream]
             except KeyError:
                 pass
-            stream.close()
+            # close the stream.  If cffi_fileobj is None, we close the
+            # underlying fileno too.  Otherwise, we leave that to
+            # cffi_fileobj.close().
+            cffifo = self.cffi_fileobj
+            self.cffi_fileobj = None
+            stream.close1(cffifo is None)
+            if cffifo is not None:
+                cffifo.close()
 
     def direct_fileno(self):
         self.getstream()    # check if the file is still open
@@ -171,7 +179,17 @@ class W_File(W_AbstractStream):
         else:
             result = StringBuilder(n)
             while n > 0:
-                data = stream.read(n)
+                try:
+                    data = stream.read(n)
+                except OSError, e:
+                    # a special-case only for read() (similar to CPython, which
+                    # also looses partial data with other methods): if we get
+                    # EAGAIN after already some data was received, return it.
+                    if is_wouldblock_error(e):
+                        got = result.build()
+                        if len(got) > 0:
+                            return got
+                    raise
                 if not data:
                     break
                 n -= len(data)
@@ -185,7 +203,7 @@ class W_File(W_AbstractStream):
             return stream.readline()
         else:
             # very inefficient unless there is a peek()
-            result = []
+            result = StringBuilder()
             while size > 0:
                 # "peeks" on the underlying stream to see how many chars
                 # we can safely read without reading past an end-of-line
@@ -200,7 +218,7 @@ class W_File(W_AbstractStream):
                 if c.endswith('\n'):
                     break
                 size -= len(c)
-            return ''.join(result)
+            return result.build()
 
     @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
@@ -239,7 +257,7 @@ class W_File(W_AbstractStream):
     def direct_truncate(self, w_size=None):  # note: a wrapped size!
         stream = self.getstream()
         space = self.space
-        if w_size is None or space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             size = stream.tell()
         else:
             size = space.r_longlong_w(w_size)
@@ -561,6 +579,16 @@ class FileState:
 
 def getopenstreams(space):
     return space.fromcache(FileState).openstreams
+
+MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
+MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)
+
+def is_wouldblock_error(e):
+    if MAYBE_EAGAIN is not None and e.errno == MAYBE_EAGAIN:
+        return True
+    if MAYBE_EWOULDBLOCK is not None and e.errno == MAYBE_EWOULDBLOCK:
+        return True
+    return False
 
 
 @unwrap_spec(file=W_File, encoding="str_or_None", errors="str_or_None")

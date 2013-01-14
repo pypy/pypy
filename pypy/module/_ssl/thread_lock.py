@@ -62,13 +62,14 @@ int _PyPy_SSL_SetupThreads(void)
 }
 """
 
+from pypy.module.thread import ll_thread
 
-eci = ExternalCompilationInfo(
+eci = ll_thread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
     post_include_bits=[
         "int _PyPy_SSL_SetupThreads(void);"],
     export_symbols=['_PyPy_SSL_SetupThreads'],
-)
+))
 
 _PyPy_SSL_SetupThreads = rffi.llexternal('_PyPy_SSL_SetupThreads',
                                          [], rffi.INT,

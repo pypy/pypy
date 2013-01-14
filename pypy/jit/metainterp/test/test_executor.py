@@ -47,19 +47,19 @@ class FakeCPU(AbstractCPU):
     def bh_new(self, descr):
         return FakeResultR('new', descr)
 
-    def bh_arraylen_gc(self, descr, array):
+    def bh_arraylen_gc(self, array, descr):
         assert not array
         assert isinstance(descr, FakeDescr)
         return 55
 
-    def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
+    def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         self.fakesetfield = (struct, newvalue, fielddescr)
 
-    def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_gc_f(self, array, index, newvalue, arraydescr):
         self.fakesetarrayitem = (array, index, newvalue, arraydescr)
 
-    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        self.fakecalled = (func, calldescr, args_i, args_r, args_f)
+    def bh_call_f(self, func, args_i, args_r, args_f, calldescr):
+        self.fakecalled = (func, args_i, args_r, args_f, calldescr)
         return longlong.getfloatstorage(42.5)
 
     def bh_strsetitem(self, string, index, newvalue):
@@ -87,10 +87,11 @@ def test_execute_varargs():
                 BoxPtr(), boxfloat(5.5)]
     box = execute_varargs(cpu, FakeMetaInterp(), rop.CALL, argboxes, descr)
     assert box.getfloat() == 42.5
-    assert cpu.fakecalled == (99999, descr, [321, 123],
+    assert cpu.fakecalled == (99999, [321, 123],
                               [ConstPtr.value],
                               [longlong.getfloatstorage(2.25),
-                               longlong.getfloatstorage(5.5)])
+                               longlong.getfloatstorage(5.5)],
+                              descr)
 
 def test_execute_nonspec():
     cpu = FakeCPU()

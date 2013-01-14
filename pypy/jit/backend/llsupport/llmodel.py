@@ -1,12 +1,12 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
-from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport import symbolic, jitframe
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import (
     get_size_descr, get_field_descr, get_array_descr,
@@ -39,37 +39,15 @@ class AbstractLLCPU(AbstractCPU):
             self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
                                                              'typeptr',
                                                         translate_support_code)
-        self._setup_prebuilt_error('ovf', OverflowError)
-        self._setup_prebuilt_error('zer', ZeroDivisionError)
         if translate_support_code:
             self._setup_exception_handling_translated()
         else:
             self._setup_exception_handling_untranslated()
-        self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
         self.asmmemmgr = AsmMemoryManager()
         self.setup()
-        if translate_support_code:
-            self._setup_on_leave_jitted_translated()
-        else:
-            self._setup_on_leave_jitted_untranslated()
 
     def setup(self):
         pass
-
-    def _setup_prebuilt_error(self, prefix, Class):
-        if self.rtyper is not None:   # normal case
-            bk = self.rtyper.annotator.bookkeeper
-            clsdef = bk.getuniqueclassdef(Class)
-            ll_inst = self.rtyper.exceptiondata.get_standard_ll_exc_instance(
-                self.rtyper, clsdef)
-        else:
-            # for tests, a random emulated ll_inst will do
-            ll_inst = lltype.malloc(rclass.OBJECT)
-            ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
-                                            immortal=True)
-        setattr(self, '_%s_error_vtable' % prefix,
-                llmemory.cast_ptr_to_adr(ll_inst.typeptr))
-        setattr(self, '_%s_error_inst' % prefix, ll_inst)
 
 
     def _setup_exception_handling_untranslated(self):
@@ -99,24 +77,34 @@ class AbstractLLCPU(AbstractCPU):
             return (rffi.cast(lltype.Signed, _exception_emulator) +
                     rffi.sizeof(lltype.Signed))
 
-        def save_exception():
-            # copy from _exception_emulator to the real attributes on self
-            v_i = _exception_emulator[1]
+        self._memoryerror_emulated = rffi.cast(llmemory.GCREF, -123)
+        self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
+        self.deadframe_memoryerror.jf_guard_exc = self._memoryerror_emulated
+
+        def propagate_exception():
+            exc = _exception_emulator[1]
             _exception_emulator[0] = 0
             _exception_emulator[1] = 0
-            self.saved_exc_value = rffi.cast(llmemory.GCREF, v_i)
-
-        def save_exception_memoryerr():
-            save_exception()
-            if not self.saved_exc_value:
-                self.saved_exc_value = "memoryerror!"    # for tests
+            assert self.propagate_exception_v >= 0
+            faildescr = self.get_fail_descr_from_number(
+                self.propagate_exception_v)
+            faildescr = faildescr.hide(self)
+            if not exc:
+                deadframe = self.deadframe_memoryerror
+                if not deadframe.jf_descr:
+                    deadframe.jf_descr = faildescr
+                else:
+                    assert deadframe.jf_descr == faildescr
+            else:
+                deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
+                deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
+                deadframe.jf_descr = faildescr
+            return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
-        self.save_exception = save_exception
-        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = lambda: (0, 0, 0)
-
+        self._propagate_exception = propagate_exception
 
     def _setup_exception_handling_translated(self):
 
@@ -128,26 +116,6 @@ class AbstractLLCPU(AbstractCPU):
             addr = llop.get_exc_value_addr(llmemory.Address)
             return heaptracker.adr2int(addr)
 
-        def save_exception():
-            addr = llop.get_exception_addr(llmemory.Address)
-            addr.address[0] = llmemory.NULL
-            addr = llop.get_exc_value_addr(llmemory.Address)
-            exc_value = rffi.cast(llmemory.GCREF, addr.address[0])
-            addr.address[0] = llmemory.NULL
-            # from now on, the state is again consistent -- no more RPython
-            # exception is set.  The following code produces a write barrier
-            # in the assignment to self.saved_exc_value, as needed.
-            self.saved_exc_value = exc_value
-
-        def save_exception_memoryerr():
-            from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
-            save_exception()
-            if not self.saved_exc_value:
-                exc = MemoryError()
-                exc = cast_instance_to_base_ptr(exc)
-                exc = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
-                self.saved_exc_value = exc
-
         from pypy.rlib import rstack
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
                                                           lltype.Void))
@@ -158,59 +126,61 @@ class AbstractLLCPU(AbstractCPU):
             slowpathaddr = rffi.cast(lltype.Signed, f)
             return endaddr, lengthaddr, slowpathaddr
 
+        self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
+
+        def propagate_exception():
+            addr = llop.get_exception_addr(llmemory.Address)
+            addr.address[0] = llmemory.NULL
+            addr = llop.get_exc_value_addr(llmemory.Address)
+            exc = rffi.cast(llmemory.GCREF, addr.address[0])
+            addr.address[0] = llmemory.NULL
+            assert self.propagate_exception_v >= 0
+            faildescr = self.get_fail_descr_from_number(
+                self.propagate_exception_v)
+            faildescr = faildescr.hide(self)
+            deadframe = lltype.nullptr(jitframe.DEADFRAME)
+            if exc:
+                try:
+                    deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
+                    deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
+                    deadframe.jf_descr = faildescr
+                except MemoryError:
+                    deadframe = lltype.nullptr(jitframe.DEADFRAME)
+            if not deadframe:
+                deadframe = self.deadframe_memoryerror
+                if not deadframe.jf_descr:
+                    exc = MemoryError()
+                    exc = cast_instance_to_base_ptr(exc)
+                    exc = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
+                    deadframe.jf_guard_exc = exc
+                    deadframe.jf_descr = faildescr
+                else:
+                    assert deadframe.jf_descr == faildescr
+            return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
+
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
-        self.save_exception = save_exception
-        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = insert_stack_check
+        self._propagate_exception = propagate_exception
 
-    def _setup_on_leave_jitted_untranslated(self):
-        # assume we don't need a backend leave in this case
-        self.on_leave_jitted_save_exc = self.save_exception
-        self.on_leave_jitted_memoryerr = self.save_exception_memoryerr
-        self.on_leave_jitted_noexc = lambda : None
+    PROPAGATE_EXCEPTION = lltype.Ptr(lltype.FuncType([], llmemory.GCREF))
 
-    def _setup_on_leave_jitted_translated(self):
-        on_leave_jitted_hook = self.get_on_leave_jitted_hook()
-        save_exception = self.save_exception
-        save_exception_memoryerr = self.save_exception_memoryerr
+    def get_propagate_exception(self):
+        return llhelper(self.PROPAGATE_EXCEPTION, self._propagate_exception)
 
-        def on_leave_jitted_noexc():
-            on_leave_jitted_hook()
+    def grab_exc_value(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        if not we_are_translated() and deadframe == self.deadframe_memoryerror:
+            return "memoryerror!"       # for tests
+        return deadframe.jf_guard_exc
 
-        def on_leave_jitted_save_exc():
-            save_exception()
-            on_leave_jitted_hook()
+    def set_savedata_ref(self, deadframe, data):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        deadframe.jf_savedata = data
 
-        def on_leave_jitted_memoryerr():
-            save_exception_memoryerr()
-            on_leave_jitted_hook()
-
-        self.on_leave_jitted_noexc = on_leave_jitted_noexc
-        self.on_leave_jitted_save_exc = on_leave_jitted_save_exc
-        self.on_leave_jitted_memoryerr = on_leave_jitted_memoryerr
-
-    def get_on_leave_jitted_hook(self):
-        # this function needs to be overridden for things to work with
-        # our framework GCs
-        translation_time_error
-
-    _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-
-    def get_on_leave_jitted_int(self, save_exception,
-                                default_to_memoryerror=False):
-        if default_to_memoryerror:
-            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_memoryerr)
-        elif save_exception:
-            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_save_exc)
-        else:
-            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_noexc)
-        return rffi.cast(lltype.Signed, f)
-
-    def grab_exc_value(self):
-        exc = self.saved_exc_value
-        self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
-        return exc
+    def get_savedata_ref(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_savedata
 
     def free_loop_and_bridges(self, compiled_loop_token):
         AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
@@ -222,6 +192,12 @@ class AbstractLLCPU(AbstractCPU):
                 self.asmmemmgr.free(rawstart, rawstop)
 
     # ------------------- helpers and descriptions --------------------
+
+    def gc_set_extra_threshold(self):
+        llop.gc_set_extra_threshold(lltype.Void, self.deadframe_size_max)
+
+    def gc_clear_extra_threshold(self):
+        llop.gc_set_extra_threshold(lltype.Void, 0)
 
     @staticmethod
     def _cast_int_to_gcref(x):
@@ -263,8 +239,9 @@ class AbstractLLCPU(AbstractCPU):
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
 
-    def interiorfielddescrof(self, A, fieldname):
-        return get_interiorfield_descr(self.gc_ll_descr, A, fieldname)
+    def interiorfielddescrof(self, A, fieldname, arrayfieldname=None):
+        return get_interiorfield_descr(self.gc_ll_descr, A, fieldname,
+                                       arrayfieldname)
 
     def unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
@@ -293,27 +270,36 @@ class AbstractLLCPU(AbstractCPU):
         return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
                                                       abiname)
 
-    def get_overflow_error(self):
-        ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)
-        ovf_inst = lltype.cast_opaque_ptr(llmemory.GCREF,
-                                          self._ovf_error_inst)
-        return ovf_vtable, ovf_inst
+    def get_latest_descr(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        descr = deadframe.jf_descr
+        return history.AbstractDescr.show(self, descr)
 
-    def get_zero_division_error(self):
-        zer_vtable = self.cast_adr_to_int(self._zer_error_vtable)
-        zer_inst = lltype.cast_opaque_ptr(llmemory.GCREF,
-                                          self._zer_error_inst)
-        return zer_vtable, zer_inst
+    def get_latest_value_int(self, deadframe, index):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_values[index].int
+
+    def get_latest_value_ref(self, deadframe, index):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_values[index].ref
+
+    def get_latest_value_float(self, deadframe, index):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_values[index].float
+
+    def get_latest_value_count(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return len(deadframe.jf_values)
 
     # ____________________________________________________________
 
-    def bh_arraylen_gc(self, arraydescr, array):
+    def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         ofs = arraydescr.lendescr.offset
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
-    @specialize.argtype(2)
-    def bh_getarrayitem_gc_i(self, arraydescr, gcref, itemindex):
+    @specialize.argtype(1)
+    def bh_getarrayitem_gc_i(self, gcref, itemindex, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -332,7 +318,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
 
-    def bh_getarrayitem_gc_r(self, arraydescr, gcref, itemindex):
+    def bh_getarrayitem_gc_r(self, gcref, itemindex, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -341,8 +327,8 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return pval
 
-    @specialize.argtype(2)
-    def bh_getarrayitem_gc_f(self, arraydescr, gcref, itemindex):
+    @specialize.argtype(1)
+    def bh_getarrayitem_gc_f(self, gcref, itemindex, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -351,8 +337,8 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return fval
 
-    @specialize.argtype(2)
-    def bh_setarrayitem_gc_i(self, arraydescr, gcref, itemindex, newvalue):
+    @specialize.argtype(1)
+    def bh_setarrayitem_gc_i(self, gcref, itemindex, newvalue, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -365,7 +351,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
 
-    def bh_setarrayitem_gc_r(self, arraydescr, gcref, itemindex, newvalue):
+    def bh_setarrayitem_gc_r(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
@@ -374,8 +360,8 @@ class AbstractLLCPU(AbstractCPU):
         items[itemindex] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
 
-    @specialize.argtype(2)
-    def bh_setarrayitem_gc_f(self, arraydescr, gcref, itemindex, newvalue):
+    @specialize.argtype(1)
+    def bh_setarrayitem_gc_f(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -440,7 +426,7 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return fval
 
-    def bh_setinteriorfield_gc_i(self, gcref, itemindex, descr, value):
+    def bh_setinteriorfield_gc_i(self, gcref, itemindex, value, descr):
         assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
@@ -458,7 +444,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % fieldsize)
 
-    def bh_setinteriorfield_gc_r(self, gcref, itemindex, descr, newvalue):
+    def bh_setinteriorfield_gc_r(self, gcref, itemindex, newvalue, descr):
         assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
@@ -471,7 +457,7 @@ class AbstractLLCPU(AbstractCPU):
         items[0] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
 
-    def bh_setinteriorfield_gc_f(self, gcref, itemindex, descr, newvalue):
+    def bh_setinteriorfield_gc_f(self, gcref, itemindex, newvalue, descr):
         assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
@@ -547,7 +533,7 @@ class AbstractLLCPU(AbstractCPU):
     bh_getfield_raw_f = _base_do_getfield_f
 
     @specialize.argtype(1)
-    def _base_do_setfield_i(self, struct, fielddescr, newvalue):
+    def _base_do_setfield_i(self, struct, newvalue, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
@@ -561,7 +547,7 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % size)
 
     @specialize.argtype(1)
-    def _base_do_setfield_r(self, struct, fielddescr, newvalue):
+    def _base_do_setfield_r(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         assert lltype.typeOf(struct) is not lltype.Signed, (
             "can't handle write barriers for setfield_raw")
@@ -573,7 +559,7 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
 
     @specialize.argtype(1)
-    def _base_do_setfield_f(self, struct, fielddescr, newvalue):
+    def _base_do_setfield_f(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
@@ -588,7 +574,7 @@ class AbstractLLCPU(AbstractCPU):
     bh_setfield_raw_r = _base_do_setfield_r
     bh_setfield_raw_f = _base_do_setfield_f
 
-    def bh_raw_store_i(self, addr, offset, descr, newvalue):
+    def bh_raw_store_i(self, addr, offset, newvalue, descr):
         ofs, size, sign = self.unpack_arraydescr_size(descr)
         items = addr + offset
         for TYPE, _, itemsize in unroll_basic_sizes:
@@ -597,7 +583,7 @@ class AbstractLLCPU(AbstractCPU):
                 items[0] = rffi.cast(TYPE, newvalue)
                 break
 
-    def bh_raw_store_f(self, addr, offset, descr, newvalue):
+    def bh_raw_store_f(self, addr, offset, newvalue, descr):
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
         items[0] = newvalue
 
@@ -617,7 +603,7 @@ class AbstractLLCPU(AbstractCPU):
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 
-    def bh_new_with_vtable(self, sizedescr, vtable):
+    def bh_new_with_vtable(self, vtable, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
         if self.vtable_offset is not None:
             as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
@@ -629,8 +615,8 @@ class AbstractLLCPU(AbstractCPU):
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
-    def bh_new_array(self, arraydescr, length):
-        return self.gc_ll_descr.gc_malloc_array(arraydescr, length)
+    def bh_new_array(self, length, arraydescr):
+        return self.gc_ll_descr.gc_malloc_array(length, arraydescr)
 
     def bh_newstr(self, length):
         return self.gc_ll_descr.gc_malloc_str(length)
@@ -656,25 +642,25 @@ class AbstractLLCPU(AbstractCPU):
         dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), dst)
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
-    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_i(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
         return calldescr.call_stub_i(func, args_i, args_r, args_f)
 
-    def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_r(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.REF)
         return calldescr.call_stub_r(func, args_i, args_r, args_f)
 
-    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_f(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.FLOAT + 'L')
         return calldescr.call_stub_f(func, args_i, args_r, args_f)
 
-    def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_v(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.VOID)

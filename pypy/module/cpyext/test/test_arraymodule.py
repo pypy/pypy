@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 import py

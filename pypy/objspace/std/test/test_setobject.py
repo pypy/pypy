@@ -15,7 +15,6 @@ from pypy.objspace.std.setobject import newset
 from pypy.objspace.std.setobject import and__Set_Set
 from pypy.objspace.std.setobject import set_intersection__Set
 from pypy.objspace.std.setobject import eq__Set_Set
-from pypy.conftest import gettestobjspace
 from pypy.objspace.std.listobject import W_ListObject
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -140,7 +139,6 @@ class TestW_SetObject:
 class AppTestAppSetTest:
 
     def setup_class(self):
-        self.space = gettestobjspace()
         w_fakeint = self.space.appexec([], """():
             class FakeInt(object):
                 def __init__(self, value):

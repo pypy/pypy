@@ -1,6 +1,5 @@
 from pypy.tool.pairtype import pairtype
 from pypy.rpython.rmodel import inputconst
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
@@ -83,36 +82,6 @@ newtuple = TupleRepr.newtuple
 
 def dum_empty_tuple(): pass
 
-#
-# _________________________ Conversions _________________________
-
-class __extend__(pairtype(PyObjRepr, TupleRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        vlist = []
-        for i in range(len(r_to.items_r)):
-            ci = inputconst(Signed, i)
-            v_item = llops.gencapicall('PyTuple_GetItem_WithIncref', [v, ci],
-                                       resulttype = pyobj_repr)
-            v_converted = llops.convertvar(v_item, pyobj_repr,
-                                           r_to.items_r[i])
-            vlist.append(v_converted)
-        return r_to.newtuple(llops, r_to, vlist)
-
-class __extend__(pairtype(TupleRepr, PyObjRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        ci = inputconst(Signed, len(r_from.items_r))
-        v_result = llops.gencapicall('PyTuple_New', [ci],
-                                     resulttype = pyobj_repr)
-        for i in range(len(r_from.items_r)):
-            cname = inputconst(Void, r_from.fieldnames[i])
-            v_item = llops.genop('getfield', [v, cname],
-                                 resulttype = r_from.external_items_r[i].lowleveltype)
-            v_converted = llops.convertvar(v_item, r_from.external_items_r[i],
-                                           pyobj_repr)
-            ci = inputconst(Signed, i)
-            llops.gencapicall('PyTuple_SetItem_WithIncref', [v_result, ci,
-                                                             v_converted])
-        return v_result
 
 # ____________________________________________________________
 #

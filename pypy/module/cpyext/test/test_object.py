@@ -19,12 +19,14 @@ class TestObject(BaseApiTest):
         assert api.PyObject_Not(space.wrap(3.14)) == 0
 
     def test_exception(self, space, api):
-        class C:
-            def __nonzero__(self):
-                raise ValueError
+        w_obj = space.appexec([], """():
+            class C:
+                def __nonzero__(self):
+                    raise ValueError
+            return C()""")
 
-        assert api.PyObject_IsTrue(space.wrap(C())) == -1
-        assert api.PyObject_Not(space.wrap(C())) == -1
+        assert api.PyObject_IsTrue(w_obj) == -1
+        assert api.PyObject_Not(w_obj) == -1
         api.PyErr_Clear()
 
     def test_HasAttr(self, space, api):
@@ -40,20 +42,22 @@ class TestObject(BaseApiTest):
         rffi.free_charp(buf)
 
     def test_SetAttr(self, space, api):
-        class X:
-            pass
-        x = X()
-        api.PyObject_SetAttr(space.wrap(x), space.wrap('test'), space.wrap(5))
+        w_obj = space.appexec([], """():
+            class C:
+                pass
+            return C()""")
+
+        api.PyObject_SetAttr(w_obj, space.wrap('test'), space.wrap(5))
         assert not api.PyErr_Occurred()
-        assert x.test == 5
-        assert api.PyObject_HasAttr(space.wrap(x), space.wrap('test'))
-        api.PyObject_SetAttr(space.wrap(x), space.wrap('test'), space.wrap(10))
-        assert x.test == 10
+        assert space.unwrap(space.getattr(w_obj, space.wrap('test'))) == 5
+        assert api.PyObject_HasAttr(w_obj, space.wrap('test'))
+        api.PyObject_SetAttr(w_obj, space.wrap('test'), space.wrap(10))
+        assert space.unwrap(space.getattr(w_obj, space.wrap('test'))) == 10
 
         buf = rffi.str2charp('test')
-        api.PyObject_SetAttrString(space.wrap(x), buf, space.wrap(20))
+        api.PyObject_SetAttrString(w_obj, buf, space.wrap(20))
         rffi.free_charp(buf)
-        assert x.test == 20
+        assert space.unwrap(space.getattr(w_obj, space.wrap('test'))) == 20
 
     def test_getattr(self, space, api):
         charp1 = rffi.str2charp("__len__")
@@ -340,6 +344,29 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """)])
         result = module.fillinfo()
         assert "hello, world." == result
+
+
+    def test_fillReadonly(self):
+        """
+        PyBuffer_FillInfo fails if WRITABLE is passed but object is readonly.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13,
+                          1, PyBUF_WRITABLE)) {
+        Py_DECREF(str);
+        return NULL;
+    }
+    Py_DECREF(str);
+    PyBuffer_Release(&buf);
+    Py_RETURN_NONE;
+                 """)])
+        raises(ValueError, module.fillinfo)
 
 
 class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):

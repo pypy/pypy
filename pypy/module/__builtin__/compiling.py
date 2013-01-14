@@ -84,17 +84,17 @@ If only globals is given, locals defaults to it.
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
 
-    if space.is_w(w_globals, space.w_None):
+    if space.is_none(w_globals):
         caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is None:
             w_globals = space.newdict()
-            if space.is_w(w_locals, space.w_None):
+            if space.is_none(w_locals):
                 w_locals = w_globals
         else:
             w_globals = caller.w_globals
-            if space.is_w(w_locals, space.w_None):
+            if space.is_none(w_locals):
                 w_locals = caller.getdictscope()
-    elif space.is_w(w_locals, space.w_None):
+    elif space.is_none(w_locals):
         w_locals = w_globals
 
     # xxx removed: adding '__builtins__' to the w_globals dict, if there

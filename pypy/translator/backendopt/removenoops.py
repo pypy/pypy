@@ -1,8 +1,7 @@
-from pypy.objspace.flow.model import Block, Variable, Constant
-from pypy.rpython.lltypesystem.lltype import Void
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.backendopt.support import log
 from pypy.translator import simplify
-from pypy import conftest
+
 
 def remove_unaryops(graph, opnames):
     """Removes unary low-level ops with a name appearing in the opnames list.
@@ -39,7 +38,7 @@ def remove_unaryops(graph, opnames):
                 simplify.replace_exitswitch_by_constant(block, op_arg)
         block.operations[index] = None
         touched_blocks.add(block)
-        
+
     # remove all operations
     for block in touched_blocks:
         if block.operations:

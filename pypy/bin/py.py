@@ -65,10 +65,17 @@ def main_(argv=None):
     config, parser = option.get_standard_options()
     interactiveconfig = Config(cmdline_optiondescr)
     to_optparse(interactiveconfig, parser=parser)
+    def set_family_of_options(option, opt, value, parser):
+        from pypy.config.pypyoption import set_pypy_opt_level
+        set_pypy_opt_level(config, value)
     parser.add_option(
         '--cc', type=str, action="callback",
         callback=set_compiler,
         help="Compiler to use for compiling generated C")
+    parser.add_option(
+        '--opt', type=str, action="callback",
+        callback=set_family_of_options,
+        help="Set the family of options based on -opt=0,1,2,jit...")
     args = option.process_options(parser, argv[1:])
     if interactiveconfig.verbose:
         error.RECORD_INTERPLEVEL_TRACEBACK = True

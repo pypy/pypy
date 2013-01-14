@@ -1,8 +1,3 @@
-from pypy.objspace.std import stringobject
-from pypy.objspace.std.stringobject import W_StringObject
-from pypy.conftest import gettestobjspace
-
-
 class TestW_StringObject:
 
     def teardown_method(self, method):
@@ -776,14 +771,11 @@ class AppTestStringObject:
         raises(TypeError, len, iter(iterable))
 
 class AppTestPrebuilt(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})
+    spaceconfig = {"objspace.std.withprebuiltchar": True}
 
 class AppTestShare(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.sharesmallstr": True})
+    spaceconfig = {"objspace.std.sharesmallstr": True}
 
 class AppTestPrebuiltShare(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True,
-                                       "objspace.std.sharesmallstr": True})
+    spaceconfig = {"objspace.std.withprebuiltchar": True,
+                   "objspace.std.sharesmallstr": True}

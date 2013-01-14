@@ -21,7 +21,7 @@ def expect(f, g, fnname, args, result, resulttype=None):
         g.flush()
 
 def compile(f, gc='ref'):
-    t = Translation(f, backend='c', standalone=True, sandbox=True, gc=gc,
+    t = Translation(f, backend='c', sandbox=True, gc=gc,
                     check_str_without_nul=True)
     return str(t.compile())
 

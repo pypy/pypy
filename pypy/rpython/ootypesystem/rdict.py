@@ -1,19 +1,14 @@
 from pypy.rpython.error import TyperError
 from pypy.tool.pairtype import pairtype
-from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
-     rtype_newdict
-from pypy.rpython.rpbc import MethodOfFrozenPBCRepr,\
-     AbstractFunctionsPBCRepr, AbstractMethodsPBCRepr
+from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr
+from pypy.rpython.rpbc import (MethodOfFrozenPBCRepr, AbstractFunctionsPBCRepr,
+    AbstractMethodsPBCRepr)
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.rlist import ll_newlist
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.objectmodel import hlinvoke
-from pypy.rpython import robject
 from pypy.rlib import objectmodel
-from pypy.rpython import rmodel
-from pypy.rpython import llinterp
+from pypy.rpython import rmodel, llinterp
+# This is needed by other things, don't remove!
+from pypy.rpython.rdict import rtype_newdict
 
 
 class DictRepr(AbstractDictRepr):

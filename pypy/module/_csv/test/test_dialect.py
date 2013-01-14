@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestDialect(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_csv'])
+    spaceconfig = dict(usemodules=['_csv'])
 
     def test_register_dialect(self):
         import _csv

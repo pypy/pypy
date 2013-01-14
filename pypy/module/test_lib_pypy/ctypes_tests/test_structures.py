@@ -441,6 +441,11 @@ class TestStructure(BaseCTypesTestChecker):
         p = pointer(obj)
         assert p.contents._b_base_ is p
 
+    def test_unicode_field_name(self):
+        # setattr autoconverts field names to bytes
+        class X(Structure):
+            _fields_ = [(u"i", c_int)]
+
 class TestPointerMember(BaseCTypesTestChecker):
 
     def test_1(self):

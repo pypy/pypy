@@ -27,6 +27,7 @@ C_NULL_OBJECT = rffi.cast(C_OBJECT, _C_OPAQUE_NULL)
 
 C_METHOD = _C_OPAQUE_PTR
 C_INDEX = rffi.LONG
+C_INDEX_ARRAY = rffi.LONGP
 WLAVC_INDEX = rffi.LONG
 
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
@@ -38,6 +39,9 @@ def direct_ptradd(ptr, offset):
     assert lltype.typeOf(ptr) == C_OBJECT
     address = rffi.cast(rffi.CCHARP, ptr)
     return rffi.cast(C_OBJECT, lltype.direct_ptradd(address, offset))
+
+def exchange_address(ptr, cif_descr, index):
+    return rffi.ptradd(ptr, cif_descr.exchange_args[index])
 
 c_load_dictionary = backend.c_load_dictionary
 
@@ -293,13 +297,24 @@ _c_method_index_at = rffi.llexternal(
     compilation_info=backend.eci)
 def c_method_index_at(cppscope, imethod):
     return _c_method_index_at(cppscope.handle, imethod)
-_c_method_index_from_name = rffi.llexternal(
-    "cppyy_method_index_from_name",
-    [C_SCOPE, rffi.CCHARP], C_INDEX,
+_c_method_indices_from_name = rffi.llexternal(
+    "cppyy_method_indices_from_name",
+    [C_SCOPE, rffi.CCHARP], C_INDEX_ARRAY,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_index_from_name(cppscope, name):
-    return _c_method_index_from_name(cppscope.handle, name)
+def c_method_indices_from_name(cppscope, name):
+    indices = _c_method_indices_from_name(cppscope.handle, name)
+    if not indices:
+        return []
+    py_indices = []
+    i = 0
+    index = indices[i]
+    while index != -1:
+        i += 1
+        py_indices.append(index)
+        index = indices[i]
+    c_free(rffi.cast(rffi.VOIDP, indices))   # c_free defined below
+    return py_indices
 
 _c_method_name = rffi.llexternal(
     "cppyy_method_name",

@@ -108,6 +108,9 @@ GCFLAG_HAS_SHADOW   = first_gcflag << 3
 # collection.  See pypy/doc/discussion/finalizer-order.txt
 GCFLAG_FINALIZATION_ORDERING = first_gcflag << 4
 
+# This flag is reserved for RPython.
+GCFLAG_EXTRA        = first_gcflag << 5
+
 # The following flag is set on externally raw_malloc'ed arrays of pointers.
 # They are allocated with some extra space in front of them for a bitfield,
 # one bit per 'card_page_indices' indices.
@@ -116,7 +119,6 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-#GCFLAG_UNUSED      = first_gcflag << 5     # this flag is free
 TID_MASK            = (first_gcflag << 8) - 1
 
 
@@ -133,7 +135,7 @@ class MiniMarkGC(MovingGCBase):
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx experiment with False
-    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
+    gcflag_extra = GCFLAG_EXTRA
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains
@@ -248,6 +250,7 @@ class MiniMarkGC(MovingGCBase):
         self.nursery_top  = NULL
         self.debug_tiny_nursery = -1
         self.debug_rotating_nurseries = None
+        self.extra_threshold = 0
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
         if ArenaCollectionClass is None:
@@ -402,6 +405,7 @@ class MiniMarkGC(MovingGCBase):
         self.next_major_collection_initial = self.min_heap_size
         self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
+        ll_assert(self.extra_threshold == 0, "extra_threshold set too early")
         debug_stop("gc-set-nursery-size")
 
 
@@ -1815,6 +1819,19 @@ class MiniMarkGC(MovingGCBase):
     def identityhash(self, gcobj):
         return self.id_or_identityhash(gcobj, True)
 
+    # ----------
+    # set_extra_threshold support
+
+    def set_extra_threshold(self, reserved_size):
+        ll_assert(reserved_size <= self.nonlarge_max,
+                  "set_extra_threshold: too big!")
+        diff = reserved_size - self.extra_threshold
+        if diff > 0 and self.nursery_free + diff > self.nursery_top:
+            self.minor_collection()
+        self.nursery_size -= diff
+        self.nursery_top -= diff
+        self.extra_threshold += diff
+
 
     # ----------
     # Finalizers
@@ -1983,6 +2000,17 @@ class MiniMarkGC(MovingGCBase):
                     (obj + offset).address[0] = llmemory.NULL
                     continue    # no need to remember this weakref any longer
             #
+            elif self.header(pointing_to).tid & GCFLAG_NO_HEAP_PTRS:
+                # see test_weakref_to_prebuilt: it's not useful to put
+                # weakrefs into 'old_objects_with_weakrefs' if they point
+                # to a prebuilt object (they are immortal).  If moreover
+                # the 'pointing_to' prebuilt object still has the
+                # GCFLAG_NO_HEAP_PTRS flag, then it's even wrong, because
+                # 'pointing_to' will not get the GCFLAG_VISITED during
+                # the next major collection.  Solve this by not registering
+                # the weakref into 'old_objects_with_weakrefs'.
+                continue
+            #
             self.old_objects_with_weakrefs.append(obj)
 
     def invalidate_old_weakrefs(self):
@@ -1996,6 +2024,9 @@ class MiniMarkGC(MovingGCBase):
                 continue # weakref itself dies
             offset = self.weakpointer_offset(self.get_type_id(obj))
             pointing_to = (obj + offset).address[0]
+            ll_assert((self.header(pointing_to).tid & GCFLAG_NO_HEAP_PTRS)
+                      == 0, "registered old weakref should not "
+                            "point to a NO_HEAP_PTRS obj")
             if self.header(pointing_to).tid & GCFLAG_VISITED:
                 new_with_weakref.append(obj)
             else:

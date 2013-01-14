@@ -1,18 +1,16 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, rclass, rffi
+from pypy.rpython.lltypesystem import lltype, rclass, rffi, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
-from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.translator import TranslationContext
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
@@ -43,7 +41,6 @@ def annotate(func, values, inline=None, backendoptimize=True,
     for key, value in translationoptions.items():
         setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
-    annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
     argtypes = getargtypes(a, values)
     a.build_types(func, argtypes, main_entry_point=True)
@@ -62,6 +59,45 @@ def getgraph(func, values):
     rtyper = annotate(func, values)
     return rtyper.annotator.translator.graphs[0]
 
+def autodetect_jit_markers_redvars(graph):
+    # the idea is to find all the jit_merge_point and
+    # add all the variables across the links to the reds.
+    for block, op in graph.iterblockops():
+        if op.opname == 'jit_marker':
+            jitdriver = op.args[1].value
+            if not jitdriver.autoreds:
+                continue
+            # if we want to support also can_enter_jit, we should find a
+            # way to detect a consistent set of red vars to pass *both* to
+            # jit_merge_point and can_enter_jit. The current simple
+            # solution doesn't work because can_enter_jit might be in
+            # another block, so the set of alive_v will be different.
+            methname = op.args[0].value
+            assert methname == 'jit_merge_point', (
+                "reds='auto' is supported only for jit drivers which " 
+                "calls only jit_merge_point. Found a call to %s" % methname)
+            #
+            # compute the set of live variables across the jit_marker
+            alive_v = set()
+            for link in block.exits:
+                alive_v.update(link.args)
+                alive_v.difference_update(link.getextravars())
+            for op1 in block.operations[::-1]:
+                if op1 is op:
+                    break # stop when the meet the jit_marker
+                alive_v.discard(op1.result)
+                alive_v.update(op1.args)
+            greens_v = op.args[2:]
+            reds_v = alive_v - set(greens_v)
+            reds_v = [v for v in reds_v if isinstance(v, Variable) and
+                                           v.concretetype is not lltype.Void]
+            reds_v = sort_vars(reds_v)
+            op.args.extend(reds_v)
+            if jitdriver.numreds is None:
+                jitdriver.numreds = len(reds_v)
+            else:
+                assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
+
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Split the block just before the 'jit_merge_point',
     making sure the input args are in the canonical order.
@@ -79,28 +115,32 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     link = split_block(None, portalblock, 0, greens_v + reds_v)
     return link.target
 
+def sort_vars(args_v):
+    from pypy.jit.metainterp.history import getkind
+    _kind2count = {'int': 1, 'ref': 2, 'float': 3}
+    return sorted(args_v, key=lambda v: _kind2count[getkind(v.concretetype)])
+
 def decode_hp_hint_args(op):
     # Returns (list-of-green-vars, list-of-red-vars) without Voids.
     # Both lists must be sorted: first INT, then REF, then FLOAT.
     assert op.opname == 'jit_marker'
     jitdriver = op.args[1].value
     numgreens = len(jitdriver.greens)
-    numreds = len(jitdriver.reds)
+    assert jitdriver.numreds is not None
+    numreds = jitdriver.numreds
     greens_v = op.args[2:2+numgreens]
     reds_v = op.args[2+numgreens:]
     assert len(reds_v) == numreds
     #
     def _sort(args_v, is_green):
-        from pypy.jit.metainterp.history import getkind
         lst = [v for v in args_v if v.concretetype is not lltype.Void]
         if is_green:
             assert len(lst) == len(args_v), (
                 "not supported so far: 'greens' variables contain Void")
-        _kind2count = {'int': 1, 'ref': 2, 'float': 3}
-        lst2 = sorted(lst, key=lambda v: _kind2count[getkind(v.concretetype)])
         # a crash here means that you have to reorder the variable named in
         # the JitDriver.  Indeed, greens and reds must both be sorted: first
         # all INTs, followed by all REFs, followed by all FLOATs.
+        lst2 = sort_vars(lst)
         assert lst == lst2
         return lst
     #
@@ -645,6 +685,15 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
+    def _ll_1_weakref_create(obj):
+        return llop.weakref_create(llmemory.WeakRefPtr, obj)
+
+    def _ll_1_weakref_deref(TP, obj):
+        return llop.weakref_deref(lltype.Ptr(TP), obj)
+    _ll_1_weakref_deref.need_result_type = True
+
+    def _ll_1_gc_add_memory_pressure(num):
+        llop.gc_add_memory_pressure(lltype.Void, num)
 
 class OOtypeHelpers:
 

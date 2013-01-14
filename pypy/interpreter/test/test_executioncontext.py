@@ -1,17 +1,11 @@
 import py
 from pypy.interpreter import executioncontext
-from pypy.conftest import gettestobjspace, option
 
 class Finished(Exception):
     pass
 
 
 class TestExecutionContext:
-    keywords = {}
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**cls.keywords)
-
     def test_action(self):
 
         class DemoAction(executioncontext.AsyncAction):
@@ -260,13 +254,13 @@ class TestExecutionContext:
 
 
 class TestExecutionContextWithCallMethod(TestExecutionContext):
-    keywords = {'objspace.opcodes.CALL_METHOD': True}
+    spaceconfig ={'objspace.opcodes.CALL_METHOD': True}
 
 
 class AppTestDelNotBlocked:
 
     def setup_method(self, meth):
-        if not option.runappdirect:
+        if not self.runappdirect:
             py.test.skip("test is meant for running with py.test -A")
         from pypy.tool.udir import udir
         tmpfile = udir.join('test_execution_context')

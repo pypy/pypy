@@ -132,7 +132,8 @@ class TestSequence(BaseApiTest):
         assert api.PyErr_Occurred() is space.w_ValueError
         api.PyErr_Clear()
 
-        gen = (x ** 2 for x in range(40))
+        w_gen = space.appexec([], """():
+           return (x ** 2 for x in range(40))""")
         w_tofind = space.wrap(16)
-        result = api.PySequence_Index(space.wrap(gen), w_tofind)
+        result = api.PySequence_Index(w_gen, w_tofind)
         assert result == 4

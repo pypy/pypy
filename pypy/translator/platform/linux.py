@@ -36,7 +36,13 @@ class BaseLinux(BasePosix):
         # places where we need to look for libffi.a
         # XXX obscuuure!  only look for libffi.a if run with translate.py
         if 'translate' in sys.modules:
-            return self.library_dirs_for_libffi() + ['/usr/lib']
+            if sys.maxint > 2**32:
+                host = 'x86_64'
+            else:
+                host = 'x86'
+            return self.library_dirs_for_libffi() + [
+                '/usr/lib',
+                '/usr/lib/%s-linux-gnu/' % host]
         else:
             return []
 
@@ -48,5 +54,5 @@ class Linux(BaseLinux):
         shared_only = () # it seems that on 32-bit linux, compiling with -fPIC
                          # gives assembler that asmgcc is not happy about.
 
-class Linux64(BaseLinux):
+class LinuxPIC(BaseLinux):
     pass

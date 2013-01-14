@@ -1,10 +1,10 @@
 from pypy.tool.pairtype import pairtype, extendabletype, pair
-from pypy.annotation import model as annmodel
+from pypy.annotation import model as annmodel, unaryop, binaryop
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
      Void, Bool, Float, Signed, Char, UniChar, \
-     typeOf, LowLevelType, Ptr, PyObject, isCompatibleType
+     typeOf, LowLevelType, Ptr, isCompatibleType
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.error import TyperError, MissingRTypeOperation 
@@ -172,16 +172,15 @@ class Repr(object):
             isinstance(T.TO, (lltype.Struct,
                               lltype.Array,
                               lltype.ForwardReference))):
-            assert T.TO._gckind != 'cpy'
             return DummyValueBuilder(rtyper, T.TO)
         else:
             return None
 
     def rtype_bltn_list(self, hop):
-        raise TyperError, 'no list() support for %r' % self
+        raise TyperError('no list() support for %r' % self)
 
     def rtype_unichr(self, hop):
-        raise TyperError, 'no unichr() support for %r' % self
+        raise TyperError('no unichr() support for %r' % self)
 
     # default implementation of some operations
 
@@ -311,10 +310,10 @@ def make_missing_op(rcls, opname):
                                         "'%s' on %r" % (opname, self))
         setattr(rcls, attr, missing_rtype_operation)
 
-for opname in annmodel.UNARY_OPERATIONS:
+for opname in unaryop.UNARY_OPERATIONS:
     make_missing_op(Repr, opname)
 
-for opname in annmodel.BINARY_OPERATIONS:
+for opname in binaryop.BINARY_OPERATIONS:
     make_missing_op(pairtype(Repr, Repr), opname)
 
 # not in BINARY_OPERATIONS
@@ -426,7 +425,6 @@ def mangle(prefix, name):
         return '%s_%s' % (prefix, name)
 
 # __________ utilities __________
-PyObjPtr = Ptr(PyObject)
 
 def getgcflavor(classdef):
     classdesc = classdef.classdesc

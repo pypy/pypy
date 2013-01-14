@@ -1,10 +1,6 @@
-from pypy.conftest import gettestobjspace
-
 
 class AppTestBisect:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_bisect'])
+    spaceconfig = dict(usemodules=['_bisect'])
 
     def test_bisect_left(self):
         from _bisect import bisect_left

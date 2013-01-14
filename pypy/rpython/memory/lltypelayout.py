@@ -47,8 +47,6 @@ def get_layout(TYPE):
         return "i"
     elif isinstance(TYPE, lltype.FuncType):
         return "i"
-    elif isinstance(TYPE, lltype.PyObjectType):
-        return "i"
     else:
         assert 0, "type %s not yet implemented" % (TYPE, )
 
@@ -71,8 +69,6 @@ def get_fixed_size(TYPE):
         return get_fixed_size(lltype.Unsigned)
     elif isinstance(TYPE, lltype.FuncType):
         return get_fixed_size(lltype.Unsigned)
-    elif isinstance(TYPE, lltype.PyObjectType):
-        return get_fixed_size(lltype.Unsigned)
     assert 0, "not yet implemented"
 
 def get_variable_size(TYPE):
@@ -88,8 +84,6 @@ def get_variable_size(TYPE):
     elif isinstance(TYPE, lltype.OpaqueType):
         return 0
     elif isinstance(TYPE, lltype.FuncType):
-        return 0
-    elif isinstance(TYPE, lltype.PyObjectType):
         return 0
     elif isinstance(TYPE, lltype.Ptr):
         return 0

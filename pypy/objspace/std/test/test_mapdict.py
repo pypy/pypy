@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.mapdict import *
 
@@ -438,8 +437,7 @@ def test_specialized_class():
 # XXX write more
 
 class AppTestWithMapDict(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
+    spaceconfig = {"objspace.std.withmapdict": True}
 
     def test_simple(self):
         class A(object):
@@ -647,12 +645,12 @@ class AppTestWithMapDict(object):
         raises(AttributeError, "a.x")
 
 class AppTestWithMapDictAndCounters(object):
+    spaceconfig = {"objspace.std.withmapdict": True,
+                   "objspace.std.withmethodcachecounter": True,
+                   "objspace.opcodes.CALL_METHOD": True}
+
     def setup_class(cls):
         from pypy.interpreter import gateway
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmapdict": True,
-               "objspace.std.withmethodcachecounter": True,
-               "objspace.opcodes.CALL_METHOD": True})
         #
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('func_code'))
@@ -992,11 +990,9 @@ class AppTestWithMapDictAndCounters(object):
         assert got == 'd'
 
 class AppTestGlobalCaching(AppTestWithMapDict):
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter": True,
-               "objspace.std.withmapdict": True,
-               "objspace.opcodes.CALL_METHOD": True})
+    spaceconfig = {"objspace.std.withmethodcachecounter": True,
+                   "objspace.std.withmapdict": True,
+                   "objspace.opcodes.CALL_METHOD": True}
 
     def test_mix_classes(self):
         import __pypy__
@@ -1053,10 +1049,8 @@ class AppTestGlobalCaching(AppTestWithMapDict):
             assert 0, "failed: got %r" % ([got[1] for got in seen],)
 
 class TestDictSubclassShortcutBug(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmapdict": True,
-               "objspace.std.withmethodcachecounter": True})
+    spaceconfig = {"objspace.std.withmapdict": True,
+                   "objspace.std.withmethodcachecounter": True}
 
     def test_bug(self):
         w_dict = self.space.appexec([], """():

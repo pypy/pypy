@@ -24,7 +24,7 @@ def test_conflicting_gcrootfinder():
 
 
 def test_frameworkgc():
-    for name in ["marksweep", "semispace"]:
+    for name in ["minimark", "semispace"]:
         conf = get_pypy_config()
         assert conf.translation.gctransformer != "framework"
         conf.translation.gc = name
@@ -47,10 +47,10 @@ def test_set_opt_level():
 def test_set_pypy_opt_level():
     conf = get_pypy_config()
     set_pypy_opt_level(conf, '2')
-    assert conf.objspace.std.newshortcut
+    assert conf.objspace.std.getattributeshortcut
     conf = get_pypy_config()
     set_pypy_opt_level(conf, '0')
-    assert not conf.objspace.std.newshortcut
+    assert not conf.objspace.std.getattributeshortcut
 
 def test_rweakref_required():
     conf = get_pypy_config()

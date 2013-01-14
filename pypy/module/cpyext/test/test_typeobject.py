@@ -117,6 +117,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj2 = obj.create()
         assert obj2.foo == 42
 
+    def test_classmethod(self):
+        module = self.import_module(name="foo")
+        obj = module.fooType.classmeth()
+        assert obj is module.fooType
+
     def test_new(self):
         module = self.import_module(name='foo')
         obj = module.new()

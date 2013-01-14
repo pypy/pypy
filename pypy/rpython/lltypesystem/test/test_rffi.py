@@ -113,7 +113,7 @@ class BaseTestRffi:
             return len(res)
     
         xf = self.compile(f, [], backendopt=False)
-        assert xf(expected_extra_mallocs=-1) == 3
+        assert xf() == 3
     
     def test_stringstar(self):
         c_source = """
@@ -503,7 +503,8 @@ class BaseTestRffi:
             try:
                 for i in range(len(d)):
                     raw_buf[i] = d[i]
-                return unicode_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
+                return (unicode_from_buffer(raw_buf, gc_buf, len(d), len(d)-1)
+                        .encode('ascii'))
             finally:
                 keep_unicodebuffer_alive_until_here(raw_buf, gc_buf)
         assert f() == d[:-1]

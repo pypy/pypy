@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL,
+    PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL, Py_ssize_t,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
@@ -116,10 +116,6 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
 
-@cpython_api([PyObject], PyObject)
-def PyClassMethod_New(space, w_function):
-    return space.call_method(space.builtin, "classmethod", w_function)
-
 def unwrap_list_of_strings(space, w_list):
     return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
 
@@ -168,7 +164,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                              freevars=[],
                              cellvars=[]))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyCodeObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyCode_GetNumFree(space, w_co):
     """Return the number of free variables in co."""
     co = space.interp_w(PyCode, w_co)

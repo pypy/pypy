@@ -1,20 +1,18 @@
 import py
+
+from pypy.annotation import model as annmodel
+from pypy.conftest import option
+from pypy.objspace.flow.objspace import FlowObjSpace
+from pypy.rpython.annlowlevel import (annotate_lowlevel_helper,
+    MixLevelHelperAnnotator, PseudoHighLevelCallable, llhelper,
+    cast_instance_to_base_ptr, cast_base_ptr_to_instance, base_ptr_lltype)
+from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.lltypesystem.rclass import OBJECTPTR
 from pypy.rpython.rclass import fishllattr
-from pypy.translator.translator import TranslationContext
-from pypy.annotation import model as annmodel
-from pypy.rpython.annlowlevel import annotate_lowlevel_helper
-from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
-from pypy.rpython.annlowlevel import PseudoHighLevelCallable
-from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-from pypy.rpython.annlowlevel import base_ptr_lltype
-from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.objspace.flow.objspace import FlowObjSpace 
-from pypy.conftest import option
+from pypy.translator.translator import TranslationContext
+
 
 # helpers
 
@@ -24,15 +22,17 @@ def annotated_calls(ann, ops=('simple_call,')):
             if op.opname in ops:
                 yield op
 
+
 def derived(op, orig):
     if op.args[0].value.__name__.startswith(orig):
         return op.args[0].value
     else:
         return None
 
+
 class TestLowLevelAnnotateTestCase:
-    def setup_class(cls): 
-        cls.space = FlowObjSpace() 
+    def setup_class(cls):
+        cls.space = FlowObjSpace()
 
     from pypy.annotation.annrpython import RPythonAnnotator
 
@@ -53,7 +53,7 @@ class TestLowLevelAnnotateTestCase:
 
     def test_simple2(self):
         S = Struct("s", ('v', Signed))
-        S2 = GcStruct("s2", ('a',S), ('b',S))
+        S2 = GcStruct("s2", ('a', S), ('b', S))
         def llf():
             s = malloc(S2)
             return s.a.v+s.b.v
@@ -93,8 +93,8 @@ class TestLowLevelAnnotateTestCase:
             a[0] = 3
             return a[0]
         s = self.annotate(llf, [])
-        assert s.knowntype == int        
-        
+        assert s.knowntype == int
+
     def test_cast_simple_widening(self):
         S2 = Struct("s2", ('a', Signed))
         S1 = Struct("s1", ('sub1', S2), ('sub2', S2))
@@ -141,7 +141,7 @@ class TestLowLevelAnnotateTestCase:
             return p12, p13, p21, p23, p31, p32
         s = self.annotate(llf, [])
         assert [x.ll_ptrtype for x in s.items] == [PS1, PS1, PS2, PS2, PS3, PS3]
-            
+
 
     def test_array_length(self):
         A = GcArray(('v', Signed))
@@ -158,7 +158,7 @@ class TestLowLevelAnnotateTestCase:
             return p(0)
         s = self.annotate(llf, [annmodel.SomePtr(PF)])
         assert s.knowntype == int
- 
+
 
     def test_ll_calling_ll(self):
         A = GcArray(Float)
@@ -194,13 +194,13 @@ class TestLowLevelAnnotateTestCase:
                 if (func, T) in seen:
                     continue
                 seen[func, T] = True
-                
+
                 desc = a.bookkeeper.getdesc(func)
                 g = desc.specialize([a.binding(x) for x in call.args[1:]])
 
                 args = g.getargs()
                 rv = g.getreturnvar()
-                if func is ll_get:                    
+                if func is ll_get:
                     vT, vp, vi = args
                     assert a.binding(vT) == a.bookkeeper.immutablevalue(T)
                     assert a.binding(vi).knowntype == int
@@ -218,7 +218,7 @@ class TestLowLevelAnnotateTestCase:
         assert len(seen) == 4
 
         return a, vTs # reused by a test in test_rtyper
- 
+
     def test_ll_calling_ll2(self):
         A = GcArray(Float)
         B = GcArray(Signed)
@@ -252,7 +252,7 @@ class TestLowLevelAnnotateTestCase:
                 return s.const
             else:
                 return s.ll_ptrtype
-        
+
         vTs = []
 
         for call in annotated_calls(a):
@@ -359,7 +359,7 @@ class TestLowLevelAnnotateTestCase:
         s = self.annotate(llf, [annmodel.SomePtr(Ptr(S))])
         assert isinstance(s, annmodel.SomePtr)
         assert s.ll_ptrtype == Ptr(RuntimeTypeInfo)
-        
+
     def test_cast_primitive(self):
         def llf(u):
             return cast_primitive(Signed, u)
@@ -454,7 +454,7 @@ def test_llhelper():
 
     F = Ptr(FuncType([Ptr(S), Signed], Signed))
     G = Ptr(FuncType([Ptr(S)], Signed))
-        
+
     def h(x, y, z):
         s = malloc(S)
         s.x = x
@@ -479,7 +479,7 @@ def test_oohelper():
 
     F = ootype.StaticMethod([S, Signed], Signed)
     G = ootype.StaticMethod([S], Signed)
-        
+
     def h(x, y, z):
         s = ootype.new(S)
         s.x = x

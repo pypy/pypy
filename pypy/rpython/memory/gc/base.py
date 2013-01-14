@@ -102,9 +102,6 @@ class GCBase(object):
     def write_barrier(self, newvalue, addr_struct):
         pass
 
-    def statistics(self, index):
-        return -1
-
     def size_gc_header(self, typeid=0):
         return self.gcheaderbuilder.size_gc_header
 
@@ -178,12 +175,6 @@ class GCBase(object):
 
     def set_max_heap_size(self, size):
         raise NotImplementedError
-
-    def x_swap_pool(self, newpool):
-        return newpool
-
-    def x_clone(self, clonedata):
-        raise RuntimeError("no support for x_clone in the GC")
 
     def trace(self, obj, callback, arg):
         """Enumerate the locations inside the given obj that can contain
@@ -430,15 +421,12 @@ class MovingGCBase(GCBase):
 def choose_gc_from_config(config):
     """Return a (GCClass, GC_PARAMS) from the given config object.
     """
-    if config.translation.gctransformer != "framework":   # for tests
-        config.translation.gc = "marksweep"     # crash if inconsistent
+    if config.translation.gctransformer != "framework":
+        raise AssertionError("fix this test")
 
-    classes = {"marksweep": "marksweep.MarkSweepGC",
-               "statistics": "marksweep.PrintingMarkSweepGC",
-               "semispace": "semispace.SemiSpaceGC",
+    classes = {"semispace": "semispace.SemiSpaceGC",
                "generation": "generation.GenerationGC",
                "hybrid": "hybrid.HybridGC",
-               "markcompact" : "markcompact.MarkCompactGC",
                "minimark" : "minimark.MiniMarkGC",
                }
     try:

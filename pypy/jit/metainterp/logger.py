@@ -135,7 +135,10 @@ class LogOperations(object):
                 r = "<Guard%d>" % index
             else:
                 r = self.repr_of_descr(descr)
-            args += ', descr=' +  r
+            if args:
+                args += ', descr=' +  r
+            else:
+                args = "descr=" + r
         if is_guard and op.getfailargs() is not None:
             fail_args = ' [' + ", ".join([self.repr_of_arg(arg)
                                           for arg in op.getfailargs()]) + ']'

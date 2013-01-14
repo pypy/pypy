@@ -304,6 +304,8 @@ class Transformer(object):
 
     rewrite_op_convert_float_bytes_to_longlong = _noop_rewrite
     rewrite_op_convert_longlong_bytes_to_float = _noop_rewrite
+    cast_ptr_to_weakrefptr = _noop_rewrite
+    cast_weakrefptr_to_ptr = _noop_rewrite
 
     # ----------
     # Various kinds of calls
@@ -316,7 +318,8 @@ class Transformer(object):
         kind = self.callcontrol.guess_call_kind(op)
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
 
-    def rewrite_call(self, op, namebase, initialargs, args=None):
+    def rewrite_call(self, op, namebase, initialargs, args=None,
+                     calldescr=None):
         """Turn 'i0 = direct_call(fn, i1, i2, ref1, ref2)'
            into 'i0 = xxx_call_ir_i(fn, descr, [i1,i2], [ref1,ref2])'.
            The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
@@ -332,6 +335,8 @@ class Transformer(object):
         if 'i' in kinds: sublists.append(lst_i)
         if 'r' in kinds: sublists.append(lst_r)
         if 'f' in kinds: sublists.append(lst_f)
+        if calldescr is not None:
+            sublists.append(calldescr)
         return SpaceOperation('%s_%s_%s' % (namebase, kinds, reskind),
                               initialargs + sublists, op.result)
 
@@ -360,7 +365,7 @@ class Transformer(object):
         of 'residual_call_xxx' are the function to call, and its calldescr."""
         calldescr = self.callcontrol.getcalldescr(op)
         op1 = self.rewrite_call(op, 'residual_call',
-                                [op.args[0], calldescr] + extraargs)
+                                [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1
@@ -447,6 +452,7 @@ class Transformer(object):
                                                    resulttype, extra, extrakey)
         return SpaceOperation('direct_call', [c_func] + args, op.result)
 
+
     def _do_builtin_call(self, op, oopspec_name=None, args=None,
                          extra=None, extrakey=None):
         if oopspec_name is None: oopspec_name = op.opname
@@ -479,6 +485,9 @@ class Transformer(object):
     rewrite_op_uint_mod        = _do_builtin_call
     rewrite_op_cast_float_to_uint = _do_builtin_call
     rewrite_op_cast_uint_to_float = _do_builtin_call
+    rewrite_op_weakref_create = _do_builtin_call
+    rewrite_op_weakref_deref = _do_builtin_call
+    rewrite_op_gc_add_memory_pressure = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.
@@ -547,7 +556,7 @@ class Transformer(object):
             # XXX only strings or simple arrays for now
             ARRAY = op.args[0].value
             arraydescr = self.cpu.arraydescrof(ARRAY)
-            return SpaceOperation('new_array', [arraydescr, op.args[2]],
+            return SpaceOperation('new_array', [op.args[2], arraydescr],
                                   op.result)
 
     def rewrite_op_free(self, op):
@@ -579,8 +588,8 @@ class Transformer(object):
             kind = getkind(op.result.concretetype)
             return [SpaceOperation('-live-', [], None),
                     SpaceOperation('getarrayitem_vable_%s' % kind[0],
-                                   [v_base, arrayfielddescr, arraydescr,
-                                    op.args[1]], op.result)]
+                                   [v_base, op.args[1], arrayfielddescr,
+                                    arraydescr], op.result)]
         # normal case follows
         pure = ''
         immut = ARRAY._immutable_field(None)
@@ -590,7 +599,7 @@ class Transformer(object):
         kind = getkind(op.result.concretetype)
         return SpaceOperation('getarrayitem_%s_%s%s' % (ARRAY._gckind,
                                                         kind[0], pure),
-                              [op.args[0], arraydescr, op.args[1]],
+                              [op.args[0], op.args[1], arraydescr],
                               op.result)
 
     def rewrite_op_setarrayitem(self, op):
@@ -603,12 +612,12 @@ class Transformer(object):
             kind = getkind(op.args[2].concretetype)
             return [SpaceOperation('-live-', [], None),
                     SpaceOperation('setarrayitem_vable_%s' % kind[0],
-                                   [v_base, arrayfielddescr, arraydescr,
-                                    op.args[1], op.args[2]], None)]
+                                   [v_base, op.args[1], op.args[2],
+                                    arrayfielddescr, arraydescr], None)]
         arraydescr = self.cpu.arraydescrof(ARRAY)
         kind = getkind(op.args[2].concretetype)
         return SpaceOperation('setarrayitem_%s_%s' % (ARRAY._gckind, kind[0]),
-                              [op.args[0], arraydescr, op.args[1], op.args[2]],
+                              [op.args[0], op.args[1], op.args[2], arraydescr],
                               None)
 
     def rewrite_op_getarraysize(self, op):
@@ -702,14 +711,14 @@ class Transformer(object):
             kind = getkind(RESULT)[0]
             return [SpaceOperation('-live-', [], None),
                     SpaceOperation('setfield_vable_%s' % kind,
-                                   [v_inst, descr, v_value], None)]
+                                   [v_inst, v_value, descr], None)]
         self.check_field_access(v_inst.concretetype.TO)
         argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
         return SpaceOperation('setfield_%s_%s' % (argname, kind),
-                              [v_inst, descr, v_value],
+                              [v_inst, v_value, descr],
                               None)
 
     def rewrite_op_getsubstruct(self, op):
@@ -877,7 +886,7 @@ class Transformer(object):
         assert kind != 'r'
         descr = self.cpu.arraydescrof(rffi.CArray(T))
         return SpaceOperation('raw_store_%s' % kind,
-                              [op.args[0], op.args[1], descr, op.args[2]],
+                              [op.args[0], op.args[1], op.args[2], descr],
                               None)
 
     def rewrite_op_raw_load(self, op):
@@ -1314,7 +1323,7 @@ class Transformer(object):
     def promote_greens(self, args, jitdriver):
         ops = []
         num_green_args = len(jitdriver.greens)
-        assert len(args) == num_green_args + len(jitdriver.reds)
+        assert len(args) == num_green_args + jitdriver.numreds
         for v in args[:num_green_args]:
             if isinstance(v, Variable) and v.concretetype is not lltype.Void:
                 kind = getkind(v.concretetype)
@@ -1455,8 +1464,8 @@ class Transformer(object):
             v_posindex = Variable('posindex')
             v_posindex.concretetype = lltype.Signed
             op0 = SpaceOperation('-live-', [], None)
-            op1 = SpaceOperation(checkname, [args[0],
-                                             descr, args[1]], v_posindex)
+            op1 = SpaceOperation(checkname, [args[0], args[1],
+                                             descr], v_posindex)
             return v_posindex, [op0, op1]
 
     def _prepare_void_list_getset(self, op):
@@ -1491,7 +1500,7 @@ class Transformer(object):
             v = Variable('new_length')
             v.concretetype = lltype.Signed
             ops.append(SpaceOperation('int_force_ge_zero', [v_length], v))
-        ops.append(SpaceOperation('new_array', [arraydescr, v], op.result))
+        ops.append(SpaceOperation('new_array', [v, arraydescr], op.result))
         return ops
 
     def do_fixed_list_len(self, op, args, arraydescr):
@@ -1513,15 +1522,15 @@ class Transformer(object):
             kind = getkind(op.result.concretetype)
             return [SpaceOperation('-live-', [], None),
                     SpaceOperation('getarrayitem_vable_%s' % kind[0],
-                                   [v_base, arrayfielddescr, arraydescr,
-                                    args[1]], op.result)]
+                                   [v_base, args[1], arrayfielddescr,
+                                    arraydescr], op.result)]
         v_index, extraop = self._prepare_list_getset(op, arraydescr, args,
                                                      'check_neg_index')
         extra = getkind(op.result.concretetype)[0]
         if pure:
             extra += '_pure'
         op = SpaceOperation('getarrayitem_gc_%s' % extra,
-                            [args[0], arraydescr, v_index], op.result)
+                            [args[0], v_index, arraydescr], op.result)
         return extraop + [op]
 
     def do_fixed_list_getitem_foldable(self, op, args, arraydescr):
@@ -1534,13 +1543,13 @@ class Transformer(object):
             kind = getkind(args[2].concretetype)
             return [SpaceOperation('-live-', [], None),
                     SpaceOperation('setarrayitem_vable_%s' % kind[0],
-                                   [v_base, arrayfielddescr, arraydescr,
-                                    args[1], args[2]], None)]
+                                   [v_base, args[1], args[2],
+                                    arrayfielddescr, arraydescr], None)]
         v_index, extraop = self._prepare_list_getset(op, arraydescr, args,
                                                      'check_neg_index')
         kind = getkind(args[2].concretetype)[0]
         op = SpaceOperation('setarrayitem_gc_%s' % kind,
-                            [args[0], arraydescr, v_index, args[2]], None)
+                            [args[0], v_index, args[2], arraydescr], None)
         return extraop + [op]
 
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
@@ -1558,16 +1567,16 @@ class Transformer(object):
                              itemsdescr, structdescr):
         v_length = self._get_initial_newlist_length(op, args)
         return SpaceOperation('newlist',
-                              [structdescr, lengthdescr, itemsdescr,
-                               arraydescr, v_length],
+                              [v_length, structdescr, lengthdescr, itemsdescr,
+                               arraydescr],
                               op.result)
 
     def do_resizable_newlist_hint(self, op, args, arraydescr, lengthdescr,
                                   itemsdescr, structdescr):
         v_hint = self._get_initial_newlist_length(op, args)
         return SpaceOperation('newlist_hint',
-                              [structdescr, lengthdescr, itemsdescr,
-                               arraydescr, v_hint],
+                              [v_hint, structdescr, lengthdescr, itemsdescr,
+                               arraydescr],
                               op.result)
 
     def do_resizable_list_getitem(self, op, args, arraydescr, lengthdescr,
@@ -1576,7 +1585,7 @@ class Transformer(object):
                                                  'check_resizable_neg_index')
         kind = getkind(op.result.concretetype)[0]
         op = SpaceOperation('getlistitem_gc_%s' % kind,
-                            [args[0], itemsdescr, arraydescr, v_index],
+                            [args[0], v_index, itemsdescr, arraydescr],
                             op.result)
         return extraop + [op]
 
@@ -1586,8 +1595,8 @@ class Transformer(object):
                                                  'check_resizable_neg_index')
         kind = getkind(args[2].concretetype)[0]
         op = SpaceOperation('setlistitem_gc_%s' % kind,
-                            [args[0], itemsdescr, arraydescr,
-                             v_index, args[2]], None)
+                            [args[0], v_index, args[2],
+                             itemsdescr, arraydescr], None)
         return extraop + [op]
 
     def do_resizable_list_len(self, op, args, arraydescr, lengthdescr,
@@ -1618,8 +1627,8 @@ class Transformer(object):
             self.callcontrol.callinfocollection.add(oopspecindex,
                                                     calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
-                                [op.args[0], calldescr],
-                                args=args)
+                                [op.args[0]],
+                                args=args, calldescr=calldescr)
         if self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1

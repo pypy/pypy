@@ -2,12 +2,12 @@ import py
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import ll2ctypes
-from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
+from pypy.rpython.lltypesystem.llmemory import cast_ptr_to_adr
 from pypy.rpython.lltypesystem.llmemory import itemoffsetof, raw_memcopy
 from pypy.annotation.model import lltype_to_annotation
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import Symbolic
+from pypy.rlib.objectmodel import keepalive_until_here, enforceargs
 from pypy.rlib import rarithmetic, rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
@@ -171,6 +171,7 @@ def llexternal(name, args, result, _callable=None,
         call_external_function._dont_inline_ = True
         call_external_function._annspecialcase_ = 'specialize:ll'
         call_external_function._gctransformer_hint_close_stack_ = True
+        call_external_function._call_aroundstate_target_ = funcptr
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
         # don't inline, as a hack to guarantee that no GC pointer is alive
@@ -250,7 +251,7 @@ def llexternal(name, args, result, _callable=None,
                 return cast(lltype.Unsigned, res)
         return res
     wrapper._annspecialcase_ = 'specialize:ll'
-    wrapper._always_inline_ = True
+    wrapper._always_inline_ = 'try'
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
@@ -280,7 +281,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
         callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
-        def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+        def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
@@ -289,7 +290,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
-                result = callable(%s)
+                result = callable(%(args)s)
             except Exception, e:
                 os.write(2,
                     "Warning: uncaught exception in callback: %%s %%s\n" %%
@@ -307,7 +308,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
             return result
-    """ % (args, args))
+    """ % locals())
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
@@ -318,20 +319,20 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
 class AroundState:
-    def _freeze_(self):
-        self.before = None    # or a regular RPython function
-        self.after = None     # or a regular RPython function
-        return False
+    def _cleanup_(self):
+        self.before = None        # or a regular RPython function
+        self.after = None         # or a regular RPython function
 aroundstate = AroundState()
-aroundstate._freeze_()
+aroundstate._cleanup_()
 
 class StackCounter:
-    def _freeze_(self):
+    def _cleanup_(self):
         self.stacks_counter = 1     # number of "stack pieces": callbacks
-        return False                # and threads increase it by one
+                                    # and threads increase it by one
 stackcounter = StackCounter()
-stackcounter._freeze_()
+stackcounter._cleanup_()
 
 def llexternal_use_eci(compilation_info):
     """Return a dummy function that, if called in a RPython program,
@@ -711,7 +712,10 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        b = builder_class()
+        size = 0
+        while cp[size] != lastchar:
+            size += 1
+        b = builder_class(size)
         i = 0
         while cp[i] != lastchar:
             b.append(cp[i])
@@ -773,11 +777,12 @@ def make_string_mappings(strtype):
         """
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
-    alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._always_inline_ = 'try' # to get rid of the returned tuple
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
     @jit.dont_look_inside
+    @enforceargs(None, None, int, int)
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
@@ -816,6 +821,7 @@ def make_string_mappings(strtype):
             lltype.free(raw_buf, flavor='raw')
 
     # char* -> str, with an upper bound on the length in case there is no \x00
+    @enforceargs(None, int)
     def charp2strn(cp, maxlen):
         b = builder_class(maxlen)
         i = 0

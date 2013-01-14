@@ -1,9 +1,8 @@
-from pypy.objspace.flow.model import Variable, Constant
+from pypy.objspace.flow.model import Variable
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import get_graph
-from pypy.rpython.rmodel import inputconst
-from pypy.translator.backendopt import support
 from pypy.tool.uid import uid
+
 
 class CreationPoint(object):
     def __init__(self, creation_method, TYPE, op=None):
@@ -76,7 +75,7 @@ class AbstractDataFlowInterpreter(object):
 
     def seen_graphs(self):
         return self.functionargs.keys()
-    
+
     def getstate(self, var_or_const):
         if not isonheap(var_or_const):
             return None
@@ -93,20 +92,20 @@ class AbstractDataFlowInterpreter(object):
             varstate = VarState(crep)
         self.varstates[var_or_const] = varstate
         return varstate
-            
+
     def getstates(self, varorconstlist):
         return [self.getstate(var) for var in varorconstlist]
-    
+
     def setstate(self, var, state):
         self.varstates[var] = state
-    
+
     def get_creationpoint(self, var, method="?", op=None):
         if var in self.creationpoints:
             return self.creationpoints[var]
         crep = CreationPoint(method, var.concretetype, op)
         self.creationpoints[var] = crep
         return crep
-    
+
     def schedule_function(self, graph):
         startblock = graph.startblock
         if graph in self.functionargs:
@@ -140,7 +139,7 @@ class AbstractDataFlowInterpreter(object):
             return
         self.curr_block = block
         self.curr_graph = graph
-        
+
         for op in block.operations:
             self.flow_operation(op)
         for exit in block.exits:
@@ -160,18 +159,18 @@ class AbstractDataFlowInterpreter(object):
 
     def flow_operation(self, op):
         args = self.getstates(op.args)
-        opimpl = getattr(self, 'op_'+op.opname, None)
+        opimpl = getattr(self, 'op_' + op.opname, None)
         if opimpl is not None:
             res = opimpl(op, *args)
             if res is not NotImplemented:
                 self.setstate(op.result, res)
                 return
-            
+
         if isonheap(op.result) or filter(None, args):
             for arg in args:
                 if arg is not None:
                     self.escapes(arg)
-        
+
     def complete(self):
         while self.scheduled:
             block, graph = self.scheduled.popitem()
@@ -232,7 +231,7 @@ class AbstractDataFlowInterpreter(object):
 
     def op_cast_pointer(self, op, state):
         return state
-    
+
     def op_setfield(self, op, objstate, fieldname, valuestate):
         if valuestate is not None:
             # be pessimistic for now:
@@ -249,7 +248,7 @@ class AbstractDataFlowInterpreter(object):
     def op_getarrayitem(self, op, objstate, indexstate):
         if isonheap(op.result):
             return VarState(self.get_creationpoint(op.result, "getarrayitem", op))
-    
+
     def op_getfield(self, op, objstate, fieldname):
         if isonheap(op.result):
             # assume that getfield creates a new value
@@ -358,6 +357,3 @@ def malloc_like_graphs(adi):
     seen = {}
     return [graph for graph in adi.seen_graphs()
         if is_malloc_like(adi, graph, seen)]
-
-
-

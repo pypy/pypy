@@ -33,7 +33,7 @@ def get_magic(space):
     return space.wrap(chr(a) + chr(b) + chr(c) + chr(d))
 
 def get_file(space, w_file, filename, filemode):
-    if w_file is None or space.is_w(w_file, space.w_None):
+    if space.is_none(w_file):
         try:
             return streamio.open_file_as_stream(filename, filemode)
         except StreamErrors, e:
@@ -46,7 +46,7 @@ def get_file(space, w_file, filename, filemode):
 
 def find_module(space, w_name, w_path=None):
     name = space.str0_w(w_name)
-    if space.is_w(w_path, space.w_None):
+    if space.is_none(w_path):
         w_path = None
 
     find_info = importing.find_module(
@@ -103,7 +103,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
     importing.load_source_module(
         space, w_modulename, w_mod,
         filename, stream.readall(), stream.try_to_find_file_descriptor())
-    if space.is_w(w_file, space.w_None):
+    if space.is_none(w_file):
         stream.close()
     return w_mod
 
@@ -118,7 +118,7 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
     importing.load_compiled_module(
         space, w_modulename, w_module, filename, magic, timestamp,
         stream.readall())
-    if space.is_w(w_file, space.w_None):
+    if space.is_none(w_file):
         stream.close()
 
 @unwrap_spec(filename='str0')

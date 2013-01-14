@@ -2,12 +2,14 @@
 Unary operations on SomeValues.
 """
 
+from __future__ import absolute_import
+
 from types import MethodType
 from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
      SomeDict, SomeTuple, SomeImpossibleValue, SomeUnicodeCodePoint, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
-     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
+     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, SomeType, \
      s_ImpossibleValue, s_Bool, s_None, \
      unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
      SomeGenericCallable, SomeWeakRef, SomeUnicodeString
@@ -39,14 +41,7 @@ class __extend__(SomeObject):
     def type(obj, *moreargs):
         if moreargs:
             raise Exception, 'type() called with more than one argument'
-        if obj.is_constant():
-            if isinstance(obj, SomeInstance):
-                r = SomePBC([obj.classdef.classdesc])
-            else:
-                r = immutablevalue(obj.knowntype)
-        else:
-            r = SomeObject()
-            r.knowntype = type
+        r = SomeType()
         bk = getbookkeeper()
         fn, block, i = bk.position_key
         annotator = bk.annotator
@@ -83,7 +78,7 @@ class __extend__(SomeObject):
         s_obj.is_true_behavior(r)
 
         bk = getbookkeeper()
-        knowntypedata = r.knowntypedata = {}
+        knowntypedata = {}
         fn, block, i = bk.position_key
         op = block.operations[i]
         assert op.opname == "is_true" or op.opname == "nonzero"
@@ -93,8 +88,8 @@ class __extend__(SomeObject):
         if s_obj.can_be_none():
             s_nonnone_obj = s_obj.nonnoneify()
         add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
+        r.set_knowntypedata(knowntypedata)
         return r
-        
 
     def nonzero(obj):
         return obj.is_true()
@@ -133,9 +128,6 @@ class __extend__(SomeObject):
     def float(obj):
         return SomeFloat()
 
-    def long(obj):
-        return SomeObject()   # XXX
-
     def delattr(obj, s_attr):
         if obj.__class__ != SomeObject or obj.knowntype != object:
             getbookkeeper().warning(
@@ -154,18 +146,17 @@ class __extend__(SomeObject):
     def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has
         # a corresponding method to handle it
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            s_method = obj.find_method(attr)
-            if s_method is not None:
-                return s_method
-            # if the SomeObject is itself a constant, allow reading its attrs
-            if obj.is_immutable_constant() and hasattr(obj.const, attr):
-                return immutablevalue(getattr(obj.const, attr))
-        else:
-            getbookkeeper().warning('getattr(%r, %r) is not RPythonic enough' %
-                                    (obj, s_attr))
-        return SomeObject()
+        if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+            raise AnnotatorError("getattr(%r, %r) has non-constant argument"
+                                 % (obj, s_attr))
+        attr = s_attr.const
+        s_method = obj.find_method(attr)
+        if s_method is not None:
+            return s_method
+        # if the SomeObject is itself a constant, allow reading its attrs
+        if obj.is_immutable_constant() and hasattr(obj.const, attr):
+            return immutablevalue(getattr(obj.const, attr))
+        raise AnnotatorError("Cannot find attribute %r on %r" % (attr, obj))
     getattr.can_only_throw = []
 
     def bind_callables_under(obj, classdef, name):
@@ -535,7 +526,14 @@ class __extend__(SomeUnicodeString):
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
 
+
 class __extend__(SomeString):
+    def method_isdigit(chr):
+        return s_Bool
+
+    def method_isalpha(chr):
+        return s_Bool
+
     def method_upper(str):
         return SomeString()
 
@@ -571,12 +569,6 @@ class __extend__(SomeChar):
     def method_isspace(chr):
         return s_Bool
 
-    def method_isdigit(chr):
-        return s_Bool
-
-    def method_isalpha(chr):
-        return s_Bool
-
     def method_isalnum(chr):
         return s_Bool
 
@@ -585,6 +577,12 @@ class __extend__(SomeChar):
 
     def method_isupper(chr):
         return s_Bool
+
+    def method_lower(chr):
+        return chr
+
+    def method_upper(chr):
+        return chr
 
 class __extend__(SomeIterator):
 

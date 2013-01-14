@@ -1,16 +1,16 @@
 from pypy.jit.metainterp import jitprof, resume, compile
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF, INT
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
-from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
-    args_dict)
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.tool.pairtype import extendabletype
-from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib.debug import debug_print
 from pypy.rlib.objectmodel import specialize
+
 
 LEVEL_UNKNOWN    = '\x00'
 LEVEL_NONNULL    = '\x01'
@@ -20,6 +20,8 @@ LEVEL_CONSTANT   = '\x03'
 MODE_ARRAY   = '\x00'
 MODE_STR     = '\x01'
 MODE_UNICODE = '\x02'
+
+
 class LenBound(object):
     def __init__(self, mode, descr, bound):
         self.mode = mode

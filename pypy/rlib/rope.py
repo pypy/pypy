@@ -131,7 +131,7 @@ class StringNode(object):
     def __add__(self, other):
         return concatenate(self, other)
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.additional_info()
 
 class LiteralNode(StringNode):

@@ -6,6 +6,7 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.tool.sourcetools import rpython_wrapper
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -160,8 +161,7 @@ def look_inside_iff(predicate):
             def trampoline(%(arguments)s):
                 return func(%(arguments)s)
             if hasattr(func, "oopspec"):
-                # XXX: This seems like it should be here, but it causes errors.
-                # trampoline.oopspec = func.oopspec
+                trampoline.oopspec = func.oopspec
                 del func.oopspec
             trampoline.__name__ = func.__name__ + "_trampoline"
             trampoline._annspecialcase_ = "specialize:call_location"
@@ -172,6 +172,7 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
+            f._always_inline = True
         """ % {"arguments": ", ".join(args)}).compile() in d
         return d["f"]
     return inner
@@ -299,6 +300,32 @@ assert_green.oopspec = 'jit.assert_green(value)'
 
 class AssertGreenFailed(Exception):
     pass
+
+
+def jit_callback(name):
+    """Use as a decorator for C callback functions, to insert a
+    jitdriver.jit_merge_point() at the start.  Only for callbacks
+    that typically invoke more app-level Python code.
+    """
+    def decorate(func):
+        from pypy.tool.sourcetools import compile2
+        #
+        def get_printable_location():
+            return name
+        jitdriver = JitDriver(get_printable_location=get_printable_location,
+                              greens=[], reds='auto', name=name)
+        #
+        args = ','.join(['a%d' % i for i in range(func.func_code.co_argcount)])
+        source = """def callback_with_jitdriver(%(args)s):
+                        jitdriver.jit_merge_point()
+                        return real_callback(%(args)s)""" % locals()
+        miniglobals = {
+            'jitdriver': jitdriver,
+            'real_callback': func,
+            }
+        exec compile2(source) in miniglobals
+        return miniglobals['callback_with_jitdriver']
+    return decorate
 
 
 # ____________________________________________________________
@@ -430,7 +457,6 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
-DEFAULT = object()
 
 # ____________________________________________________________
 
@@ -444,6 +470,7 @@ class JitDriver(object):
     active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
     name = 'jitdriver'
+    inline_jit_merge_point = False
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
@@ -453,16 +480,29 @@ class JitDriver(object):
         if greens is not None:
             self.greens = greens
         self.name = name
-        if reds is not None:
-            self.reds = reds
+        if reds == 'auto':
+            self.autoreds = True
+            self.reds = []
+            self.numreds = None # see warmspot.autodetect_jit_markers_redvars
+            assert confirm_enter_jit is None, (
+                "reds='auto' is not compatible with confirm_enter_jit")
+        else:
+            if reds is not None:
+                self.reds = reds
+            self.autoreds = False
+            self.numreds = len(self.reds)
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
         for v in self.virtualizables:
             assert v in self.reds
-        self._alllivevars = dict.fromkeys(
-            [name for name in self.greens + self.reds if '.' not in name])
+        # if reds are automatic, they won't be passed to jit_merge_point, so
+        # _check_arguments will receive only the green ones (i.e., the ones
+        # which are listed explicitly). So, it is fine to just ignore reds
+        self._somelivevars = set([name for name in
+                                  self.greens + (self.reds or [])
+                                  if '.' not in name])
         self._heuristic_order = {}   # check if 'reds' and 'greens' are ordered
         self._make_extregistryentries()
         self.get_jitcell_at = get_jitcell_at
@@ -476,7 +516,7 @@ class JitDriver(object):
         return True
 
     def _check_arguments(self, livevars):
-        assert dict.fromkeys(livevars) == self._alllivevars
+        assert set(livevars) == self._somelivevars
         # check heuristically that 'reds' and 'greens' are ordered as
         # the JIT will need them to be: first INTs, then REFs, then
         # FLOATs.
@@ -528,12 +568,38 @@ class JitDriver(object):
         _self._check_arguments(livevars)
 
     def can_enter_jit(_self, **livevars):
+        if _self.autoreds:
+            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
         # special-cased by ExtRegistryEntry
         _self._check_arguments(livevars)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry
         pass
+
+    def inline(self, call_jit_merge_point):
+        assert self.autoreds, "@inline works only with reds='auto'"
+        self.inline_jit_merge_point = True
+        def decorate(func):
+            template = """
+                def {name}({arglist}):
+                    {call_jit_merge_point}({arglist})
+                    return {original}({arglist})
+            """
+            templateargs = {'call_jit_merge_point': call_jit_merge_point.__name__}
+            globaldict = {call_jit_merge_point.__name__: call_jit_merge_point}
+            result = rpython_wrapper(func, template, templateargs, **globaldict)
+            result._inline_jit_merge_point_ = call_jit_merge_point
+            return result
+
+        return decorate
+        
+
+    def clone(self):
+        assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
+        newdriver = object.__new__(self.__class__)
+        newdriver.__dict__ = self.__dict__.copy()
+        return newdriver
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
@@ -552,7 +618,7 @@ class JitDriver(object):
 def _set_param(driver, name, value):
     # special-cased by ExtRegistryEntry
     # (internal, must receive a constant 'name')
-    # if value is DEFAULT, sets the default value.
+    # if value is None, sets the default value.
     assert name in PARAMETERS
 
 @specialize.arg(0, 1)
@@ -564,7 +630,7 @@ def set_param(driver, name, value):
 @specialize.arg(0, 1)
 def set_param_to_default(driver, name):
     """Reset one of the tunable JIT parameters to its default value."""
-    _set_param(driver, name, DEFAULT)
+    _set_param(driver, name, None)
 
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
@@ -641,11 +707,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             self.bookkeeper._jit_annotation_cache[driver] = cache
         for key, s_value in kwds_s.items():
             s_previous = cache.get(key, annmodel.s_ImpossibleValue)
-            s_value = annmodel.unionof(s_previous, s_value)
-            if annmodel.isdegenerated(s_value):
-                raise JitHintError("mixing incompatible types in argument %s"
-                                   " of jit_merge_point/can_enter_jit" %
-                                   key[2:])
+            s_value = annmodel.unionof(s_previous, s_value)  # where="mixing incompatible types in argument %s of jit_merge_point/can_enter_jit" % key[2:]
             cache[key] = s_value
 
         # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
@@ -775,11 +837,11 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_driver, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
-            if s_name.const == 'enable_opts':
-                assert annmodel.SomeString(can_be_None=True).contains(s_value)
-            else:
-                assert annmodel.SomeInteger().contains(s_value)
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
+        else: 
+            assert (s_value == annmodel.s_None or
+                    annmodel.SomeInteger().contains(s_value))
         return annmodel.s_None
 
     def specialize_call(self, hop):
@@ -795,7 +857,7 @@ class ExtSetParam(ExtRegistryEntry):
         else:
             repr = lltype.Signed
         if (isinstance(hop.args_v[2], Constant) and
-            hop.args_v[2].value is DEFAULT):
+            hop.args_v[2].value is None):
             value = PARAMETERS[name]
             v_value = hop.inputconst(repr, value)
         else:

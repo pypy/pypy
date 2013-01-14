@@ -30,7 +30,7 @@ def test_get_current_qmut_instance():
             result = foo.mutate_x
             return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
-        def bh_setfield_gc_r(self, gcref, fielddescr, newvalue_gcref):
+        def bh_setfield_gc_r(self, gcref, newvalue_gcref, fielddescr):
             assert fielddescr == mutatefielddescr
             foo = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
             newvalue = lltype.cast_opaque_ptr(rclass.OBJECTPTR, newvalue_gcref)

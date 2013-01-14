@@ -121,9 +121,8 @@ class __extend__(PyCode):
         PyCode__initialize(self)
         self.jit_cells = {}
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.jit_cells = {}
-        return False
 
 # ____________________________________________________________
 #

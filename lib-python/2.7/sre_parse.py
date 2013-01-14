@@ -16,6 +16,12 @@ import sys
 
 from sre_constants import *
 
+try:
+    from __pypy__ import newdict
+except ImportError:
+    def newdict(tp):
+        return {}
+
 SPECIAL_CHARS = ".\\[{()*+?^$|"
 REPEAT_CHARS = "*+?{"
 
@@ -68,7 +74,7 @@ class Pattern:
         self.flags = 0
         self.open = []
         self.groups = 1
-        self.groupdict = {}
+        self.groupdict = newdict("module")
     def opengroup(self, name=None):
         gid = self.groups
         self.groups = gid + 1

@@ -89,7 +89,7 @@ reduce_driver = jit.JitDriver(name='numpy_reduce',
                               reds = ['obj', 'obj_iter', 'cur_value'])
 
 def compute_reduce(obj, calc_dtype, func, done_func, identity):
-    obj_iter = obj.create_iter(obj.get_shape())
+    obj_iter = obj.create_iter()
     if identity is None:
         cur_value = obj_iter.getitem().convert_to(calc_dtype)
         obj_iter.next()
@@ -109,7 +109,7 @@ def compute_reduce(obj, calc_dtype, func, done_func, identity):
     return cur_value
 
 def fill(arr, box):
-    arr_iter = arr.create_iter(arr.get_shape())
+    arr_iter = arr.create_iter()
     while not arr_iter.done():
         arr_iter.setitem(box)
         arr_iter.next()
@@ -159,7 +159,7 @@ axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
 
 def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
     out_iter = out.create_axis_iter(arr.get_shape(), axis)
-    arr_iter = arr.create_iter(arr.get_shape())
+    arr_iter = arr.create_iter()
     if identity is not None:
         identity = identity.convert_to(dtype)
     shapelen = len(shape)
@@ -192,7 +192,7 @@ def _new_argmin_argmax(op_name):
         result = 0
         idx = 1
         dtype = arr.get_dtype()
-        iter = arr.create_iter(arr.get_shape())
+        iter = arr.create_iter()
         cur_best = iter.getitem()
         iter.next()
         shapelen = len(arr.get_shape())
@@ -424,39 +424,44 @@ class PureShapeIterator(object):
             self._done = True
 
     @jit.unroll_safe
-    def get_index(self, space):
-        return [space.wrap(i) for i in self.indexes]
+    def get_index(self, space, shapelen):
+        return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
 getitem_int_driver = jit.JitDriver(name = 'numpy_getitem_int',
-                                   greens = ['shapelen', 'indexlen', 'dtype'],
+                                   greens = ['shapelen', 'indexlen',
+                                             'prefixlen', 'dtype'],
                                    reds = ['arr', 'res', 'iter', 'indexes_w',
                                            'prefix_w'])
 
 def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     shapelen = len(iter_shape)
+    prefixlen = len(prefix_w)
     indexlen = len(indexes_w)
     dtype = arr.get_dtype()
     iter = PureShapeIterator(iter_shape, indexes_w)
+    indexlen = len(indexes_w)
     while not iter.done():
         getitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
                                            dtype=dtype, arr=arr, res=res,
                                            iter=iter, indexes_w=indexes_w,
-                                           prefix_w=prefix_w)
+                                           prefix_w=prefix_w,
+                                           prefixlen=prefixlen)
         # prepare the index
-        index_w = [None] * len(indexes_w)
-        for i in range(len(indexes_w)):
+        index_w = [None] * indexlen
+        for i in range(indexlen):
             if iter.idx_w[i] is not None:
                 index_w[i] = iter.idx_w[i].getitem()
             else:
                 index_w[i] = indexes_w[i]
-        res.descr_setitem(space, space.newtuple(prefix_w +
-                                                iter.get_index(space)),
+        res.descr_setitem(space, space.newtuple(prefix_w[:prefixlen] +
+                                            iter.get_index(space, shapelen)),
                           arr.descr_getitem(space, space.newtuple(index_w)))
         iter.next()
     return res
 
 setitem_int_driver = jit.JitDriver(name = 'numpy_setitem_int',
-                                   greens = ['shapelen', 'indexlen', 'dtype'],
+                                   greens = ['shapelen', 'indexlen',
+                                             'prefixlen', 'dtype'],
                                    reds = ['arr', 'iter', 'indexes_w',
                                            'prefix_w', 'val_arr'])
 
@@ -464,21 +469,24 @@ def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr,
                       prefix_w):
     shapelen = len(iter_shape)
     indexlen = len(indexes_w)
+    prefixlen = len(prefix_w)
     dtype = arr.get_dtype()
     iter = PureShapeIterator(iter_shape, indexes_w)
     while not iter.done():
         setitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
                                            dtype=dtype, arr=arr,
                                            iter=iter, indexes_w=indexes_w,
-                                           prefix_w=prefix_w, val_arr=val_arr)
+                                           prefix_w=prefix_w, val_arr=val_arr,
+                                           prefixlen=prefixlen)
         # prepare the index
-        index_w = [None] * len(indexes_w)
-        for i in range(len(indexes_w)):
+        index_w = [None] * indexlen
+        for i in range(indexlen):
             if iter.idx_w[i] is not None:
                 index_w[i] = iter.idx_w[i].getitem()
             else:
                 index_w[i] = indexes_w[i]
-        w_idx = space.newtuple(prefix_w + iter.get_index(space))
+        w_idx = space.newtuple(prefix_w[:prefixlen] + iter.get_index(space,
+                                                                  shapelen))
         arr.descr_setitem(space, space.newtuple(index_w),
                           val_arr.descr_getitem(space, w_idx))
         iter.next()

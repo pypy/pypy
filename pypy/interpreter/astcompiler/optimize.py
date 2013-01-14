@@ -141,7 +141,7 @@ unary_folders = {
 unrolling_unary_folders = unrolling_iterable(unary_folders.items())
 
 for folder in binary_folders.values() + unary_folders.values():
-    folder._always_inline_ = True
+    folder._always_inline_ = 'try'
 del folder
 
 opposite_compare_operations = misc.dict_to_switch({

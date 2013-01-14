@@ -1,11 +1,8 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("stltypesDict.so"))
-
-space = gettestobjspace(usemodules=['cppyy'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -15,10 +12,11 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestSTLVECTOR:
+    spaceconfig = dict(usemodules=['cppyy'])
+
     def setup_class(cls):
-        cls.space = space
-        cls.w_N = space.wrap(13)
-        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_N = cls.space.wrap(13)
+        cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_stlvector = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -202,9 +200,10 @@ class AppTestSTLVECTOR:
 
 
 class AppTestSTLSTRING:
+    spaceconfig = dict(usemodules=['cppyy'])
+
     def setup_class(cls):
-        cls.space = space
-        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -281,10 +280,11 @@ class AppTestSTLSTRING:
 
 
 class AppTestSTLSTRING:
+    spaceconfig = dict(usemodules=['cppyy'])
+
     def setup_class(cls):
-        cls.space = space
-        cls.w_N = space.wrap(13)
-        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_N = cls.space.wrap(13)
+        cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

@@ -77,6 +77,17 @@ class RegAllocForTests(Regalloc):
         return -1
 
 
+def get_zero_division_error(self):
+    # for tests, a random emulated ll_inst will do
+    ll_inst = lltype.malloc(rclass.OBJECT)
+    ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
+                                    immortal=True)
+    _zer_error_vtable = llmemory.cast_ptr_to_adr(ll_inst.typeptr)
+    zer_vtable = self.cast_adr_to_int(_zer_error_vtable)
+    zer_inst = lltype.cast_opaque_ptr(llmemory.GCREF, ll_inst)
+    return zer_vtable, zer_inst
+
+
 class BaseTestRegalloc(object):
     cpu = CPU(None, None)
     cpu.setup_once()
@@ -96,7 +107,7 @@ class BaseTestRegalloc(object):
     f_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
                                                     EffectInfo.MOST_GENERAL)
 
-    zero_division_tp, zero_division_value = cpu.get_zero_division_error()
+    zero_division_tp, zero_division_value = get_zero_division_error(cpu)
     zd_addr = cpu.cast_int_to_adr(zero_division_tp)
     zero_division_error = llmemory.cast_adr_to_ptr(zd_addr,
                                             lltype.Ptr(rclass.OBJECT_VTABLE))

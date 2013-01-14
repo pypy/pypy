@@ -196,7 +196,7 @@ class CounterState:
     def __init__(self, space):
         self.counter = 0
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.counter = 0
 
     def getCount(self):
@@ -225,7 +225,7 @@ if sys.platform == 'win32':
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
             full_msecs = 0
-        elif space.is_w(w_timeout, space.w_None):
+        elif space.is_none(w_timeout):
             full_msecs = rwin32.INFINITE
         else:
             timeout = space.float_w(w_timeout)
@@ -318,7 +318,7 @@ else:
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
             deadline = lltype.nullptr(TIMESPECP.TO)
-        elif space.is_w(w_timeout, space.w_None):
+        elif space.is_none(w_timeout):
             deadline = lltype.nullptr(TIMESPECP.TO)
         else:
             timeout = space.float_w(w_timeout)

@@ -11,7 +11,7 @@ from pypy.rlib import rweakref
 DEFAULT_BUFFER_SIZE = 8192
 
 def convert_size(space, w_size):
-    if space.is_w(w_size, space.w_None):
+    if space.is_none(w_size):
         return -1
     else:
         return space.int_w(w_size)

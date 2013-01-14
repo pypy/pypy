@@ -1,11 +1,8 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("datatypesDict.so"))
-
-space = gettestobjspace(usemodules=['cppyy', 'array', '_rawffi'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -15,11 +12,11 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestDATATYPES:
+    spaceconfig = dict(usemodules=['cppyy', 'array', '_rawffi'])
+
     def setup_class(cls):
-        cls.space = space
-        env = os.environ
-        cls.w_N = space.wrap(5)    # should be imported from the dictionary
-        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
+        cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

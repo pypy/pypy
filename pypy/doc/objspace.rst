@@ -5,8 +5,8 @@ Object Spaces
 .. contents::
 
 
-.. _`objectspace`: 
-.. _`Object Space`: 
+.. _`objectspace`:
+.. _`Object Space`:
 
 Introduction
 ================
@@ -26,12 +26,12 @@ application-level object.
 The most important one is ``is_true()``, which returns a boolean
 interpreter-level value.  This is necessary to implement, for example,
 if-statements (or rather, to be pedantic, to implement the
-conditional-branching bytecodes into which if-statements get compiled). 
+conditional-branching bytecodes into which if-statements get compiled).
 
 We have many working object spaces which can be plugged into
 the bytecode interpreter:
 
-- The *Standard Object Space* is a complete implementation 
+- The *Standard Object Space* is a complete implementation
   of the various built-in types and objects of Python.  The Standard Object
   Space, together with the bytecode interpreter, is the foundation of our Python
   implementation.  Internally, it is a set of `interpreter-level`_ classes
@@ -40,25 +40,19 @@ the bytecode interpreter:
   Space provides the equivalent of the C structures ``PyIntObject``,
   ``PyListObject``, etc.
 
-- the *Trace Object Space* wraps e.g. the standard 
-  object space in order to trace the execution of bytecodes, 
-  frames and object space operations.
-
 - various `Object Space proxies`_ wrap another object space (e.g. the standard
   one) and adds new capabilities, like lazily computed objects (computed only
   when an operation is performed on them), security-checking objects,
   distributed objects living on several machines, etc.
 
 - the *Flow Object Space* transforms a Python program into a
-  flow-graph representation, by recording all operations that the bytecode 
+  flow-graph representation, by recording all operations that the bytecode
   interpreter would like to perform when it is shown the given Python
   program.  This technique is explained `in another document`_.
 
 The present document gives a description of the above object spaces.
 The sources of PyPy contain the various object spaces in the directory
 `pypy/objspace/`_.
-
-To choose which object space to use, use the :config:`objspace.name` option.
 
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
@@ -253,7 +247,7 @@ Conversions from Application Level to Interpreter Level
 
 ``interpclass_w(w_x):``
   If w_x is a wrapped instance of an bytecode interpreter class -- for example
-  Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None. 
+  Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None.
 
 
 Data Members
@@ -289,7 +283,7 @@ Data Members
    non-wrapped objects).
 
 
-.. _`standard object space`: 
+.. _`standard object space`:
 
 The Standard Object Space
 =========================
@@ -311,7 +305,7 @@ invokes a method of the proper W_XyzObject class that can do the
 operation. The operation itself is done with the primitives allowed by
 RPython. The result is constructed as a wrapped object again. For
 example, compare the following implementation of integer addition with the
-function "int_add()" in "Object/intobject.c": :: 
+function "int_add()" in "Object/intobject.c": ::
 
     def add__Int_Int(space, w_int1, w_int2):
         x = w_int1.intval
@@ -373,12 +367,7 @@ type object, visible to the user, and the actual implementation of its
 instances.  It is possible to provide *several* implementations of the
 instances of the same Python type, by writing several ``W_XxxObject``
 classes.  Every place that instantiates a new object of that Python type
-can decide which ``W_XxxObject`` class to instantiate.  For example, the
-regular string implementation is ``W_StringObject``, but we also have a
-``W_StringSliceObject`` class whose instances contain a string, a start
-index, and a stop index; it is used as the result of a string slicing
-operation to avoid the copy of all the characters in the slice into a
-new buffer.
+can decide which ``W_XxxObject`` class to instantiate.
 
 From the user's point of view, the multiple internal ``W_XxxObject``
 classes are not visible: they are still all instances of exactly the
@@ -424,16 +413,7 @@ multimethod:
   done with a slice object, and performs tuple slicing instead.
 
 * ``getitem__String_Slice``: called when the first argument is a
-  W_StringObject and the second argument is a slice object.  When the
-  special string slices optimization is enabled, this returns an
-  instance of W_StringSliceObject.
-
-* ``getitem__StringSlice_ANY``: called when the first argument is a
-  W_StringSliceObject.  This implementation adds the provided index to
-  the original start of the slice stored in the W_StringSliceObject
-  instance.  This allows constructs like ``a = s[10:100]; print a[5]``
-  to return the 15th character of ``s`` without having to perform any
-  buffer copying.
+  W_StringObject and the second argument is a slice object.
 
 Note how the multimethod dispatch logic helps writing new object
 implementations without having to insert hooks into existing code.  Note
@@ -503,52 +483,6 @@ Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
 ``add__Long_Long`` and there is no ``add__Int_Long``), which leads to
 ``6L.__radd__(5)`` being called, as in CPython.
 
-
-The Trace Object Space
-======================
-
-The Trace Object Space was first written at the Amsterdam sprint.  The ease
-with which the Trace Object Space was implemented in `pypy/objspace/trace.py`_
-underlines the power of the Object Space abstraction.  Effectively it is a
-simple proxy object space.  It has gone through various refactors to reach its
-original objective, which was to show how bytecode in code objects ultimately
-performs computation via an object space.
-
-This space will intercept space operations in realtime and as a side effect
-will memorize them.  It also traces frame creation, deletion and bytecode
-execution.  Its implementation delegates to another object space - usually the
-standard object space - in order to carry out the operations.
-
-The pretty printing aims to be a graphical way of introducing programmers, and
-especially ones familiar with CPython, to how PyPy works from a bytecode and
-frames perspective.  As a result one can grasp an intuitive idea of how
-`Abstract Interpretation`_ records via tracing all execution paths of the
-individual operations if one removes the bytecode out of the equation.  This is
-the purpose of the `Flow Object Space`_.
-
-Another educational use of Trace Object Space is that it allows a Python user
-who has little understanding of how the interpreter works, a rapid way of
-understanding what bytecodes are and what an object space is.  When a statement
-or expression is typed on the command line, one can see what is happening
-behind the scenes.  This will hopefully give users a better mental framework
-when they are writing code.
-
-To make use of the tracing facilities you can at runtime switch
-your interactive session to tracing mode by typing:: 
-
-    >>> __pytrace__ = 1 
-
-Note that tracing mode will not show or record all space operations 
-by default to avoid presenting too much information.  Only non-helper 
-operations are usually shown.   
-
-A quick introduction on how to use the trace object space can be `found here`_.
-A number of options for configuration is here in `pypy/tool/traceconfig.py`_.
-
-
-.. _`found here` : getting-started-dev.html#tracing-bytecode-and-operations-on-objects
-.. _`Abstract Interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
-
 .. _`Flow Object Space`:
 
 The Flow Object Space
@@ -582,7 +516,7 @@ Interpretation`_.
 For example, if the placeholder ``v1`` is given as the argument to the above
 function, the bytecode interpreter will call ``v2 = space.mul(space.wrap(3),
 v1)`` and then ``v3 = space.add(v2, space.wrap(2))`` and return ``v3`` as the
-result.  During these calls the FlowObjSpace will record a basic block:: 
+result.  During these calls the FlowObjSpace will record a basic block::
 
   Block(v1):     # input argument
     v2 = mul(Constant(3), v1)
@@ -613,7 +547,7 @@ the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
   situation, we interrupt the bytecode interpreter and we make a link from the
   end of the current block back to the previous block, thus closing the loop
   in the flow graph as well.  (Note that this occurs only when an operation is
-  about to be recorded, which allows some amount of constant-folding.) 
+  about to be recorded, which allows some amount of constant-folding.)
 
 * If the bytecode interpreter calls ``is_true()``, the FlowObjSpace doesn't
   generally know if the answer should be True or False, so it puts a
@@ -622,7 +556,7 @@ the bytecode interpreters calls ``is_true()``, or when a joinpoint is reached.
   fooled into thinking that ``is_true()`` first returns False (and the
   subsequent operations are recorded in the first successor block), and later
   the *same* call to ``is_true()`` also returns True (and the subsequent
-  operations go this time to the other successor block). 
+  operations go this time to the other successor block).
 
 (This section to be extended...)
 

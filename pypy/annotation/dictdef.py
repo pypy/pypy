@@ -119,13 +119,9 @@ class DictDef(object):
                 self.dictvalue is other.dictvalue)
 
     def union(self, other):
-        if (self.same_as(MOST_GENERAL_DICTDEF) or
-            other.same_as(MOST_GENERAL_DICTDEF)):
-            return MOST_GENERAL_DICTDEF   # without merging
-        else:
-            self.dictkey.merge(other.dictkey)
-            self.dictvalue.merge(other.dictvalue)
-            return self
+        self.dictkey.merge(other.dictkey)
+        self.dictvalue.merge(other.dictvalue)
+        return self
 
     def generalize_key(self, s_key):
         self.dictkey.generalize(s_key)
@@ -143,6 +139,3 @@ class DictDef(object):
 
     def __repr__(self):
         return '<{%r: %r}>' % (self.dictkey.s_value, self.dictvalue.s_value)
-
-
-MOST_GENERAL_DICTDEF = DictDef(None, SomeObject(), SomeObject())

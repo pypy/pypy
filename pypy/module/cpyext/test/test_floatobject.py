@@ -15,11 +15,12 @@ class TestFloatObject(BaseApiTest):
         assert space.type(api.PyNumber_Float(space.wrap(3))) is space.w_float
         assert space.type(api.PyNumber_Float(space.wrap("3"))) is space.w_float
 
-        class Coerce(object):
-            def __float__(self):
-                return 42.5
-        assert space.eq_w(api.PyNumber_Float(space.wrap(Coerce())),
-                          space.wrap(42.5))
+        w_obj = space.appexec([], """():
+            class Coerce(object):
+                def __float__(self):
+                    return 42.5
+            return Coerce()""")
+        assert space.eq_w(api.PyNumber_Float(w_obj), space.wrap(42.5))
 
     def test_unpack(self, space, api):
         with rffi.scoped_str2charp("\x9a\x99\x99?") as ptr:

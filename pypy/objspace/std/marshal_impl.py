@@ -26,7 +26,6 @@ from pypy.objspace.std.tupleobject   import W_TupleObject
 from pypy.objspace.std.listobject    import W_ListObject
 from pypy.objspace.std.dictmultiobject    import W_DictMultiObject
 from pypy.objspace.std.stringobject  import W_StringObject
-from pypy.objspace.std.ropeobject    import W_RopeObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
 from pypy.objspace.std.noneobject    import W_NoneObject
@@ -268,8 +267,6 @@ def marshal_w__String(space, w_str, m):
             m.atom_str(TYPE_INTERNED, s)
     else:
         m.atom_str(TYPE_STRING, s)
-
-marshal_w__Rope = marshal_w__String
 
 def unmarshal_String(space, u, tc):
     return space.wrap(u.get_str())

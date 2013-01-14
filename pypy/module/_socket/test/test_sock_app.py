@@ -1,6 +1,6 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.udir import udir
 from pypy.rlib import rsocket
 from pypy.rpython.lltypesystem import lltype, rffi

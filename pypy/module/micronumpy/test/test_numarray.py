@@ -344,6 +344,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[-1] == 8
         raises(IndexError, "a[-6]")
 
+    def test_getitem_float(self):
+        from _numpypy import array
+        a = array([1, 2, 3, 4])
+        assert a[1.2] == 2
+        assert a[1.6] == 2
+        assert a[-1.2] == 4
+
     def test_getitem_tuple(self):
         from _numpypy import array
         a = array(range(5))
@@ -694,6 +701,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = 3 + array(range(3))
         for i in range(3):
             assert r[i] == i + 3
+        r = [1, 2] + array([1, 2])
+        assert (r == [2, 4]).all()
 
     def test_add_list(self):
         from _numpypy import array, ndarray
@@ -1160,8 +1169,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
    
     def test_eye(self):
-        from _numpypy import eye, array
-        from _numpypy import int32, float64, dtype
+        from _numpypy import eye
+        from _numpypy import int32, dtype
         a = eye(0)
         assert len(a) == 0
         assert a.dtype == dtype('float64')
@@ -1335,6 +1344,42 @@ class AppTestNumArray(BaseNumpyAppTest):
         c[:] = 3
         assert b[0] == 3
         assert b[1] == 2
+
+    def test_realimag_views(self):
+        from _numpypy import arange, array
+        a = arange(15)
+        b = a.real
+        b[5]=50
+        assert a[5] == 50
+        b = a.imag
+        assert b[7] == 0
+        raises(RuntimeError, 'b[7] = -2')
+        raises(TypeError, 'a.imag = -2')
+        a = array(['abc','def'],dtype='S3')
+        b = a.real
+        assert a[0] == b[0]
+        assert a[1] == b[1]
+        b[1] = 'xyz'
+        assert a[1] == 'xyz'
+        assert a.imag[0] == 'abc'
+        raises(TypeError, 'a.imag = "qop"')
+        a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]]) 
+        assert a.real[0,1] == 2
+        a.real[0,1] = -20
+        assert a[0,1].real == -20
+        b = a.imag
+        assert b[1,2] == -1
+        b[1,2] = 30
+        assert a[1,2].imag == 30
+        a.real = 13
+        assert a[1,1].real == 13
+        a=array([1+1j, 2-3j, 4+5j, -6+7j, 8-9j, -2-1j]) 
+        a.real = 13
+        assert a[3].real == 13
+        a.imag = -5
+        a.imag[3] = -10
+        assert a[3].imag == -10
+        assert a[2].imag == -5
 
     def test_tolist_scalar(self):
         from _numpypy import int32, bool_
@@ -1961,8 +2006,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
 
     def test_take(self):
-        skip("we wait for int-based indexing")
         from _numpypy import arange
+        try:
+            arange(10).take([0])
+        except NotImplementedError:
+            skip("we wait for int-based indexing")
         assert (arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1]).all()
         raises(IndexError, "arange(3).take([15])")
         a = arange(6).reshape(2, 3)
@@ -2026,6 +2074,7 @@ class AppTestSupport(BaseNumpyAppTest):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
         cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
+        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16 
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
@@ -2097,8 +2146,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_fromstring_types(self):
         from _numpypy import (fromstring, int8, int16, int32, int64, uint8,
-            uint16, uint32, float32, float64)
-
+            uint16, uint32, float16, float32, float64, longfloat, array)
         a = fromstring('\xFF', dtype=int8)
         assert a[0] == -1
         b = fromstring('\xFF', dtype=uint8)
@@ -2119,9 +2167,23 @@ class AppTestSupport(BaseNumpyAppTest):
         assert i[0] == float64(300.4)
         j = fromstring(self.ulongval, dtype='L')
         assert j[0] == 12
+        k = fromstring(self.float16val, dtype=float16)
+        assert k[0] == float16(5.)
+        dt =  array([5],dtype=longfloat).dtype
+        if dt.itemsize == 12:
+            from _numpypy import float96
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
+        elif dt.itemsize==16:
+            from _numpypy import float128
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype=float128)
+        elif dt.itemsize == 8:
+            skip('longfloat is float64')
+        else:
+            skip('unknown itemsize for longfloat')
+        assert m[0] == longfloat(5.)
 
     def test_fromstring_invalid(self):
-        from _numpypy import fromstring, uint16, uint8, int32
+        from _numpypy import fromstring, uint16, uint8
         #default dtype is 64-bit float, so 3 bytes should fail
         raises(ValueError, fromstring, "\x01\x02\x03")
         #3 bytes is not modulo 2 bytes (int16)
@@ -2233,7 +2295,53 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['y'] == 3.5
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
-        
+
+    def test_string_record(self):
+        from _numpypy import dtype, array
+        d = dtype([('x', str), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        d = dtype([('x', 'S1'), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        a = array([('a', 2), ('c', 1)], dtype=d)
+        assert a[1]['y'] == 1
+        assert a[0]['x'] == 'a'
+
+    def test_stringarray(self):
+        from _numpypy import array
+        a = array(['abc'],'S3')
+        assert str(a.dtype) == '|S3'
+        a = array(['abc'])
+        assert str(a.dtype) == '|S3'
+        a = array(['abc','defg','ab'])
+        assert str(a.dtype) == '|S4'
+        assert a[0] == 'abc'
+        assert a[1] == 'defg'
+        assert a[2] == 'ab'
+        raises(TypeError, a, 'sum')
+        raises(TypeError, 'a+a')
+
+    def test_string_scalar(self):
+        from _numpypy import array
+        a = array('ffff')
+        assert a.shape == ()
+
+    def test_flexible_repr(self):
+        # import overrides str(), repr() for array
+        from _numpypy import array
+        a = array(['abc'],'S3')
+        s = repr(a)
+        # simplify test for \n in repr
+        assert s.replace('\n', '') == "array(['abc'],       dtype='|S3')"
+        # but make sure it exists
+        assert s.find('\n') == 15
+        a = array(['abc','defg','ab'])
+        s = repr(a)
+        assert s.replace('\n', '') == \
+                      "array(['abc', 'defg', 'ab'],       dtype='|S4')"
+         
+       
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:

@@ -19,6 +19,7 @@ from pypy.module._cffi_backend import cdataobj
 class W_CTypeArray(W_CTypePtrOrArray):
     _attrs_            = ['ctptr']
     _immutable_fields_ = ['ctptr']
+    kind = "array"
 
     def __init__(self, space, ctptr, length, arraysize, extra):
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
@@ -96,6 +97,16 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
     def get_vararg_type(self):
         return self.ctptr
+
+    def _fget(self, attrchar):
+        if attrchar == 'i':     # item
+            return self.space.wrap(self.ctitem)
+        if attrchar == 'l':     # length
+            if self.length >= 0:
+                return self.space.wrap(self.length)
+            else:
+                return self.space.w_None
+        return W_CTypePtrOrArray._fget(self, attrchar)
 
 
 class W_CDataIter(Wrappable):

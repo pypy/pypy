@@ -1,12 +1,11 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
 import py.test
 
 
 ## class AppTestSimpleArray:
+##     spaceconfig = dict(usemodules=('array',))
 ##     def setup_class(cls):
-##         cls.space = gettestobjspace(usemodules=('array',))
 ##         cls.w_simple_array = cls.space.appexec([], """():
 ##             import array
 ##             return array.simple_array
@@ -681,6 +680,22 @@ class BaseArrayTests:
         a.__delslice__(0, 2)
         assert repr(a) == "array('i', [5])"
 
+        a = self.array('i', [1, 2, 3, 4, 5])
+        del a[3:1]
+        assert repr(a) == "array('i', [1, 2, 3, 4, 5])"
+
+        del a[-100:1]
+        assert repr(a) == "array('i', [2, 3, 4, 5])"
+
+        del a[3:]
+        assert repr(a) == "array('i', [2, 3, 4])"
+
+        del a[-1:]
+        assert repr(a) == "array('i', [2, 3])"
+
+        del a[1:100]
+        assert repr(a) == "array('i', [2])"
+
     def test_iter(self):
         a = self.array('i', [1, 2, 3])
         assert 1 in a
@@ -862,12 +877,11 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
         cls.maxint = sys.maxint
 
+
 class AppTestArray(BaseArrayTests):
-    OPTIONS = {}
+    spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'),
-                                    **cls.OPTIONS)
         cls.w_array = cls.space.appexec([], """():
             import array
             return array.array
@@ -875,7 +889,7 @@ class AppTestArray(BaseArrayTests):
         cls.w_tempfile = cls.space.wrap(
             str(py.test.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
-    
+
     def test_buffer_info(self):
         a = self.array('c', 'Hi!')
         bi = a.buffer_info()
@@ -940,4 +954,6 @@ class AppTestArray(BaseArrayTests):
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
-    OPTIONS = {'objspace.std.builtinshortcut': True}
+    spaceconfig = AppTestArray.spaceconfig.copy()
+    spaceconfig['objspace.std.builtinshortcut'] = True
+

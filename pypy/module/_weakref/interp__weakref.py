@@ -254,7 +254,7 @@ def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
     if __args__.arguments_w:
         raise OperationError(space.w_TypeError, space.wrap(
             "__new__ expected at most 2 arguments"))
-    if space.is_w(w_callable, space.w_None):
+    if space.is_none(w_callable):
         return get_or_make_weakref(space, w_subtype, w_obj)
     else:
         return make_weakref_with_callback(space, w_subtype, w_obj, w_callable)
@@ -326,7 +326,7 @@ def proxy(space, w_obj, w_callable=None):
     """Create a proxy object that weakly references 'obj'.
 'callback', if given, is called with the proxy as an argument when 'obj'
 is about to be finalized."""
-    if space.is_w(w_callable, space.w_None):
+    if space.is_none(w_callable):
         return get_or_make_proxy(space, w_obj)
     else:
         return make_proxy_with_callback(space, w_obj, w_callable)

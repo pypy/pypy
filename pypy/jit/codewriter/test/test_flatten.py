@@ -371,7 +371,7 @@ class TestFlatten:
                 return 4
 
         self.encoding_test(f, [65], """
-            residual_call_ir_v $<* fn g>, <Descr>, I[%i0], R[]
+            residual_call_ir_v $<* fn g>, I[%i0], R[], <Descr>
             -live-
             catch_exception L1
             int_return $4
@@ -430,16 +430,16 @@ class TestFlatten:
                 foo.sideeffect = 5
 
         self.encoding_test(f, [65], """
-        residual_call_ir_v $<* fn get_exception>, <Descr>, I[%i0], R[]
+        residual_call_ir_v $<* fn get_exception>, I[%i0], R[], <Descr>
         -live-
         catch_exception L1
-        setfield_gc_i $<* struct test.Foo>, <Descr>, $5
+        setfield_gc_i $<* struct test.Foo>, $5, <Descr>
         void_return
         ---
         L1:
         last_exception -> %i1
         last_exc_value -> %r0
-        setfield_gc_i $<* struct test.Foo>, <Descr>, $5
+        setfield_gc_i $<* struct test.Foo>, $5, <Descr>
         -live-
         raise %r0
         """, transform=True)
@@ -470,7 +470,7 @@ class TestFlatten:
             except ZeroDivisionError:
                 return -42
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn int_floordiv_ovf_zer>, <Descr>, I[%i0, %i1], R[] -> %i2
+            residual_call_ir_i $<* fn int_floordiv_ovf_zer>, I[%i0, %i1], R[], <Descr> -> %i2
             -live-
             catch_exception L1
             int_return %i2
@@ -497,7 +497,7 @@ class TestFlatten:
                 return 42
         # XXX so far, this really produces a int_mod_ovf_zer...
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn int_mod_ovf_zer>, <Descr>, I[%i0, %i1], R[] -> %i2
+            residual_call_ir_i $<* fn int_mod_ovf_zer>, I[%i0, %i1], R[], <Descr> -> %i2
             -live-
             catch_exception L1
             int_return %i2
@@ -551,7 +551,7 @@ class TestFlatten:
             except Exception:
                 return 42 + j
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn g>, <Descr>, I[%i0, %i1], R[] -> %i2
+            residual_call_ir_i $<* fn g>, I[%i0, %i1], R[], <Descr> -> %i2
             -live- %i1, %i2
             catch_exception L1
             int_return %i2
@@ -572,7 +572,7 @@ class TestFlatten:
             except Exception:
                 return 42 + j
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn cannot_raise>, <Descr>, I[%i0, %i1], R[] -> %i2
+            residual_call_ir_i $<* fn cannot_raise>, I[%i0, %i1], R[], <Descr> -> %i2
             int_return %i2
         """, transform=True, liveness=True)
 
@@ -620,18 +620,18 @@ class TestFlatten:
             keepalive_until_here(q)
             return x
         self.encoding_test(f, [5], """
-            residual_call_r_r $<* fn g>, <Descr>, R[] -> %r0
+            residual_call_r_r $<* fn g>, R[], <Descr> -> %r0
             -live-
-            residual_call_r_r $<* fn g>, <Descr>, R[] -> %r1
+            residual_call_r_r $<* fn g>, R[], <Descr> -> %r1
             -live-
             -live- %r0
             -live- %r1
             int_return %i0
         """, transform=True)
         self.encoding_test(f, [5], """
-            residual_call_r_r $<* fn g>, <Descr>, R[] -> %r0
+            residual_call_r_r $<* fn g>, R[], <Descr> -> %r0
             -live- %i0, %r0
-            residual_call_r_r $<* fn g>, <Descr>, R[] -> %r1
+            residual_call_r_r $<* fn g>, R[], <Descr> -> %r1
             -live- %i0, %r0, %r1
             -live- %i0, %r0, %r1
             -live- %i0, %r1
@@ -676,7 +676,7 @@ class TestFlatten:
         self.encoding_test(f, [], """
             new_with_vtable <Descr> -> %r0
             virtual_ref %r0 -> %r1
-            residual_call_r_r $<* fn jit_force_virtual>, <Descr>, R[%r1] -> %r2
+            residual_call_r_r $<* fn jit_force_virtual>, R[%r1], <Descr> -> %r2
             ref_return %r2
         """, transform=True, cc=FakeCallControlWithVRefInfo())
 
@@ -687,9 +687,9 @@ class TestFlatten:
             array[2] = 5
             return array[2] + len(array)
         self.encoding_test(f, [], """
-            new_array <Descr>, $5 -> %r0
-            setarrayitem_gc_i %r0, <Descr>, $2, $5
-            getarrayitem_gc_i %r0, <Descr>, $2 -> %i0
+            new_array $5, <Descr> -> %r0
+            setarrayitem_gc_i %r0, $2, $5, <Descr>
+            getarrayitem_gc_i %r0, $2, <Descr> -> %i0
             arraylen_gc %r0, <Descr> -> %i1
             int_add %i0, %i1 -> %i2
             int_return %i2
@@ -703,7 +703,7 @@ class TestFlatten:
             x = array[2]
             return len(array)
         self.encoding_test(f, [], """
-            new_array <Descr>, $5 -> %r0
+            new_array $5, <Descr> -> %r0
             arraylen_gc %r0, <Descr> -> %i0
             int_return %i0
         """, transform=True)
@@ -824,7 +824,7 @@ class TestFlatten:
                     else:
                         FROM = rffi.ULONGLONG
                     expected.insert(0,
-                        "residual_call_irf_i $<* fn llong_to_int>, <Descr>, I[], R[], F[%f0] -> %i0")
+                        "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
                     expectedstr = '\n'.join(expected)
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
@@ -840,7 +840,7 @@ class TestFlatten:
                         fnname = "u" + fnname
                     expected.pop()   # remove int_return
                     expected.append(
-                        "residual_call_irf_f $<* fn %s>, <Descr>, I[%s], R[], F[] -> %%f0"
+                        "residual_call_irf_f $<* fn %s>, I[%s], R[], F[], <Descr> -> %%f0"
                         % (fnname, returnvar))
                     expected.append("float_return %f0")
                     expectedstr = '\n'.join(expected)
@@ -909,7 +909,7 @@ class TestFlatten:
         def f(dbl):
             return rffi.cast(lltype.Unsigned, dbl)
         self.encoding_test(f, [12.456], """
-            residual_call_irf_i $<* fn cast_float_to_uint>, <Descr>, I[], R[], F[%f0] -> %i0
+            residual_call_irf_i $<* fn cast_float_to_uint>, I[], R[], F[%f0], <Descr> -> %i0
             int_return %i0
         """, transform=True)
 
@@ -923,7 +923,7 @@ class TestFlatten:
         def f(i):
             return rffi.cast(lltype.Float, r_uint(i))    # "uint -> float"
         self.encoding_test(f, [12], """
-            residual_call_irf_f $<* fn cast_uint_to_float>, <Descr>, I[%i0], R[], F[] -> %f0
+            residual_call_irf_f $<* fn cast_uint_to_float>, I[%i0], R[], F[], <Descr> -> %f0
             float_return %f0
         """, transform=True)
 
@@ -931,14 +931,14 @@ class TestFlatten:
             def f(dbl):
                 return rffi.cast(lltype.SignedLongLong, dbl)
             self.encoding_test(f, [12.3], """
-                residual_call_irf_f $<* fn llong_from_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                residual_call_irf_f $<* fn llong_from_float>, I[], R[], F[%f0], <Descr> -> %f1
                 float_return %f1
             """, transform=True)
 
             def f(dbl):
                 return rffi.cast(lltype.UnsignedLongLong, dbl)
             self.encoding_test(f, [12.3], """
-                residual_call_irf_f $<* fn ullong_from_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                residual_call_irf_f $<* fn ullong_from_float>, I[], R[], F[%f0], <Descr> -> %f1
                 float_return %f1
             """, transform=True)
 
@@ -946,8 +946,8 @@ class TestFlatten:
                 ll = r_longlong(x)
                 return rffi.cast(lltype.Float, ll)
             self.encoding_test(f, [12], """
-                residual_call_irf_f $<* fn llong_from_int>, <Descr>, I[%i0], R[], F[] -> %f0
-                residual_call_irf_f $<* fn llong_to_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                residual_call_irf_f $<* fn llong_from_int>, I[%i0], R[], F[], <Descr> -> %f0
+                residual_call_irf_f $<* fn llong_to_float>, I[], R[], F[%f0], <Descr> -> %f1
                 float_return %f1
             """, transform=True)
 
@@ -955,8 +955,8 @@ class TestFlatten:
                 ll = r_ulonglong(x)
                 return rffi.cast(lltype.Float, ll)
             self.encoding_test(f, [12], """
-                residual_call_irf_f $<* fn ullong_from_int>, <Descr>, I[%i0], R[], F[] -> %f0
-                residual_call_irf_f $<* fn ullong_u_to_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                residual_call_irf_f $<* fn ullong_from_int>, I[%i0], R[], F[], <Descr> -> %f0
+                residual_call_irf_f $<* fn ullong_u_to_float>, I[], R[], F[%f0], <Descr> -> %f1
                 float_return %f1
             """, transform=True)
 

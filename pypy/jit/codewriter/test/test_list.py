@@ -82,17 +82,17 @@ def builtin_test(oopspec_name, args, RESTYPE, expected):
 
 def test_newlist():
     builtin_test('newlist', [], FIXEDLIST,
-                 """new_array <ArrayDescr>, $0 -> %r0""")
+                 """new_array $0, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed)], FIXEDLIST,
-                 """new_array <ArrayDescr>, $5 -> %r0""")
+                 """new_array $5, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [Constant(-2, lltype.Signed)], FIXEDLIST,
-                 """new_array <ArrayDescr>, $0 -> %r0""")
+                 """new_array $0, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], FIXEDLIST,
                  """int_force_ge_zero %i0 -> %i1\n"""
-                 """new_array <ArrayDescr>, %i1 -> %r0""")
+                 """new_array %i1, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed),
                              Constant(0, lltype.Signed)], FIXEDLIST,
-                 """new_array <ArrayDescr>, $5 -> %r0""")
+                 """new_array $5, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed),
                              Constant(1, lltype.Signed)], FIXEDLIST,
                  NotSupported)
@@ -108,35 +108,35 @@ def test_fixed_ll_arraycopy():
                   varoftype(lltype.Signed), 
                   varoftype(lltype.Signed)],
                  lltype.Void, """
-                     residual_call_ir_v $'myfunc', <CallDescrOS1>, I[%i0, %i1, %i2], R[%r0, %r1]
+                     residual_call_ir_v $'myfunc', I[%i0, %i1, %i2], R[%r0, %r1], <CallDescrOS1>
                  """)
 
 def test_fixed_getitem():
     builtin_test('list.getitem/NONNEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
-                     getarrayitem_gc_i %r0, <ArrayDescr>, %i0 -> %i1
+                     getarrayitem_gc_i %r0, %i0, <ArrayDescr> -> %i1
                  """)
     builtin_test('list.getitem/NEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
                      -live-
-                     check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
-                     getarrayitem_gc_i %r0, <ArrayDescr>, %i1 -> %i2
+                     check_neg_index %r0, %i0, <ArrayDescr> -> %i1
+                     getarrayitem_gc_i %r0, %i1, <ArrayDescr> -> %i2
                  """)
 
 def test_fixed_getitem_foldable():
     builtin_test('list.getitem_foldable/NONNEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
-                     getarrayitem_gc_i_pure %r0, <ArrayDescr>, %i0 -> %i1
+                     getarrayitem_gc_i_pure %r0, %i0, <ArrayDescr> -> %i1
                  """)
     builtin_test('list.getitem_foldable/NEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
                      -live-
-                     check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
-                     getarrayitem_gc_i_pure %r0, <ArrayDescr>, %i1 -> %i2
+                     check_neg_index %r0, %i0, <ArrayDescr> -> %i1
+                     getarrayitem_gc_i_pure %r0, %i1, <ArrayDescr> -> %i2
                  """)
 
 def test_fixed_setitem():
@@ -144,15 +144,15 @@ def test_fixed_setitem():
                                          varoftype(lltype.Signed),
                                          varoftype(lltype.Signed)],
                  lltype.Void, """
-                     setarrayitem_gc_i %r0, <ArrayDescr>, %i0, %i1
+                     setarrayitem_gc_i %r0, %i0, %i1, <ArrayDescr>
                  """)
     builtin_test('list.setitem/NEG', [varoftype(FIXEDLIST),
                                       varoftype(lltype.Signed),
                                       varoftype(lltype.Signed)],
                  lltype.Void, """
                      -live-
-                     check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
-                     setarrayitem_gc_i %r0, <ArrayDescr>, %i1, %i2
+                     check_neg_index %r0, %i0, <ArrayDescr> -> %i1
+                     setarrayitem_gc_i %r0, %i1, %i2, <ArrayDescr>
                  """)
 
 def test_fixed_len():
@@ -170,14 +170,14 @@ def test_resizable_newlist():
     alldescrs = ("<SizeDescr>, <FieldDescr length>,"
                  " <FieldDescr items>, <ArrayDescr>")
     builtin_test('newlist', [], VARLIST,
-                 """newlist """+alldescrs+""", $0 -> %r0""")
+                 """newlist $0, """+alldescrs+""" -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed)], VARLIST,
-                 """newlist """+alldescrs+""", $5 -> %r0""")
+                 """newlist $5, """+alldescrs+""" -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], VARLIST,
-                 """newlist """+alldescrs+""", %i0 -> %r0""")
+                 """newlist %i0, """+alldescrs+""" -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed),
                              Constant(0, lltype.Signed)], VARLIST,
-                 """newlist """+alldescrs+""", $5 -> %r0""")
+                 """newlist $5, """+alldescrs+""" -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed),
                              Constant(1, lltype.Signed)], VARLIST,
                  NotSupported)
@@ -189,14 +189,14 @@ def test_resizable_getitem():
     builtin_test('list.getitem/NONNEG',
                  [varoftype(VARLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
-        getlistitem_gc_i %r0, <FieldDescr items>, <ArrayDescr>, %i0 -> %i1
+        getlistitem_gc_i %r0, %i0, <FieldDescr items>, <ArrayDescr> -> %i1
                  """)
     builtin_test('list.getitem/NEG',
                  [varoftype(VARLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
         -live-
-        check_resizable_neg_index %r0, <FieldDescr length>, %i0 -> %i1
-        getlistitem_gc_i %r0, <FieldDescr items>, <ArrayDescr>, %i1 -> %i2
+        check_resizable_neg_index %r0, %i0, <FieldDescr length> -> %i1
+        getlistitem_gc_i %r0, %i1, <FieldDescr items>, <ArrayDescr> -> %i2
                  """)
 
 def test_resizable_setitem():
@@ -204,15 +204,15 @@ def test_resizable_setitem():
                                          varoftype(lltype.Signed),
                                          varoftype(lltype.Signed)],
                  lltype.Void, """
-        setlistitem_gc_i %r0, <FieldDescr items>, <ArrayDescr>, %i0, %i1
+        setlistitem_gc_i %r0, %i0, %i1, <FieldDescr items>, <ArrayDescr>
                  """)
     builtin_test('list.setitem/NEG', [varoftype(VARLIST),
                                       varoftype(lltype.Signed),
                                       varoftype(lltype.Signed)],
                  lltype.Void, """
         -live-
-        check_resizable_neg_index %r0, <FieldDescr length>, %i0 -> %i1
-        setlistitem_gc_i %r0, <FieldDescr items>, <ArrayDescr>, %i1, %i2
+        check_resizable_neg_index %r0, %i0, <FieldDescr length> -> %i1
+        setlistitem_gc_i %r0, %i1, %i2, <FieldDescr items>, <ArrayDescr>
                  """)
 
 def test_resizable_len():

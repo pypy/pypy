@@ -1,6 +1,6 @@
-from pypy.rpython.rrange import *
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rlib.rarithmetic import intmask
+from pypy.rpython.rrange import ll_rangelen, ll_rangeitem, ll_rangeitem_nonneg, dum_nocheck
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 
 class BaseTestRrange(BaseRtypingTest):
@@ -14,7 +14,7 @@ class BaseTestRrange(BaseRtypingTest):
                 step = l.step
             else:
                 RANGE = self.rrange.RangeRepr(step).RANGE
-                l = self.rrange.ll_newrange(RANGE,start,stop)
+                l = self.rrange.ll_newrange(RANGE, start, stop)
             assert ll_rangelen(l, step) == length
             lst = [ll_rangeitem(dum_nocheck, l, i, step) for i in range(length)]
             assert lst == expected

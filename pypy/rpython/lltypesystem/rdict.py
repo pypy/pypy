@@ -4,6 +4,7 @@ from pypy.rpython.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
      rtype_newdict)
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib import objectmodel, jit
+from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rpython import rmodel
 from pypy.rpython.error import TyperError
@@ -462,22 +463,30 @@ def ll_dict_setitem(d, key, value):
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
-    everused = d.entries.everused(i)
-    # set up the new entry
     ENTRY = lltype.typeOf(d.entries).TO.OF
     entry = d.entries[i]
-    entry.value = value
-    if valid:
-        return
+    if not d.entries.everused(i):
+        # a new entry that was never used before
+        ll_assert(not valid, "valid but not everused")
+        rc = d.resize_counter - 3
+        if rc <= 0:       # if needed, resize the dict -- before the insertion
+            ll_dict_resize(d)
+            i = ll_dict_lookup_clean(d, hash)  # then redo the lookup for 'key'
+            entry = d.entries[i]
+            rc = d.resize_counter - 3
+            ll_assert(rc > 0, "ll_dict_resize failed?")
+        d.resize_counter = rc
+        if hasattr(ENTRY, 'f_everused'): entry.f_everused = True
+        entry.value = value
+    else:
+        # override an existing or deleted entry
+        entry.value = value
+        if valid:
+            return
     entry.key = key
     if hasattr(ENTRY, 'f_hash'):  entry.f_hash = hash
     if hasattr(ENTRY, 'f_valid'): entry.f_valid = True
     d.num_items += 1
-    if not everused:
-        if hasattr(ENTRY, 'f_everused'): entry.f_everused = True
-        d.resize_counter -= 3
-        if d.resize_counter <= 0:
-            ll_dict_resize(d)
 
 def ll_dict_insertclean(d, key, value, hash):
     # Internal routine used by ll_dict_resize() to insert an item which is
@@ -534,8 +543,9 @@ def ll_dict_resize(d):
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers.  See CPython for why it is a good idea to
     # quadruple the dictionary size as long as it's not too big.
-    if d.num_items > 50000: new_estimate = d.num_items * 2
-    else:                   new_estimate = d.num_items * 4
+    num_items = d.num_items + 1
+    if num_items > 50000: new_estimate = num_items * 2
+    else:                 new_estimate = num_items * 4
     new_size = DICT_INITSIZE
     while new_size <= new_estimate:
         new_size *= 2

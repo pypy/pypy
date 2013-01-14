@@ -2,23 +2,17 @@
 Tests for the sha module implemented at interp-level in pypy/module/sha.
 """
 
-import py
-from pypy.conftest import gettestobjspace
-
 
 class AppTestSHA(object):
+    spaceconfig = {
+        "usemodules": ['_sha', 'rctime', 'binascii'],
+    }
 
     def setup_class(cls):
-        """
-        Create a space with the sha module and import it for use by the
-        tests.
-        """
-        cls.space = gettestobjspace(usemodules=['_sha'])
         cls.w_sha = cls.space.appexec([], """():
             import sha
             return sha
         """)
-
 
     def test_digest_size(self):
         """
@@ -31,7 +25,6 @@ class AppTestSHA(object):
         assert d.digest_size == 20
         assert d.digestsize == 20
 
-
     def test_SHAType(self):
         """
         Test the two ways to construct an sha object.
@@ -43,7 +36,6 @@ class AppTestSHA(object):
         assert isinstance(d, sha.SHAType)
         d = sha.new()
         assert isinstance(d, sha.SHAType)
-
 
     def test_shaobject(self):
         """
@@ -62,7 +54,7 @@ class AppTestSHA(object):
            "c12252ceda8be8994d5fa0290a47231c1d16aae3"),
           ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
            "761c457bf73b14d27e9e9265c46f4b4dda11f940"),
-          ("1234567890"*8,
+          ("1234567890" * 8,
            "50abf5706a150990a08b2c5ea40fa0e585554732"),
           ("1234567890"*999,
            "eaaca5490568fde98d8dc553d9566bdc602fde4a"),
@@ -71,7 +63,6 @@ class AppTestSHA(object):
             d = sha.new(input)
             assert d.hexdigest() == expected
             assert d.digest() == expected.decode('hex')
-
 
     def test_copy(self):
         """
@@ -86,7 +77,6 @@ class AppTestSHA(object):
         assert d1.hexdigest() == 'f5d13cf6341db9b0e299d7b9d562de9572b58e5d'
         assert d2.hexdigest() == '425af12a0743502b322e93a015bcf868e324d56a'
 
-
     def test_buffer(self):
         """
         Test passing a buffer object.
@@ -95,7 +85,6 @@ class AppTestSHA(object):
         d1 = sha.sha(buffer("abcde"))
         d1.update(buffer("jkl"))
         assert d1.hexdigest() == 'f5d13cf6341db9b0e299d7b9d562de9572b58e5d'
-
 
     def test_unicode(self):
         """

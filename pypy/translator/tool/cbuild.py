@@ -238,7 +238,7 @@ class ExternalCompilationInfo(object):
             d[attr] = getattr(self, attr)
         return d
 
-    def convert_sources_to_files(self, cache_dir=None, being_main=False):
+    def convert_sources_to_files(self, cache_dir=None):
         if not self.separate_module_sources:
             return self
         if cache_dir is None:
@@ -252,8 +252,6 @@ class ExternalCompilationInfo(object):
                 if not filename.check():
                     break
             f = filename.open("w")
-            if being_main:
-                f.write("#define PYPY_NOT_MAIN_FILE\n")
             self.write_c_header(f)
             source = str(source)
             f.write(source)
@@ -329,7 +327,9 @@ STANDARD_DEFINES = '''
 /* Define on NetBSD to activate all library features */
 #define _NETBSD_SOURCE 1
 /* Define to activate features from IEEE Stds 1003.1-2001 */
-#define _POSIX_C_SOURCE 200112L
+#ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 200112L
+#endif
 /* Define on FreeBSD to activate all library features */
 #define __BSD_VISIBLE 1
 #define __XSI_VISIBLE 700

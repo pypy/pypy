@@ -1,5 +1,4 @@
 import py
-from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.celldict import ModuleCell, ModuleDictStrategy
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, \
@@ -54,9 +53,10 @@ class TestCellDict(object):
         assert v2 is v3
 
 class AppTestModuleDict(object):
+    spaceconfig = {"objspace.std.withcelldict": True}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
-        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def w_impl_used(self, obj):
         if self.runappdirect:
@@ -122,10 +122,10 @@ class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictI
 
 
 class AppTestCellDict(object):
-    OPTIONS = {"objspace.std.withcelldict": True}
+    spaceconfig = {"objspace.std.withcelldict": True}
 
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
         strategy = ModuleDictStrategy(cls.space)
         storage = strategy.get_empty_storage()

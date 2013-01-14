@@ -238,7 +238,7 @@ index`_.  Of particular interest after reading this document might be:
    interpreter`_.
 
 .. _`documentation index`: index.html#project-documentation
-.. _`getting-started`: getting-started.html
+.. _`getting-started`: getting-started-dev.html
 .. _`PyPy's approach to virtual machine construction`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
 .. _`the translation document`: translation.html
 .. _`RPython toolchain`: translation.html

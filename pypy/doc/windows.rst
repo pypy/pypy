@@ -13,8 +13,8 @@ preferred, but can also use the mingw32 port of gcc.
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test the `RPython translation toolchain`_ using Visual Studio .NET
-2005, Professional Edition, and Visual Studio .NET 2008, Express
+We routinely test the `RPython translation toolchain`_ using 
+Visual Studio 2008, Express
 Edition.  Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
@@ -56,11 +56,24 @@ Installing external packages
 ----------------------------
 
 On Windows, there is no standard place where to download, build and
-install third-party libraries.  We chose to install them in the parent
+install third-party libraries.  We recommend installing them in the parent
 directory of the pypy checkout.  For example, if you installed pypy in
 ``d:\pypy\trunk\`` (This directory contains a README file), the base
-directory is ``d:\pypy``. You may choose different values by setting the
-INCLUDE, LIB and PATH (for DLLs)
+directory is ``d:\pypy``. You must then set the
+INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
+
+Abridged method (for -Ojit builds using Visual Studio 2008)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Download the versions of all the external packages
+from 
+https://bitbucket.org/pypy/pypy/downloads/local.zip
+Then expand it into the base directory (base_dir) and modify your environment to reflect this::
+
+    set PATH=<base_dir>\bin;%PATH%
+    set INCLUDE=<base_dir>\include;%INCLUDE%
+    set LIB=<base_dir>\lib;%LIB%
+
+Now you should be good to go. Read on for more information.
 
 The Boehm garbage collector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

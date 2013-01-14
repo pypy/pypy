@@ -376,6 +376,30 @@ class TestInteraction:
         child.expect('Traceback')
         child.expect('NameError')
 
+    def test_pythonstartup_file1(self, monkeypatch):
+        monkeypatch.setenv('PYTHONPATH', None)
+        monkeypatch.setenv('PYTHONSTARTUP', demo_script)
+        child = self.spawn([])
+        child.expect('File: [^\n]+\.py')
+        child.expect('goodbye')
+        child.expect('>>> ')
+        child.sendline('[myvalue]')
+        child.expect(re.escape('[42]'))
+        child.expect('>>> ')
+        child.sendline('__file__')
+        child.expect('Traceback')
+        child.expect('NameError')
+
+    def test_pythonstartup_file2(self, monkeypatch):
+        monkeypatch.setenv('PYTHONPATH', None)
+        monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
+        child = self.spawn([])
+        child.expect('Traceback')
+        child.expect('>>> ')
+        child.sendline('__file__')
+        child.expect('Traceback')
+        child.expect('NameError')
+
     def test_ignore_python_startup(self):
         old = os.environ.get('PYTHONSTARTUP', '')
         try:
@@ -396,6 +420,15 @@ class TestInteraction:
             assert index == 1      # no prompt
         finally:
             del os.environ['PYTHONINSPECT_']
+
+    def test_python_path_keeps_duplicates(self):
+        old = os.environ.get('PYTHONPATH', '')
+        try:
+            os.environ['PYTHONPATH'] = 'foobarbaz:foobarbaz'
+            child = self.spawn(['-c', 'import sys; print sys.path'])
+            child.expect(r"\['', 'foobarbaz', 'foobarbaz', ")
+        finally:
+            os.environ['PYTHONPATH'] = old
 
     def test_ignore_python_path(self):
         old = os.environ.get('PYTHONPATH', '')
@@ -680,6 +713,10 @@ class TestNonInteractive:
         child_out_err.close()
 
     def test_proper_sys_path(self, tmpdir):
+        data = self.run('-c "import _ctypes"', python_flags='-S')
+        if data.startswith('Traceback'):
+            py.test.skip("'python -S' cannot import extension modules: "
+                         "see probably http://bugs.python.org/issue586680")
 
         @contextmanager
         def chdir_and_unset_pythonpath(new_cwd):

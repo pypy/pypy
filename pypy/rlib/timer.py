@@ -18,7 +18,7 @@ class Timer:
         self.levels = {}
         self.timingorder = []
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.reset()
 
     def start(self, timer):

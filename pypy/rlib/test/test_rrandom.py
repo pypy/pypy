@@ -1,6 +1,8 @@
-from pypy.rlib.rrandom import Random, N, r_uint
-from pypy.rlib.rarithmetic import intmask
 import _random
+
+from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rrandom import Random, N, r_uint
+from pypy.translator.c.test.test_genc import compile
 
 # the numbers were created by using CPython's _randommodule.c
 
@@ -43,13 +45,14 @@ def test_jumpahead():
     cpyrandom.jumpahead(100)
     assert tuple(rnd.state) + (rnd.index, ) == cpyrandom.getstate()
 
+
 def test_translate():
-    from pypy.translator.interactive import Translation
     def f(x, y):
+        x = r_uint(x)
+        y = r_uint(y)
         rnd = Random(x)
         rnd.init_by_array([x, y])
         rnd.jumpahead(intmask(y))
-        return rnd.genrand32(), rnd.random()
-    t = Translation(f)
-    fc = t.compile_c([r_uint, r_uint])
-    assert fc(r_uint(1), r_uint(2)) == f(r_uint(1), r_uint(2))
+        return float(rnd.genrand32()) + rnd.random()
+    fc = compile(f, [int, int])
+    assert fc(1, 2) == f(1, 2)

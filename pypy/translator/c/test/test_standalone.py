@@ -57,9 +57,9 @@ class TestStandalone(StandaloneTests):
 
         # Verify that the generated C files have sane names:
         gen_c_files = [str(f) for f in cbuilder.extrafiles]
-        for expfile in ('rlib_rposix.c', 
-                        'rpython_lltypesystem_rstr.c',
-                        'translator_c_test_test_standalone.c'):
+        for expfile in ('pypy_rlib_rposix.c',
+                        'pypy_rpython_lltypesystem_rstr.c',
+                        'pypy_translator_c_test_test_standalone.c'):
             assert cbuilder.targetdir.join(expfile) in gen_c_files
 
     def test_print(self):
@@ -101,11 +101,11 @@ class TestStandalone(StandaloneTests):
         cbuilder.compile()
 
         counters_fname = udir.join("_counters_")
-        os.environ['_INSTRUMENT_COUNTERS'] = str(counters_fname)
+        os.environ['PYPY_INSTRUMENT_COUNTERS'] = str(counters_fname)
         try:
             data = cbuilder.cmdexec()
         finally:
-            del os.environ['_INSTRUMENT_COUNTERS']
+            del os.environ['PYPY_INSTRUMENT_COUNTERS']
 
         f = counters_fname.open('rb')
         counters_data = f.read()
@@ -131,14 +131,14 @@ class TestStandalone(StandaloneTests):
             os.write(1, str(tot))
             return 0
         from pypy.translator.interactive import Translation
-        t = Translation(entry_point, backend='c', standalone=True)
+        t = Translation(entry_point, backend='c')
         # no counters
         t.backendopt(inline_threshold=100, profile_based_inline="500")
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
 
-        t = Translation(entry_point, backend='c', standalone=True)
+        t = Translation(entry_point, backend='c')
         # counters
         t.backendopt(inline_threshold=all.INLINE_THRESHOLD_FOR_TEST*0.5,
                      profile_based_inline="500")
@@ -171,13 +171,13 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="100")
+        t = Translation(entry_point, backend='c', profopt="100")
         # no counters
         t.backendopt()
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', standalone=True, profopt="100",
+        t = Translation(entry_point, backend='c', profopt="100",
                         noprofopt=True)
         # no counters
         t.backendopt()
@@ -208,12 +208,12 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="")
+        t = Translation(entry_point, backend='c', profopt="")
         # no counters
         t.backendopt()
         exe = t.compile()
         #py.process.cmdexec(exe)
-        t = Translation(entry_point, backend='c', standalone=True, profopt="",
+        t = Translation(entry_point, backend='c', profopt="",
                         noprofopt=True)
         # no counters
         t.backendopt()
@@ -241,7 +241,7 @@ class TestStandalone(StandaloneTests):
     def test_separate_files(self):
         # One file in translator/c/src
         fname = py.path.local(pypydir).join(
-            'translator', 'c', 'src', 'll_strtod.h')
+            'translator', 'c', 'src', 'll_strtod.c')
 
         # One file in (another) subdir of the temp directory
         dirname = udir.join("test_dir").ensure(dir=1)
@@ -273,7 +273,7 @@ class TestStandalone(StandaloneTests):
 
         # but files from pypy source dir must be copied
         assert "translator/c/src" not in makefile
-        assert "  ll_strtod.h" in makefile
+        assert "  ll_strtod.c" in makefile
         assert "  ll_strtod.o" in makefile
 
     def test_debug_print_start_stop(self):

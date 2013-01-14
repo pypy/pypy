@@ -139,6 +139,12 @@ dict_typedef.registermethods(globals())
 
 # ____________________________________________________________
 
+def descr_dictiter__length_hint__(space, w_self):
+    from pypy.objspace.std.dictmultiobject import W_BaseDictMultiIterObject
+    assert isinstance(w_self, W_BaseDictMultiIterObject)
+    return space.wrap(w_self.iteratorimplementation.length())
+
+
 def descr_dictiter__reduce__(w_self, space):
     """
     This is a slightly special case of pickling.
@@ -195,7 +201,8 @@ def descr_dictiter__reduce__(w_self, space):
 
 
 dictiter_typedef = StdTypeDef("dictionaryiterator",
-    __reduce__ = gateway.interp2app(descr_dictiter__reduce__),
+    __length_hint__ = gateway.interp2app(descr_dictiter__length_hint__),
+    __reduce__      = gateway.interp2app(descr_dictiter__reduce__),
     )
 
 # ____________________________________________________________

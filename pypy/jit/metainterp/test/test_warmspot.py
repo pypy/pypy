@@ -1,6 +1,6 @@
 import py
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.rlib.jit import JitDriver, set_param, unroll_safe
+from pypy.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback
 from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -250,11 +250,11 @@ class WarmspotTests(object):
                            'int_sub': 2})
 
     def test_void_red_variable(self):
-        mydriver = JitDriver(greens=[], reds=['a', 'm'])
+        mydriver = JitDriver(greens=[], reds=['m'])
         def f1(m):
             a = None
             while m > 0:
-                mydriver.jit_merge_point(a=a, m=m)
+                mydriver.jit_merge_point(m=m)
                 m = m - 1
                 if m == 10:
                     pass   # other case
@@ -312,8 +312,250 @@ class WarmspotTests(object):
         self.meta_interp(f1, [18])
 
 
+    def test_loop_automatic_reds(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def f(n, m):
+            res = 0
+            # try to have lots of red vars, so that if there is an error in
+            # the ordering of reds, there are low chances that the test passes
+            # by chance
+            a = b = c = d = n
+            while n > 0:
+                myjitdriver.jit_merge_point(m=m)
+                n -= 1
+                a += 1 # dummy unused red
+                b += 2 # dummy unused red
+                c += 3 # dummy unused red
+                d += 4 # dummy unused red
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=10)
+
+    def test_loop_automatic_reds_with_floats_and_refs(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        class MyObj(object):
+            def __init__(self, val):
+                self.val = val
+        def f(n, m):
+            res = 0
+            # try to have lots of red vars, so that if there is an error in
+            # the ordering of reds, there are low chances that the test passes
+            # by chance
+            i1 = i2 = i3 = i4 = n
+            f1 = f2 = f3 = f4 = float(n)
+            r1 = r2 = r3 = r4 = MyObj(n)
+            while n > 0:
+                myjitdriver.jit_merge_point(m=m)
+                n -= 1
+                i1 += 1 # dummy unused red
+                i2 += 2 # dummy unused red
+                i3 += 3 # dummy unused red
+                i4 += 4 # dummy unused red
+                f1 += 1 # dummy unused red
+                f2 += 2 # dummy unused red
+                f3 += 3 # dummy unused red
+                f4 += 4 # dummy unused red
+                r1.val += 1 # dummy unused red
+                r2.val += 2 # dummy unused red
+                r3.val += 3 # dummy unused red
+                r4.val += 4 # dummy unused red
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=18, float_add=8)
+
+    def test_loop_automatic_reds_livevars_before_jit_merge_point(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def f(n, m):
+            res = 0
+            while n > 0:
+                n -= 1
+                myjitdriver.jit_merge_point(m=m)
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=2)
+
+    def test_loop_automatic_reds_not_too_many_redvars(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def one():
+            return 1
+        def f(n, m):
+            res = 0
+            while n > 0:
+                n -= one()
+                myjitdriver.jit_merge_point(m=m)
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        oplabel = get_stats().loops[0].operations[0]
+        assert len(oplabel.getarglist()) == 2     # 'n', 'res' in some order
+
+    def test_inline_jit_merge_point(self):
+        # test that the machinery to inline jit_merge_points in callers
+        # works. The final user does not need to mess manually with the
+        # _inline_jit_merge_point_ attribute and similar, it is all nicely
+        # handled by @JitDriver.inline() (see next tests)
+        myjitdriver = JitDriver(greens = ['a'], reds = 'auto')
+
+        def jit_merge_point(a, b):
+            myjitdriver.jit_merge_point(a=a)
+
+        def add(a, b):
+            jit_merge_point(a, b)
+            return a+b
+        add._inline_jit_merge_point_ = jit_merge_point
+        myjitdriver.inline_jit_merge_point = True
+
+        def calc(n):
+            res = 0
+            while res < 1000:
+                res = add(n, res)
+            return res
+
+        def f():
+            return calc(1) + calc(3)
+
+        res = self.meta_interp(f, [])
+        assert res == 1000 + 1002
+        self.check_resops(int_add=4)
+
+    def test_jitdriver_inline(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        class MyRange(object):
+            def __init__(self, n):
+                self.cur = 0
+                self.n = n
+
+            def __iter__(self):
+                return self
+
+            def jit_merge_point(self):
+                myjitdriver.jit_merge_point()
+
+            @myjitdriver.inline(jit_merge_point)
+            def next(self):
+                if self.cur == self.n:
+                    raise StopIteration
+                self.cur += 1
+                return self.cur
+
+        def f(n):
+            res = 0
+            for i in MyRange(n):
+                res += i
+            return res
+
+        expected = f(21)
+        res = self.meta_interp(f, [21])
+        assert res == expected
+        self.check_resops(int_eq=2, int_add=4)
+        self.check_trace_count(1)
+
+    def test_jitdriver_inline_twice(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def jit_merge_point(a, b):
+            myjitdriver.jit_merge_point()
+
+        @myjitdriver.inline(jit_merge_point)
+        def add(a, b):
+            return a+b
+
+        def one(n):
+            res = 0
+            while res < 1000:
+                res = add(n, res)
+            return res
+
+        def two(n):
+            res = 0
+            while res < 2000:
+                res = add(n, res)
+            return res
+
+        def f(n):
+            return one(n) + two(n)
+
+        res = self.meta_interp(f, [1])
+        assert res == 3000
+        self.check_resops(int_add=4)
+        self.check_trace_count(2)
+
+    def test_jitdriver_inline_exception(self):
+        # this simulates what happens in a real case scenario: inside the next
+        # we have a call which we cannot inline (e.g. space.next in the case
+        # of W_InterpIterable), but we need to put it in a try/except block.
+        # With the first "inline_in_portal" approach, this case crashed
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        
+        def inc(x, n):
+            if x == n:
+                raise OverflowError
+            return x+1
+        inc._dont_inline_ = True
+        
+        class MyRange(object):
+            def __init__(self, n):
+                self.cur = 0
+                self.n = n
+
+            def __iter__(self):
+                return self
+
+            def jit_merge_point(self):
+                myjitdriver.jit_merge_point()
+
+            @myjitdriver.inline(jit_merge_point)
+            def next(self):
+                try:
+                    self.cur = inc(self.cur, self.n)
+                except OverflowError:
+                    raise StopIteration
+                return self.cur
+
+        def f(n):
+            res = 0
+            for i in MyRange(n):
+                res += i
+            return res
+
+        expected = f(21)
+        res = self.meta_interp(f, [21])
+        assert res == expected
+        self.check_resops(int_eq=2, int_add=4)
+        self.check_trace_count(1)
+
+
+    def test_callback_jit_merge_point(self):
+        @jit_callback("testing")
+        def callback(a, b):
+            if a > b:
+                return 1
+            return -1
+
+        def main():
+            total = 0
+            for i in range(10):
+                total += callback(i, 2)
+            return total
+
+        res = self.meta_interp(main, [])
+        assert res == 7 - 3
+        self.check_trace_count(2)
+
+
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
-    CPUClass = runner.LLtypeCPU
+    CPUClass = runner.LLGraphCPU
     type_system = 'lltype'
 
 class TestOOWarmspot(WarmspotTests, OOJitMixin):
@@ -333,8 +575,9 @@ class TestWarmspotDirect(object):
         class FakeFailDescr(object):
             def __init__(self, no):
                 self.no = no
-            def handle_fail(self, metainterp_sd, jitdrivers_sd):
+            def handle_fail(self, deadframe, metainterp_sd, jitdrivers_sd):
                 no = self.no
+                assert deadframe._no == no
                 if no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
                 if no == 1:
@@ -348,6 +591,10 @@ class TestWarmspotDirect(object):
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
                 assert 0
 
+        class FakeDeadFrame:
+            def __init__(self, no):
+                self._no = no
+
         class FakeDescr:
             def as_vtable_size_descr(self):
                 return self
@@ -359,6 +606,10 @@ class TestWarmspotDirect(object):
             ts = llhelper
             translate_support_code = False
             stats = "stats"
+
+            def get_latest_descr(self, deadframe):
+                assert isinstance(deadframe, FakeDeadFrame)
+                return self.get_fail_descr_from_number(deadframe._no)
 
             def get_fail_descr_number(self, d):
                 return -1
@@ -393,15 +644,17 @@ class TestWarmspotDirect(object):
         translator = rtyper.annotator.translator
         translator.config.translation.gc = 'hybrid'
         cls.desc = WarmRunnerDesc(translator, CPUClass=FakeCPU)
+        cls.FakeDeadFrame = FakeDeadFrame
 
     def test_call_helper(self):
         from pypy.rpython.llinterp import LLException
 
         [jd] = self.desc.jitdrivers_sd
-        assert jd._assembler_call_helper(0, 0) == 3
-        assert jd._assembler_call_helper(1, 0) == 10
+        FakeDeadFrame = self.FakeDeadFrame
+        assert jd._assembler_call_helper(FakeDeadFrame(0), 0) == 3
+        assert jd._assembler_call_helper(FakeDeadFrame(1), 0) == 10
         try:
-            jd._assembler_call_helper(3, 0)
+            jd._assembler_call_helper(FakeDeadFrame(3), 0)
         except LLException, lle:
             assert lle[0] == self.exc_vtable
         else:

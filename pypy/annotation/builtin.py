@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict, SomeList
 from pypy.annotation.model import SomeWeakRef, SomeIterator
-from pypy.annotation.model import SomeOOObject
+from pypy.annotation.model import SomeOOObject, SomeByteArray
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.model import s_ImpossibleValue
@@ -119,6 +119,9 @@ def builtin_unichr(s_int):
 def builtin_unicode(s_unicode):
     return constpropagate(unicode, [s_unicode], SomeUnicodeString())
 
+def builtin_bytearray(s_str):
+    return constpropagate(bytearray, [s_str], SomeByteArray())
+
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
     from pypy.annotation.classdef import ClassDef
@@ -150,7 +153,7 @@ def our_issubclass(cls1, cls2):
 
 
 def builtin_isinstance(s_obj, s_type, variables=None):
-    r = SomeBool() 
+    r = SomeBool()
     if s_type.is_constant():
         typ = s_type.const
         if issubclass(typ, pypy.rlib.rarithmetic.base_int):
@@ -158,18 +161,12 @@ def builtin_isinstance(s_obj, s_type, variables=None):
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")
-                if s_obj.is_constant():
-                    r.const = isinstance(s_obj.const, long)
-                else:
-                    if type(s_obj) is not SomeObject: # only SomeObjects could be longs
-                        # type(s_obj) < SomeObject -> SomeBool(False)
-                        # type(s_obj) == SomeObject -> SomeBool()
-                        r.const = False
+                r.const = False
                 return r
-                
+
             assert not issubclass(typ, (int, long)) or typ in (bool, int, long), (
                 "for integers only isinstance(.,int|r_uint) are supported")
- 
+
             if s_obj.is_constant():
                 r.const = isinstance(s_obj.const, typ)
             elif our_issubclass(s_obj.knowntype, typ):
@@ -194,10 +191,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        r.knowntypedata = {}
-        if (not isinstance(s_type, SomeBuiltin)
-            or typ.__module__ == '__builtin__'):
-            add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
+        knowntypedata = {}
+        if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
+            add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
+        r.set_knowntypedata(knowntypedata)
     return r
 
 # note that this one either needs to be constant, or we will create SomeObject
@@ -259,24 +256,6 @@ def builtin_max(*s_values):
                 s = SomeInteger(nonneg=True, knowntype=s.knowntype)
         return s
 
-def builtin_apply(*stuff):
-    getbookkeeper().warning("ignoring apply%r" % (stuff,))
-    return SomeObject()
-
-##def builtin_slice(*args):
-##    bk = getbookkeeper()
-##    if len(args) == 1:
-##        return SomeSlice(
-##            bk.immutablevalue(None), args[0], bk.immutablevalue(None))
-##    elif len(args) == 2:
-##        return SomeSlice(
-##            args[0], args[1], bk.immutablevalue(None))
-##    elif len(args) == 3:
-##        return SomeSlice(
-##            args[0], args[1], args[2])
-##    else:
-##        raise Exception, "bogus call to slice()"
-
 
 def OSError_init(s_self, *args):
     pass
@@ -329,10 +308,12 @@ def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
 
 def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     from pypy.rpython import rmodel
-    assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr),"hlinvoke expects a constant repr as first argument"
-    r_func, nimplicitarg  = s_repr.const.get_r_implfunc()
+    from pypy.rpython.error import TyperError
 
-    nbargs = len(args_s) + nimplicitarg 
+    assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr), "hlinvoke expects a constant repr as first argument"
+    r_func, nimplicitarg = s_repr.const.get_r_implfunc()
+
+    nbargs = len(args_s) + nimplicitarg
     s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
@@ -342,6 +323,7 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     rresult = r_func.rtyper.getrepr(s_ret)
 
     return lltype_to_annotation(rresult.lowleveltype)
+
 
 def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
@@ -410,7 +392,10 @@ else:
     BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 
 # object - just ignore object.__init__
-BUILTIN_ANALYZERS[object.__init__] = object_init
+if hasattr(object.__init__, 'im_func'):
+    BUILTIN_ANALYZERS[object.__init__.im_func] = object_init
+else:
+    BUILTIN_ANALYZERS[object.__init__] = object_init    
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func

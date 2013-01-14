@@ -1,14 +1,13 @@
-from pypy.conftest import gettestobjspace
 from pypy.module._multiprocessing.interp_semaphore import (
     RECURSIVE_MUTEX, SEMAPHORE)
 
 
 class AppTestSemaphore:
+    spaceconfig = dict(usemodules=('_multiprocessing', 'thread'))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
-        cls.space = space
-        cls.w_SEMAPHORE = space.wrap(SEMAPHORE)
-        cls.w_RECURSIVE = space.wrap(RECURSIVE_MUTEX)
+        cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
+        cls.w_RECURSIVE = cls.space.wrap(RECURSIVE_MUTEX)
 
     def test_semaphore(self):
         from _multiprocessing import SemLock

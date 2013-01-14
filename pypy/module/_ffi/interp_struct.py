@@ -115,7 +115,7 @@ class W__StructDescr(Wrappable):
 @unwrap_spec(name=str)
 def descr_new_structdescr(space, w_type, name, w_fields=None):
     descr = W__StructDescr(name)
-    if w_fields is not space.w_None:
+    if not space.is_none(w_fields):
         descr.define_fields(space, w_fields)
     return descr
 

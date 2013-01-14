@@ -1,7 +1,7 @@
 from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import interp_attrproperty_w, interp_attrproperty
 from pypy.module._csv.interp_csv import _build_dialect
@@ -213,15 +213,15 @@ class W_Reader(Wrappable):
         return w_result
 
 
-def csv_reader(space, w_iterator, w_dialect=NoneNotWrapped,
-                  w_delimiter        = NoneNotWrapped,
-                  w_doublequote      = NoneNotWrapped,
-                  w_escapechar       = NoneNotWrapped,
-                  w_lineterminator   = NoneNotWrapped,
-                  w_quotechar        = NoneNotWrapped,
-                  w_quoting          = NoneNotWrapped,
-                  w_skipinitialspace = NoneNotWrapped,
-                  w_strict           = NoneNotWrapped,
+def csv_reader(space, w_iterator, w_dialect=None,
+                  w_delimiter        = None,
+                  w_doublequote      = None,
+                  w_escapechar       = None,
+                  w_lineterminator   = None,
+                  w_quotechar        = None,
+                  w_quoting          = None,
+                  w_skipinitialspace = None,
+                  w_strict           = None,
                   ):
     """
     csv_reader = reader(iterable [, dialect='excel']

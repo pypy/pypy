@@ -19,8 +19,6 @@ baseobjspace.ObjSpace.newbool.im_func._annenforceargs_ = Sig(lambda s1,s2: s1,
 
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
-    allow_someobjects = False
-
     def __init__(pol, single_space=None):
         pol.lookups = {}
         pol.lookups_where = {}

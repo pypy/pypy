@@ -1,18 +1,21 @@
 import random
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rstr import AbstractLLHelpers
-from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
-from pypy.rpython.ootypesystem.ootype import make_string
-from pypy.rpython.rtyper import RPythonTyper, TyperError
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.llinterp import LLException
+
+import py
+
 from pypy.objspace.flow.model import summary
+from pypy.rpython.lltypesystem.lltype import typeOf, Signed, malloc
+from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
+from pypy.rpython.rstr import AbstractLLHelpers
+from pypy.rpython.rtyper import TyperError
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+
 
 def test_parse_fmt():
     parse = AbstractLLHelpers.parse_fmt_string
     assert parse('a') == ['a']
     assert parse('%s') == [('s',)]
     assert parse("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
+
 
 class AbstractTestRstr(BaseRtypingTest):
     def test_simple(self):
@@ -135,6 +138,24 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [ch])
             assert res == fn(ch)
 
+    def test_isdigit(self):
+        const = self.const
+
+        def fn(i):
+            consts = [const(''), const('anc'), const('abc123'), const('123')]
+            return consts[i].isdigit()
+        for i in xrange(3):
+            assert self.interpret(fn, [i]) == fn(i)
+
+    def test_str_isalpha(self):
+        const = self.const
+
+        def fn(i):
+            consts = [const(''), const('anc'), const('abc123')]
+            return consts[i].isalpha()
+        for i in xrange(3):
+            assert self.interpret(fn, [i]) == fn(i)
+
     def test_char_compare(self):
         const = self.const
         res = self.interpret(lambda c1, c2: c1 == c2,  [const('a'),
@@ -145,6 +166,16 @@ class AbstractTestRstr(BaseRtypingTest):
         assert res is True
         res = self.interpret(lambda c1, c2: c1 <= c2,  [const('z'),
                                                         const('a')])
+        assert res is False
+
+    def test_char_string_compare(self):
+        const = self.const
+        lst = [const('a'), const('abc')]
+        res = self.interpret(lambda i1, c2: (lst[i1],) == (c2,),
+                             [1, const('b')])
+        assert res is False
+        res = self.interpret(lambda i1, c2: (c2,) == (lst[i1],),
+                             [1, const('b')])
         assert res is False
 
     def test_char_mul(self):
@@ -1025,6 +1056,19 @@ def FIXME_test_str_to_pystringobj():
 class BaseTestRstr(AbstractTestRstr):
     const = str
     constchar = chr
+
+    def test_lower_char(self):
+        def fn(i):
+            return chr(i).lower()
+        for c in ["a", "A", "1"]:
+            assert self.interpret(fn, [ord(c)]) == c.lower()
+
+    def test_upper_char(self):
+        def fn(i):
+            return chr(i).upper()
+        for c in ["a", "A", "1"]:
+            assert self.interpret(fn, [ord(c)]) == c.upper()
+
 
 class TestLLtype(BaseTestRstr, LLRtypeMixin):
 

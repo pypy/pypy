@@ -4,7 +4,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.function import BuiltinFunction, Method, StaticMethod
+from pypy.interpreter.function import (
+    BuiltinFunction, Method, StaticMethod, ClassMethod)
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pyobject import (PyObject, from_ref, make_ref,
                                          make_typedescr, Py_DecRef)
@@ -128,6 +129,21 @@ class W_PyCMethodObject(W_PyCFunctionObject):
 
 PyCFunction_Check, PyCFunction_CheckExact = build_type_checkers("CFunction", W_PyCFunctionObject)
 
+class W_PyCClassMethodObject(W_PyCFunctionObject):
+    w_self = None
+    def __init__(self, space, ml, w_type):
+        self.space = space
+        self.ml = ml
+        self.name = rffi.charp2str(ml.c_ml_name)
+        self.w_objclass = w_type
+
+    def __repr__(self):
+        return self.space.unwrap(self.descr_method_repr())
+
+    def descr_method_repr(self):
+        return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space)))
+
+
 class W_PyCWrapperObject(Wrappable):
     def __init__(self, space, pto, method_name, wrapper_func, wrapper_func_kwds,
             doc, func):
@@ -188,13 +204,18 @@ def cmethod_descr_call(space, w_self, __args__):
     return ret
 
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
-    asking_for_bound = (space.is_w(w_cls, space.w_None) or
+    asking_for_bound = (space.is_none(w_cls) or
                         not space.is_w(w_obj, space.w_None) or
                         space.is_w(w_cls, space.type(space.w_None)))
     if asking_for_bound:
         return space.wrap(Method(space, w_function, w_obj, w_cls))
     else:
         return w_function
+
+def cclassmethod_descr_get(space, w_function, w_obj, w_cls=None):
+    if not w_cls:
+        w_cls = space.type(w_obj)
+    return space.wrap(Method(space, w_function, w_cls, space.w_None))
 
 
 W_PyCFunctionObject.typedef = TypeDef(
@@ -215,6 +236,16 @@ W_PyCMethodObject.typedef = TypeDef(
     __repr__ = interp2app(W_PyCMethodObject.descr_method_repr),
     )
 W_PyCMethodObject.typedef.acceptable_as_base_class = False
+
+W_PyCClassMethodObject.typedef = TypeDef(
+    'classmethod',
+    __get__ = interp2app(cclassmethod_descr_get),
+    __call__ = interp2app(cmethod_descr_call),
+    __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject),
+    __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCClassMethodObject),
+    __repr__ = interp2app(W_PyCClassMethodObject.descr_method_repr),
+    )
+W_PyCClassMethodObject.typedef.acceptable_as_base_class = False
 
 
 W_PyCWrapperObject.typedef = TypeDef(
@@ -243,9 +274,17 @@ def PyCFunction_GetFunction(space, w_obj):
 def PyStaticMethod_New(space, w_func):
     return space.wrap(StaticMethod(w_func))
 
+@cpython_api([PyObject], PyObject)
+def PyClassMethod_New(space, w_func):
+    return space.wrap(ClassMethod(w_func))
+
 @cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewMethod(space, w_type, method):
     return space.wrap(W_PyCMethodObject(space, method, w_type))
+
+@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
+def PyDescr_NewClassMethod(space, w_type, method):
+    return space.wrap(W_PyCClassMethodObject(space, method, w_type))
 
 def PyDescr_NewWrapper(space, pto, method_name, wrapper_func, wrapper_func_kwds,
                        doc, func):

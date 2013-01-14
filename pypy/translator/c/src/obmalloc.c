@@ -2,6 +2,7 @@
 #ifdef WITH_PYMALLOC
 
 #include <string.h>
+#include <assert.h>
 
 /* An object allocator for Python.
 

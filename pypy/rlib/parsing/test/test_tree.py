@@ -56,9 +56,12 @@ class BaseTestTreeTranslated(object):
         def foo():
             tree = Nonterminal(symbol="a", 
                 children=[])
-            return tree.getsourcepos()
+            try:
+                return tree.getsourcepos()
+            except IndexError:
+                return -42
         f = self.compile(foo)
-        py.test.raises(IndexError, f)    
+        assert f() == -42
 
     def test_nonterminal_nested_empty(self):
         def foo():
@@ -70,9 +73,12 @@ class BaseTestTreeTranslated(object):
                 children=[Nonterminal(symbol="c",
                 children=[Nonterminal(symbol="c",
                 children=[])])])])])])])
-            return tree.getsourcepos()
+            try:
+                return tree.getsourcepos()
+            except IndexError:
+                return -42
         f = self.compile(foo)
-        py.test.raises(IndexError, f)    
+        assert f() == -42
 
 
 class TestTreeTranslatedLLType(BaseTestTreeTranslated):

@@ -1,9 +1,8 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rgc
+from pypy.rlib import rgc, jit
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -183,6 +182,8 @@ class Storage:
 
     def clear(self):
         self.next_id = 0
+        self._last_object_id = -1
+        self._last_object = None
         self.storage = {}
 
     @staticmethod
@@ -195,10 +196,18 @@ class Storage:
 
     @staticmethod
     def get_object(id):
-        return global_storage.storage[id]
+        if id == global_storage._last_object_id:
+            return global_storage._last_object
+        result = global_storage.storage[id]
+        global_storage._last_object_id = id
+        global_storage._last_object = result
+        return result
 
     @staticmethod
     def free_nonmoving_id(id):
+        if id == global_storage._last_object_id:
+            global_storage._last_object = None
+            global_storage._last_object_id = -1
         del global_storage.storage[id]
 
 global_storage = Storage()
@@ -279,6 +288,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         post_code = ''
 
     src = py.code.Source("""
+    @jit.jit_callback('XML:%(name)s')
     def %(name)s_callback(%(first_arg)s, %(args)s):
         id = rffi.cast(lltype.Signed, %(ll_id)s)
         userdata = global_storage.get_object(id)
@@ -445,7 +455,8 @@ XML_PARAM_ENTITY_PARSING_ALWAYS. Returns true if setting the flag
 was successful."""
         XML_SetParamEntityParsing(self.itself, flag)
 
-    def UseForeignDTD(self, space, w_flag=True):
+    @unwrap_spec(w_flag=WrappedDefault(True))
+    def UseForeignDTD(self, space, w_flag):
         """UseForeignDTD([flag])
 Allows the application to provide an artificial external subset if one is
 not specified as part of the document instance.  This readily allows the
@@ -643,7 +654,7 @@ information passed to the ExternalEntityRefHandler."""
         else:
             context = space.str_w(w_context)
 
-        if space.is_w(w_encoding, space.w_None):
+        if space.is_none(w_encoding):
             encoding = None
         else:
             encoding = space.str_w(w_encoding)
@@ -774,10 +785,10 @@ W_XMLParserType.typedef = TypeDef(
     )
 
 def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
-                 w_intern=NoneNotWrapped):
+                 w_intern=None):
     """ParserCreate([encoding[, namespace_separator]]) -> parser
 Return a new XML parser object."""
-    if space.is_w(w_encoding, space.w_None):
+    if space.is_none(w_encoding):
         encoding = None
     elif space.is_true(space.isinstance(w_encoding, space.w_str)):
         encoding = space.str_w(w_encoding)
@@ -788,7 +799,7 @@ Return a new XML parser object."""
             space.wrap('ParserCreate() argument 1 must be string or None,'
                        ' not %s' % (type_name,)))
 
-    if space.is_w(w_namespace_separator, space.w_None):
+    if space.is_none(w_namespace_separator):
         namespace_separator = 0
     elif space.is_true(space.isinstance(w_namespace_separator, space.w_str)):
         separator = space.str_w(w_namespace_separator)

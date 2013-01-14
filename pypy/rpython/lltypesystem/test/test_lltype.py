@@ -718,10 +718,6 @@ def test_str_of_dead_ptr():
     gc.collect()
     repr(s)
 
-def test_pyobject():
-    p = pyobjectptr({42: 84})
-    assert typeOf(p) == Ptr(PyObject)
-
 def test_name_clash():
     import re
     fn = lltype.__file__
@@ -811,7 +807,6 @@ def test_typedef():
     F = FuncType((T,), T)
     assert F.RESULT == Signed
     assert F.ARGS == (Signed,)
-
 
 class TestTrackAllocation:
     def test_automatic_tracking(self):

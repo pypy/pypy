@@ -1,9 +1,7 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestStreams:
+    spaceconfig = dict(usemodules=['_multibytecodec'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_multibytecodec'])
         cls.w_HzStreamReader = cls.space.appexec([], """():
             import _codecs_cn
             from _multibytecodec import MultibyteStreamReader

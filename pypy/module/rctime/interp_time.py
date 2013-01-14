@@ -87,7 +87,7 @@ if _WIN:
         def __init__(self, space):
             self.main_thread = 0
 
-        def _freeze_(self):
+        def _cleanup_(self):
             self.main_thread = 0
             globalState.init()
 
@@ -354,7 +354,7 @@ def _set_module_object(space, obj_name, w_obj_value):
 def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
     # in the callers, so we never get a real None here).
-    if space.is_w(w_seconds, space.w_None):
+    if space.is_none(w_seconds):
         seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
@@ -385,7 +385,10 @@ def _tm_to_tuple(space, t):
     return space.call_function(w_struct_time, w_time_tuple)
 
 def _gettmarg(space, w_tup, allowNone=True):
-    if allowNone and space.is_w(w_tup, space.w_None):
+    if space.is_none(w_tup):
+        if not allowNone:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("tuple expected"))
         # default to the current local time
         tt = rffi.r_time_t(int(pytime.time()))
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')

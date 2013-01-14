@@ -23,6 +23,9 @@ standardexceptions = {
     rstackovf._StackOverflow: True,
     }
 
+class UnknownException(Exception):
+    pass
+
 
 class AbstractExceptionData:
     """Public information for the code generators to help with exceptions."""
@@ -39,6 +42,7 @@ class AbstractExceptionData:
         self.r_exception_value = r_instance
         self.lltype_of_exception_type  = r_type.lowleveltype
         self.lltype_of_exception_value = r_instance.lowleveltype
+        self.rtyper = rtyper
 
     def make_standard_exceptions(self, rtyper):
         bk = rtyper.annotator.bookkeeper
@@ -64,5 +68,10 @@ class AbstractExceptionData:
         example = r_inst.get_reusable_prebuilt_instance()
         example = self.cast_exception(self.lltype_of_exception_value, example)
         return example
- 
 
+    def get_standard_ll_exc_instance_by_class(self, exceptionclass):
+        if exceptionclass not in self.standardexceptions:
+            raise UnknownException(exceptionclass)
+        clsdef = self.rtyper.annotator.bookkeeper.getuniqueclassdef(
+            exceptionclass)
+        return self.get_standard_ll_exc_instance(self.rtyper, clsdef)

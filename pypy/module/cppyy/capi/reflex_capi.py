@@ -35,7 +35,7 @@ eci = ExternalCompilationInfo(
     include_dirs=[incpath] + rootincpath,
     includes=["reflexcwrapper.h"],
     library_dirs=rootlibpath,
-    link_extra=["-lReflex"],
+    libraries=["Reflex"],
     use_cpp_linker=True,
 )
 

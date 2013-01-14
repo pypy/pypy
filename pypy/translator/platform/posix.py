@@ -139,7 +139,7 @@ class BasePosix(Platform):
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('PYPYDIR', autopath.pypydir),
+            ('PYPYDIR', '"%s"' % autopath.pypydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),

@@ -10,6 +10,8 @@ from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import codewriter, longlong
 from pypy.rlib.rfloat import isnan
+from pypy.translator.backendopt.all import backend_optimizations
+
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, translationoptions={}, **kwds):
@@ -68,7 +70,9 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     policy = JitPolicy()
     policy.set_supports_floats(True)
     policy.set_supports_longlong(supports_longlong)
-    cw.find_all_graphs(policy)
+    graphs = cw.find_all_graphs(policy)
+    if kwds.get("backendopt"):
+        backend_optimizations(rtyper.annotator.translator, graphs=graphs)
     #
     testself.warmrunnerstate = FakeWarmRunnerState()
     testself.warmrunnerstate.cpu = cpu
@@ -141,14 +145,15 @@ def _run_with_machine_code(testself, args):
     for i in range(len(args) - num_green_args):
         x = args[num_green_args + i]
         args1.append(unspecialize_value(x))
-    faildescr = cpu.execute_token(procedure_token, *args1)
+    deadframe = cpu.execute_token(procedure_token, *args1)
+    faildescr = cpu.get_latest_descr(deadframe)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
-        return cpu.get_latest_value_int(0)
+        return cpu.get_latest_value_int(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.REF:
-        return cpu.get_latest_value_ref(0)
+        return cpu.get_latest_value_ref(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.FLOAT:
-        return cpu.get_latest_value_float(0)
+        return cpu.get_latest_value_float(deadframe, 0)
     else:
         return None
 
@@ -233,7 +238,7 @@ class JitMixin:
 
 class LLJitMixin(JitMixin):
     type_system = 'lltype'
-    CPUClass = runner.LLtypeCPU
+    CPUClass = runner.LLGraphCPU
 
     @staticmethod
     def Ptr(T):

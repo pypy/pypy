@@ -2,10 +2,11 @@
 Thread support based on OS-level threads.
 """
 
+import os
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped, Arguments
+from pypy.interpreter.gateway import unwrap_spec, Arguments
 
 # Here are the steps performed to start a new thread:
 #
@@ -75,9 +76,8 @@ class Bootstrapper(object):
         bootstrapper.w_callable = None
         bootstrapper.args = None
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.reinit()
-        return False
 
     def bootstrap():
         # Note that when this runs, we already hold the GIL.  This is ensured
@@ -92,14 +92,18 @@ class Bootstrapper(object):
         # run!
         try:
             bootstrapper.run(space, w_callable, args)
-        finally:
-            bootstrapper.nbthreads -= 1
-            # clean up space.threadlocals to remove the ExecutionContext
-            # entry corresponding to the current thread
+            # done
+        except Exception, e:
+            # oups! last-level attempt to recover.
             try:
-                space.threadlocals.leave_thread(space)
-            finally:
-                thread.gc_thread_die()
+                STDERR = 2
+                os.write(STDERR, "Thread exited with ")
+                os.write(STDERR, str(e))
+                os.write(STDERR, "\n")
+            except OSError:
+                pass
+        bootstrapper.nbthreads -= 1
+        thread.gc_thread_die()
     bootstrap = staticmethod(bootstrap)
 
     def acquire(space, w_callable, args):
@@ -130,6 +134,9 @@ class Bootstrapper(object):
                 where = 'thread %d started by ' % ident
                 e.write_unraisable(space, where, w_callable)
             e.clear(space)
+        # clean up space.threadlocals to remove the ExecutionContext
+        # entry corresponding to the current thread
+        space.threadlocals.leave_thread(space)
     run = staticmethod(run)
 
 bootstrapper = Bootstrapper()
@@ -152,7 +159,7 @@ def reinit_threads(space):
         space.call_method(w_threading, "_after_fork")
 
 
-def start_new_thread(space, w_callable, w_args, w_kwargs=NoneNotWrapped):
+def start_new_thread(space, w_callable, w_args, w_kwargs=None):
     """Start a new thread and return its identifier.  The thread will call the
 function with positional arguments from the tuple args and keyword arguments
 taken from the optional dictionary kwargs.  The thread exits when the

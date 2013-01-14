@@ -3,7 +3,8 @@
 
 """
 import py
-from pypy.interpreter.gateway import interp2app, BuiltinCode
+from pypy.interpreter.gateway import interp2app, BuiltinCode, unwrap_spec,\
+     WrappedDefault
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -31,8 +32,6 @@ class TypeDef:
         self.rawdict = {}
         self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
-        # xxx used by faking
-        self.fakedcpytype = None
         self.add_entries(**rawdict)
         assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
         if __total_ordering__ == 'auto':
@@ -105,6 +104,13 @@ def default_identity_hash(space, w_obj):
 # features, but limit ourselves to 6, chosen a bit arbitrarily based on
 # typical usage (case 1 is the most common kind of app-level subclasses;
 # case 2 is the memory-saving kind defined with __slots__).
+#
+#  +----------------------------------------------------------------+
+#  | NOTE: if withmapdict is enabled, the following doesn't apply!  |
+#  | Map dicts can flexibly allow any slots/__dict__/__weakref__ to |
+#  | show up only when needed.  In particular there is no way with  |
+#  | mapdict to prevent some objects from being weakrefable.        |
+#  +----------------------------------------------------------------+
 #
 #     dict   slots   del   weakrefable
 #
@@ -456,6 +462,7 @@ class GetSetProperty(Wrappable):
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
+    @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
         """property.__get__(obj[, type]) -> value
         Read the value of the property of the given obj."""
@@ -553,7 +560,7 @@ class Member(Wrappable):
                                   self.w_cls.name,
                                   space.type(w_obj).getname(space))
 
-    def descr_member_get(self, space, w_obj, w_w_cls=None):
+    def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):

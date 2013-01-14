@@ -87,6 +87,15 @@ class AppTestZip:
    def test_three_lists(self):
       assert zip([1,2,3], [1,2], [1,2,3]) == [(1,1,1), (2,2,2)]
 
+   def test_bad_length_hint(self):
+      class Foo(object):
+         def __length_hint__(self):
+            return NotImplemented
+         def __iter__(self):
+            if False:
+               yield None
+      assert zip(Foo()) == []
+
 class AppTestReduce:
    def test_None(self):
        raises(TypeError, reduce, lambda x, y: x+y, [1,2,3], None)

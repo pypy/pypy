@@ -3,6 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import make_weakref_descr
+from pypy.interpreter.typedef import GetSetProperty, interp_attrproperty
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -17,6 +18,7 @@ class W_CType(Wrappable):
 
     cast_anything = False
     is_primitive_integer = False
+    kind = "?"
 
     def __init__(self, space, size, name, name_position):
         self.space = space
@@ -130,7 +132,7 @@ class W_CType(Wrappable):
 
     def _alignof(self):
         space = self.space
-        raise operationerrfmt(space.w_TypeError,
+        raise operationerrfmt(space.w_ValueError,
                               "ctype '%s' is of unknown alignment",
                               self.name)
 
@@ -141,9 +143,6 @@ class W_CType(Wrappable):
         else:
             msg = "expected a struct or union ctype, or a pointer to one"
         raise OperationError(space.w_TypeError, space.wrap(msg))
-
-    def _getfields(self):
-        return None
 
     def rawaddressof(self, cdata, offset):
         space = self.space
@@ -173,11 +172,59 @@ class W_CType(Wrappable):
     def copy_and_convert_to_object(self, cdata):
         return self.convert_to_object(cdata)
 
+    # __________ app-level attributes __________
+    def dir(self):
+        space = self.space
+        w_self = space.wrap(self)
+        lst = [space.wrap(name)
+                  for name in _name_of_attributes
+                  if space.findattr(w_self, space.wrap(name)) is not None]
+        return space.newlist(lst)
+
+    def _fget(self, attrchar):
+        space = self.space
+        if attrchar == 'k':     # kind
+            return space.wrap(self.kind)      # class attribute
+        if attrchar == 'c':     # cname
+            return space.wrap(self.name)
+        raise operationerrfmt(space.w_AttributeError,
+                              "ctype '%s' has no such attribute",
+                              self.name)
+
+    def fget_kind(self, space):     return self._fget('k')
+    def fget_cname(self, space):    return self._fget('c')
+    def fget_item(self, space):     return self._fget('i')
+    def fget_length(self, space):   return self._fget('l')
+    def fget_fields(self, space):   return self._fget('f')
+    def fget_args(self, space):     return self._fget('a')
+    def fget_result(self, space):   return self._fget('r')
+    def fget_ellipsis(self, space): return self._fget('E')
+    def fget_abi(self, space):      return self._fget('A')
+    def fget_elements(self, space): return self._fget('e')
+    def fget_relements(self, space):return self._fget('R')
+
 
 W_CType.typedef = TypeDef(
     'CTypeDescr',
     __module__ = '_cffi_backend',
     __repr__ = interp2app(W_CType.repr),
     __weakref__ = make_weakref_descr(W_CType),
+    kind = GetSetProperty(W_CType.fget_kind, doc="kind"),
+    cname = GetSetProperty(W_CType.fget_cname, doc="C name"),
+    item = GetSetProperty(W_CType.fget_item, doc="pointer to, or array of"),
+    length = GetSetProperty(W_CType.fget_length, doc="array length or None"),
+    fields = GetSetProperty(W_CType.fget_fields, doc="struct or union fields"),
+    args = GetSetProperty(W_CType.fget_args, doc="function argument types"),
+    result = GetSetProperty(W_CType.fget_result, doc="function result type"),
+    ellipsis = GetSetProperty(W_CType.fget_ellipsis, doc="function has '...'"),
+    abi = GetSetProperty(W_CType.fget_abi, doc="function ABI"),
+    elements = GetSetProperty(W_CType.fget_elements, doc="enum elements"),
+    relements = GetSetProperty(W_CType.fget_relements,
+                               doc="enum elements, reversed"),
+    __dir__ = interp2app(W_CType.dir),
     )
 W_CType.typedef.acceptable_as_base_class = False
+
+_name_of_attributes = [name for name in W_CType.typedef.rawdict
+                            if not name.startswith('_')]
+_name_of_attributes.sort()

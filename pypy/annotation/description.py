@@ -1,8 +1,9 @@
+from __future__ import absolute_import
 import types, py
+from pypy.annotation.signature import enforce_signature_args, enforce_signature_return
 from pypy.objspace.flow.model import Constant, FunctionGraph
-from pypy.interpreter.pycode import cpython_code_signature
-from pypy.interpreter.argument import rawshape
-from pypy.interpreter.argument import ArgErr
+from pypy.objspace.flow.bytecode import cpython_code_signature
+from pypy.objspace.flow.argument import rawshape, ArgErr
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -181,7 +182,7 @@ class FunctionDesc(Desc):
             name = pyobj.func_name
         if signature is None:
             if hasattr(pyobj, '_generator_next_method_of_'):
-                from pypy.interpreter.argument import Signature
+                from pypy.objspace.flow.argument import Signature
                 signature = Signature(['entry'])     # haaaaaack
                 defaults = ()
             else:
@@ -247,17 +248,20 @@ class FunctionDesc(Desc):
         defs_s = []
         if graph is None:
             signature = self.signature
-            defaults  = self.defaults
+            defaults = self.defaults
         else:
             signature = graph.signature
-            defaults  = graph.defaults
+            defaults = graph.defaults
         if defaults:
             for x in defaults:
-                defs_s.append(self.bookkeeper.immutablevalue(x))
+                if x is NODEFAULT:
+                    defs_s.append(None)
+                else:
+                    defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError("signature mismatch: %s() %s" % 
+            raise TypeError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
 
@@ -273,12 +277,17 @@ class FunctionDesc(Desc):
             policy = self.bookkeeper.annotator.policy
             self.specializer = policy.get_specializer(tag)
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if enforceargs and signature:
+            raise Exception("%r: signature and enforceargs cannot both be used" % (self,))
         if enforceargs:
             if not callable(enforceargs):
                 from pypy.annotation.policy import Sig
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
+        if signature:
+            enforce_signature_args(self, signature[0], inputcells) # mutates inputcells
         if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
             return self.specializer(self, inputcells, op)
         else:
@@ -295,6 +304,10 @@ class FunctionDesc(Desc):
             new_args = args.unmatch_signature(self.signature, inputcells)
             inputcells = self.parse_arguments(new_args, graph)
             result = schedule(graph, inputcells)
+            signature = getattr(self.pyobj, '_signature_', None)
+            if signature:
+                result = enforce_signature_return(self, signature[1], result)
+                self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [result])
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:

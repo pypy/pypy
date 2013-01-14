@@ -1,4 +1,4 @@
-from pypy.tool.sourcetools import func_with_new_name, func_renamer
+from pypy.tool.sourcetools import func_with_new_name, func_renamer, rpython_wrapper
 
 def test_rename():
     def f(x, y=5):
@@ -34,3 +34,25 @@ def test_func_rename_decorator():
     bar3 = func_with_new_name(bar, 'bar3')
     assert bar3.func_doc == 'new doc'
     assert bar2.func_doc != bar3.func_doc
+
+
+def test_rpython_wrapper():
+    calls = []
+
+    def bar(a, b):
+        calls.append(('bar', a, b))
+        return a+b
+
+    template = """
+        def {name}({arglist}):
+            calls.append(('decorated', {arglist}))
+            return {original}({arglist})
+    """
+    bar = rpython_wrapper(bar, template, calls=calls)
+    assert bar(40, 2) == 42
+    assert calls == [
+        ('decorated', 40, 2),
+        ('bar', 40, 2),
+        ]
+
+        

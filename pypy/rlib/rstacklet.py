@@ -100,9 +100,8 @@ class Debug(object):
     def __init__(self):
         self.sthread = None
         self.active = []
-    def _freeze_(self):
+    def _cleanup_(self):
         self.__init__()
-        return False
     def add(self, h):
         if not self.sthread.is_empty_handle(h):
             if h == self.sthread.get_null_handle():

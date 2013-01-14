@@ -426,7 +426,7 @@ class TestMMap:
             m.close()
             return r
 
-        compile(func, [int])
+        compile(func, [int], gcpolicy='boehm')
 
     def test_windows_crasher_1(self):
         if sys.platform != "win32":
@@ -469,5 +469,5 @@ def test_alloc_free():
 def test_compile_alloc_free():
     from pypy.translator.c.test.test_genc import compile
 
-    fn = compile(test_alloc_free, [])
+    fn = compile(test_alloc_free, [], gcpolicy='boehm')
     fn()

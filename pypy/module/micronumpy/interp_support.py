@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype, loop
 from pypy.objspace.std.strutil import strip_spaces
@@ -75,7 +75,7 @@ def _fromstring_bin(space, s, count, length, dtype):
     loop.fromstring_loop(a, dtype, itemsize, s)
     return space.wrap(a)
 
-@unwrap_spec(s=str, count=int, sep=str)
+@unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))
 def fromstring(space, s, w_dtype=None, count=-1, sep=''):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
@@ -87,7 +87,7 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
         return _fromstring_text(space, s, count, sep, length, dtype)
 
 def unwrap_axis_arg(space, shapelen, w_axis):
-    if space.is_w(w_axis, space.w_None) or not w_axis:
+    if space.is_none(w_axis):
         axis = maxint
     else:
         axis = space.int_w(w_axis)

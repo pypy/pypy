@@ -10,7 +10,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.history import ConstPtr, AbstractDescr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport import symbolic, jitframe
 from pypy.jit.backend.llsupport.symbolic import WORD
 from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
@@ -83,15 +83,15 @@ class GcLLDescription(GcCache):
         assert isinstance(sizedescr, SizeDescr)
         return self._bh_malloc(sizedescr)
 
-    def gc_malloc_array(self, arraydescr, num_elem):
+    def gc_malloc_array(self, num_elem, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
-        return self._bh_malloc_array(arraydescr, num_elem)
+        return self._bh_malloc_array(num_elem, arraydescr)
 
     def gc_malloc_str(self, num_elem):
-        return self._bh_malloc_array(self.str_descr, num_elem)
+        return self._bh_malloc_array(num_elem, self.str_descr)
 
     def gc_malloc_unicode(self, num_elem):
-        return self._bh_malloc_array(self.unicode_descr, num_elem)
+        return self._bh_malloc_array(num_elem, self.unicode_descr)
 
     def _record_constptrs(self, op, gcrefs_output_list):
         for i in range(op.numargs()):
@@ -109,6 +109,25 @@ class GcLLDescription(GcCache):
         for op in newops:
             self._record_constptrs(op, gcrefs_output_list)
         return newops
+
+    @specialize.memo()
+    def getframedescrs(self, cpu):
+        descrs = JitFrameDescrs()
+        descrs.arraydescr = cpu.arraydescrof(jitframe.DEADFRAME)
+        descrs.as_int = cpu.interiorfielddescrof(jitframe.DEADFRAME,
+                                                 'int', 'jf_values')
+        descrs.as_ref = cpu.interiorfielddescrof(jitframe.DEADFRAME,
+                                                 'ref', 'jf_values')
+        descrs.as_float = cpu.interiorfielddescrof(jitframe.DEADFRAME,
+                                                   'float', 'jf_values')
+        descrs.jf_descr = cpu.fielddescrof(jitframe.DEADFRAME, 'jf_descr')
+        descrs.jf_guard_exc = cpu.fielddescrof(jitframe.DEADFRAME,
+                                               'jf_guard_exc')
+        return descrs
+
+class JitFrameDescrs:
+    def _freeze_(self):
+        return True
 
 # ____________________________________________________________
 
@@ -193,7 +212,7 @@ class GcLLDescr_boehm(GcLLDescription):
     def _bh_malloc(self, sizedescr):
         return self.malloc_fixedsize(sizedescr.size)
 
-    def _bh_malloc_array(self, arraydescr, num_elem):
+    def _bh_malloc_array(self, num_elem, arraydescr):
         return self.malloc_array(arraydescr.basesize, num_elem,
                                  arraydescr.itemsize,
                                  arraydescr.lendescr.offset)
@@ -802,7 +821,7 @@ class GcLLDescr_framework(GcLLDescription):
                                                type_id, sizedescr.size,
                                                False, False, False)
 
-    def _bh_malloc_array(self, arraydescr, num_elem):
+    def _bh_malloc_array(self, num_elem, arraydescr):
         from pypy.rpython.memory.gctypelayout import check_typeid
         llop1 = self.llop1
         type_id = llop.extract_ushort(llgroup.HALFWORD, arraydescr.tid)

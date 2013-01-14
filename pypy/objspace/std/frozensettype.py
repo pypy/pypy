@@ -36,8 +36,7 @@ frozenset_isdisjoint            = SMM('isdisjoint', 2,
 
 register_all(vars(), globals())
 
-def descr__frozenset__new__(space, w_frozensettype,
-                            w_iterable=gateway.NoneNotWrapped):
+def descr__frozenset__new__(space, w_frozensettype, w_iterable=None):
     from pypy.objspace.std.setobject import W_FrozensetObject
     if (space.is_w(w_frozensettype, space.w_frozenset) and
         w_iterable is not None and type(w_iterable) is W_FrozensetObject):

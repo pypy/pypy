@@ -3,16 +3,10 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestGetargs(AppTestCpythonExtensionBase):
-    def setup_method(self, func):
-        super(AppTestGetargs, self).setup_method(func)
-        self.w_import_parser = self.space.wrap(self.import_parser)
-
-
-    def import_parser(self, implementation, argstyle='METH_VARARGS'):
+    def w_import_parser(self, implementation, argstyle='METH_VARARGS'):
         mod = self.import_extension(
             'modname', [('funcname', argstyle, implementation)])
-        return self.space.getattr(mod, self.space.wrap("funcname"))
-
+        return mod.funcname
 
     def test_pyarg_parse_int(self):
         """

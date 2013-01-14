@@ -1,17 +1,15 @@
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
-from pypy.interpreter import argument, gateway
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.annotation.model import SomeInstance, s_None
-from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.lltypesystem import lltype
-from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.interpreter import argument, gateway
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, SpaceCache
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rlib.objectmodel import instantiate, we_are_translated
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rarithmetic import r_uint, r_singlefloat
-from pypy.translator.translator import TranslationContext
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.lltypesystem import lltype
 from pypy.tool.option import make_config
+from pypy.tool.sourcetools import compile2, func_with_new_name
+from pypy.translator.translator import TranslationContext
 
 
 class W_MyObject(Wrappable):
@@ -145,6 +143,9 @@ class FakeObjSpace(ObjSpace):
     def newcomplex(self, x, y):
         return w_some_obj()
 
+    def newlong_from_rbigint(self, x):
+        return w_some_obj()
+
     def marshal_w(self, w_obj):
         "NOT_RPYTHON"
         raise NotImplementedError
@@ -275,7 +276,6 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
-        ann.policy.allow_someobjects = False
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         #

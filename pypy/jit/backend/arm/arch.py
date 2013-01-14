@@ -19,10 +19,10 @@ eci = ExternalCompilationInfo(post_include_bits=["""
 static int pypy__arm_int_div(int a, int b) {
     return a/b;
 }
-static uint pypy__arm_uint_div(uint a, uint b) {
+static unsigned int pypy__arm_uint_div(unsigned int a, unsigned int b) {
     return a/b;
 }
-static int pypy__arm_int_mod(uint a, uint b) {
+static int pypy__arm_int_mod(int a, int b) {
     return a % b;
 }
 """])

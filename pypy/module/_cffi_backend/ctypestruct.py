@@ -3,11 +3,11 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import r_ulonglong, r_longlong, intmask
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 from pypy.rlib import jit
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
@@ -27,26 +27,28 @@ class W_CTypeStructOrUnion(W_CType):
         name = '%s %s' % (self.kind, name)
         W_CType.__init__(self, space, -1, name, len(name))
 
-    def check_complete(self):
+    def check_complete(self, w_errorcls=None):
         if self.fields_dict is None:
             space = self.space
-            raise operationerrfmt(space.w_TypeError,
+            raise operationerrfmt(w_errorcls or space.w_TypeError,
                                   "'%s' is not completed yet", self.name)
 
     def _alignof(self):
-        self.check_complete()
+        self.check_complete(w_errorcls=self.space.w_ValueError)
         return self.alignment
 
-    def _getfields(self):
-        if self.size < 0:
-            return None
-        space = self.space
-        result = [None] * len(self.fields_list)
-        for fname, field in self.fields_dict.iteritems():
-            i = self.fields_list.index(field)
-            result[i] = space.newtuple([space.wrap(fname),
-                                        space.wrap(field)])
-        return space.newlist(result)
+    def _fget(self, attrchar):
+        if attrchar == 'f':     # fields
+            space = self.space
+            if self.size < 0:
+                return space.w_None
+            result = [None] * len(self.fields_list)
+            for fname, field in self.fields_dict.iteritems():
+                i = self.fields_list.index(field)
+                result[i] = space.newtuple([space.wrap(fname),
+                                            space.wrap(field)])
+            return space.newlist(result)
+        return W_CType._fget(self, attrchar)
 
     def convert_to_object(self, cdata):
         space = self.space
@@ -195,30 +197,43 @@ class W_CField(Wrappable):
         space = ctype.space
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveSigned):
-            value = r_ulonglong(misc.read_raw_signed_data(cdata, ctype.size))
-            valuemask = (r_ulonglong(1) << self.bitsize) - 1
-            shiftforsign = r_ulonglong(1) << (self.bitsize - 1)
-            value = ((value >> self.bitshift) + shiftforsign) & valuemask
-            result = r_longlong(value) - r_longlong(shiftforsign)
             if ctype.value_fits_long:
-                return space.wrap(intmask(result))
+                value = r_uint(misc.read_raw_long_data(cdata, ctype.size))
+                valuemask = (r_uint(1) << self.bitsize) - 1
+                shiftforsign = r_uint(1) << (self.bitsize - 1)
+                value = ((value >> self.bitshift) + shiftforsign) & valuemask
+                result = intmask(value) - intmask(shiftforsign)
+                return space.wrap(result)
             else:
+                value = misc.read_raw_unsigned_data(cdata, ctype.size)
+                valuemask = (r_ulonglong(1) << self.bitsize) - 1
+                shiftforsign = r_ulonglong(1) << (self.bitsize - 1)
+                value = ((value >> self.bitshift) + shiftforsign) & valuemask
+                result = r_longlong(value) - r_longlong(shiftforsign)
                 return space.wrap(result)
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned):
             value_fits_long = ctype.value_fits_long
+            value_fits_ulong = ctype.value_fits_ulong
         elif isinstance(ctype, ctypeprim.W_CTypePrimitiveCharOrUniChar):
             value_fits_long = True
+            value_fits_ulong = True
         else:
             raise NotImplementedError
         #
-        value = misc.read_raw_unsigned_data(cdata, ctype.size)
-        valuemask = (r_ulonglong(1) << self.bitsize) - 1
-        value = (value >> self.bitshift) & valuemask
-        if value_fits_long:
-            return space.wrap(intmask(value))
+        if value_fits_ulong:
+            value = misc.read_raw_ulong_data(cdata, ctype.size)
+            valuemask = (r_uint(1) << self.bitsize) - 1
+            value = (value >> self.bitshift) & valuemask
+            if value_fits_long:
+                return space.wrap(intmask(value))
+            else:
+                return space.wrap(value)    # uint => wrapped long object
         else:
-            return space.wrap(value)
+            value = misc.read_raw_unsigned_data(cdata, ctype.size)
+            valuemask = (r_ulonglong(1) << self.bitsize) - 1
+            value = (value >> self.bitshift) & valuemask
+            return space.wrap(value)      # ulonglong => wrapped long object
 
     def convert_bitfield_from_object(self, cdata, w_ob):
         ctype = self.ctype

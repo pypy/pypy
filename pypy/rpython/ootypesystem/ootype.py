@@ -580,6 +580,7 @@ class List(BuiltinADTType):
             "_ll_resize_ge": Meth([Signed], Void),
             "_ll_resize_le": Meth([Signed], Void),
             "_ll_resize": Meth([Signed], Void),
+            "_ll_resize_hint": Meth([Signed], Void),
         })
 
         self._setup_methods(generic_types)

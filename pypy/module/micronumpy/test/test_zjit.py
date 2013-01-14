@@ -18,6 +18,7 @@ class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
         default = """
         a = [1,2,3,4]
+        z = (1, 2)
         c = a + b
         sum(c) -> 1::1
         a -> 3:1:2
@@ -490,4 +491,3 @@ class TestNumpyJIt(LLJitMixin):
                                 'new_with_vtable': 1, 
                                 'int_add': 2, 
                                 'float_ne': 1})
-

@@ -1,7 +1,7 @@
 
-from pypy.rpython.lltypesystem.lltype import (
-    Primitive, Ptr, typeOf, RuntimeTypeInfo, Struct, Array, FuncType, PyObject,
-    Void, ContainerType, OpaqueType, FixedSizeArray, _uninitialized, Typedef)
+from pypy.rpython.lltypesystem.lltype import (Primitive, Ptr, typeOf,
+    RuntimeTypeInfo, Struct, Array, FuncType, Void, ContainerType, OpaqueType,
+    FixedSizeArray, Typedef)
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from pypy.rpython.lltypesystem.rffi import CConstant
@@ -14,7 +14,6 @@ from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager
 from pypy.translator.c.support import log, barebonearray
 from pypy.translator.c.extfunc import do_the_getting
-from pypy import conftest
 from pypy.translator.c import gc
 from pypy.tool.identity_dict import identity_dict
 
@@ -28,13 +27,11 @@ class LowLevelDatabase(object):
     gctransformer = None
 
     def __init__(self, translator=None, standalone=False,
-                 cpython_extension=False,
                  gcpolicyclass=None,
                  thread_enabled=False,
                  sandbox=False):
         self.translator = translator
         self.standalone = standalone
-        self.cpython_extension = cpython_extension
         self.sandbox    = sandbox
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
@@ -120,8 +117,6 @@ class LowLevelDatabase(object):
             if who_asks is not None:
                 who_asks.dependencies[node] = True
             return node.gettype()
-        elif T == PyObject:
-            return 'PyObject @'
         elif isinstance(T, FuncType):
             resulttype = self.gettype(T.RESULT)
             argtypes = []
@@ -363,11 +358,8 @@ class LowLevelDatabase(object):
                 yield node
 
     def get_lltype_of_exception_value(self):
-        if self.translator is not None and self.translator.rtyper is not None:
-            exceptiondata = self.translator.rtyper.getexceptiondata()
-            return exceptiondata.lltype_of_exception_value
-        else:
-            return Ptr(PyObject)
+        exceptiondata = self.translator.rtyper.getexceptiondata()
+        return exceptiondata.lltype_of_exception_value
 
     def getstructdeflist(self):
         # return the StructDefNodes sorted according to dependencies

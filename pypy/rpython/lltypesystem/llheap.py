@@ -1,6 +1,6 @@
 # only for the LLInterpreter.  Don't use directly.
 
-from pypy.rpython.lltypesystem.lltype import pyobjectptr, malloc, free, typeOf
+from pypy.rpython.lltypesystem.lltype import malloc, free, typeOf
 from pypy.rpython.lltypesystem.llmemory import weakref_create, weakref_deref
 
 setfield = setattr
