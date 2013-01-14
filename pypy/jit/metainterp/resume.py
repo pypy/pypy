@@ -694,6 +694,7 @@ class AbstractResumeDataReader(object):
     def _init(self, cpu, storage):
         self.cpu = cpu
         self.cur_numb = storage.rd_numb
+        self.count = storage.rd_count
         self.consts = storage.rd_consts
 
     def _prepare(self, storage):
@@ -1243,7 +1244,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count(self.deadframe)
+                num += self.count
             return self.cpu.get_int_value(self.deadframe, num)
 
     def decode_ref(self, tagged):
@@ -1257,7 +1258,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count(self.deadframe)
+                num += self.count
             return self.cpu.get_ref_value(self.deadframe, num)
 
     def decode_float(self, tagged):
@@ -1267,7 +1268,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count(self.deadframe)
+                num += self.count
             return self.cpu.get_float_value(self.deadframe, num)
 
     def write_an_int(self, index, int):

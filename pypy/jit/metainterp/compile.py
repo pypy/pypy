@@ -857,10 +857,14 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
 
 # ____________________________________________________________
 
+memory_error = MemoryError()
+
 class PropagateExceptionDescr(AbstractFailDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         exception = cpu.grab_exc_value(deadframe)
+        if not exception:
+            exception = memory_error
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
