@@ -178,6 +178,11 @@ class __extend__(pyframe.PyFrame):
             else:
                 oparg = 0
 
+            # note: the structure of the code here is such that it makes
+            # (after translation) a big "if/elif" chain, which is then
+            # turned into a switch().  It starts here: even if the first
+            # one is not an "if" but a "while" the effect is the same.
+
             while opcode == self.opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
                 if opcode < self.HAVE_ARGUMENT:
@@ -226,6 +231,8 @@ class __extend__(pyframe.PyFrame):
                         'END_FINALLY', 'JUMP_ABSOLUTE'):
                         continue   # opcodes implemented above
 
+                    # the following "if" is part of the big switch described
+                    # above.
                     if opcode == opdesc.index:
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)

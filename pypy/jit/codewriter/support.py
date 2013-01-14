@@ -10,7 +10,7 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.translator import TranslationContext
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
@@ -58,6 +58,45 @@ def annotate(func, values, inline=None, backendoptimize=True,
 def getgraph(func, values):
     rtyper = annotate(func, values)
     return rtyper.annotator.translator.graphs[0]
+
+def autodetect_jit_markers_redvars(graph):
+    # the idea is to find all the jit_merge_point and
+    # add all the variables across the links to the reds.
+    for block, op in graph.iterblockops():
+        if op.opname == 'jit_marker':
+            jitdriver = op.args[1].value
+            if not jitdriver.autoreds:
+                continue
+            # if we want to support also can_enter_jit, we should find a
+            # way to detect a consistent set of red vars to pass *both* to
+            # jit_merge_point and can_enter_jit. The current simple
+            # solution doesn't work because can_enter_jit might be in
+            # another block, so the set of alive_v will be different.
+            methname = op.args[0].value
+            assert methname == 'jit_merge_point', (
+                "reds='auto' is supported only for jit drivers which " 
+                "calls only jit_merge_point. Found a call to %s" % methname)
+            #
+            # compute the set of live variables across the jit_marker
+            alive_v = set()
+            for link in block.exits:
+                alive_v.update(link.args)
+                alive_v.difference_update(link.getextravars())
+            for op1 in block.operations[::-1]:
+                if op1 is op:
+                    break # stop when the meet the jit_marker
+                alive_v.discard(op1.result)
+                alive_v.update(op1.args)
+            greens_v = op.args[2:]
+            reds_v = alive_v - set(greens_v)
+            reds_v = [v for v in reds_v if isinstance(v, Variable) and
+                                           v.concretetype is not lltype.Void]
+            reds_v = sort_vars(reds_v)
+            op.args.extend(reds_v)
+            if jitdriver.numreds is None:
+                jitdriver.numreds = len(reds_v)
+            else:
+                assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Split the block just before the 'jit_merge_point',
