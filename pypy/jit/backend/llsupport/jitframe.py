@@ -24,8 +24,8 @@ JITFRAME = lltype.GcStruct(
     # This field is also set immediately before doing CALL_MAY_FORCE
     # or CALL_ASSEMBLER.
     ('jf_descr', llmemory.GCREF),
-    # index of guard_not_force
-    ('jf_force_index', lltype.Signed),
+    # guard_not_forced descr
+    ('jf_force_descr', llmemory.GCREF),
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),
     # For GUARD_(NO)_EXCEPTION and GUARD_NOT_FORCED: the exception we

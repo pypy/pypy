@@ -2758,13 +2758,12 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_assembler_call(self):
         called = []
-        def assembler_helper(failindex, deadframe, virtualizable):
-            self.cpu.store_fail_descr(deadframe, failindex)
+        def assembler_helper(deadframe, virtualizable):
             assert self.cpu.get_int_value(deadframe, 0) == 97
             called.append(self.cpu.get_latest_descr(deadframe))
             return 4 + 9
 
-        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF,
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
                                               llmemory.GCREF],
                                              lltype.Signed))
         class FakeJitDriverSD:
@@ -2773,9 +2772,6 @@ class LLtypeBackendTest(BaseBackendTest):
             assembler_helper_adr = llmemory.cast_ptr_to_adr(
                 _assembler_helper_ptr)
 
-        # ensure the fail_descr_number is not zero
-        for _ in range(10):
-            self.cpu.reserve_some_free_fail_descr_number()
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = int_add(i0, i1)
@@ -2818,8 +2814,8 @@ class LLtypeBackendTest(BaseBackendTest):
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
-        self.cpu.done_with_this_frame_int_v = self.cpu.get_fail_descr_number(
-            finish_descr)
+        prev_descr = self.cpu.done_with_this_frame_descr_int
+        self.cpu.done_with_this_frame_descr_int = finish_descr
         try:
             othertoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
@@ -2828,21 +2824,20 @@ class LLtypeBackendTest(BaseBackendTest):
             assert self.cpu.get_int_value(deadframe, 0) == 97
             assert not called
         finally:
-            del self.cpu.done_with_this_frame_int_v
+            self.cpu.done_with_this_frame_int_v = prev_descr
 
     def test_assembler_call_float(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
         called = []
-        def assembler_helper(failindex, deadframe, virtualizable):
-            self.cpu.store_fail_descr(deadframe, failindex)
+        def assembler_helper(deadframe, virtualizable):
             x = self.cpu.get_float_value(deadframe, 0)
             assert longlong.getrealfloat(x) == 1.2 + 3.2
             called.append(self.cpu.get_latest_descr(deadframe))
             print '!' * 30 + 'assembler_helper'
             return 13.5
 
-        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed, llmemory.GCREF,
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
                                               llmemory.GCREF],
                                              lltype.Float))
         class FakeJitDriverSD:
@@ -2856,8 +2851,6 @@ class LLtypeBackendTest(BaseBackendTest):
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
             EffectInfo.MOST_GENERAL)
-        for _ in range(10):
-            self.cpu.reserve_some_free_fail_descr_number()
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
@@ -2890,8 +2883,8 @@ class LLtypeBackendTest(BaseBackendTest):
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
-        self.cpu.done_with_this_frame_float_v = self.cpu.get_fail_descr_number(
-            finish_descr)
+        prev_descr = self.cpu.done_with_this_frame_descr_float
+        self.cpu.done_with_this_frame_descr_float = finish_descr
         try:
             othertoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
@@ -2902,7 +2895,7 @@ class LLtypeBackendTest(BaseBackendTest):
             assert longlong.getrealfloat(x) == 1.2 + 4.2
             assert not called
         finally:
-            del self.cpu.done_with_this_frame_float_v
+            self.cpu.done_with_this_frame_descr_float = prev_descr
 
     def test_raw_malloced_getarrayitem(self):
         ARRAY = rffi.CArray(lltype.Signed)
@@ -2932,15 +2925,13 @@ class LLtypeBackendTest(BaseBackendTest):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
         called = []
-        def assembler_helper(failindex, deadframe, virtualizable):
-            self.cpu.store_fail_descr(deadframe, failindex)
+        def assembler_helper(deadframe, virtualizable):
             x = self.cpu.get_float_value(deadframe, 0)
             assert longlong.getrealfloat(x) == 1.25 + 3.25
             called.append(self.cpu.get_latest_descr(deadframe))
             return 13.5
 
-        FUNCPTR = lltype.Ptr(lltype.FuncType([lltype.Signed,
-                                              llmemory.GCREF, llmemory.GCREF],
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF],
                                              lltype.Float))
         class FakeJitDriverSD:
             index_of_virtualizable = -1
@@ -2953,8 +2944,6 @@ class LLtypeBackendTest(BaseBackendTest):
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
             EffectInfo.MOST_GENERAL)
-        for _ in range(10):
-            self.cpu.reserve_some_free_fail_descr_number()
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
@@ -3347,8 +3336,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_memoryerror(self):
         excdescr = BasicFailDescr(666)
-        self.cpu.propagate_exception_v = self.cpu.get_fail_descr_number(
-            excdescr)
+        self.cpu.propagate_exception_descr = excdescr
         self.cpu.setup_once()    # xxx redo it, because we added
                                  # propagate_exception_v
         i0 = BoxInt()

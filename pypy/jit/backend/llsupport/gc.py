@@ -102,6 +102,7 @@ class GcLLDescription(GcCache):
                 gcrefs_output_list.append(p)
         if op.is_guard() or op.getopnum() == rop.FINISH:
             rgc._make_sure_does_not_move(op.getdescr())
+            gcrefs_output_list.append(op.getdescr())
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
@@ -119,8 +120,8 @@ class GcLLDescription(GcCache):
         descrs.jf_descr = cpu.fielddescrof(jitframe.JITFRAME, 'jf_descr')
         descrs.jf_guard_exc = cpu.fielddescrof(jitframe.JITFRAME,
                                                'jf_guard_exc')
-        descrs.jf_force_index = cpu.fielddescrof(jitframe.JITFRAME,
-                                                 'jf_force_index')
+        descrs.jf_force_descr = cpu.fielddescrof(jitframe.JITFRAME,
+                                                 'jf_force_descr')
         descrs.jf_frame_info = cpu.fielddescrof(jitframe.JITFRAME,
                                                 'jf_frame_info')
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,

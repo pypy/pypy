@@ -249,7 +249,7 @@ class Assembler386(object):
         self.malloc_slowpath2 = rawstart
 
     def _build_propagate_exception_path(self):
-        if self.cpu.propagate_exception_v < 0:
+        if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
         #
         self.mc = codebuf.MachineCodeBlockWrapper()
@@ -259,7 +259,12 @@ class Assembler386(object):
         self._store_and_reset_exception(eax)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         self.mc.MOV_br(ofs, eax.value)
-        self.mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
+        propagate_exception_descr = rffi.cast(lltype.Signed,
+                  cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        self.mc.MOV_bi(ofs, propagate_exception_descr)
+        self.mc.LEA_rb(eax.value, -base_ofs)
         #
         self._call_footer()
         rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
@@ -268,7 +273,7 @@ class Assembler386(object):
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
-        if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
+        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
             return      # no stack check (for tests, or non-translated)
         xxx
         #
@@ -554,15 +559,13 @@ class Assembler386(object):
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
 
-        descr_number = self.cpu.get_fail_descr_number(faildescr)
-
         self.setup(original_loop_token)
+        descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
 
-        descr = self.cpu.get_fail_descr_from_number(descr_number)
-        arglocs = self.rebuild_faillocs_from_descr(descr, inputargs)
+        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(inputargs, arglocs,
@@ -575,7 +578,7 @@ class Assembler386(object):
         #
         rawstart = self.materialize_loop(original_loop_token)
         debug_start("jit-backend-addr")
-        debug_print("bridge out of Guard %d has address %x to %x" %
+        debug_print("bridge out of Guard %x has address %x to %x" %
                     (descr_number, rawstart, rawstart + codeendpos))
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
@@ -1980,10 +1983,9 @@ class Assembler386(object):
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        ofs = self.cpu.get_ofs_of_frame_field('jf_force_index')
-        self.mc.MOV_bi(ofs, fail_index)
-        return fail_index
+        ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
+        self.mc.MOV_bi(ofs, rffi.cast(lltype.Signed,
+                                      cast_instance_to_gcref(faildescr)))
 
     def _emit_guard_not_forced(self, guard_token):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
@@ -1992,8 +1994,8 @@ class Assembler386(object):
 
     def genop_guard_call_may_force(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
-        fail_index = self._store_force_index(guard_op)
-        self._genop_call(op, arglocs, result_loc, fail_index)
+        self._store_force_index(guard_op)
+        self._genop_call(op, arglocs, result_loc, -1)
         self._emit_guard_not_forced(guard_token)
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
@@ -2126,21 +2128,24 @@ class Assembler386(object):
                         [argloc], 0, tmp=eax)
         if op.result is None:
             assert result_loc is None
-            value = self.cpu.done_with_this_frame_void_v
+            value = self.cpu.done_with_this_frame_descr_void
         else:
             kind = op.result.type
             if kind == INT:
                 assert result_loc is eax
-                value = self.cpu.done_with_this_frame_int_v
+                value = self.cpu.done_with_this_frame_descr_int
             elif kind == REF:
                 assert result_loc is eax
-                value = self.cpu.done_with_this_frame_ref_v
+                value = self.cpu.done_with_this_frame_descr_ref
             elif kind == FLOAT:
-                value = self.cpu.done_with_this_frame_float_v
+                value = self.cpu.done_with_this_frame_descr_float
             else:
                 raise AssertionError(kind)
 
-        self.mc.CMP_ri(eax.value, value)    
+        value = rffi.cast(lltype.Signed, cast_instance_to_gcref(value))
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.CMP_mi((eax.value, base_ofs + ofs), value)    
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
         je_location = self.mc.get_relative_pos()
@@ -2150,7 +2155,7 @@ class Assembler386(object):
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
         self._emit_call(fail_index, imm(asm_helper_adr),
-                        [eax, frame_loc, imm0], 0, tmp=ecx)
+                        [eax, imm0], 0, tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
             self.mc.FSTPL_b(result_loc.value)
         #else: result_loc is already either eax or None, checked below
@@ -2175,8 +2180,6 @@ class Assembler386(object):
         #
         if op.result is not None:
             # load the return value from the dead frame's value index 0
-            assert isinstance(frame_loc, StackLoc)
-            self.mc.MOV_rb(eax.value, frame_loc.value)
             kind = op.result.type
             if kind == FLOAT:
                 _, descr = self.cpu.getarraydescr_for_frame(kind, 0)

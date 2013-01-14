@@ -459,7 +459,7 @@ def make_done_loop_tokens():
     exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
 
     # pseudo loop tokens to make the life of optimize.py easier
-    return {'loop_tokens_done_with_this_frame_int': [
+    d = {'loop_tokens_done_with_this_frame_int': [
                 TerminatingLoopToken(1, done_with_this_frame_descr_int)
                 ],
             'loop_tokens_done_with_this_frame_ref': [
@@ -474,7 +474,9 @@ def make_done_loop_tokens():
             'loop_tokens_exit_frame_with_exception_ref': [
                 TerminatingLoopToken(1, exit_frame_with_exception_descr_ref)
                 ],
-            }
+    }
+    d.update(locals())
+    return d
 
 class ResumeDescr(AbstractFailDescr):
     pass

@@ -205,11 +205,6 @@ class AbstractLLCPU(AbstractCPU):
         descr = deadframe.jf_descr
         return history.AbstractDescr.show(self, descr)
 
-    def store_fail_descr(self, deadframe, failindex):
-        faildescr = self.get_fail_descr_from_number(failindex)
-        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
-        frame.jf_descr = cast_instance_to_gcref(faildescr)
-
     def _decode_pos(self, deadframe, index):
         descr = self.get_latest_descr(deadframe)
         if descr.final_descr:

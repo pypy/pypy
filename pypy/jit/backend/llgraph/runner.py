@@ -862,23 +862,22 @@ class LLFrame(object):
                 fielddescr = jd.vable_token_descr
                 self.cpu.bh_setfield_gc(vable, 0, fielddescr)
         faildescr = self.cpu.get_latest_descr(pframe)
-        failindex = self.cpu.get_fail_descr_number(faildescr)
-        if failindex == self.cpu.done_with_this_frame_int_v:
+        if faildescr == self.cpu.done_with_this_frame_descr_int:
             reset_vable(jd, vable)
             return self.cpu.get_int_value(pframe, 0)
-        if failindex == self.cpu.done_with_this_frame_ref_v:
+        if faildescr == self.cpu.done_with_this_frame_descr_ref:
             reset_vable(jd, vable)
             return self.cpu.get_ref_value(pframe, 0)
-        if failindex == self.cpu.done_with_this_frame_float_v:
+        if faildescr == self.cpu.done_with_this_frame_descr_float:
             reset_vable(jd, vable)
             return self.cpu.get_float_value(pframe, 0)
-        if failindex == self.cpu.done_with_this_frame_void_v:
+        if faildescr == self.cpu.done_with_this_frame_descr_void:
             reset_vable(jd, vable)
             return None
         #
         assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
         try:
-            result = assembler_helper_ptr(failindex, pframe, vable)
+            result = assembler_helper_ptr(pframe, vable)
         except LLException, lle:
             assert self.last_exception is None, "exception left behind"
             self.last_exception = lle

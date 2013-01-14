@@ -1475,7 +1475,7 @@ class MetaInterpStaticData(object):
             jd.propagate_exc_descr = exc_descr
         #
         num = self.cpu.get_fail_descr_number(exc_descr)
-        self.cpu.propagate_exception_v = num
+        self.cpu.propagate_exc_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
 

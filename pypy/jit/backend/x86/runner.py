@@ -160,9 +160,7 @@ class AbstractX86CPU(AbstractLLCPU):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token - ofs)
-        fail_index = frame.jf_force_index
-        faildescr = self.get_fail_descr_from_number(fail_index)
-        frame.jf_descr = cast_instance_to_gcref(faildescr)
+        frame.jf_descr = frame.jf_force_descr
         return frame
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
