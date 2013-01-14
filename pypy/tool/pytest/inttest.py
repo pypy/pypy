@@ -14,7 +14,7 @@ def check_keyboard_interrupt(e):
     try:
         if e.w_type.name == 'KeyboardInterrupt':
             tb = sys.exc_info()[2]
-            raise KeyboardInterrupt, KeyboardInterrupt(), tb
+            py.builtin._reraise(KeyboardInterrupt, KeyboardInterrupt(), tb)
     except AttributeError:
         pass
 
