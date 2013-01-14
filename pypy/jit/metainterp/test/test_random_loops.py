@@ -90,21 +90,20 @@ class RandomLoopBase(object):
                     value = prev.lt(value)
                 elif op == '=':
                     value = prev.eq(value)
+                elif op == 'n':
+                    value = IntBox(not value.value())
                 elif op == '{':
                     loop_stack.append(pc)
                 elif op == '}':
-                    if value.value():
-                        pc -= offsets[pc] - 1
-                        prev = current
-                        if max_back_jumps > 0:
-                            max_back_jumps -= 1
-                            if not max_back_jumps:
-                                break
-                        myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev,
-                                                  loop_stack=loop_stack, max_back_jumps=max_back_jumps)
-                        continue
-                    else:
-                        loop_stack.pop()
+                    pc -= offsets[pc] - 1
+                    prev = current
+                    if max_back_jumps > 0:
+                        max_back_jumps -= 1
+                        if not max_back_jumps:
+                            break
+                    myjitdriver.can_enter_jit(pc=pc, a=a, b=b, c=c, d=d, e=e, value=value, prev=prev,
+                                              loop_stack=loop_stack, max_back_jumps=max_back_jumps)
+                    continue
                 elif op == 'x':
                     pc = loop_stack.pop()
                     pc += offsets[pc]
@@ -162,9 +161,9 @@ class RandomLoopBase(object):
     def compare(self):
         return self.value() + self.value() + choice('<>=')
 
-    def do_while(self):
+    def while_loop(self):
         self.levels -= 1
-        code = '{' + self.block() + self.compare() + '}'
+        code = '{' + self.compare() + 'n(x)' + self.block() + '}'
         self.levels += 1
         return code
 
@@ -183,7 +182,7 @@ class RandomLoopBase(object):
     def block(self):
         stmts = [self.break_loop] + [self.binop] * 5
         if self.levels:
-            stmts += [self.do_while, self.if_block, self.if_else_block]
+            stmts += [self.while_loop, self.if_block, self.if_else_block]
         return ''.join(choice(stmts)() for i in xrange(randrange(self.max_stmts_per_block)))
 
     def random_loop(self, max_stmts_per_block=10, max_levels=5):
@@ -200,13 +199,13 @@ class BaseTests(RandomLoopBase):
         self.check('ea+Eeb+Eec+Eed+E', [6,7,8,9,0], a=6, b=7, c=8, d=9, e=30)
 
     def test_loop(self):
-        self.check('0A9B{ab+Ab1-Bb}', a=45)
+        self.check('0A9B{ab+Ab1-Bbn(x)}', a=45)
 
     def test_conditional(self):
-        self.check('0A0C9B{b4<(a1+A)(c1+C)b1-Bb}', c=6, a=3)
+        self.check('0A0C9B{b4<(a1+A)(c1+C)b1-Bbn(x)}', c=6, a=3)
 
     def test_break(self):
-        self.check('0A9B{ab+Ab1-Bb0=(x)1}', a=45)
+        self.check('0A9B{ab+Ab1-Bb0=(x)}', a=45)
 
     def test_nested(self):
         self.check('''0A
@@ -216,13 +215,13 @@ class BaseTests(RandomLoopBase):
                           ac+A
                           c1-C
                           c0= (x)
-                        1}
+                        }
                         b1-B
                         b0= (x)
-                      1}''', a=810)
+                      }''', a=810)
 
     def test_jump_limit(self):
-        self.check('0A{a1+A1}', max_back_jumps=10, a=10)
+        self.check('0A{a1+A}', max_back_jumps=10, a=10)
 
     def test_failure1(self):
         self.check('{{c3+A{cc+Dda<({2b=}c7=(cd-Aae-Exe8+Ax)aa+Ab5-D2a-Dba=(0d+Be7-D6e+Bd3-A)0e+D)(a0=(x{79>})(0e>(x)9c+Ce3-Ccb>(5d=(08-Axx)da+B4d<(04-B7d+Eba+Axx09+B15-E))()33-Bc9<()({xba+Ec1+C0a=}4c+C79+Dxda<(0c+A)(5e+D9b+C2d-Bcc+D8b-A99-B3c-De4-Cc9+C)58-Bcc-Ae1-Be9-D)ae+A)xcc=(3c=(d5>(23+Bad+Bx8c-De5-Dac-Cd3-Cea+Ax)(xx)33-A{dc-D0b-Ab8-Cb1+Bd1+A28=}65+Aba<(x5c+Axba-C57+A3b-Deb+C)(cd+Bec+B30+Bbb+D45-De4-C)b8-Eae<(aa+Ce4-E1a+Dxa1+E)(d5-Ea2-Ex62+Bxx6a-D)be+B)c6+C3e+A)(5e+C4e-Ec9+Bx26-Ca8=()x)a3<(x10-Cd8-Aba-Ex{5c=})55+C)xd2-Ax98>}1}1}', [49, 30, 28, 93, 22], 1000)
