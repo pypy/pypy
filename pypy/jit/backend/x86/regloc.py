@@ -5,7 +5,7 @@ from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib.rarithmetic import intmask
-from pypy.jit.metainterp.history import FLOAT
+from pypy.jit.metainterp.history import FLOAT, INT
 from pypy.jit.codewriter import longlong
 
 #
@@ -48,7 +48,7 @@ class RawStackLoc(AssemblerLocation):
     _immutable_ = True
     _location_code = 'b'
 
-    def __init__(self, value, type):
+    def __init__(self, value, type=INT):
         self.value = value
         self.type = type
 

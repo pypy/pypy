@@ -9,6 +9,7 @@ from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          TargetToken, JitCellToken)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
+from pypy.rpython.annlowlevel import cast_instance_to_gcref
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
@@ -201,7 +202,8 @@ class RegAlloc(object):
         return operations
 
     def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
+        operations = self._prepare(inputargs, operations,
+                                   allgcrefs)
         self._update_bindings(arglocs, inputargs)
         self.min_bytes_before_label = 0
         return operations
@@ -498,12 +500,12 @@ class RegAlloc(object):
         # the frame is in ebp, but we have to point where in the frame is
         # the potential argument to FINISH
         descr = op.getdescr()
-        fail_no = self.assembler.cpu.get_fail_descr_number(descr)
+        fail_descr = cast_instance_to_gcref(descr)
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
-            locs = [loc, imm(fail_no)]
+            locs = [loc, imm(fail_descr)]
         else:
-            locs = [imm(fail_no)]
+            locs = [imm(fail_descr)]
         self.Perform(op, locs, None)
         if op.numargs() == 1:
             self.possibly_free_var(op.getarg(0))

@@ -105,7 +105,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def make_execute_token(self, *ARGS):
         FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
-                                             lltype.Signed))
+                                             llmemory.GCREF))
         #
         def execute_token(executable_token, *args):
             clt = executable_token.compiled_loop_token
@@ -136,14 +136,12 @@ class AbstractX86CPU(AbstractLLCPU):
                     else:
                         self.set_ref_value(frame, num, arg)
                     num += WORD
-                descr_no = func(ll_frame)
+                ll_frame = func(ll_frame)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            descr = self.get_fail_descr_from_number(descr_no)
-            frame.jf_descr = cast_instance_to_gcref(descr)
-            return frame
+            return ll_frame
         return execute_token
 
     def cast_ptr_to_int(x):

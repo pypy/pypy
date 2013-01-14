@@ -4,10 +4,9 @@ from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from pypy.jit.metainterp.history import JitCellToken
-from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, cast_instance_to_gcref
 from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
@@ -569,7 +568,6 @@ class Assembler386(object):
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs)
-
         frame_depth = self._assemble(regalloc, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -1793,7 +1791,6 @@ class Assembler386(object):
         """Generate the initial code for handling a failure.  We try to
         keep it as compact as possible.
         """
-        fail_index = self.cpu.get_fail_descr_number(guardtok.faildescr)
         mc = self.mc
         startpos = mc.get_relative_pos()
         withfloats = False
@@ -1803,12 +1800,14 @@ class Assembler386(object):
                 break
         exc = guardtok.exc
         target = self.failure_recovery_code[exc + 2 * withfloats]
+        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         if WORD == 4:
-            mc.PUSH(imm(fail_index))
+            mc.PUSH(imm(fail_descr))
             mc.JMP(imm(target))
         else:
             mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
-            mc.PUSH(imm(fail_index))
+            mc.PUSH(imm(fail_descr))
             mc.JMP_r(X86_64_SCRATCH_REG.value)
         # write tight data that describes the failure recovery
         positions = [0] * len(guardtok.fail_locs)
@@ -1881,7 +1880,11 @@ class Assembler386(object):
         # _call_header_with_stack_check().  The LEA in _call_footer below
         # throws away most of the frame, including all the PUSHes that we
         # did just above.
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
         mc.POP(eax)
+        mc.MOV_br(ofs, eax.value)
+        mc.LEA_rb(eax.value, -base_ofs)
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -1890,16 +1893,18 @@ class Assembler386(object):
 
     def genop_finish(self, op, arglocs, result_loc):
         if len(arglocs) == 2:
-            [return_val, argloc] = arglocs
+            [return_val, fail_descr_loc] = arglocs
             if op.getarg(0).type == FLOAT and not IS_X86_64:
                 size = WORD * 2
             else:
                 size = WORD
             self.save_into_mem(raw_stack(0), return_val, imm(size))
         else:
-            [argloc] = arglocs
-        if argloc is not eax:
-            self.mov(argloc, eax)
+            [fail_descr_loc] = arglocs
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        self.mov(fail_descr_loc, RawStackLoc(ofs))
+        self.mc.LEA_rb(eax.value, -base_ofs)
         # exit function
         self._call_footer()
 

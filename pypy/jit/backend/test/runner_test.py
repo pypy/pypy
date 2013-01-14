@@ -430,6 +430,7 @@ class BaseBackendTest(Runner):
     def test_int_operations(self):
         from pypy.jit.metainterp.test.test_executor import get_int_tests
         for opnum, boxargs, retvalue in get_int_tests():
+            print "X"
             res = self.execute_operation(opnum, boxargs, 'int')
             assert res.value == retvalue
 
