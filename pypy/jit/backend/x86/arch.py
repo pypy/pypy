@@ -43,6 +43,7 @@ else:
 if WORD == 4:
     # XXX rethink the fixed size
     # ebp + ebx + esi + edi + 4 extra words + force_index = 9 words
+    XX
     FRAME_FIXED_SIZE = 6
     SAVED_REGISTERS = 1    # range(1, 5)
     MY_COPY_OF_REGS = 5    # range(5, 9)
@@ -50,10 +51,9 @@ if WORD == 4:
     JITFRAME_FIXED_SIZE = 29 # 13 GPR + 16 XMM
                              # reg, we don't save it
 else:
-    # rbp + rbx + r12 + r13 + r14 + r15 + 11 extra words + force_index = 18
-    FRAME_FIXED_SIZE = 6
-    SAVED_REGISTERS = 1    # range(1, 7)
-    MY_COPY_OF_REGS = 7    # range(7, 18)
+    # rbp + rbx + r12 + r13 + r14 + r15 + 12 extra words + return address = 18
+    FRAME_FIXED_SIZE = 19
+    PASS_ON_MY_FRAME = 12
     JITFRAME_FIXED_SIZE = 29 # 13 GPR + 16 XMM
                              # reg, we don't save it
     

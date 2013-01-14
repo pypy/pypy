@@ -208,6 +208,18 @@ class AbstractX86CPU(AbstractLLCPU):
         ofs = self.unpack_arraydescr(descr)
         self.write_float_at_mem(newframe, ofs + index, value)
 
+    @specialize.arg(1)
+    def get_ofs_of_frame_field(self, name):
+        descrs = self.gc_ll_descr.getframedescrs(self)
+        base_ofs = self.unpack_arraydescr(descrs.arraydescr)
+        ofs = self.unpack_fielddescr(getattr(descrs, name))
+        return ofs - base_ofs
+
+    def get_baseofs_of_frame_field(self):
+        descrs = self.gc_ll_descr.getframedescrs(self)
+        base_ofs = self.unpack_arraydescr(descrs.arraydescr)
+        return base_ofs
+
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'
     WORD = 4

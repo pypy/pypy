@@ -3364,7 +3364,7 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == excdescr.identifier
         exc = self.cpu.grab_exc_value(deadframe)
-        assert exc == "memoryerror!"
+        assert not exc
 
     def test_math_sqrt(self):
         if not self.cpu.supports_floats:

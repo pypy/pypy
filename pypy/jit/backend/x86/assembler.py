@@ -13,7 +13,8 @@ from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
-                                       JITFRAME_FIXED_SIZE, IS_X86_32)
+                                       JITFRAME_FIXED_SIZE, IS_X86_32,
+                                       PASS_ON_MY_FRAME)
 from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi, edi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -194,6 +195,7 @@ class Assembler386(object):
             mc.MOV_br(ofs, reg.value)
         #
         if shadow_stack:
+            xxx
             # ---- shadowstack ----
             mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
             if IS_X86_32:
@@ -253,10 +255,12 @@ class Assembler386(object):
         #
         self.mc = codebuf.MachineCodeBlockWrapper()
         #
-        # Call the helper, which will return a dead frame object with
-        # the correct exception set, or MemoryError by default
-        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
-        self.mc.CALL(imm(addr))
+        # read and reset the current exception
+
+        self._store_and_reset_exception(eax)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+        self.mc.MOV_br(ofs, eax.value)
+        self.mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
         #
         self._call_footer()
         rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
@@ -267,6 +271,7 @@ class Assembler386(object):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
         if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
             return      # no stack check (for tests, or non-translated)
+        xxx
         #
         # make a "function" that is called immediately at the start of
         # an assembler function.  In particular, the stack looks like:
@@ -750,16 +755,15 @@ class Assembler386(object):
         # Also, make sure this is consistent with FRAME_FIXED_SIZE.
         # XXX should be LEA?
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
-        self.mc.MOV_sr(0, ebp.value)
+        self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
-            descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-            _, ofs, _ = unpack_arraydescr(descrs.arraydescr)
+            ofs = self.cpu.get_baseofs_of_frame_field()
             self.mc.LEA_rm(ebp.value, (edi.value, ofs))
         else:
             xxx
 
         for i, loc in enumerate(self.cpu.CALLEE_SAVE_REGISTERS):
-            self.mc.MOV_sr((i + 1) * WORD, loc.value)
+            self.mc.MOV_sr((PASS_ON_MY_FRAME + i + 1) * WORD, loc.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -769,6 +773,7 @@ class Assembler386(object):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
+            xxx
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
             self.mc.SUB(eax, esp)                       # SUB eax, current
@@ -790,9 +795,9 @@ class Assembler386(object):
 
         for i in range(len(self.cpu.CALLEE_SAVE_REGISTERS)-1, -1, -1):
             self.mc.MOV_rs(self.cpu.CALLEE_SAVE_REGISTERS[i].value,
-                           (i + 1) * WORD)
+                           (i + 1 + PASS_ON_MY_FRAME) * WORD)
 
-        self.mc.MOV_rs(ebp.value, 0)
+        self.mc.MOV_rs(ebp.value, PASS_ON_MY_FRAME * WORD)
         self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.RET()
 
@@ -1105,6 +1110,20 @@ class Assembler386(object):
         unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
 
         on_stack = 0
+        # count the stack depth
+        floats = 0
+        for i in range(start, len(arglocs)):
+            arg = arglocs[i]
+            if arg.is_float() or argtypes and argtypes[i - start] == 'S':
+                floats += 1
+        all_args = len(arglocs) - start
+        stack_depth = (max(all_args - floats - len(unused_gpr), 0) +
+                       max(floats - len(unused_xmm), 0))
+        align = 0
+        if stack_depth > PASS_ON_MY_FRAME:
+            stack_depth = align_stack_words(stack_depth)
+            align = (stack_depth - PASS_ON_MY_FRAME)
+            self.mc.SUB_ri(esp.value, align * WORD)
         for i in range(start, len(arglocs)):
             loc = arglocs[i]
             if loc.is_float():
@@ -1130,10 +1149,6 @@ class Assembler386(object):
                 else:
                     dst_locs.append(RawEspLoc(on_stack * WORD, INT))
                     on_stack += 1
-
-        align = align_stack_words(on_stack + 1) - 1
-        if align:
-            self.mc.SUB_ri(esp.value, align * WORD)
 
         # Handle register arguments: first remap the xmm arguments
         remap_frame_layout(self, xmm_src_locs, xmm_dst_locs,
@@ -1663,6 +1678,9 @@ class Assembler386(object):
         self.mc.MOV(loc1, heap(self.cpu.pos_exception()))
         self.mc.CMP(loc1, loc)
         self.implement_guard(guard_token, 'NE')
+        self._store_and_reset_exception(resloc)
+
+    def _store_and_reset_exception(self, resloc=None):
         if resloc is not None:
             self.mc.MOV(resloc, heap(self.cpu.pos_exc_value()))
         self.mc.MOV(heap(self.cpu.pos_exception()), imm0)
@@ -1856,11 +1874,8 @@ class Assembler386(object):
 
         if exc:
             # save ebx into 'jf_guard_exc'
-            from pypy.jit.backend.llsupport.descr import unpack_fielddescr
-            descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-            offset, size, _ = unpack_fielddescr(descrs.jf_guard_exc)
-            _, base_offset, _ = unpack_arraydescr(descrs.arraydescr)
-            mc.MOV_br(offset - base_offset, ebx.value)
+            offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.MOV_br(offset, ebx.value)
 
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The LEA in _call_footer below
@@ -1961,17 +1976,13 @@ class Assembler386(object):
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
-        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-        base_ofs = self.cpu.unpack_arraydescr(descrs.arraydescr)
-        ofs = self.cpu.unpack_fielddescr(descrs.jf_force_index)
-        self.mc.MOV_bi(ofs - base_ofs, fail_index)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_force_index')
+        self.mc.MOV_bi(ofs, fail_index)
         return fail_index
 
     def _emit_guard_not_forced(self, guard_token):
-        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-        base_ofs = self.cpu.unpack_arraydescr(descrs.arraydescr)
-        ofs_fail = self.cpu.unpack_fielddescr(descrs.jf_descr)
-        self.mc.CMP_bi(ofs_fail - base_ofs, 0)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.CMP_bi(ofs, 0)
         self.implement_guard(guard_token, 'NE')
 
     def genop_guard_call_may_force(self, op, guard_op, guard_token,

@@ -78,31 +78,9 @@ class AbstractLLCPU(AbstractCPU):
             return (rffi.cast(lltype.Signed, _exception_emulator) +
                     rffi.sizeof(lltype.Signed))
 
-        def propagate_exception():
-            exc = _exception_emulator[1]
-            _exception_emulator[0] = 0
-            _exception_emulator[1] = 0
-            assert self.propagate_exception_v >= 0
-            faildescr = self.get_fail_descr_from_number(
-                self.propagate_exception_v)
-            faildescr = faildescr.hide(self)
-            if not exc:
-                deadframe = self.deadframe_memoryerror
-                if not deadframe.jf_descr:
-                    deadframe.jf_descr = faildescr
-                else:
-                    assert deadframe.jf_descr == faildescr
-            else:
-                XXX
-                deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
-                deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
-                deadframe.jf_descr = faildescr
-            return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
-
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.insert_stack_check = lambda: (0, 0, 0)
-        self._propagate_exception = propagate_exception
 
     def _setup_exception_handling_translated(self):
 
@@ -124,46 +102,9 @@ class AbstractLLCPU(AbstractCPU):
             slowpathaddr = rffi.cast(lltype.Signed, f)
             return endaddr, lengthaddr, slowpathaddr
 
-        def propagate_exception():
-            addr = llop.get_exception_addr(llmemory.Address)
-            addr.address[0] = llmemory.NULL
-            addr = llop.get_exc_value_addr(llmemory.Address)
-            exc = rffi.cast(llmemory.GCREF, addr.address[0])
-            addr.address[0] = llmemory.NULL
-            assert self.propagate_exception_v >= 0
-            faildescr = self.get_fail_descr_from_number(
-                self.propagate_exception_v)
-            faildescr = faildescr.hide(self)
-            XXX
-            deadframe = lltype.nullptr(jitframe.DEADFRAME)
-            if exc:
-                try:
-                    deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
-                    deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
-                    deadframe.jf_descr = faildescr
-                except MemoryError:
-                    deadframe = lltype.nullptr(jitframe.DEADFRAME)
-            if not deadframe:
-                deadframe = self.deadframe_memoryerror
-                if not deadframe.jf_descr:
-                    exc = MemoryError()
-                    exc = cast_instance_to_base_ptr(exc)
-                    exc = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
-                    deadframe.jf_guard_exc = exc
-                    deadframe.jf_descr = faildescr
-                else:
-                    assert deadframe.jf_descr == faildescr
-            return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
-
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.insert_stack_check = insert_stack_check
-        self._propagate_exception = propagate_exception
-
-    PROPAGATE_EXCEPTION = lltype.Ptr(lltype.FuncType([], llmemory.GCREF))
-
-    def get_propagate_exception(self):
-        return llhelper(self.PROPAGATE_EXCEPTION, self._propagate_exception)
 
     def grab_exc_value(self, deadframe):
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
