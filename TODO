@@ -40,7 +40,3 @@ GC: major collections
 JIT: finish (missing: the call in execute_token(), reorganize pypy source, ?)
 
 ------------------------------------------------------------
-
-investigate abusing jitdriver to do rstm.perform_transaction()
-
-------------------------------------------------------------
