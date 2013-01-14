@@ -7,12 +7,14 @@
 
 
 import py
-import os, sys
+import pytest
+import os
+import sys
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 
 
-class ExpectTestMethod(py.test.collect.Function):
+class ExpectTestMethod(pytest.collect.Function):
     @staticmethod
     def safe_name(target):
         s = "_".join(target)
@@ -22,6 +24,8 @@ class ExpectTestMethod(py.test.collect.Function):
         s = s.replace(os.sep, "_")
         return s
 
+    #XXX: we really want to get the tmpdir fixture and
+    #     make a expect.py there
     def safe_filename(self):
         name = self.safe_name(self.listnames())
         num = 0
@@ -42,12 +46,12 @@ class ExpectTestMethod(py.test.collect.Function):
 
     def runtest(self):
         target = self.obj
-        import pexpect
         source = py.code.Source(target)[1:].deindent()
         filename = self.safe_filename()
-        source.lines = ['import sys',
-                      'sys.path.insert(0, %s)' % repr(os.path.dirname(pypydir))
-                        ] + source.lines
+        source.lines = [
+            'import sys',
+            'sys.path.insert(0, %s)' % repr(os.path.dirname(pypydir))
+        ] + source.lines
         source.lines.append('print "%s ok!"' % filename)
         f = udir.join(filename)
         f.write(source)
@@ -57,18 +61,13 @@ class ExpectTestMethod(py.test.collect.Function):
         child.expect(re.escape(filename + " ok!"))
 
 
-class ExpectClassInstance(py.test.collect.Instance):
+class ExpectClassInstance(pytest.collect.Instance):
     Function = ExpectTestMethod
 
 
-class ExpectClassCollector(py.test.collect.Class):
+class ExpectClassCollector(pytest.collect.Class):
     Instance = ExpectClassInstance
 
     def setup(self):
         super(ExpectClassCollector, self).setup()
-        try:
-            import pexpect
-        except ImportError:
-            py.test.skip("pexpect not found")
-
-
+        pytest.importorskip('pexpect')
