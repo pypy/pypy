@@ -154,12 +154,19 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   do
     {
       v_counter = counter + 1;
-      /* initialize 'reads_size_limit_nonatomic' from the configured
-         length limit, scaled down by a factor of 2 for each time we
-         retry an aborted transaction.  Note that as soon as such a
-         shortened transaction succeeds, the next one will again have
-         full length, for now. */
-      d->reads_size_limit_nonatomic = stm_regular_length_limit >> counter;
+      /* If counter==0, initialize 'reads_size_limit_nonatomic' from the
+         configured length limit.  If counter>0, we did an abort, which
+         has configured 'reads_size_limit_nonatomic' to a smaller value.
+         When such a shortened transaction succeeds, the next one will
+         see its length limit doubled, up to the maximum. */
+      if (counter == 0) {
+          long limit = d->reads_size_limit_nonatomic;
+          if (limit != 0 && limit < (stm_regular_length_limit >> 1))
+              limit = (limit << 1) | 1;
+          else
+              limit = stm_regular_length_limit;
+          d->reads_size_limit_nonatomic = limit;
+      }
       if (!d->atomic)
         BeginTransaction(&_jmpbuf);
 

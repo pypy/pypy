@@ -367,12 +367,22 @@ static void SpinLoop(int num)
 static void AbortTransaction(int num)
 {
   struct tx_descriptor *d = thread_descriptor;
+  long limit;
   assert(d->active);
   assert(!is_inevitable(d));
   assert(num < ABORT_REASONS);
   d->num_aborts[num]++;
 
   CancelLocks(d);
+
+  /* upon abort, set the reads size limit to 94% of how much was read
+     so far.  This should ensure that, assuming the retry does the same
+     thing, it will commit just before it reaches the conflicting point. */
+  limit = d->list_of_read_objects.size;
+  if (limit > 0) {
+      limit -= (limit >> 4);
+      d->reads_size_limit_nonatomic = limit;
+  }
 
   gcptrlist_clear(&d->list_of_read_objects);
   gcptrlist_clear(&d->gcroots);
