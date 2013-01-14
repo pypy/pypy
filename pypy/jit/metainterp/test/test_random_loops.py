@@ -1,5 +1,6 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.jit import JitDriver
+from random import choice, randrange
 import re
 
 class IntBox(object):
@@ -30,6 +31,7 @@ class UnknonwOpCode(Exception):
 
 class RandomLoopBase(object):
     def check(self, bytecode, args=(0,0,0,0,0), max_back_jumps=-1, **kwargs):
+        print 'check:', bytecode, args, max_back_jumps
         bytecode = re.subn('\s', '', bytecode)[0]
         offsets = self.offsets(bytecode)
         assert len(args) == 5
@@ -142,6 +144,53 @@ class RandomLoopBase(object):
                 offsets[start_pc] = offsets[pc] = pc - start_pc
         return offsets
 
+    def variable(self):
+        return choice('abcde')
+
+    def constant(self):
+        return choice('0123456789')
+
+    def value(self):
+        return choice([self.variable, self.constant])()
+
+    def binop(self):
+        return self.value() + self.value() + choice('+-') + self.variable().upper()
+
+    def break_loop(self):
+        return 'x'
+
+    def compare(self):
+        return self.value() + self.value() + choice('<>=')
+
+    def do_while(self):
+        self.levels -= 1
+        code = '{' + self.block() + self.compare() + '}'
+        self.levels += 1
+        return code
+
+    def if_block(self):
+        self.levels -= 1
+        code = self.compare() + '(' + self.block() + ')'
+        self.levels += 1
+        return code
+
+    def if_else_block(self):
+        self.levels -= 1
+        code = self.compare() + '(' + self.block() + ')(' + self.block() + ')'
+        self.levels += 1
+        return code
+
+    def block(self):
+        stmts = [self.break_loop] + [self.binop] * 5
+        if self.levels:
+            stmts += [self.do_while, self.if_block, self.if_else_block]
+        return ''.join(choice(stmts)() for i in xrange(randrange(self.max_stmts_per_block)))
+
+    def random_loop(self, max_stmts_per_block=10, max_levels=5):
+        self.max_stmts_per_block = max_stmts_per_block
+        self.levels = max_levels
+        return '{{' + self.block() + '1}1}'
+
 
 class BaseTests(RandomLoopBase):
     def test_basic(self):
@@ -174,6 +223,11 @@ class BaseTests(RandomLoopBase):
 
     def test_jump_limit(self):
         self.check('0A{a1+A1}', max_back_jumps=10, a=10)
+
+    def test_random_bytecode(self):
+        for i in xrange(1000):
+            yield self.check, self.random_loop(), [randrange(100) for i in xrange(5)], 1000
+
 
 class TestLLtype(BaseTests, LLJitMixin):
     pass
