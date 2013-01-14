@@ -19,6 +19,7 @@ from pypy.rpython.test import (test_annlowlevel, test_exception,
      test_rgeneric, test_rint, test_rlist, test_rpbc, test_rrange, test_rstr,
      test_rtuple, test_runicode, test_rvirtualizable2, test_rweakref)
 from pypy.rpython.typesystem import getfunctionptr
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
 from pypy.translator.c.test import (test_typed, test_lltyped,
@@ -320,7 +321,7 @@ class _LLVMMixin(object):
         self.config_override = {}
         self.annotator_policy = None
 
-    def getcompiled(self, func, argtypes, gcpolicy='ref'):
+    def getcompiled(self, func, argtypes, gcpolicy='ref', backendopt=True):
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
         config.translation.simplifying = True
@@ -334,6 +335,9 @@ class _LLVMMixin(object):
         raisingop2direct_call(t)
         if py.test.config.option.view:
             t.view()
+        if backendopt:
+            backend_optimizations(self.translator)
+
         t.checkgraphs()
         insert_ll_stackcheck(t)
 
@@ -678,6 +682,9 @@ class TestSpecialCases(_LLVMMixin):
 
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
+    def getcompiled(self, func, argtypes):
+        return _LLVMMixin.getcompiled(self, func, argtypes, backendopt=False)
+
     def test_union(self):
         py.test.skip('not supported')
 
@@ -686,28 +693,25 @@ class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
 
 
 class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
-    pass
+    def getcompiled(self, func, argtypes):
+        return _LLVMMixin.getcompiled(self, func, argtypes, backendopt=False)
 
 
 class TestTypedOptimizedTestCaseLLVM(_LLVMMixin, test_backendoptimized
                                                  .TestTypedOptimizedTestCase):
-    def process(self, t): #XXX
-        test_backendoptimized.TestTypedOptimizedTestCase.process(self, t)
+    pass
 
 class TestTypedOptimizedSwitchTestCaseLLVM(test_backendoptimized
                                            .TestTypedOptimizedSwitchTestCase):
     class CodeGenerator(_LLVMMixin, test_backendoptimized
                                     .TestTypedOptimizedSwitchTestCase
                                     .CodeGenerator):
-        def process(self, t): #XXX
-            test_backendoptimized.TestTypedOptimizedSwitchTestCase \
-                    .CodeGenerator.process(self, t)
+        pass
 
 
 class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
-    def compile(self, func, argtypes=None, backendopt=True, gcpolicy='ref'):
-        # XXX do not ignore backendopt
-        fn = self.getcompiled(func, argtypes, gcpolicy)
+    def compile(self, func, argtypes, gcpolicy='ref', backendopt=True):
+        fn = self.getcompiled(func, argtypes, gcpolicy, backendopt)
         def fn2(*args, **kwds):
             kwds.pop('expected_extra_mallocs', None)
             return fn(*args, **kwds)
