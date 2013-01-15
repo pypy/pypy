@@ -537,23 +537,7 @@ class WarmspotTests(object):
 
 
     def test_callback_jit_merge_point(self):
-<<<<<<< local
-        from rpython.rlib.objectmodel import register_around_callback_hook
-        from rpython.rtyper.lltypesystem import lltype, rffi
-        from rpython.translator.tool.cbuild import ExternalCompilationInfo
-        
-        callback_jit_driver = JitDriver(greens = ['name'], reds = 'auto')
-        
-        def callback_merge_point(name):
-            callback_jit_driver.jit_merge_point(name=name)
-    
-        @callback_jit_driver.inline(callback_merge_point)
-        def callback_hook(name):
-            pass
-
-=======
         @jit_callback("testing")
->>>>>>> other
         def callback(a, b):
             if a > b:
                 return 1
