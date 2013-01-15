@@ -421,6 +421,7 @@ USERDATA_P.TO.become(lltype.Struct('userdata',
                                    hints={'callback':True}))
 
 
+@jit.jit_callback("CLIBFFI")
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care

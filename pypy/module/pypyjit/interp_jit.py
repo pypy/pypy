@@ -6,7 +6,7 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from rpython.rlib import jit, objectmodel
+from rpython.rlib import jit
 from rpython.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -96,15 +96,6 @@ class __extend__(PyFrame):
                                     pycode=self.getcode(),
                                     is_being_profiled=self.is_being_profiled)
         return jumpto
-
-callback_jit_driver = JitDriver(greens = ['name'], reds = 'auto')
-
-def callback_merge_point(name):
-    callback_jit_driver.jit_merge_point(name=name)
-
-@callback_jit_driver.inline(callback_merge_point)
-def callback_hook(name):
-    pass
 
 def _get_adapted_tick_counter():
     # Normally, the tick counter is decremented by 100 for every
