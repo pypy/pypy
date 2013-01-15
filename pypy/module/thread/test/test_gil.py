@@ -61,8 +61,9 @@ class GILTests(test_rthread.AbstractGCTestClass):
         def bootstrap():
             try:
                 runme()
-            finally:
-                thread.gc_thread_die()
+            except Exception, e:
+                assert 0
+            thread.gc_thread_die()
         def f():
             state.data = []
             state.datalen1 = 0
