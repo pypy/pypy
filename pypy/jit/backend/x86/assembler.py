@@ -1959,10 +1959,6 @@ class Assembler386(object):
         self.pending_guard_tokens.append(guard_token)
 
     def genop_call(self, op, arglocs, resloc):
-        force_index = self.write_new_force_index()
-        self._genop_call(op, arglocs, resloc, force_index)
-
-    def _genop_call(self, op, arglocs, resloc, force_index):
         from pypy.jit.backend.llsupport.descr import CallDescr
 
         sizeloc = arglocs[0]
@@ -1979,7 +1975,7 @@ class Assembler386(object):
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
 
-        self._emit_call(force_index, x, arglocs, 3, tmp=tmp,
+        self._emit_call(x, arglocs, 3, tmp=tmp,
                         argtypes=descr.get_arg_types(),
                         callconv=descr.get_call_conv())
 
@@ -2033,7 +2029,7 @@ class Assembler386(object):
     def genop_guard_call_may_force(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         self._store_force_index(guard_op)
-        self._genop_call(op, arglocs, result_loc, -1)
+        self.genop_call(op, arglocs, result_loc)
         self._emit_guard_not_forced(guard_token)
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
@@ -2044,8 +2040,8 @@ class Assembler386(object):
             xxx
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
-        fail_index = self._store_force_index(guard_op)
-        self._genop_call(op, arglocs, result_loc, fail_index)
+        self._store_force_index(guard_op)
+        self.genop_call(op, arglocs, result_loc)
         # then reopen the stack
         if gcrootmap:
             xxx
@@ -2115,7 +2111,7 @@ class Assembler386(object):
             self.mc.LEA_rb(reg.value, css)
             args = [reg]
         #
-        self._emit_call(-1, imm(self.releasegil_addr), args)
+        self._emit_call(imm(self.releasegil_addr), args)
         # Finally, restore the registers saved above.
         if IS_X86_32:
             p = WORD
@@ -2148,7 +2144,7 @@ class Assembler386(object):
                 reg = edi
             self.mc.LEA_rb(reg.value, css)
             args = [reg]
-        self._emit_call(-1, imm(self.reacqgil_addr), args)
+        self._emit_call(imm(self.reacqgil_addr), args)
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)
@@ -2156,7 +2152,7 @@ class Assembler386(object):
 
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
-        fail_index = self._store_force_index(guard_op)
+        self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         [frame_loc, argloc] = arglocs
@@ -2164,7 +2160,7 @@ class Assembler386(object):
         # Write a call to the target assembler
         # we need to allocate the frame, keep in sync with runner's
         # execute_token
-        self._emit_call(fail_index, imm(descr._x86_function_addr),
+        self._emit_call(imm(descr._x86_function_addr),
                         [argloc], 0, tmp=eax)
         if op.result is None:
             assert result_loc is None
@@ -2194,7 +2190,7 @@ class Assembler386(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        self._emit_call(fail_index, imm(asm_helper_adr),
+        self._emit_call(imm(asm_helper_adr),
                         [eax, imm0], 0, tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
             self.mc.FSTPL_b(result_loc.value)
