@@ -5,7 +5,7 @@ functional programming.
 
 # ____________________________________________________________
 
-def sorted(lst, key=None, reverse=None):
+def sorted(lst, key=None, reverse=False):
     "sorted(iterable, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(lst)
     sorted_lst.sort(key=key, reverse=reverse)
