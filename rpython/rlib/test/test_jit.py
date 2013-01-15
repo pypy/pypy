@@ -222,7 +222,7 @@ class BaseTestJIT(BaseRtypingTest):
         myjitdriver = JitDriver(greens=['r1', 'i1', 'f1'], reds=[])
         class A(object):
             pass
-        e = raises(AssertionError,
+        e = py.test.raises(AssertionError,
                    myjitdriver.jit_merge_point, i1=42, r1=A(), f1=3.5)
 
     def test_argument_order_more_precision_later(self):
@@ -230,7 +230,7 @@ class BaseTestJIT(BaseRtypingTest):
         class A(object):
             pass
         myjitdriver.jit_merge_point(i1=42, r1=None, r2=None, f1=3.5)
-        e = raises(AssertionError,
+        e = py.test.raises(AssertionError,
                    myjitdriver.jit_merge_point, i1=42, r1=A(), r2=None, f1=3.5)
         assert "got ['2:REF', '1:INT', '?', '3:FLOAT']" in repr(e.value)
 
@@ -239,7 +239,7 @@ class BaseTestJIT(BaseRtypingTest):
         class A(object):
             pass
         myjitdriver.jit_merge_point(i1=42, r1=None, r2=A(), f1=3.5)
-        e = raises(AssertionError,
+        e = py.test.raises(AssertionError,
                    myjitdriver.jit_merge_point, i1=42, r1=A(), r2=None, f1=3.5)
         assert "got ['2:REF', '1:INT', '2:REF', '3:FLOAT']" in repr(e.value)
 

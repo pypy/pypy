@@ -178,7 +178,7 @@ class TestLibffiMisc(BaseFfiTest):
 
     def test_windll(self):
         if os.name != 'nt':
-            skip('Run only on windows')
+            py.test.skip('Run only on windows')
         from rpython.rlib.libffi import WinDLL
         dll = WinDLL('Kernel32.dll')
         sleep = dll.getpointer('Sleep',[types.uint], types.void)

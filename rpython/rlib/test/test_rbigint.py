@@ -249,7 +249,7 @@ class Test_rbigint(object):
         assert d == float(x)
         x = x ** 100
         f1 = rbigint.fromlong(x)
-        assert raises(OverflowError, f1.tofloat)
+        assert py.test.raises(OverflowError, f1.tofloat)
         f2 = rbigint.fromlong(2097152 << SHIFT)
         d = f2.tofloat()
         assert d == float(2097152 << SHIFT)
@@ -282,8 +282,8 @@ class Test_rbigint(object):
         # XXX don't use such consts. marshal doesn't handle them right.
         x = 12345.6789e200
         x *= x
-        assert raises(OverflowError, rbigint.fromfloat, x)
-        assert raises(ValueError, rbigint.fromfloat, NAN)
+        assert py.test.raises(OverflowError, rbigint.fromfloat, x)
+        assert py.test.raises(ValueError, rbigint.fromfloat, NAN)
         #
         f1 = rbigint.fromfloat(9007199254740991.0)
         assert f1.tolong() == 9007199254740991
@@ -781,13 +781,13 @@ class TestTranslatable(object):
         s = "\xFF\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\xFF"
         bigint = rbigint.frombytes(s, byteorder="big", signed=False)
         assert s == bigint.tobytes(16, byteorder="big", signed=False)
-        raises(InvalidEndiannessError, bigint.frombytes, '\xFF', 'foo',
+        py.test.raises(InvalidEndiannessError, bigint.frombytes, '\xFF', 'foo',
                signed=True)
 
     def test_tobytes(self):
         assert rbigint.fromint(0).tobytes(1, 'big', signed=True) == '\x00'
         assert rbigint.fromint(1).tobytes(2, 'big', signed=True) == '\x00\x01'
-        raises(OverflowError, rbigint.fromint(255).tobytes, 1, 'big', signed=True)
+        py.test.raises(OverflowError, rbigint.fromint(255).tobytes, 1, 'big', signed=True)
         assert rbigint.fromint(-129).tobytes(2, 'big', signed=True) == '\xff\x7f'
         assert rbigint.fromint(-129).tobytes(2, 'little', signed=True) == '\x7f\xff'
         assert rbigint.fromint(65535).tobytes(3, 'big', signed=True) == '\x00\xff\xff'
@@ -795,7 +795,7 @@ class TestTranslatable(object):
         assert rbigint.fromint(65535).tobytes(2, 'big', signed=False) == '\xff\xff'
         assert rbigint.fromint(-8388608).tobytes(3, 'little', signed=True) == '\x00\x00\x80'
         i = rbigint.fromint(-8388608)
-        raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
-        raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
-        raises(OverflowError, i.tobytes, 2, 'little', signed=True)
+        py.test.raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
+        py.test.raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
+        py.test.raises(OverflowError, i.tobytes, 2, 'little', signed=True)
 

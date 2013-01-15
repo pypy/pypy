@@ -216,7 +216,7 @@ def test_ovfcheck():
     n = -sys.maxint-1
     y = sys.maxint-1
     # sanity
-    raises(AssertionError, ovfcheck, r_uint(0))
+    py.test.raises(AssertionError, ovfcheck, r_uint(0))
 
     # not overflowing
     try:
