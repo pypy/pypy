@@ -175,7 +175,9 @@ class Assembler386(object):
         assert not IS_X86_32
         # push first arg
         mc.LEA_rb(edi.value, -base_ofs)
+        mc.SUB_ri(esp.value, WORD) # we need that cause we're inside a call
         mc.CALL(imm(self.cpu.realloc_frame))
+        mc.ADD_ri(esp.value, WORD) 
         mc.LEA_rm(ebp.value, (eax.value, base_ofs))
         self._pop_all_regs_from_frame(mc, self.cpu.supports_floats)
         mc.RET()

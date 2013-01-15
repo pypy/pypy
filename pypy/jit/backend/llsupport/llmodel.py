@@ -56,10 +56,22 @@ class AbstractLLCPU(AbstractCPU):
                                              llmemory.GCREF))
 
         def realloc_frame(frame):
-            frame = lltype.cast_opaque_ptr(jitframe.JITFRAME, frame)
-            import pdb
-            pdb.set_trace()
-            return frame
+            frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
+            frame_info = frame.jf_frame_info
+            new_frame = lltype.malloc(jitframe.JITFRAME,
+                                      frame_info.jfi_frame_depth)
+            new_frame.jf_frame_info = frame_info
+            # we need to do this, because we're not sure what things
+            # are GC pointers and which ones are not
+            llop.gc_writebarrier_before_copy(lltype.Bool, frame, new_frame,
+                                             0, 0, len(frame.jf_frame))
+            i = 0
+            while i < len(frame.jf_frame):
+                new_frame.jf_frame[i] = frame.jf_frame[i]
+                i += 1
+            new_frame.jf_savedata = frame.jf_savedata
+            # all other fields are empty
+            return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
         
         f = llhelper(FUNC_TP, realloc_frame)
         self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(f))
