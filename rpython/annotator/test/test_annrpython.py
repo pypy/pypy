@@ -3655,7 +3655,7 @@ class TestAnnotateTestCase:
                 cls = C
             return cls().foo
         a = self.RPythonAnnotator()
-        raises(Exception, a.build_types, f, [int])
+        py.test.raises(Exception, a.build_types, f, [int])
 
     def test_range_variable_step(self):
         def g(n):
