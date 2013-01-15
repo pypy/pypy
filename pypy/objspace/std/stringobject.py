@@ -705,11 +705,21 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     u_self, u_start, u_end = _convert_idx_params(space, w_self, w_start, w_end)
     return wrapint(space, u_self.count(w_arg._value, u_start, u_end))
 
+def _suffix_to_str(space, w_suffix, funcname):
+    try:
+        return space.bufferstr_w(w_suffix)
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            msg = ("%s first arg must be bytes or a tuple of bytes, "
+                   "not %s")
+            typename = space.type(w_suffix).getname(space)
+            raise operationerrfmt(space.w_TypeError, msg, funcname, typename)
+
 def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
-    return space.newbool(stringendswith(u_self, space.bufferstr_w(w_suffix),
-                                           start, end))
+    return space.newbool(stringendswith(
+            u_self, _suffix_to_str(space, w_suffix, 'endswith'), start, end))
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
@@ -728,8 +738,8 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
 def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
-    return space.newbool(stringstartswith(u_self, space.bufferstr_w(w_prefix),
-                                          start, end))
+    return space.newbool(stringstartswith(
+            u_self, _suffix_to_str(space, w_prefix, 'startswith'), start, end))
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,

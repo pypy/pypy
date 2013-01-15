@@ -321,6 +321,12 @@ class AppTestStringObject:
         assert b'hello'.startswith((bytearray(b'he'), bytearray(b'hel')))
         assert b'hello'.startswith((b'he', None, 123))
         assert b'y'.startswith(b'xx') is False
+        try:
+            b'hello'.startswith([b'o'])
+        except TypeError as e:
+            assert 'bytes' in str(e)
+        else:
+            assert False, 'Expected TypeError'
 
     def test_startswith_more(self):
         assert b'ab'.startswith(b'a', 0) is True
@@ -351,6 +357,12 @@ class AppTestStringObject:
         assert b''.endswith(b'a') is False
         assert b'x'.endswith(b'xx') is False
         assert b'y'.endswith(b'xx') is False
+        try:
+            b'hello'.endswith([b'o'])
+        except TypeError as e:
+            assert 'bytes' in str(e)
+        else:
+            assert False, 'Expected TypeError'
 
     def test_endswith_more(self):
         assert b'abc'.endswith(b'ab', 0, 2) is True
