@@ -467,6 +467,67 @@ class TestTypeSpecializedAttributes(object):
         # check if 'y' is still reachable
         assert isinstance(obj1.map.back, StrAttribute)
         assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap("b"))
+
+    def test_unicode_attributes(self):
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+        obj1.setdictvalue(space, "x", space.wrap(u"a"))
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(u"a"))
+
+        obj2 = cls.instantiate()
+        w1 = W_Root()
+        obj2.setdictvalue(space, "x", w1)
+        assert obj2.getdictvalue(space, "x") is w1
+
+        assert obj1.map is not obj2.map
+        assert isinstance(obj1.map, UnicodeAttribute)
+
+        obj3 = cls.instantiate()
+        obj3.setdictvalue(space, "x", space.wrap(u"a"))
+        assert space.eq_w(obj3.getdictvalue(space, "x"), space.wrap(u"a"))
+
+        assert obj1.map is obj3.map
+
+        assert UnicodeAttribute.unerase_item(obj1.storage[0]) == "a"
+        assert PlainAttribute.unerase_item(obj2.storage[0]) == w1
+
+    def test_overwrite_unicode_attribute_with_another_type(self):
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+
+        obj1.setdictvalue(space, "x", space.wrap(u"a"))
+        assert isinstance(obj1.map, UnicodeAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(u"a"))
+
+        w1 = W_Root()
+        obj1.setdictvalue(space, "x", w1)
+        assert isinstance(obj1.map, PlainAttribute)
+        assert obj1.getdictvalue(space, "x") is w1
+
+    def test_overwrite_unicode_attribute_with_another_type2(self):
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+
+        obj1.setdictvalue(space, "x", space.wrap(u"a"))
+        assert isinstance(obj1.map, UnicodeAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(u"a"))
+
+        obj1.setdictvalue(space, "y", space.wrap(u"b"))
+        assert isinstance(obj1.map.back, UnicodeAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap(u"b"))
+
+        # overwrite 'x' with new type
+        w1 = W_Root()
+        obj1.setdictvalue(space, "x", w1)
+        assert isinstance(obj1.map, PlainAttribute)
+        assert obj1.getdictvalue(space, "x") is w1
+
+        # check if 'y' is still reachable
+        assert isinstance(obj1.map.back, UnicodeAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap(u"b"))
 # ___________________________________________________________
 # dict tests
 

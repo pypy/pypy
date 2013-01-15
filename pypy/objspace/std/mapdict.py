@@ -8,6 +8,7 @@ from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, O
 from pypy.objspace.std.dictmultiobject import BaseKeyIterator, BaseValueIterator, BaseItemIterator
 from pypy.objspace.std.dictmultiobject import _never_equal_to_string
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import TypeCell
 
@@ -140,10 +141,14 @@ class AbstractAttribute(object):
         attr = cache.get(key, None)
         if attr is None:
             # XXX not so nice that the classes have to be listed
+            # it's necessary because instantiate inside an elidable function
+            # confuses the JIT
             if attrclass_key == PlainAttribute.attrclass_key:
                 attr = PlainAttribute((name, index), self)
             elif attrclass_key == StrAttribute.attrclass_key:
                 attr = StrAttribute((name, index), self)
+            elif attrclass_key == UnicodeAttribute.attrclass_key:
+                attr = UnicodeAttribute((name, index), self)
             else:
                 assert attrclass_key == IntAttribute.attrclass_key
                 attr = IntAttribute((name, index), self)
@@ -394,6 +399,26 @@ class StrAttribute(AbstractStoredAttribute):
         erased = self.erase_item(self.space.str_w(w_value))
         obj._mapdict_write_storage(self.position, erased)
 
+class UnicodeAttribute(AbstractStoredAttribute):
+    attrclass_key = 3
+
+    erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage unicode item")
+    erase_item = staticmethod(erase_item)
+    unerase_item = staticmethod(unerase_item)
+
+    def read_attr(self, obj):
+        erased = obj._mapdict_read_storage(self.position)
+        value = self.unerase_item(erased)
+        return self.space.wrap(value)
+
+    def write_attr(self, obj, w_value):
+        if type(w_value) is not W_UnicodeObject:
+            self._replace(obj, self.selector, w_value)
+            return
+        erased = self.erase_item(self.space.unicode_w(w_value))
+        obj._mapdict_write_storage(self.position, erased)
+
+
 
 def is_taggable_int(space, w_value):
     from pypy.objspace.std.intobject import W_IntObject
@@ -411,6 +436,8 @@ def get_attrclass_from_value(space, w_value):
         attrclass = IntAttribute
     elif type(w_value) is W_StringObject:
         attrclass = StrAttribute
+    elif type(w_value) is W_UnicodeObject:
+        attrclass = UnicodeAttribute
     return attrclass
 
 def _become(w_obj, new_obj):
