@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, py
 from rpython.rlib.rsre.test.test_match import get_code
 from rpython.rlib.rsre import rsre_re as re
 
@@ -112,18 +112,18 @@ class TestRe:
         assert re.sub('x', r'\400', 'x') == '\0'
         assert re.sub('x', r'\777', 'x') == '\377'
 
-        raises(re.error, re.sub, 'x', r'\1', 'x')
-        raises(re.error, re.sub, 'x', r'\8', 'x')
-        raises(re.error, re.sub, 'x', r'\9', 'x')
-        raises(re.error, re.sub, 'x', r'\11', 'x')
-        raises(re.error, re.sub, 'x', r'\18', 'x')
-        raises(re.error, re.sub, 'x', r'\1a', 'x')
-        raises(re.error, re.sub, 'x', r'\90', 'x')
-        raises(re.error, re.sub, 'x', r'\99', 'x')
-        raises(re.error, re.sub, 'x', r'\118', 'x') # r'\11' + '8'
-        raises(re.error, re.sub, 'x', r'\11a', 'x')
-        raises(re.error, re.sub, 'x', r'\181', 'x') # r'\18' + '1'
-        raises(re.error, re.sub, 'x', r'\800', 'x') # r'\80' + '0'
+        py.test.raises(re.error, re.sub, 'x', r'\1', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\8', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\9', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\11', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\18', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\1a', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\90', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\99', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\118', 'x') # r'\11' + '8'
+        py.test.raises(re.error, re.sub, 'x', r'\11a', 'x')
+        py.test.raises(re.error, re.sub, 'x', r'\181', 'x') # r'\18' + '1'
+        py.test.raises(re.error, re.sub, 'x', r'\800', 'x') # r'\80' + '0'
 
         # in python2.3 (etc), these loop endlessly in sre_parser.py
         assert re.sub('(((((((((((x)))))))))))', r'\11', 'x') == 'x'
@@ -146,15 +146,15 @@ class TestRe:
         assert re.sub('x+', '-', 'abxd') == 'ab-d'
 
     def test_symbolic_refs(self):
-        raises(re.error, re.sub, '(?P<a>x)', '\g<a', 'xx')
-        raises(re.error, re.sub, '(?P<a>x)', '\g<', 'xx')
-        raises(re.error, re.sub, '(?P<a>x)', '\g', 'xx')
-        raises(re.error, re.sub, '(?P<a>x)', '\g<a a>', 'xx')
-        raises(re.error, re.sub, '(?P<a>x)', '\g<1a1>', 'xx')
-        raises(IndexError, re.sub, '(?P<a>x)', '\g<ab>', 'xx')
-        raises(re.error, re.sub, '(?P<a>x)|(?P<b>y)', '\g<b>', 'xx')
-        raises(re.error, re.sub, '(?P<a>x)|(?P<b>y)', '\\2', 'xx')
-        raises(re.error, re.sub, '(?P<a>x)', '\g<-1>', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)', '\g<a', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)', '\g<', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)', '\g', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)', '\g<a a>', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)', '\g<1a1>', 'xx')
+        py.test.raises(IndexError, re.sub, '(?P<a>x)', '\g<ab>', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)|(?P<b>y)', '\g<b>', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)|(?P<b>y)', '\\2', 'xx')
+        py.test.raises(re.error, re.sub, '(?P<a>x)', '\g<-1>', 'xx')
 
     def test_re_subn(self):
         assert re.subn("(?i)b+", "x", "bbbb BBBB") == ('x x', 2)
@@ -466,7 +466,7 @@ class TestRe:
             assert re.match(r"\x%02x" % i, chr(i)) != None
             assert re.match(r"\x%02x0" % i, chr(i)+"0") != None
             assert re.match(r"\x%02xz" % i, chr(i)+"z") != None
-        raises(re.error, re.match, "\911", "")
+        py.test.raises(re.error, re.match, "\911", "")
 
     def test_sre_character_class_literals(self):
         for i in [0, 8, 16, 32, 64, 127, 128, 255]:
@@ -476,7 +476,7 @@ class TestRe:
             assert re.match(r"[\x%02x]" % i, chr(i)) != None
             assert re.match(r"[\x%02x0]" % i, chr(i)) != None
             assert re.match(r"[\x%02xz]" % i, chr(i)) != None
-        raises(re.error, re.match, "[\911]", "")
+        py.test.raises(re.error, re.match, "[\911]", "")
 
     def test_bug_113254(self):
         assert re.match(r'(a)|(b)', 'b').start(1) == -1
@@ -494,7 +494,7 @@ class TestRe:
     def test_bug_545855(self):
         # bug 545855 -- This pattern failed to cause a compile error as it
         # should, instead provoking a TypeError.
-        raises(re.error, re.compile, 'foo[a-')
+        py.test.raises(re.error, re.compile, 'foo[a-')
 
     def test_bug_418626(self):
         # bugs 418626 at al. -- Testing Greg Chapman's addition of op code
@@ -609,7 +609,7 @@ class TestRe:
     def test_bug_581080(self):
         iter = re.finditer(r"\s", "a b")
         assert iter.next().span() == (1,2)
-        raises(StopIteration, iter.next)
+        py.test.raises(StopIteration, iter.next)
 
         if 0:    # XXX
             scanner = re.compile(r"\s").scanner("a b")
@@ -620,7 +620,7 @@ class TestRe:
         iter = re.finditer(r".*", "asdf")
         assert iter.next().span() == (0, 4)
         assert iter.next().span() == (4, 4)
-        raises(StopIteration, iter.next)
+        py.test.raises(StopIteration, iter.next)
 
     def test_empty_array(self):
         # SF buf 1647541
