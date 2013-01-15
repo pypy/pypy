@@ -42,41 +42,6 @@ class MockGcRootMap(object):
 class MockGcDescr(GcLLDescr_boehm):
     gcrootmap = MockGcRootMap()
 
-class TestRegallocDirectGcIntegration(object):
-
-    def test_mark_gc_roots(self):
-        cpu = CPU(None, None)
-        cpu.setup_once()
-        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(None, None, None)))
-        regalloc.assembler.datablockwrapper = 'fakedatablockwrapper'
-        boxes = [BoxPtr() for i in range(len(X86RegisterManager.all_regs))]
-        longevity = {}
-        for box in boxes:
-            longevity[box] = (0, 1)
-        regalloc.fm = X86FrameManager()
-        regalloc.rm = X86RegisterManager(longevity, regalloc.fm,
-                                         assembler=regalloc.assembler)
-        regalloc.xrm = X86XMMRegisterManager(longevity, regalloc.fm,
-                                             assembler=regalloc.assembler)
-        cpu = regalloc.assembler.cpu
-        for box in boxes:
-            regalloc.rm.try_allocate_reg(box)
-        TP = lltype.FuncType([], lltype.Signed)
-        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT,
-                                    EffectInfo.MOST_GENERAL)
-        regalloc.rm._check_invariants()
-        box = boxes[0]
-        regalloc.position = 0
-        regalloc.consider_call(ResOperation(rop.CALL, [box], BoxInt(),
-                                            calldescr))
-        assert len(regalloc.assembler.movs) == 3
-        #
-        mark = regalloc.get_mark_gc_roots(cpu.gc_ll_descr.gcrootmap)
-        assert mark[0] == 'compressed'
-        base = -WORD * FRAME_FIXED_SIZE
-        expected = ['ebx', 'esi', 'edi', base, base-WORD, base-WORD*2]
-        assert dict.fromkeys(mark[1:]) == dict.fromkeys(expected)
-
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)

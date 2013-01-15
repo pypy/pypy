@@ -26,6 +26,9 @@ JITFRAME = lltype.GcStruct(
     ('jf_descr', llmemory.GCREF),
     # guard_not_forced descr
     ('jf_force_descr', llmemory.GCREF),
+    # a bitmask of where are GCREFS in the top of the frame (saved registers)
+    # used for calls and failures
+    ('jf_gcpattern', lltype.Signed),
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),
     # For GUARD_(NO)_EXCEPTION and GUARD_NOT_FORCED: the exception we

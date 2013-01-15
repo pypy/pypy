@@ -184,6 +184,7 @@ class Assembler386(object):
         self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_malloc_slowpath(self):
+        xxx
         # With asmgcc, we need two helpers, so that we can write two CALL
         # instructions in assembler, with a mark_gc_roots in between.
         # With shadowstack, this is not needed, so we produce a single helper.
@@ -1096,10 +1097,10 @@ class Assembler386(object):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
-    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax,
+    def _emit_call(self, x, arglocs, start=0, tmp=eax,
                    argtypes=None, callconv=FFI_DEFAULT_ABI):
         if IS_X86_64:
-            return self._emit_call_64(force_index, x, arglocs, start, argtypes)
+            return self._emit_call_64(x, arglocs, start, argtypes)
         XXX
         p = 0
         n = len(arglocs)
@@ -1124,7 +1125,6 @@ class Assembler386(object):
             p += loc.get_width()
         # x is a location
         self.mc.CALL(x)
-        self.mark_gc_roots(force_index)
         #
         if callconv != FFI_DEFAULT_ABI:
             self._fix_stdcall(callconv, p)
@@ -1138,7 +1138,7 @@ class Assembler386(object):
         # the called function just added 'p' to ESP, by subtracting it again.
         self.mc.SUB_ri(esp.value, p)
 
-    def _emit_call_64(self, force_index, x, arglocs, start, argtypes):
+    def _emit_call_64(self, x, arglocs, start, argtypes):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
@@ -1211,29 +1211,10 @@ class Assembler386(object):
         self.mc.CALL(x)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
-        self.mark_gc_roots(force_index)
 
     def call(self, addr, args, res):
-        force_index = self.write_new_force_index()
-        self._emit_call(force_index, imm(addr), args)
+        self._emit_call(imm(addr), args)
         assert res is eax
-
-    def write_new_force_index(self):
-        # for shadowstack only: get a new, unused force_index number and
-        # write it to FORCE_INDEX_OFS.  Used to record the call shape
-        # (i.e. where the GC pointers are in the stack) around a CALL
-        # instruction that doesn't already have a force_index.
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            xxx
-            clt = self.current_clt
-            force_index = clt.reserve_and_record_some_faildescr_index()
-            self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
-            return force_index
-        else:
-            # the return value is ignored, apart from the fact that it
-            # is not negative.
-            return 0
 
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
@@ -1844,14 +1825,6 @@ class Assembler386(object):
         target = self.failure_recovery_code[exc + 2 * withfloats]
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
-        if WORD == 4:
-            mc.PUSH(imm(fail_descr))
-            mc.JMP(imm(target))
-        else:
-            mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
-            mc.PUSH(imm(fail_descr))
-            mc.JMP_r(X86_64_SCRATCH_REG.value)
-        # write tight data that describes the failure recovery
         positions = [0] * len(guardtok.fail_locs)
         gcpattern = 0
         for i, loc in enumerate(guardtok.fail_locs):
@@ -1870,8 +1843,15 @@ class Assembler386(object):
                 positions[i] = v * WORD
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        # write down the GC pattern
-        guardtok.faildescr.rd_gcpattern = gcpattern
+        if WORD == 4:
+            mc.PUSH(imm(fail_descr))
+            mc.PUSH(imm(gcpattern))
+            mc.JMP(imm(target))
+        else:
+            mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
+            mc.PUSH(imm(fail_descr))
+            mc.PUSH(imm(gcpattern))
+            mc.JMP_r(X86_64_SCRATCH_REG.value)
         return startpos
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):
@@ -1938,9 +1918,13 @@ class Assembler386(object):
         # throws away most of the frame, including all the PUSHes that we
         # did just above.
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcpattern')
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         mc.POP(eax)
+        mc.MOV_br(ofs2, eax.value)
+        mc.POP(eax)
         mc.MOV_br(ofs, eax.value)
+        # store the gc pattern
         mc.LEA_rb(eax.value, -base_ofs)
 
         self._call_footer()
@@ -2376,23 +2360,6 @@ class Assembler386(object):
         not_implemented("not implemented operation (guard): %s" %
                         op.getopname())
 
-    def mark_gc_roots(self, force_index, use_copy_area=False):
-        if force_index < 0:
-            return     # not needed
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap:
-            mark = self._regalloc.get_mark_gc_roots(gcrootmap, use_copy_area)
-            if gcrootmap.is_shadow_stack:
-                gcrootmap.write_callshape(mark, force_index)
-            else:
-                if self.gcrootmap_retaddr_forced == 0:
-                    self.mc.insert_gcroot_marker(mark)   # common case
-                else:
-                    assert self.gcrootmap_retaddr_forced != -1, (
-                              "two mark_gc_roots() in a CALL_RELEASE_GIL")
-                    gcrootmap.put(self.gcrootmap_retaddr_forced, mark)
-                    self.gcrootmap_retaddr_forced = -1
-
     def closing_jump(self, target_token):
         # The backend's logic assumes that the target code is in a piece of
         # assembler that was also called with the same number of arguments,
@@ -2434,7 +2401,6 @@ class Assembler386(object):
             # there are two helpers to call only with asmgcc
             slowpath_addr1 = self.malloc_slowpath1
             self.mc.CALL(imm(slowpath_addr1))
-        self.mark_gc_roots(self.write_new_force_index(), use_copy_area=True)
         slowpath_addr2 = self.malloc_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
 
