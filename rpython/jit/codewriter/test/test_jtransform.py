@@ -1249,7 +1249,7 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
     op = SpaceOperation('getfield', [v_x, Constant('x', lltype.Void)],
                         varoftype(lltype.Signed))
     tr = Transformer(None, None)
-    raises(NotImplementedError, tr.rewrite_operation, op)
+    py.test.raises(NotImplementedError, tr.rewrite_operation, op)
 
 def test_cast_opaque_ptr():
     S = lltype.GcStruct("S", ("x", lltype.Signed))

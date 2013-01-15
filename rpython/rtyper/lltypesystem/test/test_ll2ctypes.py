@@ -1017,6 +1017,7 @@ class TestLL2Ctypes(object):
         assert ftest == [-5, -5, -5]
 
     def test_c_callback_with_void_arg_3(self):
+        from rpython.rtyper.lltypesystem.rstr import LLHelpers
         def f(i):
             x = 'X' * i
             return x[-2]
@@ -1028,8 +1029,8 @@ class TestLL2Ctypes(object):
         graph = a.translator.graphs[0]
         op = graph.startblock.operations[-1]
         assert op.opname == 'direct_call'
-        assert op.args[0].value._obj._callable == rpython.rtyper.lltypesystem.rstr.LLHelpers.ll_stritem.im_func
-        assert op.args[1].value == rpython.rtyper.lltypesystem.rstr.LLHelpers
+        assert op.args[0].value._obj._callable == LLHelpers.ll_stritem.im_func
+        assert op.args[1].value == LLHelpers
         assert op.args[3].value == -2
 
     def test_recursive_struct_more(self):

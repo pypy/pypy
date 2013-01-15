@@ -8,7 +8,7 @@ from rpython.rlib import rfloat
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem.module.test.test_ll_math import (MathTests,
-                                                                  getTester)
+                                                                  get_tester)
 
 def get_test_case((fnname, args, expected)):
     try:
