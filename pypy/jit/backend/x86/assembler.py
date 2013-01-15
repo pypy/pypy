@@ -1853,6 +1853,7 @@ class Assembler386(object):
             mc.JMP_r(X86_64_SCRATCH_REG.value)
         # write tight data that describes the failure recovery
         positions = [0] * len(guardtok.fail_locs)
+        gcpattern = 0
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
                 positions[i] = -1
@@ -1864,10 +1865,13 @@ class Assembler386(object):
                     v = len(gpr_reg_mgr_cls.all_regs) + loc.value
                 else:
                     v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
+                    if guardtok.failargs[i].type == REF:
+                        gcpattern |= v
                 positions[i] = v * WORD
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         # write down the GC pattern
+        guardtok.faildescr.rd_gcpattern = gcpattern
         return startpos
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):
