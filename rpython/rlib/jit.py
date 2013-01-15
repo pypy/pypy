@@ -308,7 +308,7 @@ def jit_callback(name):
     that typically invoke more app-level Python code.
     """
     def decorate(func):
-        from pypy.tool.sourcetools import compile2
+        from rpython.tool.sourcetools import compile2
         #
         def get_printable_location():
             return name
