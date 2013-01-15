@@ -1539,7 +1539,7 @@ class CustomKeySort(SimpleSort):
 def list_sort__List_ANY_ANY(space, w_list, w_keyfunc, w_reverse):
 
     has_key = not space.is_w(w_keyfunc, space.w_None)
-    has_reverse = space.is_true(w_reverse)
+    has_reverse = bool(space.int_w(w_reverse))
 
     # create and setup a TimSort instance
     if 0:

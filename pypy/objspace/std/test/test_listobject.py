@@ -588,6 +588,7 @@ class AppTestW_ListObject(object):
         l = [1]
         l.sort(reverse = True)
         assert l == [1]
+        raises(TypeError, sorted, [], None, lambda x, y: 0)
 
     def test_sort_cmp_key_reverse(self):
         def lower(x): return x.lower()
