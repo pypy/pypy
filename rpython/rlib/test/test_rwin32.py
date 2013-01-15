@@ -1,6 +1,6 @@
-import os
+import os, py
 if os.name != 'nt':
-    skip('tests for win32 only')
+    py.test.skip('tests for win32 only')
 
 from rpython.rlib import rwin32
 from rpython.tool.udir import udir
@@ -11,12 +11,12 @@ def test_get_osfhandle():
     fd = fid.fileno()
     rwin32.get_osfhandle(fd)
     fid.close()
-    raises(OSError, rwin32.get_osfhandle, fd)
+    py.test.raises(OSError, rwin32.get_osfhandle, fd)
     rwin32.get_osfhandle(0)
 
 def test_get_osfhandle_raising():
     #try to test what kind of exception get_osfhandle raises w/out fd validation
-    skip('Crashes python')
+    py.test.skip('Crashes python')
     fid = open(str(udir.join('validate_test.txt')), 'w')
     fd = fid.fileno()
     fid.close()
@@ -32,7 +32,7 @@ def test_open_process():
     assert pid != 0
     handle = rwin32.OpenProcess(rwin32.PROCESS_QUERY_INFORMATION, False, pid)
     rwin32.CloseHandle(handle)
-    raises(WindowsError, rwin32.OpenProcess, rwin32.PROCESS_TERMINATE, False, 0)
+    py.test.raises(WindowsError, rwin32.OpenProcess, rwin32.PROCESS_TERMINATE, False, 0)
 
 def test_terminate_process():
     import subprocess, signal, sys
