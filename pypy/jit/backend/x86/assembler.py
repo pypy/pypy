@@ -94,6 +94,7 @@ class Assembler386(object):
         self._build_failure_recovery(True)
         self._build_wb_slowpath(False)
         self._build_wb_slowpath(True)
+        self._build_stack_check_failure()
         if self.cpu.supports_floats:
             self._build_failure_recovery(False, withfloats=True)
             self._build_failure_recovery(True, withfloats=True)
@@ -166,6 +167,19 @@ class Assembler386(object):
             addr[i] = data[i]
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
+
+    def _build_stack_check_failure(self):
+        mc = codebuf.MachineCodeBlockWrapper()
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        self._push_all_regs_to_frame(mc, self.cpu.supports_floats)
+        assert not IS_X86_32
+        # push first arg
+        mc.LEA_rb(edi.value, -base_ofs)
+        mc.CALL(imm(self.cpu.realloc_frame))
+        mc.LEA_rm(ebp.value, (eax.value, base_ofs))
+        self._pop_all_regs_from_frame(mc, self.cpu.supports_floats)
+        mc.RET()
+        self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_malloc_slowpath(self):
         # With asmgcc, we need two helpers, so that we can write two CALL
@@ -571,7 +585,7 @@ class Assembler386(object):
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs)
-        self._check_frame_depth()
+        stack_check_patch_ofs = self._check_frame_depth()
         frame_depth = self._assemble(regalloc, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -589,9 +603,10 @@ class Assembler386(object):
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
-        self.fixup_target_tokens(rawstart)
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth + JITFRAME_FIXED_SIZE)
+        self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
+        self.fixup_target_tokens(rawstart)
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
         self.teardown()
         # oprofile support
@@ -652,8 +667,21 @@ class Assembler386(object):
                 mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
     def _check_frame_depth(self):
-        pass
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        self.mc.CMP_bi(ofs - base_ofs, 0xffffff)
+        stack_check_cmp_ofs = self.mc.get_relative_pos() - 4
+        assert not IS_X86_32
+        self.mc.J_il8(rx86.Conditions['G'], 9)
+        self.mc.CALL(imm(self._stack_check_failure))
+        return stack_check_cmp_ofs
 
+    def _patch_stackadjust(self, adr, allocated_depth):
+        mc = codebuf.MachineCodeBlockWrapper()
+        mc.writeimm32(allocated_depth)
+        mc.copy_to_raw_memory(adr)
+        
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
         if clt.asmmemmgr_blocks is None:
@@ -1858,13 +1886,31 @@ class Assembler386(object):
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
 
+    def _push_all_regs_to_frame(self, mc, withfloats):
+        # Push all general purpose registers
+        for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
+            mc.MOV_br(i * WORD, gpr.value)
+        if withfloats:
+            # Push all XMM regs
+            ofs = len(gpr_reg_mgr_cls.all_regs)
+            for i in range(self.cpu.NUM_REGS):
+                mc.MOVSD_bx((ofs + i) * WORD, i)
+
+    def _pop_all_regs_from_frame(self, mc, withfloats):
+        # Pop all general purpose registers
+        for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
+            mc.MOV_rb(gpr.value, i * WORD)
+        if withfloats:
+            # Pop all XMM regs
+            ofs = len(gpr_reg_mgr_cls.all_regs)
+            for i in range(self.cpu.NUM_REGS):
+                mc.MOVSD_xb(i, (ofs + i) * WORD)
+
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = codebuf.MachineCodeBlockWrapper()
         self.mc = mc
 
-        # Push all general purpose registers
-        for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
-            mc.MOV_br(i * WORD, gpr.value)
+        self._push_all_regs_to_frame(mc, withfloats)
 
         if exc:
             # We might have an exception pending.  Load it into ebx
@@ -1872,13 +1918,6 @@ class Assembler386(object):
             mc.MOV(ebx, heap(self.cpu.pos_exc_value()))
             mc.MOV(heap(self.cpu.pos_exception()), imm0)
             mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
-
-        if withfloats:
-            ofs = len(gpr_reg_mgr_cls.all_regs)
-            for i in range(self.cpu.NUM_REGS):
-                mc.MOVSD_bx((ofs + i) * WORD, i)
-
-        if exc:
             # save ebx into 'jf_guard_exc'
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV_br(offset, ebx.value)
@@ -2007,12 +2046,14 @@ class Assembler386(object):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
+            xxx
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
         fail_index = self._store_force_index(guard_op)
         self._genop_call(op, arglocs, result_loc, fail_index)
         # then reopen the stack
         if gcrootmap:
+            xxx
             self.call_reacquire_gil(gcrootmap, result_loc)
         # finally, the guard_not_forced
         self._emit_guard_not_forced(guard_token)

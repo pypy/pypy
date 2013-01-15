@@ -45,11 +45,24 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self._setup_exception_handling_untranslated()
         self.asmmemmgr = AsmMemoryManager()
+        self._setup_frame_realloc()
         self.setup()
 
     def setup(self):
         pass
 
+    def _setup_frame_realloc(self):
+        FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+                                             llmemory.GCREF))
+
+        def realloc_frame(frame):
+            frame = lltype.cast_opaque_ptr(jitframe.JITFRAME, frame)
+            import pdb
+            pdb.set_trace()
+            return frame
+        
+        f = llhelper(FUNC_TP, realloc_frame)
+        self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(f))
 
     def _setup_exception_handling_untranslated(self):
         # for running un-translated only, all exceptions occurring in the

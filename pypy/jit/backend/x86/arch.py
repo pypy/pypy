@@ -51,7 +51,7 @@ if WORD == 4:
     JITFRAME_FIXED_SIZE = 29 # 13 GPR + 16 XMM
                              # reg, we don't save it
 else:
-    # rbp + rbx + r12 + r13 + r14 + r15 + 12 extra words + return address = 18
+    # rbp + rbx + r12 + r13 + r14 + r15 + 12 extra words + return address = 19
     FRAME_FIXED_SIZE = 19
     PASS_ON_MY_FRAME = 12
     JITFRAME_FIXED_SIZE = 29 # 13 GPR + 16 XMM
