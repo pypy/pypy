@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 import re, sys, os, random
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
+
 from rpython.translator.c.gcc.instruction import Insn, Label, InsnCall, InsnRet
 from rpython.translator.c.gcc.instruction import InsnFunctionStart, InsnStop
 from rpython.translator.c.gcc.instruction import InsnSetLocal, InsnCopyLocal
