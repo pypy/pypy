@@ -675,8 +675,13 @@ class Assembler386(object):
         self.mc.CMP_bi(ofs - base_ofs, 0xffffff)
         stack_check_cmp_ofs = self.mc.get_relative_pos() - 4
         assert not IS_X86_32
-        self.mc.J_il8(rx86.Conditions['G'], 9)
+        self.mc.J_il8(rx86.Conditions['G'], 0)
+        jg_location = self.mc.get_relative_pos()
         self.mc.CALL(imm(self._stack_check_failure))
+        # patch the JG above
+        offset = self.mc.get_relative_pos() - jg_location
+        assert 0 < offset <= 127
+        self.mc.overwrite(jg_location-1, chr(offset))
         return stack_check_cmp_ofs
 
     def _patch_stackadjust(self, adr, allocated_depth):
@@ -1860,9 +1865,9 @@ class Assembler386(object):
                 else:
                     v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 positions[i] = v * WORD
+        # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        # write fail_index too
-        # for testing the decoding, write a final byte 0xCC
+        # write down the GC pattern
         return startpos
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):

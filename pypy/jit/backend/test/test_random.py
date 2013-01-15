@@ -26,6 +26,8 @@ class FakeMetaInterp(object):
 class OperationBuilder(object):
     def __init__(self, cpu, loop, vars):
         self.cpu = cpu
+        if not hasattr(cpu, '_faildescr_keepalive'):
+            cpu._faildescr_keepalive = []
         self.fakemetainterp = FakeMetaInterp()
         self.loop = loop
         self.intvars = [box for box in vars if isinstance(box, BoxInt)]
@@ -206,6 +208,14 @@ class OperationBuilder(object):
         if pytest.config.option.output:
             s.close()
 
+    def getfaildescr(self, is_finish=False):
+        if is_finish:
+            descr = BasicFinalDescr()
+        else:
+            descr = BasicFailDescr()
+        self.cpu._faildescr_keepalive.append(descr)
+        return descr
+
 class CannotProduceOperation(Exception):
     pass
 
@@ -287,7 +297,7 @@ class AbstractOvfOperation(AbstractOperation):
             builder.intvars[:] = original_intvars
         else:
             op = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-        op.setdescr(BasicFailDescr())
+        op.setdescr(builder.getfaildescr())
         op.setfailargs(fail_subset)
         builder.loop.operations.append(op)
 
@@ -357,7 +367,7 @@ class GuardOperation(AbstractOperation):
     def produce_into(self, builder, r):
         op, passing = self.gen_guard(builder, r)
         builder.loop.operations.append(op)
-        op.setdescr(BasicFailDescr())
+        op.setdescr(builder.getfaildescr())
         op.setfailargs(builder.subset_of_intvars(r))
         if not passing:
             builder.should_fail_by = op
@@ -618,8 +628,9 @@ class RandomLoop(object):
             if v not in used_later:
                 endvars.append(v)
         r.shuffle(endvars)
+        endvars = endvars[:1]
         loop.operations.append(ResOperation(rop.FINISH, endvars, None,
-                                            descr=BasicFinalDescr()))
+                                    descr=builder.getfaildescr(is_finish=True)))
         if builder.should_fail_by:
             self.should_fail_by = builder.should_fail_by
             self.guard_op = builder.guard_op
@@ -712,7 +723,7 @@ class RandomLoop(object):
             else:
                 op = ResOperation(rop.GUARD_EXCEPTION, [guard_op._exc_box],
                                   BoxPtr())
-            op.setdescr(BasicFailDescr())
+            op.setdescr(self.builder.getfaildescr())
             op.setfailargs([])
             return op
 

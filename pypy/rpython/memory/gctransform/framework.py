@@ -968,6 +968,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_run_ptr'):
             livevars = self.push_roots(hop)
+            assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
             self.pop_roots(hop, livevars)
 
@@ -982,6 +983,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_die_ptr'):
             livevars = self.push_roots(hop)
+            assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
             self.pop_roots(hop, livevars)
 

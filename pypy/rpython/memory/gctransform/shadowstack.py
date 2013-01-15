@@ -326,6 +326,8 @@ class ShadowStackPool(object):
         self.gcdata.root_stack_top = llmemory.NULL  # to detect missing restore
 
     def forget_current_state(self):
+        ll_assert(self.gcdata.root_stack_base == self.gcdata.root_stack_top,
+                  "forget_current_state: shadowstack not empty!")
         if self.unused_full_stack:
             llmemory.raw_free(self.unused_full_stack)
         self.unused_full_stack = self.gcdata.root_stack_base
