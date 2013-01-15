@@ -23,6 +23,7 @@ class Module(MixedModule):
     """
 
     interpleveldefs = {
+        'accumulate'    : 'interp_itertools.W_Accumulate',
         'chain'         : 'interp_itertools.W_Chain',
         'combinations'  : 'interp_itertools.W_Combinations',
         'combinations_with_replacement' : 'interp_itertools.W_CombinationsWithReplacement',

@@ -918,3 +918,18 @@ class AppTestItertools27:
                 assert list(itertools.islice(c2, 3)) == expected
                 c3 = pickle.loads(pickle.dumps(c))
                 assert list(itertools.islice(c3, 3)) == expected
+
+class AppTestItertools32:
+    spaceconfig = dict(usemodules=['itertools'])
+
+    def setup_class(cls):
+        if cls.space.is_true(cls.space.appexec([], """():
+            import sys; return sys.version_info < (3, 2)
+            """)):
+            py.test.skip("Requires Python 3.2")
+
+    def test_accumulate(self):
+        from itertools import accumulate
+        expected = [0, 1, 3, 6, 10, 15, 21, 28, 36, 45]
+        assert list(accumulate(range(10))) == expected
+        assert list(accumulate(iterable=range(10))) == expected

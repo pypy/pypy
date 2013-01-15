@@ -1185,3 +1185,38 @@ Return successive r-length permutations of elements in the iterable.
 
 permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)""",
 )
+
+
+class W_Accumulate(Wrappable):
+
+    def __init__(self, space, w_iterable):
+        self.space = space
+        self.w_iterable = w_iterable
+        self.w_total = None
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        w_value = self.space.next(self.w_iterable)
+        if self.w_total is None:
+            self.w_total = w_value
+            return w_value
+
+        self.w_total = self.space.add(self.w_total, w_value)
+        return self.w_total
+
+def W_Accumulate__new__(space, w_subtype, w_iterable):
+    r = space.allocate_instance(W_Accumulate, w_subtype)
+    r.__init__(space, space.iter(w_iterable))
+    return space.wrap(r)
+
+W_Accumulate.typedef = TypeDef("accumulate",
+    __module__ = 'itertools',
+    __new__  = interp2app(W_Accumulate__new__),
+    __iter__ = interp2app(W_Accumulate.iter_w),
+    __next__ = interp2app(W_Accumulate.next_w),
+    __doc__  = """\
+"accumulate(iterable) --> accumulate object
+
+Return series of accumulated sums.""")
