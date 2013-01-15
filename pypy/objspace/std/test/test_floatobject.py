@@ -242,6 +242,11 @@ class AppTestAppFloatTest:
             assert str(pw(float('-inf'), 1.0)) == '-inf'
             assert str(pw(float('-inf'), 2.0)) == 'inf'
 
+    def test_builtin_pow(self):
+        result = pow(-1, 0.5)
+        def assertAlmostEqual(x, y): assert round(abs(y - x), 7) == 0
+        assertAlmostEqual(result, 1j)
+
     def test_pow_neg_base(self):
         import math
         def pw(x, y):

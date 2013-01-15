@@ -493,9 +493,11 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         if isnan(y):
             return W_FloatObject(NAN)
         if math.floor(y) != y:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative number cannot be "
-                                            "raised to a fractional power"))
+            # Negative numbers raised to fractional powers become
+            # complex
+            return space.pow(space.newcomplex(x, 0.0),
+                             space.newcomplex(y, 0.0),
+                             thirdArg)
         # y is an exact integer, albeit perhaps a very large one.
         # Replace x by its absolute value and remember to negate the
         # pow result if y is odd.
