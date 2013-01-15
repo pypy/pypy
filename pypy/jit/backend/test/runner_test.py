@@ -3785,7 +3785,7 @@ class LLtypeBackendTest(BaseBackendTest):
         """, namespace=locals())
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         frame = self.cpu.execute_token(looptoken, 0, 0, 3)
-        #assert self.cpu.get_latest_descr(frame) is guarddescr
+        assert self.cpu.get_latest_descr(frame) is guarddescr
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 
         if not isinstance(self.cpu, AbstractLLCPU):
