@@ -2,7 +2,7 @@ import py, sys
 import pytest
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
 from pypy.rpython.lltypesystem import llmemory
-from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
+from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop, BasicFinalDescr
 from pypy.jit.metainterp.history import BoxInt, ConstInt, JitCellToken
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, TargetToken
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat, Const
@@ -198,9 +198,9 @@ class OperationBuilder(object):
         for i, v in enumerate(fail_args):
             if isinstance(v, (BoxFloat, ConstFloat)):
                 print >>s, ('    assert longlong.getrealfloat('
-                    'cpu.get_latest_value_float(%d)) == %r' % (i, v.value))
+                    'cpu.get_float_value(%d)) == %r' % (i, v.value))
             else:
-                print >>s, ('    assert cpu.get_latest_value_int(%d) == %d'
+                print >>s, ('    assert cpu.get_int_value(%d) == %d'
                             % (i, v.value))
         self.names = names
         if pytest.config.option.output:
@@ -619,7 +619,7 @@ class RandomLoop(object):
                 endvars.append(v)
         r.shuffle(endvars)
         loop.operations.append(ResOperation(rop.FINISH, endvars, None,
-                                            descr=BasicFailDescr()))
+                                            descr=BasicFinalDescr()))
         if builder.should_fail_by:
             self.should_fail_by = builder.should_fail_by
             self.guard_op = builder.guard_op
@@ -686,9 +686,9 @@ class RandomLoop(object):
                                            self.should_fail_by.getdescr()))
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
-                value = cpu.get_latest_value_float(deadframe, i)
+                value = cpu.get_float_value(deadframe, i)
             else:
-                value = cpu.get_latest_value_int(deadframe, i)
+                value = cpu.get_int_value(deadframe, i)
             do_assert(value == self.expected[v],
                 "Got %r, expected %r for value #%d" % (value,
                                                        self.expected[v],
