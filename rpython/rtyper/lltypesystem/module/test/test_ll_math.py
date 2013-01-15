@@ -296,7 +296,7 @@ def make_test_case((fnname, args, expected), dict):
             assert expected == OverflowError, "%s: got an OverflowError" % (
                 repr,)
         else:
-            if not (expected)(got):
+            if not get_tester(expected)(got):
                 raise AssertionError("%r: got %r, expected %r" %
                                      (repr, got, expected))
     #
