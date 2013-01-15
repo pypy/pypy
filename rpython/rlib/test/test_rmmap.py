@@ -1,5 +1,5 @@
 from rpython.tool.udir import udir
-import os, sys
+import os, sys, py
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rmmap as mmap
@@ -255,24 +255,24 @@ class TestMMap:
 
     def test_write_readonly(self):
         if os.name == "nt":
-            skip("Needs PROT_READ")
+            py.test.skip("Needs PROT_READ")
         f = open(self.tmpname + "l", "w+")
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
-        raises(RTypeError, m.write, "foo")
+        py.test.raises(RTypeError, m.write, "foo")
         m.close()
         f.close()
 
     def test_write_without_protwrite(self):
         if os.name == "nt":
-            skip("Needs PROT_WRITE")
+            py.test.skip("Needs PROT_WRITE")
         f = open(self.tmpname + "l2", "w+")
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=~mmap.PROT_WRITE)
-        raises(RTypeError, m.write_byte, 'a')
-        raises(RTypeError, m.write, "foo")
+        py.test.raises(RTypeError, m.write_byte, 'a')
+        py.test.raises(RTypeError, m.write, "foo")
         m.close()
         f.close()
 
@@ -325,7 +325,7 @@ class TestMMap:
     
     def test_resize(self):
         if ("darwin" in sys.platform) or ("freebsd" in sys.platform):
-            skip("resize does not work under OSX or FreeBSD")
+            py.test.skip("resize does not work under OSX or FreeBSD")
         
         import os
         
@@ -430,7 +430,7 @@ class TestMMap:
 
     def test_windows_crasher_1(self):
         if sys.platform != "win32":
-            skip("Windows-only test")
+            py.test.skip("Windows-only test")
         def func():
             m = mmap.mmap(-1, 1000, tagname="foo")
             # same tagname, but larger size
@@ -444,7 +444,7 @@ class TestMMap:
 
     def test_windows_crasher_2(self):
         if sys.platform != "win32":
-            skip("Windows-only test")
+            py.test.skip("Windows-only test")
 
         f = open(self.tmpname + "t", "w+")
         f.write("foobar")
@@ -453,8 +453,8 @@ class TestMMap:
         f = open(self.tmpname + "t", "r+b")
         m = mmap.mmap(f.fileno(), 0)
         f.close()
-        raises(WindowsError, m.resize, 0)
-        raises(RValueError, m.getitem, 0)
+        py.test.raises(WindowsError, m.resize, 0)
+        py.test.raises(RValueError, m.getitem, 0)
         m.close()
 
 def test_alloc_free():

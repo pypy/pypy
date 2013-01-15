@@ -251,7 +251,7 @@ class TestUTF8Decoding(UnicodeTests):
 
     def test_utf8_surrogate(self):
         # surrogates used to be allowed by python 2.x
-        raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
+        py.test.raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
 
     def test_invalid_start_byte(self):
         """
@@ -263,7 +263,7 @@ class TestUTF8Decoding(UnicodeTests):
         """
         FFFD = u'\ufffd'
         for byte in '\x80\xA0\x9F\xBF\xC0\xC1\xF5\xFF':
-            raises(UnicodeDecodeError, self.decoder, byte, 1, None, final=True)
+            py.test.raises(UnicodeDecodeError, self.decoder, byte, 1, None, final=True)
             self.checkdecodeerror(byte, 'utf-8', 0, 1, addstuff=False,
                                   msg='invalid start byte')
             assert self.decoder(byte, 1, 'replace', final=True) == (FFFD, 1)
@@ -298,7 +298,7 @@ class TestUTF8Decoding(UnicodeTests):
         FFFD = u'\ufffd'
         for seq in sequences:
             seq = self.to_bytestring(seq)
-            raises(UnicodeDecodeError, self.decoder, seq, len(seq),
+            py.test.raises(UnicodeDecodeError, self.decoder, seq, len(seq),
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, len(seq), addstuff=False,
                                   msg='unexpected end of data')
@@ -332,7 +332,7 @@ class TestUTF8Decoding(UnicodeTests):
         ]
         for seq, res in sequences:
             seq = self.to_bytestring(seq)
-            raises(UnicodeDecodeError, self.decoder, seq, len(seq),
+            py.test.raises(UnicodeDecodeError, self.decoder, seq, len(seq),
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, 1, addstuff=False,
                                   msg='invalid continuation byte')
@@ -404,7 +404,7 @@ class TestUTF8Decoding(UnicodeTests):
         ]
         for seq, res in sequences:
             seq = self.to_bytestring(seq)
-            raises(UnicodeDecodeError, self.decoder, seq, len(seq),
+            py.test.raises(UnicodeDecodeError, self.decoder, seq, len(seq),
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, len(seq)-1, addstuff=False,
                                   msg='invalid continuation byte')
@@ -496,7 +496,7 @@ class TestUTF8Decoding(UnicodeTests):
         ]
         for seq, res in sequences:
             seq = self.to_bytestring(seq)
-            raises(UnicodeDecodeError, self.decoder, seq, len(seq),
+            py.test.raises(UnicodeDecodeError, self.decoder, seq, len(seq),
                    None, final=True)
             self.checkdecodeerror(seq, 'utf-8', 0, len(seq)-1, addstuff=False,
                                   msg='invalid continuation byte')
@@ -626,7 +626,7 @@ class TestUTF8Decoding(UnicodeTests):
 
         for n, (seq, res) in enumerate(sequences):
             decoder = self.getdecoder('utf-8')
-            raises(UnicodeDecodeError, decoder, seq, len(seq), None, final=True)
+            py.test.raises(UnicodeDecodeError, decoder, seq, len(seq), None, final=True)
             assert decoder(seq, len(seq), 'replace', final=True
                            ) == (res, len(seq))
             assert decoder(seq + 'b', len(seq) + 1, 'replace', final=True
@@ -694,7 +694,7 @@ class TestEncoding(UnicodeTests):
             self.checkencode(u, "utf-8")
         else:
             # This is not done in wide unicode builds
-            raises(UnicodeEncodeError, self.checkencode, u, "utf-8")
+            py.test.raises(UnicodeEncodeError, self.checkencode, u, "utf-8")
 
     def test_ascii_error(self):
         self.checkencodeerror(u"abc\xFF\xFF\xFFcde", "ascii", 3, 6)
@@ -714,7 +714,7 @@ class TestEncoding(UnicodeTests):
     def test_encode_decimal(self):
         encoder = self.getencoder('decimal')
         assert encoder(u' 12, 34 ', 8, None) == ' 12, 34 '
-        raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
+        py.test.raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
         assert encoder(u'u\u1234', 2, 'replace') == 'u?'
 
 class TestTranslation(object):

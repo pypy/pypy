@@ -70,8 +70,8 @@ def test_invalidLevel():
     deflateInit() should raise ValueError when an out of bounds level is
     passed to it.
     """
-    raises(ValueError, rzlib.deflateInit, -2)
-    raises(ValueError, rzlib.deflateInit, 10)
+    py.test.raises(ValueError, rzlib.deflateInit, -2)
+    py.test.raises(ValueError, rzlib.deflateInit, 10)
 
 
 def test_deflate_init_end():

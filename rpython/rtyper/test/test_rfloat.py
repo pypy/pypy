@@ -1,4 +1,4 @@
-import sys
+import sys, py
 from rpython.translator.translator import TranslationContext
 from rpython.annotator import unaryop, binaryop
 from rpython.rtyper.test import snippet
@@ -234,7 +234,7 @@ class BaseTestRfloat(BaseRtypingTest):
         assert break_up_float('-') == ('-', '', '', '')
         assert break_up_float('e1') == ('', '', '', '1')
 
-        raises(ValueError, break_up_float, 'e')
+        py.test.raises(ValueError, break_up_float, 'e')
 
     def test_formatd(self):
         from rpython.rlib.rfloat import formatd
@@ -397,13 +397,13 @@ class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 class TestOOtype(BaseTestRfloat, OORtypeMixin):
 
     def test_formatd(self):
-        skip('formatd is broken on ootype')
+        py.test.skip('formatd is broken on ootype')
 
     def test_formatd_repr(self):
-        skip('formatd is broken on ootype')
+        py.test.skip('formatd is broken on ootype')
 
     def test_formatd_huge(self):
-        skip('formatd is broken on ootype')
+        py.test.skip('formatd is broken on ootype')
 
     def test_parts_to_float(self):
-        skip('parts_to_float is broken on ootype')
+        py.test.skip('parts_to_float is broken on ootype')

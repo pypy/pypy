@@ -1545,7 +1545,7 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
                     raise KeyError     # expected case
                 return prev(l, index)
             rlist.ll_getitem_foldable_nonneg = seen_ok
-            e = raises(LLException, self.interpret, dummyfn, [])
+            e = py.test.raises(LLException, self.interpret, dummyfn, [])
             assert 'KeyError' in str(e.value)
         finally:
             rlist.ll_getitem_foldable_nonneg = prev
@@ -1571,7 +1571,7 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
                     raise KeyError     # expected case
                 return prev(l, index)
             rlist.ll_getitem_foldable_nonneg = seen_ok
-            e = raises(LLException, self.interpret, dummyfn, [])
+            e = py.test.raises(LLException, self.interpret, dummyfn, [])
             assert 'KeyError' in str(e.value)
         finally:
             rlist.ll_getitem_foldable_nonneg = prev

@@ -102,7 +102,7 @@ def test_chdir():
 def test_mkdir():
     filename = str(udir.join('test_mkdir.dir'))
     getllimpl(os.mkdir)(filename, 0)
-    exc = raises(OSError, getllimpl(os.mkdir), filename, 0)
+    exc = py.test.raises(OSError, getllimpl(os.mkdir), filename, 0)
     assert exc.value.errno == errno.EEXIST
     if sys.platform == 'win32':
         assert exc.type is WindowsError
@@ -202,7 +202,7 @@ def test_os_write():
         assert fid.read() == "Hello world"
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     os.close(fd)
-    raises(OSError, f, fd, 'Hello world')
+    py.test.raises(OSError, f, fd, 'Hello world')
 
 def test_os_close():
     fname = str(udir.join('os_test.txt'))
@@ -211,7 +211,7 @@ def test_os_close():
     os.write(fd, 'Hello world')
     f = getllimpl(os.close)
     f(fd)
-    raises(OSError, f, fd)
+    py.test.raises(OSError, f, fd)
 
 def test_os_lseek():
     fname = str(udir.join('os_test.txt'))
@@ -222,7 +222,7 @@ def test_os_lseek():
     f(fd,0,0)
     assert os.read(fd, 11) == 'Hello world'
     os.close(fd)
-    raises(OSError, f, fd, 0, 0)
+    py.test.raises(OSError, f, fd, 0, 0)
 
 def test_os_fsync():
     fname = str(udir.join('os_test.txt'))
@@ -235,13 +235,13 @@ def test_os_fsync():
     fid = open(fname)
     assert fid.read() == 'Hello world'
     fid.close()
-    raises(OSError, f, fd)
+    py.test.raises(OSError, f, fd)
 
 def test_os_fdatasync():
     try:
         f = getllimpl(os.fdatasync)
     except:
-        skip('No fdatasync in os')
+        py.test.skip('No fdatasync in os')
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
@@ -250,12 +250,12 @@ def test_os_fdatasync():
     fid = open(fname)
     assert fid.read() == 'Hello world'
     os.close(fd)
-    raises(OSError, f, fd)
+    py.test.raises(OSError, f, fd)
 
 
 def test_os_kill():
     if not hasattr(os,'kill') or sys.platform == 'win32':
-        skip('No kill in os')
+        py.test.skip('No kill in os')
     f = getllimpl(os.kill)
     import subprocess
     import signal
@@ -272,7 +272,7 @@ def test_isatty():
     try:
         f = getllimpl(os.isatty)
     except:
-        skip('No isatty in os')
+        py.test.skip('No isatty in os')
     assert f(-1)  == False
 
 

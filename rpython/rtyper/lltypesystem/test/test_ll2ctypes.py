@@ -514,8 +514,8 @@ class TestLL2Ctypes(object):
         # and it can be called with the expected number of arguments
         res = cmul(41, 42)
         assert res == 41 * 42
-        raises(TypeError, cmul, 41)
-        raises(TypeError, cmul, 41, 42, 43)
+        py.test.raises(TypeError, cmul, 41)
+        py.test.raises(TypeError, cmul, 41, 42, 43)
 
     def test_qsort(self):
         CMPFUNC = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], rffi.INT)

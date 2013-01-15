@@ -357,11 +357,11 @@ class AbstractTestRstr(BaseRtypingTest):
         def f():
             s = const('abc')
             s.find(s, 0, -10)
-        raises(TyperError, self.interpret, f, ())
+        py.test.raises(TyperError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.find(s, -10)
-        raises(TyperError, self.interpret, f, ())
+        py.test.raises(TyperError, self.interpret, f, ())
 
     def test_find_empty_string(self):
         const = self.const
@@ -752,11 +752,11 @@ class AbstractTestRstr(BaseRtypingTest):
         def fn():
             s = const('abbccc')
             s = s.replace(const('a'), const('baz'))
-        raises(TyperError, self.interpret, fn, ())
+        py.test.raises(TyperError, self.interpret, fn, ())
         def fn():
             s = const('abbccc')
             s = s.replace(const('abb'), const('c'))
-        raises(TyperError, self.interpret, fn, ())
+        py.test.raises(TyperError, self.interpret, fn, ())
 
     def test_int(self):
         const = self.const
@@ -888,11 +888,11 @@ class AbstractTestRstr(BaseRtypingTest):
         def f():
             s = const('abc')
             s.count(s, 0, -10)
-        raises(TyperError, self.interpret, f, ())
+        py.test.raises(TyperError, self.interpret, f, ())
         def f():
             s = const('abc')
             s.count(s, -10)
-        raises(TyperError, self.interpret, f, ())
+        py.test.raises(TyperError, self.interpret, f, ())
 
     def test_getitem_exc(self):
         const = self.const

@@ -1,4 +1,4 @@
-import sys
+import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 
@@ -11,7 +11,7 @@ def test_split():
     assert split('a|b|c|d', '|', 2) == ['a', 'b', 'c|d']
     assert split('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
     assert split('endcase test', 'test') == ['endcase ', '']
-    raises(ValueError, split, 'abc', '')
+    py.test.raises(ValueError, split, 'abc', '')
 
 def test_rsplit():
     assert rsplit("a", "a", 1) == ['', '']
@@ -21,7 +21,7 @@ def test_rsplit():
     assert rsplit('a|b|c|d', '|', 2) == ['a|b', 'c', 'd']
     assert rsplit('a//b//c//d', '//') == ['a', 'b', 'c', 'd']
     assert rsplit('endcase test', 'test') == ['endcase ', '']
-    raises(ValueError, rsplit, "abc", '')
+    py.test.raises(ValueError, rsplit, "abc", '')
 
 def test_string_builder():
     s = StringBuilder()

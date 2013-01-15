@@ -206,7 +206,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert hello == "hello world"
         fd = os.open(tmpdir, os.O_WRONLY|os.O_CREAT, 777)
         os.close(fd)
-        raises(OSError, os.write, fd, "hello world")
+        py.test.raises(OSError, os.write, fd, "hello world")
 
     def test_os_write_single_char(self):
         tmpdir = str(udir.udir.join("os_write_test_char"))

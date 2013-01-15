@@ -5,7 +5,7 @@ from rpython.rlib import rsignal
 def setup_module(mod):
     if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
         py.test.skip("requires os.kill() and os.getpid()")
-    if not hasattr(signals, 'SIGUSR1'):
+    if not hasattr(rsignal, 'SIGUSR1'):
         py.test.skip("requires SIGUSR1 in signal")
 
 

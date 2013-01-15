@@ -134,7 +134,7 @@ class TestPosixUnicode:
 
     def test_is_valid_fd(self):
         if os.name != 'nt':
-            skip('relevant for windows only')
+            py.test.skip('relevant for windows only')
         assert rposix.is_valid_fd(0) == 1
         fid = open(str(udir.join('validate_test.txt')), 'w')
         fd = fid.fileno()

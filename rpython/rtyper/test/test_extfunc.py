@@ -1,3 +1,4 @@
+import py
 
 from rpython.rtyper.extfunc import ExtFuncEntry, register_external,\
      is_external, lazy_register
@@ -177,7 +178,7 @@ class TestExtFuncEntry:
         a.translator.config.translation.check_str_without_nul=True
         def g(s):
             return os_open(s)
-        raises(Exception, a.build_types, g, [str])
+        py.test.raises(Exception, a.build_types, g, [str])
         a.build_types(g, [str0])  # Does not raise
 
     def test_list_of_str0(self):
@@ -195,7 +196,7 @@ class TestExtFuncEntry:
         a.translator.config.translation.check_str_without_nul=True
         def g(l):
             return os_execve(l)
-        raises(Exception, a.build_types, g, [[str]])
+        py.test.raises(Exception, a.build_types, g, [[str]])
         a.build_types(g, [[str0]])  # Does not raise
         
 

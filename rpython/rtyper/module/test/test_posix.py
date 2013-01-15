@@ -141,7 +141,7 @@ class BaseTestPosix(BaseRtypingTest):
         text = 'This is a test'
         os.write(fi,text)
         res = self.interpret(f,[fi])
-        raises( OSError, os.fstat, fi)
+        py.test.raises( OSError, os.fstat, fi)
 
     if hasattr(os, 'ftruncate'):
         def test_ftruncate(self):

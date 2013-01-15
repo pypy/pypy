@@ -1,6 +1,6 @@
 import py, math
 from rpython.rtyper.lltypesystem.module.test.test_ll_math import (MathTests,
-                                                                  getTester)
+                                                                  get_tester)
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.rlib import rfloat
 

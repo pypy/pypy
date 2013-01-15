@@ -1,3 +1,4 @@
+import py
 from rpython.rlib.rdtoa import strtod, dtoa
 from rpython.rlib import rfloat
 
@@ -6,11 +7,11 @@ def test_strtod():
     assert strtod("1.1") == 1.1
     assert strtod("3.47") == 3.47
     assert strtod(".125") == .125
-    raises(ValueError, strtod, "123A")
-    raises(ValueError, strtod, "")
-    raises(ValueError, strtod, " ")
-    raises(ValueError, strtod, "\0")
-    raises(ValueError, strtod, "3\09")
+    py.test.raises(ValueError, strtod, "123A")
+    py.test.raises(ValueError, strtod, "")
+    py.test.raises(ValueError, strtod, " ")
+    py.test.raises(ValueError, strtod, "\0")
+    py.test.raises(ValueError, strtod, "3\09")
 
 def test_dtoa():
     assert dtoa(3.47) == "3.47"

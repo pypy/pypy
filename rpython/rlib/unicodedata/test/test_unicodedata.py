@@ -1,3 +1,4 @@
+import py
 from rpython.rlib.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
 
 class AppTestUnicodeData:
@@ -39,8 +40,8 @@ class AppTestUnicodeData:
             assert unicodedata.name(unichr(code)) == name
             assert unicodedata.lookup(name) == unichr(code)
         # Test outside the range
-        raises(ValueError, unicodedata.name, unichr(0xAC00 - 1))
-        raises(ValueError, unicodedata.name, unichr(0xD7A3 + 1))
+        py.test.raises(ValueError, unicodedata.name, unichr(0xAC00 - 1))
+        py.test.raises(ValueError, unicodedata.name, unichr(0xD7A3 + 1))
 
     def test_cjk(self):
         import sys
@@ -71,7 +72,7 @@ class AppTestUnicodeData:
                     unicodedata.name(char)
                 except ValueError, e:
                     assert e.message == 'no such name'
-                raises(KeyError, unicodedata.lookup, charname)
+                py.test.raises(KeyError, unicodedata.lookup, charname)
 
     def test_bug_1704793(self): # from CPython
         import unicodedata
@@ -79,7 +80,7 @@ class AppTestUnicodeData:
 
     def test_normalize(self):
         import unicodedata
-        raises(TypeError, unicodedata.normalize, 'x')
+        py.test.raises(TypeError, unicodedata.normalize, 'x')
 
     def test_normalize_wide(self):
         import sys, unicodedata
@@ -128,7 +129,7 @@ class TestUnicodeData(object):
 
     def test_random_missing_chars(self):
         for chr in self.nocharlist:
-            raises(KeyError, unicodedb_5_2_0.name, ord(chr))
+            py.test.raises(KeyError, unicodedb_5_2_0.name, ord(chr))
 
     def test_compare_functions(self):
         import unicodedata # CPython implementation
@@ -173,7 +174,7 @@ class TestUnicodeData(object):
     def test_differences(self):
         assert unicodedb_5_2_0.name(9187) == 'BENZENE RING WITH CIRCLE'
         assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
-        raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
-        raises(KeyError, unicodedb_3_2_0.name, 9187)
+        py.test.raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
+        py.test.raises(KeyError, unicodedb_3_2_0.name, 9187)
 
 
