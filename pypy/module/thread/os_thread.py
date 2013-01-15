@@ -3,7 +3,7 @@ Thread support based on OS-level threads.
 """
 
 import os
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, Arguments
