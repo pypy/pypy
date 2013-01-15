@@ -1398,7 +1398,11 @@ class LengthTransparency(unittest.TestCase):
     def test_repeat(self):
         from test.test_iterlen import len
         self.assertEqual(len(repeat(None, 50)), 50)
-        self.assertRaises(TypeError, len, repeat(None))
+        if support.check_impl_detail(pypy=True):
+            # 3.4 behavior
+            self.assertEqual(len(repeat(None)), NotImplemented)
+        else:
+            self.assertRaises(TypeError, len, repeat(None))
 
 class RegressionTests(unittest.TestCase):
 
