@@ -2,26 +2,15 @@
 """ Tests for register allocation for common constructs
 """
 
-import py
-from pypy.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, TreeLoop, TargetToken
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.codewriter import heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.llsupport.descr import FieldDescr, FLAG_SIGNED
+from pypy.jit.metainterp.history import TargetToken, AbstractDescr
 from pypy.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm
 from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.x86.regalloc import RegAlloc
-from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
-from pypy.jit.tool.oparser import parse
+from pypy.jit.backend.x86.arch import WORD
+from pypy.jit.backend.llsupport import jitframe
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import rclass, rstr
 
-from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
-from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86FrameManager,\
-     X86XMMRegisterManager
+from pypy.jit.backend.x86.regalloc import gpr_reg_mgr_cls
 
 CPU = getcpuclass()
 
@@ -42,6 +31,10 @@ class MockGcRootMap(object):
 class MockGcDescr(GcLLDescr_boehm):
     gcrootmap = MockGcRootMap()
 
+class TestDirectGcIntegration(object):
+    def test_gcmap(self):
+        pass
+
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)
@@ -60,7 +53,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     struct_ptr.field = child_ptr
 
 
-    descr0 = cpu.fielddescrof(S, 'int')
+    intdescr = cpu.fielddescrof(S, 'int')
     ptr0 = struct_ref
 
     targettoken = TargetToken()
@@ -75,6 +68,23 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         '''
         self.interpret(ops, [self.struct_ptr])
         assert not self.getptr(0, lltype.Ptr(self.S))
+
+    def test_guard(self):
+        ops = '''
+        [i0, p0, i1, p1]
+        p3 = getfield_gc(p0, descr=fielddescr)
+        guard_true(i0) [p0, i1, p1, p3]
+        '''
+        s1 = lltype.malloc(self.S)
+        s2 = lltype.malloc(self.S)
+        s1.field = s2
+        self.interpret(ops, [0, s1, 1, s2])
+        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, self.deadframe)
+        # p0 and p3 should be in registers, p1 not so much
+        assert self.getptr(0, lltype.Ptr(self.S)) == s1
+        # this is a fairly CPU specific check
+        all = len(gpr_reg_mgr_cls.all_regs)
+        assert frame.jf_gcpattern == (1 << (all - 1)) | (1 << (all - 2))
 
     def test_rewrite_constptr(self):
         ops = '''
@@ -91,30 +101,30 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         label(i0, i1, i2, i3, i4, i5, i6, i7, i8, descr=targettoken)
         guard_value(i2, 1) [i2, i3, i4, i5, i6, i7, i0, i1, i8]
         guard_class(i4, 138998336) [i4, i5, i6, i7, i0, i1, i8]
-        i11 = getfield_gc(i4, descr=descr0)
+        i11 = getfield_gc(i4, descr=intdescr)
         guard_nonnull(i11) [i4, i5, i6, i7, i0, i1, i11, i8]
-        i13 = getfield_gc(i11, descr=descr0)
+        i13 = getfield_gc(i11, descr=intdescr)
         guard_isnull(i13) [i4, i5, i6, i7, i0, i1, i11, i8]
-        i15 = getfield_gc(i4, descr=descr0)
+        i15 = getfield_gc(i4, descr=intdescr)
         i17 = int_lt(i15, 0)
         guard_false(i17) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
-        i18 = getfield_gc(i11, descr=descr0)
+        i18 = getfield_gc(i11, descr=intdescr)
         i19 = int_ge(i15, i18)
         guard_false(i19) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
         i20 = int_lt(i15, 0)
         guard_false(i20) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
-        i21 = getfield_gc(i11, descr=descr0)
-        i22 = getfield_gc(i11, descr=descr0)
+        i21 = getfield_gc(i11, descr=intdescr)
+        i22 = getfield_gc(i11, descr=intdescr)
         i23 = int_mul(i15, i22)
         i24 = int_add(i21, i23)
-        i25 = getfield_gc(i4, descr=descr0)
+        i25 = getfield_gc(i4, descr=intdescr)
         i27 = int_add(i25, 1)
-        setfield_gc(i4, i27, descr=descr0)
-        i29 = getfield_raw(144839744, descr=descr0)
+        setfield_gc(i4, i27, descr=intdescr)
+        i29 = getfield_raw(144839744, descr=intdescr)
         i31 = int_and(i29, -2141192192)
         i32 = int_is_true(i31)
         guard_false(i32) [i4, i6, i7, i0, i1, i24]
-        i33 = getfield_gc(i0, descr=descr0)
+        i33 = getfield_gc(i0, descr=intdescr)
         guard_value(i33, ConstPtr(ptr0)) [i4, i6, i7, i0, i1, i33, i24]
         jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24, descr=targettoken)
         '''

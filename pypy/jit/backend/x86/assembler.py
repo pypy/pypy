@@ -67,8 +67,7 @@ class Assembler386(object):
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
-        self.malloc_slowpath1 = 0
-        self.malloc_slowpath2 = 0
+        self.malloc_slowpath = 0
         self.wb_slowpath = [0, 0, 0, 0]
         self.memcpy_addr = 0
         self.setup_failure_recovery()
@@ -1839,7 +1838,7 @@ class Assembler386(object):
                 else:
                     v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                     if guardtok.failargs[i].type == REF:
-                        gcpattern |= v
+                        gcpattern |= (1 << v)
                 positions[i] = v * WORD
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
