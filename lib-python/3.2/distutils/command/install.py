@@ -65,6 +65,13 @@ INSTALL_SCHEMES = {
         'scripts': '$base/Scripts',
         'data'   : '$base',
         },
+    'pypy': {
+        'purelib': '$base/site-packages',
+        'platlib': '$base/site-packages',
+        'headers': '$base/include',
+        'scripts': '$base/bin',
+        'data'   : '$base',
+        },
     }
 
 # user site schemes
@@ -482,6 +489,8 @@ class install(Command):
     def select_scheme(self, name):
         """Sets the install directories by applying the install schemes."""
         # it's the caller's problem if they supply a bad name!
+        if hasattr(sys, 'pypy_version_info'):
+            name = 'pypy'
         scheme = INSTALL_SCHEMES[name]
         for key in SCHEME_KEYS:
             attrname = 'install_' + key
