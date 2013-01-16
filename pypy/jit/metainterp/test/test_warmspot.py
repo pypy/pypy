@@ -1,6 +1,6 @@
 import py
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.rlib.jit import JitDriver, set_param, unroll_safe
+from pypy.rlib.jit import JitDriver, set_param, unroll_safe, jit_callback
 from pypy.jit.backend.llgraph import runner
 
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -383,6 +383,23 @@ class WarmspotTests(object):
         assert res == expected
         self.check_resops(int_sub=2, int_mul=0, int_add=2)
 
+    def test_loop_automatic_reds_not_too_many_redvars(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def one():
+            return 1
+        def f(n, m):
+            res = 0
+            while n > 0:
+                n -= one()
+                myjitdriver.jit_merge_point(m=m)
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        oplabel = get_stats().loops[0].operations[0]
+        assert len(oplabel.getarglist()) == 2     # 'n', 'res' in some order
+
     def test_inline_jit_merge_point(self):
         # test that the machinery to inline jit_merge_points in callers
         # works. The final user does not need to mess manually with the
@@ -520,41 +537,21 @@ class WarmspotTests(object):
 
 
     def test_callback_jit_merge_point(self):
-        from pypy.rlib.objectmodel import register_around_callback_hook
-        from pypy.rpython.lltypesystem import lltype, rffi
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        
-        callback_jit_driver = JitDriver(greens = ['name'], reds = 'auto')
-        
-        def callback_merge_point(name):
-            callback_jit_driver.jit_merge_point(name=name)
-    
-        @callback_jit_driver.inline(callback_merge_point)
-        def callback_hook(name):
-            pass
-
+        @jit_callback("testing")
         def callback(a, b):
             if a > b:
                 return 1
             return -1
 
-        CB_TP = rffi.CCallback([lltype.Signed, lltype.Signed], lltype.Signed)
-        eci = ExternalCompilationInfo(includes=['stdlib.h'])
-        qsort = rffi.llexternal('qsort',
-                                [rffi.VOIDP, lltype.Signed, lltype.Signed,
-                                 CB_TP], lltype.Void, compilation_info=eci)
-        ARR = rffi.CArray(lltype.Signed)
-
         def main():
-            register_around_callback_hook(callback_hook)
-            raw = lltype.malloc(ARR, 10, flavor='raw')
+            total = 0
             for i in range(10):
-                raw[i] = 10 - i
-            qsort(raw, 10, rffi.sizeof(lltype.Signed), callback)
-            lltype.free(raw, flavor='raw')
+                total += callback(i, 2)
+            return total
 
-        self.meta_interp(main, [])
-        self.check_trace_count(1)
+        res = self.meta_interp(main, [])
+        assert res == 7 - 3
+        self.check_trace_count(2)
 
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
