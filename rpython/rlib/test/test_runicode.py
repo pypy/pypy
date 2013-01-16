@@ -679,6 +679,11 @@ class TestEncoding(UnicodeTests):
                          "utf-32 utf-32-be utf-32-le").split():
             self.checkencode(uni, encoding)
 
+    def test_empty(self):
+        for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+                         "utf-32 utf-32-be utf-32-le").split():
+            self.checkencode(u'', encoding)
+
     def test_single_chars_utf8(self):
         # check every number of bytes per char
         for s in ["\xd7\x90", "\xd6\x96", "\xeb\x96\x95", "\xf0\x90\x91\x93"]:
