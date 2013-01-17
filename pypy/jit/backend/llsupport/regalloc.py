@@ -23,8 +23,9 @@ class LinkedList(object):
         # assume the list is sorted
         if lst is not None:
             node = None
-            for item in range(len(lst) - 1, -1, -1):
-                node = Node(fm.get_loc_index(item), node)
+            for i in range(len(lst) - 1, -1, -1):
+                item = lst[i]
+                node = Node(item, node)
             self.master_node = node
         else:
             self.master_node = None
@@ -110,6 +111,37 @@ class LinkedList(object):
             l.append(str(node.val))
             node = node.next
         return 'LinkedList(%s)' % '->'.join(l)
+
+def frame_manager_from_gcmap(FmClass, gcmap, depth, frame_bindings):
+    if not gcmap:
+        return FmClass()
+    rev_bindings = [False] * depth
+    for arg, loc in frame_bindings.iteritems():
+        size = FmClass.frame_size(arg.type)
+        if size == 2:
+            rev_bindings[FmClass.get_loc_index(loc) + 1] = True
+        assert size == 1
+        rev_bindings[FmClass.get_loc_index(loc)] = True
+    if not gcmap:
+        return FmClass()
+    gcrefs = []
+    others = []
+    c = 0
+    for i in range(len(gcmap)):
+        item = gcmap[i]
+        while c < item:
+            if not rev_bindings[c]:
+                others.append(c)
+            c += 1
+        if not rev_bindings[item]:
+            gcrefs.append(item)
+        c += 1
+    for i in range(c, depth):
+        others.append(i)
+    fm = FmClass(depth, gcrefs, others)
+    for arg, loc in frame_bindings.iteritems():
+        fm.bindings[arg] = loc
+    return fm
 
 class FrameManager(object):
     """ Manage frame positions
@@ -604,6 +636,7 @@ class RegisterManager(object):
     def get_scratch_reg(self, type, forbidden_vars=[], selected_reg=None):
         """ Platform specific - Allocates a temporary register """
         raise NotImplementedError("Abstract")
+
 
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in

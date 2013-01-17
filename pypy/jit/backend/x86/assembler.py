@@ -534,8 +534,9 @@ class Assembler386(object):
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
-        frame_depth = self._assemble(regalloc, operations)
+        frame_depth = self._assemble(regalloc, inputargs, operations)
         clt.frame_info.jfi_frame_depth = frame_depth + JITFRAME_FIXED_SIZE
+        self._update_gcmap(clt.frame_info, regalloc)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -586,9 +587,10 @@ class Assembler386(object):
         startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
-                                             self.current_clt.allgcrefs)
+                                             self.current_clt.allgcrefs,
+                                             self.current_clt.frame_info)
         stack_check_patch_ofs = self._check_frame_depth()
-        frame_depth = self._assemble(regalloc, operations)
+        frame_depth = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
@@ -610,6 +612,7 @@ class Assembler386(object):
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
         self.fixup_target_tokens(rawstart)
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
+        self._update_gcmap(self.current_clt.frame_info, regalloc)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -688,6 +691,13 @@ class Assembler386(object):
         mc = codebuf.MachineCodeBlockWrapper()
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
+
+    def _update_gcmap(self, frame_info, regalloc):
+        gcmap = regalloc.get_gc_map()
+        frame_info.jfi_gcmap = lltype.malloc(jitframe.GCMAP,
+                                             len(gcmap))
+        for i in range(len(gcmap)):
+            frame_info.jfi_gcmap[i] = gcmap[i]
         
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -777,16 +787,17 @@ class Assembler386(object):
             operations = newoperations
         return operations
 
-    def _assemble(self, regalloc, operations):
+    def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
         regalloc.compute_hint_frame_locations(operations)
-        regalloc.walk_operations(operations)
+        regalloc.walk_operations(inputargs, operations)
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            target_frame_depth = jump_target_descr._x86_clt.frame_info.jfi_frame_depth
+            tgt_depth = jump_target_descr._x86_clt.frame_info.jfi_frame_depth
+            target_frame_depth = tgt_depth - JITFRAME_FIXED_SIZE
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 

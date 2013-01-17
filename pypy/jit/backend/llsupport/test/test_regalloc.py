@@ -1,10 +1,9 @@
 import py
 from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, INT, FLOAT,\
      BoxPtr
-from pypy.jit.backend.llsupport.regalloc import FrameManager, LinkedList
+from pypy.jit.backend.llsupport.regalloc import FrameManager, LinkedList,\
+     frame_manager_from_gcmap
 from pypy.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
-from pypy.jit.tool.oparser import parse
-from pypy.jit.backend.detect_cpu import getcpuclass
 
 def newboxes(*values):
     return [BoxInt(v) for v in values]
@@ -591,3 +590,25 @@ class TestRegalloc(object):
         for box in fm.bindings.keys():
             fm.mark_as_free(box)
         assert fm.get_gc_map() == [7, 8]
+
+    def test_fm_from_gcmap(self):
+        class Loc(object):
+            def __init__(self, l):
+                self.l = l
+        
+        class Fm(FrameManager):
+            @staticmethod
+            def get_loc_index(l):
+                return l.l
+
+        b0 = BoxInt()
+        b1 = BoxInt()
+        l0 = Loc(5)
+        l1 = Loc(2)
+        bindings = {b0: l0, b1: l1}
+        fm = frame_manager_from_gcmap(Fm, [1, 5, 6, 8], 13,
+                                      bindings)
+        assert repr(fm.freelist_gcrefs) == "LinkedList(1->6->8)"
+        assert repr(fm.freelist_others) == "LinkedList(0->3->4->7->9->10->11->12)"
+        assert fm.current_frame_depth == 13
+        assert fm.bindings == bindings

@@ -57,10 +57,8 @@ class AbstractLLCPU(AbstractCPU):
 
         def realloc_frame(frame):
             frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-            frame_info = frame.jf_frame_info
-            new_frame = lltype.malloc(jitframe.JITFRAME,
-                                      frame_info.jfi_frame_depth)
-            new_frame.jf_frame_info = frame_info
+            new_frame = frame.copy()
+            # XXX now we know, rewrite this
             # we need to do this, because we're not sure what things
             # are GC pointers and which ones are not
             llop.gc_writebarrier_before_copy(lltype.Bool, frame, new_frame,

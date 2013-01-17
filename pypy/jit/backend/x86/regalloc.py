@@ -17,13 +17,15 @@ from pypy.jit.backend.x86.jump import remap_frame_layout_mixed
 from pypy.jit.codewriter import longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.backend.llsupport.jitframe import NULLGCMAP
 from pypy.jit.backend.llsupport.descr import ArrayDescr
 from pypy.jit.backend.llsupport.descr import CallDescr
 from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.jit.backend.llsupport.descr import unpack_fielddescr
 from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
-     TempBox, compute_vars_longevity, is_comparison_or_ovf_op
+     TempBox, compute_vars_longevity, is_comparison_or_ovf_op,\
+     frame_manager_from_gcmap
 from pypy.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from pypy.jit.backend.x86 import rx86
@@ -171,9 +173,11 @@ class RegAlloc(object):
         self.close_stack_struct = 0
         self.final_jump_op = None
 
-    def _prepare(self, inputargs, operations, allgcrefs):
-        self.fm = X86FrameManager()
-        self.min_frame_depth = 0
+    def _prepare(self, inputargs, operations, allgcrefs, gcmap=NULLGCMAP,
+                 parent_frame_depth=0, frame_bindings=None):
+        self.fm = frame_manager_from_gcmap(X86FrameManager, gcmap,
+                                           parent_frame_depth,
+                                           frame_bindings)
         cpu = self.assembler.cpu
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
@@ -201,9 +205,16 @@ class RegAlloc(object):
             self.min_bytes_before_label = 13
         return operations
 
-    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs):
-        operations = self._prepare(inputargs, operations,
-                                   allgcrefs)
+    def get_gc_map(self):
+        return self.fm.get_gc_map()
+
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs,
+                       frame_info):
+        frame_bindings = self._frame_bindings(arglocs, inputargs)
+        operations = self._prepare(inputargs, operations, allgcrefs,
+                                   frame_info.jfi_gcmap,
+                                   frame_info.jfi_frame_depth,
+                                   frame_bindings)
         self._update_bindings(arglocs, inputargs)
         self.min_bytes_before_label = 0
         return operations
@@ -213,70 +224,12 @@ class RegAlloc(object):
                                           at_least_position)
 
     def get_final_frame_depth(self):
-        min_frame_depth = self.fm.get_frame_depth()
-        if min_frame_depth > self.min_frame_depth:
-            self.min_frame_depth = min_frame_depth
-        return self.min_frame_depth
+        return self.fm.get_frame_depth()
 
     def _set_initial_bindings(self, inputargs):
         for box in inputargs:
             assert isinstance(box, Box)
             self.fm.get_new_loc(box)
-            #loc = self.fm.frame_pos(cur_frame_pos, box.type)
-            #self.fm.set_binding(box, loc)
-
-        # if IS_X86_64:
-    #         inputargs = self._set_initial_bindings_regs_64(inputargs)
-    #     #                   ...
-    #     # stack layout:     arg2
-    #     #                   arg1
-    #     #                   arg0
-    #     #                   return address
-    #     #                   saved ebp        <-- ebp points here
-    #     #                   ...
-    #     XXX # adjust the address to count for the fact that we're passing
-    #     # jitframe as a first arg
-    #     cur_frame_pos = - 1 - FRAME_FIXED_SIZE
-    #     assert get_ebp_ofs(cur_frame_pos-1) == 2*WORD
-    #     assert get_ebp_ofs(cur_frame_pos-2) == 3*WORD
-    #     #
-    #     for box in inputargs:
-    #         assert isinstance(box, Box)
-    #         #
-    #         if IS_X86_32 and box.type == FLOAT:
-    #             cur_frame_pos -= 2
-    #         else:
-    #             cur_frame_pos -= 1
-    #         loc = self.fm.frame_pos(cur_frame_pos, box.type)
-    #         self.fm.set_binding(box, loc)
-
-    # def _set_initial_bindings_regs_64(self, inputargs):
-    #     # In reverse order for use with pop()
-    #     unused_gpr = [r9, r8, ecx, edx, esi] # jitframe comes in edi. don't use
-    #                                          # it for parameter parsing
-    #     unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
-    #     #
-    #     pass_on_stack = []
-    #     #
-    #     for box in inputargs:
-    #         assert isinstance(box, Box)
-    #         #
-    #         if box.type == FLOAT:
-    #             if len(unused_xmm) > 0:
-    #                 ask = unused_xmm.pop()
-    #                 got = self.xrm.try_allocate_reg(box, selected_reg=ask)
-    #                 assert ask == got
-    #             else:
-    #                 pass_on_stack.append(box)
-    #         else:
-    #             if len(unused_gpr) > 0:
-    #                 ask = unused_gpr.pop()
-    #                 got = self.rm.try_allocate_reg(box, selected_reg=ask)
-    #                 assert ask == got
-    #             else:
-    #                 pass_on_stack.append(box)
-    #     #
-    #     return pass_on_stack
 
     def possibly_free_var(self, var):
         if var.type == FLOAT:
@@ -329,9 +282,20 @@ class RegAlloc(object):
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
 
+    def _frame_bindings(self, locs, inputargs):
+        bindings = {}
+        i = 0
+        for loc in locs:
+            if loc is None:
+                continue
+            arg = inputargs[i]
+            i += 1
+            if not isinstance(loc, RegLoc):
+                bindings[arg] = loc
+        return bindings
+
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
-        xxx
         used = {}
         i = 0
         for loc in locs:
@@ -339,21 +303,16 @@ class RegAlloc(object):
                 continue
             arg = inputargs[i]
             i += 1
-            if arg.type == FLOAT:
-                if isinstance(loc, RegLoc):
+            if isinstance(loc, RegLoc):
+                if arg.type == FLOAT:
                     self.xrm.reg_bindings[arg] = loc
                     used[loc] = None
                 else:
-                    self.fm.set_binding(arg, loc)
-            else:
-                if isinstance(loc, RegLoc):
                     if loc is ebp:
                         self.rm.bindings_to_frame_reg[arg] = None
                     else:
                         self.rm.reg_bindings[arg] = loc
                         used[loc] = None
-                else:
-                    self.fm.set_binding(arg, loc)
         self.rm.free_regs = []
         for reg in self.rm.all_regs:
             if reg not in used:
@@ -362,8 +321,6 @@ class RegAlloc(object):
         for reg in self.xrm.all_regs:
             if reg not in used:
                 self.xrm.free_regs.append(reg)
-        # note: we need to make a copy of inputargs because possibly_free_vars
-        # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
         self.rm._check_invariants()
         self.xrm._check_invariants()
@@ -437,7 +394,7 @@ class RegAlloc(object):
             return False
         return True
 
-    def walk_operations(self, operations):
+    def walk_operations(self, inputargs, operations):
         i = 0
         #self.operations = operations
         while i < len(operations):
@@ -465,6 +422,8 @@ class RegAlloc(object):
         assert not self.xrm.reg_bindings
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
+        for arg in inputargs:
+            self.possibly_free_var(arg)
 
     def flush_loop(self):
         # rare case: if the loop is too short, or if we are just after
@@ -921,6 +880,7 @@ class RegAlloc(object):
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._consider_math_sqrt(op)
         self._consider_call(op)
+        self.possibly_free_vars(op.getarglist())
 
     def consider_call_may_force(self, op, guard_op):
         assert guard_op is not None
@@ -943,6 +903,7 @@ class RegAlloc(object):
             xxx
         self._call(op, [frame_loc, self.loc(op.getarg(0))],
                    guard_not_forced_op=guard_op)
+        self.possibly_free_var(op.getarg(0))
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None

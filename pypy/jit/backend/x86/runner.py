@@ -115,9 +115,7 @@ class AbstractX86CPU(AbstractLLCPU):
             func = rffi.cast(FUNCPTR, addr)
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
             frame_info = clt.frame_info
-            frame = lltype.malloc(jitframe.JITFRAME, frame_info.jfi_frame_depth,
-                                  zero=True)
-            frame.jf_frame_info = frame_info
+            frame = jitframe.JITFRAME.allocate(frame_info)
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
