@@ -7,7 +7,7 @@ from rpython.tool import leakfinder
 # i'll investigate differences in collection tommorow, for now, can you just
 # import the makemodule hook from pypy and add a comment that im responsible
 # for fixing?
-#from pypy.conftest import pytest_pycollect_makemodule
+from pypy.conftest import pytest_pycollect_makemodule
 
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 cache_dir = realpath(join(dirname(__file__), '_cache'))
@@ -38,6 +38,15 @@ def _set_platform(opt, opt_str, value, parser):
     set_platform(value, None)
 
 def pytest_addoption(parser):
+    # XXX
+    # <ronny> Aquana, i just ensured that with the pypy conftest we get all skips,
+    # i'll investigate differences in collection tommorow, for now, can you just
+    # import the makemodule hook from pypy and add a comment that im responsible
+    # for fixing?
+    from pypy.conftest import pytest_addoption
+    pytest_addoption(parser)
+    
+    
     group = parser.getgroup("rpython options")
     group.addoption('--view', action="store_true", dest="view", default=False,
            help="view translation tests' flow graphs with Pygame")
