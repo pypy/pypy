@@ -40,3 +40,5 @@ GC: major collections
 JIT: finish (missing: the call in execute_token(), reorganize pypy source, ?)
 
 ------------------------------------------------------------
+
+implement thread-locals in RPython (for the executioncontext)
