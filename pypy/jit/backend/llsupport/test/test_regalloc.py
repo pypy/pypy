@@ -585,6 +585,3 @@ class TestRegalloc(object):
         f3 = BoxFloat()
         floc = fm.loc(f3)
         assert fm.get_loc_index(floc) == 0
-
-    def test_frame_manager_2(self):
-        pass
