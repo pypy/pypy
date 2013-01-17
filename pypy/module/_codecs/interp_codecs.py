@@ -402,9 +402,9 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
     return space.getitem(w_res, space.wrap(0))
 
-@unwrap_spec(s='bufferstr', errors='str_or_None')
+@unwrap_spec(s='bufferstr_or_u', errors='str_or_None')
 def buffer_encode(space, s, errors='strict'):
-    return space.newtuple([space.wrap(s), space.wrap(len(s))])
+    return space.newtuple([space.wrapbytes(s), space.wrap(len(s))])
 
 @unwrap_spec(errors=str)
 def decode(space, w_obj, w_encoding=None, errors='strict'):
@@ -749,7 +749,7 @@ class UnicodeData_Handler:
             return -1
         return space.int_w(w_code)
 
-@unwrap_spec(string='bufferstr', errors='str_or_None',
+@unwrap_spec(string='bufferstr_or_u', errors='str_or_None',
              w_final=WrappedDefault(False))
 def unicode_escape_decode(space, string, errors="strict", w_final=None):
     if errors is None:
@@ -799,7 +799,7 @@ def escape_encode(space, data, errors='strict'):
     result = string_escape_encode(data, False)
     return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])
 
-@unwrap_spec(data="bufferstr", errors='str_or_None')
+@unwrap_spec(data='bufferstr_or_u', errors='str_or_None')
 def escape_decode(space, data, errors='strict'):
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     result = PyString_DecodeEscape(space, data, None)

@@ -125,6 +125,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_bufferstr(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_bufferstr_or_u(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_str_or_None(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -242,6 +245,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_bufferstr(self, typ):
         self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
+
+    def visit_bufferstr_or_u(self, typ):
+        self.run_args.append("space.bufferstr_or_u_w(%s)" % (self.scopenext(),))
 
     def visit_str_or_None(self, typ):
         self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
@@ -379,6 +385,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_bufferstr(self, typ):
         self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
+
+    def visit_bufferstr_or_u(self, typ):
+        self.unwrap.append("space.bufferstr_or_u_w(%s)" % (self.nextarg(),))
 
     def visit_str_or_None(self, typ):
         self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))

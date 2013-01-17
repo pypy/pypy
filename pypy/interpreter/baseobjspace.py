@@ -1298,6 +1298,17 @@ class ObjSpace(object):
             buffer = self.buffer_w(w_obj)
             return buffer.as_str()
 
+    def bufferstr_or_u_w(self, w_obj):
+        """Returns an interp-level str, directly if possible.
+
+        Accepts unicode or any type supporting the buffer
+        interface. Unicode objects will be encoded to the default
+        encoding (UTF-8)
+        """
+        if self.isinstance_w(w_obj, self.w_unicode):
+            return w_obj.identifier_w(self)
+        return self.bufferstr_w(w_obj)
+
     def str_or_None_w(self, w_obj):
         if self.is_w(w_obj, self.w_None):
             return None
