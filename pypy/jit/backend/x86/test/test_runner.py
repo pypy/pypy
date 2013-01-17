@@ -33,8 +33,10 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
-    bridge_loop_instructions = ['cmp', 'jg', 'mov', 'call', 'mov', 'jmp']
+    add_loop_instructions = ['mov', 'movabs', 'mov', 'movabs',
+                             'mov', 'add', 'test', 'je', 'jmp']
+    bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call',
+                                'mov', 'jmp']
 
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
