@@ -145,8 +145,9 @@ NOT_INITIALIZED = chr(0xdd)
 class GCDescrFastpathMalloc(GcLLDescription):
     gcrootmap = None
     write_barrier_descr = None
+    passes_frame = True
 
-    def __init__(self):
+    def __init__(self, callback):
         GcLLDescription.__init__(self, None)
         # create a nursery
         NTP = rffi.CArray(lltype.Char)
@@ -158,7 +159,9 @@ class GCDescrFastpathMalloc(GcLLDescription):
         self.addrs[0] = rffi.cast(lltype.Signed, self.nursery)
         self.addrs[1] = self.addrs[0] + 64
         self.calls = []
-        def malloc_slowpath(size):
+        def malloc_slowpath(size, frame):
+            if callback is not None:
+                callback(frame)
             if self.gcrootmap is not None:   # hook
                 self.gcrootmap.hook_malloc_slowpath()
             self.calls.append(size)
@@ -167,7 +170,8 @@ class GCDescrFastpathMalloc(GcLLDescription):
             self.addrs[0] = nadr + size
             return nadr
         self.generate_function('malloc_nursery', malloc_slowpath,
-                               [lltype.Signed], lltype.Signed)
+                               [lltype.Signed, jitframe.JITFRAMEPTR],
+                               lltype.Signed)
 
     def get_nursery_free_addr(self):
         return rffi.cast(lltype.Signed, self.addrs)
@@ -185,13 +189,18 @@ class GCDescrFastpathMalloc(GcLLDescription):
 
 class TestMallocFastpath(BaseTestRegalloc):
 
-    def setup_method(self, method):
+    def teardown_method(self, method):
+        lltype.free(self.cpu.gc_ll_descr.addrs, flavor='raw')
+        lltype.free(self.cpu.gc_ll_descr.nursery, flavor='raw')
+
+    def getcpu(self, callback):
         cpu = CPU(None, None)
-        cpu.gc_ll_descr = GCDescrFastpathMalloc()
+        cpu.gc_ll_descr = GCDescrFastpathMalloc(callback)
         cpu.setup_once()
-        self.cpu = cpu
+        return cpu
 
     def test_malloc_fastpath(self):
+        self.cpu = self.getcpu(None)
         ops = '''
         [i0]
         p0 = call_malloc_nursery(16)
@@ -203,7 +212,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        ref = lambda n: self.cpu.get_latest_value_ref(self.deadframe, n)
+        ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 16
         assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 48
@@ -214,6 +223,13 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.calls == []
 
     def test_malloc_slowpath(self):
+        def check(frame):
+            assert len(frame.jf_frame_info.jfi_gcmap) == 2 # 2 pointers
+            assert frame.jf_frame_info.jfi_gcmap[0] == 1
+            assert frame.jf_frame_info.jfi_gcmap[1] == 2
+            assert frame.jf_gcpattern == 0x2
+        
+        self.cpu = self.getcpu(check)
         ops = '''
         [i0]
         p0 = call_malloc_nursery(16)
@@ -225,7 +241,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
-        ref = lambda n: self.cpu.get_latest_value_ref(self.deadframe, n)
+        ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 16
         assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 0
@@ -236,6 +252,12 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.calls == [24]
 
     def test_save_regs_around_malloc(self):
+        def check(frame):
+            x = frame.jf_gcpattern
+            assert bin(x) == '0b1111111011111'
+            # all but two
+        
+        self.cpu = self.getcpu(check)
         S1 = lltype.GcStruct('S1')
         S2 = lltype.GcStruct('S2', ('s0', lltype.Ptr(S1)),
                                    ('s1', lltype.Ptr(S1)),
@@ -294,6 +316,6 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.calls == [40]
         # check the returned pointers
         for i in range(16):
-            s1ref = self.cpu.get_latest_value_ref(self.deadframe, i)
+            s1ref = self.cpu.get_ref_value(self.deadframe, i)
             s1 = lltype.cast_opaque_ptr(lltype.Ptr(S1), s1ref)
             assert s1 == getattr(s2, 's%d' % i)

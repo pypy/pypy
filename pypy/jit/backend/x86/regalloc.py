@@ -902,15 +902,18 @@ class RegAlloc(object):
         # We need edx as a temporary, but otherwise don't save any more
         # register.  See comments in _build_malloc_slowpath().
         tmp_box = TempBox()
-        self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        gcpattern = 0
+        for box, reg in self.rm.reg_bindings.iteritems():
+            if box.type == REF:
+                gcpattern |= (1 << self.rm.all_reg_indexes[reg.value])
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size)
-
+            size, gcpattern)
 
     def consider_setfield_gc(self, op):
         ofs, size, _ = unpack_fielddescr(op.getdescr())

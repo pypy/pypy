@@ -171,7 +171,7 @@ class Assembler386(object):
     def _build_stack_check_failure(self):
         mc = codebuf.MachineCodeBlockWrapper()
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        self._push_all_regs_to_frame(mc, self.cpu.supports_floats)
+        self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
         assert not IS_X86_32
         # push first arg
         mc.LEA_rb(edi.value, -base_ofs)
@@ -179,77 +179,41 @@ class Assembler386(object):
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.ADD_ri(esp.value, WORD) 
         mc.LEA_rm(ebp.value, (eax.value, base_ofs))
-        self._pop_all_regs_from_frame(mc, self.cpu.supports_floats)
+        self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
         self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_malloc_slowpath(self):
-        xxx
-        # With asmgcc, we need two helpers, so that we can write two CALL
-        # instructions in assembler, with a mark_gc_roots in between.
-        # With shadowstack, this is not needed, so we produce a single helper.
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
-        #
-        # ---------- first helper for the slow path of malloc ----------
+        """ While arriving on slowpath, we have a gcpattern on stack,
+        nursery_head in eax and the size in edx - eax
+        """
         mc = codebuf.MachineCodeBlockWrapper()
-        if self.cpu.supports_floats:          # save the XMM registers in
-            for i in range(self.cpu.NUM_REGS):# the *caller* frame, from esp+8
-                mc.MOVSD_sx((WORD*2)+8*i, i)
-        mc.SUB_rr(edx.value, eax.value)       # compute the size we want
+        self._push_all_regs_to_frame(mc, [eax, edi], self.cpu.supports_floats)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcpattern')
+        # store the gc pattern
+        mc.MOV_rs(ecx.value, WORD)
+        mc.MOV_br(ofs, ecx.value)
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-        #
-        # The registers to save in the copy area: with shadowstack, most
-        # registers need to be saved.  With asmgcc, the callee-saved registers
-        # don't need to.
-        save_in_copy_area = gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items()
-        if not shadow_stack:
-            save_in_copy_area = [(reg, ofs) for (reg, ofs) in save_in_copy_area
-                   if reg not in gpr_reg_mgr_cls.REGLOC_TO_GCROOTMAP_REG_INDEX]
-        #
-        for reg, ofs in save_in_copy_area:
-            mc.MOV_br(ofs, reg.value)
-        #
-        if shadow_stack:
-            xxx
-            # ---- shadowstack ----
-            mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
-            if IS_X86_32:
-                mc.MOV_sr(0, edx.value)          # push argument
-            elif IS_X86_64:
-                mc.MOV_rr(edi.value, edx.value)
-            mc.CALL(imm(addr))
-            mc.ADD_ri(esp.value, 16 - WORD)
-        else:
-            # ---- asmgcc ----
-            if IS_X86_32:
-                mc.MOV_sr(WORD, edx.value)       # save it as the new argument
-            elif IS_X86_64:
-                # rdi can be clobbered: its content was saved in the
-                # copy area of the stack
-                mc.MOV_rr(edi.value, edx.value)
-            mc.JMP(imm(addr))                    # tail call to the real malloc
-            rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-            self.malloc_slowpath1 = rawstart
-            # ---------- second helper for the slow path of malloc ----------
-            mc = codebuf.MachineCodeBlockWrapper()
-        #
-        for reg, ofs in save_in_copy_area:
-            mc.MOV_rb(reg.value, ofs)
-            assert reg is not eax and reg is not edx
-        #
-        if self.cpu.supports_floats:          # restore the XMM registers
-            for i in range(self.cpu.NUM_REGS):# from where they were saved
-                mc.MOVSD_xs(i, (WORD*2)+8*i)
-        #
+        # XXX investigate if we need to save callee-saved registers
+        #     on the frame
+        mc.SUB_rr(edi.value, eax.value)       # compute the size we want
+        assert not IS_X86_32
+        # the arg is already in edi
+        if getattr(self.cpu.gc_ll_descr, 'passes_frame'):
+            base_ofs = self.cpu.get_baseofs_of_frame_field()
+            mc.LEA_rb(esi.value, -base_ofs)
+        mc.SUB_ri(esp.value, 16 - WORD)
+        mc.CALL(imm(addr))
+        mc.ADD_ri(esp.value, 16 - WORD)
         # Note: we check this after the code above, just because the code
         # above is more than 127 bytes on 64-bits...
+        self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = mc.get_relative_pos()
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
+        mc.MOV(edi, heap(nursery_free_adr))   # load this in EDX
         mc.RET()
         #
         # If the slowpath malloc failed, we raise a MemoryError that
@@ -263,7 +227,7 @@ class Assembler386(object):
         mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_slowpath2 = rawstart
+        self.malloc_slowpath = rawstart
 
     def _build_propagate_exception_path(self):
         if not self.cpu.propagate_exception_descr:
@@ -536,7 +500,6 @@ class Assembler386(object):
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
         rgc._make_sure_does_not_move(clt.frame_info)
-        self._insert_frame_adjustment(clt.frame_info)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         frame_depth = self._assemble(regalloc, inputargs, operations)
@@ -677,6 +640,11 @@ class Assembler386(object):
                 mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
     def _check_frame_depth(self):
+        """ check if the frame is of enough depth to follow this bridge.
+        Otherwise reallocate the frame in a helper.
+        There are other potential solutions
+        to that, but this one does not sound too bad.
+        """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
@@ -693,6 +661,10 @@ class Assembler386(object):
         return stack_check_cmp_ofs
 
     def _insert_frame_adjustment(self, frame_info):
+        """ Our frame might end up being different than what we expect.
+        Note that depth is fine (since bridges check that), but we need
+        to update gcmap
+        """
         # XXX note that this can be easily shifted to JUMP
         #     instead of LABEL, would be slightly faster
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
@@ -1910,20 +1882,22 @@ class Assembler386(object):
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    def _push_all_regs_to_frame(self, mc, withfloats):
+    def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats):
         # Push all general purpose registers
         for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
-            mc.MOV_br(i * WORD, gpr.value)
+            if gpr not in ignored_regs:
+                mc.MOV_br(i * WORD, gpr.value)
         if withfloats:
             # Push all XMM regs
             ofs = len(gpr_reg_mgr_cls.all_regs)
             for i in range(len(xmm_reg_mgr_cls.all_regs)):
                 mc.MOVSD_bx((ofs + i) * WORD, i)
 
-    def _pop_all_regs_from_frame(self, mc, withfloats):
+    def _pop_all_regs_from_frame(self, mc, ignored_regs, withfloats):
         # Pop all general purpose registers
         for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
-            mc.MOV_rb(gpr.value, i * WORD)
+            if gpr not in ignored_regs:
+                mc.MOV_rb(gpr.value, i * WORD)
         if withfloats:
             # Pop all XMM regs
             ofs = len(gpr_reg_mgr_cls.all_regs)
@@ -1934,7 +1908,7 @@ class Assembler386(object):
         mc = codebuf.MachineCodeBlockWrapper()
         self.mc = mc
 
-        self._push_all_regs_to_frame(mc, withfloats)
+        self._push_all_regs_to_frame(mc, [], withfloats)
 
         if exc:
             # We might have an exception pending.  Load it into ebx
@@ -2401,43 +2375,22 @@ class Assembler386(object):
         else:
             self.mc.JMP(imm(target))
 
-    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcpattern):
         assert size & (WORD-1) == 0     # must be correctly aligned
         self.mc.MOV(eax, heap(nursery_free_adr))
-        self.mc.LEA_rm(edx.value, (eax.value, size))
-        self.mc.CMP(edx, heap(nursery_top_adr))
+        self.mc.LEA_rm(edi.value, (eax.value, size))
+        self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
-
-        # See comments in _build_malloc_slowpath for the
-        # details of the two helper functions that we are calling below.
-        # First, we need to call two of them and not just one because we
-        # need to have a mark_gc_roots() in between.  Then the calling
-        # convention of slowpath_addr{1,2} are tweaked a lot to allow
-        # the code here to be just two CALLs: slowpath_addr1 gets the
-        # size of the object to allocate from (EDX-EAX) and returns the
-        # result in EAX; slowpath_addr2 additionally returns in EDX a
-        # copy of heap(nursery_free_adr), so that the final MOV below is
-        # a no-op.
-
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
-        if not shadow_stack:
-            # there are two helpers to call only with asmgcc
-            slowpath_addr1 = self.malloc_slowpath1
-            self.mc.CALL(imm(slowpath_addr1))
-        slowpath_addr2 = self.malloc_slowpath2
-        self.mc.CALL(imm(slowpath_addr2))
-
-        # reserve room for the argument to the real malloc and the
-        # saved XMM regs (on 32 bit: 8 * 2 words; on 64 bit: 16 * 1
-        # word)
-        self._regalloc.needed_extra_stack_locations(1+16)
-
+        # this is a 32bit gcpattern that describes where are GC roots
+        # in registers (which will be saved while doing slowpath)
+        # store it on top of the stack (we might not have a register free)
+        self.mc.MOV_si(0, gcpattern)
+        self.mc.CALL(imm(self.malloc_slowpath))
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
-        self.mc.MOV(heap(nursery_free_adr), edx)
+        self.mc.MOV(heap(nursery_free_adr), edi)
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
