@@ -7,7 +7,7 @@ from rpython.tool import leakfinder
 # i'll investigate differences in collection tommorow, for now, can you just
 # import the makemodule hook from pypy and add a comment that im responsible
 # for fixing?
-from pypy.conftest import pytest_pycollect_makemodule
+#from pypy.conftest import pytest_pycollect_makemodule
 
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 cache_dir = realpath(join(dirname(__file__), '_cache'))
