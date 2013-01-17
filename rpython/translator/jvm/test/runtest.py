@@ -98,10 +98,9 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
 
     FLOAT_PRECISION = 7
     
-    def __init__(self):
-        self._func = None
-        self._ann = None
-        self._jvm_src = None
+    _func = None
+    _ann = None
+    _jvm_src = None
 
     def compile(self, fn, args, ann=None, backendopt=False):
         if ann is None:
