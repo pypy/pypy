@@ -309,7 +309,7 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, -2)
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log)
 
@@ -402,7 +402,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, faildescr,
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,
                                         ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests

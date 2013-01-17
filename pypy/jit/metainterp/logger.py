@@ -30,20 +30,19 @@ class Logger(object):
             debug_stop("jit-log-opt-loop")
         return logops
 
-    def log_bridge(self, inputargs, operations, descr=None, ops_offset=None):
-        # XXX great idea to pass number = -1 or -2 to mean stuff
-        return
-        if number == -1:
+    def log_bridge(self, inputargs, operations, extra=None,
+                   descr=None, ops_offset=None):
+        if extra == "noopt":
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
-        elif number == -2:
+        elif extra == "compiling":
             debug_start("jit-log-compiling-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-compiling-bridge")
         else:
             debug_start("jit-log-opt-bridge")
-            debug_print("# bridge out of Guard", number,
+            debug_print("# bridge out of Guard", compute_unique_id(descr),
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")

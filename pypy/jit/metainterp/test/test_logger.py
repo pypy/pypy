@@ -1,16 +1,17 @@
-import sys
+
+import re
 from pypy.rlib import debug
 from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
 from pypy.jit.metainterp.optimizeopt.util import equaloplists
-from pypy.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr
+from pypy.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr
 from pypy.jit.backend.model import AbstractCPU
 
 
 class Descr(AbstractDescr):
-    pass
+    final_descr = False
 
 def capturing(func, *args, **kwds):
     log_stream = StringIO()
@@ -108,9 +109,10 @@ class TestLogger(object):
         inp = '''
         []
         guard_not_invalidated(descr=descr) []
-        finish()
+        finish(descr=finaldescr)
         '''
-        loop = pure_parse(inp, namespace={'descr': Descr()})
+        loop = pure_parse(inp, namespace={'descr': Descr(),
+                                          'finaldescr': BasicFinalDescr()})
         logger = Logger(self.make_metainterp_sd())
         output = logger.log_loop(loop, {'descr': Descr()})
         assert 'guard_not_invalidated(descr=' in output
@@ -164,7 +166,7 @@ class TestLogger(object):
         loop = pure_parse(inp, namespace=namespace)
         logger = Logger(self.make_metainterp_sd(), guard_number=True)
         output = logger.log_loop(loop)
-        assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard0>) [i0]"
+        assert re.match("guard_true\(i0, descr=<Guard\d+>\) \[i0\]", output.splitlines()[-1])
         pure_parse(output)
 
         logger = Logger(self.make_metainterp_sd(), guard_number=False)
@@ -198,7 +200,8 @@ class TestLogger(object):
     def test_intro_bridge(self):
         bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_bridge, [], [], 3)
-        assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
+        assert re.match("# bridge out of Guard \d+ with 0 ops",
+                        output.splitlines()[0])
         pure_parse(output)
 
     def test_repr_single_op(self):
