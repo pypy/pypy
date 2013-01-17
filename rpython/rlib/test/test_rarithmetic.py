@@ -16,10 +16,6 @@ while i == l and type(i) is int:
 
 
 class Test_r_int:
-
-    def setup_method(self,method):
-        space = self.space
-
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
     def test__sub__(self):
@@ -73,10 +69,6 @@ class Test_r_int:
                     assert res == cmp
                     
 class Test_r_uint:
-
-    def setup_method(self,method):
-        space = self.space
-
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
     def test__sub__(self):
