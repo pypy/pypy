@@ -261,8 +261,18 @@ def str_rfind__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop
     return stringobject.str_rfind__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
+def _suffix_to_str(space, w_suffix, funcname):
+    try:
+        return space.bufferstr_new_w(w_suffix)
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            msg = ("%s first arg must be bytes or a tuple of bytes, "
+                   "not %s")
+            typename = space.type(w_suffix).getname(space)
+            raise operationerrfmt(space.w_TypeError, msg, funcname, typename)
+
 def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
-    w_prefix = space.wrapbytes(space.bufferstr_new_w(w_prefix))
+    w_prefix = space.wrapbytes(_suffix_to_str(space, w_prefix, 'startswith'))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_startswith__String_String_ANY_ANY(space, w_str, w_prefix,
                                                               w_start, w_stop)
@@ -275,7 +285,7 @@ def str_startswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_prefix, w_star
                                                               w_start, w_stop)
 
 def str_endswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
-    w_suffix = space.wrapbytes(space.bufferstr_new_w(w_suffix))
+    w_suffix = space.wrapbytes(_suffix_to_str(space, w_suffix, 'endswith'))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_endswith__String_String_ANY_ANY(space, w_str, w_suffix,
                                                               w_start, w_stop)

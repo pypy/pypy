@@ -183,6 +183,18 @@ class AppTestBytesArray:
         assert bytearray(b'hello').endswith(b'lo')
         assert bytearray(b'hello').endswith(bytearray(b'lo'))
         assert bytearray(b'hello').endswith((bytearray(b'lo'), b'he'))
+        try:
+            bytearray(b'hello').startswith([b'o'])
+        except TypeError as e:
+            assert 'bytes' in str(e)
+        else:
+            assert False, 'Expected TypeError'
+        try:
+            bytearray(b'hello').endswith([b'o'])
+        except TypeError as e:
+            assert 'bytes' in str(e)
+        else:
+            assert False, 'Expected TypeError'
 
     def test_stringlike_conversions(self):
         # methods that should return bytearray (and not str)
