@@ -8,7 +8,7 @@ from pypy.jit.backend.llsupport.symbolic import WORD
 from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from pypy.jit.backend.llsupport import jitframe
 from pypy.rpython.lltypesystem import lltype, llmemory
-
+from pypy.rlib import rgc
 
 class GcRewriterAssembler(object):
     # This class performs the following rewrites on the list of operations:

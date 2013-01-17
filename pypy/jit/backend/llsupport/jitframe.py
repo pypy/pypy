@@ -15,6 +15,7 @@ JITFRAMEINFO = lltype.GcStruct(
     # gcindexlist is a list of indexes of GC ptrs
     # in the actual array jf_frame of JITFRAME
     ('jfi_gcmap', lltype.Ptr(GCMAP)),
+    ('counter', lltype.Signed),
 )
 
 NULLFRAMEINFO = lltype.nullptr(JITFRAMEINFO)

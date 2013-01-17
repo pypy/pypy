@@ -118,10 +118,12 @@ class GcLLDescription(GcCache):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(jitframe.JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcpattern']:
+                     'jf_frame_info', 'jf_gcpattern', 'jf_gcmap']:
             setattr(descrs, name, cpu.fielddescrof(jitframe.JITFRAME, name))
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_depth')
+        descrs.jfi_gcmap = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                            'jfi_gcmap')
         return descrs
 
     def getarraydescr_for_frame(self, type, index):

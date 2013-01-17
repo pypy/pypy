@@ -1295,39 +1295,6 @@ class RegAlloc(object):
         # This operation is used only for testing
         self.force_spill_var(op.getarg(0))
 
-    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape()
-        for v, val in self.fm.bindings.items():
-            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert isinstance(val, StackLoc)
-                gcrootmap.add_frame_offset(shape, get_ebp_ofs(val.position))
-        for v, reg in self.rm.reg_bindings.items():
-            if reg is eax:
-                continue      # ok to ignore this one
-            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                #
-                # The register 'reg' is alive across this call.
-                gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
-                if gcrootmap is None or not gcrootmap.is_shadow_stack:
-                    #
-                    # Asmgcc: if reg is a callee-save register, we can
-                    # explicitly mark it as containing a BoxPtr.
-                    if reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX:
-                        gcrootmap.add_callee_save_reg(
-                            shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
-                        continue
-                #
-                # Else, 'use_copy_area' must be True (otherwise this BoxPtr
-                # should not be in a register).  The copy area contains the
-                # real value of the register.
-                assert use_copy_area
-                assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
-                area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
-                gcrootmap.add_frame_offset(shape, area_offset)
-        #
-        return gcrootmap.compress_callshape(shape,
-                                            self.assembler.datablockwrapper)
-
     def consider_force_token(self, op):
         # the FORCE_TOKEN operation returns directly 'ebp'
         self.rm.force_allocate_frame_reg(op.result)
@@ -1378,9 +1345,12 @@ class RegAlloc(object):
         # end of the same loop, i.e. if what we are compiling is a single
         # loop that ends up jumping to this LABEL, then we can now provide
         # the hints about the expected position of the spilled variables.
-        jump_op = self.final_jump_op
-        if jump_op is not None and jump_op.getdescr() is descr:
-            self._compute_hint_frame_locations_from_descr(descr)
+
+        self.PerformDiscard(op, [])
+        # XXX we never compile code like that?
+        #jump_op = self.final_jump_op
+        #if jump_op is not None and jump_op.getdescr() is descr:
+        #    self._compute_hint_frame_locations_from_descr(descr)
 
     def consider_keepalive(self, op):
         pass

@@ -78,6 +78,7 @@ class Assembler386(object):
         self.propagate_exception_path = 0
         self.gcrootmap_retaddr_forced = 0
         self.teardown()
+        self.counter = 0
 
     def set_debug(self, v):
         r = self._debug
@@ -514,6 +515,8 @@ class Assembler386(object):
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
+        clt.frame_info.counter = self.counter
+        self.counter += 1
         clt.allgcrefs = []
         clt.frame_info.jfi_frame_depth = 0 # for now
         looptoken.compiled_loop_token = clt
@@ -530,8 +533,10 @@ class Assembler386(object):
         #
         self._call_header_with_stack_check()
         clt._debug_nbargs = len(inputargs)
-        operations = regalloc.prepare_loop(inputargs, operations,
-                                           looptoken, clt.allgcrefs)
+        operations = regalloc.prepare_loop(inputargs, operations, looptoken,
+                                           clt.allgcrefs)
+        rgc._make_sure_does_not_move(clt.frame_info)
+        self._insert_frame_adjustment(clt.frame_info)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         frame_depth = self._assemble(regalloc, inputargs, operations)
@@ -589,7 +594,7 @@ class Assembler386(object):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        stack_check_patch_ofs = self._check_frame_depth()
+        stack_check_patch_ofs, stack_check_patch_ofs2 = self._check_frame_depth()
         frame_depth = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -610,8 +615,15 @@ class Assembler386(object):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth + JITFRAME_FIXED_SIZE)
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
+        self._patch_stackadjust(stack_check_patch_ofs2 + rawstart, frame_depth)
         self.fixup_target_tokens(rawstart)
+        print frame_depth
+        print self.current_clt
+        print self.current_clt.frame_info
+        print self.current_clt.frame_info.jfi_frame_depth
+        print self.current_clt.frame_info.counter
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
+        print self.current_clt.frame_info.jfi_frame_depth
         self._update_gcmap(self.current_clt.frame_info, regalloc)
         self.teardown()
         # oprofile support
@@ -680,12 +692,22 @@ class Assembler386(object):
         assert not IS_X86_32
         self.mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = self.mc.get_relative_pos()
+        self.mc.MOV_ri(esi.value, 0xffffff)
+        ofs = self.mc.get_relative_pos() - 4
         self.mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = self.mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
         self.mc.overwrite(jg_location-1, chr(offset))
-        return stack_check_cmp_ofs
+        return stack_check_cmp_ofs, ofs
+
+    def _insert_frame_adjustment(self, frame_info):
+        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        frame_info_addr = rffi.cast(lltype.Signed, frame_info)
+        frame_info_ofs = self.cpu.get_ofs_of_frame_field('jf_frame_info')
+        jfi_gc_map_ofs = self.cpu.get_ofs_of_frame_field('jfi_gcmap')
+        self.mc.MOV_bi(gcmap_ofs, frame_info_addr + jfi_gc_map_ofs)
+        self.mc.MOV_bi(frame_info_ofs, frame_info_addr)
 
     def _patch_stackadjust(self, adr, allocated_depth):
         mc = codebuf.MachineCodeBlockWrapper()
@@ -802,8 +824,6 @@ class Assembler386(object):
         return frame_depth
 
     def _call_header(self):
-        # NB. the shape of the frame is hard-coded in get_basic_shape() too.
-        # Also, make sure this is consistent with FRAME_FIXED_SIZE.
         # XXX should be LEA?
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
@@ -1959,6 +1979,9 @@ class Assembler386(object):
         self.mc.LEA_rb(eax.value, -base_ofs)
         # exit function
         self._call_footer()
+
+    def genop_discard_label(self, op, arglocs):
+        self._insert_frame_adjustment(self.current_clt.frame_info)
 
     def implement_guard(self, guard_token, condition=None):
         # These jumps are patched later.
