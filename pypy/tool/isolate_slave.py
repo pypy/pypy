@@ -1,4 +1,4 @@
-import sys, imp
+import sys, os, imp
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from pypy.tool import slaveproc
 
