@@ -678,7 +678,7 @@ class Assembler386(object):
         self.mc.CMP_bi(ofs - base_ofs, 0xffffff)
         stack_check_cmp_ofs = self.mc.get_relative_pos() - 4
         assert not IS_X86_32
-        self.mc.J_il8(rx86.Conditions['G'], 0)
+        self.mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = self.mc.get_relative_pos()
         self.mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
