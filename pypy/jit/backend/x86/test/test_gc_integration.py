@@ -64,11 +64,14 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         # this is a fairly CPU specific check
         all = len(gpr_reg_mgr_cls.all_regs)
         assert frame.jf_gcpattern == (1 << (all - 1)) | (1 << (all - 2))
-        # the gcmap should contain three things, p0, p1 and p3
-        assert len(frame.jf_gcmap) == 3
-        for i in range(3):
+        # the gcmap should contain three things, p0, p1 and p3, but
+        # p3 stays in a register and is only represented in gcpattern,
+        # while p0 is in both
+        assert len(frame.jf_gcmap) == 2
+        for i in range(2):
             assert frame.jf_gcmap[i] == frame.jf_frame_info.jfi_gcmap[i]
-        xxx
+        assert frame.jf_gcmap[0] == 1
+        assert frame.jf_gcmap[1] == 3
 
     def test_rewrite_constptr(self):
         ops = '''
