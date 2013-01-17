@@ -522,6 +522,7 @@ class RegAlloc(object):
     def _consider_binop(self, op):
         loc, argloc = self._consider_binop_part(op)
         self.Perform(op, [loc, argloc], loc)
+        self.possibly_free_var(op.getarg(0))
 
     def _consider_lea(self, op, loc):
         argloc = self.loc(op.getarg(1))
