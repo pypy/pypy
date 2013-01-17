@@ -242,6 +242,8 @@ class RegAlloc(object):
             var = op.getarg(i)
             if var is not None: # xxx kludgy
                 self.possibly_free_var(var)
+        if op.result:
+            self.possibly_free_var(op.result)
 
     def possibly_free_vars(self, vars):
         for var in vars:
@@ -349,8 +351,6 @@ class RegAlloc(object):
         self.xrm.position += 1
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
                                                    arglocs, result_loc)
-        if op.result is not None:
-            self.possibly_free_var(op.result)
         self.possibly_free_vars(guard_op.getfailargs())
 
     def perform_guard(self, guard_op, arglocs, result_loc):
@@ -413,8 +413,7 @@ class RegAlloc(object):
                 self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
-            if op.result is not None:
-                self.possibly_free_var(op.result)
+            self.possibly_free_vars_for_op(op)
             self.rm._check_invariants()
             self.xrm._check_invariants()
             i += 1
@@ -445,7 +444,6 @@ class RegAlloc(object):
     def _consider_guard(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
         self.perform_guard(op, [loc], None)
-        self.rm.possibly_free_var(op.getarg(0))
 
     consider_guard_true = _consider_guard
     consider_guard_false = _consider_guard
@@ -463,8 +461,6 @@ class RegAlloc(object):
         else:
             locs = [imm(fail_descr)]
         self.Perform(op, locs, None)
-        if op.numargs() == 1:
-            self.possibly_free_var(op.getarg(0))
 
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)
@@ -490,7 +486,6 @@ class RegAlloc(object):
         else:
             resloc = None
         self.perform_guard(op, [loc, loc1], resloc)
-        self.rm.possibly_free_vars_for_op(op)
         self.rm.possibly_free_var(box)
 
     consider_guard_no_overflow = consider_guard_no_exception
@@ -500,14 +495,12 @@ class RegAlloc(object):
         x = self.make_sure_var_in_reg(op.getarg(0))
         y = self.loc(op.getarg(1))
         self.perform_guard(op, [x, y], None)
-        self.possibly_free_vars_for_op(op)
 
     def consider_guard_class(self, op):
         assert isinstance(op.getarg(0), Box)
         x = self.rm.make_sure_var_in_reg(op.getarg(0))
         y = self.loc(op.getarg(1))
         self.perform_guard(op, [x, y], None)
-        self.rm.possibly_free_vars_for_op(op)
 
     consider_guard_nonnull_class = consider_guard_class
 
@@ -522,7 +515,6 @@ class RegAlloc(object):
     def _consider_binop(self, op):
         loc, argloc = self._consider_binop_part(op)
         self.Perform(op, [loc, argloc], loc)
-        self.possibly_free_var(op.getarg(0))
 
     def _consider_lea(self, op, loc):
         argloc = self.loc(op.getarg(1))
@@ -575,7 +567,6 @@ class RegAlloc(object):
         args = op.getarglist()
         loc1 = self.rm.force_result_in_reg(op.result, op.getarg(0), args)
         self.Perform(op, [loc1, loc2], loc1)
-        self.rm.possibly_free_vars_for_op(op)
 
     consider_int_rshift  = consider_int_lshift
     consider_uint_rshift = consider_int_lshift
@@ -591,7 +582,6 @@ class RegAlloc(object):
         assert l0 is eax
         assert l1 is ecx
         assert l2 is resultreg
-        self.rm.possibly_free_vars_for_op(op)
         self.rm.possibly_free_var(tmpvar)
 
     def consider_int_mod(self, op):
@@ -640,7 +630,6 @@ class RegAlloc(object):
         args = op.getarglist()
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.Perform(op, [loc0, loc1], loc0)
-        self.xrm.possibly_free_vars_for_op(op)
 
     consider_float_add = _consider_float_op
     consider_float_sub = _consider_float_op
@@ -674,7 +663,6 @@ class RegAlloc(object):
     def _consider_float_unary_op(self, op):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
         self.Perform(op, [loc0], loc0)
-        self.xrm.possibly_free_var(op.getarg(0))
 
     consider_float_neg = _consider_float_unary_op
     consider_float_abs = _consider_float_unary_op
@@ -683,13 +671,11 @@ class RegAlloc(object):
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
         loc1 = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [loc0], loc1)
-        self.xrm.possibly_free_var(op.getarg(0))
 
     def consider_cast_int_to_float(self, op):
         loc0 = self.rm.make_sure_var_in_reg(op.getarg(0))
         loc1 = self.xrm.force_allocate_reg(op.result)
         self.Perform(op, [loc0], loc1)
-        self.rm.possibly_free_var(op.getarg(0))
 
     def consider_cast_float_to_singlefloat(self, op):
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
@@ -707,26 +693,22 @@ class RegAlloc(object):
             loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
             loc1 = self.rm.force_allocate_reg(op.result)
             self.Perform(op, [loc0], loc1)
-            self.xrm.possibly_free_var(op.getarg(0))
         else:
             arg0 = op.getarg(0)
             loc0 = self.xrm.loc(arg0)
             loc1 = self.xrm.force_allocate_reg(op.result, forbidden_vars=[arg0])
             self.Perform(op, [loc0], loc1)
-            self.xrm.possibly_free_var(arg0)
 
     def consider_convert_longlong_bytes_to_float(self, op):
         if longlong.is_64_bit:
             loc0 = self.rm.make_sure_var_in_reg(op.getarg(0))
             loc1 = self.xrm.force_allocate_reg(op.result)
             self.Perform(op, [loc0], loc1)
-            self.rm.possibly_free_var(op.getarg(0))
         else:
             arg0 = op.getarg(0)
             loc0 = self.xrm.make_sure_var_in_reg(arg0)
             loc1 = self.xrm.force_allocate_reg(op.result, forbidden_vars=[arg0])
             self.Perform(op, [loc0], loc1)
-            self.xrm.possibly_free_var(arg0)
 
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
@@ -736,7 +718,6 @@ class RegAlloc(object):
         loc1 = self.load_xmm_aligned_16_bytes(args[1])
         loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)
         self.PerformLLong(op, [loc0, loc1], loc0)
-        self.xrm.possibly_free_vars(args)
 
     def _consider_llong_eq_ne_xx(self, op):
         # must force both arguments into xmm registers, because we don't
@@ -750,7 +731,6 @@ class RegAlloc(object):
         self.xrm.possibly_free_var(tmpxvar)
         loc0 = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
         self.PerformLLong(op, [loc1, loc2, loc3], loc0)
-        self.xrm.possibly_free_vars(args)
 
     def _maybe_consider_llong_lt(self, op):
         # XXX just a special case for now
@@ -773,7 +753,6 @@ class RegAlloc(object):
         loc1 = self.xrm.loc(op.getarg(1))
         loc0 = self.rm.force_allocate_reg(op.result)
         self.PerformLLong(op, [loc1], loc0)
-        self.xrm.possibly_free_var(op.getarg(1))
 
     def _loc_of_const_longlong(self, value64):
         c = ConstFloat(value64)
@@ -792,19 +771,16 @@ class RegAlloc(object):
             loc2 = self.xrm.force_allocate_reg(tmpxvar, [op.result])
             self.xrm.possibly_free_var(tmpxvar)
         self.PerformLLong(op, [loc1, loc2], loc0)
-        self.rm.possibly_free_var(box)
 
     def _consider_llong_from_uint(self, op):
         assert IS_X86_32
         loc0 = self.xrm.force_allocate_reg(op.result)
         loc1 = self.rm.make_sure_var_in_reg(op.getarg(1))
         self.PerformLLong(op, [loc1], loc0)
-        self.rm.possibly_free_vars_for_op(op)
 
     def _consider_math_sqrt(self, op):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.PerformMath(op, [loc0], loc0)
-        self.xrm.possibly_free_var(op.getarg(1))
 
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
         # we need to save registers on the stack:
@@ -852,7 +828,6 @@ class RegAlloc(object):
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_not_forced_op)
-        self.possibly_free_vars(op.getarglist())
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -904,7 +879,6 @@ class RegAlloc(object):
             xxx
         self._call(op, [frame_loc, self.loc(op.getarg(0))],
                    guard_not_forced_op=guard_op)
-        self.possibly_free_var(op.getarg(0))
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
@@ -916,7 +890,6 @@ class RegAlloc(object):
         arglocs = [self.rm.make_sure_var_in_reg(op.getarg(i), args)
                    for i in range(N)]
         self.PerformDiscard(op, arglocs)
-        self.rm.possibly_free_vars_for_op(op)
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
@@ -952,7 +925,6 @@ class RegAlloc(object):
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         value_loc = self.make_sure_var_in_reg(op.getarg(1), args,
                                               need_lower_byte=need_lower_byte)
-        self.possibly_free_vars(args)
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
     consider_setfield_raw = consider_setfield_gc
@@ -998,7 +970,6 @@ class RegAlloc(object):
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         value_loc = self.rm.make_sure_var_in_reg(op.getarg(2), args,
                                                  need_lower_byte=True)
-        self.rm.possibly_free_vars_for_op(op)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc])
 
     consider_unicodesetitem = consider_strsetitem
@@ -1014,7 +985,6 @@ class RegAlloc(object):
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args,
                                           need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        self.possibly_free_vars(args)
         self.PerformDiscard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize), imm(ofs)])
 
