@@ -368,7 +368,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
-    n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
     if not we_are_translated():
         show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)
@@ -377,7 +376,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         hooks = metainterp_sd.warmrunnerdesc.hooks
         debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
                                   original_loop_token, operations, 'bridge',
-                                  fail_descr_no=n)
+                                  fail_descr=faildescr)
         hooks.before_compile_bridge(debug_info)
     else:
         hooks = None
@@ -403,7 +402,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, faildescr,
+                                        ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests
     #    metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(

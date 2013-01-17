@@ -1470,11 +1470,8 @@ class MetaInterpStaticData(object):
                     history.VOID: 'void'}[jd.result_type]
             tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
             jd.portal_finishtoken = tokens[0].finishdescr
-            num = self.cpu.get_fail_descr_number(tokens[0].finishdescr)
-            setattr(self.cpu, 'done_with_this_frame_%s_v' % name, num)
             jd.propagate_exc_descr = exc_descr
         #
-        num = self.cpu.get_fail_descr_number(exc_descr)
         self.cpu.propagate_exc_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)

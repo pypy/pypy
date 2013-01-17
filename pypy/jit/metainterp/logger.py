@@ -1,7 +1,7 @@
 import os
 from pypy.rlib.debug import have_debug_prints
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, compute_unique_id
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import Const, ConstInt, Box, \
@@ -30,7 +30,9 @@ class Logger(object):
             debug_stop("jit-log-opt-loop")
         return logops
 
-    def log_bridge(self, inputargs, operations, number=-1, ops_offset=None):
+    def log_bridge(self, inputargs, operations, descr=None, ops_offset=None):
+        # XXX great idea to pass number = -1 or -2 to mean stuff
+        return
         if number == -1:
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
@@ -131,8 +133,8 @@ class LogOperations(object):
         if op.getdescr() is not None:
             descr = op.getdescr()
             if is_guard and self.guard_number:
-                index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
-                r = "<Guard%d>" % index
+                hash = compute_unique_id(descr)
+                r = "<Guard%d>" % hash
             else:
                 r = self.repr_of_descr(descr)
             if args:

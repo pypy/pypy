@@ -888,24 +888,24 @@ class JitDebugInfo(object):
     logger - an instance of jit.metainterp.logger.LogOperations
     type - either 'loop', 'entry bridge' or 'bridge'
     looptoken - description of a loop
-    fail_descr_no - number of failing descr for bridges, -1 otherwise
+    fail_descr - fail descr or None
     asminfo - extra assembler information
     """
 
     asminfo = None
     def __init__(self, jitdriver_sd, logger, looptoken, operations, type,
-                 greenkey=None, fail_descr_no=-1):
+                 greenkey=None, fail_descr=None):
         self.jitdriver_sd = jitdriver_sd
         self.logger = logger
         self.looptoken = looptoken
         self.operations = operations
         self.type = type
         if type == 'bridge':
-            assert fail_descr_no != -1
+            assert fail_descr is not None
         else:
             assert greenkey is not None
         self.greenkey = greenkey
-        self.fail_descr_no = fail_descr_no
+        self.fail_descr = fail_descr
 
     def get_jitdriver(self):
         """ Return where the jitdriver on which the jitting started
