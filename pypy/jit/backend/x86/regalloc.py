@@ -851,6 +851,7 @@ class RegAlloc(object):
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_not_forced_op)
+        self.possibly_free_vars(op.getarglist())
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -880,7 +881,6 @@ class RegAlloc(object):
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._consider_math_sqrt(op)
         self._consider_call(op)
-        self.possibly_free_vars(op.getarglist())
 
     def consider_call_may_force(self, op, guard_op):
         assert guard_op is not None
