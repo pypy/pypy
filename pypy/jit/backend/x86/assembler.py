@@ -617,13 +617,7 @@ class Assembler386(object):
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
         self._patch_stackadjust(stack_check_patch_ofs2 + rawstart, frame_depth)
         self.fixup_target_tokens(rawstart)
-        print frame_depth
-        print self.current_clt
-        print self.current_clt.frame_info
-        print self.current_clt.frame_info.jfi_frame_depth
-        print self.current_clt.frame_info.counter
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
-        print self.current_clt.frame_info.jfi_frame_depth
         self._update_gcmap(self.current_clt.frame_info, regalloc)
         self.teardown()
         # oprofile support
