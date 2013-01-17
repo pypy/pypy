@@ -536,7 +536,6 @@ class Assembler386(object):
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
         rgc._make_sure_does_not_move(clt.frame_info)
-        self._insert_frame_adjustment(clt.frame_info)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         frame_depth = self._assemble(regalloc, inputargs, operations)
@@ -696,6 +695,8 @@ class Assembler386(object):
         return stack_check_cmp_ofs, ofs
 
     def _insert_frame_adjustment(self, frame_info):
+        # XXX note that this can be easily shifted to JUMP
+        #     instead of LABEL, would be slightly faster
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         frame_info_addr = rffi.cast(lltype.Signed, frame_info)
         frame_info_ofs = self.cpu.get_ofs_of_frame_field('jf_frame_info')
