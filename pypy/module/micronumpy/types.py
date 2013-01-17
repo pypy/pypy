@@ -966,6 +966,12 @@ class Float16(BaseType, Float):
         raw_storage_setitem(storage, i + offset,
                 rffi.cast(self._STORAGE_T, hbits))
 
+    def byteswap(self, w_v):
+        value = self.unbox(w_v)
+        hbits = float_pack(value,2)
+        swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
+        return self.box(float_unpack(r_ulonglong(swapped), 2))
+
 class NonNativeFloat16(Float16):
     _attrs_ = ()
     BoxType = interp_boxes.W_Float16Box
@@ -1046,6 +1052,10 @@ class ComplexFloating(object):
 
     def get_element_size(self):
         return 2 * rffi.sizeof(self._COMPONENTS_T)
+
+    def byteswap(self, w_v):
+        real, imag = self.unbox(w_v)
+        return self.box_complex(byteswap(real), byteswap(imag))
 
     @specialize.argtype(1)
     def box(self, value):
