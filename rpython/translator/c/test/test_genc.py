@@ -560,7 +560,7 @@ def test_inhibit_tail_call():
     t.context._graphof(foobar_fn).inhibit_tail_call = True
     t.source_c()
     lines = t.driver.cbuilder.c_source_filename.join('..',
-                              'pypy_translator_c_test_test_genc.c').readlines()
+                              'rpython_translator_c_test_test_genc.c').readlines()
     for i, line in enumerate(lines):
         if '= pypy_g_foobar_fn' in line:
             break
