@@ -570,8 +570,8 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype):
     Create an array from an existing buffer, given its address as int.
     PyPy-only implementation detail.
     """
-    from pypy.rpython.lltypesystem import rffi
-    from pypy.rlib.rawstorage import RAW_STORAGE_PTR
+    from rpython.rtyper.lltypesystem import rffi
+    from rpython.rlib.rawstorage import RAW_STORAGE_PTR
     shape = _find_shape(space, w_shape)
     storage = rffi.cast(RAW_STORAGE_PTR, addr)
     dtype = space.interp_w(interp_dtype.W_Dtype,
