@@ -145,8 +145,8 @@ class BaseTestRegalloc(object):
     namespace = locals().copy()
     type_system = 'lltype'
 
-    def parse(self, s, boxkinds=None):
-        return parse(s, self.cpu, self.namespace,
+    def parse(self, s, boxkinds=None, namespace=None):
+        return parse(s, self.cpu, namespace or self.namespace,
                      type_system=self.type_system,
                      boxkinds=boxkinds)
 

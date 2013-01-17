@@ -536,6 +536,7 @@ class Assembler386(object):
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
         rgc._make_sure_does_not_move(clt.frame_info)
+        self._insert_frame_adjustment(clt.frame_info)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         frame_depth = self._assemble(regalloc, inputargs, operations)
@@ -593,7 +594,7 @@ class Assembler386(object):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        stack_check_patch_ofs, stack_check_patch_ofs2 = self._check_frame_depth()
+        stack_check_patch_ofs = self._check_frame_depth()
         frame_depth = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -614,7 +615,6 @@ class Assembler386(object):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth + JITFRAME_FIXED_SIZE)
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
-        self._patch_stackadjust(stack_check_patch_ofs2 + rawstart, frame_depth)
         self.fixup_target_tokens(rawstart)
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
         self._update_gcmap(self.current_clt.frame_info, regalloc)
@@ -685,14 +685,12 @@ class Assembler386(object):
         assert not IS_X86_32
         self.mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = self.mc.get_relative_pos()
-        self.mc.MOV_ri(esi.value, 0xffffff)
-        ofs = self.mc.get_relative_pos() - 4
         self.mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = self.mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
         self.mc.overwrite(jg_location-1, chr(offset))
-        return stack_check_cmp_ofs, ofs
+        return stack_check_cmp_ofs
 
     def _insert_frame_adjustment(self, frame_info):
         # XXX note that this can be easily shifted to JUMP

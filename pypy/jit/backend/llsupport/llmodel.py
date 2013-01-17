@@ -52,13 +52,12 @@ class AbstractLLCPU(AbstractCPU):
         pass
 
     def _setup_frame_realloc(self):
-        FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
+        FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                              llmemory.GCREF))
 
-        def realloc_frame(frame, size):
+        def realloc_frame(frame):
             frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
             new_frame = frame.copy()
-            assert frame.jf_frame_info.jfi_frame_depth >= size
             # XXX now we know, rewrite this
             # we need to do this, because we're not sure what things
             # are GC pointers and which ones are not

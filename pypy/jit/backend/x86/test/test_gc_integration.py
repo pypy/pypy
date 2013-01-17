@@ -73,6 +73,26 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         assert frame.jf_gcmap[0] == 1
         assert frame.jf_gcmap[1] == 3
 
+    def test_label(self):
+        ops = '''
+        [i0, p0, i1, p1]
+        label(i0, p0, i1, p1, descr=targettoken)
+        p3 = getfield_gc(p0, descr=fielddescr)
+        force_spill(p3)
+        guard_true(i0) [p0, i1, p1, p3]
+        finish()
+        '''
+        s1 = lltype.malloc(self.S)
+        s2 = lltype.malloc(self.S)
+        s1.field = s2
+        loop = self.interpret(ops, [0, s1, 1, s2])
+        ops2 = '''
+        [p0]
+        jump(1, p0, 1, p0, descr=targettoken)
+        '''
+        self.interpret(ops2)
+        xxx
+
     def test_rewrite_constptr(self):
         ops = '''
         []
