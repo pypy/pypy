@@ -1,5 +1,6 @@
 from os.path import *
 import py, pytest
+from rpython.tool import leakfinder
 
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 cache_dir = realpath(join(dirname(__file__), '_cache'))
