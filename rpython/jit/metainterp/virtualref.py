@@ -169,4 +169,3 @@ class VirtualRefInfo:
             # token == TOKEN_NONE and the vref was not forced: it's invalid
             raise InvalidVirtualRef
         return vref.forced
-    force_virtual._dont_inline_ = True

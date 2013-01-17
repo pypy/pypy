@@ -5,7 +5,7 @@ from rpython.flowspace.model import Constant, Variable
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib import rstack
-from rpython.rlib.jit import JitDebugInfo, Counters
+from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -685,6 +685,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         assert 0, "unreachable"
 
     @staticmethod
+    @dont_look_inside
     def force_now(cpu, token):
         # Called during a residual call from the assembler, if the code
         # actually needs to force one of the virtualrefs or the virtualizable.
