@@ -57,9 +57,9 @@ class TestStandalone(StandaloneTests):
 
         # Verify that the generated C files have sane names:
         gen_c_files = [str(f) for f in cbuilder.extrafiles]
-        for expfile in ('pypy_rlib_rposix.c',
-                        'pypy_rpython_lltypesystem_rstr.c',
-                        'pypy_translator_c_test_test_standalone.c'):
+        for expfile in ('rpython_rlib_rposix.c',
+                        'rpython_rtyper_lltypesystem_rstr.c',
+                        'rpython_translator_c_test_test_standalone.c'):
             assert cbuilder.targetdir.join(expfile) in gen_c_files
 
     def test_print(self):
