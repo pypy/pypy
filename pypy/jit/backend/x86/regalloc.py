@@ -331,6 +331,7 @@ class RegAlloc(object):
 
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
+        xxx
         used = {}
         i = 0
         for loc in locs:
@@ -1286,6 +1287,7 @@ class RegAlloc(object):
         # optimization only: fill in the 'hint_frame_locations' dictionary
         # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
+        return # XXX disabled for now
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return

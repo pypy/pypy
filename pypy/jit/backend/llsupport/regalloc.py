@@ -13,16 +13,117 @@ class TempBox(Box):
 class NoVariableToSpill(Exception):
     pass
 
+class Node(object):
+    def __init__(self, val, next):
+        self.val = val
+        self.next = next
+
+class LinkedList(object):
+    def __init__(self, fm, lst=None):
+        # assume the list is sorted
+        if lst is not None:
+            node = None
+            for item in range(len(lst) - 1, -1, -1):
+                node = Node(fm.get_loc_index(item), node)
+            self.master_node = node
+        else:
+            self.master_node = None
+        self.fm = fm
+
+    def append(self, size, item):
+        key = self.fm.get_loc_index(item)
+        if size == 2:
+            self._append(key)
+            self._append(key + 1)
+        else:
+            assert size == 1
+            self._append(key)
+
+    def _append(self, key):
+        if self.master_node is None or self.master_node.val > key:
+            self.master_node = Node(key, self.master_node)
+        else:
+            node = self.master_node
+            prev_node = self.master_node
+            while node and node.val < key:
+                prev_node = node
+                node = node.next
+            prev_node.next = Node(key, node)
+
+    def pop(self, size, tp):
+        if size == 2:
+            return self._pop_two(tp)
+        assert size == 1
+        if not self.master_node:
+            return None
+        node = self.master_node
+        self.master_node = node.next
+        return self.fm.frame_pos(node.val, tp)
+
+    def _candidate(self, node):
+        return node.val + 1 == node.next.val
+        
+    def _pop_two(self, tp):
+        node = self.master_node
+        if node is None or node.next is None:
+            return None
+        if self._candidate(node):
+            self.master_node = node.next.next
+            return self.fm.frame_pos(node.val, tp)
+        prev_node = node
+        node = node.next
+        while True:
+            if node.next is None:
+                return None
+            if self._candidate(node):
+                # pop two
+                prev_node.next = node.next.next
+                return self.fm.frame_pos(node.val, tp)
+            node = node.next
+
+    def __len__(self):
+        """ For tests only
+        """
+        node = self.master_node
+        c = 0
+        while node:
+            node = node.next
+            c += 1
+        return c
+
+    def __repr__(self):
+        if not self.master_node:
+            return 'LinkedList(<empty>)'
+        node = self.master_node
+        l = []
+        while node:
+            l.append(str(node.val))
+            node = node.next
+        return 'LinkedList(%s)' % '->'.join(l)
+
 class FrameManager(object):
     """ Manage frame positions
+
+    start_free_depth is the start where we can allocate in whatever order
+    we like.
+
+    freelist_gcrefs and freelist_others are free lists of locations that
+    can be used for gcrefs and others. below stack_free_depth. Note
+    that if floats are occupying more than one spot, in order to allocate
+    the correct size, we need to use more than one from the freelist in
+    the consecutive order.
     """
-    def __init__(self):
+    def __init__(self, start_free_depth=0, freelist_gcrefs=None,
+                 freelist_others=None):
         self.bindings = {}
-        self.used = []      # list of bools
-        self.hint_frame_locations = {}
+        self.current_frame_depth = start_free_depth
+        # we disable hints for now
+        #self.hint_frame_locations = {}
+        self.freelist_gcrefs = LinkedList(self, freelist_gcrefs)
+        self.freelist_others = LinkedList(self, freelist_others)
 
     def get_frame_depth(self):
-        return len(self.used)
+        return self.current_frame_depth
 
     def get(self, box):
         return self.bindings.get(box, None)
@@ -35,12 +136,12 @@ class FrameManager(object):
         except KeyError:
             pass
         # check if we have a hint for this box
-        if box in self.hint_frame_locations:
-            # if we do, try to reuse the location for this box
-            loc = self.hint_frame_locations[box]
-            if self.try_to_reuse_location(box, loc):
-                return loc
-        # no valid hint.  make up a new free location
+        #if box in self.hint_frame_locations:
+        #    # if we do, try to reuse the location for this box
+        #    loc = self.hint_frame_locations[box]
+        #    if self.try_to_reuse_location(box, loc):
+        #        return loc
+        ## no valid hint.  make up a new free location
         return self.get_new_loc(box)
 
     def get_new_loc(self, box):
@@ -49,22 +150,26 @@ class FrameManager(object):
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        while self.get_frame_depth() & (size - 1):
-            self.used.append(False)
-        #
-        index = self.get_frame_depth()
-        newloc = self.frame_pos(index, box.type)
-        for i in range(size):
-            self.used.append(True)
-        #
-        if not we_are_translated():    # extra testing
-            testindex = self.get_loc_index(newloc)
-            assert testindex == index
-        #
+        if box.type == REF:
+            newloc = self.freelist_gcrefs.pop(1, box.type)
+        else:
+            newloc = self.freelist_others.pop(size, box.type)
+            
+        if newloc is None:
+            #
+            index = self.get_frame_depth()
+            newloc = self.frame_pos(index, box.type)
+            self.current_frame_depth += size
+            #
+            if not we_are_translated():    # extra testing
+                testindex = self.get_loc_index(newloc)
+                assert testindex == index
+            #
         self.bindings[box] = newloc
         return newloc
 
     def set_binding(self, box, loc):
+        xxx
         self.bindings[box] = loc
         #
         index = self.get_loc_index(loc)
@@ -77,29 +182,20 @@ class FrameManager(object):
             self.used[index] = True
             index += 1
 
-    def reserve_location_in_frame(self, size):
-        frame_depth = self.get_frame_depth()
-        for i in range(size):
-            self.used.append(True)
-        return frame_depth
-
     def mark_as_free(self, box):
         try:
             loc = self.bindings[box]
         except KeyError:
             return    # already gone
         del self.bindings[box]
-        #
-        size = self.frame_size(box.type)
-        baseindex = self.get_loc_index(loc)
-        if baseindex < 0:
-            return
-        for i in range(size):
-            index = baseindex + i
-            assert 0 <= index < len(self.used)
-            self.used[index] = False
+        if box.type == REF:
+            self.freelist_gcrefs.append(1, loc)
+        else:
+            size = self.frame_size(box)
+            self.freelist_others.append(size, loc)
 
     def try_to_reuse_location(self, box, loc):
+        xxx
         index = self.get_loc_index(loc)
         if index < 0:
             return False
@@ -125,7 +221,11 @@ class FrameManager(object):
     @staticmethod
     def get_loc_index(loc):
         raise NotImplementedError("Purely abstract")
-
+    @staticmethod
+    def newloc(pos, size, tp):
+        """ Reverse of get_loc_index
+        """
+        raise NotImplementedError("Purely abstract")
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
