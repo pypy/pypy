@@ -1909,7 +1909,7 @@ class Assembler386(object):
         if withfloats:
             # Push all XMM regs
             ofs = len(gpr_reg_mgr_cls.all_regs)
-            for i in range(self.cpu.NUM_REGS):
+            for i in range(len(xmm_reg_mgr_cls.all_regs)):
                 mc.MOVSD_bx((ofs + i) * WORD, i)
 
     def _pop_all_regs_from_frame(self, mc, withfloats):
@@ -1919,7 +1919,7 @@ class Assembler386(object):
         if withfloats:
             # Pop all XMM regs
             ofs = len(gpr_reg_mgr_cls.all_regs)
-            for i in range(self.cpu.NUM_REGS):
+            for i in range(len(xmm_reg_mgr_cls.all_regs)):
                 mc.MOVSD_xb(i, (ofs + i) * WORD)
 
     def _build_failure_recovery(self, exc, withfloats=False):

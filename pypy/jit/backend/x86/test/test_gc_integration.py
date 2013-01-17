@@ -14,27 +14,6 @@ from pypy.jit.backend.x86.regalloc import gpr_reg_mgr_cls
 
 CPU = getcpuclass()
 
-class MockGcRootMap(object):
-    is_shadow_stack = False
-    def get_basic_shape(self):
-        return ['shape']
-    def add_frame_offset(self, shape, offset):
-        shape.append(offset)
-    def add_callee_save_reg(self, shape, reg_index):
-        index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }
-        shape.append(index_to_name[reg_index])
-    def compress_callshape(self, shape, datablockwrapper):
-        assert datablockwrapper == 'fakedatablockwrapper'
-        assert shape[0] == 'shape'
-        return ['compressed'] + shape[1:]
-
-class MockGcDescr(GcLLDescr_boehm):
-    gcrootmap = MockGcRootMap()
-
-class TestDirectGcIntegration(object):
-    def test_gcmap(self):
-        pass
-
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)
