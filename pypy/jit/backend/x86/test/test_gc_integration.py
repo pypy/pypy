@@ -36,6 +36,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     ptr0 = struct_ref
 
     targettoken = TargetToken()
+    targettoken2 = TargetToken()
 
     namespace = locals().copy()
 
@@ -76,7 +77,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     def test_label(self):
         ops = '''
         [i0, p0, i1, p1]
-        label(i0, p0, i1, p1, descr=targettoken)
+        label(i0, p0, i1, p1, descr=targettoken2)
         p3 = getfield_gc(p0, descr=fielddescr)
         force_spill(p3)
         guard_true(i0) [p0, i1, p1, p3]
@@ -85,13 +86,15 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         s1 = lltype.malloc(self.S)
         s2 = lltype.malloc(self.S)
         s1.field = s2
-        loop = self.interpret(ops, [0, s1, 1, s2])
+        self.interpret(ops, [0, s1, 1, s2])
         ops2 = '''
         [p0]
-        jump(1, p0, 1, p0, descr=targettoken)
+        jump(1, p0, 1, p0, descr=targettoken2)
         '''
-        self.interpret(ops2)
-        xxx
+        self.interpret(ops2, [s1])
+        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, self.deadframe)
+        assert len(frame.jf_gcmap) == 3
+        assert [frame.jf_gcmap[i] for i in range(3)] == [1, 3, 4]
 
     def test_rewrite_constptr(self):
         ops = '''

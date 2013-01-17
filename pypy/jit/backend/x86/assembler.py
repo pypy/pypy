@@ -520,6 +520,7 @@ class Assembler386(object):
         clt.allgcrefs = []
         clt.frame_info.jfi_frame_depth = 0 # for now
         looptoken.compiled_loop_token = clt
+        clt._debug_nbargs = len(inputargs)
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -532,7 +533,6 @@ class Assembler386(object):
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
         self._call_header_with_stack_check()
-        clt._debug_nbargs = len(inputargs)
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
         rgc._make_sure_does_not_move(clt.frame_info)
@@ -700,14 +700,15 @@ class Assembler386(object):
         frame_info_ofs = self.cpu.get_ofs_of_frame_field('jf_frame_info')
         jfi_gc_map_ofs = self.cpu.get_ofs_of_frame_field('jfi_gcmap')
         if IS_X86_32:
-            self.mc.MOV_bi(gcmap_ofs, frame_info_addr + jfi_gc_map_ofs)
             self.mc.MOV_bi(frame_info_ofs, frame_info_addr)
+            XXX
         else:
-            self.mc.MOV_ri(X86_64_SCRATCH_REG.value,
-                           frame_info_addr + jfi_gc_map_ofs)
-            self.mc.MOV_br(gcmap_ofs, X86_64_SCRATCH_REG.value)
             self.mc.MOV_ri(X86_64_SCRATCH_REG.value, frame_info_addr)
             self.mc.MOV_br(frame_info_ofs, X86_64_SCRATCH_REG.value)
+            self.mc.MOV_rm(X86_64_SCRATCH_REG.value,
+                           (X86_64_SCRATCH_REG.value,
+                            jfi_gc_map_ofs))
+            self.mc.MOV_br(gcmap_ofs, X86_64_SCRATCH_REG.value)
             
 
     def _patch_stackadjust(self, adr, allocated_depth):
@@ -2393,14 +2394,6 @@ class Assembler386(object):
                         op.getopname())
 
     def closing_jump(self, target_token):
-        # The backend's logic assumes that the target code is in a piece of
-        # assembler that was also called with the same number of arguments,
-        # so that the locations [ebp+8..] of the input arguments are valid
-        # stack locations both before and after the jump.
-        my_nbargs = self.current_clt._debug_nbargs
-        target_nbargs = target_token._x86_clt._debug_nbargs
-        assert my_nbargs == target_nbargs
-        #
         target = target_token._x86_loop_code
         if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
