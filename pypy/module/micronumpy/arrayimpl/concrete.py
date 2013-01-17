@@ -9,7 +9,7 @@ from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
-from pypy.rlib.rawstorage import free_raw_storage
+from pypy.rlib.rawstorage import free_raw_storage, RAW_STORAGE
 from pypy.rlib.debug import make_sure_not_resized
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
@@ -427,18 +427,18 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_storage_as_int(self, space):
         return rffi.cast(lltype.Signed, self.storage)
 
-class ConcreteArray(BaseConcreteArray):
-    def __init__(self, shape, dtype, order, strides, backstrides):
+class ConcreteArrayNotOwning(BaseConcreteArray):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage):
         make_sure_not_resized(shape)
         make_sure_not_resized(strides)
         make_sure_not_resized(backstrides)
         self.shape = shape
         self.size = support.product(shape) * dtype.get_size()
-        self.storage = dtype.itemtype.malloc(self.size)
         self.order = order
         self.dtype = dtype
         self.strides = strides
         self.backstrides = backstrides
+        self.storage = storage
 
     def create_iter(self, shape=None):
         if shape is None or shape == self.get_shape():
@@ -451,13 +451,23 @@ class ConcreteArray(BaseConcreteArray):
     def fill(self, box):
         self.dtype.fill(self.storage, box, 0, self.size)
 
-    def __del__(self):
-        free_raw_storage(self.storage, track_allocation=False)
-
     def set_shape(self, space, new_shape):
         strides, backstrides = support.calc_strides(new_shape, self.dtype,
                                                     self.order)
         return SliceArray(0, strides, backstrides, new_shape, self)
+
+class ConcreteArray(ConcreteArrayNotOwning):
+    def __init__(self, shape, dtype, order, strides, backstrides):
+        # we allocate the actual storage later because we need to compute
+        # self.size first
+        null_storage = lltype.nullptr(RAW_STORAGE)
+        ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
+                                        null_storage)
+        self.storage = dtype.itemtype.malloc(self.size)
+
+    def __del__(self):
+        free_raw_storage(self.storage, track_allocation=False)
+
 
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, w_index, w_value):
