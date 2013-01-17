@@ -72,7 +72,6 @@ Copyright (c) Corporation for National Research Initiatives.
          'utf_32_le_decode' : 'interp_codecs.utf_32_le_decode',
          'utf_32_le_encode' : 'interp_codecs.utf_32_le_encode',
          'utf_32_ex_decode' : 'interp_codecs.utf_32_ex_decode',
-         'charbuffer_encode': 'interp_codecs.buffer_encode',
          'readbuffer_encode': 'interp_codecs.buffer_encode',
          'charmap_decode'   : 'interp_codecs.charmap_decode',
          'charmap_encode'   : 'interp_codecs.charmap_encode',
