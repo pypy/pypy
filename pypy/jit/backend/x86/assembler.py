@@ -1878,7 +1878,8 @@ class Assembler386(object):
                 pos = pos // WORD - GPR_REGS
                 locs.append(xmm_reg_mgr_cls.all_regs[pos])
             else:
-                i = pos // WORD - GPR_REGS - XMM_REGS
+                i = pos // WORD - JITFRAME_FIXED_SIZE
+                assert i >= 0
                 tp = inputargs[input_i].type
                 locs.append(StackLoc(i, pos, tp))
             input_i += 1

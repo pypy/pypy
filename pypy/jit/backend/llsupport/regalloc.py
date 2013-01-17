@@ -122,8 +122,6 @@ def frame_manager_from_gcmap(FmClass, gcmap, depth, frame_bindings):
             rev_bindings[FmClass.get_loc_index(loc) + 1] = True
         assert size == 1
         rev_bindings[FmClass.get_loc_index(loc)] = True
-    if not gcmap:
-        return FmClass()
     gcrefs = []
     others = []
     c = 0
@@ -137,7 +135,8 @@ def frame_manager_from_gcmap(FmClass, gcmap, depth, frame_bindings):
             gcrefs.append(item)
         c += 1
     for i in range(c, depth):
-        others.append(i)
+        if not rev_bindings[i]:
+            others.append(i)
     fm = FmClass(depth, gcrefs, others)
     for arg, loc in frame_bindings.iteritems():
         fm.bindings[arg] = loc
@@ -196,7 +195,6 @@ class FrameManager(object):
             newloc = self.freelist_gcrefs.pop(1, box.type)
         else:
             newloc = self.freelist_others.pop(size, box.type)
-            
         if newloc is None:
             #
             index = self.get_frame_depth()
@@ -207,22 +205,9 @@ class FrameManager(object):
                 testindex = self.get_loc_index(newloc)
                 assert testindex == index
             #
+
         self.bindings[box] = newloc
         return newloc
-
-    def set_binding(self, box, loc):
-        xxx
-        self.bindings[box] = loc
-        #
-        index = self.get_loc_index(loc)
-        if index < 0:
-            return
-        endindex = index + self.frame_size(box.type)
-        while len(self.used) < endindex:
-            self.used.append(False)
-        while index < endindex:
-            self.used[index] = True
-            index += 1
 
     def mark_as_free(self, box):
         try:
