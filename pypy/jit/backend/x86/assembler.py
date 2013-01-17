@@ -700,8 +700,16 @@ class Assembler386(object):
         frame_info_addr = rffi.cast(lltype.Signed, frame_info)
         frame_info_ofs = self.cpu.get_ofs_of_frame_field('jf_frame_info')
         jfi_gc_map_ofs = self.cpu.get_ofs_of_frame_field('jfi_gcmap')
-        self.mc.MOV_bi(gcmap_ofs, frame_info_addr + jfi_gc_map_ofs)
-        self.mc.MOV_bi(frame_info_ofs, frame_info_addr)
+        if IS_X86_32:
+            self.mc.MOV_bi(gcmap_ofs, frame_info_addr + jfi_gc_map_ofs)
+            self.mc.MOV_bi(frame_info_ofs, frame_info_addr)
+        else:
+            self.mc.MOV_ri(X86_64_SCRATCH_REG.value,
+                           frame_info_addr + jfi_gc_map_ofs)
+            self.mc.MOV_br(gcmap_ofs, X86_64_SCRATCH_REG.value)
+            self.mc.MOV_ri(X86_64_SCRATCH_REG.value, frame_info_addr)
+            self.mc.MOV_br(frame_info_ofs, X86_64_SCRATCH_REG.value)
+            
 
     def _patch_stackadjust(self, adr, allocated_depth):
         mc = codebuf.MachineCodeBlockWrapper()
