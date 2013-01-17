@@ -371,15 +371,34 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
-    def test_array(self):
+    def test_readbuffer_encode(self):
+        import _codecs
+        assert _codecs.readbuffer_encode("") ==  (b"", 0)
+
+    def test_readbuffer_encode_array(self):
         import _codecs, array
-        _codecs.readbuffer_encode(array.array('b', b'spam')) == ('spam', 4)
+        assert (_codecs.readbuffer_encode(array.array('b', b'spam')) ==
+                (b'spam', 4))
 
     def test_utf8sig(self):
         import codecs
         d = codecs.getincrementaldecoder("utf-8-sig")()
         s = "spam"
         assert d.decode(s.encode("utf-8-sig")) == s
+
+    def test_decoder_state(self):
+        import codecs
+        encoding = 'utf16'
+        u = 'abc123'
+        s = u.encode(encoding)
+        for i in range(len(u) + 1):
+            d = codecs.getincrementalencoder(encoding)()
+            part1 = d.encode(u[:i])
+            state = d.getstate()
+            d = codecs.getincrementalencoder(encoding)()
+            d.setstate(state)
+            part2 = d.encode(u[i:], True)
+            assert s == part1 + part2
 
     def test_escape_decode_escaped_newline(self):
         import _codecs
@@ -628,17 +647,19 @@ class AppTestPartialEvaluation:
             assert codecs.getdecoder('utf-16')(
                     b'\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
 
-    def test_unicode_escape(self):        
+    def test_unicode_escape(self):
+        import _codecs
         assert '\\'.encode('unicode-escape') == b'\\\\'
         assert b'\\\\'.decode('unicode-escape') == '\\'
         assert '\ud801'.encode('unicode-escape') == b'\\ud801'
         assert '\u0013'.encode('unicode-escape') == b'\\x13'
+        assert _codecs.unicode_escape_decode(r"\u1234") == ("\u1234", 6)
 
     def test_mbcs(self):
         import sys
         if sys.platform != 'win32':
             return
-        assert 'test'.encode('mbcs') == 'test'
-        assert 'caf\xe9'.encode('mbcs') == 'caf\xe9'
-        assert '\u040a'.encode('mbcs') == '?' # some cyrillic letter
-        assert 'cafx\e9'.decode('mbcs') == 'cafx\e9'
+        assert 'test'.encode('mbcs') == b'test'
+        assert 'caf\xe9'.encode('mbcs') == b'caf\xe9'
+        assert '\u040a'.encode('mbcs') == b'?' # some cyrillic letter
+        assert 'cafx\e9'.decode('mbcs') == b'cafx\e9'
