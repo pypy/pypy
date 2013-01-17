@@ -8,7 +8,7 @@ import os
 import shutil
 import unittest
 
-from test.support import run_unittest
+from test.support import check_impl_detail, run_unittest
 from reprlib import repr as r # Don't shadow builtin repr
 from reprlib import Repr
 from reprlib import recursive_repr
@@ -138,8 +138,9 @@ class ReprTests(unittest.TestCase):
         # Functions
         eq(repr(hash), '<built-in function hash>')
         # Methods
-        self.assertTrue(repr(''.split).startswith(
-            '<built-in method split of str object at 0x'))
+        if check_impl_detail(pypy=False):
+            self.assertTrue(repr(''.split).startswith(
+                '<built-in method split of str object at 0x'))
 
     def test_range(self):
         eq = self.assertEqual
@@ -171,7 +172,8 @@ class ReprTests(unittest.TestCase):
     def test_descriptors(self):
         eq = self.assertEqual
         # method descriptors
-        eq(repr(dict.items), "<method 'items' of 'dict' objects>")
+        if check_impl_detail(pypy=False):
+            eq(repr(dict.items), "<method 'items' of 'dict' objects>")
         # XXX member descriptors
         # XXX attribute descriptors
         # XXX slot descriptors
