@@ -2,6 +2,12 @@ from os.path import *
 import py, pytest
 from rpython.tool import leakfinder
 
+# XXX
+# <ronny> Aquana, i just ensured that with the pypy conftest we get all skips,
+# i'll investigate differences in collection tommorow, for now, can you just
+# import the makemodule hook from pypy and add a comment that im responsible
+# for fixing?
+from pypy.conftest import pytest_pycollect_makemodule
 
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 cache_dir = realpath(join(dirname(__file__), '_cache'))
