@@ -1634,7 +1634,29 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [1, 256 + 2, 3]).all()
         assert (a.byteswap(True) == [0x0100, 0x0201, 0x0300]).all()
         assert (a == [0x0100, 0x0201, 0x0300]).all()
-        assert False, 'test float, float16, complex byteswap'
+
+        a = array([1, -1, 1e300], dtype=float)
+        s1 = map(ord,a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert s1[7::-1] == s2[:8]
+        assert s1[15:7:-1] == s2[8:16]
+        assert s1[:15:-1] == s2[16:]
+
+        a = array([1+1e30j, -1, 1e10], dtype=complex)
+        s1 = map(ord,a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert s1[7::-1] == s2[:8]
+        assert s1[15:7:-1] == s2[8:16]
+        assert s1[23:15:-1] == s2[16:24]
+        assert s1[31:23:-1] == s2[24:32]
+        assert s1[39:31:-1] == s2[32:40]
+        assert s1[:39:-1] == s2[40:]
+
+        a = array([1, -1, 10000], dtype='float16')
+        s1 = map(ord,a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        s3 = [s1[1], s1[0],s1[3], s1[2], s1[5], s1[4]]
+        assert s3 == s2
 
     def test_clip(self):
         from _numpypy import array
