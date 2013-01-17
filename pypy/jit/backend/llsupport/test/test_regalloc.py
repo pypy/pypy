@@ -532,6 +532,9 @@ class TestRegalloc(object):
         assert p2loc == ploc
         assert not fm.freelist_gcrefs
         assert len(fm.freelist_others) == 1
+        for box in fm.bindings.keys():
+            fm.mark_as_free(box)
+        assert fm.get_gc_map() == [5, 6]
 
     def test_frame_manager_basic(self):
         b0, b1 = newboxes(0, 1)
@@ -585,3 +588,6 @@ class TestRegalloc(object):
         f3 = BoxFloat()
         floc = fm.loc(f3)
         assert fm.get_loc_index(floc) == 0
+        for box in fm.bindings.keys():
+            fm.mark_as_free(box)
+        assert fm.get_gc_map() == [7, 8]

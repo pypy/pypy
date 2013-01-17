@@ -1,6 +1,6 @@
 import os
 from pypy.jit.metainterp.history import Const, Box, REF
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp.resoperation import rop
 
 class TempBox(Box):
@@ -50,6 +50,13 @@ class LinkedList(object):
                 node = node.next
             prev_node.next = Node(key, node)
 
+    @specialize.arg(1)
+    def foreach(self, function, arg):
+        node = self.master_node
+        while node is not None:
+            function(arg, node.val)
+            node = node.next
+
     def pop(self, size, tp):
         if size == 2:
             return self._pop_two(tp)
@@ -81,15 +88,18 @@ class LinkedList(object):
                 return self.fm.frame_pos(node.val, tp)
             node = node.next
 
-    def __len__(self):
-        """ For tests only
-        """
+    def len(self):
         node = self.master_node
         c = 0
         while node:
             node = node.next
             c += 1
         return c
+
+    def __len__(self):
+        """ For tests only
+        """
+        return self.len()
 
     def __repr__(self):
         if not self.master_node:
@@ -210,6 +220,20 @@ class FrameManager(object):
             self.used[index + i] = True
         self.bindings[box] = loc
         return True
+
+    @staticmethod
+    def _gather_gcroots(lst, var):
+        lst.append(var)
+
+    def get_gc_map(self):
+        """ returns a list of locations where GC pointers are
+        """
+        assert not self.bindings
+        # XXX unsure, maybe what we want is to
+        # free everything instead
+        lst = []
+        self.freelist_gcrefs.foreach(self._gather_gcroots, lst)
+        return lst
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
