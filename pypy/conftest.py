@@ -113,16 +113,6 @@ class PyPyModule(py.test.collect.Module):
             if name.startswith('AppTest'):
                 from pypy.tool.pytest.apptest import AppClassCollector
                 return AppClassCollector(name, parent=self)
-            elif name.startswith('ExpectTest'):
-                if self.config.option.rundirect:
-                    return py.test.collect.Class(name, parent=self)
-                from pypy.tool.pytest.expecttest import ExpectClassCollector
-                return ExpectClassCollector(name, parent=self)
-            # XXX todo
-            #elif name.startswith('AppExpectTest'):
-            #    if option.rundirect:
-            #        return AppClassCollector(name, parent=self)
-            #    return AppExpectClassCollector(name, parent=self)
             else:
                 from pypy.tool.pytest.inttest import IntClassCollector
                 return IntClassCollector(name, parent=self)

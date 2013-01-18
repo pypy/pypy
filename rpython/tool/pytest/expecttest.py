@@ -72,7 +72,10 @@ class ExpectClassCollector(py.test.collect.Class):
         except ImportError:
             py.test.skip("pexpect not found")
 
+
 @py.test.mark.tryfirst
 def pytest_pycollect_makeitem(collector, name, obj):
     if py.std.inspect.isclass(obj) and name.startswith('ExpectTest'):
+        #XXX: in conftest we had a rundirect option
+        #XXX: kill expecttest for a more explicit way
         return ExpectClassCollector(name, parent=collector)
