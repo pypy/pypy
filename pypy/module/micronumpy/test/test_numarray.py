@@ -2385,3 +2385,14 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert y[0, 1] == 2
         y[0, 1] = 42
         assert x[1] == 42
+
+    def test___pypy_data__(self):
+        from _numpypy import array
+        x = array([1, 2, 3, 4])
+        x.__pypy_data__ is None
+        obj = object()
+        x.__pypy_data__ = obj
+        assert x.__pypy_data__ is obj
+        del x.__pypy_data__
+        assert x.__pypy_data__ is None
+    

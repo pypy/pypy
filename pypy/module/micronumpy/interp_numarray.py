@@ -397,6 +397,16 @@ class __extend__(W_NDimArray):
                                                        space.w_False]))
         return w_d
 
+    w_pypy_data = None
+    def fget___pypy_data__(self, space):
+        return self.w_pypy_data
+
+    def fset___pypy_data__(self, space, w_data):
+        self.w_pypy_data = w_data
+
+    def fdel___pypy_data__(self, space):
+        self.w_pypy_data = None
+
     # --------------------- operations ----------------------------
 
     def _unaryop_impl(ufunc_name):
@@ -675,7 +685,10 @@ W_NDimArray.typedef = TypeDef(
                           W_NDimArray.descr_set_imag),
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
    _from_shape_and_storage = interp2app(descr__from_shape_and_storage,
-                                        as_classmethod=True)
+                                        as_classmethod=True),
+    __pypy_data__ = GetSetProperty(W_NDimArray.fget___pypy_data__,
+                                   W_NDimArray.fset___pypy_data__,
+                                   W_NDimArray.fdel___pypy_data__),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
