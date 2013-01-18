@@ -115,8 +115,8 @@ GCFLAG_POSSIBLY_OUTDATED = first_gcflag << 1     # keep in sync with et.h
 GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
 GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
 GCFLAG_VISITED           = first_gcflag << 4     # keep in sync with et.h
-GCFLAG_HASH_FIELD        = first_gcflag << 5     # keep in sync with et.h
-GCFLAG_NEW_HASH          = first_gcflag << 6     # keep in sync with et.h
+GCFLAG_HASH_FIELD        = first_gcflag << 5
+GCFLAG_NEW_HASH          = first_gcflag << 6
 
 GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
 REV_INITIAL              = r_uint(1)
