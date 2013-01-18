@@ -2,6 +2,8 @@ from os.path import *
 import py, pytest
 from rpython.tool import leakfinder
 
+pytest_plugins = 'rpython.tool.pytest.expecttest'
+
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 cache_dir = realpath(join(dirname(__file__), '_cache'))
 option = None

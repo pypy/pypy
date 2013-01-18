@@ -7,9 +7,10 @@
 
 
 import py
-import os, sys
+import os
+import sys
 from rpython.tool.udir import udir
-from pypy.conftest import pypydir
+from pypy.conftest import pypydir #XXX
 
 
 class ExpectTestMethod(py.test.collect.Function):
@@ -71,4 +72,7 @@ class ExpectClassCollector(py.test.collect.Class):
         except ImportError:
             py.test.skip("pexpect not found")
 
-
+@py.test.mark.tryfirst
+def pytest_pycollect_makeitem(collector, name, obj):
+    if py.std.inspect.isclass(obj) and name.startswith('ExpectTest'):
+        return ExpectClassCollector(name, parent=collector)
