@@ -127,12 +127,6 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return infobits & T_HAS_CUSTOM_TRACE != 0
 
-    def q_get_custom_trace(self, typeid):
-        ll_assert(self.q_has_custom_trace(typeid),
-                  "T_HAS_CUSTOM_TRACE missing")
-        typeinfo = self.get(typeid)
-        return typeinfo.finalizer_or_customtrace
-
     def q_fast_path_tracing(self, typeid):
         # return True if none of the flags T_HAS_GCPTR_IN_VARSIZE,
         # T_IS_GCARRAY_OF_GCPTR or T_HAS_CUSTOM_TRACE is set
@@ -159,7 +153,6 @@ class GCData(object):
             self.q_member_index,
             self.q_is_rpython_class,
             self.q_has_custom_trace,
-            self.q_get_custom_trace,
             self.q_fast_path_tracing)
 
 
@@ -204,10 +197,12 @@ def encode_type_shape(builder, info, TYPE, index):
             infobits |= T_HAS_FINALIZER
         elif kind == 'light_finalizer':
             infobits |= T_HAS_FINALIZER | T_HAS_LIGHTWEIGHT_FINALIZER
-        elif kind == "custom_trace":
-            infobits |= T_HAS_CUSTOM_TRACE
         else:
             assert 0, kind
+    custom_trace_func = builder.get_custom_trace_func(TYPE)
+    if custom_trace_func is not None:
+        infobits |= T_HAS_CUSTOM_TRACE
+        builder.record_custom_trace(index, custom_trace_func)
     #
     if not TYPE._is_varsize():
         info.fixedsize = llarena.round_up_for_allocation(
@@ -378,16 +373,11 @@ class TypeLayoutBuilder(object):
         if TYPE in self._special_funcptrs:
             return self._special_funcptrs[TYPE]
         fptr1, is_lightweight = self.make_finalizer_funcptr_for_type(TYPE)
-        fptr2 = self.make_custom_trace_funcptr_for_type(TYPE)
-        assert not (fptr1 and fptr2), (
-            "type %r needs both a finalizer and a custom tracer" % (TYPE,))
         if fptr1:
             if is_lightweight:
                 kind_and_fptr = "light_finalizer", fptr1
             else:
                 kind_and_fptr = "finalizer", fptr1
-        elif fptr2:
-            kind_and_fptr = "custom_trace", fptr2
         else:
             kind_and_fptr = None
         self._special_funcptrs[TYPE] = kind_and_fptr

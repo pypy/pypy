@@ -361,7 +361,7 @@ class RttiStruct(Struct):
         Struct._install_extras(self, **kwds)
 
     def _attach_runtime_type_info_funcptr(self, funcptr, destrptr,
-                                          customtraceptr):
+                                          custom_trace_func):
         if self._runtime_type_info is None:
             raise TypeError("attachRuntimeTypeInfo: %r must have been built "
                             "with the rtti=True argument" % (self,))
@@ -385,18 +385,8 @@ class RttiStruct(Struct):
                 raise TypeError("expected a destructor function "
                                 "implementation, got: %s" % destrptr)
             self._runtime_type_info.destructor_funcptr = destrptr
-        if customtraceptr is not None:
-            from pypy.rpython.lltypesystem import llmemory
-            T = typeOf(customtraceptr)
-            if (not isinstance(T, Ptr) or
-                not isinstance(T.TO, FuncType) or
-                len(T.TO.ARGS) != 2 or
-                T.TO.RESULT != llmemory.Address or
-                T.TO.ARGS[0] != llmemory.Address or
-                T.TO.ARGS[1] != llmemory.Address):
-                raise TypeError("expected a custom trace function "
-                                "implementation, got: %s" % customtraceptr)
-            self._runtime_type_info.custom_trace_funcptr = customtraceptr
+        if custom_trace_func is not None:
+            self._runtime_type_info.custom_trace_func = custom_trace_func
 
 class GcStruct(RttiStruct):
     _gckind = 'gc'
@@ -2050,11 +2040,11 @@ def cast_int_to_ptr(PTRTYPE, oddint):
     return _ptr(PTRTYPE, oddint, solid=True)
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None,
-                          customtraceptr=None):
+                          custom_trace_func=None):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
     GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr,
-                                               customtraceptr)
+                                               custom_trace_func)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):

@@ -7,10 +7,11 @@ from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.objectmodel import compute_unique_id
+from pypy.rlib.objectmodel import compute_unique_id, specialize
 from pypy.rlib import rgc
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.jit.backend.llsupport import jitframe
 
 WORD = LONG_BIT // 8
 
@@ -237,7 +238,6 @@ class GCTest(object):
         assert 160 <= res <= 165
 
     def test_custom_trace(self):
-        from pypy.rpython.annlowlevel import llhelper
         from pypy.rpython.lltypesystem import llmemory
         from pypy.rpython.lltypesystem.llarena import ArenaError
         #
@@ -245,15 +245,10 @@ class GCTest(object):
                                  ('y', llmemory.Address), rtti=True)
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(obj, callback, arg):
+            callback(obj + offset_of_x, arg)
+
+        lltype.attachRuntimeTypeInfo(S, custom_trace_func=customtrace)
         #
         for attrname in ['x', 'y']:
             def setup():
