@@ -248,6 +248,17 @@ class AppTestObject:
         y += 2
         assert object.__hash__(x) == object.__hash__(y)
 
+    def test_richcompare(self):
+        o = object()
+        o2 = object()
+        assert o.__eq__(o) is True
+        assert o.__eq__(o2) is NotImplemented
+        assert o.__ne__(o) is False
+        assert o.__ne__(o2) is True
+        assert o.__le__(o2) is NotImplemented
+        assert o.__lt__(o2) is NotImplemented
+        assert o.__ge__(o2) is NotImplemented
+        assert o.__gt__(o2) is NotImplemented
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace

@@ -550,17 +550,26 @@ def _make_binop_impl(symbol, specialnames):
 
 def _invoke_comparison(space, w_descr, w_obj1, w_obj2):
     if w_descr is not None:
-        try:
-            w_impl = space.get(w_descr, w_obj1)
-        except OperationError as e:
-            # see testForExceptionsRaisedInInstanceGetattr2 in
-            # test_class
-            if not e.match(space, space.w_AttributeError):
-                raise
+        # a special case for performance (see get_and_call_function) but
+        # also avoids binding via __get__ when unnecessary; in
+        # particular when w_obj1 is None, __get__(None, type(None))
+        # won't actually bind =]
+        descr = space.interpclass_w(w_descr)
+        typ = type(descr)
+        if typ is Function or typ is FunctionWithFixedCode:
+            w_res = descr.funccall(w_obj1, w_obj2)
         else:
-            w_res = space.call_function(w_impl, w_obj2)
-            if _check_notimplemented(space, w_res):
-                return w_res
+            try:
+                w_impl = space.get(w_descr, w_obj1)
+            except OperationError as e:
+                # see testForExceptionsRaisedInInstanceGetattr2 in
+                # test_class
+                if not e.match(space, space.w_AttributeError):
+                    raise
+            else:
+                w_res = space.call_function(w_impl, w_obj2)
+        if _check_notimplemented(space, w_res):
+            return w_res
     return None
 
 def _make_comparison_impl(symbol, specialnames):

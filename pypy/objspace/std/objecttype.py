@@ -205,6 +205,19 @@ def slotnames(cls):
 reduce_1 = app.interphook('reduce_1')
 reduce_2 = app.interphook('reduce_2')
 
+def descr__eq__(space, w_self, w_other):
+    if space.is_w(w_self, w_other):
+        return space.w_True
+    # Return NotImplemented instead of False, so if two objects are
+    # compared, both get a chance at the comparison (issue #1393)
+    return space.w_NotImplemented
+
+def descr__ne__(space, w_self, w_other):
+    return space.not_(space.eq(w_self, w_other))
+
+def descr_richcompare(space, w_self, w_other):
+    return space.w_NotImplemented
+
 # ____________________________________________________________
 
 object_typedef = StdTypeDef("object",
@@ -222,5 +235,11 @@ object_typedef = StdTypeDef("object",
     __format__ = gateway.interp2app(descr___format__),
     __subclasshook__ = gateway.interp2app(descr___subclasshook__,
                                           as_classmethod=True),
+    __eq__ = gateway.interp2app(descr__eq__),
+    __ne__ = gateway.interp2app(descr__ne__),
+    __le__ = gateway.interp2app(descr_richcompare),
+    __lt__ = gateway.interp2app(descr_richcompare),
+    __ge__ = gateway.interp2app(descr_richcompare),
+    __gt__ = gateway.interp2app(descr_richcompare),
     __init__ = gateway.interp2app(descr__init__),
     )
