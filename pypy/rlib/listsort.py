@@ -517,6 +517,7 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         def merge_force_collapse(self):
             p = self.pending
             while len(p) > 1:
+                xxx
                 if len(p) >= 3 and p[-3].len < p[-1].len:
                     self.merge_at(-3)
                 else:
