@@ -268,8 +268,10 @@ class AppTestPartialEvaluation:
         assert bytes.decode("unicode_internal") == "a"
 
     def test_raw_unicode_escape(self):
+        import _codecs
         assert str(b"\u0663", "raw-unicode-escape") == "\u0663"
         assert "\u0663".encode("raw-unicode-escape") == b"\u0663"
+        assert _codecs.raw_unicode_escape_decode(r"\u1234") == ("\u1234", 6)
 
     def test_escape_decode(self):
         import _codecs

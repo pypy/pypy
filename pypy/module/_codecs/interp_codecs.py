@@ -513,7 +513,6 @@ for decoders in [
          "utf_32_decode",
          "utf_32_be_decode",
          "utf_32_le_decode",
-         "raw_unicode_escape_decode",
          ]:
     make_decoder_wrapper(decoders)
 
@@ -764,6 +763,21 @@ def unicode_escape_decode(space, string, errors="strict", w_final=None):
         final, state.decode_error_handler,
         unicode_name_handler)
 
+    return space.newtuple([space.wrap(result), space.wrap(consumed)])
+
+# ____________________________________________________________
+# Raw Unicode escape (accepts bytes or str)
+
+@unwrap_spec(string='bufferstr_or_u', errors='str_or_None',
+             w_final=WrappedDefault(False))
+def raw_unicode_escape_decode(space, string, errors="strict", w_final=None):
+    if errors is None:
+        errors = 'strict'
+    final = space.is_true(w_final)
+    state = space.fromcache(CodecState)
+    result, consumed = runicode.str_decode_raw_unicode_escape(
+        string, len(string), errors,
+        final, state.decode_error_handler)
     return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
 # ____________________________________________________________
