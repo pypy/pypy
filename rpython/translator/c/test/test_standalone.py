@@ -35,7 +35,7 @@ class StandaloneTests(object):
         else:
             cbuilder.generate_source()
         cbuilder.compile()
-        if option.view:
+        if option is not None and option.view:
             t.view()
         return t, cbuilder
 
