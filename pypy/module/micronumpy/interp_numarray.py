@@ -397,7 +397,6 @@ class __extend__(W_NDimArray):
                                                        space.w_False]))
         return w_d
 
-
     # --------------------- operations ----------------------------
 
     def _unaryop_impl(ufunc_name):
@@ -565,6 +564,20 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.new_scalar(space, dtype)
     return W_NDimArray.from_shape(shape, dtype)
 
+@unwrap_spec(addr=int)
+def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype):
+    """
+    Create an array from an existing buffer, given its address as int.
+    PyPy-only implementation detail.
+    """
+    from pypy.rpython.lltypesystem import rffi
+    from pypy.rlib.rawstorage import RAW_STORAGE_PTR
+    shape = _find_shape(space, w_shape)
+    storage = rffi.cast(RAW_STORAGE_PTR, addr)
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+                           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    return W_NDimArray.from_shape_and_storage(shape, storage, dtype)
+
 W_NDimArray.typedef = TypeDef(
     "ndarray",
     __new__ = interp2app(descr_new_array),
@@ -661,6 +674,8 @@ W_NDimArray.typedef = TypeDef(
     imag = GetSetProperty(W_NDimArray.descr_get_imag,
                           W_NDimArray.descr_set_imag),
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
+   _from_shape_and_storage = interp2app(descr__from_shape_and_storage,
+                                        as_classmethod=True)
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
