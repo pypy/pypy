@@ -72,27 +72,27 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         else:
             return None
     
-    def get_real(self):
+    def get_real(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
             dtype =  self.dtype.float_type
             return SliceArray(self.start, strides, backstrides,
-                          self.get_shape(), self, self, dtype=dtype)
+                          self.get_shape(), self, orig_array, dtype=dtype)
         return SliceArray(self.start, strides, backstrides, 
-                          self.get_shape(), self, self)
+                          self.get_shape(), self, orig_array)
 
-    def get_imag(self):
+    def get_imag(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
         if self.dtype.is_complex_type():
             dtype =  self.dtype.float_type
             return SliceArray(self.start + dtype.get_size(), strides, 
-                    backstrides, self.get_shape(), self, self, dtype=dtype)
+                    backstrides, self.get_shape(), self, orig_array, dtype=dtype)
         if self.dtype.is_flexible_type():
             # numpy returns self for self.imag
             return SliceArray(self.start, strides, backstrides,
-                    self.get_shape(), self, self)
+                    self.get_shape(), self, orig_array)
         impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
         impl.fill(self.dtype.box(0))
@@ -344,7 +344,6 @@ class SliceArray(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
-        assert isinstance(parent, BaseConcreteArray)
         if isinstance(parent, SliceArray):
             parent = parent.parent # one level only
         self.parent = parent
