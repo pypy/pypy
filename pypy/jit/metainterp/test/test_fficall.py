@@ -105,7 +105,7 @@ class FfiCallTests(object):
 
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
-    def test_jit_fii_vref(self):
+    def test_jit_ffi_vref(self):
         from pypy.rlib import clibffi
         from pypy.rlib.jit_libffi import jit_ffi_prep_cif, jit_ffi_call
 
@@ -136,9 +136,10 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
             res = exb[3]
             lltype.free(exb, flavor='raw')
             #
-            lltype.free(atypes, flavor='raw')
             return res
             #
         res = self.interp_operations(f, [])
         lltype.free(cd, flavor='raw')
         assert res == math.sin(1.23)
+
+        lltype.free(atypes, flavor='raw')

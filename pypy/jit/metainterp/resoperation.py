@@ -353,6 +353,9 @@ class N_aryOp(object):
 
     def initarglist(self, args):
         self._args = args
+        if not we_are_translated() and \
+               self.__class__.__name__.startswith('FINISH'):   # XXX remove me
+            assert len(args) <= 1      # FINISH operations take 0 or 1 arg now
 
     def getarglist(self):
         return self._args

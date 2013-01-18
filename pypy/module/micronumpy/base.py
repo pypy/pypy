@@ -30,8 +30,17 @@ class W_NDimArray(Wrappable):
         return W_NDimArray(impl)
 
     @staticmethod
-    def new_slice(offset, strides, backstrides, shape, parent, orig_arr,
-                  dtype=None):
+    def from_shape_and_storage(shape, storage, dtype, order='C'):
+        from pypy.module.micronumpy.arrayimpl import concrete
+        assert shape
+        strides, backstrides = calc_strides(shape, dtype, order)
+        impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
+                                               backstrides, storage)
+        return W_NDimArray(impl)
+
+
+    @staticmethod
+    def new_slice(offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,

@@ -29,7 +29,7 @@ def get_merged_branches(path, startrev, endrev):
                       merge() and \
                       branch(default)) and \
               not branch(default)' % (startrev, endrev)
-    cmd = r"hg log -R '%s' -r '%s' --template '{branches}\n'" % (path, revset)
+    cmd = r'hg log -R "%s" -r "%s" --template "{branches}\n"' % (path, revset)
     out = getoutput(cmd)
     branches = set(map(str.strip, out.splitlines()))
     return branches

@@ -105,11 +105,13 @@ class TestCallingConv(Runner):
             ops = '[%s]\n' % arguments
             ops += '%s\n' % spill_ops
             ops += 'f99 = call(ConstClass(func_ptr), %s, descr=calldescr)\n' % arguments
-            ops += 'finish(f99, %s)\n' % arguments
+            ops += 'i99 = same_as(0)\n'
+            ops += 'guard_true(i99) [f99, %s]\n' % arguments
+            ops += 'finish()\n'
 
             loop = parse(ops, namespace=locals())
             looptoken = JitCellToken()
-            done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
+            done_number = self.cpu.get_fail_descr_number(loop.operations[-2].getdescr())
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             argvals, expected_result = self._prepare_args(args, floats, ints)
 

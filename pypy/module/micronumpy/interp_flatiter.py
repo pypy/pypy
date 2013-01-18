@@ -20,15 +20,14 @@ class FakeArrayImplementation(BaseArrayImplementation):
         return self.shape
 
     def create_iter(self, shape=None):
-        assert isinstance(self.base, W_NDimArray)
-        return self.base.create_iter()
+        assert isinstance(self.base(), W_NDimArray)
+        return self.base().create_iter()
 
 class W_FlatIterator(W_NDimArray):
     def __init__(self, arr):
         self.base = arr
         # this is needed to support W_NDimArray interface
-        imp = FakeArrayImplementation(self.base)
-        self.implementation = imp
+        self.implementation = FakeArrayImplementation(self.base)
         self.reset()
 
     def reset(self):

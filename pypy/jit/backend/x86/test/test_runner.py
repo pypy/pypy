@@ -499,9 +499,12 @@ class TestX86(LLtypeBackendTest):
                          i6, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 
-            ResOperation(rop.FINISH, [i3, i4, i5, i6], None,
-                         descr=BasicFailDescr(0))
+            ResOperation(rop.GUARD_FALSE, [i3], None,
+                         descr=BasicFailDescr(0)),
+            ResOperation(rop.FINISH, [], None,
+                         descr=BasicFailDescr(1))
             ]
+            ops[-2].setfailargs([i3, i4, i5, i6])
             ops[1].setfailargs([])
             ops[3].setfailargs([])
             ops[5].setfailargs([])

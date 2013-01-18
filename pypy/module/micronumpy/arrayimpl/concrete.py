@@ -11,7 +11,7 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
 from pypy.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
-     raw_storage_setitem
+     raw_storage_setitem, RAW_STORAGE
 from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from pypy.rlib.debug import make_sure_not_resized
 
@@ -275,18 +275,19 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_buffer(self, space):
         return ArrayBuffer(self)
 
-class ConcreteArray(BaseConcreteArray):
-    def __init__(self, shape, dtype, order, strides, backstrides):
+class ConcreteArrayNotOwning(BaseConcreteArray):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage):
+
         make_sure_not_resized(shape)
         make_sure_not_resized(strides)
         make_sure_not_resized(backstrides)
         self.shape = shape
         self.size = support.product(shape) * dtype.get_size()
-        self.storage = dtype.itemtype.malloc(self.size)
         self.order = order
         self.dtype = dtype
         self.strides = strides
         self.backstrides = backstrides
+        self.storage = storage
 
     def create_iter(self, shape=None):
         if shape is None or shape == self.get_shape():
@@ -298,9 +299,6 @@ class ConcreteArray(BaseConcreteArray):
 
     def fill(self, box):
         self.dtype.fill(self.storage, box, 0, self.size)
-
-    def __del__(self):
-        free_raw_storage(self.storage, track_allocation=False)
 
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = support.calc_strides(new_shape, self.dtype,
@@ -319,6 +317,21 @@ class ConcreteArray(BaseConcreteArray):
     def base(self):
         return None
 
+class ConcreteArray(ConcreteArrayNotOwning):
+    def __init__(self, shape, dtype, order, strides, backstrides):
+        # we allocate the actual storage later because we need to compute
+        # self.size first
+        null_storage = lltype.nullptr(RAW_STORAGE)
+        ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
+                                        null_storage)
+        self.storage = dtype.itemtype.malloc(self.size)
+
+    def __del__(self):
+        free_raw_storage(self.storage, track_allocation=False)
+
+
+        
+
 class NonWritableArray(ConcreteArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_RuntimeError, space.wrap(
@@ -331,6 +344,7 @@ class SliceArray(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
+        assert isinstance(parent, BaseConcreteArray)
         if isinstance(parent, SliceArray):
             parent = parent.parent # one level only
         self.parent = parent

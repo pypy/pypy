@@ -460,6 +460,10 @@ def unicode_encode_utf_16_helper(s, size, errors,
                                  errorhandler=None,
                                  byteorder='little'):
     if size == 0:
+        if byteorder == 'native':
+            result = StringBuilder(2)
+            _STORECHAR(result, 0xFEFF, BYTEORDER)
+            return result.build()
         return ""
 
     result = StringBuilder(size * 2 + 2)
@@ -621,6 +625,10 @@ def unicode_encode_utf_32_helper(s, size, errors,
                                  errorhandler=None,
                                  byteorder='little'):
     if size == 0:
+        if byteorder == 'native':
+            result = StringBuilder(4)
+            _STORECHAR32(result, 0xFEFF, BYTEORDER)
+            return result.build()
         return ""
 
     result = StringBuilder(size * 4 + 4)

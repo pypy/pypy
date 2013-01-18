@@ -327,7 +327,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert self.getint(0) == 0
         bridge_ops = '''
         [i0, i1]
-        finish(1, 2)
+        finish(2)
         '''
         self.attach_bridge(bridge_ops, loop, 0)
         self.run(loop, 0, 1)
@@ -428,7 +428,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7]
         guard_value(i6, i1) [i0, i2, i3, i4, i5, i6]
-        finish(i0, i2, i3, i4, i5, i6)
+        finish(i0)
         '''
         self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0])
         assert self.getint(0) == 0
@@ -438,14 +438,15 @@ class TestRegallocSimple(BaseTestRegalloc):
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
         i9 = same_as(0)
         guard_true(i0) [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        finish(1, i0, i1, i2, i3, i4, i5, i6, i7, i8)
+        finish(1)
         '''
         loop = self.interpret(ops, [0, 1, 2, 3, 4, 5, 6, 7, 8])
         assert self.getint(0) == 0
         bridge_ops = '''
         [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
         call(ConstClass(raising_fptr), 0, descr=raising_calldescr)
-        finish(i0, i1, i2, i3, i4, i5, i6, i7, i8)
+        guard_true(i9) [i0, i1, i2, i3, i4, i5, i6, i7, i8]
+        finish()
         '''
         self.attach_bridge(bridge_ops, loop, 1)
         self.run(loop, 0, 1, 2, 3, 4, 5, 6, 7, 8)
@@ -474,7 +475,8 @@ class TestRegallocCompOps(BaseTestRegalloc):
         i1 = same_as(1)
         i2 = int_lt(i0, 100)
         guard_true(i3) [i1, i2]
-        finish(0, i2)
+        i4 = int_neg(i2)
+        finish(0)
         '''
         self.interpret(ops, [0, 1])
         assert self.getint(0) == 0
@@ -503,7 +505,8 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         i15 = int_is_true(i5)
         i16 = int_is_true(i6)
         i17 = int_is_true(i7)
-        finish(i10, i11, i12, i13, i14, i15, i16, i17)
+        guard_true(i0) [i10, i11, i12, i13, i14, i15, i16, i17]
+        finish()
         '''
         self.interpret(ops, [0, 42, 12, 0, 13, 0, 0, 3333])
         assert self.getints(8) == [0, 1, 1, 0, 1, 0, 0, 1]
@@ -517,7 +520,8 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         i13 = int_eq(i5, i6)
         i14 = int_gt(i6, i2)
         i15 = int_ne(i2, i6)
-        finish(i10, i11, i12, i13, i14, i15)
+        guard_true(i0) [i10, i11, i12, i13, i14, i15]
+        finish()
         '''
         self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])
         assert self.getints(6) == [1, 1, 0, 0, 1, 1]
@@ -574,7 +578,9 @@ class TestRegallocFloats(BaseTestRegalloc):
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
-        finish(f2, f0, f1)
+        i0 = same_as(0)
+        guard_true(i0) [f2, f0, f1]
+        finish()
         '''
         self.interpret(ops, [3.0, 1.5])
         assert self.getfloats(3) == [4.5, 3.0, 1.5]
@@ -584,7 +590,9 @@ class TestRegallocFloats(BaseTestRegalloc):
         [f0, f1, f2, f3, f4, f5, f6, f7, f8]
         f9 = float_add(f0, f1)
         f10 = float_add(f8, 3.5)
-        finish(f9, f10, f2, f3, f4, f5, f6, f7, f8)
+        i0 = same_as(0)
+        guard_true(i0) [f9, f10, f2, f3, f4, f5, f6, f7, f8]
+        finish()
         '''
         self.interpret(ops, [0.1, .2, .3, .4, .5, .6, .7, .8, .9])
         assert self.getfloats(9) == [.1+.2, .9+3.5, .3, .4, .5, .6, .7, .8, .9]
@@ -613,7 +621,8 @@ class TestRegallocFloats(BaseTestRegalloc):
         i7 = float_ne(f7, 0.0)
         i8 = float_ne(f8, 0.0)
         i9 = float_ne(f9, 0.0)
-        finish(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9)
+        guard_true(i0) [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        finish()
         '''
         loop = self.interpret(ops, [0.0, .1, .2, .3, .4, .5, .6, .7, .8, .9])
         assert self.getints(9) == [0, 1, 1, 1, 1, 1, 1, 1, 1]
