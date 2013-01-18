@@ -6,7 +6,7 @@ from pypy.translator.stm.test import targetdemo2
 
 
 class TestNoGcSTMTranslated(NoGcCompiledSTMTests):
-    def test_targetdemo(self):
+    def test_nogc_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
         data, dataerr = cbuilder.cmdexec('4 100', err=True)
         assert 'check ok!' in data

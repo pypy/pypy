@@ -33,13 +33,13 @@
 #else
 /* x86 (32 bits and 64 bits) */
 static inline _Bool
-bool_cas(volatile revision_t *ptr, revision_t old, revision_t _new)
+bool_cas(volatile Unsigned *ptr, Unsigned old, Unsigned _new)
 {
-    revision_t prev;
+    Unsigned prev;
 #if defined(__amd64__)
-    assert(sizeof(revision_t) == 8);
+    assert(sizeof(Unsigned) == 8);
 #elif defined(__i386__)
-    assert(sizeof(revision_t) == 4);
+    assert(sizeof(Unsigned) == 4);
 #else
 #   error "the custom version of bool_cas() is only for x86 or x86-64"
 #endif
@@ -65,6 +65,13 @@ static inline void spinloop(void)
      relevant data from memory after the spinloop */
   CFENCE;
 }
+
+
+#define stm_lock_acquire(lock)                                          \
+     do { while (!bool_cas(&(lock), 0, 1)) spinloop(); } while (0)
+
+#define stm_lock_release(lock)                  \
+     (lock) = 0;
 
 
 #endif  /* _SRCSTM_ATOMIC_OPS_ */
