@@ -191,8 +191,8 @@ class TestNumArrayDirect(object):
         assert space.str_w(elems[1]) == "b"
 
     def test_from_shape_and_storage(self):
-        from pypy.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
-        from pypy.rpython.lltypesystem import rffi
+        from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
+        from rpython.rtyper.lltypesystem import rffi
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         storage = alloc_raw_storage(4, track_allocation=False, zero=True)
         for i in range(4):
