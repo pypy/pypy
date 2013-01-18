@@ -1,4 +1,4 @@
-rpython.tool.descriptor import InstanceMethod
+from rpython.tool.descriptor import InstanceMethod
 
 class X(object):
     def f(self, *args, **kwds):

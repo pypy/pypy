@@ -35,7 +35,7 @@ class TestIdentityDictNative:
         assert len(d) == 3
         assert d[a] == 4
 
-        raises(KeyError, d.__getitem__, [])
+        py.test.raises(KeyError, d.__getitem__, [])
 
     def test_keys(self):
         d = self.identity_dict()
