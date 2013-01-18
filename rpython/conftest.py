@@ -2,13 +2,6 @@ from os.path import *
 import py, pytest
 from rpython.tool import leakfinder
 
-# XXX
-# <ronny> Aquana, i just ensured that with the pypy conftest we get all skips,
-# i'll investigate differences in collection tommorow, for now, can you just
-# import the makemodule hook from pypy and add a comment that im responsible
-# for fixing?
-from pypy.conftest import pytest_pycollect_makemodule
-
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 cache_dir = realpath(join(dirname(__file__), '_cache'))
 option = None
@@ -38,15 +31,6 @@ def _set_platform(opt, opt_str, value, parser):
     set_platform(value, None)
 
 def pytest_addoption(parser):
-    # XXX
-    # <ronny> Aquana, i just ensured that with the pypy conftest we get all skips,
-    # i'll investigate differences in collection tommorow, for now, can you just
-    # import the makemodule hook from pypy and add a comment that im responsible
-    # for fixing?
-    from pypy.conftest import pytest_addoption
-    pytest_addoption(parser)
-    
-    
     group = parser.getgroup("rpython options")
     group.addoption('--view', action="store_true", dest="view", default=False,
            help="view translation tests' flow graphs with Pygame")
@@ -57,6 +41,17 @@ def pytest_addoption(parser):
     group.addoption('--viewloops', action="store_true",
            default=False, dest="viewloops",
            help="show only the compiled loops")
+
+
+def pytest_pycollect_makeitem(__multicall__,collector, name, obj):
+    res = __multicall__.execute()
+    # work around pytest issue 251
+    import inspect
+    if res is None and inspect.isclass(obj) and \
+            collector.classnamefilter(name):
+        return py.test.collect.Class(name, parent=collector)
+    return res
+
 
 def pytest_addhooks(pluginmanager):
     pluginmanager.register(LeakFinder())
