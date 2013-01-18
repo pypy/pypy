@@ -34,6 +34,9 @@ def pytest_configure(config):
     option = config.option
 
 def pytest_addoption(parser):
+    from rpython.conftest import pytest_addoption
+    pytest_addoption(parser)
+    
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
