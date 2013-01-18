@@ -425,9 +425,9 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(sys.float_info.radix, 2)
         self.assertEqual(len(sys.int_info), 2)
         if test.support.check_impl_detail(cpython=True):
-            self.assertTrue(sys.long_info.bits_per_digit % 5 == 0)
+            self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
         else:
-            self.assertTrue(sys.long_info.bits_per_digit >= 1)
+            self.assertTrue(sys.int_info.bits_per_digit >= 1)
         self.assertTrue(sys.int_info.sizeof_digit >= 1)
         self.assertEqual(type(sys.int_info.bits_per_digit), int)
         self.assertEqual(type(sys.int_info.sizeof_digit), int)
