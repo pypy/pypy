@@ -1615,6 +1615,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [20, 1, 21, 3, 4]).all() 
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
+    def test_weakref(self):
+        import _weakref
+        from numpypy import array
+        a = array([1, 2, 3])
+        assert _weakref.ref(a)
+        a = array(42)
+        assert _weakref.ref(a)
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
@@ -2385,3 +2393,14 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert y[0, 1] == 2
         y[0, 1] = 42
         assert x[1] == 42
+
+    def test___pypy_data__(self):
+        from _numpypy import array
+        x = array([1, 2, 3, 4])
+        x.__pypy_data__ is None
+        obj = object()
+        x.__pypy_data__ = obj
+        assert x.__pypy_data__ is obj
+        del x.__pypy_data__
+        assert x.__pypy_data__ is None
+    

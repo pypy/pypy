@@ -1,6 +1,6 @@
 
 from pypy.interpreter.error import operationerrfmt, OperationError
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException, issequence_w
@@ -397,6 +397,16 @@ class __extend__(W_NDimArray):
                                                        space.w_False]))
         return w_d
 
+    w_pypy_data = None
+    def fget___pypy_data__(self, space):
+        return self.w_pypy_data
+
+    def fset___pypy_data__(self, space, w_data):
+        self.w_pypy_data = w_data
+
+    def fdel___pypy_data__(self, space):
+        self.w_pypy_data = None
+
     # --------------------- operations ----------------------------
 
     def _unaryop_impl(ufunc_name):
@@ -674,8 +684,12 @@ W_NDimArray.typedef = TypeDef(
     imag = GetSetProperty(W_NDimArray.descr_get_imag,
                           W_NDimArray.descr_set_imag),
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
-   _from_shape_and_storage = interp2app(descr__from_shape_and_storage,
-                                        as_classmethod=True)
+    __weakref__ = make_weakref_descr(W_NDimArray),
+    _from_shape_and_storage = interp2app(descr__from_shape_and_storage,
+                                         as_classmethod=True),
+    __pypy_data__ = GetSetProperty(W_NDimArray.fget___pypy_data__,
+                                   W_NDimArray.fset___pypy_data__,
+                                   W_NDimArray.fdel___pypy_data__),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
