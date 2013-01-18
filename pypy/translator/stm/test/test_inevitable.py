@@ -42,13 +42,13 @@ class TestTransform:
 
     def test_unsupported_op(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
+        addr = llmemory.raw_malloc(llmemory.sizeof(X))
 
         def f1():
-            addr = llmemory.raw_malloc(llmemory.sizeof(X))
             llmemory.raw_free(addr)
 
         res = self.interpret_inevitable(f1, [])
-        assert res == 'raw_malloc'
+        assert res == 'raw_free'
 
     def test_raw_getfield(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -105,12 +105,24 @@ class TestTransform:
         res = self.interpret_inevitable(f1, [])
         assert res is None
 
-    def test_raw_malloc(self):
+    def test_raw_malloc_1(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
 
         def f1():
             p = lltype.malloc(X, flavor='raw')
             lltype.free(p, flavor='raw')
+
+        res = self.interpret_inevitable(f1, [])
+        assert res is None
+        assert 0, """we do not turn inevitable before
+        raw-mallocs which causes leaks on aborts"""
+
+    def test_raw_malloc_2(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+
+        def f1():
+            addr = llmemory.raw_malloc(llmemory.sizeof(X))
+            llmemory.raw_free(addr)
 
         res = self.interpret_inevitable(f1, [])
         assert res is None

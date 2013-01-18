@@ -71,6 +71,11 @@ def should_turn_inevitable(op, block, fresh_mallocs):
         # If the transaction is splitted, the remaining parts of the
         # CFG will always run in inevitable mode anyways.
         return not fresh_mallocs.is_fresh_malloc(op.args[0])
+    #
+    if op.opname == 'raw_malloc':
+        return False # XXX: Produces memory leaks on aborts
+    if op.opname == 'raw_free':
+        return not fresh_mallocs.is_fresh_malloc(op.args[0])
 
     #
     # Function calls

@@ -82,7 +82,7 @@ class FreshMallocs(object):
             for op in block.operations:
                 self.allvariables.add(op.result)
                 if (op.opname == 'malloc' or op.opname == 'malloc_varsize'
-                    or op.opname == 'new'):
+                    or op.opname == 'new' or op.opname == 'raw_malloc'):
                     continue
                 elif op.opname in ('cast_pointer', 'same_as'):
                     if self.is_fresh_malloc(op.args[0]):
