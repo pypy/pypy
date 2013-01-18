@@ -33,7 +33,7 @@ after an abort, keep old global_to_local and access it using special code
 
 ------------------------------------------------------------
 
-GC: major collections
+GC: major collections; call __del__()
 
 ------------------------------------------------------------
 
