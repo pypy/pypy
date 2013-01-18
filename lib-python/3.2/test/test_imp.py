@@ -216,6 +216,7 @@ class PEP3147Tests(unittest.TestCase):
             imp.cache_from_source('/foo/bar/baz/qux.py', True),
             '/foo/bar/baz/__pycache__/qux.{}.pyc'.format(self.tag))
 
+    @support.impl_detail("PyPy ignores the optimize flag", pypy=False)
     def test_cache_from_source_optimized(self):
         # Given the path to a .py file, return the path to its PEP 3147
         # defined .pyo file (i.e. under __pycache__).
@@ -228,6 +229,7 @@ class PEP3147Tests(unittest.TestCase):
                          os.sep.join(('__pycache__',
                                       'foo.{}.pyc'.format(self.tag))))
 
+    @support.impl_detail("PyPy ignores the optimize flag", pypy=False)
     def test_cache_from_source_override(self):
         # When debug_override is not None, it can be any true-ish or false-ish
         # value.
