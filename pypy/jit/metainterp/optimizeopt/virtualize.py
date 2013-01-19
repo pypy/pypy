@@ -77,8 +77,15 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         self._fields = {}
         self._cached_sorted_fields = None
 
-    def getfield(self, ofs, default):
-        return self._fields.get(ofs, default)
+    def getfield(self, ofs, optimizer):
+        assert optimizer
+        fieldvalue = self._fields.get(ofs, None)
+        if fieldvalue is None:
+            fieldvalue = optimizer.new_const(ofs)
+        return fieldvalue
+
+    def field_is_set(self, ofs):
+        return ofs in self._fields
 
     def setfield(self, ofs, fieldvalue):
         assert isinstance(fieldvalue, optimizer.OptValue)
@@ -442,16 +449,13 @@ class OptVirtualize(optimizer.Optimization):
         # If this is an immutable field (as indicated by op.is_always_pure())
         # then it's safe to reuse the virtual's field, even if it has been
         # forced, because it should never be written to again.
-        if value.is_forced_virtual() and op.is_always_pure():
-            fieldvalue = value.getfield(op.getdescr(), None)
-            if fieldvalue is not None:
-                self.make_equal_to(op.result, fieldvalue)
-                return
+        if value.is_forced_virtual() and op.is_always_pure() and value.field_is_set(op.getdescr()):
+            fieldvalue = value.getfield(op.getdescr(), self.optimizer)
+            self.make_equal_to(op.result, fieldvalue)
+            return
         if value.is_virtual():
             assert isinstance(value, AbstractVirtualValue)
-            fieldvalue = value.getfield(op.getdescr(), None)
-            if fieldvalue is None:
-                fieldvalue = self.optimizer.new_const(op.getdescr())
+            fieldvalue = value.getfield(op.getdescr(), self.optimizer)
             self.make_equal_to(op.result, fieldvalue)
         else:
             value.ensure_nonnull()

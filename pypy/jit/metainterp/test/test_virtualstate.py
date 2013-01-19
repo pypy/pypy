@@ -13,7 +13,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken
 from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_UNKNOWN, LEVEL_CONSTANT, Optimizer
+from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_UNKNOWN, LEVEL_CONSTANT, Optimizer, CVAL_ZERO
 import itertools
 
 class TestBasic:
@@ -1205,6 +1205,10 @@ class FakeGuardedGenerlaizationOptimizer(object):
 
     def make_equal_to(self, box, value, replace=False):
         self.values[box] = value
+
+    def new_const(self, descr):
+        assert isinstance(descr, FakeDescr)
+        return CVAL_ZERO
     
     optearlyforce = None
     opaque_pointers = {}

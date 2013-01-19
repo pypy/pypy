@@ -140,32 +140,32 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         while i < len(self.fielddescrs) and j < len(other.fielddescrs):
             if other.fielddescrs[j] is self.fielddescrs[i]:
                 new_field_value = self.fieldstate[i].make_guardable_generalization_of(other.fieldstate[j],
-                                                       value.getfield(self.fielddescrs[i], None), optimizer)
+                                                       value.getfield(self.fielddescrs[i], optimizer), optimizer)
                 if new_field_value:
                     value.setfield(self.fielddescrs[i], new_field_value)
                 i += 1
                 j += 1
             elif self.fielddescrs[i].sort_key() < other.fielddescrs[j].sort_key():
                 new_field_value = self.fieldstate[i].make_guardable_generalization_of_null(
-                                                       value.getfield(self.fielddescrs[i], None), optimizer)
+                                                       value.getfield(self.fielddescrs[i], optimizer), optimizer)
                 if new_field_value:
                     value.setfield(self.fielddescrs[i], new_field_value)
                 i += 1
             else:
                 new_field_value = other.fieldstate[j].make_guardable_generalization_of_null(
-                                                       value.getfield(other.fielddescrs[j], None), optimizer)
+                                                       value.getfield(other.fielddescrs[j], optimizer), optimizer)
                 if new_field_value:
                     value.setfield(other.fielddescrs[j], new_field_value)
                 j += 1
         while i < len(self.fielddescrs):
             new_field_value = self.fieldstate[i].make_guardable_generalization_of_null(
-                                                   value.getfield(self.fielddescrs[i], None), optimizer)
+                                                   value.getfield(self.fielddescrs[i], optimizer), optimizer)
             if new_field_value:
                 value.setfield(self.fielddescrs[i], new_field_value)
             i += 1
         while j < len(other.fielddescrs):
             new_field_value = other.fieldstate[j].make_guardable_generalization_of_null(
-                                                   value.getfield(other.fielddescrs[j], None), optimizer)
+                                                   value.getfield(other.fielddescrs[j], optimizer), optimizer)
             if new_field_value:
                 value.setfield(other.fielddescrs[j], new_field_value)
             j += 1
@@ -188,9 +188,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         if not value.is_virtual():
             raise BadVirtualState
         for i in range(len(self.fielddescrs)):
-            v = value.getfield(self.fielddescrs[i], None)
-            if v is None:
-                v = optimizer.new_const(self.fielddescrs[i])
+            v = value.getfield(self.fielddescrs[i], optimizer)
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer, doforce)
