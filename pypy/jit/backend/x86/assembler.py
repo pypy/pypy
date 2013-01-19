@@ -213,6 +213,8 @@ class Assembler386(object):
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDX
+        # clear the gc pattern
+        mc.MOV_bi(ofs, imm(0))
         mc.RET()
         #
         # If the slowpath malloc failed, we raise a MemoryError that
@@ -2182,7 +2184,7 @@ class Assembler386(object):
         else:
             vloc = imm(0)
         self._emit_call(imm(descr._x86_function_addr),
-                        [argloc, vloc], 0, tmp=eax)
+                        [argloc], 0, tmp=eax)
         if op.result is None:
             assert result_loc is None
             value = self.cpu.done_with_this_frame_descr_void
@@ -2202,7 +2204,7 @@ class Assembler386(object):
         value = rffi.cast(lltype.Signed, cast_instance_to_gcref(value))
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        self.mc.CMP_mi((eax.value, base_ofs + ofs), value)    
+        self.mc.CMP_mi((eax.value, base_ofs + ofs), value)
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
         je_location = self.mc.get_relative_pos()
@@ -2211,7 +2213,7 @@ class Assembler386(object):
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
         self._emit_call(imm(asm_helper_adr),
-                        [eax, imm0], 0, tmp=ecx)
+                        [eax, vloc], 0, tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
             self.mc.FSTPL_b(result_loc.value)
         #else: result_loc is already either eax or None, checked below
