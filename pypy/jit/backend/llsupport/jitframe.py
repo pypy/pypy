@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.debug import ll_assert
 
 STATICSIZE = 0 # patch from the assembler backend
 
@@ -116,7 +117,7 @@ def jitframe_trace(obj_addr, prev):
             return obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE * no
         state = 6
         no = 0
-    assert state == 6
+    ll_assert(state == 6, "invalid tracer state")
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
     gcmaplen = (gcmap + GCMAPLENGTHOFS).signed[0]
     if no >= gcmaplen:
