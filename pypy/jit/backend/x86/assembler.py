@@ -936,13 +936,17 @@ class Assembler386(object):
         # move a ConstFloatLoc directly to a StackLoc, as two MOVs
         # (even on x86-64, because the immediates are encoded as 32 bits)
         assert isinstance(from_loc, ConstFloatLoc)
-        assert isinstance(to_loc,   StackLoc)
         low_part  = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[0]
         high_part = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[1]
         low_part  = intmask(low_part)
         high_part = intmask(high_part)
-        self.mc.MOV32_bi(to_loc.value,     low_part)
-        self.mc.MOV32_bi(to_loc.value + 4, high_part)
+        if isinstance(to_loc, RawStackLoc):
+            self.mc.MOV32_bi(to_loc.value,     low_part)
+            self.mc.MOV32_bi(to_loc.value + 4, high_part)
+        else:
+            assert isinstance(to_loc, RawEspLoc)
+            self.mc.MOV32_si(to_loc.value,     low_part)
+            self.mc.MOV32_si(to_loc.value + 4, high_part)                
 
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.getopnum()](self, op, arglocs, resloc)
@@ -1196,6 +1200,11 @@ class Assembler386(object):
         # Load the singlefloat arguments from main regs or stack to xmm regs
         if singlefloats is not None:
             for src, dst in singlefloats:
+                if isinstance(dst, RawEspLoc) and isinstance(src, RawStackLoc):
+                    # XXX too much special logic
+                    self.mc.MOV32(X86_64_SCRATCH_REG, src)
+                    self.mc.MOV32(dst, X86_64_SCRATCH_REG)
+                    continue
                 if isinstance(src, ImmedLoc):
                     self.mc.MOV(X86_64_SCRATCH_REG, src)
                     src = X86_64_SCRATCH_REG
