@@ -1,0 +1,5 @@
+
+* 32bit x86
+* ARM
+* shadowstack + asmgcc
+* kill jit2gc on translator
