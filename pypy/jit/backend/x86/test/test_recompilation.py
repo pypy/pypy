@@ -16,11 +16,11 @@ class TestRecompilation(BaseTestRegalloc):
         ops = '''
         [i1]
         i3 = int_add(i1, 1)
-        finish(i3, descr=fdescr2)
+        finish(i3)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
         fail = self.run(loop, 0)
-        assert fail.identifier == 2
+        assert fail == bridge.operations[-1].getdescr()
         assert self.getint(0) == 21
     
     def test_compile_bridge_deeper(self):
