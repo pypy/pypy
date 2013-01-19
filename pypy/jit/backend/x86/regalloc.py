@@ -872,8 +872,6 @@ class RegAlloc(object):
         assert isinstance(descr, JitCellToken)
         self.rm._sync_var(op.getarg(0))
         frame_loc = self.fm.loc(op.getarg(0))
-        if vable_index >= 0:
-            xxx
         self._call(op, [frame_loc, self.loc(op.getarg(0))],
                    guard_not_forced_op=guard_op)
 
