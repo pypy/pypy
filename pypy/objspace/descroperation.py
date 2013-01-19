@@ -566,6 +566,7 @@ def _invoke_comparison(space, w_descr, w_obj1, w_obj2):
                 # test_class
                 if not e.match(space, space.w_AttributeError):
                     raise
+                return None
             else:
                 w_res = space.call_function(w_impl, w_obj2)
         if _check_notimplemented(space, w_res):
