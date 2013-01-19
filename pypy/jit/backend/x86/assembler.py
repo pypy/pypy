@@ -253,8 +253,8 @@ class Assembler386(object):
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
-        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
-            return      # no stack check (for tests, or non-translated)
+        #if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
+        return      # no stack check (for tests, or non-translated)
         xxx
         #
         # make a "function" that is called immediately at the start of
@@ -852,23 +852,23 @@ class Assembler386(object):
             self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
             self.mc.MOV_rm(eax.value, (r13.value, 0)) # MOV eax, [r13]
         #
-        MARKER = gcrootmap.MARKER_FRAME
-        self.mc.LEA_rm(ebx.value, (eax.value, 2*WORD)) # LEA ebx, [eax+2*WORD]
-        self.mc.MOV_mi((eax.value, WORD), MARKER)      # MOV [eax+WORD], MARKER
-        self.mc.MOV_mr((eax.value, 0), ebp.value)      # MOV [eax], ebp
-        #
-        if rx86.fits_in_32bits(rst):
-            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
+        if IS_X86_64:
+            self.mc.MOV_mr((eax.value, 0), edi.value)      # MOV [eax], edi
         else:
-            self.mc.MOV_mr((r13.value, 0), ebx.value) # MOV [r13], ebx
+            xxx
+        self.mc.ADD_ri(eax.value, WORD)
+        if rx86.fits_in_32bits(rst):
+            self.mc.MOV_jr(rst, eax.value)            # MOV [rootstacktop], eax
+        else:
+            self.mc.MOV_mr((r13.value, 0), eax.value) # MOV [r13], eax
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
-            self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
+            self.mc.SUB_ji8(rst, WORD)       # SUB [rootstacktop], WORD
         else:
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
-            self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
+            self.mc.SUB_mi8((ebx.value, 0), WORD)  # SUB [ebx], WORD
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking

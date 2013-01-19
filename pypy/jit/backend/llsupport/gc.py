@@ -241,6 +241,10 @@ class GcRootMap_shadowstack(object):
     def register_asm_addr(self, start, mark):
         pass
 
+    def get_root_stack_top_addr(self):
+        rst_addr = llop.gc_adr_of_root_stack_top(llmemory.Address)
+        return rffi.cast(lltype.Signed, rst_addr)
+
 class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
         self.llop1 = gc_ll_descr.llop1
