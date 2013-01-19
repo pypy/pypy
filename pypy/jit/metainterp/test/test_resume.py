@@ -103,13 +103,13 @@ class MyCPU:
         CONST_NULL = ConstPtr(gcrefnull)
     def __init__(self, values):
         self.values = values
-    def get_latest_value_int(self, deadframe, index):
+    def get_int_value(self, deadframe, index):
         assert deadframe == "deadframe"
         return self.values[index]
-    def get_latest_value_ref(self, deadframe, index):
+    def get_ref_value(self, deadframe, index):
         assert deadframe == "deadframe"
         return self.values[index]
-    def get_latest_value_float(self, deadframe, index):
+    def get_float_value(self, deadframe, index):
         assert deadframe == "deadframe"
         return self.values[index]
 
@@ -240,6 +240,7 @@ def test_prepare_virtuals():
         rd_numb = []
         rd_consts = []
         rd_pendingfields = None
+        rd_count = 0
     class FakeMetainterp(object):
         _already_allocated_resume_virtuals = None
         cpu = None
