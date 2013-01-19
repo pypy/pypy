@@ -1,4 +1,5 @@
 import py
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
@@ -108,7 +109,10 @@ class AbstractX86CPU(AbstractLLCPU):
     def make_execute_token(self, *ARGS):
         FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                              llmemory.GCREF))
-        #
+
+        lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
+        kinds = unrolling_iterable(lst)
+        
         def execute_token(executable_token, *args):
             clt = executable_token.compiled_loop_token
             assert len(args) == clt._debug_nbargs
@@ -124,16 +128,17 @@ class AbstractX86CPU(AbstractLLCPU):
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                # XXX RPythonize
                 num = JITFRAME_FIXED_SIZE * WORD
-                for arg in args:
-                    if isinstance(arg, int):
+                for i, kind in kinds:
+                    arg = args[i]
+                    if kind == history.INT:
                         self.set_int_value(frame, num, arg)
-                    elif isinstance(arg, float):
+                    elif kind == history.FLOAT:
                         self.set_float_value(frame, num, arg)
                         if IS_X86_32:
                             num += WORD
                     else:
+                        assert kind == history.REF
                         self.set_ref_value(frame, num, arg)
                     num += WORD
                 ll_frame = func(ll_frame)
