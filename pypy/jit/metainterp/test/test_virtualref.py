@@ -114,9 +114,8 @@ class VRefTests:
         # try reloading from blackhole.py's point of view
         from pypy.jit.metainterp.resume import ResumeDataDirectReader
         cpu = self.metainterp.cpu
-        cpu.get_latest_value_count = lambda df: len(guard_op.getfailargs())
-        cpu.get_latest_value_int = lambda df,i:guard_op.getfailargs()[i].getint()
-        cpu.get_latest_value_ref = lambda df,i:guard_op.getfailargs()[i].getref_base()
+        cpu.get_int_value = lambda df,i:guard_op.getfailargs()[i].getint()
+        cpu.get_ref_value = lambda df,i:guard_op.getfailargs()[i].getref_base()
         cpu.clear_latest_values = lambda count: None
         class FakeMetaInterpSd:
             callinfocollection = None
