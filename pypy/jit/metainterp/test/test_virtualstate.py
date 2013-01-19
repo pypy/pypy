@@ -1316,6 +1316,26 @@ class TestGuardedGenerlaization:
         self.setfield(o.node2, o.descr1, o.const_int0)
         self.combine([o.node2], [o.node1], [Virtual(o.node_class, {o.descr1: Unknown})])
 
+    def test_boxed_int_unassigned_zero1(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.combine([o.node1], [o.node1], [Virtual(o.node_class, {o.descr1: Const(1)})])
+
+    def test_boxed_int_unassigned_zero2(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.combine([o.node2], [o.node2], [Virtual(o.node_class, {})])
+
+    def test_boxed_int_unassigned_zero3(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.combine([o.node1], [o.node2], [Virtual(o.node_class, {o.descr1: Unknown})])
+
+    def test_boxed_int_unassigned_zero4(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.combine([o.node2], [o.node1], [Virtual(o.node_class, {o.descr1: Unknown})])
+
     def test_three_boxed_int_zero(self):
         o = self.optimizer
         for consts1 in itertools.permutations([o.const_int0, o.const_int1, o.const_int2]):
