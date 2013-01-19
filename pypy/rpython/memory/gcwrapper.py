@@ -25,12 +25,9 @@ class GCManagedHeap(object):
 
     def prepare_graphs(self, flowgraphs):
         lltype2vtable = self.llinterp.typer.lltype2vtable
-        # only valid for direct layout builder
-        self.gc.custom_trace_funcs = {}
         layoutbuilder = DirectRunLayoutBuilder(self.gc.__class__,
                                                lltype2vtable,
-                                               self.llinterp,
-                                               self.gc.custom_trace_funcs)
+                                               self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
         layoutbuilder.initialize_gc_query_function(self.gc)
 
@@ -203,10 +200,9 @@ class LLInterpRootWalker:
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
-    def __init__(self, GCClass, lltype2vtable, llinterp, custom_trace_funcs):
+    def __init__(self, GCClass, lltype2vtable, llinterp):
         self.llinterp = llinterp
         super(DirectRunLayoutBuilder, self).__init__(GCClass, lltype2vtable)
-        self.custom_trace_funcs = custom_trace_funcs
 
     def make_finalizer_funcptr_for_type(self, TYPE):
         from pypy.rpython.memory.gctransform.support import get_rtti
@@ -231,14 +227,11 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             return llmemory.NULL
         return llhelper(gctypelayout.GCData.FINALIZER_OR_CT, ll_finalizer), light
 
-    def record_custom_trace(self, tid, custom_trace_func):
-        self.custom_trace_funcs[tid] = custom_trace_func
-
-    def get_custom_trace_func(self, TYPE):
+    def make_custom_trace_funcptr_for_type(self, TYPE):
         from pypy.rpython.memory.gctransform.support import get_rtti
         rtti = get_rtti(TYPE)
-        if rtti is not None and hasattr(rtti._obj, 'custom_trace_func'):
-            return rtti._obj.custom_trace_func
+        if rtti is not None and hasattr(rtti._obj, 'custom_trace_funcptr'):
+            return rtti._obj.custom_trace_funcptr
         else:
             return None
 
