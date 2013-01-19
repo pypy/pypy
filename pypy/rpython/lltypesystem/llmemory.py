@@ -5,7 +5,7 @@
 # sizeof, offsetof
 
 import weakref
-from pypy.rlib.objectmodel import Symbolic
+from pypy.rlib.objectmodel import Symbolic, specialize
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
 from pypy.rlib.rarithmetic import is_valid_int
@@ -369,14 +369,15 @@ class GCHeaderAntiOffset(AddressOffset):
 
 # ____________________________________________________________
 
+@specialize.memo()
 def _sizeof_none(TYPE):
     assert not TYPE._is_varsize()
     return ItemOffset(TYPE)
 _sizeof_none._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def _internal_array_field(TYPE):
     return TYPE._arrayfld, TYPE._flds[TYPE._arrayfld]
-_internal_array_field._annspecialcase_ = 'specialize:memo'
 
 def _sizeof_int(TYPE, n):
     if isinstance(TYPE, lltype.Struct):
@@ -385,6 +386,7 @@ def _sizeof_int(TYPE, n):
     else:
         raise Exception("don't know how to take the size of a %r"%TYPE)
 
+@specialize.arg(0)
 def sizeof(TYPE, n=None):
     if n is None:
         return _sizeof_none(TYPE)
@@ -392,19 +394,23 @@ def sizeof(TYPE, n=None):
         return itemoffsetof(TYPE) + _sizeof_none(TYPE.OF) * n
     else:
         return _sizeof_int(TYPE, n)
-sizeof._annspecialcase_ = 'specialize:arg(0)'
 
+@specialize.memo()
 def offsetof(TYPE, fldname):
     assert fldname in TYPE._flds
     return FieldOffset(TYPE, fldname)
-offsetof._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def itemoffsetof(TYPE, n=0):
     result = ArrayItemsOffset(TYPE)
     if n != 0:
         result += ItemOffset(TYPE.OF) * n
     return result
-itemoffsetof._annspecialcase_ = 'specialize:memo'
+
+@specialize.memo()
+def arraylengthoffset(TYPE):
+    return ArrayLengthOffset(TYPE)
+
 # -------------------------------------------------------------
 
 class fakeaddress(object):

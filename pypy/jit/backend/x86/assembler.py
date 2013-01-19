@@ -78,7 +78,6 @@ class Assembler386(object):
         self.propagate_exception_path = 0
         self.gcrootmap_retaddr_forced = 0
         self.teardown()
-        self.counter = 0
 
     def set_debug(self, v):
         r = self._debug
@@ -479,8 +478,6 @@ class Assembler386(object):
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
-        clt.frame_info.counter = self.counter
-        self.counter += 1
         clt.allgcrefs = []
         clt.frame_info.jfi_frame_depth = 0 # for now
         looptoken.compiled_loop_token = clt

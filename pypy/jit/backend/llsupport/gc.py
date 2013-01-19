@@ -143,7 +143,6 @@ class GcLLDescr_boehm(GcLLDescription):
     kind                  = 'boehm'
     moving_gc             = False
     round_up              = False
-    gcrootmap             = None
     write_barrier_descr   = None
     fielddescr_tid        = None
     str_type_id           = 0
@@ -300,8 +299,9 @@ class GcLLDescr_framework(GcLLDescription):
         else:
             assert self.translate_support_code,"required with the framework GC"
             self._check_valid_gc()
-            self._make_gcrootmap()
             self._make_layoutbuilder()
+            self.gcrootfindername = self.gcdescr.config.translation.gcrootfinder
+            assert self.gcrootfindername in ['asmgcc', 'shadowstack']
             self._setup_gcclass()
             self._setup_tid()
         self._setup_write_barrier()
@@ -322,17 +322,6 @@ class GcLLDescr_framework(GcLLDescription):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (self.gcdescr.config.translation.gc,))
 
-    def _make_gcrootmap(self):
-        # to find roots in the assembler, make a GcRootMap
-        name = self.gcdescr.config.translation.gcrootfinder
-        try:
-            cls = globals()['GcRootMap_' + name]
-        except KeyError:
-            raise NotImplementedError("--gcrootfinder=%s not implemented"
-                                      " with the JIT" % (name,))
-        gcrootmap = cls(self.gcdescr)
-        self.gcrootmap = gcrootmap
-
     def _make_layoutbuilder(self):
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
@@ -340,8 +329,8 @@ class GcLLDescr_framework(GcLLDescription):
         translator = self.translator
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
+        # XXX this can probably die horrible death
         translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
-        self.gcrootmap.add_jit2gc_hooks(translator._jit2gc)
 
     def _setup_gcclass(self):
         from pypy.rpython.memory.gcheader import GCHeaderBuilder
@@ -492,7 +481,7 @@ class GcLLDescr_framework(GcLLDescription):
         return rffi.cast(lltype.Signed, nurs_top_addr)
 
     def initialize(self):
-        self.gcrootmap.initialize()
+        pass
 
     def init_size_descr(self, S, descr):
         if self.layoutbuilder is not None:
