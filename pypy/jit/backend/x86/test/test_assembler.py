@@ -1,14 +1,8 @@
 from pypy.jit.backend.x86.regloc import *
-from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.regalloc import X86FrameManager, get_ebp_ofs
-from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, ConstFloat
-from pypy.jit.metainterp.history import INT, REF, FLOAT
-from pypy.rlib.rarithmetic import intmask
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
+from pypy.jit.metainterp.history import ConstFloat
+from pypy.jit.metainterp.history import INT, FLOAT
+from pypy.rpython.lltypesystem import llmemory, rffi
 from pypy.jit.backend.detect_cpu import getcpuclass 
-from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86_64_RegisterManager, X86XMMRegisterManager, X86_64_XMMRegisterManager
-from pypy.jit.backend.llsupport import jitframe
 from pypy.jit.codewriter import longlong
 import ctypes
 import py
