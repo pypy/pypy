@@ -389,11 +389,11 @@ def test_random_mixed():
 
 def test_overflow_bug():
     CASE = [
-        (-144, -248),   # \ cycle
-        (-248, -144),   # /
-        (-488, -416),   # \ two usages of -488
-        (-488, -480),   # /
-        (-488, -488),   # - one self-application of -488
+        (144, 248),   # \ cycle
+        (248, 144),   # /
+        (488, 416),   # \ two usages of -488
+        (488, 480),   # /
+        (488, 488),   # - one self-application of -488
         ]
     class FakeAssembler:
         def regalloc_mov(self, src, dst):

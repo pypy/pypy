@@ -3,3 +3,4 @@
 * ARM
 * shadowstack + asmgcc
 * kill jit2gc on translator
+* fix test_singlefloats in test_calling_conventions
