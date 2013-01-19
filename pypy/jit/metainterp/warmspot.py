@@ -925,7 +925,6 @@ class WarmRunnerDesc(object):
         def assembler_call_helper(deadframe, virtualizableref):
             fail_descr = self.cpu.get_latest_descr(deadframe)
             if vinfo is not None:
-                xxx
                 virtualizable = lltype.cast_opaque_ptr(
                     vinfo.VTYPEPTR, virtualizableref)
                 vinfo.reset_vable_token(virtualizable)

@@ -870,9 +870,6 @@ class RegAlloc(object):
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        jd = descr.outermost_jitdriver_sd
-        # we attached a frame as a first arg, move index of virtualizable by one
-        vable_index = jd.index_of_virtualizable
         self.rm._sync_var(op.getarg(0))
         frame_loc = self.fm.loc(op.getarg(0))
         if vable_index >= 0:

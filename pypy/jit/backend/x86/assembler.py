@@ -2167,8 +2167,13 @@ class Assembler386(object):
         # Write a call to the target assembler
         # we need to allocate the frame, keep in sync with runner's
         # execute_token
+        jd = descr.outermost_jitdriver_sd
+        if jd.index_of_virtualizable >= 0:
+            vloc = stack(jd.index_of_virtualizable, REF)
+        else:
+            vloc = imm(0)
         self._emit_call(imm(descr._x86_function_addr),
-                        [argloc], 0, tmp=eax)
+                        [argloc, vloc], 0, tmp=eax)
         if op.result is None:
             assert result_loc is None
             value = self.cpu.done_with_this_frame_descr_void
@@ -2194,7 +2199,6 @@ class Assembler386(object):
         je_location = self.mc.get_relative_pos()
         #
         # Path A: use assembler_helper_adr
-        jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
         self._emit_call(imm(asm_helper_adr),
@@ -2212,13 +2216,13 @@ class Assembler386(object):
         #
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
-            xxx
             from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
-            ofs = fielddescr.offset
-            self.mc.MOV(edx, arglocs[1])
-            self.mc.MOV_mi((edx.value, ofs), 0)
+            vtoken_ofs = fielddescr.offset
+            vable_ofs = (jd.index_of_virtualizable + JITFRAME_FIXED_SIZE) * WORD
+            self.mc.MOV_rb(edx.value, vable_ofs)
+            self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
             # in the line above, TOKEN_NONE = 0
         #
         if op.result is not None:
@@ -2428,6 +2432,9 @@ def mem(loc, offset):
 
 def raw_stack(offset, type=INT):
     return RawStackLoc(offset, type)
+
+def stack(index, type):
+    return StackLoc(index, get_ebp_ofs(index), type)
 
 def heap(addr):
     return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
