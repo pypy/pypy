@@ -1,6 +1,5 @@
 import py
 from pypy.jit.metainterp.test import support
-from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rsre.test.test_match import get_code
 from pypy.rlib.rsre import rsre_core
 from pypy.rpython.lltypesystem import lltype
