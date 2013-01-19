@@ -13,10 +13,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
 from pypy.jit.tool.oparser import parse
-from pypy.tool.udir import udir
 import ctypes
-import sys
-import os
 
 CPU = getcpuclass()
 
@@ -33,9 +30,9 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['mov', 'movabs', 'mov', 'movabs',
+    add_loop_instructions = ['mov', 'mov', 'mov', 'mov',
                              'mov', 'add', 'test', 'je', 'jmp']
-    bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call',
+    bridge_loop_instructions = ['cmp', 'jge', 'mov', 'call',
                                 'mov', 'jmp']
 
     def setup_method(self, meth):

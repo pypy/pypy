@@ -815,7 +815,6 @@ class Assembler386(object):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
-            xxx
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
             self.mc.SUB(eax, esp)                       # SUB eax, current

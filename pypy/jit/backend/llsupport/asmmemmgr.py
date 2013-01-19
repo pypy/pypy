@@ -303,7 +303,7 @@ class BlockBuilderMixin(object):
         if self.gcroot_markers is not None:
             assert gcrootmap is not None
             for pos, mark in self.gcroot_markers:
-                gcrootmap.put(rawstart + pos, mark)
+                gcrootmap.register_asm_addr(rawstart + pos, mark)
         return rawstart
 
     def _become_a_plain_block_builder(self):

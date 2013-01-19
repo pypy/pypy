@@ -70,12 +70,13 @@ class GcLLDescription(GcCache):
         return False
     def has_write_barrier_class(self):
         return None
-    def freeing_block(self, start, stop):
-        pass
     def get_nursery_free_addr(self):
         raise NotImplementedError
     def get_nursery_top_addr(self):
         raise NotImplementedError
+
+    def freeing_block(self, rawstart, rawstop):
+        pass
 
     def gc_malloc(self, sizedescr):
         """Blackhole: do a 'bh_new'.  Also used for 'bh_new_with_vtable',
@@ -145,6 +146,7 @@ class GcLLDescr_boehm(GcLLDescription):
     round_up              = False
     write_barrier_descr   = None
     fielddescr_tid        = None
+    gcrootmap             = None
     str_type_id           = 0
     unicode_type_id       = 0
     get_malloc_slowpath_addr = None
@@ -224,10 +226,20 @@ class GcLLDescr_boehm(GcLLDescription):
                                  arraydescr.itemsize,
                                  arraydescr.lendescr.offset)
 
-
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC
 
+class GcRootMap_asmgcc(object):
+    is_shadow_stack = False
+
+    def register_asm_addr(self, start, mark):
+        pass
+
+class GcRootMap_shadowstack(object):
+    is_shadow_stack = True
+
+    def register_asm_addr(self, start, mark):
+        pass
 
 class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
@@ -300,13 +312,23 @@ class GcLLDescr_framework(GcLLDescription):
             assert self.translate_support_code,"required with the framework GC"
             self._check_valid_gc()
             self._make_layoutbuilder()
-            self.gcrootfindername = self.gcdescr.config.translation.gcrootfinder
-            assert self.gcrootfindername in ['asmgcc', 'shadowstack']
+            self._make_gcrootmap()
             self._setup_gcclass()
             self._setup_tid()
         self._setup_write_barrier()
         self._setup_str()
         self._make_functions(really_not_translated)
+
+    def _make_gcrootmap(self):
+        # to find roots in the assembler, make a GcRootMap
+        name = self.gcdescr.config.translation.gcrootfinder
+        try:
+            cls = globals()['GcRootMap_' + name]
+        except KeyError:
+            raise NotImplementedError("--gcrootfinder=%s not implemented"
+                                      " with the JIT" % (name,))
+        gcrootmap = cls(self.gcdescr)
+        self.gcrootmap = gcrootmap
 
     def _initialize_for_tests(self):
         self.layoutbuilder = None
@@ -481,7 +503,7 @@ class GcLLDescr_framework(GcLLDescription):
         return rffi.cast(lltype.Signed, nurs_top_addr)
 
     def initialize(self):
-        pass
+        self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
         if self.layoutbuilder is not None:
@@ -517,9 +539,6 @@ class GcLLDescr_framework(GcLLDescription):
 
     def has_write_barrier_class(self):
         return WriteBarrierDescr
-
-    def freeing_block(self, start, stop):
-        self.gcrootmap.freeing_block(start, stop)
 
     def get_malloc_slowpath_addr(self):
         return self.get_malloc_fn_addr('malloc_nursery')
