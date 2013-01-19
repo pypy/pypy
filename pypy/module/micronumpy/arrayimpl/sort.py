@@ -6,8 +6,8 @@ because it only makes sense on a concrete array
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem
-
+from pypy.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
+        free_raw_storage, alloc_raw_storage
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy import interp_dtype, types
@@ -29,7 +29,6 @@ def make_sort_classes(space, itemtype):
             self.size = size
             self.values = values
             self.indexes = indexes
-            self.start = start
 
         def getitem(self, item):
             v = raw_storage_getitem(TP, self.values, item * self.stride_size
@@ -44,6 +43,18 @@ def make_sort_classes(space, itemtype):
                                 self.start, rffi.cast(TP, item[0]))
             raw_storage_setitem(self.indexes, idx * self.index_stride_size +
                                 self.index_start, item[1])
+    class ArgArrayRepWithStorage(ArgArrayRepresentation):
+        def __init__(self, index_stride_size, stride_size, size):
+            start = 0
+            dtype = interp_dtype.get_dtype_cache(space).w_longdtype
+            self.indexes = dtype.itemtype.malloc(size*dtype.get_size())
+            self.values = alloc_raw_storage(size*rffi.sizeof(TP), track_allocation=False)
+            ArgArrayRepresentation.__init__(self, index_stride_size, stride_size, 
+                    size, self.values, self.indexes, start, start)
+
+        def __del__(self):
+            free_raw_storage(self.indexes, track_allocation=False)
+            free_raw_storage(self.values, track_allocation=False)
 
     def arg_getitem(lst, item):
         return lst.getitem(item)
@@ -55,7 +66,11 @@ def make_sort_classes(space, itemtype):
         return lst.size
 
     def arg_getitem_slice(lst, start, stop):
-        xxx
+        retval = ArgArrayRepWithStorage(lst.index_stride_size, lst.stride_size,
+                stop-start)
+        for i in range(stop-start):
+            retval.setitem(i, lst.getitem(i+start))
+        return retval
 
     def arg_lt(a, b):
         return a[0] < b[0]

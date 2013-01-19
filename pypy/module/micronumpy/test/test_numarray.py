@@ -2344,7 +2344,10 @@ class AppTestSupport(BaseNumpyAppTest):
         from _numpypy import array
         a = array([[4, 2], [1, 3]])
         assert (a.argsort() == [[1, 0], [0, 1]]).all()
-        #trigger timsort run mode
+        a = array(range(10) + range(10) + range(10))
+        b = a.argsort()
+        assert (b[:3] == [0, 10, 20]).all()
+        #trigger timsort 'run' mode which calls arg_getitem_slice
         a = array(range(100) + range(100) + range(100))
         b = a.argsort()
         assert (b[:3] == [0, 100, 200]).all()
