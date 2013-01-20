@@ -1,9 +1,10 @@
 import os
-from py.path import local
 
 from rpython.tool.udir import udir
 from rpython.translator.c.test.test_genc import compile
-from rpython.rtyper.module import ll_os #has side effect of registering functions
+from rpython.rtyper.module import ll_os
+#has side effect of registering functions
+from rpython.tool.pytest.expecttest import ExpectTest
 
 from rpython.rtyper import extregistry
 import errno
@@ -11,7 +12,6 @@ import sys
 import py
 
 def getllimpl(fn):
-    from rpython.rtyper.module import ll_os
     return extregistry.lookup(fn).lltypeimpl
 
 def test_access():
@@ -276,25 +276,27 @@ def test_isatty():
     assert f(-1)  == False
 
 
-class ExpectTestOs:
+class TestOsExpect(ExpectTest):
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):
             py.test.skip("no ttyname")
     
     def test_ttyname(self):
-        import os
-        import py
-        from rpython.rtyper.test.test_llinterp import interpret
+        def f():
+            import os
+            import py
+            from rpython.rtyper.test.test_llinterp import interpret
 
-        def ll_to_string(s):
-            return ''.join(s.chars)
-        
-        def f(num):
-            try:
-                return os.ttyname(num)
-            except OSError:
-                return ''
+            def ll_to_string(s):
+                return ''.join(s.chars)
 
-        assert ll_to_string(interpret(f, [0])) == f(0)
-        assert ll_to_string(interpret(f, [338])) == ''
+            def f(num):
+                try:
+                    return os.ttyname(num)
+                except OSError:
+                    return ''
 
+            assert ll_to_string(interpret(f, [0])) == f(0)
+            assert ll_to_string(interpret(f, [338])) == ''
+
+        self.run_test(f)

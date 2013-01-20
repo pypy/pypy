@@ -1,5 +1,6 @@
 import py, re, sys
 from rpython.tool.udir import udir
+from rpython.tool.pytest.expecttest import ExpectTest
 # tests here are run as snippets through a pexpected python subprocess
 
 def setup_module(mod):
@@ -88,15 +89,17 @@ class TestLLTermios(object):
         fn = compile(runs_tcall, [], backendopt=False)
         self.run(fn, "ok")
 
-class ExpectTestTermios(object):
+class TestTermios(ExpectTest):
     def test_tcsetattr_icanon(self):
-        from rpython.rlib import rtermios
-        import termios
-        def check(fd, when, attributes):
-            count = len([i for i in attributes[-1] if isinstance(i, int)])
-            assert count == 2
-        termios.tcsetattr = check
-        attr = list(rtermios.tcgetattr(2))
-        attr[3] |= termios.ICANON
-        rtermios.tcsetattr(2, termios.TCSANOW, attr)
+        def f():
+            from rpython.rlib import rtermios
+            import termios
+            def check(fd, when, attributes):
+                count = len([i for i in attributes[-1] if isinstance(i, int)])
+                assert count == 2
+            termios.tcsetattr = check
+            attr = list(rtermios.tcgetattr(2))
+            attr[3] |= termios.ICANON
+            rtermios.tcsetattr(2, termios.TCSANOW, attr)
+        self.run_test(f)
 

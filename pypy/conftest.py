@@ -101,11 +101,6 @@ class PyPyModule(py.test.collect.Module):
             return self.accept_regular_test()
         if name.startswith('AppTest'):
             return True
-        if name.startswith('ExpectTest'):
-            return True
-        #XXX todo
-        #if name.startswith('AppExpectTest'):
-        #    return True
         return False
 
     def makeitem(self, name, obj):
