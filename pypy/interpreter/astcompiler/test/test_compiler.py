@@ -782,6 +782,17 @@ class TestCompiler:
         source = "for x in y: pass\n" * 1000
         compile_with_astcompiler(source, 'exec', self.space)
 
+    def test_assign_to_empty_list_1(self):
+        source = """if 1:
+        for i in range(5):
+            del []
+            [] = ()
+            [] = []
+            [] = [] = []
+        ok = 1
+        """
+        self.simple_test(source, 'ok', 1)
+
 
 class AppTestCompiler:
 
