@@ -1674,6 +1674,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         s3 = [s1[1], s1[0],s1[3], s1[2], s1[5], s1[4]]
         assert s3 == s2
 
+        a = array([1, -1, 10000], dtype='longfloat')
+        s1 = map(ord,a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        n = a.dtype.itemsize
+        assert s1[n-1] == s2[0]
+
     def test_clip(self):
         from _numpypy import array
         a = array([1, 2, 17, -3, 12])
