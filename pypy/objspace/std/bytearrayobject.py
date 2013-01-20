@@ -20,12 +20,12 @@ from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.signature import Signature
 from pypy.objspace.std.bytearraytype import (
     makebytearraydata_w, getbytevalue,
     new_bytearray
 )
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rtyper.signature import Signature
 
 
 class W_BytearrayObject(W_Object):

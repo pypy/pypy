@@ -8,11 +8,11 @@ from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
+from pypy.interpreter.signature import Signature
 from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
                                    resizelist_hint)
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib import rerased, jit, debug
-from rpython.rtyper.signature import Signature
 from rpython.tool.sourcetools import func_with_new_name
 
 UNROLL_CUTOFF = 5
