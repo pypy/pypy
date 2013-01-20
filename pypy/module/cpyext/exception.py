@@ -2,7 +2,7 @@
 
 from pypy.module.cpyext.api import cpython_api
 from pypy.module.cpyext.pyobject import PyObject, from_ref, Py_DecRef
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 
 @cpython_api([PyObject], PyObject)

@@ -32,7 +32,7 @@ libraries and sources by passing in the optional ``compilation_info``
 parameter::
 
   from pypy.rpython.lltypesystem import rffi
-  from pypy.translator.tool.cbuild import ExternalCompilationInfo
+  from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
   info = ExternalCompilationInfo(includes=[], libraries=[])
 

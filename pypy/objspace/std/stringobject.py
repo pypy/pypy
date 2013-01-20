@@ -3,9 +3,9 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.objectmodel import we_are_translated, compute_hash, specialize
-from pypy.rlib.objectmodel import compute_unique_id
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import we_are_translated, compute_hash, specialize
+from rpython.rlib.objectmodel import compute_unique_id
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
@@ -13,9 +13,9 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder, split
+from rpython.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
-from pypy.rlib import jit
+from rpython.rlib import jit
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
@@ -342,7 +342,7 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     return space.newlist(res_w)
 
 def make_rsplit_with_delim(funcname, sliced):
-    from pypy.tool.sourcetools import func_with_new_name
+    from rpython.tool.sourcetools import func_with_new_name
 
     if 'Unicode' in funcname:
         def unwrap_sep(space, w_by):

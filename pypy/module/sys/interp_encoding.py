@@ -1,6 +1,6 @@
 import sys
-from pypy.rlib import rlocale
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import rlocale
+from rpython.rlib.objectmodel import we_are_translated
 
 def getdefaultencoding(space):
     """Return the current default string encoding used by the Unicode 

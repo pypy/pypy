@@ -3,10 +3,10 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.objectmodel import keepalive_until_here
 
-from pypy.rlib import rzlib
+from rpython.rlib import rzlib
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')

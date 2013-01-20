@@ -1,4 +1,4 @@
-from pypy.tool.sourcetools import with_unicode_literals
+from rpython.tool.sourcetools import with_unicode_literals
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all

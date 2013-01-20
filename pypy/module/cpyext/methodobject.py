@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import (
     BuiltinFunction, Method, StaticMethod, ClassMethod)
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pyobject import (PyObject, from_ref, make_ref,
                                          make_typedescr, Py_DecRef)
 from pypy.module.cpyext.api import (
@@ -14,7 +14,7 @@ from pypy.module.cpyext.api import (
     METH_O, CONST_STRING, METH_CLASS, METH_STATIC, METH_COEXIST, METH_NOARGS,
     METH_VARARGS, build_type_checkers, PyObjectFields, bootstrap_function)
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 
 PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))

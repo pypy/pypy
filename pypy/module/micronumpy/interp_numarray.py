@@ -1,6 +1,6 @@
 
 from pypy.interpreter.error import operationerrfmt, OperationError
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException, issequence_w
@@ -13,9 +13,9 @@ from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
 from pypy.module.micronumpy.interp_arrayops import repeat
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import jit
-from pypy.rlib.rstring import StringBuilder
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib import jit
+from rpython.rlib.rstring import StringBuilder
 
 def _find_shape(space, w_size):
     if space.is_none(w_size):
@@ -397,6 +397,15 @@ class __extend__(W_NDimArray):
                                                        space.w_False]))
         return w_d
 
+    w_pypy_data = None
+    def fget___pypy_data__(self, space):
+        return self.w_pypy_data
+
+    def fset___pypy_data__(self, space, w_data):
+        self.w_pypy_data = w_data
+
+    def fdel___pypy_data__(self, space):
+        self.w_pypy_data = None
 
     # --------------------- operations ----------------------------
 
@@ -565,6 +574,20 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.new_scalar(space, dtype)
     return W_NDimArray.from_shape(shape, dtype)
 
+@unwrap_spec(addr=int)
+def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype):
+    """
+    Create an array from an existing buffer, given its address as int.
+    PyPy-only implementation detail.
+    """
+    from rpython.rtyper.lltypesystem import rffi
+    from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+    shape = _find_shape(space, w_shape)
+    storage = rffi.cast(RAW_STORAGE_PTR, addr)
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+                           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    return W_NDimArray.from_shape_and_storage(shape, storage, dtype)
+
 W_NDimArray.typedef = TypeDef(
     "ndarray",
     __new__ = interp2app(descr_new_array),
@@ -661,6 +684,12 @@ W_NDimArray.typedef = TypeDef(
     imag = GetSetProperty(W_NDimArray.descr_get_imag,
                           W_NDimArray.descr_set_imag),
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
+    __weakref__ = make_weakref_descr(W_NDimArray),
+    _from_shape_and_storage = interp2app(descr__from_shape_and_storage,
+                                         as_classmethod=True),
+    __pypy_data__ = GetSetProperty(W_NDimArray.fget___pypy_data__,
+                                   W_NDimArray.fset___pypy_data__,
+                                   W_NDimArray.fdel___pypy_data__),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)

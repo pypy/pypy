@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import (generic_cpy_call, cpython_api, PyObject,
     CANNOT_FAIL)
 import pypy.module.__builtin__.operation as operation
-from pypy.rpython.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi
 
 
 @cpython_api([PyObject, PyObject], PyObject)

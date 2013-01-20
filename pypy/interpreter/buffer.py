@@ -19,8 +19,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import compute_hash
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.rstring import StringBuilder
 
 
 class Buffer(Wrappable):
@@ -155,7 +155,7 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     if space.isinstance_w(w_object, space.w_unicode):
         # unicode objects support the old buffer interface
         # but not the new buffer interface (change in python  2.7)
-        from pypy.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
+        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
         unistr = space.unicode_w(w_object)
         builder = StringBuilder(len(unistr) * UNICODE_SIZE)
         for unich in unistr:

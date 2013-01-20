@@ -1,8 +1,7 @@
 import math
 import sys
 
-from pypy.rlib import rfloat, unroll
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import rfloat, unroll
 from pypy.interpreter.error import OperationError
 
 class State:

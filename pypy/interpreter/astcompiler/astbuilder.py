@@ -4,7 +4,7 @@ from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import parsestring
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
 
 
 def ast_from_node(space, node, compile_info):

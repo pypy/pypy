@@ -5,7 +5,7 @@ Interp-level implementation of the basic space operations.
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.rlib.runicode import UNICHR
+from rpython.rlib.runicode import UNICHR
 import __builtin__
 
 def abs(space, w_val):

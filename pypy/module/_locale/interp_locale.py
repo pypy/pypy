@@ -1,12 +1,12 @@
-from pypy.rlib import rposix
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib import rposix
+from rpython.rlib.rarithmetic import intmask
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 
-from pypy.rlib import rlocale
+from rpython.rlib import rlocale
 from pypy.module.exceptions.interp_exceptions import _new_exception, W_Exception
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 W_Error = _new_exception('Error', W_Exception, 'locale error')
 

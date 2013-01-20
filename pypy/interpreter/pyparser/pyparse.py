@@ -2,7 +2,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
-from pypy.rlib import rstring
+from rpython.rlib import rstring
 
 
 def recode_to_utf8(space, bytes, encoding=None):

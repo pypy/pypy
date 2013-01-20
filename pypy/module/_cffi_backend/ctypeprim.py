@@ -3,10 +3,10 @@ Primitives.
 """
 
 from pypy.interpreter.error import operationerrfmt
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, intmask
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib import jit
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib import jit
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, misc

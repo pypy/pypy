@@ -2,7 +2,7 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stringobject import W_AbstractStringObject
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import Buffer
 
 class W_StringBufferObject(W_AbstractStringObject):

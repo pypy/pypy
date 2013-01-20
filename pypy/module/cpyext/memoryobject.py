@@ -1,7 +1,7 @@
 from pypy.module.cpyext.api import cpython_api, Py_buffer
 from pypy.module.cpyext.pyobject import PyObject, from_ref
 from pypy.module.cpyext.buffer import CBuffer
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 
 @cpython_api([PyObject], PyObject)

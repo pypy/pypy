@@ -2,11 +2,11 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.tool.sourcetools import with_unicode_literals
-from pypy.rlib.objectmodel import enforceargs
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.rfloat import rstring_to_float, INFINITY, NAN
-from pypy.rlib.rbigint import rbigint, parse_digit_string
+from rpython.tool.sourcetools import with_unicode_literals
+from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rfloat import rstring_to_float, INFINITY, NAN
+from rpython.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math
 

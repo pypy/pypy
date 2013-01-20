@@ -1,6 +1,6 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rpython.module.ll_os import RegisterOs
+from rpython.rtyper.module.ll_os import RegisterOs
 
 import os, sys
 exec 'import %s as posix' % os.name

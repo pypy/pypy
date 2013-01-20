@@ -1,15 +1,15 @@
 from __future__ import with_statement
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.platform import platform as compiler
-from pypy.rlib.rarithmetic import intmask, r_longlong
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import platform as compiler
+from rpython.rlib.rarithmetic import intmask, r_longlong
 import sys
 
 

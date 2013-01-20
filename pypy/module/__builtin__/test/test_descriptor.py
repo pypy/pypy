@@ -1,6 +1,3 @@
-import autopath
-
-
 class AppTestBuiltinApp:
     def test_staticmethod(self):
         class C(object):

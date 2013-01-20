@@ -1,16 +1,16 @@
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.rlib.objectmodel import specialize, we_are_translated
-from pypy.rlib.rweakref import RWeakKeyDictionary
-from pypy.rpython.annlowlevel import llhelper
+from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.rweakref import RWeakKeyDictionary
+from rpython.rtyper.annlowlevel import llhelper
 
 #________________________________________________________
 # type description

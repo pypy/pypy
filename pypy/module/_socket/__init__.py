@@ -17,11 +17,11 @@ class Module(MixedModule):
     }
 
     def startup(self, space):
-        from pypy.rlib.rsocket import rsocket_startup
+        from rpython.rlib.rsocket import rsocket_startup
         rsocket_startup()
 
     def buildloaders(cls):
-        from pypy.rlib import rsocket
+        from rpython.rlib import rsocket
         for name in """
             gethostbyname gethostbyname_ex gethostbyaddr gethostname
             getservbyname getservbyport getprotobyname

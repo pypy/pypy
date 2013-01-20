@@ -1,7 +1,7 @@
 import os, sys
 import itertools
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
 from errno import EINTR
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
@@ -330,14 +330,14 @@ def decompose_valuefmt(valuefmt):
     return tuple(parts), tuple(formats)
 
 def get_operrcls2(valuefmt):
-    from pypy.rlib.runicode import str_decode_utf_8
+    from rpython.rlib.runicode import str_decode_utf_8
     valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
     assert len(strings) == len(formats) + 1
     try:
         OpErrFmt = _fmtcache2[formats]
     except KeyError:
-        from pypy.rlib.unroll import unrolling_iterable
+        from rpython.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
         entries = unrolling_iterable(zip(itertools.count(), formats, attrs))
         #
@@ -391,7 +391,7 @@ operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
 # ____________________________________________________________
 
 # Utilities
-from pypy.tool.ansi_print import ansi_print
+from rpython.tool.ansi_print import ansi_print
 
 def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
@@ -405,7 +405,7 @@ else:
     _WINDOWS = True
 
     def wrap_windowserror(space, e, w_filename=None):
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
 
         winerror = e.winerror
         try:
@@ -463,7 +463,7 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
 def exception_from_errno(space, w_type):
-    from pypy.rlib.rposix import get_errno
+    from rpython.rlib.rposix import get_errno
 
     errno = get_errno()
     msg = os.strerror(errno)

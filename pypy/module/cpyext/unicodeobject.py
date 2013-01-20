@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.lltypesystem import llmemory
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import llmemory
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
@@ -14,8 +14,8 @@ from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.module.posix.interp_posix import fsencode, fsdecode
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
-from pypy.rlib import runicode, rstring
-from pypy.tool.sourcetools import func_renamer
+from rpython.rlib import runicode, rstring
+from rpython.tool.sourcetools import func_renamer
 import sys
 
 ## See comment in bytesobject.py.

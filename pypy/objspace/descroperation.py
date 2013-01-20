@@ -4,8 +4,8 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
-from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rlib.objectmodel import specialize
+from rpython.tool.sourcetools import compile2, func_with_new_name
+from rpython.rlib.objectmodel import specialize
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."

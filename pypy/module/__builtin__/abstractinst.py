@@ -7,7 +7,7 @@ issubclass() follow and trust these attributes is they are present, in
 addition to checking for instances and subtypes in the normal way.
 """
 
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace as BaseObjSpace
 

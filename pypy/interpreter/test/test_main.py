@@ -2,7 +2,7 @@
 from cStringIO import StringIO
 
 import py
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.interpreter.baseobjspace import OperationError
 from pypy.interpreter import main
 

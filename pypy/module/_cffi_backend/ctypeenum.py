@@ -3,9 +3,9 @@ Enums.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.rarithmetic import intmask, r_ulonglong
-from pypy.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rarithmetic import intmask, r_ulonglong
+from rpython.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend import misc

@@ -1,6 +1,6 @@
 import gc
 from pypy.interpreter import typedef
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import ObjSpace, interp2app
 

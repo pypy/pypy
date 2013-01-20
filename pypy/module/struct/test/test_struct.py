@@ -3,7 +3,7 @@ Tests for the struct module implemented at interp-level in pypy/module/struct.
 """
 
 import py
-from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
+from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
 class AppTestStruct(object):

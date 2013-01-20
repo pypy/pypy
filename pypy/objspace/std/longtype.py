@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import (applevel, interp2app, unwrap_spec,
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
-from pypy.rlib.rbigint import rbigint, InvalidEndiannessError, InvalidSignednessError
+from rpython.rlib.rbigint import rbigint, InvalidEndiannessError, InvalidSignednessError
 
 def descr_conjugate(space, w_int):
     return space.int(w_int)

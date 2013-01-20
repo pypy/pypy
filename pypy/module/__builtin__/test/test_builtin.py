@@ -1,5 +1,4 @@
 # coding: utf-8
-import autopath
 import sys
 
 class AppTestBuiltinApp:
@@ -777,3 +776,47 @@ class AppTestGetattr:
 
 class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
     spaceconfig = {"objspace.std.getattributeshortcut": True}
+
+
+class TestInternal:
+    def test_execfile(self, space):
+        from rpython.tool.udir import udir
+        fn = str(udir.join('test_execfile'))
+        f = open(fn, 'w')
+        print >>f, "i=42"
+        f.close()
+
+        w_execfile = space.builtin.get("execfile")
+        w_dict = space.newdict()
+        space.call_function(w_execfile,
+            space.wrap(fn), w_dict, space.w_None)
+        w_value = space.getitem(w_dict, space.wrap('i'))
+        assert space.eq_w(w_value, space.wrap(42))
+
+    def test_execfile_different_lineendings(self, space): 
+        from rpython.tool.udir import udir
+        d = udir.ensure('lineending', dir=1)
+        dos = d.join('dos.py') 
+        f = dos.open('wb') 
+        f.write("x=3\r\n\r\ny=4\r\n")
+        f.close() 
+        space.appexec([space.wrap(str(dos))], """
+            (filename): 
+                d = {}
+                execfile(filename, d)
+                assert d['x'] == 3
+                assert d['y'] == 4
+        """)
+
+        unix = d.join('unix.py')
+        f = unix.open('wb') 
+        f.write("x=5\n\ny=6\n")
+        f.close() 
+
+        space.appexec([space.wrap(str(unix))], """
+            (filename): 
+                d = {}
+                execfile(filename, d)
+                assert d['x'] == 5
+                assert d['y'] == 6
+        """)

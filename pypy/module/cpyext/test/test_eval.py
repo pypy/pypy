@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
@@ -6,7 +6,7 @@ from pypy.module.cpyext.eval import (
 from pypy.module.cpyext.api import fopen, fclose, fileno, Py_ssize_tP
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.astcompiler import consts
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import sys, os
 
 class TestEval(BaseApiTest):

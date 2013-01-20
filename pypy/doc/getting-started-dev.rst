@@ -256,7 +256,7 @@ Interpreter-level console
 
 If you start an untranslated Python interpreter via::
 
-    python pypy/bin/py.py
+    python pypy/bin/pyinteractive.py
 
 If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a

@@ -1,19 +1,19 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from pypy.interpreter import eval, baseobjspace, pycode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter import pytraceback
-from pypy.rlib.objectmodel import we_are_translated, instantiate
-from pypy.rlib.jit import hint
-from pypy.rlib.debug import make_sure_not_resized, check_nonneg
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.jit import hint
+from rpython.rlib.debug import make_sure_not_resized, check_nonneg
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib import jit
 from pypy.tool import stdlib_opcode
-from pypy.tool.stdlib_opcode import host_bytecode_spec
+from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 # Define some opcodes used
 g = globals()

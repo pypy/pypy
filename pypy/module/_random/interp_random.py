@@ -2,8 +2,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib import rbigint, rrandom, rstring
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib import rbigint, rrandom, rstring
 
 import time
 

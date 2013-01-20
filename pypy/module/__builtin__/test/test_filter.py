@@ -1,6 +1,4 @@
-import autopath
-
-# trivial functions for testing
+# trivial functions for testing 
 
 class AppTestFilter:
     def test_filter_no_arguments(self):

@@ -4,8 +4,8 @@ from pypy.interpreter.baseobjspace import W_Root, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, ApplevelClass
 from pypy.interpreter.typedef import TypeDef
-from pypy.rpython.ootypesystem import ootype
-from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_exc,\
+from rpython.rtyper.ootypesystem import ootype
+from rpython.translator.cli.dotnet import CLR, box, unbox, NativeException, native_exc,\
      new_array, init_array, typeof
 
 System = CLR.System

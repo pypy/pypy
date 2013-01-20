@@ -3,9 +3,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, wrap_windowserror
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import rwinreg, rwin32
-from pypy.rlib.rarithmetic import r_uint, intmask
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rwinreg, rwin32
+from rpython.rlib.rarithmetic import r_uint, intmask
 
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)

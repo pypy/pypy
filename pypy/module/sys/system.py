@@ -1,8 +1,9 @@
 """Information about the current system."""
 from pypy.interpreter import gateway
-from pypy.rlib import rfloat, rbigint
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.objectmodel import HASH_INF, HASH_NAN, HASH_IMAG
+from rpython.rlib import rfloat, rbigint
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import HASH_INF, HASH_NAN, HASH_IMAG
+
 
 app = gateway.applevel("""
 "NOT_RPYTHON"

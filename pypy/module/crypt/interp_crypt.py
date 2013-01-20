@@ -1,6 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rpython.lltypesystem import rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 if sys.platform.startswith('darwin'):

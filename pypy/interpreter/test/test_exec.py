@@ -2,7 +2,7 @@
 
 New for PyPy - Could be incorporated into CPython regression tests.
 """
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 class AppTestExecStmt: 

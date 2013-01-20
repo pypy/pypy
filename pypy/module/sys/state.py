@@ -32,6 +32,6 @@ def get(space):
 def pypy_getudir(space):
     """NOT_RPYTHON
     (should be removed from interpleveldefs before translation)"""
-    from pypy.tool.udir import udir
+    from rpython.tool.udir import udir
     return space.wrap(str(udir))
 

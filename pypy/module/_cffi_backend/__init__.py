@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import rdynload
+from rpython.rlib import rdynload
 
 
 class Module(MixedModule):

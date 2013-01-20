@@ -14,7 +14,6 @@ To regenerate the dfa, run::
 $Id: genPytokenize.py,v 1.1 2003/10/02 17:37:17 jriehl Exp $
 """
 
-import autopath
 from pypy.interpreter.pyparser.pylexer import *
 from pypy.interpreter.pyparser.automata import NonGreedyDFA, DFA, DEFAULT
 

@@ -11,11 +11,11 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib import streamio, jit
-from pypy.rlib.streamio import StreamErrors
-from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.rlib.signature import signature
-from pypy.rlib import types
+from rpython.rlib import streamio, jit
+from rpython.rlib.streamio import StreamErrors
+from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.signature import signature
+from rpython.rlib import types
 from pypy.module.sys.version import PYPY_VERSION
 
 SEARCH_ERROR = 0

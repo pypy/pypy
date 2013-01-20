@@ -4,8 +4,8 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 
 from sys import maxint
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.jit import we_are_jitted
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.jit import we_are_jitted
 
 def wrapstr(space, s):
     from pypy.objspace.std.stringobject import W_StringObject
