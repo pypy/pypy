@@ -9,7 +9,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.runicode import MAXUNICODE
 from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
-from rpython.rlib.unicodedata.ucd import code_to_unichr, ORD
+from rpython.rlib.runicode import code_to_unichr, ORD
 import sys
 
 
