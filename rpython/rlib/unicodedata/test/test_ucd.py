@@ -1,6 +1,6 @@
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
 from rpython.rlib.unicodedata import unicodedb_5_2_0
-from pypy.module.unicodedata.interp_ucd import code_to_unichr
+from rpython.rlib.unicodedata.ucd import code_to_unichr
 
 class TestTranslated(BaseRtypingTest, LLRtypeMixin):
 

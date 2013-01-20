@@ -9,6 +9,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.runicode import MAXUNICODE
 from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
+from rpython.rlib.unicodedata.ucd import code_to_unichr, ORD
 import sys
 
 
@@ -30,25 +31,6 @@ SCount = (LCount*NCount)
 # The functions below are subtly different from the ones in runicode.py.
 # When PyPy implements Python 3 they should be merged.
 
-def UNICHR(c):
-    if c <= sys.maxunicode and c <= MAXUNICODE:
-        return unichr(c)
-    else:
-        c -= 0x10000
-        return (unichr(0xD800 + (c >> 10)) +
-                unichr(0xDC00 + (c & 0x03FF)))
-
-def ORD(u):
-    assert isinstance(u, unicode)
-    if len(u) == 1:
-        return ord(u[0])
-    elif len(u) == 2:
-        ch1 = ord(u[0])
-        ch2 = ord(u[1])
-        if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
-            return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-    raise ValueError
-
 if MAXUNICODE > 0xFFFF:
     # Target is wide build
     def unichr_to_code_w(space, w_unichr):
@@ -69,12 +51,6 @@ if MAXUNICODE > 0xFFFF:
                     'need a single Unicode character as parameter'))
             return space.int_w(space.ord(w_unichr))
 
-    def code_to_unichr(code):
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
-            # Host CPython is narrow build, generate surrogates
-            return UNICHR(code)
-        else:
-            return unichr(code)
 else:
     # Target is narrow build
     def unichr_to_code_w(space, w_unichr):
@@ -96,10 +72,6 @@ else:
             except ValueError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
-
-    def code_to_unichr(code):
-        # generate surrogates for large codes
-        return UNICHR(code)
 
 
 class UCD(Wrappable):

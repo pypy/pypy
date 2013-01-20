@@ -1,49 +1,9 @@
 import sys
-from rpython.rlib.bitmanipulation import splitter
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.objectmodel import we_are_translated, specialize, enforceargs
+from rpython.rlib.objectmodel import specialize, enforceargs
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.unicodedata import unicodedb
-
-if rffi.sizeof(lltype.UniChar) == 4:
-    MAXUNICODE = 0x10ffff
-else:
-    MAXUNICODE = 0xffff
-BYTEORDER = sys.byteorder
-
-if MAXUNICODE > sys.maxunicode:
-    # A version of unichr which allows codes outside the BMP
-    # even on narrow unicode builds.
-    # It will be used when interpreting code on top of a UCS2 CPython,
-    # when sizeof(wchar_t) == 4.
-    # Note that Python3 uses a similar implementation.
-    def UNICHR(c):
-        assert not we_are_translated()
-        if c <= sys.maxunicode or c > MAXUNICODE:
-            return unichr(c)
-        else:
-            c -= 0x10000
-            return (unichr(0xD800 + (c >> 10)) +
-                    unichr(0xDC00 + (c & 0x03FF)))
-    UNICHR._flowspace_rewrite_directly_as_ = unichr
-    # ^^^ NB.: for translation, it's essential to use this hack instead
-    # of calling unichr() from UNICHR(), because unichr() detects if there
-    # is a "try:except ValueError" immediately around it.
-
-    def ORD(u):
-        assert not we_are_translated()
-        if isinstance(u, unicode) and len(u) == 2:
-            ch1 = ord(u[0])
-            ch2 = ord(u[1])
-            if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
-                return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-        return ord(u)
-    ORD._flowspace_rewrite_directly_as_ = ord
-
-else:
-    UNICHR = unichr
-    ORD = ord
+from rpython.rlib.unicodedata.ucd import MAXUNICODE, UNICHR, BYTEORDER
 
 
 def default_unicode_error_decode(errors, encoding, msg, s,
@@ -445,16 +405,6 @@ def str_decode_utf_16_helper(s, size, errors, final=True,
                                   s, pos - 2, pos)
             result.append(r)
     return result.build(), pos, bo
-
-def _STORECHAR(result, CH, byteorder):
-    hi = chr(((CH) >> 8) & 0xff)
-    lo = chr((CH) & 0xff)
-    if byteorder == 'little':
-        result.append(lo)
-        result.append(hi)
-    else:
-        result.append(hi)
-        result.append(lo)
 
 def unicode_encode_utf_16_helper(s, size, errors,
                                  errorhandler=None,
