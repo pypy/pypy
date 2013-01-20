@@ -132,7 +132,6 @@ def longlonglongmask(n):
     return r_longlonglong(n)
 
 def widen(n):
-    assert not isinstance(n, r_longfloat)
     from pypy.rpython.lltypesystem import lltype
     if _should_widen_type(lltype.typeOf(n)):
         return intmask(n)
