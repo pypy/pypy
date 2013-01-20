@@ -3,7 +3,7 @@
 
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
-from rpython.rtyper.signature import Signature
+from pypy.interpreter.signature import Signature
 import py
 import sys
 

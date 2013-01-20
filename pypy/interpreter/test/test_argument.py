@@ -2,7 +2,7 @@
 import py
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
         ArgErrMultipleValues, ArgErrCount)
-from rpython.rtyper.signature import Signature
+from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
 

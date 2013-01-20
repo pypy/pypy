@@ -7,7 +7,7 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 import dis, imp, struct, types, new, sys
 
 from pypy.interpreter import eval
-from rpython.rtyper.signature import Signature
+from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
