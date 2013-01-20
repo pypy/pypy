@@ -2,7 +2,7 @@ from pypy.interpreter import module
 from pypy.module.cpyext.api import (
     generic_cpy_call, cpython_api, PyObject, CONST_STRING)
 from pypy.module.cpyext.pyobject import borrow_from
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode

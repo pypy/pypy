@@ -1,22 +1,22 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib import rposix, objectmodel, rurandom
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib import rposix, objectmodel, rurandom
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.interpreter.error import operationerrfmt
-from pypy.rpython.module.ll_os import RegisterOs
-from pypy.rpython.module import ll_os_stat
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.rtyper.module import ll_os_stat
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
-    from pypy.rlib.rwin32 import _MAX_ENV
+    from rpython.rlib.rwin32 import _MAX_ENV
     
 c_int = "c_int"
 

@@ -1,4 +1,3 @@
-import autopath
 import sys
 
 class AppTestBuiltinApp:
@@ -670,7 +669,7 @@ class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
 
 class TestInternal:
     def test_execfile(self, space):
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         fn = str(udir.join('test_execfile'))
         f = open(fn, 'w')
         print >>f, "i=42"
@@ -684,7 +683,7 @@ class TestInternal:
         assert space.eq_w(w_value, space.wrap(42))
 
     def test_execfile_different_lineendings(self, space): 
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         d = udir.ensure('lineending', dir=1)
         dos = d.join('dos.py') 
         f = dos.open('wb') 

@@ -3,18 +3,18 @@ from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
-from pypy.rlib.clibffi import *
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.unroll import unrolling_iterable
-import pypy.rlib.rposix as rposix
+from rpython.rlib.clibffi import *
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.unroll import unrolling_iterable
+import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
 
 if _MS_WINDOWS:
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
 
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rarithmetic import intmask, r_uint
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.tracker import tracker
 
 TYPEMAP = {
@@ -553,11 +553,11 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     def get_last_error(space):
-        from pypy.rlib.rwin32 import GetLastError
+        from rpython.rlib.rwin32 import GetLastError
         return space.wrap(GetLastError())
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        from pypy.rlib.rwin32 import SetLastError
+        from rpython.rlib.rwin32 import SetLastError
         SetLastError(error)
 else:
     # always have at least a dummy version of these functions

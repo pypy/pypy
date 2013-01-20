@@ -1,6 +1,6 @@
 import py
 import sys
-from pypy.config.config import ConflictConfigError
+from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_config, make_objspace
 from pypy.tool.pytest import appsupport
 from pypy.conftest import option

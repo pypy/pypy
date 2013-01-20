@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef
-from pypy.rpython.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 
 

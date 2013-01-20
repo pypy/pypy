@@ -1,6 +1,6 @@
-from pypy.jit.codewriter.policy import JitPolicy
-from pypy.rlib.jit import JitHookInterface, Counters
-from pypy.rlib import jit_hooks
+from rpython.jit.codewriter.policy import JitPolicy
+from rpython.rlib.jit import JitHookInterface, Counters
+from rpython.rlib import jit_hooks
 from pypy.interpreter.error import OperationError
 from pypy.module.pypyjit.interp_resop import Cache, wrap_greenkey,\
      WrappedOp, W_JitLoopInfo
@@ -115,7 +115,7 @@ class PyPyJitPolicy(JitPolicy):
     def look_inside_function(self, func):
         mod = func.__module__ or '?'
 
-        if mod == 'pypy.rlib.rbigint' or mod == 'pypy.rlib.rlocale' or mod == 'pypy.rlib.rsocket':
+        if mod == 'rpython.rlib.rbigint' or mod == 'rpython.rlib.rlocale' or mod == 'rpython.rlib.rsocket':
             return False
         if mod.startswith('pypy.interpreter.astcompiler.'):
             return False

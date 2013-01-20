@@ -444,7 +444,7 @@ class AppTestFile25:
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
-    from pypy.tool.udir import udir
+    from rpython.tool.udir import udir
 
     tmpfile = udir.join('test_flush_at_exit')
     config = make_config(conftest.option)

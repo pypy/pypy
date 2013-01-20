@@ -249,7 +249,7 @@ class AppTestTypes(BaseNumpyAppTest):
             bits, linkage = platform.architecture()
             ptr_size = int(bits[:-3]) // 8
         else:
-            from pypy.rpython.lltypesystem import rffi
+            from rpython.rtyper.lltypesystem import rffi
             ptr_size = rffi.sizeof(rffi.CCHARP)
         cls.w_ptr_size = cls.space.wrap(ptr_size)
 

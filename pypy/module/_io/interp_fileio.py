@@ -1,8 +1,8 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import sys, os, stat, errno
 from pypy.module._io.interp_iobase import W_RawIOBase, convert_size
@@ -401,7 +401,7 @@ class W_FileIO(W_RawIOBase):
 
     if sys.platform == "win32":
         def _truncate(self, size):
-            from pypy.rlib.streamio import ftruncate_win32
+            from rpython.rlib.streamio import ftruncate_win32
             ftruncate_win32(self.fd, size)
     else:
         def _truncate(self, size):

@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import ApiFunction
 from pypy.module.cpyext.pyobject import PyObject, make_ref, Py_DecRef
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewMethod, PyCFunction_typedef)
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 class AppTestMethodObject(AppTestCpythonExtensionBase):
     def test_call_METH(self):

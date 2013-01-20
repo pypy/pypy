@@ -2,7 +2,7 @@ from py.test import raises
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 import sys
 
 # this test isn't so much to test that the objspace interface *works*

@@ -1,10 +1,10 @@
 import weakref
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
-from pypy.rlib.rshrinklist import AbstractShrinkList
+from rpython.rlib.rshrinklist import AbstractShrinkList
 
 class WRefShrinkList(AbstractShrinkList):
     def must_keep(self, wref):
