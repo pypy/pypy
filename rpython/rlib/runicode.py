@@ -1,15 +1,16 @@
 import sys
-from rpython.rlib.bitmanipulation import splitter
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.objectmodel import we_are_translated, specialize, enforceargs
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.unicodedata import unicodedb
+from rpython.rtyper.lltypesystem import lltype, rffi
+
 
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
 else:
     MAXUNICODE = 0xffff
+
 BYTEORDER = sys.byteorder
 
 if MAXUNICODE > sys.maxunicode:
@@ -45,6 +46,27 @@ else:
     UNICHR = unichr
     ORD = ord
 
+if MAXUNICODE > 0xFFFF:
+    def code_to_unichr(code):
+        if not we_are_translated() and sys.maxunicode == 0xFFFF:
+            # Host CPython is narrow build, generate surrogates
+            return UNICHR(code)
+        else:
+            return unichr(code)
+else:
+    def code_to_unichr(code):
+        # generate surrogates for large codes
+        return UNICHR(code)
+
+def _STORECHAR(result, CH, byteorder):
+    hi = chr(((CH) >> 8) & 0xff)
+    lo = chr((CH) & 0xff)
+    if byteorder == 'little':
+        result.append(lo)
+        result.append(hi)
+    else:
+        result.append(hi)
+        result.append(lo)
 
 def default_unicode_error_decode(errors, encoding, msg, s,
                                  startingpos, endingpos):
@@ -445,16 +467,6 @@ def str_decode_utf_16_helper(s, size, errors, final=True,
                                   s, pos - 2, pos)
             result.append(r)
     return result.build(), pos, bo
-
-def _STORECHAR(result, CH, byteorder):
-    hi = chr(((CH) >> 8) & 0xff)
-    lo = chr((CH) & 0xff)
-    if byteorder == 'little':
-        result.append(lo)
-        result.append(hi)
-    else:
-        result.append(hi)
-        result.append(lo)
 
 def unicode_encode_utf_16_helper(s, size, errors,
                                  errorhandler=None,

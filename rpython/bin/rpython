@@ -7,7 +7,8 @@ rpython <translation options> target <targetoptions>
 run with --help for more information
 """
 
-import sys
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from rpython.translator.goal.translate import main
 
 # no implicit targets
