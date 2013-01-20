@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.jit import JitDriver
 from random import choice, randrange
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import ovfcheck
 import re
 
 class IntBox(object):
@@ -12,10 +12,16 @@ class IntBox(object):
         return self.val
 
     def add(self, other):
-        return IntBox(intmask(self.value() + other.value()))
+        try:
+            return IntBox(ovfcheck(self.value() + other.value()))
+        except OverflowError:
+            return IntBox(42)
 
     def sub(self, other):
-        return IntBox(intmask(self.value() - other.value()))
+        try:
+            return IntBox(ovfcheck(self.value() - other.value()))
+        except OverflowError:
+            return IntBox(-42)
 
     def gt(self, other):
         return IntBox(self.value() > other.value())
