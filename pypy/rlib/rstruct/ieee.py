@@ -184,14 +184,14 @@ def float_pack(x, size):
     sign = r_ulonglong(sign)
     return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
 
-def float_pack80(x):
-    """Convert a Python float x into two 64-bit unsigned integers
+def float_pack80(_x):
+    """Convert a Python float or longfloat x into two 64-bit unsigned integers
     with 80 bit extended representation."""
     MIN_EXP = -16381
     MAX_EXP = 16384
     MANT_DIG = 64 
     BITS = 80
-
+    x = float(_x) #longfloat not really supported
     sign = rfloat.copysign(1.0, x) < 0.0
     if not rfloat.isfinite(x):
         if rfloat.isinf(x):

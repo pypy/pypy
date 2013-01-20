@@ -624,7 +624,7 @@ def byteswap(arg):
         T = rffi.LONGLONG
         arg = float2longlong(arg)
     elif T == lltype.LongFloat:
-        raise NotImplemented('cannot byteswap LongFloat')
+        assert False
     else:
         # we cannot do arithmetics on small ints
         arg = widen(arg)

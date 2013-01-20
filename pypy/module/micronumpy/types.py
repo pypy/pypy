@@ -14,7 +14,7 @@ from pypy.rlib.rarithmetic import widen, byteswap, r_ulonglong
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
-from pypy.rlib.rstruct.ieee import (float_pack, float_unpack, 
+from pypy.rlib.rstruct.ieee import (float_pack, float_unpack, pack_float,
                                     unpack_float, unpack_float128)
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
@@ -1539,6 +1539,12 @@ if interp_boxes.long_double_size == 12:
             fval = unpack_float128(s, native_is_bigendian)
             return self.box(fval)
 
+        def byteswap(self, w_v):
+            value = self.unbox(w_v)
+            result = StringBuilder(12)
+            pack_float(result, value, 12, not native_is_bigendian)
+            return self.box(unpack_float128(result.build(), native_is_bigendian))
+
     class NonNativeFloat96(Float96):
         pass
 
@@ -1565,6 +1571,12 @@ elif interp_boxes.long_double_size == 16:
             assert len(s) == 16
             fval = unpack_float128(s, native_is_bigendian)
             return self.box(fval)
+
+        def byteswap(self, w_v):
+            value = self.unbox(w_v)
+            result = StringBuilder(16)
+            pack_float(result, value, 16, not native_is_bigendian)
+            return self.box(unpack_float128(result.build(), native_is_bigendian))
 
     class NonNativeFloat128(Float128):
         pass
