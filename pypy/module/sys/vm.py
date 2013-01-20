@@ -6,8 +6,8 @@ import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.rlib import jit
-from pypy.rlib.runicode import MAXUNICODE
+from rpython.rlib import jit
+from rpython.rlib.runicode import MAXUNICODE
 
 # ____________________________________________________________
 
@@ -55,7 +55,7 @@ reserves 768KB of stack space, which should suffice (on Linux,
 depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
 """
-    from pypy.rlib.rstack import _stack_set_length_fraction
+    from rpython.rlib.rstack import _stack_set_length_fraction
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
@@ -218,7 +218,7 @@ class windows_version_info:
 
 
 def getwindowsversion(space):
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     info = rwin32.GetVersionEx()
     w_windows_version_info = app.wget(space, "windows_version_info")
     raw_version = space.newtuple([

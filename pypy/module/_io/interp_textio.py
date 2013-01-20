@@ -5,9 +5,9 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask, r_ulonglong, r_uint
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_uint
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rstring import UnicodeBuilder
 from pypy.module._codecs import interp_codecs
 from pypy.module._io.interp_iobase import convert_size
 import sys

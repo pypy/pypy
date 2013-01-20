@@ -1,8 +1,8 @@
 import time
 from pypy.module.thread import gil
-from pypy.module.thread.test import test_ll_thread
-from pypy.module.thread import ll_thread as thread
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.test import test_rthread
+from rpython.rlib import rthread as thread
+from rpython.rlib.objectmodel import we_are_translated
 
 class FakeEC(object):
     pass
@@ -26,12 +26,12 @@ class FakeSpace(object):
         raise NotImplementedError
 
 
-class GILTests(test_ll_thread.AbstractGCTestClass):
+class GILTests(test_rthread.AbstractGCTestClass):
     use_threads = True
     bigtest = False
 
     def test_one_thread(self, skew=+1):
-        from pypy.rlib.debug import debug_print
+        from rpython.rlib.debug import debug_print
         if self.bigtest:
             N = 100000
             skew *= 25000

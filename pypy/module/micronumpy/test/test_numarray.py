@@ -189,7 +189,23 @@ class TestNumArrayDirect(object):
         assert shape == [2]
         assert space.str_w(elems[0]) == "a"
         assert space.str_w(elems[1]) == "b"
-        
+
+    def test_from_shape_and_storage(self):
+        from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
+        from rpython.rtyper.lltypesystem import rffi
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        storage = alloc_raw_storage(4, track_allocation=False, zero=True)
+        for i in range(4):
+            raw_storage_setitem(storage, i, rffi.cast(rffi.UCHAR, i))
+        #
+        dtypes = get_dtype_cache(self.space)
+        w_array = W_NDimArray.from_shape_and_storage([2, 2], storage, dtypes.w_int8dtype)
+        def get(i, j):
+            return w_array.getitem(self.space, [i, j]).value
+        assert get(0, 0) == 0
+        assert get(0, 1) == 1
+        assert get(1, 0) == 2
+        assert get(1, 1) == 3
 
 class AppTestNumArray(BaseNumpyAppTest):
     def w_CustomIndexObject(self, index):
@@ -1599,6 +1615,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [20, 1, 21, 3, 4]).all() 
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
+    def test_weakref(self):
+        import _weakref
+        from numpypy import array
+        a = array([1, 2, 3])
+        assert _weakref.ref(a)
+        a = array(42)
+        assert _weakref.ref(a)
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
@@ -2340,7 +2364,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         s = repr(a)
         assert s.replace('\n', '') == \
                       "array(['abc', 'defg', 'ab'],       dtype='|S4')"
-         
+        
        
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
@@ -2360,3 +2384,23 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert a[0][1] == 2
         a = _numpypy.array(([[[1, 2], [3, 4], [5, 6]]]))
         assert (a[0, 1] == [3, 4]).all()
+
+    def test_from_shape_and_storage(self):
+        from _numpypy import array, ndarray
+        x = array([1, 2, 3, 4])
+        addr, _ = x.__array_interface__['data']
+        y = ndarray._from_shape_and_storage([2, 2], addr, x.dtype)
+        assert y[0, 1] == 2
+        y[0, 1] = 42
+        assert x[1] == 42
+
+    def test___pypy_data__(self):
+        from _numpypy import array
+        x = array([1, 2, 3, 4])
+        x.__pypy_data__ is None
+        obj = object()
+        x.__pypy_data__ = obj
+        assert x.__pypy_data__ is obj
+        del x.__pypy_data__
+        assert x.__pypy_data__ is None
+    

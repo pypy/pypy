@@ -1,11 +1,11 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pyobject import PyObject, make_ref
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
     PyObjectFields)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 
 # API import function
 

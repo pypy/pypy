@@ -1,6 +1,3 @@
-import autopath
-
-
 # This is a very trivial series of tests.  If apply is subtlely broken,
 # we will have to find out some other way.
   

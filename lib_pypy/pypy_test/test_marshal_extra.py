@@ -4,7 +4,7 @@ import sys
 import marshal as cpy_marshal
 from lib_pypy import _marshal as marshal
 
-from pypy.tool.udir import udir 
+from rpython.tool.udir import udir 
 
 hello = "he"
 hello += "llo"

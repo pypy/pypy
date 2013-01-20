@@ -1,9 +1,9 @@
-from pypy.rlib import rgc
+from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 
 
 class W_GcRef(Wrappable):

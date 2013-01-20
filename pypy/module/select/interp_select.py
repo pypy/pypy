@@ -2,7 +2,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.rlib import rpoll
+from rpython.rlib import rpoll
 import errno
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
@@ -78,8 +78,8 @@ Poll.typedef = TypeDef('select.poll', **pollmethods)
 # ____________________________________________________________
 
 
-from pypy.rlib import _rsocket_rffi as _c
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rlib import _rsocket_rffi as _c
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 def _build_fd_set(space, list_w, ll_list, nfds):

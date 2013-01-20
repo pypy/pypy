@@ -1,4 +1,4 @@
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec

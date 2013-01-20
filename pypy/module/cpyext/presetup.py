@@ -11,7 +11,7 @@ import sys, os
 dn = os.path.dirname
 rootdir = dn(dn(dn(dn(__file__))))
 sys.path.insert(0, rootdir)
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 pypydir = os.path.join(rootdir, 'pypy')
 f = open(os.path.join(str(udir), 'pyconfig.h'), "w")
 f.write("\n")
