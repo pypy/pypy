@@ -4,9 +4,9 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.debug import check_annotation
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.debug import check_annotation
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import get_positive_index
@@ -19,13 +19,13 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Signature
 from pypy.interpreter.buffer import RWBuffer
 from pypy.objspace.std.bytearraytype import (
     makebytearraydata_w, getbytevalue,
     new_bytearray
 )
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rtyper.signature import Signature
 
 
 class W_BytearrayObject(W_Object):

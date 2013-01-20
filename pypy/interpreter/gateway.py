@@ -14,15 +14,16 @@ import types
 import py
 
 from pypy.interpreter.eval import Code
-from pypy.interpreter.argument import Arguments, Signature
+from pypy.interpreter.argument import Arguments
+from rpython.rtyper.signature import Signature
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
     SpaceCache, DescrMismatch)
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from pypy.rlib import rstackovf
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
-from pypy.tool.sourcetools import func_with_new_name, compile2
+from rpython.rlib import rstackovf
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
+from rpython.tool.sourcetools import func_with_new_name, compile2
 
 
 # internal non-translatable parts:

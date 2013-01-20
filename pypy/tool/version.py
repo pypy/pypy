@@ -10,7 +10,7 @@ def maywarn(err, repo_type='Mercurial'):
     if not err:
         return
 
-    from pypy.tool.ansi_print import ansi_log
+    from rpython.tool.ansi_print import ansi_log
     log = py.log.Producer("version")
     py.log.setconsumer("version", ansi_log)
     log.WARNING('Errors getting %s information: %s' % (repo_type, err))

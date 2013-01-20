@@ -1,5 +1,6 @@
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
+from rpython.tool.error import offset2lineno
 
 
 class PyTraceback(baseobjspace.Wrappable):
@@ -54,17 +55,6 @@ def record_application_traceback(space, operror, frame, last_instruction):
     tb = operror.get_traceback()
     tb = PyTraceback(space, frame, last_instruction, tb)
     operror.set_traceback(tb)
-
-def offset2lineno(c, stopat):
-    tab = c.co_lnotab
-    line = c.co_firstlineno
-    addr = 0
-    for i in range(0, len(tab), 2):
-        addr = addr + ord(tab[i])
-        if addr > stopat:
-            break
-        line = line + ord(tab[i+1])
-    return line
 
 def check_traceback(space, w_tb, msg):
     from pypy.interpreter.typedef import PyTraceback

@@ -1,6 +1,6 @@
 import sys
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong, r_ulonglong
-from pypy.rlib.libffi import IS_32_BIT
+from rpython.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong, r_ulonglong
+from rpython.rlib.libffi import IS_32_BIT
 from pypy.module._ffi.interp_ffitype import app_types, descr_new_pointer
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 

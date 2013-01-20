@@ -2,10 +2,11 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rsocket
-from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
-from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
+from rpython.rlib.rarithmetic import intmask
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rsocket
+from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
+from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno, RSocketError
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 
@@ -15,6 +16,120 @@ class SignalChecker:
 
     def check(self):
         self.space.getexecutioncontext().checksignals()
+
+
+# XXX Hack to seperate rpython and pypy
+def addr_as_object(addr, fd, space):
+    if isinstance(addr, rsocket.INETAddress):
+        return space.newtuple([space.wrap(addr.get_host()),
+                               space.wrap(addr.get_port())])
+    elif isinstance(addr, rsocket.INET6Address):
+        return space.newtuple([space.wrap(addr.get_host()),
+                               space.wrap(addr.get_port()),
+                               space.wrap(addr.get_flowinfo()),
+                               space.wrap(addr.get_scope_id())])
+    elif rsocket.HAS_AF_PACKET and isinstance(addr, rsocket.PacketAddress):
+        return space.newtuple([space.wrap(addr.get_ifname(fd)),
+                               space.wrap(addr.get_protocol()),
+                               space.wrap(addr.get_pkttype()),
+                               space.wrap(addr.get_hatype()),
+                               space.wrap(addr.get_addr())])
+    elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
+        return space.wrap(addr.get_path())
+    elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
+        return space.newtuple([space.wrap(addr.get_pid()),
+                               space.wrap(addr.get_groups())])
+    # If we don't know the address family, don't raise an
+    # exception -- return it as a tuple.
+    from rpython.rlib import _rsocket_rffi as _c
+    a = addr.lock()
+    family = rffi.cast(lltype.Signed, a.c_sa_family)
+    datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
+    rawdata = ''.join([a.c_sa_data[i] for i in range(datalen)])
+    addr.unlock()
+    return space.newtuple([space.wrap(family),
+                          space.wrap(rawdata)])
+
+# XXX Hack to seperate rpython and pypy
+# XXX a bit of code duplication
+def fill_from_object(addr, space, w_address):
+    from rpython.rlib import _rsocket_rffi as _c
+    if isinstance(addr, rsocket.INETAddress):
+        _, w_port = space.unpackiterable(w_address, 2)
+        port = space.int_w(w_port)
+        port = make_ushort_port(space, port)
+        a = addr.lock(_c.sockaddr_in)
+        rffi.setintfield(a, 'c_sin_port', rsocket.htons(port))
+        addr.unlock()
+    elif isinstance(addr, rsocket.INET6Address):
+        pieces_w = space.unpackiterable(w_address)
+        if not (2 <= len(pieces_w) <= 4):
+            raise RSocketError("AF_INET6 address must be a tuple of length 2 "
+                               "to 4, not %d" % len(pieces_w))
+        port = space.int_w(pieces_w[1])
+        port = make_ushort_port(space, port)
+        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
+        else:                 flowinfo = 0
+        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
+        else:                 scope_id = 0
+        if flowinfo < 0 or flowinfo > 0xfffff:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "flowinfo must be 0-1048575."))
+        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
+        a = addr.lock(_c.sockaddr_in6)
+        rffi.setintfield(a, 'c_sin6_port', rsocket.htons(port))
+        rffi.setintfield(a, 'c_sin6_flowinfo', rsocket.htonl(flowinfo))
+        rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
+        addr.unlock()
+    else:
+        raise NotImplementedError
+
+# XXX Hack to seperate rpython and pypy
+def addr_from_object(family, space, w_address):
+    if family == rsocket.AF_INET:
+        w_host, w_port = space.unpackiterable(w_address, 2)
+        host = space.str_w(w_host)
+        port = space.int_w(w_port)
+        port = make_ushort_port(space, port)
+        return rsocket.INETAddress(host, port)
+    if family == rsocket.AF_INET6:
+        pieces_w = space.unpackiterable(w_address)
+        if not (2 <= len(pieces_w) <= 4):
+            raise TypeError("AF_INET6 address must be a tuple of length 2 "
+                               "to 4, not %d" % len(pieces_w))
+        host = space.str_w(pieces_w[0])
+        port = space.int_w(pieces_w[1])
+        port = make_ushort_port(space, port)
+        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
+        else:                 flowinfo = 0
+        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
+        else:                 scope_id = 0
+        if flowinfo < 0 or flowinfo > 0xfffff:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "flowinfo must be 0-1048575."))
+        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
+        return rsocket.INET6Address(host, port, flowinfo, scope_id)
+    if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
+        return rsocket.UNIXAddress(space.str_w(w_address))
+    if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
+        w_pid, w_groups = space.unpackiterable(w_address, 2)
+        return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
+    raise RSocketError("unknown address family")
+
+# XXX Hack to seperate rpython and pypy
+def make_ushort_port(space, port):
+    if port < 0 or port > 0xffff:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "port must be 0-65535."))
+    return rffi.cast(rffi.USHORT, port)
+
+# XXX Hack to seperate rpython and pypy
+def ipaddr_from_object(space, w_sockaddr):
+    host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
+    addr = rsocket.makeipaddr(host)
+    fill_from_object(addr, space, w_sockaddr)
+    return addr
+
 
 class W_RSocket(Wrappable, RSocket):
     def __del__(self):
@@ -33,9 +148,18 @@ class W_RSocket(Wrappable, RSocket):
             sock = rsocket.make_socket(
                 fd, self.family, self.type, self.proto, W_RSocket)
             return space.newtuple([space.wrap(sock),
-                                   addr.as_object(sock.fd, space)])
+                                   addr_as_object(addr, sock.fd, space)])
         except SocketError, e:
             raise converted_error(space, e)
+
+    # convert an Address into an app-level object
+    def addr_as_object(self, space, address):
+        return addr_as_object(address, self.fd, space)
+
+    # convert an app-level object into an Address
+    # based on the current socket's family
+    def addr_from_object(self, space, w_address):
+        return addr_from_object(self.family, space, w_address)
 
     def bind_w(self, space, w_addr):
         """bind(address)
@@ -104,7 +228,7 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             addr = self.getpeername()
-            return addr.as_object(self.fd, space)
+            return addr_as_object(addr, self.fd, space)
         except SocketError, e:
             raise converted_error(space, e)
 
@@ -116,7 +240,7 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             addr = self.getsockname()
-            return addr.as_object(self.fd, space)
+            return addr_as_object(addr, self.fd, space)
         except SocketError, e:
             raise converted_error(space, e)
 
@@ -194,7 +318,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             data, addr = self.recvfrom(buffersize, flags)
             if addr:
-                w_addr = addr.as_object(self.fd, space)
+                w_addr = addr_as_object(addr, self.fd, space)
             else:
                 w_addr = space.w_None
             return space.newtuple([space.wrap(data), w_addr])
@@ -319,7 +443,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             readlgt, addr = self.recvfrom_into(rwbuffer, nbytes, flags)
             if addr:
-                w_addr = addr.as_object(self.fd, space)
+                w_addr = addr_as_object(addr, self.fd, space)
             else:
                 w_addr = space.w_None
             return space.newtuple([space.wrap(readlgt), w_addr])
@@ -328,9 +452,9 @@ class W_RSocket(Wrappable, RSocket):
 
     @unwrap_spec(cmd=int)
     def ioctl_w(self, space, cmd, w_option):
-        from pypy.rpython.lltypesystem import rffi, lltype
-        from pypy.rlib import rwin32
-        from pypy.rlib.rsocket import _c
+        from rpython.rtyper.lltypesystem import rffi, lltype
+        from rpython.rlib import rwin32
+        from rpython.rlib.rsocket import _c
 
         recv_ptr = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
         try:

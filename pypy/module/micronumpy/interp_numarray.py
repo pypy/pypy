@@ -13,9 +13,9 @@ from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
 from pypy.module.micronumpy.interp_arrayops import repeat
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import jit
-from pypy.rlib.rstring import StringBuilder
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib import jit
+from rpython.rlib.rstring import StringBuilder
 
 def _find_shape(space, w_size):
     if space.is_none(w_size):
@@ -580,8 +580,8 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype):
     Create an array from an existing buffer, given its address as int.
     PyPy-only implementation detail.
     """
-    from pypy.rpython.lltypesystem import rffi
-    from pypy.rlib.rawstorage import RAW_STORAGE_PTR
+    from rpython.rtyper.lltypesystem import rffi
+    from rpython.rlib.rawstorage import RAW_STORAGE_PTR
     shape = _find_shape(space, w_shape)
     storage = rffi.cast(RAW_STORAGE_PTR, addr)
     dtype = space.interp_w(interp_dtype.W_Dtype,

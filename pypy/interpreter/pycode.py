@@ -7,17 +7,17 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 import dis, imp, struct, types, new, sys
 
 from pypy.interpreter import eval
-from pypy.interpreter.argument import Signature
+from rpython.rtyper.signature import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import compute_hash
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import compute_hash
 
 
 class BytecodeCorruption(Exception):

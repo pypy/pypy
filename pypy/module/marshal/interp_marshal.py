@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rstackovf
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
 
 

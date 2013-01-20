@@ -3,8 +3,8 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.rarithmetic import ovfcheck
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import ovfcheck
 
 import sys
 from pypy.module.oracle import roci, config, transform

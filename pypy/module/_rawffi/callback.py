@@ -1,14 +1,14 @@
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module._rawffi.array import push_elem
 from pypy.module._rawffi.structure import W_Structure
 from pypy.module._rawffi.interp_rawffi import (W_DataInstance, letter2tp,
      unwrap_value, unpack_argshapes, got_libffi_error)
-from pypy.rlib.clibffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
-from pypy.rlib.clibffi import ffi_type_void, LibFFIError
-from pypy.rlib import rweakref
+from rpython.rlib.clibffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
+from rpython.rlib.clibffi import ffi_type_void, LibFFIError
+from rpython.rlib import rweakref
 from pypy.module._rawffi.tracker import tracker
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway

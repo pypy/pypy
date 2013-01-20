@@ -1,7 +1,7 @@
 from pypy.conftest import option
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.rlib.rcomplex import c_pow
+from rpython.rlib.rcomplex import c_pow
 
 
 class AppTestUfuncs(BaseNumpyAppTest):

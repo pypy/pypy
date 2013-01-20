@@ -7,10 +7,10 @@ from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
      calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import jit
-from pypy.rlib.rawstorage import free_raw_storage, RAW_STORAGE
-from pypy.rlib.debug import make_sure_not_resized
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import jit
+from rpython.rlib.rawstorage import free_raw_storage, RAW_STORAGE
+from rpython.rlib.debug import make_sure_not_resized
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
     _immutable_fields_ = ['dtype', 'skip', 'size']

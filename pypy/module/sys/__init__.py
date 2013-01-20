@@ -1,6 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 import sys
 
 _WIN = sys.platform == 'win32'

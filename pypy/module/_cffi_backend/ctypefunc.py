@@ -4,13 +4,13 @@ Function pointers.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib import jit, clibffi, jit_libffi
-from pypy.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
-from pypy.rlib.jit_libffi import FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP
-from pypy.rlib.jit_libffi import SIZE_OF_FFI_ARG
-from pypy.rlib.objectmodel import we_are_translated, instantiate
-from pypy.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib import jit, clibffi, jit_libffi
+from rpython.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
+from rpython.rlib.jit_libffi import FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP
+from rpython.rlib.jit_libffi import SIZE_OF_FFI_ARG
+from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer

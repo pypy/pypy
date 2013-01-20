@@ -1,7 +1,7 @@
 import weakref
-from pypy.rlib import jit, objectmodel, debug
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rlib import rerased
+from rpython.rlib import jit, objectmodel, debug
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib import rerased
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, ObjectDictStrategy
@@ -456,7 +456,7 @@ class BaseMapdictObject:
 class ObjectMixin(object):
     _mixin_ = True
     def _init_empty(self, map):
-        from pypy.rlib.debug import make_sure_not_resized
+        from rpython.rlib.debug import make_sure_not_resized
         self.map = map
         self.storage = make_sure_not_resized([None] * map.size_estimate())
 
@@ -513,13 +513,13 @@ erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
 erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 
 def _make_subclass_size_n(supercls, n):
-    from pypy.rlib import unroll
+    from rpython.rlib import unroll
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     class subcls(BaseMapdictObject, supercls):
         def _init_empty(self, map):
-            from pypy.rlib.debug import make_sure_not_resized
+            from rpython.rlib.debug import make_sure_not_resized
             for i in rangen:
                 setattr(self, "_value%s" % i, erase_item(None))
             self.map = map

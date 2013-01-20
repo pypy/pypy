@@ -2,8 +2,8 @@ import sys
 
 from pypy.interpreter.error import OperationError
 
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import jit_libffi
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import jit_libffi
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance

@@ -4,10 +4,10 @@ Pointers.
 
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.error import wrap_oserror
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib import rposix
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib import rposix
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid

@@ -1,8 +1,8 @@
 import sys
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import LONG_BIT
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib import jit
+from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import jit
 
 TICK_COUNTER_STEP = 100
 

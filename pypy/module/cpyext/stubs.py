@@ -2,7 +2,7 @@ from pypy.module.cpyext.api import (
     cpython_api, PyObject, PyObjectP, CANNOT_FAIL
     )
 from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 # we don't really care
 PyTypeObjectPtr = rffi.VOIDP
