@@ -8,8 +8,8 @@ from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                             BoxFloat, INT, REF, FLOAT,
                                             TargetToken, JitCellToken)
 from rpython.jit.backend.x86.regloc import *
-from rpython.rpython.lltypesystem import lltype, rffi, rstr
-from rpython.rpython.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgc
 from rpython.jit.backend.llsupport import symbolic

@@ -4,9 +4,9 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.history import JitCellToken
-from rpython.rpython.lltypesystem import lltype, rffi, rstr, llmemory
-from rpython.rpython.lltypesystem.lloperation import llop
-from rpython.rpython.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
@@ -2091,7 +2091,7 @@ class Assembler386(object):
             # used by arglocs for the *next* call, then trouble; for now we
             # will just push/pop them.
             xxx
-            from rpython.rpython.memory.gctransform import asmgcroot
+            from rpython.rtyper.memory.gctransform import asmgcroot
             css = self._regalloc.close_stack_struct
             if css == 0:
                 use_words = (2 + max(asmgcroot.INDEX_OF_EBP,

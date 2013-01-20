@@ -4,8 +4,8 @@ from rpython.jit.metainterp.history import BasicFinalDescr, BoxInt,\
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
-from rpython.rpython.lltypesystem import lltype, llmemory
-from rpython.rpython.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.runner_test import Runner
@@ -289,12 +289,7 @@ class TestCallingConv(Runner):
 
 
     def test_call_with_imm_values_bug_constint0(self):
-<<<<<<< local
         cpu = self.cpu
-=======
-            from rpython.rlib.libffi import types
-            cpu = self.cpu
->>>>>>> other
 
         I = lltype.Signed
         ints = [7, 11, 23, 13, -42, 0, 0, 9]
