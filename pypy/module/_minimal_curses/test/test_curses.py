@@ -71,7 +71,7 @@ class TestCurses(object):
         child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
         
-class ExpectTestCCurses(object):
+class TestCCurses(object):
     """ Test compiled version
     """
     def test_csetupterm(self):
