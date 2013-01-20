@@ -1,5 +1,5 @@
 import sys
-from rpython.rlib.objectmodel import specialize, enforceargs
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.unicodedata import unicodedb
