@@ -1274,7 +1274,7 @@ class ObjSpace(object):
         return buffer.as_str()
 
     def bufferstr0_new_w(self, w_obj):
-        from pypy.rlib import rstring
+        from rpython.rlib import rstring
         result = self.bufferstr_new_w(w_obj)
         if '\x00' in result:
             raise OperationError(self.w_TypeError, self.wrap(

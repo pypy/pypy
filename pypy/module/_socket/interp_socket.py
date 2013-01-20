@@ -19,6 +19,7 @@ class SignalChecker:
 
 # XXX Hack to seperate rpython and pypy
 def addr_as_object(addr, fd, space):
+    from rpython.rlib import _rsocket_rffi as _c
     if isinstance(addr, rsocket.INETAddress):
         return space.newtuple([space.wrap(addr.get_host()),
                                space.wrap(addr.get_port())])
@@ -34,7 +35,7 @@ def addr_as_object(addr, fd, space):
                                space.wrap(addr.get_hatype()),
                                space.wrap(addr.get_addr())])
     elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
-        path = self.get_path()
+        path = addr.get_path()
         if _c.linux and len(path) > 0 and path[0] == '\x00':
             # Linux abstract namespace
             return space.wrapbytes(path)
@@ -45,7 +46,6 @@ def addr_as_object(addr, fd, space):
                                space.wrap(addr.get_groups())])
     # If we don't know the address family, don't raise an
     # exception -- return it as a tuple.
-    from rpython.rlib import _rsocket_rffi as _c
     a = addr.lock()
     family = rffi.cast(lltype.Signed, a.c_sa_family)
     datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
@@ -163,7 +163,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             fd, addr = self.accept()
             return space.newtuple([space.wrap(fd),
-                                   addr.as_object(addr, fd, space)])
+                                   addr_as_object(addr, fd, space)])
         except SocketError, e:
             raise converted_error(space, e)
 

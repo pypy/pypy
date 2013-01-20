@@ -1,15 +1,13 @@
-from pypy.translator.goal import autopath
-from pypy.rpython.lltypesystem import rffi, lltype, llmemory
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from pypy.module.posix.interp_posix import fsencode_w, run_fork_hooks
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import (
     OperationError, exception_from_errno, wrap_oserror)
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import py
 import os
 
-pypydir = py.path.local(autopath.pypydir)
-thisdir = pypydir.join('module', '_posixsubprocess')
+thisdir = py.path.local(__file__).dirpath()
 
 eci = ExternalCompilationInfo(
     separate_module_files=[thisdir.join('_posixsubprocess.c')],

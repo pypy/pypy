@@ -11,10 +11,10 @@ import sys, textwrap, types
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method
-from pypy.tool import runsubprocess
+from rpython.tool import runsubprocess
 from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.conftest import PyPyClassCollector
 from inspect import getmro
 

@@ -5,9 +5,9 @@ import sys
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
-from pypy.rlib import runicode, rbigint
-from pypy.rlib.rstruct import ieee
-from pypy.rpython.lltypesystem import rffi
+from rpython.rlib import runicode, rbigint
+from rpython.rlib.rstruct import ieee
+from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module.array import interp_array
 
