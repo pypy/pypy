@@ -12,10 +12,9 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
-from rpython.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
-from rpython.rpython.ootypesystem import ootype
-from rpython.rpython.annlowlevel import llhelper, cast_instance_to_gcref
-from rpython.rpython.llinterp import LLException
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi, rclass
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.llinterp import LLException
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib import longlong2float
 from rpython.rlib.rarithmetic import intmask, is_valid_int

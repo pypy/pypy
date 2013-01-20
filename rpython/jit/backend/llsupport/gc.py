@@ -232,11 +232,17 @@ class GcLLDescr_boehm(GcLLDescription):
 class GcRootMap_asmgcc(object):
     is_shadow_stack = False
 
+    def __init__(self, gcdescr):
+        pass
+
     def register_asm_addr(self, start, mark):
         pass
 
 class GcRootMap_shadowstack(object):
     is_shadow_stack = True
+
+    def __init__(self, gcdescr):
+        pass
 
     def register_asm_addr(self, start, mark):
         pass
@@ -507,7 +513,8 @@ class GcLLDescr_framework(GcLLDescription):
         return rffi.cast(lltype.Signed, nurs_top_addr)
 
     def initialize(self):
-        self.gcrootmap.initialize()
+        pass
+        #self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
         if self.layoutbuilder is not None:

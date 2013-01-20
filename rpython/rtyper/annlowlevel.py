@@ -3,15 +3,15 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
 from rpython.tool.sourcetools import valid_identifier
-from rpython.annotation import model as annmodel
-from rpython.annotation.policy import AnnotatorPolicy, Sig
-from rpython.annotation.specialize import flatten_star_args
-from rpython.rpython.lltypesystem import lltype, llmemory
-from rpython.rpython.ootypesystem import ootype
-from rpython.rpython import extregistry
-from rpython.objspace.flow.model import Constant
+from rpython.annotator import model as annmodel
+from rpython.annotator.policy import AnnotatorPolicy, Sig
+from rpython.annotator.specialize import flatten_star_args
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.ootypesystem import ootype
+from rpython.rtyper import extregistry
+from rpython.flowspace.model import Constant
 from rpython.translator.simplify import get_functype
-from rpython.rpython.rmodel import warning
+from rpython.rtyper.rmodel import warning
 from rpython.rlib.objectmodel import specialize
 
 class KeyComp(object):
