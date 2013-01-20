@@ -3,7 +3,7 @@ Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
 import re
-from pypy.translator.platform import platform
+from rpython.translator.platform import platform
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)

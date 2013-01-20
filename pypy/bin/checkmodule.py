@@ -6,7 +6,6 @@ Check annotation and rtyping of the PyPy extension module from
 pypy/module/<module-name>/.  Useful for testing whether a
 modules compiles without doing a full translation.
 """
-import autopath
 import sys, os
 
 from pypy.objspace.fake.checkmodule import checkmodule

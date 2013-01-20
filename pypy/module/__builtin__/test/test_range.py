@@ -1,5 +1,3 @@
-import autopath
-
 class AppTestRange:
 
    def test_range_toofew(self):

@@ -3,10 +3,10 @@ Callbacks.
 """
 import os
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
-from pypy.rlib import clibffi, rweakref, rgc
-from pypy.rlib.rarithmetic import r_ulonglong
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
+from rpython.rlib import clibffi, rweakref
+from rpython.rlib import jit
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
@@ -77,6 +77,7 @@ class W_CDataCallback(W_CData):
                                  space.wrap("expected a function ctype"))
         return ctype
 
+    @jit.unroll_safe
     def invoke(self, ll_args):
         space = self.space
         ctype = self.getfunctype()
@@ -151,6 +152,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
 
 STDERR = 2
 
+@jit.jit_callback("CFFI")
 def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care

@@ -2,22 +2,15 @@ from __future__ import with_statement
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib import rgc, ropenssl
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib import rgc, ropenssl
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
-
-# HASH_MALLOC_SIZE is the size of EVP_MD, EVP_MD_CTX plus their points
-# Used for adding memory pressure. Last number is an (under?)estimate of
-# EVP_PKEY_CTX's size.
-# XXX: Make a better estimate here
-HASH_MALLOC_SIZE = ropenssl.EVP_MD_SIZE + ropenssl.EVP_MD_CTX_SIZE \
-        + rffi.sizeof(ropenssl.EVP_MD) * 2 + 208
 
 class W_Hash(Wrappable):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
@@ -34,7 +27,7 @@ class W_Hash(Wrappable):
         self.lock = Lock(space)
 
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
-        rgc.add_memory_pressure(HASH_MALLOC_SIZE + self.digest_size)
+        rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
         try:
             if copy_from:
                 ropenssl.EVP_MD_CTX_copy(ctx, copy_from)

@@ -9,12 +9,12 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit, rstackovf
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.debug import check_nonneg
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit, rstackovf
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.debug import check_nonneg
 from pypy.tool.stdlib_opcode import (bytecode_spec,
                                      unrolling_all_opcode_descs)
 
@@ -178,6 +178,11 @@ class __extend__(pyframe.PyFrame):
             else:
                 oparg = 0
 
+            # note: the structure of the code here is such that it makes
+            # (after translation) a big "if/elif" chain, which is then
+            # turned into a switch().  It starts here: even if the first
+            # one is not an "if" but a "while" the effect is the same.
+
             while opcode == self.opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
                 if opcode < self.HAVE_ARGUMENT:
@@ -226,6 +231,8 @@ class __extend__(pyframe.PyFrame):
                         'END_FINALLY', 'JUMP_ABSOLUTE'):
                         continue   # opcodes implemented above
 
+                    # the following "if" is part of the big switch described
+                    # above.
                     if opcode == opdesc.index:
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)

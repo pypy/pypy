@@ -3,12 +3,12 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
-from pypy.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
+from rpython.rlib import jit
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, ctypeprim, misc

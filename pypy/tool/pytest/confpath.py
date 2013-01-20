@@ -1,4 +1,3 @@
-import autopath 
 import py
 import pypy
 from pypy.tool import lib_pypy

@@ -5,15 +5,15 @@ from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import jit
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import jit
 
 # ____________________________________________________________
 #
 # Constants and exposed functions
 
-from pypy.rlib.rsre import rsre_core
-from pypy.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
+from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)
@@ -54,7 +54,7 @@ def do_flatten_marks(ctx, num_groups):
     result = [-1] * (2 * num_groups)
     mark = ctx.match_marks
     while mark is not None:
-        index = mark.gid
+        index = jit.promote(mark.gid)
         if result[index] == -1:
             result[index] = mark.position
         mark = mark.prev
@@ -90,7 +90,7 @@ def searchcontext(space, ctx):
 # SRE_Pattern class
 
 class W_SRE_Pattern(Wrappable):
-    _immutable_fields_ = ["code", "flags", "num_groups"]
+    _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
     def cannot_copy_w(self):
         space = self.space

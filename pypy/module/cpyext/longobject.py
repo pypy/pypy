@@ -1,12 +1,12 @@
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import intmask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")

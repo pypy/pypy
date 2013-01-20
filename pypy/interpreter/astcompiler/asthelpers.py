@@ -43,7 +43,7 @@ class __extend__(ast.List):
         if self.elts:
             for elt in self.elts:
                 elt.set_context(ctx)
-            self.ctx = ctx
+        self.ctx = ctx
 
 
 class __extend__(ast.Attribute):

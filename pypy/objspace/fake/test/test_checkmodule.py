@@ -3,7 +3,7 @@ from pypy.objspace.fake.objspace import FakeObjSpace, is_root
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
-from pypy.rpython.test.test_llinterp import interpret
+from rpython.rtyper.test.test_llinterp import interpret
 
 def make_checker():
     check = []

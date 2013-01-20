@@ -1,12 +1,12 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.rpython.lltypesystem.lltype import nullptr
+from rpython.rtyper.lltypesystem.lltype import nullptr
 from pypy.module.cpyext.pystate import PyInterpreterState, PyThreadState
 from pypy.module.cpyext.pyobject import from_ref
-from pypy.rpython.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_cpyext import LeakCheckingTest, freeze_refcnts
 from pypy.module.cpyext.pystate import PyThreadState_Get, PyInterpreterState_Head
-from pypy.tool import leakfinder
+from rpython.tool import leakfinder
 
 class AppTestThreads(AppTestCpythonExtensionBase):
     def test_allow_threads(self):

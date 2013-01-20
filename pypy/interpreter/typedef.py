@@ -8,9 +8,9 @@ from pypy.interpreter.gateway import interp2app, BuiltinCode, unwrap_spec,\
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
-from pypy.rlib.jit import promote
+from rpython.tool.sourcetools import compile2, func_with_new_name
+from rpython.rlib.objectmodel import instantiate, compute_identity_hash, specialize
+from rpython.rlib.jit import promote
 
 class TypeDef:
     def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
@@ -104,6 +104,13 @@ def default_identity_hash(space, w_obj):
 # features, but limit ourselves to 6, chosen a bit arbitrarily based on
 # typical usage (case 1 is the most common kind of app-level subclasses;
 # case 2 is the memory-saving kind defined with __slots__).
+#
+#  +----------------------------------------------------------------+
+#  | NOTE: if withmapdict is enabled, the following doesn't apply!  |
+#  | Map dicts can flexibly allow any slots/__dict__/__weakref__ to |
+#  | show up only when needed.  In particular there is no way with  |
+#  | mapdict to prevent some objects from being weakrefable.        |
+#  +----------------------------------------------------------------+
 #
 #     dict   slots   del   weakrefable
 #

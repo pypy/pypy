@@ -2,11 +2,11 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rgc
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.platform import platform
+from rpython.rlib import rgc, jit
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import platform
 
 import sys
 import weakref
@@ -182,6 +182,8 @@ class Storage:
 
     def clear(self):
         self.next_id = 0
+        self._last_object_id = -1
+        self._last_object = None
         self.storage = {}
 
     @staticmethod
@@ -194,10 +196,18 @@ class Storage:
 
     @staticmethod
     def get_object(id):
-        return global_storage.storage[id]
+        if id == global_storage._last_object_id:
+            return global_storage._last_object
+        result = global_storage.storage[id]
+        global_storage._last_object_id = id
+        global_storage._last_object = result
+        return result
 
     @staticmethod
     def free_nonmoving_id(id):
+        if id == global_storage._last_object_id:
+            global_storage._last_object = None
+            global_storage._last_object_id = -1
         del global_storage.storage[id]
 
 global_storage = Storage()
@@ -278,6 +288,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         post_code = ''
 
     src = py.code.Source("""
+    @jit.jit_callback('XML:%(name)s')
     def %(name)s_callback(%(first_arg)s, %(args)s):
         id = rffi.cast(lltype.Signed, %(ll_id)s)
         userdata = global_storage.get_object(id)
