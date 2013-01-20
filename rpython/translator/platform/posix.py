@@ -5,7 +5,7 @@ import py, os, sys
 from rpython.translator.platform import Platform, log, _run_subprocess
 
 import rpython
-rpydir = os.path.dirname(rpython.__file__)
+rpydir = str(py.path.local(rpython.__file__).join('..'))
 
 class BasePosix(Platform):
     exe_ext = ''
