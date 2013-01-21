@@ -2,6 +2,11 @@ from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.jit.metainterp import compile
 from rpython.rtyper.lltypesystem import lltype
 
+class CPUTotalTracker(object):
+    total_compiled_loops = 0
+    total_compiled_bridges = 0
+    total_freed_loops = 0
+    total_freed_bridges = 0    
 
 class AbstractCPU(object):
     supports_floats = False
@@ -11,20 +16,18 @@ class AbstractCPU(object):
     # Boxes and Consts are BoxFloats and ConstFloats.
     supports_singlefloats = False
 
-    total_compiled_loops = 0
-    total_compiled_bridges = 0
-    total_freed_loops = 0
-    total_freed_bridges = 0
-
     propagate_exception_descr = None
 
     # for heaptracker
     # _all_size_descrs_with_vtable = None
     _vtable_to_descr_dict = None
 
-
     def __init__(self):
         self.__dict__.update(compile.make_done_loop_tokens())
+        self.tracker = CPUTotalTracker()
+
+    def _freeze_(self):
+        return True
 
     def setup_once(self):
         """Called once by the front-end when the program starts."""
@@ -290,7 +293,7 @@ class CompiledLoopToken(object):
     frame_depth = 0
 
     def __init__(self, cpu, number):
-        cpu.total_compiled_loops += 1
+        cpu.tracker.total_compiled_loops += 1
         self.cpu = cpu
         self.number = number
         self.bridges_count = 0
@@ -314,7 +317,7 @@ class CompiledLoopToken(object):
         return n
 
     def compiling_a_bridge(self):
-        self.cpu.total_compiled_bridges += 1
+        self.cpu.tracker.total_compiled_bridges += 1
         self.bridges_count += 1
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Bridge #", self.bridges_count, "of Loop #", self.number)
@@ -325,6 +328,6 @@ class CompiledLoopToken(object):
         debug_print("freeing Loop #", self.number, 'with',
                     self.bridges_count, 'attached bridges')
         self.cpu.free_loop_and_bridges(self)
-        self.cpu.total_freed_loops += 1
-        self.cpu.total_freed_bridges += self.bridges_count
+        self.cpu.tracker.total_freed_loops += 1
+        self.cpu.tracker.total_freed_bridges += self.bridges_count
         debug_stop("jit-mem-looptoken-free")

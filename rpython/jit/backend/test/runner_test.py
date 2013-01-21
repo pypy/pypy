@@ -223,8 +223,8 @@ class BaseBackendTest(Runner):
         assert not wr_i1() and not wr_guard()
 
     def test_compile_bridge(self):
-        self.cpu.total_compiled_loops = 0
-        self.cpu.total_compiled_bridges = 0
+        self.cpu.tracker.total_compiled_loops = 0
+        self.cpu.tracker.total_compiled_bridges = 0
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
@@ -260,8 +260,8 @@ class BaseBackendTest(Runner):
         res = self.cpu.get_int_value(deadframe, 0)
         assert res == 20
 
-        assert self.cpu.total_compiled_loops == 1
-        assert self.cpu.total_compiled_bridges == 1
+        assert self.cpu.tracker.total_compiled_loops == 1
+        assert self.cpu.tracker.total_compiled_bridges == 1
         return looptoken
 
     def test_compile_bridge_with_holes(self):

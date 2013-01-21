@@ -2,8 +2,9 @@
 """ Tests for register allocation for common constructs
 """
 
-from rpython.jit.metainterp.history import TargetToken, AbstractDescr
-from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm
+from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr
+from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
+     GcLLDescr_framework
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.backend.llsupport import jitframe
@@ -319,3 +320,15 @@ class TestMallocFastpath(BaseTestRegalloc):
             s1ref = self.cpu.get_ref_value(self.deadframe, i)
             s1 = lltype.cast_opaque_ptr(lltype.Ptr(S1), s1ref)
             assert s1 == getattr(s2, 's%d' % i)
+
+class TestGcShadowstackDirect(object):
+    
+    cpu = CPU(None, None)
+    cpu.gc_ll_descr = GcLLDescr_framework(None, None, None)
+    cpu.setup_once()
+
+    def test_shadowstack_call(self):
+        ops = parse("""
+        []
+        finish(i0, descr=finaldescr)
+        """, namespace={'finaldescr': BasicFinalDescr()})

@@ -302,7 +302,7 @@ class RegAlloc(object):
         i = 0
         for loc in locs:
             if loc is None: # xxx bit kludgy
-                continue
+                loc = ebp
             arg = inputargs[i]
             i += 1
             if isinstance(loc, RegLoc):

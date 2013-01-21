@@ -159,11 +159,11 @@ class AbstractX86CPU(AbstractLLCPU):
                                        immortal=True)
 
     def force(self, addr_of_force_token):
-        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        descr = self.signedarraydescr
         ofs = self.unpack_arraydescr(descr)
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token - ofs)
         frame.jf_descr = frame.jf_force_descr
-        return frame
+        return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
@@ -249,6 +249,7 @@ class CPU_X86_64(AbstractX86CPU):
         descrs = self.gc_ll_descr.getframedescrs(self)
         ad = descrs.arraydescr
         # the same as normal JITFRAME, however with an array of pointers
+        self.signedarraydescr = ad
         self.refarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
                                         FLAG_POINTER)
         self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
@@ -260,8 +261,7 @@ class CPU_X86_64(AbstractX86CPU):
         elif type == history.REF:
             descr = self.refarraydescr
         else:
-            descrs = self.gc_ll_descr.getframedescrs(self)
-            descr = descrs.arraydescr
+            descr = self.signedarraydescr
         return JITFRAME_FIXED_SIZE + index, descr
 
 CPU = CPU386
