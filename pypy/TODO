@@ -1,6 +1,8 @@
 
 * 32bit x86
 * ARM
-* shadowstack + asmgcc
+* shadowstack + asmgcc (shadowstack needs reloading of ebp after frame
+  got potentially moved, which is after each potentially collecting call
+  or slowpath malloc)
 * kill jit2gc on translator
 * fix test_singlefloats in test_calling_conventions

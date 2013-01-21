@@ -1,4 +1,5 @@
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
@@ -142,6 +143,7 @@ class GcRewriterAssembler(object):
         lgt_box = history.BoxInt()
         frame = history.BoxPtr()
         jfi = loop_token.compiled_loop_token.frame_info
+        rgc._make_sure_does_not_move(jfi)
         llref = lltype.cast_opaque_ptr(llmemory.GCREF, jfi)
         op0 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(llref)], lgt_box,
                            descr=descrs.jfi_frame_depth)
@@ -154,6 +156,10 @@ class GcRewriterAssembler(object):
         op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
+        llref = lltype.cast_opaque_ptr(llmemory.GCREF, jfi.jfi_gcmap)
+        op3 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
+                           None, descr=descrs.jf_gcmap)
+        self.newops.append(op3)
         for i, arg in enumerate(op.getarglist()):
             index, descr = self.cpu.getarraydescr_for_frame(arg.type, i)
             self.newops.append(ResOperation(rop.SETARRAYITEM_GC,

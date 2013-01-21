@@ -556,7 +556,7 @@ class Assembler386(object):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        stack_check_patch_ofs = self._check_frame_depth()
+        stack_check_patch_ofs = self._check_frame_depth(self.mc)
         frame_depth = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -638,7 +638,7 @@ class Assembler386(object):
                 mc.writeimm32(self.error_trampoline_64 - pos_after_jz)
                 mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
-    def _check_frame_depth(self):
+    def _check_frame_depth(self, mc):
         """ check if the frame is of enough depth to follow this bridge.
         Otherwise reallocate the frame in a helper.
         There are other potential solutions
@@ -647,16 +647,16 @@ class Assembler386(object):
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        self.mc.CMP_bi(ofs - base_ofs, 0xffffff)
-        stack_check_cmp_ofs = self.mc.get_relative_pos() - 4
+        mc.CMP_bi(ofs - base_ofs, 0xffffff)
+        stack_check_cmp_ofs = mc.get_relative_pos() - 4
         assert not IS_X86_32
-        self.mc.J_il8(rx86.Conditions['GE'], 0)
-        jg_location = self.mc.get_relative_pos()
-        self.mc.CALL(imm(self._stack_check_failure))
+        mc.J_il8(rx86.Conditions['GE'], 0)
+        jg_location = mc.get_relative_pos()
+        mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
-        offset = self.mc.get_relative_pos() - jg_location
+        offset = mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
-        self.mc.overwrite(jg_location-1, chr(offset))
+        mc.overwrite(jg_location-1, chr(offset))
         return stack_check_cmp_ofs
 
     def _insert_frame_adjustment(self, frame_info):
@@ -882,6 +882,11 @@ class Assembler386(object):
         # Ideally we should rather patch all existing CALLs, but well.
         oldadr = oldlooptoken._x86_function_addr
         target = newlooptoken._x86_function_addr
+        # copy frame-info data
+        old_fi = oldlooptoken.compiled_loop_token.frame_info
+        new_fi = newlooptoken.compiled_loop_token.frame_info
+        old_fi.jfi_frame_depth = new_fi.jfi_frame_depth
+        old_fi.jfi_gcmap = new_fi.jfi_gcmap
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()
@@ -1857,12 +1862,12 @@ class Assembler386(object):
         if WORD == 4:
             mc.PUSH(imm(fail_descr))
             mc.PUSH(imm(gcpattern))
-            mc.JMP(imm(target))
+            mc.CALL(imm(target))
         else:
             mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
             mc.PUSH(imm(fail_descr))
             mc.PUSH(imm(gcpattern))
-            mc.JMP_r(X86_64_SCRATCH_REG.value)
+            self.mc.JMP_r(X86_64_SCRATCH_REG.value)
         return startpos
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):
