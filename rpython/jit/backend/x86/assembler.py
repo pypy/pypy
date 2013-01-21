@@ -198,7 +198,7 @@ class Assembler386(object):
         mc.SUB_rr(edi.value, eax.value)       # compute the size we want
         assert not IS_X86_32
         # the arg is already in edi
-        if getattr(self.cpu.gc_ll_descr, 'passes_frame'):
+        if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
             base_ofs = self.cpu.get_baseofs_of_frame_field()
             mc.LEA_rb(esi.value, -base_ofs)
         mc.SUB_ri(esp.value, 16 - WORD)
