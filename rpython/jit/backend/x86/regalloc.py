@@ -486,7 +486,7 @@ class RegAlloc(object):
         else:
             resloc = None
         self.perform_guard(op, [loc, loc1], resloc)
-        self.possibly_free_var(box)
+        self.rm.possibly_free_var(box)
 
     consider_guard_no_overflow = consider_guard_no_exception
     consider_guard_overflow    = consider_guard_no_exception
