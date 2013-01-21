@@ -92,12 +92,12 @@ def register_known_gctype(cpu, vtable, STRUCT):
     if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
         cpu.tracker._all_size_descrs_with_vtable = []
         cpu.tracker._vtable_to_descr_dict = None
-    cpu._all_size_descrs_with_vtable.append(sizedescr)
+    cpu.tracker._all_size_descrs_with_vtable.append(sizedescr)
     sizedescr._corresponding_vtable = vtable
 
 def finish_registering(cpu):
     # annotation hack for small examples which have no vtable at all
-    if not hasattr(cpu, '_all_size_descrs_with_vtable'):
+    if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
         vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         register_known_gctype(cpu, vtable, rclass.OBJECT)
 
@@ -111,14 +111,14 @@ def vtable2descr(cpu, vtable):
         d = cpu.tracker._vtable_to_descr_dict
         if d is None:
             d = cpu.tracker._vtable_to_descr_dict = {}
-            for descr in cpu._all_size_descrs_with_vtable:
+            for descr in cpu.tracker._all_size_descrs_with_vtable:
                 key = descr._corresponding_vtable
                 key = llmemory.cast_ptr_to_adr(key)
                 d[key] = descr
         return d[vtable]
     else:
         vtable = llmemory.cast_adr_to_ptr(vtable, VTABLETYPE)
-        for descr in cpu._all_size_descrs_with_vtable:
+        for descr in cpu.tracker._all_size_descrs_with_vtable:
             if descr._corresponding_vtable == vtable:
                 return descr
         raise KeyError(vtable)
