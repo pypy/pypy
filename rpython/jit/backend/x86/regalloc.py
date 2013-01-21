@@ -896,14 +896,14 @@ class RegAlloc(object):
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
         self.rm.possibly_free_var(tmp_box)
         #
-        gcmap = self._compute_gcmap()
+        gcmap = self.get_gcmap()
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             size, gcmap)
 
-    def _compute_gcmap(self):
+    def get_gcmap(self):
         frame_depth = self.fm.get_frame_depth()
         size = frame_depth + JITFRAME_FIXED_SIZE
         gcmap = lltype.malloc(GCMAP, size // WORD // 8 + 1,

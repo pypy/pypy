@@ -197,11 +197,13 @@ class Assembler386(object):
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
         assert not IS_X86_32
         # push first arg
+        mc.POP_r(ecx.value)
+        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.MOV_br(gcmap_ofs, ecx.value)
         mc.LEA_rb(edi.value, -base_ofs)
-        mc.SUB_ri(esp.value, WORD) # we need that cause we're inside a call
         mc.CALL(imm(self.cpu.realloc_frame))
-        mc.ADD_ri(esp.value, WORD) 
         mc.LEA_rm(ebp.value, (eax.value, base_ofs))
+        mc.MOV_bi(gcmap_ofs, 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
         self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
@@ -581,7 +583,8 @@ class Assembler386(object):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        stack_check_patch_ofs = self._check_frame_depth(self.mc)
+        stack_check_patch_ofs = self._check_frame_depth(self.mc,
+                                                        regalloc.get_gcmap())
         frame_depth = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -662,7 +665,7 @@ class Assembler386(object):
                 mc.writeimm32(self.error_trampoline_64 - pos_after_jz)
                 mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
-    def _check_frame_depth(self, mc):
+    def _check_frame_depth(self, mc, gcmap):
         """ check if the frame is of enough depth to follow this bridge.
         Otherwise reallocate the frame in a helper.
         There are other potential solutions
@@ -676,6 +679,7 @@ class Assembler386(object):
         assert not IS_X86_32
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
+        self.push_gcmap(mc, gcmap, push=True)
         mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
@@ -1218,7 +1222,9 @@ class Assembler386(object):
             dst_locs.append(r10)
             x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
+        self.push_gcmap(self.mc, self._regalloc.get_gcmap(), store=True)
         self.mc.CALL(x)
+        self.pop_gcmap(self.mc)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
         self._reload_frame_if_necessary(self.mc)
@@ -1867,13 +1873,28 @@ class Assembler386(object):
         #    mc.JMP(imm(target))
         #else:
         mc.PUSH(imm(fail_descr))
-        gcmapref = lltype.cast_opaque_ptr(llmemory.GCREF, guardtok.gcmap)
+        self.push_gcmap(mc, guardtok.gcmap, push=True)
+        mc.JMP(imm(target))
+        return startpos
+
+    def push_gcmap(self, mc, gcmap, push=False, mov=False, store=False):
+        gcmapref = lltype.cast_opaque_ptr(llmemory.GCREF, gcmap)
         # keep the ref alive
         self.current_clt.allgcrefs.append(gcmapref)
         rgc._make_sure_does_not_move(gcmapref)
-        mc.PUSH(imm(rffi.cast(lltype.Signed, gcmapref)))
-        mc.JMP(imm(target))
-        return startpos
+        if push:
+            mc.PUSH(imm(rffi.cast(lltype.Signed, gcmapref)))
+        elif mov:
+            mc.MOV(RawEspLoc(0, REF),
+                   imm(rffi.cast(lltype.Signed, gcmapref)))
+        else:
+            assert store
+            ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+            mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed, gcmapref)))
+
+    def pop_gcmap(self, mc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.MOV_bi(ofs, 0)
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):
         locs = []
@@ -2402,12 +2423,8 @@ class Assembler386(object):
         self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
-        # this is a 32bit gcpattern that describes where are GC roots
-        # in registers (which will be saved while doing slowpath)
-        # store it on top of the stack (we might not have a register free)
-        gcmapref = lltype.cast_opaque_ptr(llmemory.GCREF, gcmap)
-        rgc._make_sure_does_not_move(gcmapref)
-        self.mc.MOV(RawEspLoc(0, REF), imm(rffi.cast(lltype.Signed, gcmapref)))
+        # save the gcmap
+        self.push_gcmap(self.mc, gcmap, mov=True)
         self.mc.CALL(imm(self.malloc_slowpath))
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
