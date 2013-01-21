@@ -226,7 +226,9 @@ class AbstractLLCPU(AbstractCPU):
     def get_latest_descr(self, deadframe):
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
-        return history.AbstractDescr.show(self, descr)
+        res = history.AbstractDescr.show(self, descr)
+        assert isinstance(res, history.AbstractFailDescr)
+        return res
 
     def _decode_pos(self, deadframe, index):
         descr = self.get_latest_descr(deadframe)
