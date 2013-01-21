@@ -8,34 +8,23 @@ rsyncignore = ['_cache']
 # PyPy's command line extra options (these are added
 # to py.test's standard options)
 #
+
+pytest_plugins = [
+    'rpython.tool.pytest.leakfinder',
+    'rpython.tool.pytest.viewerplugin',
+    'rpython.tool.pytest.platform',
+]
+
 option = None
 
 pypydir = os.path.realpath(os.path.dirname(__file__))
 
-def braindead_deindent(self):
-    """monkeypatch that wont end up doing stupid in the python tokenizer"""
-    text = '\n'.join(self.lines)
-    short = py.std.textwrap.dedent(text)
-    newsource = py.code.Source()
-    newsource.lines[:] = short.splitlines()
-    return newsource
-
-py.code.Source.deindent = braindead_deindent
-
-def pytest_report_header():
-    return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
-
-def pytest_addhooks(pluginmanager):
-    from rpython.conftest import LeakFinder
-    pluginmanager.register(LeakFinder())
 
 def pytest_configure(config):
     global option
     option = config.option
 
 def pytest_addoption(parser):
-    from rpython.conftest import pytest_addoption
-    pytest_addoption(parser)
     
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
