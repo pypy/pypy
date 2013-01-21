@@ -174,12 +174,10 @@ def where(out, shape, arr, x, y, dtype):
     return out
 
 axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
-                                    greens=['shapelen', 'cumultative',
+                                    greens=['shapelen', 
                                             'func', 'dtype',
                                             'identity'],
-                                    reds=['axis', 'arr', 'out', 'shape',
-                                          'out_iter', 'arr_iter',
-                                          'temp_iter'])
+                                    reds='auto')
 
 def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
                    temp):
@@ -195,11 +193,7 @@ def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
     while not out_iter.done():
         axis_reduce__driver.jit_merge_point(shapelen=shapelen, func=func,
                                             dtype=dtype, identity=identity,
-                                            axis=axis, arr=arr, out=out,
-                                            shape=shape, out_iter=out_iter,
-                                            arr_iter=arr_iter,
-                                            cumultative=cumultative,
-                                            temp_iter=temp_iter)
+                                            )
         w_val = arr_iter.getitem().convert_to(dtype)
         if out_iter.first_line:
             if identity is not None:
