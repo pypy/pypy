@@ -217,7 +217,6 @@ class FrameManager(object):
             assert not all[node.val]
             all[node.val] = 1
             node = node.next
-        assert all == [1] * self.get_frame_depth()
 
     def try_to_reuse_location(self, box, loc):
         xxx
