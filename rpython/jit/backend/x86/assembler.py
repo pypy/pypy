@@ -685,7 +685,7 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
         mc.overwrite(jg_location-1, chr(offset))
-        return stack_check_cmp_ofs            
+        return stack_check_cmp_ofs
 
     def _patch_stackadjust(self, adr, allocated_depth):
         mc = codebuf.MachineCodeBlockWrapper()

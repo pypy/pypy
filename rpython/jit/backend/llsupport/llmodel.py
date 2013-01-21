@@ -55,9 +55,9 @@ class AbstractLLCPU(AbstractCPU):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                              llmemory.GCREF))
 
-        def realloc_frame(frame):
+        def realloc_frame(frame, size):
             frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-            new_frame = frame.copy()
+            new_frame = jitframe.JITFRAME.allocate(frame.frame_info)
             # XXX now we know, rewrite this
             # we need to do this, because we're not sure what things
             # are GC pointers and which ones are not
