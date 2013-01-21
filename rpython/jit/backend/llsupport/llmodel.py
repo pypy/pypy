@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
@@ -13,6 +13,7 @@ from rpython.jit.backend.llsupport.descr import (
     get_call_descr, get_interiorfield_descr,
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr)
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from rpython.annotator import model as annmodel
 
 
 class AbstractLLCPU(AbstractCPU):
@@ -44,13 +45,13 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self._setup_exception_handling_untranslated()
         self.asmmemmgr = AsmMemoryManager()
-        self._setup_frame_realloc()
+        self._setup_frame_realloc(translate_support_code)
         self.setup()
 
     def setup(self):
         pass
 
-    def _setup_frame_realloc(self):
+    def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
                                              llmemory.GCREF))
 
@@ -69,9 +70,18 @@ class AbstractLLCPU(AbstractCPU):
             new_frame.jf_savedata = frame.jf_savedata
             # all other fields are empty
             return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
-        
-        f = llhelper(FUNC_TP, realloc_frame)
-        self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(f))
+
+        if not translate_support_code:
+            fptr = llhelper(FUNC_TP, realloc_frame)
+        else:
+            FUNC = FUNC_TP.TO
+            args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+            s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+            mixlevelann = MixLevelHelperAnnotator(self.rtyper)
+            graph = mixlevelann.getgraph(realloc_frame, args_s, s_result)
+            fptr = mixlevelann.graph2delayed(graph, FUNC)
+            mixlevelann.finish()
+        self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
 
     def _setup_exception_handling_untranslated(self):
         # for running un-translated only, all exceptions occurring in the
