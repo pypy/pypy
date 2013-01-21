@@ -1726,12 +1726,12 @@ class GenLLVM(object):
         cmdexec('opt -O3 {} -o {}'.format(linked_bc, optimized_bc))
         cmdexec('llc -O3 -filetype=obj {}{} -o {}'
                 .format(llc_add_opts, optimized_bc, object_file))
-        cmdexec('clang -O3 -pthread {}{}{}{}{} -o {}'
-                .format(link_add_opts,
+        cmdexec('clang -O3 -pthread {}{} {}{}{}-o {}'
+                .format(link_add_opts, object_file,
                         ''.join('-l{} '.format(li) for li in eci.libraries),
                         ''.join('-L{} '.format(ld) for ld in eci.library_dirs),
                         ''.join('{} '.format(lf) for lf in eci.link_files),
-                        object_file, output_file))
+                        output_file))
         return output_file
 
     def compile(self, exe_name):
