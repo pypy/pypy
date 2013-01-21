@@ -214,7 +214,7 @@ class Assembler386(object):
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDX
         # clear the gc pattern
-        mc.MOV_bi(ofs, imm(0))
+        mc.MOV_bi(ofs, 0)
         mc.RET()
         #
         # If the slowpath malloc failed, we raise a MemoryError that
