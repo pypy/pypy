@@ -864,10 +864,15 @@ class RegAlloc(object):
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        self.rm._sync_var(op.getarg(0))
+        arglist = op.getarglist()
+        self.rm._sync_var(arglist[0])
         frame_loc = self.fm.loc(op.getarg(0))
-        self._call(op, [frame_loc, self.loc(op.getarg(0))],
-                   guard_not_forced_op=guard_op)
+        if len(arglist) == 2:
+            self.rm._sync_var(arglist[1])
+            locs = [frame_loc, self.loc(arglist[0]), self.fm.loc(arglist[1])]
+        else:
+            locs = [frame_loc, self.loc(arglist[0])]
+        self._call(op, locs, guard_not_forced_op=guard_op)
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
@@ -1316,9 +1321,8 @@ class RegAlloc(object):
             loc = self.loc(arg)
             assert loc is not ebp
             arglocs[i] = loc
-            # ARGH
-            #if isinstance(loc, RegLoc):
-            #    self.fm.mark_as_free(arg)
+            if isinstance(loc, RegLoc):
+                self.fm.mark_as_free(arg)
         #
         # if we are too close to the start of the loop, the label's target may
         # get overridden by redirect_call_assembler().  (rare case)

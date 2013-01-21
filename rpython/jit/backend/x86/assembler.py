@@ -2206,7 +2206,11 @@ class Assembler386(object):
         self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        [frame_loc, argloc] = arglocs
+        if len(arglocs) == 3:
+            [frame_loc, argloc, vloc] = arglocs
+        else:
+            [frame_loc, argloc] = arglocs
+            vloc = imm(0)
         #
         # Write a call to the target assembler
         # we need to allocate the frame, keep in sync with runner's
@@ -2242,12 +2246,6 @@ class Assembler386(object):
         # Path A: use assembler_helper_adr
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        if jd.index_of_virtualizable >= 0:
-            idx = jd.index_of_virtualizable + JITFRAME_FIXED_SIZE
-            self.mc.MOV(esi, mem(eax, base_ofs + idx * WORD))
-            vloc = esi
-        else:
-            vloc = imm(0)
 
         self._emit_call(imm(asm_helper_adr),
                         [eax, vloc], 0, tmp=ecx)

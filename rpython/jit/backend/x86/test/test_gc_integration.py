@@ -233,7 +233,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         def check(frame):
             x = frame.jf_gcmap
             assert len(x) == 1
-            assert bin(x[0]) == '0b1111100000000000000001111111011111'
+            assert bin(x[0]).count('1') == '0b1111100000000000000001111111011111'.count(1)
             # all but two
         
         self.cpu = self.getcpu(check)

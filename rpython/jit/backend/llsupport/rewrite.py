@@ -156,12 +156,19 @@ class GcRewriterAssembler(object):
         op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
-        for i, arg in enumerate(op.getarglist()):
+        arglist = op.getarglist()
+        for i, arg in enumerate(arglist):
             index, descr = self.cpu.getarraydescr_for_frame(arg.type, i)
             self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
                                             [frame, ConstInt(index), arg],
                                             None, descr))
-        self.newops.append(ResOperation(rop.CALL_ASSEMBLER, [frame],
+        jd = op.getdescr().outermost_jitdriver_sd
+        args = [frame]
+        if jd.index_of_virtualizable >= 0:
+            args = [frame, arglist[jd.index_of_virtualizable]]
+        else:
+            args = [frame]
+        self.newops.append(ResOperation(rop.CALL_ASSEMBLER, args,
                                         op.result, op.getdescr()))
 
     # ----------
