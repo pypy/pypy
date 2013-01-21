@@ -102,8 +102,9 @@ class GcLLDescription(GcCache):
                 rgc._make_sure_does_not_move(p)
                 gcrefs_output_list.append(p)
         if op.is_guard() or op.getopnum() == rop.FINISH:
-            rgc._make_sure_does_not_move(cast_instance_to_gcref(op.getdescr()))
-            gcrefs_output_list.append(op.getdescr())
+            llref = cast_instance_to_gcref(op.getdescr())
+            rgc._make_sure_does_not_move(llref)
+            gcrefs_output_list.append(llref)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
