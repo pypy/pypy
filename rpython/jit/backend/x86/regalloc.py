@@ -1316,8 +1316,9 @@ class RegAlloc(object):
             loc = self.loc(arg)
             assert loc is not ebp
             arglocs[i] = loc
-            if isinstance(loc, RegLoc):
-                self.fm.mark_as_free(arg)
+            # ARGH
+            #if isinstance(loc, RegLoc):
+            #    self.fm.mark_as_free(arg)
         #
         # if we are too close to the start of the loop, the label's target may
         # get overridden by redirect_call_assembler().  (rare case)

@@ -1,6 +1,6 @@
 import sys, py
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance, hlstr
 from rpython.annotator import model as annmodel

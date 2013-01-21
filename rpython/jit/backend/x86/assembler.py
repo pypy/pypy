@@ -885,7 +885,8 @@ class Assembler386(object):
         # copy frame-info data
         old_fi = oldlooptoken.compiled_loop_token.frame_info
         new_fi = newlooptoken.compiled_loop_token.frame_info
-        old_fi.jfi_frame_depth = new_fi.jfi_frame_depth
+        old_fi.jfi_frame_depth = max(old_fi.jfi_frame_depth,
+                                     new_fi.jfi_frame_depth)
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()
@@ -2211,10 +2212,7 @@ class Assembler386(object):
         # we need to allocate the frame, keep in sync with runner's
         # execute_token
         jd = descr.outermost_jitdriver_sd
-        if jd.index_of_virtualizable >= 0:
-            vloc = stack(jd.index_of_virtualizable, REF)
-        else:
-            vloc = imm(0)
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
         self._emit_call(imm(descr._x86_function_addr),
                         [argloc], 0, tmp=eax)
         if op.result is None:
@@ -2244,6 +2242,13 @@ class Assembler386(object):
         # Path A: use assembler_helper_adr
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
+        if jd.index_of_virtualizable >= 0:
+            idx = jd.index_of_virtualizable + JITFRAME_FIXED_SIZE
+            self.mc.MOV(esi, mem(eax, base_ofs + idx * WORD))
+            vloc = esi
+        else:
+            vloc = imm(0)
+
         self._emit_call(imm(asm_helper_adr),
                         [eax, vloc], 0, tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
@@ -2264,7 +2269,7 @@ class Assembler386(object):
             assert isinstance(fielddescr, FieldDescr)
             vtoken_ofs = fielddescr.offset
             vable_ofs = (jd.index_of_virtualizable + JITFRAME_FIXED_SIZE) * WORD
-            self.mc.MOV_rb(edx.value, vable_ofs)
+            self.mc.MOV_rm(edx.value, (eax.value, vable_ofs))
             self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
             # in the line above, TOKEN_NONE = 0
         #
