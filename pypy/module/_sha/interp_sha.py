@@ -1,4 +1,4 @@
-from pypy.rlib import rsha
+from rpython.rlib import rsha
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec

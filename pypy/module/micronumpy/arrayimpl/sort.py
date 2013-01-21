@@ -3,10 +3,10 @@
 because it only makes sense on a concrete array
 """
 
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.listsort import make_timsort_class
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.listsort import make_timsort_class
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
         free_raw_storage, alloc_raw_storage
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray

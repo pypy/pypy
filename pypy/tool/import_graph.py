@@ -1,11 +1,10 @@
 from __future__ import division
-import autopath
 import py
 
 import math
 import random
 
-exclude_files = ["__init__.py", "autopath.py", "conftest.py"]
+exclude_files = ["__init__.py", "conftest.py"]
 
 def include_file(path):
     if ("test" in str(path) or "tool" in str(path) or
@@ -97,8 +96,8 @@ class ModuleGraph(object):
         self.topgraph_properties = ["rankdir=LR"]
 
     def remove_object_refs(self):
-        # reduces cases like import pypy.translator.genc.basetype.CType to
-        # import pypy.translator.genc.basetype
+        # reduces cases like import rpython.translator.genc.basetype.CType to
+        # import rpython.translator.genc.basetype
         for mod, refs in self.imports.iteritems():
             i = 0
             while i < len(refs):

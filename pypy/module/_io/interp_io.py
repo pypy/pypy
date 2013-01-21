@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import (
 from pypy.module.exceptions.interp_exceptions import W_IOError
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
-from pypy.rpython.module.ll_os_stat import STAT_FIELD_TYPES
+from rpython.rtyper.module.ll_os_stat import STAT_FIELD_TYPES
 
 
 class W_BlockingIOError(W_IOError):

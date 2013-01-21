@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.api import cpython_api, PyObject, CONST_STRING
 from pypy.module._codecs import interp_codecs
 

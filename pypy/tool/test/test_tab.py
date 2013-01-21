@@ -2,10 +2,10 @@
 Verify that the PyPy source files have no tabs.
 """
 
-import autopath
 import os
+from pypy.conftest import pypydir
 
-ROOT = autopath.pypydir
+ROOT = pypydir
 EXCLUDE = {}
 
 

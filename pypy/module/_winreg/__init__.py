@@ -1,6 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._winreg import interp_winreg
-from pypy.rlib.rwinreg import constants
+from rpython.rlib.rwinreg import constants
 
 class Module(MixedModule):
     """This module provides access to the Windows registry API.

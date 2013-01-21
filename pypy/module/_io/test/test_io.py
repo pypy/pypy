@@ -1,6 +1,6 @@
 from __future__ import with_statement
 
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 class AppTestIoModule:

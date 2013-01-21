@@ -6,8 +6,8 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.proxyobject import *
 from pypy.objspace.std.typeobject import W_TypeObject
-from pypy.rlib.objectmodel import r_dict
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import r_dict
+from rpython.rlib.unroll import unrolling_iterable
 
 class TypeCache(object):
     def __init__(self):

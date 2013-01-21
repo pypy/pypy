@@ -1,6 +1,6 @@
 class CheckAllocation:
     def teardown_method(self, fun):
-        from pypy.rpython.lltypesystem import ll2ctypes
+        from rpython.rtyper.lltypesystem import ll2ctypes
         import gc
         tries = 20
         while tries and ll2ctypes.ALLOCATED:

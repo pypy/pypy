@@ -1,7 +1,7 @@
 from pypy.module.imp import importing
 from pypy.module._file.interp_file import W_File
-from pypy.rlib import streamio
-from pypy.rlib.streamio import StreamErrors
+from rpython.rlib import streamio
+from rpython.rlib.streamio import StreamErrors
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec

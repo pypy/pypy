@@ -1,6 +1,3 @@
-import autopath
-
-
 class AppTestMap:
 
    def test_trivial_map_one_seq(self):

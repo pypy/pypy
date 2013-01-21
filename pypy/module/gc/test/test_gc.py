@@ -73,8 +73,8 @@ class AppTestGcDumpHeap(object):
 
     def setup_class(cls):
         import py
-        from pypy.tool.udir import udir
-        from pypy.rlib import rgc
+        from rpython.tool.udir import udir
+        from rpython.rlib import rgc
         class X(object):
             def __init__(self, count, size, links):
                 self.count = count
@@ -92,7 +92,7 @@ class AppTestGcDumpHeap(object):
 
     def teardown_class(cls):
         import py
-        from pypy.rlib import rgc
+        from rpython.rlib import rgc
         
         rgc._heap_stats = cls._heap_stats
         assert py.path.local(cls._fname).read() == '1 12 0,0\n2 10 10,0\n'

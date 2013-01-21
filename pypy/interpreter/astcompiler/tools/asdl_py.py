@@ -542,9 +542,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.tool.pairtype import extendabletype
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.tool.pairtype import extendabletype
+from rpython.tool.sourcetools import func_with_new_name
 
 
 def check_string(space, w_obj):

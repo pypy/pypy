@@ -19,11 +19,11 @@ import py, sys, ctypes
 if sys.version_info < (2, 6):
     py.test.skip("requires the b'' literal syntax")
 
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend import Module
-from pypy.translator.platform import host
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import host
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 class AppTestC(object):

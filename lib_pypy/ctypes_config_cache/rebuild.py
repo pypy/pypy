@@ -1,21 +1,15 @@
 #! /usr/bin/env python
 # Run this script to rebuild all caches from the *.ctc.py files.
 
-# hack: we cannot directly import autopath, as we are outside the pypy
-# package.  However, we pretend to be inside pypy/tool and manually run it, to
-# get the correct path
-import os.path
-this_dir = os.path.dirname(__file__)
-autopath_py = os.path.join(this_dir, '../../pypy/tool/autopath.py')
-autopath_py = os.path.abspath(autopath_py)
-execfile(autopath_py, dict(__name__='autopath', __file__=autopath_py))
-
 import os, sys
+
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 import py
 
 _dirpath = os.path.dirname(__file__) or os.curdir
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("ctypes_config_cache")
 py.log.setconsumer("ctypes_config_cache", ansi_log)
 
@@ -31,7 +25,7 @@ def rebuild_one(name):
         sys.path[:] = path
 
 def try_rebuild():
-    from pypy.jit.backend import detect_cpu
+    from rpython.jit.backend import detect_cpu
     model = detect_cpu.autodetect_main_model_and_size()
     # remove the files '_*_model_.py'
     left = {}

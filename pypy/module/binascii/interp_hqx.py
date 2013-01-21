@@ -1,8 +1,8 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error, raise_Incomplete
-from pypy.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck
 
 # ____________________________________________________________
 

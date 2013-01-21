@@ -3,10 +3,11 @@
 
 from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.tool.autopath import pypydir
-from pypy.rpython.module.ll_os import RegisterOs
+from pypy.conftest import pypydir
+from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.translator.c.test.test_extfunc import need_sparse_files
 import os
 import py
 import sys
@@ -42,11 +43,7 @@ def setup_module(mod):
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
-def need_sparse_files():
-    if sys.platform == 'darwin':
-        py.test.skip("no sparse files on default Mac OS X file system")
-    if os.name == 'nt':
-        py.test.skip("no sparse files on Windows")
+
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
@@ -1127,7 +1124,7 @@ class TestPexpect(object):
         return child
 
     def spawn(self, argv):
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         return self._spawn(sys.executable, [str(py_py)] + argv)
 
     def test_ttyname(self):

@@ -1,5 +1,5 @@
-from pypy.tool.autopath import pypydir
-from pypy.tool.udir import udir
+from pypy.conftest import pypydir
+from rpython.tool.udir import udir
 import py
 import sys
 # tests here are run as snippets through a pexpected python subprocess
@@ -25,7 +25,7 @@ class TestCurses(object):
         return child
 
     def spawn(self, argv):
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         return self._spawn(sys.executable, [str(py_py)] + argv)
 
     def setup_class(self):
@@ -71,11 +71,11 @@ class TestCurses(object):
         child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
         
-class ExpectTestCCurses(object):
+class TestCCurses(object):
     """ Test compiled version
     """
     def test_csetupterm(self):
-        from pypy.translator.c.test.test_genc import compile
+        from rpython.translator.c.test.test_genc import compile
         from pypy.module._minimal_curses import interp_curses
         def runs_setupterm():
             interp_curses._curses_setupterm_null(1)
@@ -84,7 +84,7 @@ class ExpectTestCCurses(object):
         fn()
 
     def test_ctgetstr(self):
-        from pypy.translator.c.test.test_genc import compile
+        from rpython.translator.c.test.test_genc import compile
         from pypy.module._minimal_curses import interp_curses
         def runs_ctgetstr():
             interp_curses._curses_setupterm("xterm", 1)
@@ -95,7 +95,7 @@ class ExpectTestCCurses(object):
         assert res == '\x1b[%i%p1%d;%p2%dH'
 
     def test_ctparm(self):
-        from pypy.translator.c.test.test_genc import compile
+        from rpython.translator.c.test.test_genc import compile
         from pypy.module._minimal_curses import interp_curses
         def runs_tparm():
             interp_curses._curses_setupterm("xterm", 1)

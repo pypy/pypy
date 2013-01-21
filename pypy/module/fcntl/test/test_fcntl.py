@@ -1,5 +1,5 @@
 import os
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 if os.name == "nt":
     from py.test import skip

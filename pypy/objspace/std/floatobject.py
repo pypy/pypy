@@ -7,13 +7,13 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
-from pypy.rlib.rfloat import (
+from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
+from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib import rfloat
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib import rfloat
+from rpython.tool.sourcetools import func_with_new_name
 
 
 import math
@@ -23,7 +23,7 @@ class W_AbstractFloatObject(W_Object):
     __slots__ = ()
 
     def is_w(self, space, w_other):
-        from pypy.rlib.longlong2float import float2longlong
+        from rpython.rlib.longlong2float import float2longlong
         if not isinstance(w_other, W_AbstractFloatObject):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
@@ -35,7 +35,7 @@ class W_AbstractFloatObject(W_Object):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        from pypy.rlib.longlong2float import float2longlong
+        from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.model import IDTAG_FLOAT as tag
         val = float2longlong(space.float_w(self))
         b = rbigint.fromrarith_int(val)

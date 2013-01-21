@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib import runicode
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib import runicode
 from pypy.module._codecs import interp_codecs
 
 @specialize.memo()

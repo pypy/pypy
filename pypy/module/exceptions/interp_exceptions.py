@@ -77,7 +77,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rwin32
+from rpython.rlib import rwin32
 
 def readwrite_attrproperty_w(name, cls):
     def fget(space, obj):

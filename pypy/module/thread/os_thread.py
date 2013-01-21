@@ -3,7 +3,7 @@ Thread support based on OS-level threads.
 """
 
 import os
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, Arguments
@@ -49,7 +49,7 @@ from pypy.interpreter.gateway import unwrap_spec, Arguments
 class Bootstrapper(object):
     "A global container used to pass information to newly starting threads."
 
-    # Passing a closure argument to ll_thread.start_new_thread() would be
+    # Passing a closure argument to rthread.start_new_thread() would be
     # theoretically nicer, but comes with messy memory management issues.
     # This is much more straightforward.
 

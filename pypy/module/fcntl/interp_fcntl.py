@@ -1,9 +1,9 @@
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.rlib import rposix
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib import rposix
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 class CConfig:

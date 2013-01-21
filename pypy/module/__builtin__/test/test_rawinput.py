@@ -1,6 +1,3 @@
-import autopath
-
-
 class AppTestRawInput():
 
     def test_input_and_raw_input(self):

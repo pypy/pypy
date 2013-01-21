@@ -5,10 +5,10 @@ little use of termios module on RPython level by itself
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.rpython.module import ll_termios
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rtyper.module import ll_termios
+from rpython.rlib.objectmodel import we_are_translated
 import os
-from pypy.rlib import rtermios
+from rpython.rlib import rtermios
 import termios
 
 class Cache:

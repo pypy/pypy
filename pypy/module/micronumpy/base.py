@@ -1,6 +1,6 @@
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 

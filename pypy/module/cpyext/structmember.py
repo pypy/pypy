@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.structmemberdefs import *
 from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api
 from pypy.module.cpyext.intobject import PyInt_AsLong, PyInt_AsUnsignedLong
@@ -12,7 +12,7 @@ from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.module.cpyext.longobject import (
     PyLong_AsLongLong, PyLong_AsUnsignedLongLong, PyLong_AsSsize_t)
 from pypy.module.cpyext.typeobjectdefs import PyMemberDef
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 
 integer_converters = unrolling_iterable([
     (T_SHORT,  rffi.SHORT,  PyInt_AsLong),

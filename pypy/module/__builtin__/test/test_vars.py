@@ -1,5 +1,3 @@
-import autopath
-
 class AppTestVars:
 
     def test_vars_no_arguments(self):

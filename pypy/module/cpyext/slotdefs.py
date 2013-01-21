@@ -2,7 +2,7 @@ from __future__ import with_statement
 
 import re
 
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t)
 from pypy.module.cpyext.typeobjectdefs import (
@@ -17,10 +17,10 @@ from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import Buffer as W_Buffer
 from pypy.interpreter.argument import Arguments
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import specialize
-from pypy.tool.sourcetools import func_renamer
-from pypy.rpython.annlowlevel import llhelper
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize
+from rpython.tool.sourcetools import func_renamer
+from rpython.rtyper.annlowlevel import llhelper
 
 # XXX: Also defined in object.h
 Py_LT = 0
@@ -320,7 +320,7 @@ def slot_tp_iter(space, w_self):
 def slot_tp_iternext(space, w_self):
     return space.next(w_self)
 
-from pypy.rlib.nonconst import NonConstant
+from rpython.rlib.nonconst import NonConstant
 
 SLOTS = {}
 

@@ -3,7 +3,7 @@ import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong
 from pypy.interpreter.error import OperationError
 
 

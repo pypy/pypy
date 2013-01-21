@@ -8,12 +8,12 @@ from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import jit
-from pypy.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
+from rpython.rlib import jit
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
      raw_storage_setitem, RAW_STORAGE
 from pypy.module.micronumpy.arrayimpl.sort import argsort_array
-from pypy.rlib.debug import make_sure_not_resized
+from rpython.rlib.debug import make_sure_not_resized
 
 class BaseConcreteArray(base.BaseArrayImplementation):
     start = 0

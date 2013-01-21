@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import pyparse, pygram, error
 from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler.codegen import compile_ast
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
 
 
 class STType(Wrappable):

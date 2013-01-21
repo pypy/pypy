@@ -191,8 +191,8 @@ class TestNumArrayDirect(object):
         assert space.str_w(elems[1]) == "b"
 
     def test_from_shape_and_storage(self):
-        from pypy.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
-        from pypy.rpython.lltypesystem import rffi
+        from rpython.rlib.rawstorage import alloc_raw_storage, raw_storage_setitem
+        from rpython.rtyper.lltypesystem import rffi
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         storage = alloc_raw_storage(4, track_allocation=False, zero=True)
         for i in range(4):
@@ -683,6 +683,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.reshape([1, 1]).shape == (1, 1)
         assert a.reshape([1]).shape == (1,)
         raises(ValueError, "a.reshape(3)")
+
+    def test_strides(self):
+        from _numpypy import array
+        a = array([[1.0, 2.0],
+                   [3.0, 4.0]])
+        assert a.strides == (16, 8)
+        assert a[1:].strides == (16, 8)
+
+    def test_strides_scalar(self):
+        from _numpypy import array
+        a = array(42)
+        assert a.strides == ()
 
     def test_add(self):
         from _numpypy import array
@@ -1614,6 +1626,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         b[array([True, False, True])] = [20, 21, 0, 0, 0, 0, 0]
         assert (b == [20, 1, 21, 3, 4]).all() 
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
+
+    def test_weakref(self):
+        import _weakref
+        from numpypy import array
+        a = array([1, 2, 3])
+        assert _weakref.ref(a)
+        a = array(42)
+        assert _weakref.ref(a)
 
     def test_argsort(self):
         from _numpypy import array, arange
@@ -2550,3 +2570,14 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert y[0, 1] == 2
         y[0, 1] = 42
         assert x[1] == 42
+
+    def test___pypy_data__(self):
+        from _numpypy import array
+        x = array([1, 2, 3, 4])
+        x.__pypy_data__ is None
+        obj = object()
+        x.__pypy_data__ = obj
+        assert x.__pypy_data__ is obj
+        del x.__pypy_data__
+        assert x.__pypy_data__ is None
+    

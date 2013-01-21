@@ -1,6 +1,3 @@
-import autopath
-
-
 class AppTestReduce:
    def test_None(self):
        raises(TypeError, reduce, lambda x, y: x+y, [1,2,3], None)

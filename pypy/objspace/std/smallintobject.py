@@ -8,10 +8,10 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import UnboxedValue
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib.rarithmetic import r_uint
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import UnboxedValue
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import r_uint
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.inttype import wrapint
 
 class W_SmallIntObject(W_AbstractIntObject, UnboxedValue):

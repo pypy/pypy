@@ -1,6 +1,6 @@
 import os
 from ctypes_configure import dumpcache
-from pypy.jit.backend import detect_cpu
+from rpython.jit.backend import detect_cpu
 
 def dumpcache2(basename, config):
     model = detect_cpu.autodetect_main_model_and_size()
@@ -14,7 +14,7 @@ def dumpcache2(basename, config):
 try:
     from __pypy__ import cpumodel
 except ImportError:
-    from pypy.jit.backend import detect_cpu
+    from rpython.jit.backend import detect_cpu
     cpumodel = detect_cpu.autodetect_main_model_and_size()
 # XXX relative import, should be removed together with
 # XXX the relative imports done e.g. by lib_pypy/pypy_test/test_hashlib

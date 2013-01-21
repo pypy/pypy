@@ -1,5 +1,4 @@
-import autopath
-from pypy.tool.sourcetools import compile_template
+from rpython.tool.sourcetools import compile_template
 
 
 some_global = 5

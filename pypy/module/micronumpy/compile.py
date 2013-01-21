@@ -13,7 +13,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.interp_numarray import array
 from pypy.module.micronumpy.interp_arrayops import where
 from pypy.module.micronumpy import interp_ufuncs
-from pypy.rlib.objectmodel import specialize, instantiate
+from rpython.rlib.objectmodel import specialize, instantiate
 
 
 class BogusBytecode(Exception):

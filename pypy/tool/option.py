@@ -2,7 +2,7 @@
 
 import os
 from pypy.config.pypyoption import get_pypy_config
-from pypy.config.config import Config, OptionDescription, to_optparse
+from rpython.config.config import Config, OptionDescription, to_optparse
 import optparse
 
 extra_useage = """For detailed descriptions of all the options see

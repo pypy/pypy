@@ -1,5 +1,5 @@
 import py, os
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 def test_interface_to_dump_rpy_heap_str(space):

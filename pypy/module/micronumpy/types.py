@@ -6,19 +6,19 @@ from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
-from pypy.rlib import rfloat, clibffi, rcomplex
-from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
+from rpython.rlib import rfloat, clibffi, rcomplex
+from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import widen, byteswap, r_ulonglong
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.rstruct.runpack import runpack
-from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
-from pypy.rlib.rstruct.ieee import (float_pack, float_unpack, pack_float,
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rstruct.runpack import runpack
+from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
+from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, pack_float,
                                     unpack_float, unpack_float128)
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import jit
-from pypy.rlib.rstring import StringBuilder
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib import jit
+from rpython.rlib.rstring import StringBuilder
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)

@@ -1,6 +1,6 @@
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.conftest import option
 import sys, os
 import py

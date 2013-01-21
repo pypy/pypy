@@ -4,10 +4,10 @@ operations. This is the place to look for all the computations that iterate
 over all the array elements.
 """
 
+from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib import jit
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rlib import jit
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator, ConcreteArrayIterator
 from pypy.module.micronumpy import constants

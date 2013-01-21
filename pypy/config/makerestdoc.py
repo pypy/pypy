@@ -2,10 +2,10 @@ import py
 from pypy.tool.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
 from pypy.tool.rest.rst import Directive, Em, Quote, Text
 
-from pypy.config.config import ChoiceOption, BoolOption, StrOption, IntOption
-from pypy.config.config import FloatOption, OptionDescription, Option, Config
-from pypy.config.config import ArbitraryOption, DEFAULT_OPTION_NAME
-from pypy.config.config import _getnegation
+from rpython.config.config import ChoiceOption, BoolOption, StrOption, IntOption
+from rpython.config.config import FloatOption, OptionDescription, Option, Config
+from rpython.config.config import ArbitraryOption, DEFAULT_OPTION_NAME
+from rpython.config.config import _getnegation
 
 configdocdir = py.path.local(__file__).dirpath().dirpath().join("doc", "config")
 

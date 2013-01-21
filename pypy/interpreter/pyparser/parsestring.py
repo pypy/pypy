@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import unicodehelper
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder
 
 def parsestr(space, encoding, s, unicode_literal=False):
     """Parses a string or unicode literal, and return a wrapped value.

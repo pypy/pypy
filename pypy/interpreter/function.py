@@ -6,13 +6,13 @@ objects; the difference lies in the code object found in their func_code
 attribute.
 """
 
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
-from pypy.rlib import jit
-from pypy.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
+from rpython.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 

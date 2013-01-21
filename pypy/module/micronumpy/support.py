@@ -1,4 +1,4 @@
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 
 def int_w(space, w_obj):

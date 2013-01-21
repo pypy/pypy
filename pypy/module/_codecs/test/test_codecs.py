@@ -1,6 +1,3 @@
-import autopath
-
-
 class AppTestCodecs:
     spaceconfig = {
         "usemodules": ['unicodedata', 'struct', 'binascii'],

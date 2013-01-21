@@ -1,7 +1,7 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
 import termios
-from pypy.rlib.nonconst import NonConstant
+from rpython.rlib.nonconst import NonConstant
 
 class Module(MixedModule):
     "This module provides an interface to the Posix calls for tty I/O control.\n\

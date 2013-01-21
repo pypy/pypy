@@ -6,10 +6,10 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, interp_attrproperty_w)
 from pypy.module.micronumpy import types, interp_boxes, base
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
-from pypy.rlib import jit
-from pypy.rpython.lltypesystem import rffi
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib import jit
 
 
 UNSIGNEDLTR = "u"

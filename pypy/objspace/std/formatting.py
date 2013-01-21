@@ -3,12 +3,12 @@ String formatting routines.
 """
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.unicodetype import unicode_from_object
-from pypy.rlib import jit
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
+from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.tool.sourcetools import func_with_new_name
 
 
 class BaseStringFormatter(object):

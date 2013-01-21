@@ -385,7 +385,7 @@ def report_unused_symbols(system):
                 print '   ', k, v
 
 def find_cycles(system):
-    from pypy.tool.algo import graphlib
+    from rpython.tool.algo import graphlib
     vertices = dict.fromkeys(system.modules)
     edges = {}
     for m in system.modules:

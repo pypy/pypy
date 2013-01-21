@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
     cpython_struct)

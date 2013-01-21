@@ -3,10 +3,10 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib import objectmodel, rgc
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib import objectmodel, rgc
+from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.module._cffi_backend import misc
 

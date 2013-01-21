@@ -2,9 +2,9 @@ import py
 import os
 import stat
 import errno
-from pypy.rlib import streamio
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib import streamio
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt

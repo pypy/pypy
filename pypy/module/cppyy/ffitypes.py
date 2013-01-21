@@ -1,8 +1,8 @@
 from pypy.interpreter.error import OperationError
 
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.rarithmetic import r_singlefloat
-from pypy.rlib import jit_libffi, rfloat
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib import jit_libffi, rfloat
 
 # Mixins to share between converter and executor classes (in converter.py and
 # executor.py, respectively). Basically these mixins allow grouping of the

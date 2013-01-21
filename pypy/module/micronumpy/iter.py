@@ -46,7 +46,7 @@ from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.arrayimpl import base
-from pypy.rlib import jit
+from rpython.rlib import jit
 
 # structures to describe slicing
 

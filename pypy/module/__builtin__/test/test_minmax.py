@@ -1,5 +1,3 @@
-import autopath
-
 class AppTestMin:
 
    def test_min_notseq(self):

@@ -12,7 +12,7 @@ def descr_conjugate(space, w_int):
 @unwrap_spec(w_x = WrappedDefault(0))
 def descr__new__(space, w_longtype, w_x, w_base=None):
     from pypy.objspace.std.longobject import W_LongObject
-    from pypy.rlib.rbigint import rbigint
+    from rpython.rlib.rbigint import rbigint
     if space.config.objspace.std.withsmalllong:
         from pypy.objspace.std.smalllongobject import W_SmallLongObject
     else:

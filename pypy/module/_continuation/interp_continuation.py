@@ -1,5 +1,5 @@
-from pypy.rlib.rstacklet import StackletThread
-from pypy.rlib import jit
+from rpython.rlib.rstacklet import StackletThread
+from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import Wrappable
@@ -206,7 +206,7 @@ class SThread(StackletThread):
         self.space = space
         self.ec = ec
         # for unpickling
-        from pypy.rlib.rweakref import RWeakKeyDictionary
+        from rpython.rlib.rweakref import RWeakKeyDictionary
         self.frame2continulet = RWeakKeyDictionary(PyFrame, W_Continulet)
 
 ExecutionContext.stacklet_thread = None

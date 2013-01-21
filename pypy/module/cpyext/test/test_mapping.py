@@ -1,5 +1,5 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 class TestMapping(BaseApiTest):
     def test_check(self, space, api):

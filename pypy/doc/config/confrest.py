@@ -1,7 +1,8 @@
 from pypy.doc.confrest import *
 from pypy.config.makerestdoc import make_cmdline_overview
-from pypy.config.config import Config
-from pypy.config import pypyoption, translationoption
+from pypy.config import pypyoption
+from rpython.config.config import Config
+from rpython.config import translationoption
 
 
 all_optiondescrs = [pypyoption.pypy_optiondescription,

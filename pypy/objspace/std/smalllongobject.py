@@ -6,9 +6,9 @@ fits in an 'int'.
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
-from pypy.rlib.rarithmetic import r_longlong, r_int, r_uint
-from pypy.rlib.rarithmetic import intmask, LONGLONG_BIT
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import r_longlong, r_int, r_uint
+from rpython.rlib.rarithmetic import intmask, LONGLONG_BIT
+from rpython.rlib.rbigint import rbigint
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject

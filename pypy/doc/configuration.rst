@@ -133,7 +133,7 @@ if no choice was made). A ``Config`` object is described by an
 ``OptionDescription`` instance. The attributes of the ``Config`` objects are the
 names of the children of the ``OptionDescription``. Example::
 
-    >>> from pypy.config.config import OptionDescription, Config, BoolOption
+    >>> from rpython.config.config import OptionDescription, Config, BoolOption
     >>> descr = OptionDescription("options", "", [
     ...     BoolOption("bool", "", default=False)])
     >>>

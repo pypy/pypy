@@ -4,7 +4,7 @@ from pypy.interpreter import unicodehelper
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.basestringtype import basestring_typedef
-from pypy.rlib.runicode import str_decode_utf_8, str_decode_ascii,\
+from rpython.rlib.runicode import str_decode_utf_8, str_decode_ascii,\
      unicode_encode_utf_8, unicode_encode_ascii
 
 from sys import maxint

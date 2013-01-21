@@ -6,13 +6,13 @@ from pypy.interpreter.error import (OperationError, operationerrfmt,
     new_exception_class, typed_unwrap_error_msg)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
-from pypy.tool.cache import Cache
-from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib import jit
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
+from rpython.rlib.cache import Cache
+from rpython.tool.uid import HUGEVAL_BYTES
+from rpython.rlib import jit
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.objectmodel import we_are_translated, newlist_hint,\
      compute_unique_id
-from pypy.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint
 
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -627,7 +627,7 @@ class ObjSpace(object):
             return dummy_lock
 
     def __allocate_lock(self):
-        from pypy.module.thread.ll_thread import allocate_lock, error
+        from rpython.rlib.rthread import allocate_lock, error
         try:
             return allocate_lock()
         except error:
@@ -1327,7 +1327,7 @@ class ObjSpace(object):
 
     def str0_w(self, w_obj):
         "Like str_w, but rejects strings with NUL bytes."
-        from pypy.rlib import rstring
+        from rpython.rlib import rstring
         result = w_obj.str_w(self)
         if '\x00' in result:
             raise OperationError(self.w_TypeError, self.wrap(
@@ -1355,7 +1355,7 @@ class ObjSpace(object):
 
     def unicode0_w(self, w_obj):
         "Like unicode_w, but rejects strings with NUL bytes."
-        from pypy.rlib import rstring
+        from rpython.rlib import rstring
         result = w_obj.unicode_w(self)
         if u'\x00' in result:
             raise OperationError(self.w_TypeError, self.wrap(
@@ -1451,7 +1451,7 @@ class ObjSpace(object):
         except OperationError, e:
             if not e.match(self, self.w_OverflowError):
                 raise
-            from pypy.rlib.rarithmetic import intmask
+            from rpython.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
 
     def truncatedlonglong_w(self, w_obj):
@@ -1462,7 +1462,7 @@ class ObjSpace(object):
         except OperationError, e:
             if not e.match(self, self.w_OverflowError):
                 raise
-            from pypy.rlib.rarithmetic import longlongmask
+            from rpython.rlib.rarithmetic import longlongmask
             return longlongmask(self.bigint_w(w_obj).ulonglongmask())
 
     def c_filedescriptor_w(self, w_fd):
@@ -1529,7 +1529,7 @@ dummy_lock = DummyLock()
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
-## (if any).  Note: keep in sync with pypy.objspace.flow.operation.Table.
+## (if any).  Note: keep in sync with rpython.flowspace.operation.Table.
 
 ObjSpace.MethodTable = [
 # method name # symbol # number of arguments # special method name(s)

@@ -1,9 +1,9 @@
-import autopath
 import re
 from os import listdir
 from sys import stdin, stdout, stderr
+from pypy.conftest import pypydir
 
-where = autopath.pypydir + '/objspace/std/'
+where = pypydir + '/objspace/std/'
 quote = '(' + "'" + '|' + '"' + ')'
 triplequotes = '(' + "'''" + '|' + '"""' + ')'
 # Note: this will produce erroneous result if you nest triple quotes

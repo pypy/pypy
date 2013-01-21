@@ -4,7 +4,7 @@ import StringIO
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.rpython.lltypesystem import rffi, ll2ctypes
+from rpython.rtyper.lltypesystem import rffi, ll2ctypes
 
 from pypy.interpreter.gateway import interp2app
 

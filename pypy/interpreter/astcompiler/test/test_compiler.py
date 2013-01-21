@@ -782,6 +782,36 @@ class TestCompiler:
         source = "for x in y: pass\n" * 1000
         compile_with_astcompiler(source, 'exec', self.space)
 
+    def test_assign_to_empty_list_1(self):
+        source = """if 1:
+        for i in range(5):
+            del []
+            [] = ()
+            [] = []
+            [] = [] = []
+        ok = 1
+        """
+        self.simple_test(source, 'ok', 1)
+
+    def test_assign_to_empty_list_2(self):
+        source = """if 1:
+        for i in range(5):
+            try: [] = 1, 2, 3
+            except ValueError: pass
+            else: raise AssertionError
+            try: [] = a = 1
+            except TypeError: pass
+            else: raise AssertionError
+            try: [] = _ = iter(['foo'])
+            except ValueError: pass
+            else: raise AssertionError
+            try: [], _ = iter(['foo']), 1
+            except ValueError: pass
+            else: raise AssertionError
+        ok = 1
+        """
+        self.simple_test(source, 'ok', 1)
+
 
 class AppTestCompiler:
 

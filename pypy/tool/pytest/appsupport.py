@@ -1,4 +1,3 @@
-import autopath
 import py
 from pypy.interpreter import gateway, pycode
 from pypy.interpreter.error import OperationError

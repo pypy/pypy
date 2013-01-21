@@ -1,8 +1,8 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, cpython_api, PyObject, build_type_checkers, CONST_STRING)
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rstruct import runpack
+from rpython.rlib.rstruct import runpack
 
 PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")
 

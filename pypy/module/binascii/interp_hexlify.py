@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rarithmetic import ovfcheck
 
 # ____________________________________________________________
 

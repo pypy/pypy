@@ -21,7 +21,7 @@ def is_prime(n):
 
 
 def test_annotated():
-    from pypy.translator.interactive import Translation
+    from rpython.translator.interactive import Translation
     t = Translation(is_prime)
     t.annotate([int])
     t.viewcg()

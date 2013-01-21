@@ -1,8 +1,8 @@
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rdynload import DLLHANDLE
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.rdynload import DLLHANDLE
 import sys
 
 class State:

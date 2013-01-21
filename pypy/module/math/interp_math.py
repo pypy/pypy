@@ -1,7 +1,7 @@
 import math
 import sys
 
-from pypy.rlib import rfloat, unroll
+from rpython.rlib import rfloat, unroll
 from pypy.interpreter.error import OperationError
 
 class State:

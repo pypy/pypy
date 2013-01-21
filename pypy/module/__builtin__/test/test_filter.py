@@ -1,5 +1,3 @@
-import autopath
-
 # trivial functions for testing 
 
 class AppTestFilter:

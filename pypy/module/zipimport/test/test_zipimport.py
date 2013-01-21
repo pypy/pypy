@@ -6,7 +6,7 @@ import struct
 from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from zipfile import ZIP_STORED, ZIP_DEFLATED
 
 
@@ -362,7 +362,7 @@ class AppTestZipimportDeflated(AppTestZipimport):
 
     def setup_class(cls):
         try:
-            import pypy.rlib.rzlib
+            import rpython.rlib.rzlib
         except ImportError:
             py.test.skip("zlib not available, cannot test compressed zipfiles")
         cls.make_class()

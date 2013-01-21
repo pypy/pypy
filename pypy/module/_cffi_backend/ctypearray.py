@@ -6,9 +6,9 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import ovfcheck
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import ovfcheck
 
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUniChar

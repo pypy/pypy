@@ -7,11 +7,11 @@ def test_id_any():
     assert pypypolicy.look_inside_function(add__Int_Int)
 
 def test_bigint():
-    from pypy.rlib.rbigint import rbigint
+    from rpython.rlib.rbigint import rbigint
     assert not pypypolicy.look_inside_function(rbigint.lt.im_func)
 
 def test_rlocale():
-    from pypy.rlib.rlocale import setlocale
+    from rpython.rlib.rlocale import setlocale
     assert not pypypolicy.look_inside_function(setlocale)
 
 def test_astcompiler():

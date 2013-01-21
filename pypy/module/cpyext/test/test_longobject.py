@@ -1,5 +1,5 @@
 import sys, py
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.module.cpyext.test.test_api import BaseApiTest

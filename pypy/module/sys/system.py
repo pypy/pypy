@@ -1,7 +1,7 @@
 """Information about the current system."""
 from pypy.interpreter import gateway
-from pypy.rlib import rfloat, rbigint
-from pypy.rpython.lltypesystem import rffi
+from rpython.rlib import rfloat, rbigint
+from rpython.rtyper.lltypesystem import rffi
 
 
 app = gateway.applevel("""

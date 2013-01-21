@@ -1,8 +1,8 @@
 
 import py
 import sys
-from pypy.tool.autopath import pypydir
-from pypy.tool.udir import udir
+from pypy.conftest import pypydir
+from rpython.tool.udir import udir
 
 class TestTermios(object):
     def setup_class(cls):
@@ -14,7 +14,7 @@ class TestTermios(object):
             import termios
         except ImportError:
             py.test.skip("termios not found")
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         assert py_py.check()
         cls.py_py = py_py
         cls.termios = termios

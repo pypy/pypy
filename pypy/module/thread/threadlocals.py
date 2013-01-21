@@ -1,4 +1,4 @@
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread as thread
 
 
 class OSThreadLocals:

@@ -1,4 +1,4 @@
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray
 

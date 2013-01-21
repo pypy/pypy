@@ -1,5 +1,3 @@
-import autopath
-
 class AppTestZip:
 
    def test_zip_no_arguments(self):

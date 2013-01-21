@@ -1,10 +1,10 @@
 
-import autopath
 import py
 from py._cmdline import pycountloc as countloc 
 from py.xml import raw
+from pypy import conftest
 
-pypydir = py.path.local(autopath.pypydir)
+pypydir = py.path.local(conftest.pypydir)
 
 def isdocfile(p):
     return (p.ext in ('.txt', '.rst') or
@@ -25,7 +25,7 @@ class relchecker:
     def __init__(self, rel):
         self.rel = rel
     def __call__(self, p): 
-        return p.relto(autopath.pypydir).startswith(self.rel)
+        return p.relto(conftest.pypydir).startswith(self.rel)
 
 def isfile(p):
     return p.check(file=1) and p.ext in ('.py', '.txt', '')
@@ -42,7 +42,7 @@ def recpypy(p):
 
 def getpypycounter():
     filecounter = countloc.FileCounter() 
-    root = py.path.local(autopath.pypydir)
+    root = py.path.local(conftest.pypydir)
     filecounter.addrecursive(root, isfile, rec=recpypy)
     return filecounter 
 
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     print "writing source statistics to", target
     pypycounter = getpypycounter() 
     model = CounterModel(pypycounter) 
-    rev = py.path.svnwc(autopath.pypydir).info().rev
+    rev = py.path.svnwc(conftest.pypydir).info().rev
     html = py.xml.html
     doc = html.html(
         html.head(

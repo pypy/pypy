@@ -7,8 +7,8 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import (string_to_int, string_to_bigint,
                                        ParseStringError,
                                        ParseStringOverflowError)
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.objectmodel import instantiate
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.objectmodel import instantiate
 
 # ____________________________________________________________
 

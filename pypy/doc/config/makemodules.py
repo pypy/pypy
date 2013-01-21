@@ -1,6 +1,6 @@
-import autopath
 import py
-from pypy.config import pypyoption, translationoption, config
+from pypy.config import pypyoption
+from rpython.config import translationoption, config
 
 thisdir = py.path.local(__file__).dirpath()
 

@@ -1,11 +1,11 @@
 from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib import jit
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib import jit
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 

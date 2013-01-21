@@ -7,8 +7,8 @@ from pypy.interpreter import pycode
 from pypy.tool import stdlib_opcode as ops
 
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import rfloat
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import rfloat
 
 
 class Instruction(object):

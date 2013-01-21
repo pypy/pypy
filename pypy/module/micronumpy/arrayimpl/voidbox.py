@@ -1,6 +1,6 @@
 
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
-from pypy.rlib.rawstorage import free_raw_storage, alloc_raw_storage
+from rpython.rlib.rawstorage import free_raw_storage, alloc_raw_storage
 
 class VoidBoxStorage(BaseArrayImplementation):
     def __init__(self, size, dtype):

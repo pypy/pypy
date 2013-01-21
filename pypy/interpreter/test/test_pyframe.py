@@ -1,4 +1,4 @@
-from pypy.tool import udir
+from rpython.tool import udir
 from pypy.conftest import option
 
 
