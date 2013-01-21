@@ -52,8 +52,6 @@ class LinkedList(object):
             while node and node.val < key:
                 prev_node = node
                 node = node.next
-            import pdb
-            pdb.set_trace()
             prev_node.next = Node(key, node)
 
     @specialize.arg(1)
