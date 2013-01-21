@@ -233,7 +233,8 @@ class TestMallocFastpath(BaseTestRegalloc):
         def check(frame):
             x = frame.jf_gcmap
             assert len(x) == 1
-            assert bin(x[0]).count('1') == '0b1111100000000000000001111111011111'.count(1)
+            assert (bin(x[0]).count('1') ==
+                    '0b1111100000000000000001111111011111'.count('1'))
             # all but two
         
         self.cpu = self.getcpu(check)
@@ -344,11 +345,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frames = []
         
         def check(i):
-            import pdb
-            pdb.set_trace()
             assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
+            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
             assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE
             # we "collect"
+            frames.append(frame)
             new_frame = frame.copy()
             self.cpu.gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
             frames.append(new_frame)
