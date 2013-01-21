@@ -2409,8 +2409,10 @@ class Assembler386(object):
                 tgt_clt = target_token.original_jitcell_token.compiled_loop_token
                 tgt_gcmap = tgt_clt.frame_info.jfi_gcmap
                 rev = {}
-                for i in tgt_gcmap:
-                    rev[i] = None
+                i = 0
+                while i < len(tgt_gcmap):
+                    rev[tgt_gcmap[i]] = None
+                    i += 1
                 # for now clean them all, we might change the strategy
                 for k in gcmap:
                     if k not in rev:
