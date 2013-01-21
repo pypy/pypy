@@ -278,6 +278,10 @@ class FloatType(Type):
         return float(value) == 0.0
 
     def repr_value(self, value, extra_len=None):
+        if self.typestr == 'x86_fp80':
+            import struct
+            packed = struct.pack(">d", value)
+            return "0xK" + ''.join([('{:02x}'.format(ord(i))) for i in packed])
         from rpython.rlib.rfloat import isinf, isnan
         if isinf(value) or isnan(value):
             import struct
@@ -1068,7 +1072,8 @@ class FunctionWriter(object):
             if isinstance(fr.type_, IntegralType):
                 self.w('{to.V} = icmp ne {fr.TV}, 0'.format(**locals()))
             elif isinstance(fr.type_, FloatType):
-                self.w('{to.V} = fcmp une {fr.TV}, 0.0'.format(**locals()))
+                zer = ConstantRepr(fr.type_, 0.0)
+                self.w('{to.V} = fcmp une {fr.TV}, {zer.V}'.format(**locals()))
             else:
                 raise NotImplementedError
             return

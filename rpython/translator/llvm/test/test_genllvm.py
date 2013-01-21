@@ -4,7 +4,8 @@ import ctypes
 import py
 from pypy.config.pypyoption import get_pypy_config
 from rpython.flowspace.model import FunctionGraph, Block, Link
-from rpython.rlib.rarithmetic import LONG_BIT, r_uint, r_singlefloat
+from rpython.rlib.rarithmetic import (LONG_BIT, r_uint, r_singlefloat,
+     r_longfloat)
 from rpython.rlib.test.test_longlong2float import enum_floats, fn, fnsingle
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, llgroup
 from rpython.rtyper.lltypesystem.ll2ctypes import (force_cast, get_ctypes_type,
@@ -679,6 +680,13 @@ class TestSpecialCases(_LLVMMixin):
         t.bar = llhelper(FTPTR, a_f.make_func())
         fn = self.getcompiled(chooser, [bool])
         assert fn(True)
+
+    def test_longfloat(self):
+        def f(x):
+            return rffi.cast(lltype.Bool, x)
+        fc = self.getcompiled(f, [lltype.LongFloat])
+        assert not fc(r_longfloat(0.0))
+        assert fc(r_longfloat(1.0))
 
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
