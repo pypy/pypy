@@ -767,10 +767,10 @@ def _getfullargs(co):
     and 'varkw' are the names of the * and ** arguments or None."""
 
     if not iscode(co):
-        if hasattr(len, '__code__') and type(co) is type(len.func_code):
-            # PyPy extension: built-in function objects have a func_code too.
-            # There is no co_code on it, but co_argcount and co_varnames and
-            # co_flags are present.
+        if hasattr(len, '__code__') and type(co) is type(len.__code__):
+            # PyPy extension: built-in function objects have a __code__
+            # too.  There is no co_code on it, but co_argcount and
+            # co_varnames and co_flags are present.
             pass
         else:
             raise TypeError('{!r} is not a code object'.format(co))
