@@ -218,7 +218,7 @@ class FrameManager(object):
         if box.type == REF:
             self.freelist_gcrefs.append(1, loc)
         else:
-            size = self.frame_size(box)
+            size = self.frame_size(box.type)
             self.freelist_others.append(size, loc)
 
     def try_to_reuse_location(self, box, loc):
