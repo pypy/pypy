@@ -1634,6 +1634,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([1, 2]).astype(float)
         assert (b == [1, 2]).all()
         assert b.dtype == 'float'
+        b = array([1, 2], dtype=complex).astype(int)
+        assert (b == [1, 2]).all()
+        assert b.dtype == 'int'
+        b = array([0, 1, 2], dtype=complex).astype(bool)
+        assert (b == [False, True, True]).all()
+        assert b.dtype == 'bool'
+
 
     def test_base(self):
         from _numpypy import array
@@ -2120,11 +2127,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
 
     def test_compress(self):
-        from _numpypy import arange
+        from _numpypy import arange, array
         a = arange(10)
         assert (a.compress([True, False, True]) == [0, 2]).all()
         assert (a.compress([1, 0, 13]) == [0, 2]).all()
         assert (a.compress([1, 0, 13.5]) == [0, 2]).all()
+        assert (a.compress(array([1, 0, 13.5], dtype='>f4')) == [0, 2]).all()
+        assert (a.compress(array([1, 0, 13.5], dtype='<f4')) == [0, 2]).all()
+        assert (a.compress([1, -0-0j, 1.3+13.5j]) == [0, 2]).all()
         a = arange(10).reshape(2, 5)
         assert (a.compress([True, False, True]) == [0, 2]).all()
         raises((IndexError, ValueError), "a.compress([1] * 100)")
