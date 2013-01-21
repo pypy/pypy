@@ -1,7 +1,7 @@
 import py
-py.test.skip("XXX fix or kill")
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
-from pypy.rpython.memory.gc.stmgc import StmGC, WORD
+from pypy.rpython.memory.gc.stmgc import StmGC, WORD, REV_INITIAL
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_NOT_WRITTEN
 from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY, GCFLAG_VISITED
@@ -172,6 +172,7 @@ class StmGCTests:
             addr = adr1 + self.gc.gcheaderbuilder.size_gc_header
             self.gc.header(addr).tid = self.gc.combine(
                 tid, GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN)
+            self.gc.header(addr).revision = REV_INITIAL
             realobj = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(STRUCT))
         else:
             gcref = self.gc.malloc_fixedsize_clear(tid, size,
@@ -197,6 +198,29 @@ class StmGCTests:
             assert (hdr.tid & GCFLAG_LOCAL_COPY != 0) == must_have_was_copied
         if must_have_version != '?':
             assert hdr.version == must_have_version
+
+    def stm_readbarrier(self, P):
+        if lltype.typeOf(P) != llmemory.Address:
+            P = llmemory.cast_ptr_to_adr(P)
+        hdr = self.gc.header(P)
+        if hdr.tid & GCFLAG_GLOBAL == 0:
+            # already a local object
+            R = P
+        else:
+            R = self.stm_latest_global_rev(P)
+            L = self.gc.stm_operations.tldict_lookup(R)
+            if hdr.tid & GCFLAG_POSSIBLY_OUTDATED == 0:
+                assert not L
+            elif L:
+                xxx
+        return R.ptr
+
+    def stm_latest_global_rev(self, G):
+        hdr = self.gc.header(G)
+        assert hdr.tid & GCFLAG_GLOBAL != 0
+        while hdr.revision != REV_INITIAL:
+            xxx
+        return G
 
     def stm_writebarrier(self, P):
         if lltype.typeOf(P) != llmemory.Address:
@@ -328,8 +352,9 @@ class TestBasic(StmGCTests):
             pending = list(source_objects)
             found = set(obj._obj for obj in pending)
             for x in pending:
+                x = self.stm_readbarrier(x)
                 for name in ('sr2', 'sr3'):
-                    obj = self.gc.stm_operations.read_attribute(x, name)
+                    obj = getattr(x, name)
                     if obj and obj._obj not in found:
                         found.add(obj._obj)
                         pending.append(obj)
@@ -340,10 +365,12 @@ class TestBasic(StmGCTests):
             pending = [source_object]
             found = {source_object._obj: 0}
             for x in pending:
+                x_orig = x
+                x = self.stm_readbarrier(x)
+                if not can_be_indirect:
+                    assert x == x_orig
                 for name in ('sr2', 'sr3'):
-                    obj = self.gc.stm_operations.read_attribute(x, name)
-                    if not can_be_indirect:
-                        assert obj == getattr(x, name)
+                    obj = getattr(x, name)
                     if not obj:
                         shape.append(None)
                     else:
@@ -386,7 +413,7 @@ class TestBasic(StmGCTests):
                 dstobj = random.choice(missing_objects)
                 name = random.choice(('sr2', 'sr3'))
                 src_adr = llmemory.cast_ptr_to_adr(srcobj)
-                adr2 = self.gc.stm_writebarrier(src_adr)
+                adr2 = self.stm_writebarrier(src_adr)
                 obj2 = llmemory.cast_adr_to_ptr(adr2, lltype.Ptr(SR))
                 setattr(obj2, name, dstobj)
             #
