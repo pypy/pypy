@@ -273,8 +273,8 @@ def test_custom_tracer():
     PREV_STATICSIZE = jitframe.STATICSIZE
     try:
         jitframe.STATICSIZE = 3
-        frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
-        frame = lltype.malloc(jitframe.JITFRAME, 15)
+        frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True)
+        frame = lltype.malloc(jitframe.JITFRAME, 15, zero=True)
         frame.jf_frame_info = frame_info
         frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4)
         frame.jf_gcmap[0] = 5
