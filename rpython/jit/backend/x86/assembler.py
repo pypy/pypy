@@ -1871,15 +1871,14 @@ class Assembler386(object):
                 positions[i] = v * WORD
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        if WORD == 4:
-            mc.PUSH(imm(fail_descr))
-            mc.PUSH(imm(gcpattern))
-            mc.CALL(imm(target))
-        else:
-            mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
-            mc.PUSH(imm(fail_descr))
-            mc.PUSH(imm(gcpattern))
-            self.mc.JMP_r(X86_64_SCRATCH_REG.value)
+        #if WORD == 4:
+        #    mc.PUSH(imm(fail_descr))
+        #    mc.PUSH(imm(gcpattern))
+        #    mc.JMP(imm(target))
+        #else:
+        mc.PUSH(imm(fail_descr))
+        mc.PUSH(imm(gcpattern))
+        mc.JMP(imm(target))
         return startpos
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):
