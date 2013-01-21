@@ -190,7 +190,7 @@ class IntegralType(Type):
                                                   SIGNED_TYPE)
         elif isinstance(value, rffi.CConstant):
             # XXX HACK
-            from rpython.tool import rffi_platform
+            from rpython.rtyper.tool import rffi_platform
             return rffi_platform.getconstantinteger(
                     value.c_name,
                     '#include "/usr/include/curses.h"')
