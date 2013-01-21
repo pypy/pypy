@@ -17,19 +17,18 @@ from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.backend.llsupport.jitframe import NULLGCMAP
+from rpython.jit.backend.llsupport.jitframe import NULLGCMAP, GCMAP
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
-from rpython.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
-     TempBox, compute_vars_longevity, is_comparison_or_ovf_op,\
-     frame_manager_from_gcmap
+from rpython.jit.backend.llsupport.regalloc import FrameManager,\
+     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op
 from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from rpython.jit.backend.x86 import rx86
-from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong, r_uint
 
 class X86RegisterManager(RegisterManager):
 
@@ -173,11 +172,8 @@ class RegAlloc(object):
         self.close_stack_struct = 0
         self.final_jump_op = None
 
-    def _prepare(self, inputargs, operations, allgcrefs, gcmap=NULLGCMAP,
-                 parent_frame_depth=0, frame_bindings=None):
-        self.fm = frame_manager_from_gcmap(X86FrameManager, gcmap,
-                                           parent_frame_depth,
-                                           frame_bindings)
+    def _prepare(self, inputargs, operations, allgcrefs):
+        self.fm = X86FrameManager()
         cpu = self.assembler.cpu
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
@@ -205,16 +201,9 @@ class RegAlloc(object):
             self.min_bytes_before_label = 13
         return operations
 
-    def get_gc_map(self):
-        return self.fm.get_gc_map()
-
     def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs,
                        frame_info):
-        frame_bindings = self._frame_bindings(arglocs, inputargs)
-        operations = self._prepare(inputargs, operations, allgcrefs,
-                                   frame_info.jfi_gcmap,
-                                   frame_info.jfi_frame_depth,
-                                   frame_bindings)
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
         self.min_bytes_before_label = 0
         return operations
@@ -315,6 +304,8 @@ class RegAlloc(object):
                     else:
                         self.rm.reg_bindings[arg] = loc
                         used[loc] = None
+            else:
+                self.fm.bind(arg, loc)
         self.rm.free_regs = []
         for reg in self.rm.all_regs:
             if reg not in used:
@@ -350,7 +341,8 @@ class RegAlloc(object):
         self.rm.position += 1
         self.xrm.position += 1
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
-                                                   arglocs, result_loc)
+                                                   arglocs, result_loc,
+                                                   self.fm.get_frame_depth())
         self.possibly_free_vars(guard_op.getfailargs())
 
     def perform_guard(self, guard_op, arglocs, result_loc):
@@ -362,7 +354,8 @@ class RegAlloc(object):
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
-                                              result_loc)
+                                              result_loc,
+                                              self.fm.get_frame_depth())
         self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
@@ -903,15 +896,30 @@ class RegAlloc(object):
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
         self.rm.possibly_free_var(tmp_box)
         #
+        gcmap = self._compute_gcmap()
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        gcpattern = 0
-        for box, reg in self.rm.reg_bindings.iteritems():
-            if box.type == REF:
-                gcpattern |= (1 << self.rm.all_reg_indexes[reg.value])
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size, gcpattern)
+            size, gcmap)
+
+    def _compute_gcmap(self):
+        frame_depth = self.fm.get_frame_depth()
+        size = frame_depth + JITFRAME_FIXED_SIZE
+        gcmap = lltype.malloc(GCMAP, size // WORD // 8 + 1,
+                              zero=True)
+        for box, loc in self.rm.reg_bindings.iteritems():
+            if box.type == REF:
+                assert isinstance(loc, RegLoc)
+                val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        for box, loc in self.fm.bindings.iteritems():
+            if box.type == REF:
+                assert isinstance(loc, StackLoc)
+                val = loc.value // WORD
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        return gcmap
+
 
     def consider_setfield_gc(self, op):
         ofs, size, _ = unpack_fielddescr(op.getdescr())
@@ -1284,7 +1292,7 @@ class RegAlloc(object):
                                  src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
         self.possibly_free_vars_for_op(op)
-        assembler.closing_jump(self.jump_target_descr, self.get_gc_map())
+        assembler.closing_jump(self.jump_target_descr)
 
     def consider_debug_merge_point(self, op):
         pass
@@ -1347,7 +1355,6 @@ class RegAlloc(object):
         # loop that ends up jumping to this LABEL, then we can now provide
         # the hints about the expected position of the spilled variables.
 
-        self.PerformDiscard(op, [])
         # XXX we never compile code like that?
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:

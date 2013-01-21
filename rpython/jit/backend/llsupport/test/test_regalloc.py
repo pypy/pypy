@@ -1,8 +1,7 @@
 import py
 from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, INT, FLOAT,\
      BoxPtr
-from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList,\
-     frame_manager_from_gcmap
+from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
 from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
 
 def newboxes(*values):
@@ -510,7 +509,7 @@ class TestRegalloc(object):
         assert fm.get_loc_index(locf1) == 4
         assert fm.get_frame_depth() == 5
         fm.mark_as_free(b1)
-        assert fm.freelist_others
+        assert fm.freelist
         b2 = BoxInt()
         fm.loc(b2) # should be in the same spot as b1 before
         assert fm.get(b1) is None
@@ -518,22 +517,22 @@ class TestRegalloc(object):
         fm.mark_as_free(b0)
         p0 = BoxPtr()
         ploc = fm.loc(p0)
-        assert fm.get_loc_index(ploc) == 5
-        assert fm.get_frame_depth() == 6
+        assert fm.get_loc_index(ploc) == 0
+        assert fm.get_frame_depth() == 5
         assert ploc != loc1
         p1 = BoxPtr()
         p1loc = fm.loc(p1)
-        assert fm.get_loc_index(p1loc) == 6
-        assert fm.get_frame_depth() == 7
+        assert fm.get_loc_index(p1loc) == 5
+        assert fm.get_frame_depth() == 6
         fm.mark_as_free(p0)
         p2 = BoxPtr()
         p2loc = fm.loc(p2)
         assert p2loc == ploc
-        assert not fm.freelist_gcrefs
-        assert len(fm.freelist_others) == 1
+        assert len(fm.freelist) == 0
         for box in fm.bindings.keys():
             fm.mark_as_free(box)
-        assert fm.get_gc_map() == [5, 6]
+        fm.bind(BoxPtr(), FakeFramePos(3, 'r'))
+        assert len(fm.freelist) == 6
 
     def test_frame_manager_basic(self):
         b0, b1 = newboxes(0, 1)
@@ -562,7 +561,7 @@ class TestRegalloc(object):
         assert fm.get_loc_index(locf1) == 5
         assert fm.get_frame_depth() == 7
         fm.mark_as_free(b1)
-        assert fm.freelist_others
+        assert fm.freelist
         b2 = BoxInt()
         fm.loc(b2) # should be in the same spot as b1 before
         assert fm.get(b1) is None
@@ -570,45 +569,22 @@ class TestRegalloc(object):
         fm.mark_as_free(b0)
         p0 = BoxPtr()
         ploc = fm.loc(p0)
-        assert fm.get_loc_index(ploc) == 7
-        assert fm.get_frame_depth() == 8
+        assert fm.get_loc_index(ploc) == 0
+        assert fm.get_frame_depth() == 7
         assert ploc != loc1
         p1 = BoxPtr()
         p1loc = fm.loc(p1)
-        assert fm.get_loc_index(p1loc) == 8
-        assert fm.get_frame_depth() == 9
+        assert fm.get_loc_index(p1loc) == 7
+        assert fm.get_frame_depth() == 8
         fm.mark_as_free(p0)
         p2 = BoxPtr()
         p2loc = fm.loc(p2)
         assert p2loc == ploc
-        assert not fm.freelist_gcrefs
-        assert len(fm.freelist_others) == 1
+        assert len(fm.freelist) == 0
         fm.mark_as_free(b2)
         f3 = BoxFloat()
+        fm.mark_as_free(p2)
         floc = fm.loc(f3)
         assert fm.get_loc_index(floc) == 0
         for box in fm.bindings.keys():
             fm.mark_as_free(box)
-        assert fm.get_gc_map() == [7, 8]
-
-    def test_fm_from_gcmap(self):
-        class Loc(object):
-            def __init__(self, l):
-                self.l = l
-        
-        class Fm(FrameManager):
-            @staticmethod
-            def get_loc_index(l):
-                return l.l
-
-        b0 = BoxInt()
-        b1 = BoxInt()
-        l0 = Loc(5)
-        l1 = Loc(2)
-        bindings = {b0: l0, b1: l1}
-        fm = frame_manager_from_gcmap(Fm, [1, 5, 6, 8], 13,
-                                      bindings)
-        assert repr(fm.freelist_gcrefs) == "LinkedList(1->6->8)"
-        assert repr(fm.freelist_others) == "LinkedList(0->3->4->7->9->10->11->12)"
-        assert fm.current_frame_depth == 13
-        assert fm.bindings == bindings

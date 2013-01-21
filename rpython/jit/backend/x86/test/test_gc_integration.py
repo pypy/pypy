@@ -67,38 +67,14 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         # p0 and p3 should be in registers, p1 not so much
         assert self.getptr(0, lltype.Ptr(self.S)) == s1
         # this is a fairly CPU specific check
-        all = len(gpr_reg_mgr_cls.all_regs)
-        assert frame.jf_gcpattern == (1 << (all - 1)) | (1 << (all - 2))
-        # the gcmap should contain three things, p0, p1 and p3, but
-        # p3 stays in a register and is only represented in gcpattern,
-        # while p0 is in both
-        assert len(frame.jf_gcmap) == 2
-        for i in range(2):
-            assert frame.jf_gcmap[i] == frame.jf_frame_info.jfi_gcmap[i]
-        assert frame.jf_gcmap[0] == 1
-        assert frame.jf_gcmap[1] == 3
-
-    def test_label(self):
-        ops = '''
-        [i0, p0, i1, p1]
-        label(i0, p0, i1, p1, descr=targettoken2)
-        p3 = getfield_gc(p0, descr=fielddescr)
-        force_spill(p3)
-        guard_true(i0) [p0, i1, p1, p3]
-        finish()
-        '''
-        s1 = lltype.malloc(self.S)
-        s2 = lltype.malloc(self.S)
-        s1.field = s2
-        self.interpret(ops, [0, s1, 1, s2])
-        ops2 = '''
-        [p0]
-        jump(1, p0, 1, p0, descr=targettoken2)
-        '''
-        self.interpret(ops2, [s1])
-        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, self.deadframe)
-        assert len(frame.jf_gcmap) == 3
-        assert [frame.jf_gcmap[i] for i in range(3)] == [1, 3, 4]
+        assert len(frame.jf_gcmap) == 1
+        # the gcmap should contain three things, p0, p1 and p3
+        # p3 stays in a register
+        # while p0 and p1 are on the frame
+        assert frame.jf_gcmap[0] == (1 << 11) | (1 << 12) | (1 << 31)
+        assert frame.jf_frame[11]
+        assert frame.jf_frame[12]
+        assert frame.jf_frame[31]
 
     def test_rewrite_constptr(self):
         ops = '''
@@ -228,10 +204,8 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_malloc_slowpath(self):
         def check(frame):
-            assert len(frame.jf_frame_info.jfi_gcmap) == 2 # 2 pointers
-            assert frame.jf_frame_info.jfi_gcmap[0] == 1
-            assert frame.jf_frame_info.jfi_gcmap[1] == 2
-            assert frame.jf_gcpattern == 0x2
+            assert len(frame.jf_gcmap) == 1
+            assert frame.jf_gcmap[0] == (2 | (1<<29) | (1 << 30))
         
         self.cpu = self.getcpu(check)
         ops = '''
@@ -257,8 +231,9 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_save_regs_around_malloc(self):
         def check(frame):
-            x = frame.jf_gcpattern
-            assert bin(x) == '0b1111111011111'
+            x = frame.jf_gcmap
+            assert len(x) == 1
+            assert bin(x[0]) == '0b1111100000000000000001111111011111'
             # all but two
         
         self.cpu = self.getcpu(check)

@@ -1,5 +1,5 @@
 import os
-from rpython.jit.metainterp.history import Const, Box, REF
+from rpython.jit.metainterp.history import Const, Box, REF, INT
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
 
@@ -112,56 +112,18 @@ class LinkedList(object):
             node = node.next
         return 'LinkedList(%s)' % '->'.join(l)
 
-def frame_manager_from_gcmap(FmClass, gcmap, depth, frame_bindings):
-    if not gcmap:
-        return FmClass()
-    rev_bindings = [False] * depth
-    for arg, loc in frame_bindings.iteritems():
-        size = FmClass.frame_size(arg.type)
-        if size == 2:
-            rev_bindings[FmClass.get_loc_index(loc) + 1] = True
-        assert size == 1
-        rev_bindings[FmClass.get_loc_index(loc)] = True
-    gcrefs = []
-    others = []
-    c = 0
-    for i in range(len(gcmap)):
-        item = gcmap[i]
-        while c < item:
-            if not rev_bindings[c]:
-                others.append(c)
-            c += 1
-        if not rev_bindings[item]:
-            gcrefs.append(item)
-        c += 1
-    for i in range(c, depth):
-        if not rev_bindings[i]:
-            others.append(i)
-    fm = FmClass(depth, gcrefs, others)
-    for arg, loc in frame_bindings.iteritems():
-        fm.bindings[arg] = loc
-    return fm
-
 class FrameManager(object):
     """ Manage frame positions
 
     start_free_depth is the start where we can allocate in whatever order
     we like.
-
-    freelist_gcrefs and freelist_others are free lists of locations that
-    can be used for gcrefs and others. below stack_free_depth. Note
-    that if floats are occupying more than one spot, in order to allocate
-    the correct size, we need to use more than one from the freelist in
-    the consecutive order.
     """
-    def __init__(self, start_free_depth=0, freelist_gcrefs=None,
-                 freelist_others=None):
+    def __init__(self, start_free_depth=0, freelist=None):
         self.bindings = {}
         self.current_frame_depth = start_free_depth
         # we disable hints for now
         #self.hint_frame_locations = {}
-        self.freelist_gcrefs = LinkedList(self, freelist_gcrefs)
-        self.freelist_others = LinkedList(self, freelist_others)
+        self.freelist = LinkedList(self, freelist)
 
     def get_frame_depth(self):
         return self.current_frame_depth
@@ -191,10 +153,7 @@ class FrameManager(object):
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        if box.type == REF:
-            newloc = self.freelist_gcrefs.pop(1, box.type)
-        else:
-            newloc = self.freelist_others.pop(size, box.type)
+        newloc = self.freelist.pop(size, box.type)
         if newloc is None:
             #
             index = self.get_frame_depth()
@@ -209,17 +168,23 @@ class FrameManager(object):
         self.bindings[box] = newloc
         return newloc
 
+    def bind(self, box, loc):
+        pos = self.get_loc_index(loc)
+        size = self.frame_size(box.type)
+        if self.current_frame_depth < pos:
+            for i in range(self.current_frame_depth, pos):
+                self.freelist.append(1, self.frame_pos(i, INT))
+        self.current_frame_depth = pos + size
+        self.bindings[box] = loc
+
     def mark_as_free(self, box):
         try:
             loc = self.bindings[box]
         except KeyError:
             return    # already gone
         del self.bindings[box]
-        if box.type == REF:
-            self.freelist_gcrefs.append(1, loc)
-        else:
-            size = self.frame_size(box.type)
-            self.freelist_others.append(size, loc)
+        size = self.frame_size(box.type)
+        self.freelist.append(size, loc)
 
     def try_to_reuse_location(self, box, loc):
         xxx
@@ -241,16 +206,6 @@ class FrameManager(object):
     @staticmethod
     def _gather_gcroots(lst, var):
         lst.append(var)
-
-    def get_gc_map(self):
-        """ returns a list of locations where GC pointers are
-        """
-        assert not self.bindings
-        # XXX unsure, maybe what we want is to
-        # free everything instead
-        lst = []
-        self.freelist_gcrefs.foreach(self._gather_gcroots, lst)
-        return lst
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod

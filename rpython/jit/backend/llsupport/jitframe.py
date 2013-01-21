@@ -1,25 +1,23 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 
 STATICSIZE = 0 # patch from the assembler backend
+SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
+IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
 
 # this is an info that only depends on the assembler executed, copied from
 # compiled loop token (in fact we could use this as a compiled loop token
 # XXX do this
 
-GCMAP = lltype.GcArray(lltype.Signed)
+GCMAP = lltype.GcArray(lltype.Unsigned)
 NULLGCMAP = lltype.nullptr(GCMAP)
-# XXX make it SHORT not Signed
 
 JITFRAMEINFO = lltype.GcStruct(
     'JITFRAMEINFO',
     # the depth of frame
     ('jfi_frame_depth', lltype.Signed),
-    # gcindexlist is a list of indexes of GC ptrs
-    # in the actual array jf_frame of JITFRAME
-    ('jfi_gcmap', lltype.Ptr(GCMAP)),
 )
 
 NULLFRAMEINFO = lltype.nullptr(JITFRAMEINFO)
@@ -29,14 +27,13 @@ NULLFRAMEINFO = lltype.nullptr(JITFRAMEINFO)
 
 def jitframe_allocate(frame_info):
     frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
-    frame.jf_gcmap = frame_info.jfi_gcmap
     frame.jf_frame_info = frame_info
     return frame
 
 def jitframe_copy(frame):
     frame_info = frame.jf_frame_info
     new_frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
-    new_frame.jf_gcmap = frame_info.jfi_gcmap
+    ll_assert(frame.jf_gcmap == NULLGCMAP, "non empty gc map when copying")
     new_frame.jf_frame_info = frame_info
     return new_frame
 
@@ -50,10 +47,7 @@ JITFRAME = lltype.GcStruct(
     ('jf_descr', llmemory.GCREF),
     # guard_not_forced descr
     ('jf_force_descr', llmemory.GCREF),
-    # a bitmask of where are GCREFS in the top of the frame (saved registers)
-    # used for calls and failures
-    ('jf_gcpattern', lltype.Signed),
-    # a copy of gcmap from frameinfo
+    # a map of GC pointers
     ('jf_gcmap', lltype.Ptr(GCMAP)),
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),
@@ -83,14 +77,14 @@ GCMAPLENGTHOFS = llmemory.arraylengthoffset(GCMAP)
 GCMAPBASEOFS = llmemory.itemoffsetof(GCMAP, 0)
 BASEITEMOFS = llmemory.itemoffsetof(JITFRAME.jf_frame, 0)
 SIGN_SIZE = llmemory.sizeof(lltype.Signed)
+UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
 
 def jitframe_trace(obj_addr, prev):
     if prev == llmemory.NULL:
         (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 0
         return obj_addr + getofs('jf_frame_info')
     fld = (obj_addr + getofs('jf_gc_trace_state')).signed[0]
-    state = fld & 0xff
-    no = fld >> 8
+    state = fld & 0x7 # 3bits of possible states
     if state == 0:
         (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 1
         return obj_addr + getofs('jf_descr')
@@ -106,26 +100,38 @@ def jitframe_trace(obj_addr, prev):
     elif state == 4:
         (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 5
         return obj_addr + getofs('jf_guard_exc')
-    elif state == 5:
-        # bit pattern
-        gcpat = (obj_addr + getofs('jf_gcpattern')).signed[0]
-        while no < STATICSIZE and gcpat & (1 << no) == 0:
-            no += 1
-        if no != STATICSIZE:
-            newstate = 5 | ((no + 1) << 8)
-            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = newstate
-            return obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE * no
-        state = 6
-        no = 0
-    ll_assert(state == 6, "invalid tracer state")
+    ll_assert(state == 5, "invalid state")
+    # bit pattern
+    # decode the pattern
+    if IS_32BIT:
+        # 32 possible bits
+        state = (fld >> 3) & 0x1f
+        no = fld >> (3 + 5)
+        MAX = 31
+    else:
+        # 64 possible bits
+        state = (fld >> 3) & 0x3f
+        no = fld >> (3 + 6)
+        MAX = 63
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
-    gcmaplen = (gcmap + GCMAPLENGTHOFS).signed[0]
-    if no >= gcmaplen:
-        return llmemory.NULL
-    index = (gcmap + GCMAPBASEOFS + SIGN_SIZE * no).signed[0] + STATICSIZE
-    newstate = 6 | ((no + 1) << 8)
-    (obj_addr + getofs('jf_gc_trace_state')).signed[0] = newstate
-    return obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE * index
+    gcmap_lgt = (gcmap + GCMAPLENGTHOFS).signed[0]
+    while no < gcmap_lgt:
+        cur = (gcmap + GCMAPBASEOFS + UNSIGN_SIZE * no).unsigned[0]
+        while state < MAX and not (cur & (1 << state)):
+            state += 1
+        if state < MAX:
+            # found it
+            # save new state
+            if IS_32BIT:
+                new_state = 5 | ((state + 1) << 3) | (no << 8)
+            else:
+                new_state = 5 | ((state + 1) << 3) | (no << 9)
+            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = new_state
+            return (obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE *
+                    (no * SIZEOFSIGNED * 8 + state))
+        no += 1
+        state = 0
+    return llmemory.NULL
 
 CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                   llmemory.Address)

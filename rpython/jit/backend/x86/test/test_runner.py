@@ -30,8 +30,7 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['mov', 'mov', 'mov', 'mov',
-                             'mov', 'add', 'test', 'je', 'jmp']
+    add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
     bridge_loop_instructions = ['cmp', 'jge', 'mov', 'call',
                                 'mov', 'jmp']
 

@@ -156,10 +156,6 @@ class GcRewriterAssembler(object):
         op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
-        llref = lltype.cast_opaque_ptr(llmemory.GCREF, jfi.jfi_gcmap)
-        op3 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
-                           None, descr=descrs.jf_gcmap)
-        self.newops.append(op3)
         for i, arg in enumerate(op.getarglist()):
             index, descr = self.cpu.getarraydescr_for_frame(arg.type, i)
             self.newops.append(ResOperation(rop.SETARRAYITEM_GC,

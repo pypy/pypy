@@ -7,7 +7,7 @@ from rpython.jit.metainterp.gc import get_description
 from rpython.jit.metainterp.history import BoxPtr, BoxInt, ConstPtr
 from rpython.jit.metainterp.resoperation import get_deep_immutable_oplist, rop,\
      ResOperation
-from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.rarithmetic import is_valid_int, r_uint
 
 def test_boehm():
     gc_ll_descr = gc.GcLLDescr_boehm(None, None, None)
@@ -276,12 +276,9 @@ def test_custom_tracer():
         frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True)
         frame = lltype.malloc(jitframe.JITFRAME, 15, zero=True)
         frame.jf_frame_info = frame_info
-        frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4)
-        frame.jf_gcmap[0] = 5
-        frame.jf_gcmap[1] = 7
-        frame.jf_gcmap[2] = 8
-        frame.jf_gcmap[3] = 10
-        frame.jf_gcpattern = 1 | 4
+        frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 2)
+        frame.jf_gcmap[0] = r_uint(1 | 2 | 8 | 32 | 128)
+        frame.jf_gcmap[1] = r_uint(2 | 16 | 32 | 128)
         frame_adr = llmemory.cast_ptr_to_adr(frame)
         all_addrs = []
         next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
@@ -296,12 +293,14 @@ def test_custom_tracer():
                 counter += 1
         # gcpattern
         assert all_addrs[6] == indexof(0)
-        assert all_addrs[7] == indexof(2)
-        assert all_addrs[8] == indexof(3 + 5)
-        assert all_addrs[9] == indexof(3 + 7)
-        assert all_addrs[10] == indexof(3 + 8)
-        assert all_addrs[11] == indexof(3 + 10)
-        assert len(all_addrs) == 6 + 4 + 2
+        assert all_addrs[7] == indexof(1)
+        assert all_addrs[8] == indexof(3)
+        assert all_addrs[9] == indexof(5)
+        assert all_addrs[10] == indexof(7)
+        # XXX 32bit
+        assert all_addrs[11] == indexof(65)
+
+        assert len(all_addrs) == 6 + 5 + 4
         # 6 static fields, 4 addresses from gcmap, 2 from gcpattern
     finally:
         jitframe.STATICSIZE = PREV_STATICSIZE

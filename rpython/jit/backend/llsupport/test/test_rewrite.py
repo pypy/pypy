@@ -98,8 +98,12 @@ class RewriteTests(object):
                                                         [])
         equaloplists(operations, expected.operations)
 
+class FakeTracker(object):
+    pass
+
 class BaseFakeCPU(object):
     def __init__(self):
+        self.tracker = FakeTracker()
         self._cache = {}
         self.signedframedescr = ArrayDescr(3, 8, FieldDescr('len', 0, 0, 0), 0)
         self.floatframedescr = ArrayDescr(5, 8, FieldDescr('len', 0, 0, 0), 0)
