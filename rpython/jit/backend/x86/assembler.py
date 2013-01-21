@@ -1865,6 +1865,7 @@ class Assembler386(object):
                     v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 positions[i] = v * WORD
         # write down the positions of locs
+        print guardtok.fail_locs
         guardtok.faildescr.rd_locs = positions
         #if WORD == 4:
         #    mc.PUSH(imm(fail_descr))

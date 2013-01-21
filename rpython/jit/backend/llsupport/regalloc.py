@@ -169,6 +169,8 @@ class FrameManager(object):
             #
 
         self.bindings[box] = newloc
+        if not we_are_translated():
+            self._check_invariants()
         return newloc
 
     def bind(self, box, loc):
@@ -188,6 +190,8 @@ class FrameManager(object):
         for elem in range(len(all)):
             if not all[elem]:
                 self.freelist._append(elem)
+        if not we_are_translated():
+            self._check_invariants()
 
     def mark_as_free(self, box):
         try:
@@ -197,6 +201,23 @@ class FrameManager(object):
         del self.bindings[box]
         size = self.frame_size(box.type)
         self.freelist.append(size, loc)
+        if not we_are_translated():
+            self._check_invariants()
+
+    def _check_invariants(self):
+        all = [0] * self.get_frame_depth()
+        for b, loc in self.bindings.iteritems():
+            size = self.frame_size(b)
+            pos = self.get_loc_index(loc)
+            for i in range(pos, pos + size):
+                assert not all[i]
+                all[i] = 1
+        node = self.freelist.master_node
+        while node is not None:
+            assert not all[node.val]
+            all[node.val] = 1
+            node = node.next
+        assert all == [1] * self.get_frame_depth()
 
     def try_to_reuse_location(self, box, loc):
         xxx

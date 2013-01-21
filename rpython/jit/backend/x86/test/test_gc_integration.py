@@ -344,9 +344,9 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frames = []
         
         def check(i):
+            import pdb
+            pdb.set_trace()
             assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
-            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
-            frames.append(frame)
             assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE
             # we "collect"
             new_frame = frame.copy()
