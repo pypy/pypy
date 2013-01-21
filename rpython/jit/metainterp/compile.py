@@ -1,7 +1,6 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
-from rpython.flowspace.model import Constant, Variable
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib import rstack
@@ -867,7 +866,7 @@ class PropagateExceptionDescr(AbstractFailDescr):
         cpu = metainterp_sd.cpu
         exception = cpu.grab_exc_value(deadframe)
         if not exception:
-            exception = memory_error
+            exception = cast_instance_to_gcref(memory_error)
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
