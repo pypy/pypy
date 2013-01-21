@@ -143,8 +143,8 @@ class GcRewriterAssembler(object):
         lgt_box = history.BoxInt()
         frame = history.BoxPtr()
         jfi = loop_token.compiled_loop_token.frame_info
-        rgc._make_sure_does_not_move(jfi)
         llref = lltype.cast_opaque_ptr(llmemory.GCREF, jfi)
+        rgc._make_sure_does_not_move(llref)
         op0 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(llref)], lgt_box,
                            descr=descrs.jfi_frame_depth)
         self.newops.append(op0)

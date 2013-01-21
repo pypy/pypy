@@ -498,7 +498,8 @@ class Assembler386(object):
         self._call_header_with_stack_check()
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
-        rgc._make_sure_does_not_move(clt.frame_info)
+        rgc._make_sure_does_not_move(lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                            clt.frame_info))
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         frame_depth = self._assemble(regalloc, inputargs, operations)

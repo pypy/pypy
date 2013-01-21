@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.history import ConstPtr, AbstractDescr
@@ -102,7 +102,7 @@ class GcLLDescription(GcCache):
                 rgc._make_sure_does_not_move(p)
                 gcrefs_output_list.append(p)
         if op.is_guard() or op.getopnum() == rop.FINISH:
-            rgc._make_sure_does_not_move(op.getdescr())
+            rgc._make_sure_does_not_move(cast_instance_to_gcref(op.getdescr()))
             gcrefs_output_list.append(op.getdescr())
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
