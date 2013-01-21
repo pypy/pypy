@@ -1,10 +1,10 @@
 import sys
 import pytest
-from pypy.tool.pytest import viewerplugin
+from rpython.tool.pytest import viewerplugin
 
-class mock:
+class mock(object):
     view = False
-    
+
     @staticmethod
     def execute():
         pass
