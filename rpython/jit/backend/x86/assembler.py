@@ -695,7 +695,7 @@ class Assembler386(object):
                                              len(gcmap))
         for i in range(len(gcmap)):
             frame_info.jfi_gcmap[i] = gcmap[i]
-        
+    
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
         if clt.asmmemmgr_blocks is None:
@@ -1235,6 +1235,7 @@ class Assembler386(object):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             rst = gcrootmap.get_root_stack_top_addr()
+            mc.MOV(ecx, ebp) # debugging
             mc.MOV(edx, heap(rst))
             mc.MOV(ebp, mem(edx, -WORD))
             base_ofs = self.cpu.get_baseofs_of_frame_field()
@@ -2396,12 +2397,25 @@ class Assembler386(object):
         not_implemented("not implemented operation (guard): %s" %
                         op.getopname())
 
-    def closing_jump(self, target_token):
+    def closing_jump(self, target_token, gcmap):
         target = target_token._x86_loop_code
         if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
             self.mc.JMP_l(target - curpos)
         else:
+            # bleh, we need to clean up all the references that are not
+            # in our gcmap, but are in the target gcmap
+            if target_token.original_jitcell_token:
+                tgt_clt = target_token.original_jitcell_token.compiled_loop_token
+                tgt_gcmap = tgt_clt.frame_info.jfi_gcmap
+                rev = {}
+                for i in tgt_gcmap:
+                    rev[i] = None
+                # for now clean them all, we might change the strategy
+                for k in gcmap:
+                    if k not in rev:
+                        # all ours that are not known to the target
+                        self.mc.MOV_bi((k + JITFRAME_FIXED_SIZE) * WORD, 0)
             self.mc.JMP(imm(target))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcpattern):

@@ -1284,7 +1284,7 @@ class RegAlloc(object):
                                  src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
         self.possibly_free_vars_for_op(op)
-        assembler.closing_jump(self.jump_target_descr)
+        assembler.closing_jump(self.jump_target_descr, self.get_gc_map())
 
     def consider_debug_merge_point(self, op):
         pass

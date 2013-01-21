@@ -38,7 +38,6 @@ def jitframe_copy(frame):
     new_frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
     new_frame.jf_gcmap = frame_info.jfi_gcmap
     new_frame.jf_frame_info = frame_info
-    new_frame.jf_force_descr = frame.jf_force_descr
     return new_frame
 
 JITFRAME = lltype.GcStruct(
