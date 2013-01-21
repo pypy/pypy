@@ -1187,9 +1187,9 @@ class Assembler386(object):
                     on_stack += 1
             elif argtypes is not None and argtypes[i-start] == 'S':
                 # Singlefloat argument
+                if singlefloats is None:
+                    singlefloats = []
                 if len(unused_xmm) > 0:
-                    if singlefloats is None:
-                        singlefloats = []
                     singlefloats.append((loc, unused_xmm.pop()))
                 else:
                     singlefloats.append((loc, RawEspLoc(on_stack * WORD, INT)))
