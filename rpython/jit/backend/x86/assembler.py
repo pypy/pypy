@@ -1844,7 +1844,7 @@ class Assembler386(object):
         positions = [0] * len(guardtok.fail_locs)
         gcpattern = 0
         for i, loc in enumerate(guardtok.fail_locs):
-            if loc is None:
+            if loc is None or loc is ebp: # frame
                 positions[i] = -1
             elif isinstance(loc, StackLoc):
                 positions[i] = loc.value
