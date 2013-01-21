@@ -309,6 +309,7 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
+    assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log)
 

@@ -44,7 +44,6 @@ def align_stack_words(words):
 class GuardToken(object):
     def __init__(self, faildescr, failargs, fail_locs, exc,
                  is_guard_not_invalidated, is_guard_not_forced):
-        assert isinstance(faildescr, AbstractFailDescr)
         self.faildescr = faildescr
         self.failargs = failargs
         self.fail_locs = fail_locs
