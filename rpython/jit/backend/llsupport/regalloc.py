@@ -182,7 +182,7 @@ class FrameManager(object):
     def finish_binding(self):
         all = [0] * self.get_frame_depth()
         for b, loc in self.bindings.iteritems():
-            size = self.frame_size(b)
+            size = self.frame_size(b.type)
             pos = self.get_loc_index(loc)
             for i in range(pos, pos + size):
                 all[i] = 1
