@@ -1,7 +1,7 @@
 import py
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.memory.gc.stmtls import StmGCTLS, WORD
-from pypy.rpython.memory.gc.test.test_stmgc import StmGCTests
 from pypy.rpython.memory.support import get_address_stack, get_address_deque
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 
@@ -75,7 +75,7 @@ class FakeGC:
     sharedarea = FakeSharedArea()
     root_walker = FakeRootWalker()
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
-                                  ('version', llmemory.Address))
+                                  ('revision', lltype.Unsigned))
     gcheaderbuilder = GCHeaderBuilder(HDR)
     maximum_extra_threshold = 0
 
@@ -85,6 +85,10 @@ class FakeGC:
 
     def get_size(self, addr):
         return llmemory.sizeof(lltype.typeOf(addr.ptr).TO)
+
+    def set_obj_revision(self, addr, nrevision):
+        hdr = self.header(addr)
+        hdr.revision = llmemory.cast_adr_to_uint_symbolic(nrevision)
 
     def trace(self, obj, callback, arg):
         TYPE = obj.ptr._TYPE.TO
@@ -129,7 +133,7 @@ class TestStmGCTLS(object):
         obj = adr + size_gc_header
         hdr = self.gc.header(obj)
         hdr.tid = 0
-        hdr.version = NULL
+        hdr.revision = r_uint(0)
         return llmemory.cast_adr_to_ptr(obj, lltype.Ptr(STRUCT))
 
     # ----------

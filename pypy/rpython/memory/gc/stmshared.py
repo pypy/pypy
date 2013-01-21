@@ -33,7 +33,7 @@ class StmGCThreadLocalAllocator(object):
 
     def add_regular(self, obj):
         """After malloc_object(), register the object in the internal chained
-        list.  For objects whose 'version' field is not otherwise needed."""
+        list.  For objects whose 'revision' field is not otherwise needed."""
         self.gc.set_obj_revision(obj, self.chained_list)
         self.chained_list = obj
 
