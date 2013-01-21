@@ -184,8 +184,10 @@ class FrameManager(object):
             pos = self.get_loc_index(loc)
             for i in range(pos, pos + size):
                 all[i] = 1
+        self.freelist = LinkedList(self) # we don't care
         for elem in range(len(all)):
             if not all[elem]:
+                print self.freelist, elem
                 self.freelist._append(elem)
 
     def mark_as_free(self, box):
