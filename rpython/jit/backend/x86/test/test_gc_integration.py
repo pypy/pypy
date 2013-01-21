@@ -2,16 +2,19 @@
 """ Tests for register allocation for common constructs
 """
 
-from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr
+from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
+     JitCellToken
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
-     GcLLDescr_framework
+     GcLLDescr_framework, GcCache
 from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.backend.x86.arch import WORD
+from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llhelper
 
 from rpython.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 CPU = getcpuclass()
 
@@ -321,14 +324,81 @@ class TestMallocFastpath(BaseTestRegalloc):
             s1 = lltype.cast_opaque_ptr(lltype.Ptr(S1), s1ref)
             assert s1 == getattr(s2, 's%d' % i)
 
-class TestGcShadowstackDirect(object):
+class MockShadowStackRootMap(object):
+    is_shadow_stack = True
+    
+    def __init__(self):
+        TP = rffi.CArray(lltype.Signed)
+        self.stack = lltype.malloc(TP, 10, flavor='raw')
+        self.stack_addr = lltype.malloc(TP, 1,
+                                        flavor='raw')
+        self.stack_addr[0] = rffi.cast(lltype.Signed, self.stack)
+
+    def __del__(self):
+        lltype.free(self.stack_addr, flavor='raw')        
+        lltype.free(self.stack, flavor='raw')
+
+    def register_asm_addr(self, start, mark):
+        pass
+
+    def get_root_stack_top_addr(self):
+        return rffi.cast(lltype.Signed, self.stack_addr)
+
+class GCDescrShadowstackDirect(GcLLDescr_framework):
+    layoutbuilder = None
+    write_barrier_descr = None
+
+    def get_malloc_slowpath_addr(self):
+        return 0
+
+    def get_nursery_free_addr(self):
+        return 0
+    
+    def __init__(self):
+        GcCache.__init__(self, False, None)
+        self.gcrootmap = MockShadowStackRootMap()
+
+class TestGcShadowstackDirect(BaseTestRegalloc):
     
     cpu = CPU(None, None)
-    cpu.gc_ll_descr = GcLLDescr_framework(None, None, None)
+    cpu.gc_ll_descr = GCDescrShadowstackDirect()
     cpu.setup_once()
 
     def test_shadowstack_call(self):
-        ops = parse("""
+        ofs = self.cpu.get_baseofs_of_frame_field()
+        frames = []
+        
+        def check(i):
+            assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
+            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
+            frames.append(frame)
+            assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE
+            # we "collect"
+            new_frame = frame.copy()
+            self.cpu.gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
+            frames.append(new_frame)
+
+        def check2(i):
+            assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
+            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
+            assert frame == frames[1]
+            assert frame != frames[0]
+
+        CHECK = lltype.FuncType([lltype.Signed], lltype.Void)
+        checkptr = llhelper(lltype.Ptr(CHECK), check)
+        check2ptr = llhelper(lltype.Ptr(CHECK), check2)
+        checkdescr = self.cpu.calldescrof(CHECK, CHECK.ARGS, CHECK.RESULT,
+                                          EffectInfo.MOST_GENERAL)
+        
+        loop = self.parse("""
         []
+        i0 = force_token() # this is a bit below the frame
+        call(ConstClass(check_adr), i0, descr=checkdescr) # this can collect
+        call(ConstClass(check2_adr), i0, descr=checkdescr)
         finish(i0, descr=finaldescr)
-        """, namespace={'finaldescr': BasicFinalDescr()})
+        """, namespace={'finaldescr': BasicFinalDescr(),
+                        'check_adr': checkptr, 'check2_adr': check2ptr,
+                        'checkdescr': checkdescr})
+        token = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, token)
+        frame = self.cpu.execute_token(token)

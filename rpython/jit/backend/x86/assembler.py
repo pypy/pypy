@@ -1228,6 +1228,13 @@ class Assembler386(object):
         self.mc.CALL(x)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            rst = gcrootmap.get_root_stack_top_addr()
+            self.mc.MOV(edx, heap(rst))
+            self.mc.MOV(ebp, mem(edx, -WORD))
+            base_ofs = self.cpu.get_baseofs_of_frame_field()
+            self.mc.ADD_ri(ebp.value, base_ofs)
 
     def call(self, addr, args, res):
         self._emit_call(imm(addr), args)
