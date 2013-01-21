@@ -2060,6 +2060,7 @@ class Assembler386(object):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
+            raise NotImplementedError # we need tests
             xxx
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
@@ -2067,6 +2068,7 @@ class Assembler386(object):
         self.genop_call(op, arglocs, result_loc)
         # then reopen the stack
         if gcrootmap:
+            raise NotImplementedError # we need tests
             xxx
             self.call_reacquire_gil(gcrootmap, result_loc)
         # finally, the guard_not_forced
