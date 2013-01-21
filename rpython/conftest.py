@@ -34,15 +34,9 @@ def _set_platform(opt, opt_str, value, parser):
 
 def pytest_addoption(parser):
     group = parser.getgroup("rpython options")
-    group.addoption('--view', action="store_true", dest="view", default=False,
-           help="view translation tests' flow graphs with Pygame")
     group.addoption('-P', '--platform', action="callback", type="string",
            default="host", callback=_set_platform,
            help="set up tests to use specified platform as compile/run target")
-    group = parser.getgroup("JIT options")
-    group.addoption('--viewloops', action="store_true",
-           default=False, dest="viewloops",
-           help="show only the compiled loops")
 
 
 def pytest_pycollect_makeitem(__multicall__,collector, name, obj):

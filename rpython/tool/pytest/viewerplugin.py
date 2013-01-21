@@ -17,7 +17,7 @@ import pytest
 
 def pytest_addoption(parser):
 
-    group = parser.getgroup("pypy options")
+    group = parser.getgroup("rpython options")
     group.addoption('--view', action="store_true", dest="view", default=False,
            help="view translation tests' flow graphs with Pygame")
 
