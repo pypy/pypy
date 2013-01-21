@@ -33,7 +33,6 @@ def jitframe_allocate(frame_info):
 def jitframe_copy(frame):
     frame_info = frame.jf_frame_info
     new_frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
-    ll_assert(frame.jf_gcmap == NULLGCMAP, "non empty gc map when copying")
     new_frame.jf_frame_info = frame_info
     return new_frame
 

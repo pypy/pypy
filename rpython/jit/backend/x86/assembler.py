@@ -196,11 +196,12 @@ class Assembler386(object):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
         assert not IS_X86_32
-        # push first arg
-        mc.POP_r(ecx.value)
+        mc.MOV_rs(ecx.value, WORD)
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_br(gcmap_ofs, ecx.value)
+        # push first arg
         mc.LEA_rb(edi.value, -base_ofs)
+        # aligned already
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.LEA_rm(ebp.value, (eax.value, base_ofs))
         mc.MOV_bi(gcmap_ofs, 0)
@@ -678,7 +679,7 @@ class Assembler386(object):
         assert not IS_X86_32
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
-        self.push_gcmap(mc, gcmap, push=True)
+        self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
@@ -1865,7 +1866,6 @@ class Assembler386(object):
                     v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 positions[i] = v * WORD
         # write down the positions of locs
-        print guardtok.fail_locs
         guardtok.faildescr.rd_locs = positions
         #if WORD == 4:
         #    mc.PUSH(imm(fail_descr))
