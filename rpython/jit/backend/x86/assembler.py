@@ -201,8 +201,10 @@ class Assembler386(object):
         mc.MOV_br(gcmap_ofs, ecx.value)
         # push first arg
         mc.LEA_rb(edi.value, -base_ofs)
-        # aligned already
+        # align
+        mc.SUB_ri(esp.value, WORD)
         mc.CALL(imm(self.cpu.realloc_frame))
+        mc.ADD_ri(esp.value, WORD)
         mc.LEA_rm(ebp.value, (eax.value, base_ofs))
         mc.MOV_bi(gcmap_ofs, 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
