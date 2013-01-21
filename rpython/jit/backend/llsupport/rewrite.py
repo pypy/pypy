@@ -7,6 +7,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
+from rpython.jit.metainterp.history import JitCellToken
 
 class GcRewriterAssembler(object):
     # This class performs the following rewrites on the list of operations:
@@ -162,7 +163,9 @@ class GcRewriterAssembler(object):
             self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
                                             [frame, ConstInt(index), arg],
                                             None, descr))
-        jd = op.getdescr().outermost_jitdriver_sd
+        descr = op.getdescr()
+        assert isinstance(descr, JitCellToken)
+        jd = descr.outermost_jitdriver_sd
         args = [frame]
         if jd.index_of_virtualizable >= 0:
             args = [frame, arglist[jd.index_of_virtualizable]]
