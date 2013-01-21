@@ -1,6 +1,6 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.rpython.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi
 
 class TestFloatObject(BaseApiTest):
     def test_floatobject(self, space, api):

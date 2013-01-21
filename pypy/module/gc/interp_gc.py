@@ -1,7 +1,7 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rgc
-from pypy.rlib.streamio import open_file_as_stream
+from rpython.rlib import rgc
+from rpython.rlib.streamio import open_file_as_stream
 
 def collect(space):
     "Run a full collection."

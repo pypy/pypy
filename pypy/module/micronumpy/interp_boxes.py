@@ -7,9 +7,9 @@ from pypy.objspace.std.stringtype import str_typedef
 from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef
-from pypy.rlib.rarithmetic import LONG_BIT
-from pypy.rpython.lltypesystem import rffi
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper.lltypesystem import rffi
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()

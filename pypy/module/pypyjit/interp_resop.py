@@ -5,14 +5,14 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, hlstr
-from pypy.rpython.lltypesystem.rclass import OBJECT
-from pypy.jit.metainterp.resoperation import rop, AbstractResOp
-from pypy.rlib.nonconst import NonConstant
-from pypy.rlib import jit_hooks
-from pypy.rlib.jit import Counters
-from pypy.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
+from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.jit.metainterp.resoperation import rop, AbstractResOp
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import jit_hooks
+from rpython.rlib.jit import Counters
+from rpython.rlib.rarithmetic import r_uint
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):

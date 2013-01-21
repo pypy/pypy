@@ -3,7 +3,7 @@ import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, ObjectListStrategy
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import is_valid_int
+from rpython.rlib.rarithmetic import is_valid_int
 
 
 class TestW_ListObject(object):

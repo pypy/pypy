@@ -4,9 +4,9 @@ good assembler
 """
 
 import py
-from pypy.jit.metainterp import pyjitpl
-from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.jit.metainterp.warmspot import reset_stats
+from rpython.jit.metainterp import pyjitpl
+from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.jit.metainterp.warmspot import reset_stats
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray

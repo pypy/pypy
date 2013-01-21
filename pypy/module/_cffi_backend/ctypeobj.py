@@ -4,8 +4,8 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty, interp_attrproperty
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.objectmodel import we_are_translated
 
 from pypy.module._cffi_backend import cdataobj
 

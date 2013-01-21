@@ -87,3 +87,4 @@ syntax: regexp
 ^compiled
 ^.git/
 ^release/
+^rpython/_cache$

@@ -1,6 +1,6 @@
 import py
-from pypy.rlib import streamio
-from pypy.rlib.streamio import StreamErrors
+from rpython.rlib import streamio
+from rpython.rlib.streamio import StreamErrors
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable

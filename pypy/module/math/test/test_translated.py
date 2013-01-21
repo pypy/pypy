@@ -1,4 +1,4 @@
-from pypy.translator.c.test.test_genc import compile
+from rpython.translator.c.test.test_genc import compile
 from pypy.module.math.interp_math import _gamma
 
 

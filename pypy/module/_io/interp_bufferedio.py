@@ -4,15 +4,15 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.rarithmetic import r_longlong, intmask
-from pypy.rlib import rposix
-from pypy.tool.sourcetools import func_renamer
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rarithmetic import r_longlong, intmask
+from rpython.rlib import rposix
+from rpython.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
-from pypy.module.thread import ll_thread
+from rpython.rlib import rthread
 import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -53,10 +53,10 @@ class TryLock(object):
 
     def __enter__(self):
         if not self.lock.acquire(False):
-            if self.owner == ll_thread.get_ident():
+            if self.owner == rthread.get_ident():
                 raise self.operr
             self.lock.acquire(True)
-        self.owner = ll_thread.get_ident()
+        self.owner = rthread.get_ident()
     
     def __exit__(self,*args):
         self.owner = 0

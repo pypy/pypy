@@ -1,5 +1,5 @@
 from pypy.conftest import option
-from pypy.rpython.tool.rffi_platform import CompilationError
+from rpython.rtyper.tool.rffi_platform import CompilationError
 import py
 
 class OracleNotConnectedTestBase(object):

@@ -29,7 +29,7 @@ class Module(MixedModule):
         super(Module, cls).buildloaders()
 
     def startup(self, space):
-        from pypy.rlib.ropenssl import init_ssl
+        from rpython.rlib.ropenssl import init_ssl
         init_ssl()
         if space.config.objspace.usemodules.thread:
             from pypy.module._ssl.thread_lock import setup_ssl_threads

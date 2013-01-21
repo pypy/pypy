@@ -2,12 +2,12 @@
 """ The ffi for rpython, need to be imported for side effects
 """
 
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.extfunc import register_external
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.extfunc import register_external
 from pypy.module._minimal_curses import interp_curses
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from sys import platform
 import os.path
 

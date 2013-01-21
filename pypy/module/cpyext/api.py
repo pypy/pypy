@@ -4,16 +4,17 @@ import atexit
 
 import py
 
-from pypy.translator.goal import autopath
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.lltypesystem import ll2ctypes
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.gensupp import NameManager
-from pypy.tool.udir import udir
-from pypy.translator import platform
+from pypy.conftest import pypydir
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.lltypesystem import ll2ctypes
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.conftest import cdir
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.gensupp import NameManager
+from rpython.tool.udir import udir
+from rpython.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -25,17 +26,17 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
-from pypy.rlib.entrypoint import entrypoint
-from pypy.rlib.rposix import is_valid_fd, validate_fd
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.exports import export_struct
+from rpython.rlib.entrypoint import entrypoint
+from rpython.rlib.rposix import is_valid_fd, validate_fd
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.exports import export_struct
 from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 # CPython 2.4 compatibility
 from py.builtin import BaseException
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem.lloperation import llop
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 DEBUG_WRAPPER = True
 
@@ -45,10 +46,10 @@ Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
 
-pypydir = py.path.local(autopath.pypydir)
+pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
-translator_c_dir = pypydir / 'translator' / 'c'
+translator_c_dir = py.path.local(cdir)
 include_dirs = [
     include_dir,
     translator_c_dir,
@@ -696,7 +697,7 @@ def build_bridge(space):
     from pypy.module.cpyext.pyobject import make_ref
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
-    from pypy.translator.c.database import LowLevelDatabase
+    from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
     generate_macros(export_symbols, rename=True, do_deref=True)
@@ -989,7 +990,7 @@ def setup_library(space):
     from pypy.module.cpyext.pyobject import make_ref
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
-    from pypy.translator.c.database import LowLevelDatabase
+    from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
     generate_macros(export_symbols, rename=False, do_deref=False)
@@ -1040,7 +1041,7 @@ def load_extension_module(space, path, name):
     old_context = state.package_context
     state.package_context = name, path
     try:
-        from pypy.rlib import rdynload
+        from rpython.rlib import rdynload
         try:
             ll_libname = rffi.str2charp(path)
             try:
