@@ -1,4 +1,4 @@
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 class AppTestSSL:
     spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii'))

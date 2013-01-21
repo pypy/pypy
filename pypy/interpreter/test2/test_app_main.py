@@ -86,7 +86,7 @@ def pytest_funcarg__crashing_demo_script(request):
 @contextmanager
 def setpythonpath():
     old_pythonpath = os.getenv('PYTHONPATH')
-    rootdir = os.path.dirname(autopath.pypydir)
+    rootdir = os.path.dirname(pypydir)
     os.putenv('PYTHONPATH', rootdir)
     try:
         yield
@@ -857,7 +857,7 @@ class TestNonInteractive:
 class TestAppMain:
     
     def test_print_info(self):
-        from rpython.translator.goal import app_main
+        from pypy.interpreter import app_main
         import sys, cStringIO
         prev_so = sys.stdout
         prev_ti = getattr(sys, 'pypy_translation_info', 'missing')
