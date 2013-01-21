@@ -89,9 +89,9 @@ def register_known_gctype(cpu, vtable, STRUCT):
     except AttributeError:
         pass
     assert lltype.typeOf(vtable) == VTABLETYPE
-    if not hasattr(cpu, '_all_size_descrs_with_vtable'):
-        cpu._all_size_descrs_with_vtable = []
-        cpu._vtable_to_descr_dict = None
+    if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
+        cpu.tracker._all_size_descrs_with_vtable = []
+        cpu.tracker._vtable_to_descr_dict = None
     cpu._all_size_descrs_with_vtable.append(sizedescr)
     sizedescr._corresponding_vtable = vtable
 
@@ -108,9 +108,9 @@ def vtable2descr(cpu, vtable):
         # Build the dict {vtable: sizedescr} at runtime.
         # This is necessary because the 'vtables' are just pointers to
         # static data, so they can't be used as keys in prebuilt dicts.
-        d = cpu._vtable_to_descr_dict
+        d = cpu.tracker._vtable_to_descr_dict
         if d is None:
-            d = cpu._vtable_to_descr_dict = {}
+            d = cpu.tracker._vtable_to_descr_dict = {}
             for descr in cpu._all_size_descrs_with_vtable:
                 key = descr._corresponding_vtable
                 key = llmemory.cast_ptr_to_adr(key)
