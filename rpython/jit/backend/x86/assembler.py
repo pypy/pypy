@@ -504,7 +504,6 @@ class Assembler386(object):
         # duplication with assemble_bridge().  Also, we should think
         # about not storing on 'self' attributes that will live only
         # for the duration of compiling one loop or a one bridge.
-
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
         clt.allgcrefs = []

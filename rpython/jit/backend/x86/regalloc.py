@@ -315,6 +315,7 @@ class RegAlloc(object):
             if reg not in used:
                 self.xrm.free_regs.append(reg)
         self.possibly_free_vars(list(inputargs))
+        self.fm.finish_binding()
         self.rm._check_invariants()
         self.xrm._check_invariants()
 

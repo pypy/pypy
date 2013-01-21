@@ -18,6 +18,9 @@ class Node(object):
         self.val = val
         self.next = next
 
+    def __repr__(self):
+        return '<Node %d %r>' % (self.val, next)
+
 class LinkedList(object):
     def __init__(self, fm, lst=None):
         # assume the list is sorted
@@ -49,6 +52,8 @@ class LinkedList(object):
             while node and node.val < key:
                 prev_node = node
                 node = node.next
+            import pdb
+            pdb.set_trace()
             prev_node.next = Node(key, node)
 
     @specialize.arg(1)
@@ -171,11 +176,19 @@ class FrameManager(object):
     def bind(self, box, loc):
         pos = self.get_loc_index(loc)
         size = self.frame_size(box.type)
-        if self.current_frame_depth < pos:
-            for i in range(self.current_frame_depth, pos):
-                self.freelist.append(1, self.frame_pos(i, INT))
-        self.current_frame_depth = pos + size
+        self.current_frame_depth = max(pos + size, self.current_frame_depth)
         self.bindings[box] = loc
+
+    def finish_binding(self):
+        all = [0] * self.get_frame_depth()
+        for b, loc in self.bindings.iteritems():
+            size = self.frame_size(b)
+            pos = self.get_loc_index(loc)
+            for i in range(pos, pos + size):
+                all[i] = 1
+        for elem in range(len(all)):
+            if not all[elem]:
+                self.freelist._append(elem)
 
     def mark_as_free(self, box):
         try:
