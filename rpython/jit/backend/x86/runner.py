@@ -129,14 +129,14 @@ class AbstractX86CPU(AbstractLLCPU):
                 for i, kind in kinds:
                     arg = args[i]
                     if kind == history.INT:
-                        self.set_int_value(frame, num, arg)
+                        self.set_int_value(ll_frame, num, arg)
                     elif kind == history.FLOAT:
-                        self.set_float_value(frame, num, arg)
+                        self.set_float_value(ll_frame, num, arg)
                         if IS_X86_32:
                             num += WORD
                     else:
                         assert kind == history.REF
-                        self.set_ref_value(frame, num, arg)
+                        self.set_ref_value(ll_frame, num, arg)
                     num += WORD
                 ll_frame = func(ll_frame)
             finally:
