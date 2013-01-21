@@ -134,6 +134,11 @@ class Primitive(object):
     def box(self, value):
         return self.BoxType(rffi.cast(self.T, value))
 
+    @specialize.argtype(1, 2)
+    def box_complex(self, real, imag):
+        #XXX this is the place to display a warning
+        return self.BoxType(rffi.cast(self.T, real))
+
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
         return box.value
@@ -318,6 +323,16 @@ class Bool(BaseType, Primitive):
             return self.True
         else:
             return self.False
+
+    @specialize.argtype(1, 2)
+    def box_complex(self, real, imag):
+        box = Primitive.box(self, real)
+        if box.value:
+            return self.True
+        box = Primitive.box(self, imag)
+        if box.value:
+            return self.True
+        return self.False
 
     def coerce_subtype(self, space, w_subtype, w_item):
         # Doesn't return subclasses so it can return the constants.
@@ -1049,6 +1064,10 @@ class ComplexFloating(object):
 
     def for_computation(self, v):   
         return float(v[0]), float(v[1])
+
+    def read_bool(self, arr, i, offset):
+        v = self.for_computation(self._read(arr.storage, i, offset))
+        return bool(v[0]) or bool(v[1])
 
     def get_element_size(self):
         return 2 * rffi.sizeof(self._COMPONENTS_T)
