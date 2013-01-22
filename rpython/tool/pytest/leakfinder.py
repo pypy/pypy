@@ -2,6 +2,8 @@
 
 So far, only used by the function lltype.malloc(flavor='raw').
 """
+import py
+from rpython.tool import leakfinder
 
 def pytest_runtest_setup(__multicall__, item):
     __multicall__.execute()
