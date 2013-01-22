@@ -650,7 +650,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
     else:
         # ImportError
         msg = "No module named %s"
-        raise operationerrfmt(space.w_ImportError, msg, modulename)
+        raise operationerrfmt(space.w_ImportError, msg, partname)
 
 @jit.dont_look_inside
 def reload(space, w_module):
