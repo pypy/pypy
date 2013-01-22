@@ -38,6 +38,8 @@ class AppTestAppSysTests:
             "sys is not listed as a builtin module.")
         assert 'builtins' in names, (
             "builtins is not listed as a builtin module.")
+        assert 'exceptions' not in names, (
+            "exceptions module shouldn't exist")
 
     def test_sys_exc_info(self):
         try:

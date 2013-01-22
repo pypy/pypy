@@ -474,7 +474,7 @@ class ObjSpace(object):
     # order by the fake entry '.../lib_pypy/__extensions__'.
     MODULES_THAT_ALWAYS_SHADOW = dict.fromkeys([
         '__builtin__', '__pypy__', '_ast', '_codecs', '_sre', '_warnings',
-        '_weakref', 'errno', 'exceptions', 'gc', 'imp', 'marshal',
+        '_weakref', 'errno', '__exceptions__', 'gc', 'imp', 'marshal',
         'posix', 'nt', 'pwd', 'signal', 'sys', 'thread', 'zipimport',
     ], None)
 
@@ -503,6 +503,9 @@ class ObjSpace(object):
         w_builtin.install()
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
+        # exceptions was bootstrapped as '__exceptions__' but still
+        # lives in pypy/module/exceptions, we rename it below for
+        # sys.builtin_module_names
         bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         installed_builtin_modules = list(bootstrap_modules)
 
@@ -519,6 +522,8 @@ class ObjSpace(object):
             if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname, installed_builtin_modules)
 
+        installed_builtin_modules.remove('exceptions')
+        installed_builtin_modules.append('__exceptions__')
         installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
             [self.wrap(fn) for fn in installed_builtin_modules])
