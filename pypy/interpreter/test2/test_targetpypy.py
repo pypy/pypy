@@ -1,6 +1,6 @@
 
 import py
-from goal.targetpypystandalone import get_entry_point
+from pypy.goal.targetpypystandalone import get_entry_point
 from pypy.config.pypyoption import get_pypy_config
 
 class TestTargetPyPy(object):

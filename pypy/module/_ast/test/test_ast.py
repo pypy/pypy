@@ -290,6 +290,12 @@ from __future__ import generators""")
         ])
         exec compile(body, '<string>', 'exec')
 
+    def test_empty_set(self):
+        import ast
+        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))])
+        ast.fix_missing_locations(m)
+        compile(m, "<test>", "exec")
+
     def test_invalid_sum(self):
         import _ast as ast
         pos = dict(lineno=2, col_offset=3)
