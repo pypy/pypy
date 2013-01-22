@@ -1,4 +1,4 @@
-from rpython.conftest import option
+import py
 
 # Not sure why this is needed.  Sure that it shouldn't be, even.
 _default_values = {
@@ -15,5 +15,5 @@ _default_values = {
 
 def getoption(name):
     if hasattr(option, name):
-        return getattr(option, name)
+        return getattr(py.test.config.option, name)
     return _default_values[name]

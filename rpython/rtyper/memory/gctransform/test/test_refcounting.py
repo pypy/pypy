@@ -5,7 +5,6 @@ from rpython.rtyper.memory.gctransform.refcounting import RefcountingGCTransform
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.c.gc import RefcountingGcPolicy
-from rpython.conftest import option
 
 class TestLLInterpedRefcounting(LLInterpedTranformerTests):
     gcpolicy = RefcountingGcPolicy
@@ -128,7 +127,7 @@ def make_deallocator(TYPE,
     fptr = getattr(transformer, attr)(TYPE)
     transformer.transform_graph(graphof(t, f))
     transformer.finish(backendopt=False)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     if fptr:
         return fptr._obj.graph, t

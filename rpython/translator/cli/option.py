@@ -1,6 +1,6 @@
-from rpython.conftest import option
+import py
 
 _defaultopt = dict(wd = False, source = False, nostop = False, stdout = False)
 
 def getoption(name):
-    return getattr(option, name, _defaultopt.get(name))
+    return getattr(py.test.config.option, name, _defaultopt.get(name))

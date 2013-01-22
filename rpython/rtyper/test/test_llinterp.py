@@ -12,7 +12,6 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.model import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
 from rpython.tool import leakfinder
-from rpython.conftest import option
 
 
 # switch on logging of interp to show more info on failing tests
@@ -43,7 +42,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes, main_entry_point=True)
     if viewbefore == 'auto':
-        viewbefore = getattr(option, 'view', False)
+        viewbefore = py.test.config.option.view
     if viewbefore:
         a.simplify()
         t.view()
@@ -98,7 +97,7 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
         if len(_lastinterpreted) >= 4: 
             del _tcache[_lastinterpreted.pop(0)]
     if view == 'auto':
-        view = getattr(option, 'view', False)
+        view = py.test.config.option.view
     if view:
         t.view()
     return interp, graph

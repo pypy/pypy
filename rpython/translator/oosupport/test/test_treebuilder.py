@@ -2,7 +2,6 @@ import py
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.oosupport.treebuilder import build_trees, SubOperation
-from rpython.conftest import option
 from rpython.rtyper.test.test_rlist import BaseTestRlist
 from rpython.rtyper.test.tool import BaseRtypingTest, OORtypeMixin
 from rpython.rtyper.test.test_llinterp import get_interpreter
@@ -19,11 +18,11 @@ def translate(func, argtypes, backendopt=False):
 
 def check_trees(func, argtypes, backendopt=False):
     t = translate(func, argtypes, backendopt=backendopt)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     graph = graphof(t, func)
     build_trees(graph)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     interp = LLInterpreter(t.rtyper)
     def eval_func(*args):
@@ -113,10 +112,10 @@ def test_mutable_values():
 class BuildTreeRtypingTest(BaseRtypingTest, OORtypeMixin):
     def interpret(self, fn, args):
         interp, graph = get_interpreter(fn, args, view=False, viewbefore=False, type_system=self.type_system)
-        if option.view:
+        if py.test.config.option.view:
             interp.typer.annotator.translator.view()
         build_trees(graph)
-        if option.view:
+        if py.test.config.option.view:
             interp.typer.annotator.translator.view()
         return interp.eval_graph(graph, args)
 

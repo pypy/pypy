@@ -1,6 +1,5 @@
 from rpython.translator.interactive import Translation
 from rpython.translator.c.test.test_genc import compile
-from rpython.conftest import option
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.rlib.objectmodel import ComputedIntSymbolic
 
@@ -97,7 +96,7 @@ def test_computed_int_symbolic():
 
     t = Translation(f)
     t.rtype()
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     too_early = False
     fn = compile(f, [int])

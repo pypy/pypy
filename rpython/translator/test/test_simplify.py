@@ -4,7 +4,6 @@ from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.simplify import (get_graph, transform_dead_op_vars,
                                       desugar_isinstance)
 from rpython.flowspace.model import Block, Constant, summary
-from rpython.conftest import option
 
 def translate(func, argtypes, backend_optimize=True):
     t = TranslationContext()
@@ -12,7 +11,7 @@ def translate(func, argtypes, backend_optimize=True):
     t.buildrtyper().specialize()
     if backend_optimize:
         backend_optimizations(t)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     return graphof(t, func), t
 
@@ -251,7 +250,7 @@ class TestDetectListComprehension:
     def check(self, f1, expected):
         t = TranslationContext(list_comprehension_operations=True)
         graph = t.buildflowgraph(f1)
-        if option.view:
+        if py.test.config.option.view:
             graph.show()
         assert summary(graph) == expected
 
@@ -333,11 +332,11 @@ class TestLLSpecializeListComprehension:
         from rpython.rtyper.llinterp import LLInterpreter
         t = TranslationContext(list_comprehension_operations=True)
         t.buildannotator().build_types(func, argtypes)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         t.buildrtyper(self.typesystem).specialize()
         backend_optimizations(t)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         graph = graphof(t, func)
         interp = LLInterpreter(t.rtyper)

@@ -1,4 +1,4 @@
-from rpython.conftest import option
+import py
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.flowspace.model import Variable
 from rpython.flowspace.generator import (make_generatoriterator_class,
@@ -68,7 +68,7 @@ class TestGenerator:
             yield n
         #
         graph = FlowObjSpace().build_flow(func)
-        if option.view:
+        if py.test.config.option.view:
             graph.show()
         block = graph.startblock
         ops = block.operations
@@ -98,7 +98,7 @@ class TestGenerator:
         GeneratorIterator = make_generatoriterator_class(graph)
         replace_graph_with_bootstrap(GeneratorIterator, graph)
         func1 = attach_next_method(GeneratorIterator, graph)
-        if option.view:
+        if py.test.config.option.view:
             graph.show()
         #
         assert func1._generator_next_method_of_ is GeneratorIterator
@@ -106,11 +106,11 @@ class TestGenerator:
         #
         graph_next = space.build_flow(GeneratorIterator.next.im_func)
         join_blocks(graph_next)
-        if option.view:
+        if py.test.config.option.view:
             graph_next.show()
         #
         graph1 = space.build_flow(func1)
-        if option.view:
+        if py.test.config.option.view:
             graph1.show()
 
     def test_automatic(self):
@@ -120,7 +120,7 @@ class TestGenerator:
             z -= 10
         #
         graph = FlowObjSpace().build_flow(f)
-        if option.view:
+        if py.test.config.option.view:
             graph.show()
         block = graph.startblock
         assert len(block.exits) == 1

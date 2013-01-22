@@ -4,7 +4,6 @@ from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.rtyper.test.tool import LLRtypeMixin, OORtypeMixin
-from rpython.conftest import option
 
 class BaseTestCanRaise(object):
     type_system = None
@@ -13,7 +12,7 @@ class BaseTestCanRaise(object):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
         t.buildrtyper(type_system=self.type_system).specialize()
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         return t, RaiseAnalyzer(t)
 

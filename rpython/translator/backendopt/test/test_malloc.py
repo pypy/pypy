@@ -8,7 +8,6 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib import objectmodel
-from rpython.conftest import option
 
 class BaseMallocRemovalTest(object):
     type_system = None
@@ -44,7 +43,7 @@ class BaseMallocRemovalTest(object):
         if inline is not None:
             from rpython.translator.backendopt.inline import auto_inline_graphs
             auto_inline_graphs(t, t.graphs, inline)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         # to detect broken intermediate graphs,
         # we do the loop ourselves instead of calling remove_simple_mallocs()
@@ -52,7 +51,7 @@ class BaseMallocRemovalTest(object):
             progress = remover.remove_mallocs_once(graph)
             simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()),
                                                       [graph])
-            if progress and option.view:
+            if progress and py.test.config.option.view:
                 t.view()
             if expected_result is not Ellipsis:
                 interp = LLInterpreter(t.rtyper)

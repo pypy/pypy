@@ -9,7 +9,6 @@ from rpython.flowspace.model import Constant, summary
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib.rarithmetic import intmask
-from rpython.conftest import option
 
 class A:
     def __init__(self, x, y):
@@ -50,10 +49,10 @@ class BaseTester(object):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
         t.buildrtyper(type_system=self.type_system).specialize()
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         backend_optimizations(t, **optflags)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         return t
 
@@ -282,7 +281,7 @@ class TestLLType(BaseTester):
         annhelper.backend_optimize()
         # ^^^ as the inliner can't handle exception-transformed graphs,
         # this should *not* inline common() into later().
-        if option.view:
+        if py.test.config.option.view:
             later_graph.show()
         common_graph = graphof(t, common)
         found = False

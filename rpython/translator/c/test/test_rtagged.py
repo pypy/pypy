@@ -64,14 +64,14 @@ def entry_point(argv):
 # only with Boehm so far
 
 from rpython.translator.interactive import Translation
-from rpython.conftest import option
 
 def test_tagged_boehm():
     t = Translation(entry_point, gc='boehm', taggedpointers=True)
     try:
         exename = str(t.compile_c())
     finally:
-        if option.view:
+        import py
+        if py.test.config.option.view:
             t.view()
     g = os.popen(exename, 'r')
     data = g.read()

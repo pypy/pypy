@@ -11,7 +11,6 @@ from rpython.translator.c.genc import CStandaloneBuilder, ExternalCompilationInf
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
 from rpython.conftest import cdir
-from rpython.conftest import option
 
 
 class StandaloneTests(object):
@@ -35,7 +34,7 @@ class StandaloneTests(object):
         else:
             cbuilder.generate_source()
         cbuilder.compile()
-        if option is not None and option.view:
+        if py.test.config.option.view:
             t.view()
         return t, cbuilder
 

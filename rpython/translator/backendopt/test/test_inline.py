@@ -16,7 +16,6 @@ from rpython.rtyper.test.tool import LLRtypeMixin, OORtypeMixin
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.translator.test.snippet import is_perfect_number
 from rpython.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
-from rpython.conftest import option
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import summary
 
@@ -71,7 +70,7 @@ class BaseTestInline:
         t = self.translate(entry, sig)
         # inline!
         sanity_check(t)    # also check before inlining (so we don't blame it)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         raise_analyzer = canraise.RaiseAnalyzer(t)
         inliner = Inliner(t, graphof(t, in_func), func,
@@ -79,7 +78,7 @@ class BaseTestInline:
                           inline_guarded_calls,
                           raise_analyzer=raise_analyzer)
         inliner.inline_all()
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         sanity_check(t)
         interp = LLInterpreter(t.rtyper)
@@ -101,7 +100,7 @@ class BaseTestInline:
             for graph in t.graphs:
                 constant_fold_graph(graph)
                 eliminate_empty_blocks(graph)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         # inline!
         sanity_check(t)    # also check before inlining (so we don't blame it)
@@ -126,7 +125,7 @@ class BaseTestInline:
         auto_inlining(t, threshold, call_count_pred=call_count_pred, **kwargs)
 
         sanity_check(t)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         interp = LLInterpreter(t.rtyper)
         def eval_func(args):

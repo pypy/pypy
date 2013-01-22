@@ -1,4 +1,5 @@
 import weakref
+import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.ootypesystem import ootype
 from rpython.flowspace.model import Constant, Variable
@@ -6,7 +7,6 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
-from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
@@ -26,6 +26,7 @@ def giveup():
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
+    option = py.test.config.option
     if option.view or option.viewloops:
         if error:
             errmsg = error.__class__.__name__

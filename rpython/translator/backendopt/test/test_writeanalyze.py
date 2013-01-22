@@ -6,7 +6,6 @@ from rpython.translator.simplify import get_funcobj
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.conftest import option
 
 
 class BaseTest(object):
@@ -18,7 +17,7 @@ class BaseTest(object):
         t = TranslationContext()
         t.buildannotator().build_types(func, sig)
         t.buildrtyper(type_system=self.type_system).specialize()
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         return t, self.Analyzer(t)
 

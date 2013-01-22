@@ -13,7 +13,6 @@ from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import objectmodel
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.conftest import option
 
 DONT_CHECK_RESULT = object()
 class CHECK_RAISES:
@@ -50,7 +49,7 @@ class BaseMallocRemovalTest(object):
         t.buildannotator().build_types(fn, signature)
         t.buildrtyper(type_system=self.type_system).specialize()
         graph = graphof(t, fn)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         self.original_graph_count = len(t.graphs)
         # to detect broken intermediate graphs,
@@ -60,7 +59,7 @@ class BaseMallocRemovalTest(object):
         while True:
             progress = mallocv.remove_mallocs_once()
             #simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
-            if progress and option.view:
+            if progress and py.test.config.option.view:
                 t.view()
             t.checkgraphs()
             if expected_result is not DONT_CHECK_RESULT:

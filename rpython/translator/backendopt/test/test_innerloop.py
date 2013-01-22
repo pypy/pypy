@@ -1,6 +1,5 @@
 from rpython.translator.translator import TranslationContext
 from rpython.translator.backendopt.innerloop import find_inner_loops
-from rpython.conftest import option
 
 def test_simple_loop():
     def snippet_fn(x, y):
@@ -9,7 +8,7 @@ def test_simple_loop():
         return y
     t = TranslationContext()
     graph = t.buildflowgraph(snippet_fn)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     loops = find_inner_loops(graph)
     assert len(loops) == 1
@@ -29,7 +28,7 @@ def test_two_loops():
         return y
     t = TranslationContext()
     graph = t.buildflowgraph(snippet_fn)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     loops = find_inner_loops(graph)
     assert len(loops) == 2
@@ -51,7 +50,7 @@ def test_nested_loops():
         return z
     t = TranslationContext()
     graph = t.buildflowgraph(snippet_fn)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     loops = find_inner_loops(graph)
     assert len(loops) == 1

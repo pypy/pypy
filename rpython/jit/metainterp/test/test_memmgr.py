@@ -7,6 +7,7 @@ if len(sys.argv) >= 4 and sys.argv[1] == '--sub':
     import rpython.conftest
     class opt:
         pass
+    #XXX: strangefail?
     rpython.conftest.option = opt()
     rpython.conftest.option.__dict__.update(eval(sys.argv[3]))
 

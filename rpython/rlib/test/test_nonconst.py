@@ -1,12 +1,11 @@
 
 """ Test of non-constant constant.
 """
-
+import py
 from rpython.rlib.nonconst import NonConstant
 
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.annotator.annrpython import RPythonAnnotator
-from rpython.conftest import option
 from rpython.annotator.model import SomeInstance
 
 def test_nonconst():
@@ -44,7 +43,7 @@ def test_nonconst_instance():
     s = a.build_types(nonconst_i, [])
     rtyper = a.translator.buildrtyper(type_system="ootype")
     rtyper.specialize()
-    if option.view:
+    if py.test.config.option.view:
         a.translator.view()
     assert isinstance(s, SomeInstance)
 
@@ -61,5 +60,5 @@ def test_bool_nonconst():
 
     rtyper = a.translator.buildrtyper(type_system="ootype")
     rtyper.specialize()
-    if option.view:
+    if py.test.config.option.view:
         a.translator.view()

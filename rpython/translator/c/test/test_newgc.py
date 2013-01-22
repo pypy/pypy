@@ -5,7 +5,6 @@ import sys
 
 import py
 
-from rpython.conftest import option
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute_identity_hash
 from rpython.rlib.rstring import StringBuilder
@@ -47,7 +46,7 @@ class UsingFrameworkTest(object):
         t.disable(['backendopt'])
         t.set_backend_extra_options(c_debug_defines=True)
         t.rtype()
-        if option.view:
+        if py.test.config.option.view:
             t.viewcg()
         exename = t.compile()
 
@@ -68,7 +67,7 @@ class UsingFrameworkTest(object):
         for fullname in dir(cls):
             if not fullname.startswith('define'):
                 continue
-            keyword = option.keyword
+            keyword = py.test.config.option.keyword
             if keyword.startswith('test_'):
                 keyword = keyword[len('test_'):]
                 if keyword not in fullname:

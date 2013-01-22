@@ -1,4 +1,3 @@
-from rpython.conftest import option
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.transform import insert_ll_stackcheck
@@ -72,7 +71,7 @@ def test_simple():
     n = insert_ll_stackcheck(t)
     t.checkgraphs()
     assert n == 1
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     check(graphof(t, f), 'f')
 
@@ -90,7 +89,7 @@ def test_gctransformed():
     exctransf = t.getexceptiontransformer()
     f_graph = graphof(t, f)
     exctransf.create_exception_handling(f_graph)
-    if option.view:
+    if py.test.config.option.view:
         f_graph.show()
     check(f_graph, 'f')    
 
@@ -101,7 +100,7 @@ def test_gctransformed():
 
     gctransf = GCTransform(t)
     gctransf.transform_graph(f_graph)
-    if option.view:
+    if py.test.config.option.view:
         f_graph.show()
     relevant = check(f_graph, 'f')        
     for p in relevant:

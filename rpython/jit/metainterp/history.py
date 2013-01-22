@@ -6,8 +6,6 @@ from rpython.rlib.objectmodel import we_are_translated, Symbolic
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
 
-from rpython.conftest import option
-
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib.objectmodel import compute_identity_hash
@@ -1077,7 +1075,7 @@ class Stats(object):
             loop.check_consistency()
 
     def maybe_view(self):
-        if option.view:
+        if py.test.config.option.view:
             self.view()
 
     def view(self, errmsg=None, extraprocedures=[], metainterp_sd=None):

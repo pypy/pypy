@@ -4,7 +4,6 @@ from rpython.translator.c.test import test_newgc
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c.genc import CStandaloneBuilder
 from rpython.annotator.listdef import s_list_of_strings
-from rpython.conftest import option
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as compiler
 from rpython.rlib.rarithmetic import is_emulated_long
@@ -61,7 +60,7 @@ class AbstractTestAsmGCRoot:
         c_source_filename = cbuilder.generate_source(
             defines = cbuilder.DEBUG_DEFINES)
         cls._patch_makefile(cbuilder.targetdir)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         exe_name = cbuilder.compile()
 

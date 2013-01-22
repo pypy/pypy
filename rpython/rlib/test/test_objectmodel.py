@@ -5,7 +5,6 @@ from rpython.annotator import model
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from rpython.rtyper.test.test_llinterp import interpret
-from rpython.conftest import option
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant
@@ -499,7 +498,7 @@ def getgraph(f, argtypes):
     typer.specialize()
     backend_optimizations(t)
     graph = graphof(t, f)
-    if option.view:
+    if py.test.config.option.view:
         graph.show()
     return graph
 

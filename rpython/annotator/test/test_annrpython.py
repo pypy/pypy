@@ -1,7 +1,6 @@
 from __future__ import with_statement
 import py.test
 import sys
-from rpython.conftest import option
 
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator as _RPythonAnnotator
@@ -49,7 +48,7 @@ class TestAnnotateTestCase:
     class RPythonAnnotator(_RPythonAnnotator):
         def build_types(self, *args):
             s = _RPythonAnnotator.build_types(self, *args)
-            if option.view:
+            if py.test.config.option.view:
                 self.translator.view()
             return s
 

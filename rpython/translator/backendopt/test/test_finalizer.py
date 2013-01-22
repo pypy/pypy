@@ -6,7 +6,6 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.unsimplify import varoftype
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.conftest import option
 from rpython.rlib import rgc
 
 
@@ -24,7 +23,7 @@ class BaseFinalizerAnalyzerTests(object):
         t.buildrtyper(type_system=self.type_system).specialize()
         if backendopt:
             backend_optimizations(t)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         a = FinalizerAnalyzer(t)
         fgraph = graphof(t, func_to_analyze)

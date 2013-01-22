@@ -5,7 +5,6 @@ from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.flowspace.model import checkgraph, Block
-from rpython.conftest import option
 import sys
 
 from rpython.translator.backendopt.mallocprediction import *
@@ -15,7 +14,7 @@ def rtype(fn, signature):
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
     graph = graphof(t, fn)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     return t, graph
     

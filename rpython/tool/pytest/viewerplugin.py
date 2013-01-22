@@ -27,6 +27,11 @@ def pytest_addoption(parser):
            help="show only the compiled loops")
 
 
+def maybe_show_graph(graph):
+    if pytest.config.view:
+        graph.show()
+
+
 @pytest.mark.tryfirst
 def pytest_runtest_teardown(__multicall__, item):
     __multicall__.execute()

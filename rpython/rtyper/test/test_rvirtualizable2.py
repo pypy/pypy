@@ -6,7 +6,6 @@ from rpython.rlib.jit import hint
 from rpython.flowspace.model import summary
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
-from rpython.conftest import option
 
 
 class V(object):
@@ -163,7 +162,7 @@ class BaseTest(BaseRtypingTest):
         op_getfield = block.operations[-1]
         assert op_getfield.opname in ('getfield', 'oogetfield')
         funcptr = self.replace_force_virtualizable(rtyper, [graph])
-        if getattr(option, 'view', False):
+        if py.test.config.option.view:
             graph.show()
         op_promote = block.operations[-2]
         op_getfield = block.operations[-1]

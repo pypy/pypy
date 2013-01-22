@@ -1,7 +1,6 @@
 import py
 
 from rpython.annotator import model as annmodel
-from rpython.conftest import option
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
     MixLevelHelperAnnotator, PseudoHighLevelCallable, llhelper,
@@ -39,7 +38,7 @@ class TestLowLevelAnnotateTestCase:
     def annotate(self, ll_function, argtypes):
         self.a = self.RPythonAnnotator()
         graph = annotate_lowlevel_helper(self.a, ll_function, argtypes)
-        if option.view:
+        if py.test.config.option.view:
             self.a.translator.view()
         return self.a.binding(graph.getreturnvar())
 

@@ -3,8 +3,7 @@ This file is imported by rpython.translator.driver when running the
 target --jittest.  Feel free to hack it as needed; it is imported
 only after the '---> Checkpoint' fork.
 """
-
-from rpython.conftest import option
+import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llstr
@@ -32,7 +31,8 @@ def jittest(driver):
 
 def apply_jit(policy, interp, graph, CPUClass):
     print 'warmspot.jittify_and_run() started...'
-    option.view = True
+    #XXX: why here?
+    py.test.config.option.view = True
     LIST = graph.getargs()[0].concretetype
     lst = LIST.TO.ll_newlist(len(ARGS))
     for i, arg in enumerate(ARGS):

@@ -1,10 +1,10 @@
+import py
 from rpython.rtyper.memory.gctransform.transform import BaseGCTransformer
 from rpython.flowspace.model import c_last_exception, Variable
 from rpython.translator.backendopt.support import var_needsgc
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.exceptiontransform import ExceptionTransformer
 from rpython.rtyper.lltypesystem import lltype
-from rpython.conftest import option
 
 
 class LLInterpedTranformerTests:
@@ -24,7 +24,7 @@ class LLInterpedTranformerTests:
             if isinstance(v.concretetype, lltype.Ptr):
                 assert v.concretetype.TO._gckind != 'gc', "fix the test!"
         llinterp = LLInterpreter(t.rtyper)
-        if option.view:
+        if py.test.config.option.view:
             t.view()
         return llinterp, graph
 
@@ -133,7 +133,7 @@ def rtype(func, inputtypes, specialize=True):
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize()
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     return t
 
@@ -145,7 +145,7 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=T
     graphs_borrowed = {}
     for graph in t.graphs[:]:
         graphs_borrowed[graph] = transformer.transform_graph(graph)
-    if option.view:
+    if py.test.config.option.view:
         t.view()
     t.checkgraphs()
     if check:

@@ -7,7 +7,6 @@ from rpython.flowspace.model import Constant, mkentrymap, c_last_exception
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import FlowObjSpace
 from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
-from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 import os
@@ -40,7 +39,7 @@ class Base:
         return graph
 
     def show(self, graph):
-        if option.view:
+        if py.test.config.option.view:
             graph.show()
 
     def setup_class(cls):
