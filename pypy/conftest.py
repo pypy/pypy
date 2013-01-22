@@ -141,7 +141,7 @@ def pytest_runtest_setup(__multicall__, item):
             if spaceconfig is not None:
                 from pypy.tool.pytest.objspace import gettestobjspace
                 appclass.obj.space = gettestobjspace(**spaceconfig)
-            appclass.obj.runappdirect = option.runappdirect
+            appclass.obj.runappdirect = item.config.option.runappdirect
 
     __multicall__.execute()
 

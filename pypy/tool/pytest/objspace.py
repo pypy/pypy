@@ -3,12 +3,14 @@ import sys
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_config, make_objspace
 from pypy.tool.pytest import appsupport
-from pypy.conftest import option
 
 _SPACECACHE={}
+
+
 def gettestobjspace(**kwds):
     """ helper for instantiating and caching space's for testing.
     """
+    option = py.test.config.option
     try:
         config = make_config(option,**kwds)
     except ConflictConfigError, e:
@@ -27,7 +29,7 @@ def gettestobjspace(**kwds):
 
 def maketestobjspace(config=None):
     if config is None:
-        config = make_config(option)
+        config = make_config(py.test.config.option)
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
     space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
