@@ -2,7 +2,6 @@ from __future__ import with_statement
 
 import sys
 
-from pypy.conftest import option
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
@@ -88,13 +87,14 @@ def parse_testfile(fname):
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
         import os
+        import py
         BaseNumpyAppTest.setup_class.im_func(cls)
         fname128 = os.path.join(os.path.dirname(__file__), 'complex_testcases.txt')
         fname64 = os.path.join(os.path.dirname(__file__), 'complex64_testcases.txt')
         cls.w_testcases128 = cls.space.wrap(list(parse_testfile(fname128)))
         cls.w_testcases64 = cls.space.wrap(list(parse_testfile(fname64)))
 
-        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
+        cls.w_runAppDirect = cls.space.wrap(py.test.config.option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
         if cls.runappdirect:

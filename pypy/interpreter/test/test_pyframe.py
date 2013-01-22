@@ -1,13 +1,13 @@
 from rpython.tool import udir
-from pypy.conftest import option
 
+import py
 
 class AppTestPyFrame:
 
     def setup_class(cls):
         cls.w_udir = cls.space.wrap(str(udir.udir))
         cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
-        if not option.runappdirect:
+        if not py.test.config.option.runappdirect:
             w_call_further = cls.space.appexec([], """():
                 def call_further(f):
                     return f()

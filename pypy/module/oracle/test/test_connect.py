@@ -1,4 +1,3 @@
-from pypy.conftest import option
 from rpython.rtyper.tool.rffi_platform import CompilationError
 import py
 
@@ -10,7 +9,7 @@ class OracleNotConnectedTestBase(object):
         space = cls.space
         space.setitem(space.builtin.w_dict, space.wrap('oracle'),
                       space.getbuiltinmodule('cx_Oracle'))
-        oracle_connect = option.oracle_connect
+        oracle_connect = py.test.config.option.oracle_connect
         if not oracle_connect:
             py.test.skip(
                 "Please set --oracle-connect to a valid connect string")

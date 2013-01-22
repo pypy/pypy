@@ -1,11 +1,10 @@
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.conftest import option
 import sys, os
 import py
 
-oracle_home = getattr(option, 'oracle_home',
+oracle_home = getattr(py.test.config.option, 'oracle_home',
                       os.environ.get("ORACLE_HOME"))
 if oracle_home:
     ORACLE_HOME = py.path.local(oracle_home)

@@ -1,5 +1,4 @@
-from pypy.conftest import option
-
+import py
 
 class AppTestReferents(object):
 
@@ -18,7 +17,7 @@ class AppTestReferents(object):
         cls.w_ALL_ROOTS = cls.space.newlist(cls.ALL_ROOTS)
         rgc.get_rpy_roots = lambda: (
             map(rgc._GcRef, cls.ALL_ROOTS) + [rgc.NULL_GCREF]*17)
-        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(py.test.config.option.runappdirect)
 
     def teardown_class(cls):
         from rpython.rlib import rgc

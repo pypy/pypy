@@ -1,4 +1,4 @@
-from pypy.conftest import option
+import py
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from rpython.rlib.rcomplex import c_pow
@@ -12,7 +12,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         def cls_c_pow(space, args_w):
             return space.wrap(c_pow(*map(space.unwrap, args_w)))
         cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
-        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
+        cls.w_runAppDirect = cls.space.wrap(py.test.config.option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
     def test_ufunc_instance(self):

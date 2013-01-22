@@ -3,15 +3,15 @@ from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
 from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix,\
      byteorder_prefix
-from pypy.conftest import option
 import sys
+import py
 
 class BaseNumpyAppTest(object):
     spaceconfig = dict(usemodules=['micronumpy'])
 
     @classmethod
     def setup_class(cls):
-        if option.runappdirect:
+        if py.test.config.option.runappdirect:
             if '__pypy__' not in sys.builtin_module_names:
                 import numpy
                 sys.modules['numpypy'] = numpy
