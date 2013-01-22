@@ -16,7 +16,7 @@ from io import StringIO
 from collections import namedtuple
 from test.script_helper import assert_python_ok
 from test.support import (
-    TESTFN, rmtree,
+    TESTFN, rmtree, check_impl_detail,
     reap_children, reap_threads, captured_output, captured_stdout, unlink
 )
 from test import pydoc_mod
@@ -95,7 +95,23 @@ FILE
     %s
 """.strip()
 
-expected_html_pattern = """
+if check_impl_detail(pypy=True):
+    # pydoc_mod.__builtins__ is always a module on PyPy (but a dict on
+    # CPython), hence an extra 'Modules' section
+    module_section = """
+<table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%%"><table width="100%%" summary="list"><tr><td width="25%%" valign=top><a href="builtins.html">builtins</a><br>
+</td><td width="25%%" valign=top></td><td width="25%%" valign=top></td><td width="25%%" valign=top></td></tr></table></td></tr></table><p>
+"""
+else:
+    module_section = ""
+
+expected_html_pattern = ("""
 <table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="heading">
 <tr bgcolor="#7799ee">
 <td valign=bottom>&nbsp;<br>
@@ -103,7 +119,7 @@ expected_html_pattern = """
 ><td align=right valign=bottom
 ><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:%s">%s</a>%s</font></td></tr></table>
     <p><tt>This&nbsp;is&nbsp;a&nbsp;test&nbsp;module&nbsp;for&nbsp;test_pydoc</tt></p>
-<p>
+<p>""" + module_section + """\
 <table width="100%%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#ee77aa">
 <td colspan=3 valign=bottom>&nbsp;<br>
@@ -191,8 +207,7 @@ war</tt></dd></dl>
 \x20\x20\x20\x20
 <tr><td bgcolor="#7799ee"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
 <td width="100%%">Nobody</td></tr></table>
-""".strip() # ' <- emacs turd
-
+""").strip() # ' <- emacs turd
 
 # output pattern for missing module
 missing_pattern = "no Python documentation found for '%s'"
