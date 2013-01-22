@@ -10,16 +10,16 @@ rsyncignore = ['_cache']
 #
 
 pytest_plugins = [
+    'rpython.tool.pytest.bugfixes',
     'rpython.tool.pytest.leakfinder',
-    'rpython.tool.pytest.viewerplugin',
     'rpython.tool.pytest.platform',
+    'rpython.tool.pytest.viewerplugin',
 ]
 
 pypydir = os.path.realpath(os.path.dirname(__file__))
 
 
 def pytest_addoption(parser):
-    
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
