@@ -15,14 +15,8 @@ pytest_plugins = [
     'rpython.tool.pytest.platform',
 ]
 
-option = None
-
 pypydir = os.path.realpath(os.path.dirname(__file__))
 
-
-def pytest_configure(config):
-    global option
-    option = config.option
 
 def pytest_addoption(parser):
     

@@ -10,12 +10,6 @@ pytest_plugins = [
 
 cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 cache_dir = realpath(join(dirname(__file__), '_cache'))
-option = None
-
-def pytest_configure(config):
-    global option
-    option = config.option
-
 
 def pytest_pycollect_makeitem(__multicall__,collector, name, obj):
     res = __multicall__.execute()
