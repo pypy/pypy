@@ -3,7 +3,7 @@ from rpython.jit.metainterp.executor import execute
 from rpython.jit.codewriter.heaptracker import vtable2descr
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
 from rpython.jit.metainterp.optimizeopt import optimizer
-from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
+from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     descrlist_dict, sort_descrs)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -387,6 +387,16 @@ class OptVirtualize(optimizer.Optimization):
         self.make_equal_to(box, vvalue)
         return vvalue
 
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            return
+        self.emit_operation(op)
+
+    def optimize_GUARD_NOT_FORCED(self, op):
+        if self.last_emitted_operation is REMOVED:
+            return
+        self.emit_operation(op)
+
     def optimize_CALL_MAY_FORCE(self, op):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
@@ -456,6 +466,7 @@ class OptVirtualize(optimizer.Optimization):
                 forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
                 if forcedvalue is not None:
                     self.make_equal_to(op.result, forcedvalue)
+                    self.last_emitted_operation = REMOVED
                     return True
         return False
 
