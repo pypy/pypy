@@ -248,14 +248,19 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-    else:
-        ll_arg = rffi.str2charp(arg)
-        rv = ioctl_str(fd, op, ll_arg)
-        arg = rffi.charpsize2str(ll_arg, len(arg))
-        lltype.free(ll_arg, flavor='raw')
-        if rv < 0:
-            raise _get_error(space, "ioctl")
-        return space.wrapbytes(arg)
+        try:
+            arg = space.str_w(w_arg)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise OperationError(
+                space.w_TypeError,
+                space.wrap("int or string or buffer required"))
 
-    raise OperationError(space.w_TypeError,
-                         space.wrap("int or string or buffer required"))
+    ll_arg = rffi.str2charp(arg)
+    rv = ioctl_str(fd, op, ll_arg)
+    arg = rffi.charpsize2str(ll_arg, len(arg))
+    lltype.free(ll_arg, flavor='raw')
+    if rv < 0:
+        raise _get_error(space, "ioctl")
+    return space.wrapbytes(arg)
