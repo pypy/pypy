@@ -1,24 +1,24 @@
 import sys
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper import rlist
-from rpython.rtyper.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
-from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.ootypesystem import rdict as oo_rdict
-from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.translator.simplify import get_funcobj
-from rpython.translator.unsimplify import split_block
-from rpython.flowspace.model import Variable, Constant
-from rpython.translator.translator import TranslationContext
-from rpython.annotator.policy import AnnotatorPolicy
+
 from rpython.annotator import model as annmodel
-from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+from rpython.annotator.policy import AnnotatorPolicy
+from rpython.flowspace.model import Variable, Constant
 from rpython.jit.metainterp.typesystem import deref
 from rpython.rlib import rgc
-from rpython.rlib.jit import elidable
+from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
+from rpython.rtyper import rlist
+from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.llinterp import LLInterpreter
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem.module import ll_math
+from rpython.rtyper.ootypesystem import ootype, rdict as oo_rdict
+from rpython.translator.simplify import get_funcobj
+from rpython.translator.translator import TranslationContext
+from rpython.translator.unsimplify import split_block
+
 
 def getargtypes(annotator, values):
     if values is None:    # for backend tests producing stand-alone exe's
@@ -213,9 +213,11 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+
 @elidable
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
+
 
 # the following function should not be "@elidable": I can think of
 # a corner case in which id(const) is constant-folded, and then 'const'
@@ -224,6 +226,8 @@ def _ll_1_gc_identityhash(x):
 def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
+
+@oopspec("jit.force_virtual(inst)")
 def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
