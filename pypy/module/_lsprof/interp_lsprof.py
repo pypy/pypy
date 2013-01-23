@@ -62,7 +62,7 @@ class W_StatsEntry(Wrappable):
         return self.frame
 
 W_StatsEntry.typedef = TypeDef(
-    'StatsEntry',
+    '_lsprof.StatsEntry',
     code = GetSetProperty(W_StatsEntry.get_code),
     callcount = interp_attrproperty('callcount', W_StatsEntry),
     reccallcount = interp_attrproperty('reccallcount', W_StatsEntry),
@@ -89,7 +89,7 @@ class W_StatsSubEntry(Wrappable):
         return self.frame
 
 W_StatsSubEntry.typedef = TypeDef(
-    'SubStatsEntry',
+    '_lsprof.SubStatsEntry',
     code = GetSetProperty(W_StatsSubEntry.get_code),
     callcount = interp_attrproperty('callcount', W_StatsSubEntry),
     reccallcount = interp_attrproperty('reccallcount', W_StatsSubEntry),
@@ -210,7 +210,7 @@ def create_spec_for_function(space, w_func):
         module = ''
     else:
         module = space.str_w(w_func.w_module)
-        if module == '__builtin__':
+        if module == 'builtins':
             module = ''
         else:
             module += '.'
@@ -401,8 +401,7 @@ def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
     return space.wrap(p)
 
 W_Profiler.typedef = TypeDef(
-    'Profiler',
-    __module__ = '_lsprof',
+    '_lsprof.Profiler',
     __new__ = interp2app(descr_new_profile),
     enable = interp2app(W_Profiler.enable),
     disable = interp2app(W_Profiler.disable),
