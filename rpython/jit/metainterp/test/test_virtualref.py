@@ -680,7 +680,7 @@ class VRefTests(object):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'int_sub': 1, 'int_gt': 1, 'jump': 1})
+        self.check_resops({'int_sub': 1, 'int_gt': 1, 'jump': 1, 'guard_true': 1})
 
 
 class TestLLtype(VRefTests, LLJitMixin):
