@@ -118,7 +118,7 @@ class OperationBuilder(object):
         print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
             opname[op.getopnum()], ', '.join(args), names[op.result], descrstr)
 
-    def print_loop(self, output, fail_descr=None):
+    def print_loop(self, output, fail_descr=None, fail_args=None):
         def update_names(ops):
             for op in ops:
                 v = op.result
@@ -143,11 +143,22 @@ class OperationBuilder(object):
                         if arg not in names:
                             writevar(arg, 'const_ptr')
 
-        def type_descr(TP, num):
+        def type_descr(TP):
             if TP in TYPE_NAMES:
                 return TYPE_NAMES[TP]
+            elif isinstance(TP, lltype.Primitive):
+                return _type_descr(TP) # don't cache
+            else:
+                descr = _type_descr(TP)
+                no = len(TYPE_NAMES)
+                tp_name = 'S' + str(no)
+                TYPE_NAMES[TP] = tp_name
+                print >>s, '    %s = %s' % (tp_name, descr)
+                return tp_name
+
+        def _type_descr(TP):
             if isinstance(TP, lltype.Ptr):
-                return "lltype.Ptr(%s)" % type_descr(TP.TO, num)
+                return "lltype.Ptr(%s)" % type_descr(TP.TO)
             if isinstance(TP, lltype.Struct):
                 if TP._gckind == 'gc':
                     pref = 'Gc'
@@ -156,11 +167,11 @@ class OperationBuilder(object):
                 fields = []
                 for k in TP._names:
                     v = getattr(TP, k)
-                    fields.append('("%s", %s)' % (k, type_descr(v, num)))
-                return "lltype.%sStruct('S%d', %s)" % (pref, num,
+                    fields.append('("%s", %s)' % (k, type_descr(v)))
+                return "lltype.%sStruct('Sx', %s)" % (pref,
                                                        ", ".join(fields))
             elif isinstance(TP, lltype.GcArray):
-                return "lltype.GcArray(%s)" % (type_descr(TP.OF, num),)
+                return "lltype.GcArray(%s)" % (type_descr(TP.OF),)
             if TP._name.upper() == TP._name:
                 return 'rffi.%s' % TP._name
             return 'lltype.%s' % TP._name
@@ -176,15 +187,9 @@ class OperationBuilder(object):
         for op in self.loop.operations:
             descr = op.getdescr()
             if hasattr(descr, '_random_info'):
-                if descr._random_type in TYPE_NAMES:
-                    tp_name = TYPE_NAMES[descr._random_type]
-                else:
-                    num = len(TYPE_NAMES)
-                    tp_name = 'S' + str(num)
-                    descr._random_info = descr._random_info.replace('...', tp_name)
-                    TYPE_NAMES[descr._random_type] = tp_name
-                print >>s, "    %s = %s" % (tp_name,
-                                            type_descr(descr._random_type, num))
+                tp_name = type_descr(descr._random_type)
+                descr._random_info = descr._random_info.replace('...', tp_name)
+
         #
         def writevar(v, nameprefix, init=''):
             if nameprefix == 'const_ptr':
@@ -217,17 +222,21 @@ class OperationBuilder(object):
         #
         if fail_descr is None:
             print >>s, '    cpu = CPU(None, None)'
+            print >>s, '    cpu.setup_once()'
         if hasattr(self.loop, 'inputargs'):
             print >>s, '    inputargs = [%s]' % (
                 ', '.join([names[v] for v in self.loop.inputargs]))
+        else:
+            print >>s, '    inputargs = [%s]' % (
+                ', '.join([names[v] for v in fail_args]))
         print >>s, '    operations = ['
         for op in self.loop.operations:
-            self.process_operation(s, op, names)
+            self.process_operation(s, op, names) 
+        print >>s, '        ]'
         for i, op in enumerate(self.loop.operations):
             if op.is_guard():
                 fa = ", ".join([names[v] for v in op.getfailargs()])
                 print >>s, '    operations[%d].setfailargs([%s])' % (i, fa)
-        print >>s, '        ]'
         if fail_descr is None:
             print >>s, '    looptoken = JitCellToken()'
             print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
@@ -847,7 +856,7 @@ class RandomLoop(object):
                                         self.loop._jitcelltoken)
 
         if self.output:
-            bridge_builder.print_loop(self.output, fail_descr)
+            bridge_builder.print_loop(self.output, fail_descr, fail_args)
         return True
 
 def dump(loop):

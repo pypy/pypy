@@ -316,4 +316,4 @@ def getexception():
     return xptr, xtp
 
 def test_bug2():
-    pass
+    xxx
