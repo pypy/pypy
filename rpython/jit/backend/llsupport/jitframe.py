@@ -47,7 +47,6 @@ JITFRAME = lltype.GcStruct(
     # guard_not_forced descr
     ('jf_force_descr', llmemory.GCREF),
     # a map of GC pointers
-    ('jf_comingfrom', llmemory.GCREF),
     ('jf_gcmap', lltype.Ptr(GCMAP)),
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),

@@ -119,15 +119,13 @@ class AbstractX86CPU(AbstractLLCPU):
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
             frame_info = clt.frame_info
             frame = jitframe.JITFRAME.allocate(frame_info)
-
-            from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-            
-            frame.jf_comingfrom = cast_instance_to_gcref(executable_token)
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
+                if hasattr(self, 'register_frame'):
+                    self.register_frame(frame)
             try:
                 num = JITFRAME_FIXED_SIZE * WORD
                 for i, kind in kinds:
@@ -155,12 +153,6 @@ class AbstractX86CPU(AbstractLLCPU):
         return CPU386.cast_adr_to_int(adr)
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
-
-    all_null_registers = lltype.malloc(rffi.LONGP.TO,
-                                       IS_X86_32 and (16+8)  # 16 + 8 regs
-                                                 or (16+16), # 16 + 16 regs
-                                       flavor='raw', zero=True,
-                                       immortal=True)
 
     def force(self, addr_of_force_token):
         descr = self.signedarraydescr

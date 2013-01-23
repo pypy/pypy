@@ -862,8 +862,6 @@ class Assembler386(object):
         self.mc.RET()
 
     def _call_header_shadowstack(self, gcrootmap):
-        # we need to put two words into the shadowstack: the MARKER_FRAME
-        # and the address of the frame (ebp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]
@@ -1252,7 +1250,6 @@ class Assembler386(object):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             rst = gcrootmap.get_root_stack_top_addr()
-            mc.MOV(ecx, ebp) # debugging
             mc.MOV(edx, heap(rst))
             mc.MOV(ebp, mem(edx, -WORD))
             base_ofs = self.cpu.get_baseofs_of_frame_field()
@@ -2009,6 +2006,8 @@ class Assembler386(object):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         self.mov(fail_descr_loc, RawStackLoc(ofs))
+        gcmap = self._regalloc.get_gcmap()
+        self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.LEA_rb(eax.value, -base_ofs)
         # exit function
         self._call_footer()

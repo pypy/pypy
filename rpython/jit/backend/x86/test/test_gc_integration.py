@@ -3,7 +3,7 @@
 """
 
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
-     JitCellToken
+     JitCellToken, BasicFailDescr
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
      GcLLDescr_framework, GcCache
 from rpython.jit.backend.detect_cpu import getcpuclass
@@ -15,6 +15,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.rtyper.memory.gcheader import GCHeaderBuilder
 
 CPU = getcpuclass()
 
@@ -324,6 +325,9 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
     layoutbuilder = None
     write_barrier_descr = None
 
+    class GCClass:
+        JIT_WB_IF_FLAG = 0
+
     def get_malloc_slowpath_addr(self):
         return 0
 
@@ -335,9 +339,16 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         self.gcrootmap = MockShadowStackRootMap()
 
 def unpack_gcmap(frame):
-    pass
-    #for i in range(len(frame.jf_gcmap)):
-    #    item = frame.jf_gcmap[item]
+    res = []
+    val = 0
+    for i in range(len(frame.jf_gcmap)):
+        item = frame.jf_gcmap[i]
+        while item != 0:
+            if item & 1:
+                res.append(val)
+            val += 1
+            item >>= 1
+    return res
 
 class TestGcShadowstackDirect(BaseTestRegalloc):
     
@@ -352,20 +363,21 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         def check(i):
             assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
             frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
-            assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE
+            assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE + 4
             # we "collect"
             frames.append(frame)
             new_frame = frame.copy()
-            self.cpu.gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
+            assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
+            hdrbuilder.new_header(new_frame)
+            #gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
             frames.append(new_frame)
-            import pdb
-            pdb.set_trace()
+            assert unpack_gcmap(frame) == [28, 29, 30]
 
         def check2(i):
             assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
             frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
-            assert frame == frames[1]
-            assert frame != frames[0]
+            #assert frame == frames[1]
+            #assert frame != frames[0]
 
         CHECK = lltype.FuncType([lltype.Signed], lltype.Void)
         checkptr = llhelper(lltype.Ptr(CHECK), check)
@@ -373,15 +385,36 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         checkdescr = self.cpu.calldescrof(CHECK, CHECK.ARGS, CHECK.RESULT,
                                           EffectInfo.MOST_GENERAL)
         
+        S = lltype.GcStruct('S',
+                            ('x', lltype.Ptr(lltype.GcArray(lltype.Signed))))
         loop = self.parse("""
-        []
+        [p0, p1, p2]
         i0 = force_token() # this is a bit below the frame
         call(ConstClass(check_adr), i0, descr=checkdescr) # this can collect
+        p3 = getfield_gc(p0, descr=fielddescr)
         call(ConstClass(check2_adr), i0, descr=checkdescr)
-        finish(i0, descr=finaldescr)
+        guard_true(i0, descr=faildescr) [p0, p1, p2, p3]
+        p4 = getfield_gc(p0, descr=fielddescr)
+        finish(p4, descr=finaldescr)
         """, namespace={'finaldescr': BasicFinalDescr(),
+                        'faildescr': BasicFailDescr(),
                         'check_adr': checkptr, 'check2_adr': check2ptr,
-                        'checkdescr': checkdescr})
+                        'checkdescr': checkdescr,
+                        'fielddescr': self.cpu.fielddescrof(S, 'x')})
         token = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, token)
-        frame = self.cpu.execute_token(token)
+        self.cpu.register_frame = lambda frame : hdrbuilder.new_header(frame)
+        HDR = lltype.Struct('HDR', ('tid', lltype.Signed))
+        hdrbuilder = GCHeaderBuilder(HDR)
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gc_ll_descr.gcheaderbuilder = hdrbuilder
+        gc_ll_descr.HDRPTR = lltype.Ptr(HDR)
+        p0 = lltype.malloc(S, zero=True)
+        p1 = lltype.malloc(S)
+        p2 = lltype.malloc(S)
+        hdrbuilder.new_header(p0)
+        hdrbuilder.new_header(p1)
+        hdrbuilder.new_header(p2)
+        frame = self.cpu.execute_token(token, p0, p1, p2)
+        gcmap = unpack_gcmap(lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame))
+        assert gcmap == [11]
