@@ -5,6 +5,9 @@ What's new in PyPy 2.0
 .. this is a revision shortly after release-2.0-beta1
 .. startrev: 0e6161a009c6
 
+.. branch: split-rpython
+Split rpython and pypy into seperate directories
+
 .. branch: callback-jit
 Callbacks from C are now better JITted
 
