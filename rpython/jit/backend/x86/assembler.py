@@ -202,7 +202,6 @@ class Assembler386(object):
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_br(gcmap_ofs, ecx.value)
         mc.MOV_rs(esi.value, WORD*2)
-        mc.MOV_rs(edx.value, WORD*3)
         # push first arg
         mc.LEA_rb(edi.value, -base_ofs)
         # align
@@ -589,8 +588,8 @@ class Assembler386(object):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        stack_check_patch_ofs = self._check_frame_depth(self.mc,
-                                                         regalloc.get_gcmap())
+        stack_check_patch_ofs, ofs2 = self._check_frame_depth(self.mc,
+                                                       regalloc.get_gcmap())
         frame_depth = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -611,6 +610,7 @@ class Assembler386(object):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth + JITFRAME_FIXED_SIZE)
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
+        self._patch_stackadjust(ofs2 + rawstart, frame_depth)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
@@ -696,13 +696,15 @@ class Assembler386(object):
         assert not IS_X86_32
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
+        mc.MOV_si(0, 0xffffff)
+        ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
         mc.overwrite(jg_location-1, chr(offset))
-        return stack_check_cmp_ofs
+        return stack_check_cmp_ofs, ofs2
 
     def _patch_stackadjust(self, adr, allocated_depth):
         mc = codebuf.MachineCodeBlockWrapper()
