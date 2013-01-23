@@ -419,15 +419,18 @@ class VRefTests(object):
         self.check_aborted_count(0)
 
     def test_jit_force_virtual_seen(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
-        #
+        myjitdriver = JitDriver(greens=[], reds=['n'])
+
         A = lltype.GcArray(lltype.Signed)
-        class XY:
+
+        class XY(object):
             pass
-        class ExCtx:
+
+        class ExCtx(object):
             pass
         exctx = ExCtx()
-        #
+        escapes = []
+
         def f(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
@@ -435,16 +438,16 @@ class VRefTests(object):
                 xy = XY()
                 xy.n = n
                 exctx.topframeref = vref = virtual_ref(xy)
+                escapes.append(xy)
                 xy.next1 = lltype.malloc(A, 0)
                 n = exctx.topframeref().n - 1
-                xy.next1 = lltype.nullptr(A)
                 exctx.topframeref = vref_None
                 virtual_ref_finish(vref, xy)
             return 1
         #
         res = self.meta_interp(f, [15])
         assert res == 1
-        self.check_resops(new_with_vtable=4,     # vref, xy
+        self.check_resops(new_with_vtable=2,     # xy
                           new_array=2)           # next1
         self.check_aborted_count(0)
 
