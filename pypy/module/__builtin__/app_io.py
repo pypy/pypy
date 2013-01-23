@@ -14,6 +14,13 @@ def _write_prompt(stdout, prompt):
     else:
         flush()
 
+def _is_std_tty(stdin, stdout):
+    try:
+        infileno, outfileno = stdin.fileno(), stdout.fileno()
+    except:
+        return False
+    return infileno == 0 and stdin.isatty() and outfileno == 1
+
 def input(prompt=''):
     """input([prompt]) -> string
 
@@ -37,9 +44,7 @@ is printed without a trailing newline before reading."""
     stderr.flush()
 
     # hook for the readline module
-    if (hasattr(sys, '__raw_input__') and
-        stdin.fileno() == 0 and stdin.isatty() and
-        stdout.fileno() == 1):
+    if hasattr(sys, '__raw_input__') and _is_std_tty(stdin, stdout):
         _write_prompt(stdout, '')
         return sys.__raw_input__(str(prompt))
 

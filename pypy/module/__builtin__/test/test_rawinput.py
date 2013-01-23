@@ -39,6 +39,19 @@ class AppTestRawInput():
                 assert flushed[0]
                 assert got == gottext
 
+    def test_bad_fileno(self):
+        import io
+        import sys
+        class BadFileno(io.StringIO):
+            def fileno(self):
+                1 / 0
+        stdin, sys.stdin = sys.stdin, BadFileno('foo')
+        try:
+            result = input()
+        finally:
+            sys.stdin = stdin
+        assert result == 'foo'
+
     def test_softspace(self):
         import sys
         import io
