@@ -26,5 +26,5 @@ else:
 # ____________________________________________________________
 
 def discard_translations(data, size):
-    #if we_are_translated() and VALGRIND_DISCARD_TRANSLATIONS is not None:
-    VALGRIND_DISCARD_TRANSLATIONS(llmemory.cast_int_to_adr(data), size)
+    if we_are_translated() and VALGRIND_DISCARD_TRANSLATIONS is not None:
+        VALGRIND_DISCARD_TRANSLATIONS(llmemory.cast_int_to_adr(data), size)
