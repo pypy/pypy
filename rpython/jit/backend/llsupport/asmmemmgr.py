@@ -42,7 +42,8 @@ class AsmMemoryManager(object):
 
     def free(self, start, stop):
         """Free a block (start, stop) returned by a previous malloc()."""
-        self.total_mallocs -= r_uint(stop - start)
+        if r_uint is not None:
+            self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
 
     def open_malloc(self, minsize):
