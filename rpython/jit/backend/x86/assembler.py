@@ -35,8 +35,6 @@ from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 
-all_clts = []
-
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
 CALL_ALIGN = 16 // WORD
@@ -591,7 +589,7 @@ class Assembler386(object):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        stack_check_patch_ofs, ofs2 = self._check_frame_depth(self.mc,
+        stack_check_patch_ofs = self._check_frame_depth(self.mc,
                                                          regalloc.get_gcmap())
         frame_depth = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
@@ -613,7 +611,6 @@ class Assembler386(object):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth + JITFRAME_FIXED_SIZE)
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
-        self._patch_stackadjust(ofs2 + rawstart, frame_depth)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
@@ -700,16 +697,12 @@ class Assembler386(object):
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
         self.push_gcmap(mc, gcmap, mov=True)
-        mc.MOV_si(WORD, 0xffffff)
-        ofs2 = mc.get_relative_pos() - 4
-        all_clts.append(self.current_clt)
-        mc.MOV_si(2*WORD, len(all_clts) - 1)
         mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
         mc.overwrite(jg_location-1, chr(offset))
-        return stack_check_cmp_ofs, ofs2
+        return stack_check_cmp_ofs
 
     def _patch_stackadjust(self, adr, allocated_depth):
         mc = codebuf.MachineCodeBlockWrapper()
