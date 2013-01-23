@@ -1,8 +1,13 @@
 from rpython.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
-     BasicFailDescr, JitCellToken, BasicFinalDescr
+     BasicFailDescr, JitCellToken, BasicFinalDescr, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
+from rpython.jit.tool.oparser import parse
+from rpython.rtyper.lltypesystem import lltype, rffi, rclass, llmemory
+from rpython.rtyper.llinterp import LLException
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 CPU = getcpuclass()
 
@@ -291,3 +296,19 @@ def test_bug_1():
     elif WORD == 8:
         assert cpu.get_int_value(deadframe, 19) == 19327352832
     assert cpu.get_int_value(deadframe, 20) == -49
+
+def getllhelper(cpu, f, ARGS, RES):
+    FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+    fptr = llhelper(FPTR, f)
+    calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
+                                EffectInfo.MOST_GENERAL)
+    return fptr, calldescr
+
+def getexception():
+    xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    xtp.subclassrange_min = 1
+    xtp.subclassrange_max = 3
+    X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
+                        hints={'vtable':  xtp._obj})
+    xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
+    return xptr, xtp

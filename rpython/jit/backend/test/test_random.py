@@ -2,7 +2,7 @@ import sys
 import pytest
 from rpython.rlib.rarithmetic import intmask, LONG_BIT
 from rpython.jit.metainterp.history import BasicFailDescr, TreeLoop, BasicFinalDescr
-from rpython.jit.metainterp.history import BoxInt, ConstInt, JitCellToken
+from rpython.jit.metainterp.history import BoxInt, ConstInt, JitCellToken, Box
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, TargetToken
 from rpython.jit.metainterp.history import BoxFloat, ConstFloat, Const
 from rpython.jit.metainterp.history import INT, FLOAT
@@ -41,10 +41,12 @@ class OperationBuilder(object):
         self.should_fail_by = None
         self.counter = 0
         assert len(self.intvars) == len(dict.fromkeys(self.intvars))
+        self.descr_counters = {}
 
     def fork(self, cpu, loop, vars):
         fork = self.__class__(cpu, loop, vars)
         fork.prebuilt_ptr_consts = self.prebuilt_ptr_consts
+        fork.descr_counters = self.descr_counters
         return fork
 
     def do(self, opnum, argboxes, descr=None):
@@ -87,21 +89,13 @@ class OperationBuilder(object):
                 seen[v] = True
         return subset
 
-    def process_operation(self, s, op, names, subops):
+    def process_operation(self, s, op, names, namespace):
         args = []
         for v in op.getarglist():
             if v in names:
                 args.append(names[v])
-##            elif isinstance(v, ConstAddr):
-##                try:
-##                    name = ''.join([v.value.ptr.name[i]
-##                                    for i in range(len(v.value.ptr.name)-1)])
-##                except AttributeError:
-##                    args.append('ConstAddr(...)')
-##                else:
-##                    args.append(
-##                        'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
-##                        % name)
+            elif isinstance(v, ConstPtr):
+                args.append('ConstPtr(...')
             elif isinstance(v, ConstFloat):
                 args.append('ConstFloat(longlong.getfloatstorage(%r))'
                             % v.getfloat())
@@ -115,21 +109,27 @@ class OperationBuilder(object):
             try:
                 descrstr = ', ' + op.getdescr()._random_info
             except AttributeError:
-                descrstr = ', descr=...'
+                descrstr = ', descr=' + self.descr_counters.get(op.getdescr(), '...')
         print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
             opname[op.getopnum()], ', '.join(args), names[op.result], descrstr)
-        #if getattr(op, 'suboperations', None) is not None:
-        #    subops.append(op)
 
-    def print_loop(self):
-        #raise PleaseRewriteMe()
+    def print_loop(self, output, fail_descr=None):
         def update_names(ops):
             for op in ops:
                 v = op.result
                 if v not in names:
                     writevar(v, 'tmp')
-                #if getattr(op, 'suboperations', None) is not None:
-                #    update_names(op.suboperations)
+                if op.is_guard() or op.opnum == rop.FINISH:
+                    descr = op.getdescr()
+                    no = len(self.descr_counters)
+                    if op.is_guard():
+                        name = 'faildescr%d' % no
+                        clsname = 'BasicFailDescr'
+                    else:
+                        name = 'finishdescr%d' % no
+                        clsname = 'BasicFinalDescr'
+                    self.descr_counters[descr] = name
+                    print >>s, "    %s = %s()" % (name, clsname)
 
         def print_loop_prebuilt(ops):
             for op in ops:
@@ -137,13 +137,8 @@ class OperationBuilder(object):
                     if isinstance(arg, ConstPtr):
                         if arg not in names:
                             writevar(arg, 'const_ptr')
-                #if getattr(op, 'suboperations', None) is not None:
-                #    print_loop_prebuilt(op.suboperations)
 
-        if pytest.config.option.output:
-            s = open(pytest.config.option.output, "w")
-        else:
-            s = sys.stdout
+        s = output
         names = {None: 'None'}
         subops = []
         #
@@ -161,7 +156,8 @@ class OperationBuilder(object):
         update_names(self.loop.operations)
         print_loop_prebuilt(self.loop.operations)
         #
-        print >>s, '    cpu = CPU(None, None)'
+        if fail_descr is None:
+            print >>s, '    cpu = CPU(None, None)'
         if hasattr(self.loop, 'inputargs'):
             print >>s, '    inputargs = [%s]' % (
                 ', '.join([names[v] for v in self.loop.inputargs]))
@@ -169,29 +165,21 @@ class OperationBuilder(object):
         for op in self.loop.operations:
             self.process_operation(s, op, names, subops)
         print >>s, '        ]'
-        while subops:
-            next = subops.pop(0)
-            #for op in next.suboperations:
-            #    self.process_operation(s, op, names, subops)
-        # XXX think what to do about the one below
-                #if len(op.suboperations) > 1:
-                #    continue # XXX
-                #[op] = op.suboperations
-                #assert op.opnum == rop.FAIL
-                #print >>s, '    operations[%d].suboperations = [' % i
-                #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
-                #    ', '.join([names[v] for v in op.args]))
-        print >>s, '    looptoken = JitCellToken()'
-        print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
+        if fail_descr is None:
+            print >>s, '    looptoken = JitCellToken()'
+            print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
+        else:
+            print >>s, '    cpu.compile_bridge(%s, inputargs, operations, looptoken)' % self.descr_counters[fail_descr]
         if hasattr(self.loop, 'inputargs'):
+            vals = []
             for i, v in enumerate(self.loop.inputargs):
-                if isinstance(v, (BoxFloat, ConstFloat)):
-                    print >>s, ('    cpu.set_future_value_float(%d,'
-                        'longlong.getfloatstorage(%r))' % (i, v.getfloat()))
+                assert isinstance(v, Box)
+                if isinstance(v, BoxFloat):
+                    vals.append("longlong.getfloatstorage(%r)" % v.getfloat())
                 else:
-                    print >>s, '    cpu.set_future_value_int(%d, %d)' % (i,
-                                                                       v.value)
-        print >>s, '    op = cpu.execute_token(looptoken)'
+                    vals.append("%r" % v.getint())
+            print >>s, '    loop_args = [%s]' % ", ".join(vals)
+        print >>s, '    op = cpu.execute_token(looptoken, *loop_args)'
         if self.should_fail_by is None:
             fail_args = self.loop.operations[-1].getarglist()
         else:
@@ -204,8 +192,7 @@ class OperationBuilder(object):
                 print >>s, ('    assert cpu.get_int_value(%d) == %d'
                             % (i, v.value))
         self.names = names
-        if pytest.config.option.output:
-            s.close()
+        s.flush()
 
     def getfaildescr(self, is_finish=False):
         if is_finish:
@@ -537,8 +524,9 @@ def get_cpu():
 class RandomLoop(object):
     dont_generate_more = False
 
-    def __init__(self, cpu, builder_factory, r, startvars=None):
+    def __init__(self, cpu, builder_factory, r, startvars=None, output=None):
         self.cpu = cpu
+        self.output = output
         if startvars is None:
             startvars = []
             if cpu.supports_floats:
@@ -566,7 +554,8 @@ class RandomLoop(object):
         self.subloops = []
         self.build_random_loop(cpu, builder_factory, r, startvars, allow_delay)
 
-    def build_random_loop(self, cpu, builder_factory, r, startvars, allow_delay):
+    def build_random_loop(self, cpu, builder_factory, r, startvars,
+                          allow_delay):
 
         loop = TreeLoop('test_random_function')
         loop.inputargs = startvars[:]
@@ -583,6 +572,8 @@ class RandomLoop(object):
         self.loop = loop
         dump(loop)
         cpu.compile_loop(loop.inputargs, loop.operations, loop._jitcelltoken)
+        if self.output:
+            builder.print_loop(self.output)
 
     def insert_label(self, loop, position, r):
         assert not hasattr(loop, '_targettoken')
@@ -641,8 +632,6 @@ class RandomLoop(object):
         self.expected = {}
         for v in endvars:
             self.expected[v] = v.value
-        if pytest.config.option.output:
-            builder.print_loop()
 
     def runjitcelltoken(self):
         if self.startvars == self.loop.inputargs:
@@ -793,6 +782,9 @@ class RandomLoop(object):
         self.builder.cpu.compile_bridge(fail_descr, fail_args,
                                         subloop.operations,
                                         self.loop._jitcelltoken)
+
+        if self.output:
+            bridge_builder.print_loop(self.output, fail_descr)
         return True
 
 def dump(loop):
@@ -800,21 +792,31 @@ def dump(loop):
     if hasattr(loop, 'inputargs'):
         print >> sys.stderr, '\t', loop.inputargs
     for op in loop.operations:
-        print >> sys.stderr, '\t', op
+        if op.is_guard():
+            print >> sys.stderr, '\t', op, op.getfailargs()
+        else:
+            print >> sys.stderr, '\t', op
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):
-    loop = RandomLoop(cpu, BuilderClass, r)
+    if pytest.config.option.output:
+        output = open(pytest.config.option.output, "w")
+    else:
+        output = None
+    loop = RandomLoop(cpu, BuilderClass, r, output=output)
     while True:
         loop.run_loop()
         if loop.guard_op is not None:
             if not loop.build_bridge():
                 break
+            import pdb
+            pdb.set_trace()
         else:
             break
     if num is not None:
         print '    # passed (%d/%d).' % (num + 1, max)
     else:
         print '    # passed.'
+    output.close()
     print
 
 def test_random_function(BuilderClass=OperationBuilder):
