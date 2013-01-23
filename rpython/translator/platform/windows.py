@@ -7,7 +7,7 @@ from rpython.translator.platform import log, _run_subprocess
 from rpython.translator.platform import Platform, posix
 
 import rpython
-rpydir = os.path.dirname(rpython.__file__)
+rpydir = str(py.path.local(rpython.__file__).join('..'))
 
 def _get_compiler_type(cc, x64_flag):
     import subprocess
