@@ -10,6 +10,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.codewriter import longlong
+from rpython.rtyper.lltypesystem import lltype, rstr, rclass
 
 class PleaseRewriteMe(Exception):
     pass
@@ -89,13 +90,14 @@ class OperationBuilder(object):
                 seen[v] = True
         return subset
 
-    def process_operation(self, s, op, names, namespace):
+    def process_operation(self, s, op, names):
         args = []
         for v in op.getarglist():
             if v in names:
                 args.append(names[v])
             elif isinstance(v, ConstPtr):
-                args.append('ConstPtr(...')
+                assert not v.value # otherwise should be in the names
+                args.append('ConstPtr(lltype.nullptr(llmemory.GCREF.TO))')
             elif isinstance(v, ConstFloat):
                 args.append('ConstFloat(longlong.getfloatstorage(%r))'
                             % v.getfloat())
@@ -107,9 +109,12 @@ class OperationBuilder(object):
             descrstr = ''
         else:
             try:
-                descrstr = ', ' + op.getdescr()._random_info
+                descrstr = getattr(op.getdescr(), '_random_info')
             except AttributeError:
-                descrstr = ', descr=' + self.descr_counters.get(op.getdescr(), '...')
+                if op.opnum == rop.LABEL:
+                    descrstr = 'TargetToken()'
+                else:
+                    descrstr = ', descr=' + self.descr_counters.get(op.getdescr(), '...')
         print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
             opname[op.getopnum()], ', '.join(args), names[op.result], descrstr)
 
@@ -138,11 +143,61 @@ class OperationBuilder(object):
                         if arg not in names:
                             writevar(arg, 'const_ptr')
 
+        def type_descr(TP, num):
+            if TP in TYPE_NAMES:
+                return TYPE_NAMES[TP]
+            if isinstance(TP, lltype.Ptr):
+                return "lltype.Ptr(%s)" % type_descr(TP.TO, num)
+            if isinstance(TP, lltype.Struct):
+                if TP._gckind == 'gc':
+                    pref = 'Gc'
+                else:
+                    pref = ''
+                fields = []
+                for k in TP._names:
+                    v = getattr(TP, k)
+                    fields.append('("%s", %s)' % (k, type_descr(v, num)))
+                return "lltype.%sStruct('S%d', %s)" % (pref, num,
+                                                       ", ".join(fields))
+            elif isinstance(TP, lltype.GcArray):
+                return "lltype.GcArray(%s)" % (type_descr(TP.OF, num),)
+            if TP._name.upper() == TP._name:
+                return 'rffi.%s' % TP._name
+            return 'lltype.%s' % TP._name
+
         s = output
         names = {None: 'None'}
-        subops = []
+        TYPE_NAMES = {
+            rstr.STR: 'rstr.STR',
+            rstr.UNICODE: 'rstr.UNICODE',
+            rclass.OBJECT: 'rclass.OBJECT',
+            rclass.OBJECT_VTABLE: 'rclass.OBJECT_VTABLE',
+        }
+        for op in self.loop.operations:
+            descr = op.getdescr()
+            if hasattr(descr, '_random_info'):
+                num = len(TYPE_NAMES)
+                tp_name = 'S' + str(num)
+                descr._random_info = descr._random_info.replace('...', tp_name)
+                print >>s, "    %s = %s" % (tp_name,
+                                            type_descr(descr._random_type, num))
+                TYPE_NAMES[descr._random_type] = tp_name
         #
         def writevar(v, nameprefix, init=''):
+            if nameprefix == 'const_ptr':
+                if not v.value:
+                    return 'lltype.nullptr(llmemory.GCREF.TO)'
+                TYPE = v.value._obj.ORIGTYPE
+                cont = lltype.cast_opaque_ptr(TYPE, v.value)
+                if TYPE.TO._is_varsize():
+                    if isinstance(TYPE.TO, lltype.GcStruct):
+                        lgt = len(cont.chars)
+                    else:
+                        lgt = len(cont)
+                    init = 'lltype.malloc(%s, %d)' % (TYPE_NAMES[TYPE.TO],
+                                                      lgt)
+                else:
+                    init = 'lltype.malloc(%s)' % TYPE_NAMES[TYPE.TO]
             names[v] = '%s%d' % (nameprefix, len(names))
             print >>s, '    %s = %s(%s)' % (names[v], v.__class__.__name__,
                                             init)
@@ -163,7 +218,11 @@ class OperationBuilder(object):
                 ', '.join([names[v] for v in self.loop.inputargs]))
         print >>s, '    operations = ['
         for op in self.loop.operations:
-            self.process_operation(s, op, names, subops)
+            self.process_operation(s, op, names)
+        for i, op in enumerate(self.loop.operations):
+            if op.is_guard():
+                fa = ", ".join([names[v] for v in op.getfailargs()])
+                print >>s, '    operations[%d].setfailargs([%s])' % (i, fa)
         print >>s, '        ]'
         if fail_descr is None:
             print >>s, '    looptoken = JitCellToken()'
@@ -179,7 +238,7 @@ class OperationBuilder(object):
                 else:
                     vals.append("%r" % v.getint())
             print >>s, '    loop_args = [%s]' % ", ".join(vals)
-        print >>s, '    op = cpu.execute_token(looptoken, *loop_args)'
+        print >>s, '    frame = cpu.execute_token(looptoken, *loop_args)'
         if self.should_fail_by is None:
             fail_args = self.loop.operations[-1].getarglist()
         else:
@@ -187,9 +246,9 @@ class OperationBuilder(object):
         for i, v in enumerate(fail_args):
             if isinstance(v, (BoxFloat, ConstFloat)):
                 print >>s, ('    assert longlong.getrealfloat('
-                    'cpu.get_float_value(%d)) == %r' % (i, v.value))
+                    'cpu.get_float_value(frame, %d)) == %r' % (i, v.value))
             else:
-                print >>s, ('    assert cpu.get_int_value(%d) == %d'
+                print >>s, ('    assert cpu.get_int_value(frame, %d) == %d'
                             % (i, v.value))
         self.names = names
         s.flush()

@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
-     BasicFailDescr, JitCellToken, BasicFinalDescr, TargetToken
+     BasicFailDescr, JitCellToken, BasicFinalDescr, TargetToken, ConstPtr,\
+     BoxPtr
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
@@ -302,7 +303,7 @@ def getllhelper(cpu, f, ARGS, RES):
     fptr = llhelper(FPTR, f)
     calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
                                 EffectInfo.MOST_GENERAL)
-    return fptr, calldescr
+    return rffi.cast(lltype.Signed, fptr), calldescr
 
 def getexception():
     xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -312,3 +313,4 @@ def getexception():
                         hints={'vtable':  xtp._obj})
     xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
     return xptr, xtp
+
