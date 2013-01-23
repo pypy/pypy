@@ -200,7 +200,8 @@ class Assembler386(object):
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_br(gcmap_ofs, ecx.value)
         mc.MOV_rs(esi.value, WORD*2)
-        mc.MOV_rs(edx.value, WORD*3)
+        gcref = cast_instance_to_gcref(self.current_clt)
+        mc.MOV_rs(edx.value, rffi.cast(lltype.Signed, gcref))
         # push first arg
         mc.LEA_rb(edi.value, -base_ofs)
         # align
@@ -687,7 +688,6 @@ class Assembler386(object):
         self.push_gcmap(mc, gcmap, mov=True)
         mc.MOV_si(WORD, 0xffffff)
         ofs2 = mc.get_relative_pos() - 4
-        mc.MOV_si(WORD*2, mc.get_relative_pos())
         mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
