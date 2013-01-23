@@ -45,7 +45,7 @@ def fix_permissions(basedir):
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir = None, override_pypy_c = None):
-    basedir = py.path.local(basedir)
+    basedir = py.path.local('goal', basenamebasedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
         if sys.platform == 'win32':
