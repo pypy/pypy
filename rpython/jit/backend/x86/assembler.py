@@ -900,8 +900,9 @@ class Assembler386(object):
         oldadr = oldlooptoken._x86_function_addr
         target = newlooptoken._x86_function_addr
         # copy frame-info data
+        old_fi = oldlooptoken.compiled_loop_token.frame_info
         new_fi = newlooptoken.compiled_loop_token.frame_info
-        oldlooptoken.compiled_loop_token.frame_info = new_fi
+        old_fi.jfi_frame_depth = new_fi.jfi_frame_depth
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()
