@@ -676,7 +676,7 @@ class Assembler386(object):
         new_jumping_to = []
         for wref in self.current_clt.jumping_to:
             clt = wref()
-            if clt:
+            if clt is not None:
                 clt.frame_info.jfi_frame_depth = max(frame_depth,
                     clt.frame_info.jfi_frame_depth)
                 new_jumping_to.append(weakref.ref(clt))
@@ -2435,8 +2435,10 @@ class Assembler386(object):
             curpos = self.mc.get_relative_pos() + 5
             self.mc.JMP_l(target - curpos)
         else:
+            clt = self.current_clt
+            assert clt is not None
             target_token._x86_clt.jumping_to.append(
-                weakref.ref(self.current_clt))
+                weakref.ref(clt))
             self.mc.JMP(imm(target))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
