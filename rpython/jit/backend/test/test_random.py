@@ -808,8 +808,6 @@ def check_random_function(cpu, BuilderClass, r, num=None, max=None):
         if loop.guard_op is not None:
             if not loop.build_bridge():
                 break
-            import pdb
-            pdb.set_trace()
         else:
             break
     if num is not None:
