@@ -109,10 +109,10 @@ class OperationBuilder(object):
             descrstr = ''
         else:
             try:
-                descrstr = getattr(op.getdescr(), '_random_info')
+                descrstr = ', ' + getattr(op.getdescr(), '_random_info')
             except AttributeError:
                 if op.opnum == rop.LABEL:
-                    descrstr = 'TargetToken()'
+                    descrstr = ', TargetToken()'
                 else:
                     descrstr = ', descr=' + self.descr_counters.get(op.getdescr(), '...')
         print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
@@ -176,12 +176,15 @@ class OperationBuilder(object):
         for op in self.loop.operations:
             descr = op.getdescr()
             if hasattr(descr, '_random_info'):
-                num = len(TYPE_NAMES)
-                tp_name = 'S' + str(num)
-                descr._random_info = descr._random_info.replace('...', tp_name)
+                if descr._random_type in TYPE_NAMES:
+                    tp_name = TYPE_NAMES[descr._random_type]
+                else:
+                    num = len(TYPE_NAMES)
+                    tp_name = 'S' + str(num)
+                    descr._random_info = descr._random_info.replace('...', tp_name)
+                    TYPE_NAMES[descr._random_type] = tp_name
                 print >>s, "    %s = %s" % (tp_name,
                                             type_descr(descr._random_type, num))
-                TYPE_NAMES[descr._random_type] = tp_name
         #
         def writevar(v, nameprefix, init=''):
             if nameprefix == 'const_ptr':
@@ -198,6 +201,7 @@ class OperationBuilder(object):
                                                       lgt)
                 else:
                     init = 'lltype.malloc(%s)' % TYPE_NAMES[TYPE.TO]
+                init = 'lltype.cast_opaque_ptr(llmemory.GCREF, %s)' % init
             names[v] = '%s%d' % (nameprefix, len(names))
             print >>s, '    %s = %s(%s)' % (names[v], v.__class__.__name__,
                                             init)

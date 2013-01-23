@@ -1,14 +1,15 @@
 from rpython.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BasicFailDescr, JitCellToken, BasicFinalDescr, TargetToken, ConstPtr,\
-     BoxPtr
+     BoxPtr, BoxFloat
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, rffi, rclass, llmemory
+from rpython.rtyper.lltypesystem import lltype, rffi, rclass, llmemory, rstr
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter import longlong
 
 CPU = getcpuclass()
 
@@ -299,7 +300,7 @@ def test_bug_1():
     assert cpu.get_int_value(deadframe, 20) == -49
 
 def getllhelper(cpu, f, ARGS, RES):
-    FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+    FPTR = lltype.Ptr(lltype.FuncType(ARGS, RES))
     fptr = llhelper(FPTR, f)
     calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
                                 EffectInfo.MOST_GENERAL)
@@ -314,3 +315,5 @@ def getexception():
     xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
     return xptr, xtp
 
+def test_bug2():
+    pass
