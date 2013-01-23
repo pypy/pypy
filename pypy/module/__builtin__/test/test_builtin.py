@@ -623,6 +623,12 @@ def fn(): pass
         out = io.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"
+        out = sys.stdout = io.StringIO()
+        try:
+            pr("amaury", file=None)
+        finally:
+            sys.stdout = save
+        assert out.getvalue() == "amaury\n"
 
     def test_print_function2(self):
         import builtins

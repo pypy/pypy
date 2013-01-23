@@ -53,9 +53,11 @@ is printed without a trailing newline before reading."""
 
 def print_(*args, **kwargs):
     """The new-style print function from py3k."""
-    fp = kwargs.pop("file", sys.stdout)
+    fp = kwargs.pop("file", None)
     if fp is None:
-        return
+        fp = sys.stdout
+        if fp is None:
+            return
     def write(data):
         fp.write(str(data))
     sep = kwargs.pop("sep", None)
