@@ -325,10 +325,10 @@ class CompiledLoopToken(object):
         debug_stop("jit-mem-looptoken-alloc")
 
     def __del__(self):
-        debug_start("jit-mem-looptoken-free")
-        debug_print("freeing Loop #", self.number, 'with',
-                    self.bridges_count, 'attached bridges')
+        #debug_start("jit-mem-looptoken-free")
+        #debug_print("freeing Loop #", self.number, 'with',
+        #            self.bridges_count, 'attached bridges')
         self.cpu.free_loop_and_bridges(self)
         self.cpu.tracker.total_freed_loops += 1
         self.cpu.tracker.total_freed_bridges += self.bridges_count
-        debug_stop("jit-mem-looptoken-free")
+        #debug_stop("jit-mem-looptoken-free")
