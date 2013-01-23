@@ -379,6 +379,8 @@ class TestOptionParser(BaseTest):
         self.assertRaises(self.parser.remove_option, ('foo',), None,
                           ValueError, "no such option 'foo'")
 
+    @unittest.skipUnless(hasattr(sys, 'getrefcount'),
+                         "requires sys.getrefcount")
     def test_refleak(self):
         # If an OptionParser is carrying around a reference to a large
         # object, various cycles can prevent it from being GC'd in
