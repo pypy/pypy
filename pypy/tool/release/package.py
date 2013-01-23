@@ -50,7 +50,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         basename = 'pypy-c'
         if sys.platform == 'win32':
             basename += '.exe'
-        pypy_c = basedir.join(basename)
+        pypy_c = basedir.join('pypy', 'goal', basename)
     else:
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
