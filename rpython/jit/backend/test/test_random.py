@@ -886,7 +886,12 @@ def check_random_function(cpu, BuilderClass, r, num=None, max=None):
         print '    # passed (%d/%d).' % (num + 1, max)
     else:
         print '    # passed.'
-    output.close()
+    if pytest.config.option.output:
+        output.close()
+    if hasattr(cpu, 'gc_ll_descr'):
+        func = getattr(cpu.gc_ll_descr, 'reset_mem', None)
+        if func:
+            func()
     print
 
 def test_random_function(BuilderClass=OperationBuilder):

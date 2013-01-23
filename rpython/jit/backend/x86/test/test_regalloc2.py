@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
      BasicFailDescr, JitCellToken, BasicFinalDescr, TargetToken, ConstPtr,\
-     BoxPtr, BoxFloat
+     BoxPtr, BoxFloat, ConstFloat
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, rclass, llmemory, rstr
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter import longlong, heaptracker
 
 CPU = getcpuclass()
 
@@ -306,14 +306,30 @@ def getllhelper(cpu, f, ARGS, RES):
                                 EffectInfo.MOST_GENERAL)
     return rffi.cast(lltype.Signed, fptr), calldescr
 
-def getexception():
+def getexception(cpu, ARGS):
     xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     xtp.subclassrange_min = 1
     xtp.subclassrange_max = 3
     X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
                         hints={'vtable':  xtp._obj})
-    xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
-    return xptr, xtp
+    xptr = lltype.malloc(X)
+    vtableptr = X._hints['vtable']._as_ptr()
 
-def test_bug2():
-    xxx
+    def f(*args):
+        raise LLException(vtableptr, xptr)
+
+    fptr, funcdescr = getllhelper(cpu, f, ARGS, lltype.Void)
+    
+    return heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtableptr)), fptr, funcdescr
+
+def getvtable(cpu, S=None):
+    cls1 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    cls1.subclassrange_min = 1
+    cls1.subclassrange_max = 3
+    if S is not None:
+        descr = cpu.sizeof(S)
+        if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
+            cpu.tracker._all_size_descrs_with_vtable = []
+        cpu.tracker._all_size_descrs_with_vtable.append(descr)
+        descr._corresponding_vtable = cls1
+    return llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(cls1), "symbolic")

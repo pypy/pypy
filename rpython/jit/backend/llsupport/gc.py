@@ -154,6 +154,7 @@ class GcLLDescr_boehm(GcLLDescription):
     def configure_boehm_once(cls):
         """ Configure boehm only once, since we don't cache failures
         """
+        return
         if hasattr(cls, 'malloc_fn_ptr'):
             return cls.malloc_fn_ptr
         from rpython.rtyper.tool import rffi_platform
@@ -193,9 +194,33 @@ class GcLLDescr_boehm(GcLLDescription):
     def __init__(self, gcdescr, translator, rtyper):
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         # grab a pointer to the Boehm 'malloc' function
-        self.malloc_fn_ptr = self.configure_boehm_once()
+        #self.malloc_fn_ptr = self.configure_boehm_once()
         self._setup_str()
         self._make_functions()
+        self.memory = 0
+        self.reset_mem()
+
+    def reset_mem(self):
+        malloc = rffi.llexternal('malloc', [lltype.Signed], lltype.Signed)
+        free = rffi.llexternal('free', [lltype.Signed], lltype.Void)
+        if self.memory != 0:
+            free(self.memory)
+            self.memory = 0
+        A_LOT = 100*1024*1024
+        self.memory = malloc(A_LOT)
+        self.mem_top = self.memory + A_LOT
+        self.mem_ptr = self.memory
+
+    def malloc_fn_ptr(self, size):
+        # aligned
+        if size & 7:
+            size += 8
+            size &= ~7
+        from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
+        assert self.mem_ptr + size < self.mem_top
+        r = self.mem_ptr
+        self.mem_ptr += size
+        return lltype._ptr(llmemory.GCREF, _llgcopaque(r))
 
     def _make_functions(self):
 
