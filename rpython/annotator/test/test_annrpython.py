@@ -3271,6 +3271,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
         def f(x):
             return u'a'.replace(x, u'b')
