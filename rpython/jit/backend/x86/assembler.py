@@ -696,7 +696,7 @@ class Assembler386(object):
         assert not IS_X86_32
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
-        mc.MOV_si(0, 0xffffff)
+        mc.MOV_si(WORD, 0xffffff)
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._stack_check_failure))

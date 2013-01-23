@@ -2,6 +2,7 @@ import os
 from rpython.jit.metainterp.history import Const, Box, REF, INT
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
+from collections import OrderedDict
 
 class TempBox(Box):
     def __init__(self):
@@ -268,7 +269,10 @@ class RegisterManager(object):
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.longevity = longevity
-        self.reg_bindings = {}
+        if not we_are_translated():
+            self.reg_bindings = OrderedDict()
+        else:
+            self.reg_bindings = {}
         self.bindings_to_frame_reg = {}
         self.position = -1
         self.frame_manager = frame_manager

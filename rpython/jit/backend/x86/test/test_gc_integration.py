@@ -334,6 +334,11 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         GcCache.__init__(self, False, None)
         self.gcrootmap = MockShadowStackRootMap()
 
+def unpack_gcmap(frame):
+    pass
+    #for i in range(len(frame.jf_gcmap)):
+    #    item = frame.jf_gcmap[item]
+
 class TestGcShadowstackDirect(BaseTestRegalloc):
     
     cpu = CPU(None, None)
@@ -353,6 +358,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             new_frame = frame.copy()
             self.cpu.gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
             frames.append(new_frame)
+            import pdb
+            pdb.set_trace()
 
         def check2(i):
             assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
