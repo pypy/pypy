@@ -18,7 +18,7 @@ from pypy.conftest import option as pypy_option
 
 from pypy.tool.pytest import appsupport 
 from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
-from pypy.config.parse import parse_info
+from rpython.config.parse import parse_info
 
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../pypy/']
