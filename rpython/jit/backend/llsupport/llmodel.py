@@ -58,7 +58,9 @@ class AbstractLLCPU(AbstractCPU):
 
         def realloc_frame(frame, size, asm):
             frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-            assert frame.jf_frame_info.jfi_frame_depth >= size
+            if not frame.jf_frame_info.jfi_frame_depth >= size:
+                import pdb
+                pdb.set_trace()
             print "realloc frame (%d) %d->%d" % (size, len(frame.jf_frame), frame.jf_frame_info.jfi_frame_depth)
             print "from %x" % asm
             new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)

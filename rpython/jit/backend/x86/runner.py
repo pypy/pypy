@@ -119,6 +119,10 @@ class AbstractX86CPU(AbstractLLCPU):
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
             frame_info = clt.frame_info
             frame = jitframe.JITFRAME.allocate(frame_info)
+
+            from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+            
+            frame.jf_comingfrom = cast_instance_to_gcref(executable_token)
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
