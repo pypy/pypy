@@ -464,7 +464,7 @@ class OptVirtualize(optimizer.Optimization):
             if (tokenvalue is not None and tokenvalue.is_constant() and
                 tokenvalue.box.getint() == vrefinfo.TOKEN_NONE):
                 forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
-                if forcedvalue is not None:
+                if forcedvalue is not None and not forcedvalue.is_null():
                     self.make_equal_to(op.result, forcedvalue)
                     self.last_emitted_operation = REMOVED
                     return True
