@@ -33,6 +33,8 @@ from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 
+all_clts = []
+
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
 CALL_ALIGN = 16 // WORD
@@ -686,9 +688,9 @@ class Assembler386(object):
         jg_location = mc.get_relative_pos()
         self.push_gcmap(mc, gcmap, mov=True)
         mc.MOV_si(WORD, 0xffffff)
-        gcref = cast_instance_to_gcref(self.current_clt)
-        mc.MOV_si(2*WORD, rffi.cast(lltype.Signed, gcref))
         ofs2 = mc.get_relative_pos() - 4
+        all_clts.append(self.current_clt)
+        mc.MOV_si(2*WORD, len(all_clts) - 1)
         mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
