@@ -891,7 +891,6 @@ class RegAlloc(object):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
-        gcmap = self.get_gcmap() # allocate the gcmap *before*
         # looking at the result
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         #
@@ -899,6 +898,7 @@ class RegAlloc(object):
         # register.  See comments in _build_malloc_slowpath().
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
+        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -907,12 +907,14 @@ class RegAlloc(object):
             gc_ll_descr.get_nursery_top_addr(),
             size, gcmap)
 
-    def get_gcmap(self):
+    def get_gcmap(self, forbidden_regs):
         frame_depth = self.fm.get_frame_depth()
         size = frame_depth + JITFRAME_FIXED_SIZE
         gcmap = lltype.malloc(GCMAP, size // WORD // 8 + 1,
                               zero=True)
         for box, loc in self.rm.reg_bindings.iteritems():
+            if loc in forbidden_regs:
+                continue
             if box.type == REF:
                 assert isinstance(loc, RegLoc)
                 val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]

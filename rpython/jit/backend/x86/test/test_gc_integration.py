@@ -347,22 +347,30 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         self._generated_functions = []
         self.gcrootmap = MockShadowStackRootMap()
         self.write_barrier_descr = WriteBarrierDescr(self)
+        self.nursery_ptrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
+                                          flavor='raw')
         self._initialize_for_tests()
         self.frames = []
 
         def malloc_slowpath(size):
             self._collect()
+            res = self.nursery_ptrs[0]
+            self.nursery_ptrs[0] += size
+            return res
 
         self.malloc_slowpath_fnptr = llhelper_args(malloc_slowpath,
                                                    [lltype.Signed],
-                                                   llmemory.GCREF)
+                                                   lltype.Signed)
         self.all_nurseries = []
 
-    def init_nursery(self, nursery_size):
+    def init_nursery(self, nursery_size=None):
+        if nursery_size is None:
+            nursery_size = self.nursery_size
+        else:
+            self.nursery_size = nursery_size
         self.nursery = lltype.malloc(rffi.CArray(lltype.Char), nursery_size,
-                                     flavor='raw', zero=True)
-        self.nursery_ptrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
-                                          flavor='raw')
+                                     flavor='raw', zero=True,
+                                     track_allocation=False)
         self.nursery_ptrs[0] = rffi.cast(lltype.Signed, self.nursery)
         self.nursery_ptrs[1] = self.nursery_ptrs[0] + nursery_size
         self.nursery_addr = rffi.cast(lltype.Signed, self.nursery_ptrs)
@@ -373,10 +381,13 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         gcmap = unpack_gcmap(self.frames[-1])
         col = self.collections.pop()
         frame = self.frames[-1].jf_frame
-        start = self.nursery_ptrs[0]
+        start = rffi.cast(lltype.Signed, self.nursery)
         assert len(gcmap) == len(col)
+        pos = [frame[item] for item in gcmap]
+        pos.sort()
         for i in range(len(gcmap)):
-            assert col[i] + start == frame[gcmap[i]]
+            assert col[i] + start == pos[i]
+        self.init_nursery()
 
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
@@ -399,7 +410,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
 
     def __del__(self):
         for nursery in self.all_nurseries:
-            lltype.free(nursery, flavor='raw')
+            lltype.free(nursery, flavor='raw', track_allocation=False)
         lltype.free(self.nursery_ptrs, flavor='raw')
     
 def unpack_gcmap(frame):
@@ -516,6 +527,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frame = cpu.execute_token(token)
         # now we should be able to track everything from the frame
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-        thing = frame.jf_frame[unpack_gcmap(frame)[0]]
-        assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
-        assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
+        #thing = frame.jf_frame[unpack_gcmap(frame)[0]]
+        #assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
+        #assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
