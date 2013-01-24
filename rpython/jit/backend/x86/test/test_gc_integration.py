@@ -342,25 +342,54 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
     class GCClass:
         JIT_WB_IF_FLAG = 0
 
-    def __init__(self, nursery_size=100):
+    def __init__(self):
         GcCache.__init__(self, False, None)
         self._generated_functions = []
         self.gcrootmap = MockShadowStackRootMap()
+        self.write_barrier_descr = WriteBarrierDescr(self)
+        self._initialize_for_tests()
+        self.frames = []
+
+        def malloc_slowpath(size):
+            self._collect()
+
+        self.malloc_slowpath_fnptr = llhelper_args(malloc_slowpath,
+                                                   [lltype.Signed],
+                                                   llmemory.GCREF)
+        self.all_nurseries = []
+
+    def init_nursery(self, nursery_size):
         self.nursery = lltype.malloc(rffi.CArray(lltype.Char), nursery_size,
-                                     flavor='raw')
+                                     flavor='raw', zero=True)
         self.nursery_ptrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
                                           flavor='raw')
         self.nursery_ptrs[0] = rffi.cast(lltype.Signed, self.nursery)
         self.nursery_ptrs[1] = self.nursery_ptrs[0] + nursery_size
         self.nursery_addr = rffi.cast(lltype.Signed, self.nursery_ptrs)
-        self.write_barrier_descr = WriteBarrierDescr(self)
-        self._initialize_for_tests()
+        self.all_nurseries.append(self.nursery)
+        self.collections.reverse()
+
+    def _collect(self):
+        gcmap = unpack_gcmap(self.frames[-1])
+        col = self.collections.pop()
+        frame = self.frames[-1].jf_frame
+        start = self.nursery_ptrs[0]
+        assert len(gcmap) == len(col)
+        for i in range(len(gcmap)):
+            assert col[i] + start == frame[gcmap[i]]
+
+    def malloc_jitframe(self, frame_info):
+        """ Allocate a new frame, overwritten by tests
+        """
+        frame = jitframe.JITFRAME.allocate(frame_info)
+        self.frames.append(frame)
+        return frame
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
 
     def get_malloc_slowpath_addr(self):
-        return 0
+        return self.malloc_slowpath_fnptr
 
     def get_nursery_free_addr(self):
         return self.nursery_addr
@@ -369,7 +398,8 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         return self.nursery_addr + rffi.sizeof(lltype.Signed)
 
     def __del__(self):
-        lltype.free(self.nursery, flavor='raw')
+        for nursery in self.all_nurseries:
+            lltype.free(nursery, flavor='raw')
         lltype.free(self.nursery_ptrs, flavor='raw')
     
 def unpack_gcmap(frame):
@@ -391,7 +421,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr = GCDescrShadowstackDirect()
         wbd = cpu.gc_ll_descr.write_barrier_descr
         wbd.jit_wb_if_flag_byteofs = 0 # directly into 'hdr' field
-        cpu.setup_once() 
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S',
                                  ('hdr', lltype.Signed),
@@ -402,6 +431,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_shadowstack_call(self):
         cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once() 
         S = self.S
         ofs = cpu.get_baseofs_of_frame_field()
         frames = []
@@ -466,13 +497,21 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu = self.cpu
         sizeof = cpu.sizeof(self.S)
         sizeof.tid = 0
+        size = sizeof.size
         loop = self.parse("""
         []
-        p0 = new(descr=sizedescr)
+        p0 = call_malloc_nursery(%d)
+        p1 = call_malloc_nursery(%d)
+        p2 = call_malloc_nursery(%d) # this overflows
+        guard_nonnull(p2, descr=faildescr) [p0, p1, p2]
         finish(p0, descr=finaldescr)
-        """, namespace={'sizedescr': sizeof,
-                        'finaldescr': BasicFinalDescr()})
+        """ % (size, size, size), namespace={'sizedescr': sizeof,
+                        'finaldescr': BasicFinalDescr(),
+                        'faildescr': BasicFailDescr()})
         token = JitCellToken()
+        cpu.gc_ll_descr.collections = [[0, sizeof.size]]
+        cpu.gc_ll_descr.init_nursery(2 * sizeof.size)
+        cpu.setup_once()
         cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = cpu.execute_token(token)
         # now we should be able to track everything from the frame

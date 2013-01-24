@@ -151,6 +151,7 @@ class GcRewriterAssembler(object):
         self.newops.append(op0)
         # XXX for now it generates call_malloc_gc, instead of
         # call_malloc_nursery, because the array is strange
+
         op1 = ResOperation(rop.NEW_ARRAY, [lgt_box], frame,
                            descr=descrs.arraydescr)
         self.handle_new_array(descrs.arraydescr, op1)

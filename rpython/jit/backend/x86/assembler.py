@@ -866,6 +866,10 @@ class Assembler386(object):
         self.mc.RET()
 
     def _call_header_shadowstack(self, gcrootmap):
+        # we don't *really* have to do it, since we have the frame
+        # being referenced by the caller. However, we still do it
+        # to provide a place where we can read the frame from, in case
+        # we need to reload it after a collection
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]

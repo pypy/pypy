@@ -891,6 +891,8 @@ class RegAlloc(object):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
+        gcmap = self.get_gcmap() # allocate the gcmap *before*
+        # looking at the result
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         #
         # We need edx as a temporary, but otherwise don't save any more
@@ -899,7 +901,6 @@ class RegAlloc(object):
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
         self.rm.possibly_free_var(tmp_box)
         #
-        gcmap = self.get_gcmap()
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
