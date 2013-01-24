@@ -82,8 +82,7 @@ class AppTestUnicodeData:
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
 
-    @py.test.mark.skipif("sys.maxunicode < 0x10ffff",
-                         reason="requires a 'wide' python build.")
+    @py.test.mark.skipif("sys.maxunicode < 0x10ffff")
     def test_normalize_wide(self):
         import unicodedata
         assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
