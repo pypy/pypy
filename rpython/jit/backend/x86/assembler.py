@@ -1263,7 +1263,7 @@ class Assembler386(object):
             ofs = self.cpu.get_baseofs_of_frame_field()
             # frame never uses card marking, so we enforce this is not
             # an array
-            self._write_barrier_fastpah(wbdescr, [ebp], array=False,
+            self._write_barrier_fastpah(mc, wbdescr, [ebp], array=False,
                                         extra_ofs=-ofs)
 
     def call(self, addr, args, res):
@@ -2318,7 +2318,8 @@ class Assembler386(object):
         self.mc.overwrite(jmp_location - 1, chr(offset))
         self._emit_guard_not_forced(guard_token)
 
-    def _write_barrier_fastpah(self, descr, arglocs, array=False, extra_ofs=0):
+    def _write_barrier_fastpah(self, mc, descr, arglocs, array=False,
+                               extra_ofs=0):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
@@ -2338,19 +2339,19 @@ class Assembler386(object):
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
         loc_base = arglocs[0]
-        self.mc.TEST8(addr_add_const(loc_base,
+        mc.TEST8(addr_add_const(loc_base,
                                      descr.jit_wb_if_flag_byteofs + extra_ofs),
                       imm(mask))
-        self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
-        jz_location = self.mc.get_relative_pos()
+        mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        jz_location = mc.get_relative_pos()
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
             # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
             # been checked by the status flags of the previous TEST8
-            self.mc.J_il8(rx86.Conditions['S'], 0) # patched later
-            js_location = self.mc.get_relative_pos()
+            mc.J_il8(rx86.Conditions['S'], 0) # patched later
+            js_location = mc.get_relative_pos()
         else:
             js_location = 0
 
@@ -2358,7 +2359,7 @@ class Assembler386(object):
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
         helper_num = card_marking
-        if self._regalloc.xrm.reg_bindings:
+        if self._regalloc is not None and self._regalloc.xrm.reg_bindings:
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
@@ -2367,20 +2368,20 @@ class Assembler386(object):
                                     bool(self._regalloc.xrm.reg_bindings))
             assert self.wb_slowpath[helper_num] != 0
         #
-        self.mc.PUSH(loc_base)
-        self.mc.CALL(imm(self.wb_slowpath[helper_num]))
+        mc.PUSH(loc_base)
+        mc.CALL(imm(self.wb_slowpath[helper_num]))
 
         if card_marking:
             # The helper ends again with a check of the flag in the object.
             # So here, we can simply write again a 'JNS', which will be
             # taken if GCFLAG_CARDS_SET is still not set.
-            self.mc.J_il8(rx86.Conditions['NS'], 0) # patched later
-            jns_location = self.mc.get_relative_pos()
+            mc.J_il8(rx86.Conditions['NS'], 0) # patched later
+            jns_location = mc.get_relative_pos()
             #
             # patch the JS above
-            offset = self.mc.get_relative_pos() - js_location
+            offset = mc.get_relative_pos() - js_location
             assert 0 < offset <= 127
-            self.mc.overwrite(js_location-1, chr(offset))
+            mc.overwrite(js_location-1, chr(offset))
             #
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
@@ -2389,46 +2390,46 @@ class Assembler386(object):
                 if IS_X86_64 and isinstance(loc_base, RegLoc):
                     # copy loc_index into r11
                     tmp1 = X86_64_SCRATCH_REG
-                    self.mc.MOV_rr(tmp1.value, loc_index.value)
+                    mc.MOV_rr(tmp1.value, loc_index.value)
                     final_pop = False
                 else:
                     # must save the register loc_index before it is mutated
-                    self.mc.PUSH_r(loc_index.value)
+                    mc.PUSH_r(loc_index.value)
                     tmp1 = loc_index
                     final_pop = True
                 # SHR tmp, card_page_shift
-                self.mc.SHR_ri(tmp1.value, descr.jit_wb_card_page_shift)
+                mc.SHR_ri(tmp1.value, descr.jit_wb_card_page_shift)
                 # XOR tmp, -8
-                self.mc.XOR_ri(tmp1.value, -8)
+                mc.XOR_ri(tmp1.value, -8)
                 # BTS [loc_base], tmp
-                self.mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                mc.BTS(addr_add_const(loc_base, 0), tmp1)
                 # done
                 if final_pop:
-                    self.mc.POP_r(loc_index.value)
+                    mc.POP_r(loc_index.value)
                 #
             elif isinstance(loc_index, ImmedLoc):
                 byte_index = loc_index.value >> descr.jit_wb_card_page_shift
                 byte_ofs = ~(byte_index >> 3)
                 byte_val = 1 << (byte_index & 7)
-                self.mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
+                mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
             else:
                 raise AssertionError("index is neither RegLoc nor ImmedLoc")
             #
             # patch the JNS above
-            offset = self.mc.get_relative_pos() - jns_location
+            offset = mc.get_relative_pos() - jns_location
             assert 0 < offset <= 127
-            self.mc.overwrite(jns_location-1, chr(offset))
+            mc.overwrite(jns_location-1, chr(offset))
 
         # patch the JZ above
-        offset = self.mc.get_relative_pos() - jz_location
+        offset = mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
-        self.mc.overwrite(jz_location-1, chr(offset))
+        mc.overwrite(jz_location-1, chr(offset))
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
-        self._write_barrier_fastpah(op.getdescr(), arglocs)
+        self._write_barrier_fastpah(self.mc, op.getdescr(), arglocs)
 
     def genop_discard_cond_call_gc_wb_array(self, op, arglocs):
-        self._write_barrier_fastpah(op.getdescr(), arglocs, array=True)
+        self._write_barrier_fastpah(self.mc, op.getdescr(), arglocs, array=True)
 
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())
