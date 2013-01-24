@@ -365,6 +365,8 @@ def llhelper(F, f):
     else:
         return lltype.functionptr(F.TO, f.func_name, _callable=f)
 
+def llhelper_args(f, ARGS, RESULT):
+    return llhelper(lltype.Ptr(lltype.FuncType(ARGS, RESULT)), f)
 
 class LLHelperEntry(extregistry.ExtRegistryEntry):
     _about_ = llhelper

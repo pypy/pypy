@@ -2339,9 +2339,12 @@ class Assembler386(object):
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
         loc_base = arglocs[0]
-        mc.TEST8(addr_add_const(loc_base,
-                                     descr.jit_wb_if_flag_byteofs + extra_ofs),
-                      imm(mask))
+        if loc_base is ebp:
+            loc = raw_stack(descr.jit_wb_if_flag_byteofs + extra_ofs)
+        else:
+            loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs +
+                                 extra_ofs)
+        mc.TEST8(loc, imm(mask))
         mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = mc.get_relative_pos()
 

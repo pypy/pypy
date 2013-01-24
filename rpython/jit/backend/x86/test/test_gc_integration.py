@@ -3,14 +3,14 @@
 """
 
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
-     JitCellToken, BasicFailDescr
+     JitCellToken, BasicFailDescr, AbstractDescr
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
      GcLLDescr_framework, GcCache
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 
 from rpython.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
@@ -125,8 +125,8 @@ NOT_INITIALIZED = chr(0xdd)
 
 class GCDescrFastpathMalloc(GcLLDescription):
     gcrootmap = None
-    write_barrier_descr = None
     passes_frame = True
+    write_barrier_descr = None
 
     def __init__(self, callback):
         GcLLDescription.__init__(self, None)
@@ -321,19 +321,35 @@ class MockShadowStackRootMap(object):
     def get_root_stack_top_addr(self):
         return rffi.cast(lltype.Signed, self.stack_addr)
 
+class WriteBarrierDescr(AbstractDescr):
+    jit_wb_cards_set = 0
+    jit_wb_if_flag_singlebyte = 1
+    
+    def __init__(self, gc_ll_descr):
+        def write_barrier(x):
+            import pdb
+            pdb.set_trace()
+
+        self.write_barrier_fn = llhelper_args(write_barrier,
+                                              [lltype.Signed], lltype.Void)
+
+    def get_write_barrier_fn(self, cpu):
+        return self.write_barrier_fn
+
 class GCDescrShadowstackDirect(GcLLDescr_framework):
     layoutbuilder = None
-    write_barrier_descr = None
 
     class GCClass:
         JIT_WB_IF_FLAG = 0
 
     def __init__(self, nursery_size=100):
         GcCache.__init__(self, False, None)
+        self._generated_functions = []
         self.gcrootmap = MockShadowStackRootMap()
         self.nursery = lltype.malloc(rffi.CArray(lltype.Char), nursery_size,
                                      flavor='raw')
         self.nursery_addr = rffi.cast(lltype.Signed, self.nursery)
+        self.write_barrier_descr = WriteBarrierDescr(self)
 
     def get_malloc_slowpath_addr(self):
         return 0
@@ -361,11 +377,19 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
     def setup_method(self, meth):
         cpu = CPU(None, None)
         cpu.gc_ll_descr = GCDescrShadowstackDirect()
-        cpu.setup_once()
+        wbd = cpu.gc_ll_descr.write_barrier_descr
+        wbd.jit_wb_if_flag_byteofs = 0 # directly into 'hdr' field
+        cpu.setup_once() 
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('S',
+                                 ('hdr', lltype.Signed),
+                                 ('x', lltype.Ptr(S))))
+        self.S = S
         self.cpu = cpu
 
     def test_shadowstack_call(self):
         cpu = self.cpu
+        S = self.S
         ofs = cpu.get_baseofs_of_frame_field()
         frames = []
         
@@ -397,9 +421,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         checkdescr = cpu.calldescrof(CHECK, CHECK.ARGS, CHECK.RESULT,
                                           EffectInfo.MOST_GENERAL)
 
-        S = lltype.GcForwardReference()
-        S.become(lltype.GcStruct('S',
-                                 ('x', lltype.Ptr(S))))
         loop = self.parse("""
         [p0, p1, p2]
         i0 = force_token() # this is a bit below the frame
@@ -437,6 +458,3 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert gcmap[0] < 29
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
-
-    def test_malloc_slowpath(self):
-        cpu = self.cpu
