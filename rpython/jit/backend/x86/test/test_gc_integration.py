@@ -351,6 +351,9 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         self.nursery_addr = rffi.cast(lltype.Signed, self.nursery)
         self.write_barrier_descr = WriteBarrierDescr(self)
 
+    def do_write_barrier(self, gcref_struct, gcref_newptr):
+        pass
+
     def get_malloc_slowpath_addr(self):
         return 0
 
@@ -405,8 +408,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             for item, s in zip(gcmap, new_items):
                 new_frame.jf_frame[item] = rffi.cast(lltype.Signed, s)
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
-            hdrbuilder.new_header(new_frame)
-            gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
+            cpu.gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
             frames.append(new_frame)
 
         def check2(i):
@@ -437,20 +439,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
                         'fielddescr': cpu.fielddescrof(S, 'x')})
         token = JitCellToken()
         cpu.compile_loop(loop.inputargs, loop.operations, token)
-        cpu.register_frame = lambda frame : hdrbuilder.new_header(frame)
-        HDR = lltype.Struct('HDR', ('tid', lltype.Signed))
-        hdrbuilder = GCHeaderBuilder(HDR)
-        gc_ll_descr = cpu.gc_ll_descr
-        gc_ll_descr.gcheaderbuilder = hdrbuilder
-        gc_ll_descr.HDRPTR = lltype.Ptr(HDR)
         p0 = lltype.malloc(S, zero=True)
         p1 = lltype.malloc(S)
         p2 = lltype.malloc(S)
         new_items = [lltype.malloc(S), lltype.malloc(S), lltype.malloc(S)]
         new_items[0].x = new_items[2]
-        hdrbuilder.new_header(p0)
-        hdrbuilder.new_header(p1)
-        hdrbuilder.new_header(p2)
         frame = cpu.execute_token(token, p0, p1, p2)
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
         gcmap = unpack_gcmap(lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame))
@@ -458,3 +451,9 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert gcmap[0] < 29
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
+
+    def test_malloc_frame_writebarrier(self):
+        loop = self.parse("""
+        []
+        """, namespace={})
+        loop

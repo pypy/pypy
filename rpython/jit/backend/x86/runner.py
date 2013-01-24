@@ -124,8 +124,6 @@ class AbstractX86CPU(AbstractLLCPU):
             if not self.translate_support_code:
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
-                if hasattr(self, 'register_frame'):
-                    self.register_frame(frame)
             try:
                 num = JITFRAME_FIXED_SIZE * WORD
                 for i, kind in kinds:
