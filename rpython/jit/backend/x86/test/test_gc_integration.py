@@ -366,27 +366,31 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE + 4
             # we "collect"
             frames.append(frame)
-            new_frame = frame.copy()
+            new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
+            gcmap = unpack_gcmap(frame)
+            assert gcmap == [28, 29, 30]
+            for item, s in zip(gcmap, new_items):
+                new_frame.jf_frame[item] = rffi.cast(lltype.Signed, s)
             assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
             hdrbuilder.new_header(new_frame)
-            #gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
+            gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
             frames.append(new_frame)
-            assert unpack_gcmap(frame) == [28, 29, 30]
 
         def check2(i):
             assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
             frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
-            #assert frame == frames[1]
-            #assert frame != frames[0]
+            assert frame == frames[1]
+            assert frame != frames[0]
 
         CHECK = lltype.FuncType([lltype.Signed], lltype.Void)
         checkptr = llhelper(lltype.Ptr(CHECK), check)
         check2ptr = llhelper(lltype.Ptr(CHECK), check2)
         checkdescr = self.cpu.calldescrof(CHECK, CHECK.ARGS, CHECK.RESULT,
                                           EffectInfo.MOST_GENERAL)
-        
-        S = lltype.GcStruct('S',
-                            ('x', lltype.Ptr(lltype.GcArray(lltype.Signed))))
+
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('S',
+                                 ('x', lltype.Ptr(S))))
         loop = self.parse("""
         [p0, p1, p2]
         i0 = force_token() # this is a bit below the frame
@@ -412,9 +416,15 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         p0 = lltype.malloc(S, zero=True)
         p1 = lltype.malloc(S)
         p2 = lltype.malloc(S)
+        new_items = [lltype.malloc(S), lltype.malloc(S), lltype.malloc(S)]
+        new_items[0].x = new_items[2]
         hdrbuilder.new_header(p0)
         hdrbuilder.new_header(p1)
         hdrbuilder.new_header(p2)
         frame = self.cpu.execute_token(token, p0, p1, p2)
+        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
         gcmap = unpack_gcmap(lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame))
-        assert gcmap == [11]
+        assert len(gcmap) == 1
+        assert gcmap[0] < 29
+        item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
+        assert item == new_items[2]

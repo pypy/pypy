@@ -140,6 +140,9 @@ class Assembler386(object):
             debug_start('jit-backend-counts')
             self.set_debug(have_debug_prints())
             debug_stop('jit-backend-counts')
+        # when finishing, we only have one value at [0], the rest dies
+        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1, zero=True)
+        self.gcmap_for_finish[0] = r_uint(1)
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
@@ -2006,7 +2009,7 @@ class Assembler386(object):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         self.mov(fail_descr_loc, RawStackLoc(ofs))
-        gcmap = self._regalloc.get_gcmap()
+        gcmap = self.gcmap_for_finish
         self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.LEA_rb(eax.value, -base_ofs)
         # exit function

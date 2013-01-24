@@ -30,12 +30,6 @@ def jitframe_allocate(frame_info):
     frame.jf_frame_info = frame_info
     return frame
 
-def jitframe_copy(frame):
-    frame_info = frame.jf_frame_info
-    new_frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
-    new_frame.jf_frame_info = frame_info
-    return new_frame
-
 JITFRAME = lltype.GcStruct(
     'JITFRAME',
     ('jf_frame_info', lltype.Ptr(JITFRAMEINFO)),
@@ -63,7 +57,6 @@ JITFRAME = lltype.GcStruct(
     # about GCrefs here and not in frame info which might change
     adtmeths = {
         'allocate': jitframe_allocate,
-        'copy': jitframe_copy,
     },
     rtti = True,
 )
