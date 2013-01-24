@@ -515,7 +515,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         p1 = call_malloc_nursery(%d)
         p2 = call_malloc_nursery(%d) # this overflows
         guard_nonnull(p2, descr=faildescr) [p0, p1, p2]
-        finish(p0, descr=finaldescr)
+        finish(p2, descr=finaldescr)
         """ % (size, size, size), namespace={'sizedescr': sizeof,
                         'finaldescr': BasicFinalDescr(),
                         'faildescr': BasicFailDescr()})
@@ -527,6 +527,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frame = cpu.execute_token(token)
         # now we should be able to track everything from the frame
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-        #thing = frame.jf_frame[unpack_gcmap(frame)[0]]
-        #assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
-        #assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
+        thing = frame.jf_frame[unpack_gcmap(frame)[0]]
+        assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
+        assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
