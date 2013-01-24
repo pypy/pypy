@@ -236,7 +236,7 @@ class TestMallocFastpath(BaseTestRegalloc):
             assert len(x) == 1
             assert (bin(x[0]).count('1') ==
                     '0b1111100000000000000001111111011111'.count('1'))
-            # all but two
+            # all but two registers + some stuff on stack
         
         self.cpu = self.getcpu(check)
         S1 = lltype.GcStruct('S1')
@@ -328,16 +328,22 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
     class GCClass:
         JIT_WB_IF_FLAG = 0
 
+    def __init__(self, nursery_size=100):
+        GcCache.__init__(self, False, None)
+        self.gcrootmap = MockShadowStackRootMap()
+        self.nursery = lltype.malloc(rffi.CArray(lltype.Char), nursery_size,
+                                     flavor='raw')
+        self.nursery_addr = rffi.cast(lltype.Signed, self.nursery)
+
     def get_malloc_slowpath_addr(self):
         return 0
 
     def get_nursery_free_addr(self):
         return 0
-    
-    def __init__(self):
-        GcCache.__init__(self, False, None)
-        self.gcrootmap = MockShadowStackRootMap()
 
+    def __del__(self):
+        lltype.free(self.nursery, flavor='raw')
+    
 def unpack_gcmap(frame):
     res = []
     val = 0
@@ -351,17 +357,20 @@ def unpack_gcmap(frame):
     return res
 
 class TestGcShadowstackDirect(BaseTestRegalloc):
-    
-    cpu = CPU(None, None)
-    cpu.gc_ll_descr = GCDescrShadowstackDirect()
-    cpu.setup_once()
+
+    def setup_method(self, meth):
+        cpu = CPU(None, None)
+        cpu.gc_ll_descr = GCDescrShadowstackDirect()
+        cpu.setup_once()
+        self.cpu = cpu
 
     def test_shadowstack_call(self):
-        ofs = self.cpu.get_baseofs_of_frame_field()
+        cpu = self.cpu
+        ofs = cpu.get_baseofs_of_frame_field()
         frames = []
         
         def check(i):
-            assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
+            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
             frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
             assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE + 4
             # we "collect"
@@ -371,13 +380,13 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             assert gcmap == [28, 29, 30]
             for item, s in zip(gcmap, new_items):
                 new_frame.jf_frame[item] = rffi.cast(lltype.Signed, s)
-            assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
+            assert cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
             hdrbuilder.new_header(new_frame)
             gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
             frames.append(new_frame)
 
         def check2(i):
-            assert self.cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
+            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
             frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
             assert frame == frames[1]
             assert frame != frames[0]
@@ -385,7 +394,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         CHECK = lltype.FuncType([lltype.Signed], lltype.Void)
         checkptr = llhelper(lltype.Ptr(CHECK), check)
         check2ptr = llhelper(lltype.Ptr(CHECK), check2)
-        checkdescr = self.cpu.calldescrof(CHECK, CHECK.ARGS, CHECK.RESULT,
+        checkdescr = cpu.calldescrof(CHECK, CHECK.ARGS, CHECK.RESULT,
                                           EffectInfo.MOST_GENERAL)
 
         S = lltype.GcForwardReference()
@@ -404,13 +413,13 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
                         'faildescr': BasicFailDescr(),
                         'check_adr': checkptr, 'check2_adr': check2ptr,
                         'checkdescr': checkdescr,
-                        'fielddescr': self.cpu.fielddescrof(S, 'x')})
+                        'fielddescr': cpu.fielddescrof(S, 'x')})
         token = JitCellToken()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, token)
-        self.cpu.register_frame = lambda frame : hdrbuilder.new_header(frame)
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        cpu.register_frame = lambda frame : hdrbuilder.new_header(frame)
         HDR = lltype.Struct('HDR', ('tid', lltype.Signed))
         hdrbuilder = GCHeaderBuilder(HDR)
-        gc_ll_descr = self.cpu.gc_ll_descr
+        gc_ll_descr = cpu.gc_ll_descr
         gc_ll_descr.gcheaderbuilder = hdrbuilder
         gc_ll_descr.HDRPTR = lltype.Ptr(HDR)
         p0 = lltype.malloc(S, zero=True)
@@ -421,10 +430,13 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         hdrbuilder.new_header(p0)
         hdrbuilder.new_header(p1)
         hdrbuilder.new_header(p2)
-        frame = self.cpu.execute_token(token, p0, p1, p2)
+        frame = cpu.execute_token(token, p0, p1, p2)
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
         gcmap = unpack_gcmap(lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame))
         assert len(gcmap) == 1
         assert gcmap[0] < 29
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
+
+    def test_malloc_slowpath(self):
+        cpu = self.cpu

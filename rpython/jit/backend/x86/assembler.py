@@ -1258,6 +1258,13 @@ class Assembler386(object):
             mc.MOV(ebp, mem(edx, -WORD))
             base_ofs = self.cpu.get_baseofs_of_frame_field()
             mc.ADD_ri(ebp.value, base_ofs)
+        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+        if gcrootmap and wbdescr:
+            ofs = self.cpu.get_baseofs_of_frame_field()
+            # frame never uses card marking, so we enforce this is not
+            # an array
+            self._write_barrier_fastpah(wbdescr, [ebp], array=False,
+                                        extra_ofs=-ofs)
 
     def call(self, addr, args, res):
         self._emit_call(imm(addr), args)
@@ -2311,20 +2318,18 @@ class Assembler386(object):
         self.mc.overwrite(jmp_location - 1, chr(offset))
         self._emit_guard_not_forced(guard_token)
 
-    def genop_discard_cond_call_gc_wb(self, op, arglocs):
+    def _write_barrier_fastpah(self, descr, arglocs, array=False, extra_ofs=0):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
         # and call the function jit_remember_young_pointer() from the GC.
-        descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         #
-        opnum = op.getopnum()
         card_marking = False
         mask = descr.jit_wb_if_flag_singlebyte
-        if opnum == rop.COND_CALL_GC_WB_ARRAY and descr.jit_wb_cards_set != 0:
+        if array and descr.jit_wb_cards_set != 0:
             # assumptions the rest of the function depends on:
             assert (descr.jit_wb_cards_set_byteofs ==
                     descr.jit_wb_if_flag_byteofs)
@@ -2333,7 +2338,8 @@ class Assembler386(object):
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
         loc_base = arglocs[0]
-        self.mc.TEST8(addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs),
+        self.mc.TEST8(addr_add_const(loc_base,
+                                     descr.jit_wb_if_flag_byteofs + extra_ofs),
                       imm(mask))
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = self.mc.get_relative_pos()
@@ -2418,7 +2424,11 @@ class Assembler386(object):
         assert 0 < offset <= 127
         self.mc.overwrite(jz_location-1, chr(offset))
 
-    genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
+    def genop_discard_cond_call_gc_wb(self, op, arglocs):
+        self._write_barrier_fastpah(op.getdescr(), arglocs)
+
+    def genop_discard_cond_call_gc_wb_array(self, op, arglocs):
+        self._write_barrier_fastpah(op.getdescr(), arglocs, array=True)
 
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())
