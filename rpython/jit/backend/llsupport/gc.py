@@ -133,6 +133,13 @@ class GcLLDescription(GcCache):
         """
         raise NotImplementedError # cpu specific
 
+    def malloc_jitframe(self, frame_info):
+        """ Allocate a new frame, overwritten by tests
+        """
+        frame = jitframe.JITFRAME.allocate(frame_info)
+        llop.gc_assume_young_pointers(lltype.Void, frame)
+        return frame
+
 class JitFrameDescrs:
     def _freeze_(self):
         return True

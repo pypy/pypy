@@ -348,8 +348,13 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         self.gcrootmap = MockShadowStackRootMap()
         self.nursery = lltype.malloc(rffi.CArray(lltype.Char), nursery_size,
                                      flavor='raw')
-        self.nursery_addr = rffi.cast(lltype.Signed, self.nursery)
+        self.nursery_ptrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
+                                          flavor='raw')
+        self.nursery_ptrs[0] = rffi.cast(lltype.Signed, self.nursery)
+        self.nursery_ptrs[1] = self.nursery_ptrs[0] + nursery_size
+        self.nursery_addr = rffi.cast(lltype.Signed, self.nursery_ptrs)
         self.write_barrier_descr = WriteBarrierDescr(self)
+        self._initialize_for_tests()
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
@@ -358,10 +363,14 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         return 0
 
     def get_nursery_free_addr(self):
-        return 0
+        return self.nursery_addr
+
+    def get_nursery_top_addr(self):
+        return self.nursery_addr + rffi.sizeof(lltype.Signed)
 
     def __del__(self):
         lltype.free(self.nursery, flavor='raw')
+        lltype.free(self.nursery_ptrs, flavor='raw')
     
 def unpack_gcmap(frame):
     res = []
@@ -387,6 +396,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         S.become(lltype.GcStruct('S',
                                  ('hdr', lltype.Signed),
                                  ('x', lltype.Ptr(S))))
+        cpu.gc_ll_descr.fielddescr_tid = cpu.fielddescrof(S, 'hdr')
         self.S = S
         self.cpu = cpu
 
@@ -452,8 +462,21 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
 
-    def test_malloc_frame_writebarrier(self):
+    def test_malloc_1(self):
+        cpu = self.cpu
+        sizeof = cpu.sizeof(self.S)
+        sizeof.tid = 0
         loop = self.parse("""
         []
-        """, namespace={})
-        loop
+        p0 = new(descr=sizedescr)
+        finish(p0, descr=finaldescr)
+        """, namespace={'sizedescr': sizeof,
+                        'finaldescr': BasicFinalDescr()})
+        token = JitCellToken()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        frame = cpu.execute_token(token)
+        # now we should be able to track everything from the frame
+        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
+        thing = frame.jf_frame[unpack_gcmap(frame)[0]]
+        assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
+        assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
