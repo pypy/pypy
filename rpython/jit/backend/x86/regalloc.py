@@ -907,7 +907,7 @@ class RegAlloc(object):
             gc_ll_descr.get_nursery_top_addr(),
             size, gcmap)
 
-    def get_gcmap(self, forbidden_regs):
+    def get_gcmap(self, forbidden_regs=[]):
         frame_depth = self.fm.get_frame_depth()
         size = frame_depth + JITFRAME_FIXED_SIZE
         gcmap = lltype.malloc(GCMAP, size // WORD // 8 + 1,
