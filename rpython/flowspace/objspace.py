@@ -75,7 +75,6 @@ class FlowObjSpace(object):
         clsname = exc.__name__
         locals()['w_' + clsname] = Constant(exc)
 
-    py3k = False # the RPython bytecode is still python2
     # the following exceptions should not show up
     # during flow graph construction
     w_NameError = 'NameError'
@@ -158,20 +157,6 @@ class FlowObjSpace(object):
                 raise TypeError("expected string: " + repr(w_obj))
             return val
         return self.unwrap(w_obj)
-
-    identifier_w = str_w # RPython interprets Python2, where identifier_w is
-                         # equivalent to str_w
-
-    def unicode_w(self, w_obj):
-        if isinstance(w_obj, Constant):
-            val = w_obj.value
-            if type(val) is str:
-                return val.decode('ascii')
-            elif type(val) is unicode:
-                return val
-            else:
-                raise TypeError("expected unicode: " + repr(w_obj))
-        return self.unwrap(w_obj)                                
 
     def float_w(self, w_obj):
         if isinstance(w_obj, Constant):

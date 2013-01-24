@@ -32,15 +32,13 @@ class HostCode(object):
     """
     opnames = host_bytecode_spec.method_names
 
-    def __init__(self, argcount, kwonlyargcount, nlocals, stacksize, flags,
+    def __init__(self, argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars):
         """Initialize a new code object"""
         self.co_name = name
         assert nlocals >= 0
         self.co_argcount = argcount
-        # note that this is ignored, as HostCode represents a python2 bytecode
-        self.co_kwonlyargcount = kwonlyargcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
         self.co_flags = flags
@@ -60,7 +58,6 @@ class HostCode(object):
         """Initialize the code object from a real (CPython) one.
         """
         return cls(code.co_argcount,
-                   getattr(code, 'co_kwonlyargcount', 0),
                       code.co_nlocals,
                       code.co_stacksize,
                       code.co_flags,

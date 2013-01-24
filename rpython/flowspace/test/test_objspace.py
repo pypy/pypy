@@ -702,13 +702,6 @@ class TestFlowObjSpace(Base):
             for op in block.operations:
                 assert not op.opname == "call_args"
 
-    def test_keyword_arguments(self):
-        def g(a, b):
-            pass
-        def f():
-            return g(a=1, b=2)
-        self.codetest(f)
-
     def test_catch_importerror_1(self):
         def f():
             try:

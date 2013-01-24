@@ -662,8 +662,8 @@ class FlowSpaceFrame(object):
                 self.last_exception = operr
                 raise operr
             else:
-                raise FSException(space.w_RuntimeError,
-                    space.wrap("No active exception to reraise"))
+                raise FSException(space.w_TypeError,
+                    space.wrap("raise: no active exception to re-raise"))
 
         w_value = w_traceback = space.w_None
         if nbargs >= 3:
@@ -1163,75 +1163,6 @@ class FlowSpaceFrame(object):
     STORE_DEREF = BAD_OPCODE
     LOAD_CLOSURE = BAD_OPCODE
     MAKE_CLOSURE = BAD_OPCODE
-
-    # opcodes removed or heavily changed in python 3
-
-    def slice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_result = self.space.getslice(w_obj, w_start, w_end)
-        self.pushvalue(w_result)
-
-    def SLICE_0(self, oparg, next_instr):
-        self.slice(self.space.w_None, self.space.w_None)
-
-    def SLICE_1(self, oparg, next_instr):
-        w_start = self.popvalue()
-        self.slice(w_start, self.space.w_None)
-
-    def SLICE_2(self, oparg, next_instr):
-        w_end = self.popvalue()
-        self.slice(self.space.w_None, w_end)
-
-    def SLICE_3(self, oparg, next_instr):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.slice(w_start, w_end)
-
-    def storeslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        self.space.setslice(w_obj, w_start, w_end, w_newvalue)
-
-    def STORE_SLICE_0(self, oparg, next_instr):
-        self.storeslice(self.space.w_None, self.space.w_None)
-
-    def STORE_SLICE_1(self, oparg, next_instr):
-        w_start = self.popvalue()
-        self.storeslice(w_start, self.space.w_None)
-
-    def STORE_SLICE_2(self, oparg, next_instr):
-        w_end = self.popvalue()
-        self.storeslice(self.space.w_None, w_end)
-
-    def STORE_SLICE_3(self, oparg, next_instr):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.storeslice(w_start, w_end)
-
-    def deleteslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        self.space.delslice(w_obj, w_start, w_end)
-
-    def DELETE_SLICE_0(self, oparg, next_instr):
-        self.deleteslice(self.space.w_None, self.space.w_None)
-
-    def DELETE_SLICE_1(self, oparg, next_instr):
-        w_start = self.popvalue()
-        self.deleteslice(w_start, self.space.w_None)
-
-    def DELETE_SLICE_2(self, oparg, next_instr):
-        w_end = self.popvalue()
-        self.deleteslice(self.space.w_None, w_end)
-
-    def DELETE_SLICE_3(self, oparg, next_instr):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.deleteslice(w_start, w_end)
-
-    def make_arguments(self, nargs):
-        return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
-    def argument_factory(self, *args):
-        return ArgumentsForTranslation(self.space, *args)
 
 ### Frame blocks ###
 
