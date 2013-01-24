@@ -234,6 +234,7 @@ class Assembler386(object):
         assert not IS_X86_32
         # the arg is already in edi
         if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+            # for tests only
             base_ofs = self.cpu.get_baseofs_of_frame_field()
             mc.LEA_rb(esi.value, -base_ofs)
         mc.SUB_ri(esp.value, 16 - WORD)
@@ -249,8 +250,8 @@ class Assembler386(object):
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDX
         # clear the gc pattern
-        mc.MOV_bi(ofs, 0)
         self._reload_frame_if_necessary(mc)
+        mc.MOV_bi(ofs, 0)
         mc.RET()
         #
         # If the slowpath malloc failed, we raise a MemoryError that
@@ -1244,10 +1245,10 @@ class Assembler386(object):
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
         self.push_gcmap(self.mc, self._regalloc.get_gcmap(), store=True)
         self.mc.CALL(x)
-        self.pop_gcmap(self.mc)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
         self._reload_frame_if_necessary(self.mc)
+        self.pop_gcmap(self.mc)
 
     def _reload_frame_if_necessary(self, mc):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
