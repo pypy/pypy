@@ -1,6 +1,6 @@
-from rpython.jit.backend.arm import arch
 from rpython.jit.backend.arm import conditions as cond
 from rpython.jit.backend.arm import registers as reg
+from rpython.jit.backend.arm import support
 from rpython.jit.backend.arm.arch import (WORD, FUNC_ALIGN)
 from rpython.jit.backend.arm.instruction_builder import define_instructions
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
@@ -17,7 +17,7 @@ clear_cache = rffi.llexternal(
 
 
 def binary_helper_call(name):
-    function = getattr(arch, 'arm_%s' % name)
+    function = getattr(support, 'arm_%s' % name)
 
     def f(self, c=cond.AL):
         """Generates a call to a helper function, takes its

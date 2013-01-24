@@ -30,8 +30,7 @@ from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 
-# XXX Move to llsupport
-from rpython.jit.backend.x86.support import memcpy_fn
+from rpython.jit.backend.arm.support import memcpy_fn
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
                               ('type', lltype.Char),  # 'b'ridge, 'l'abel or
