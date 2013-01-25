@@ -1042,11 +1042,7 @@ def ll_mul(RESLIST, l, factor):
     res = RESLIST.ll_newlist(resultlen)
     j = 0
     while j < resultlen:
-        i = 0
-        while i < length:
-            p = j + i
-            res.ll_setitem_fast(p, l.ll_getitem_fast(i))
-            i += 1
+        ll_arraycopy(l, res, 0, j, length)
         j += length
     return res
 # not inlined by the JIT -- contains a loop
