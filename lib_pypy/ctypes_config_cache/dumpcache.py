@@ -19,7 +19,7 @@ except ImportError:
 # XXX relative import, should be removed together with
 # XXX the relative imports done e.g. by lib_pypy/pypy_test/test_hashlib
 mod = __import__("_%s_%%s_" %% (cpumodel,),
-                 globals(), locals(), ["*"])
+                 globals(), locals(), ["*"], level=1)
 globals().update(mod.__dict__)\
 ''' % (basename,)
     g.close()
