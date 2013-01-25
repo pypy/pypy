@@ -8,11 +8,12 @@ from pypy.objspace.std.longobject import W_LongObject
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
-from rpython.rlib.objectmodel import HASH_IMAG
 from rpython.rlib import jit, rcomplex
 from rpython.rlib.rarithmetic import intmask
 
 import math
+
+HASH_IMAG = 1000003
 
 
 class W_AbstractComplexObject(W_Object):

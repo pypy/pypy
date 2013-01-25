@@ -12,13 +12,15 @@ from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from rpython.rlib.rbigint import rbigint
-from rpython.rlib.objectmodel import HASH_INF, HASH_NAN
 from rpython.rlib import rfloat
 from rpython.tool.sourcetools import func_with_new_name
 
 
 import math
 from pypy.objspace.std.intobject import W_IntObject
+
+HASH_INF  = 314159
+HASH_NAN  = 0
 
 class W_AbstractFloatObject(W_Object):
     __slots__ = ()

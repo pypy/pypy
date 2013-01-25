@@ -451,10 +451,6 @@ def _hash_string(s):
     x ^= length
     return intmask(x)
 
-HASH_INF  = 314159
-HASH_NAN  = 0
-HASH_IMAG = 1000003
-
 def _hash_float(f):
     """The algorithm behind compute_hash() for a float.
     This implementation is identical to the CPython implementation,
@@ -466,11 +462,11 @@ def _hash_float(f):
     if not isfinite(f):
         if isinf(f):
             if f < 0.0:
-                return -HASH_INF
+                return -271828
             else:
-                return HASH_INF
+                return 314159
         else: #isnan(f):
-            return HASH_NAN
+            return 0
     v, expo = math.frexp(f)
     v *= TAKE_NEXT
     hipart = int(v)

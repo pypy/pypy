@@ -2,7 +2,8 @@
 from pypy.interpreter import gateway
 from rpython.rlib import rfloat, rbigint
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.objectmodel import HASH_INF, HASH_NAN, HASH_IMAG
+from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
+from pypy.objspace.std.complexobject import HASH_IMAG
 
 
 app = gateway.applevel("""
