@@ -343,6 +343,12 @@ if _WIN32:
          ('iErrorCode', rffi.CFixedArray(rffi.INT, 10)), #FD_MAX_EVENTS
          ])
 
+    CConfig.WSAPROTOCOL_INFO = platform.Struct(
+        'struct WSAPROTOCOL_INFO',
+        [])  # Struct is just passed between functions
+    CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
+        'FROM_PROTOCOL_INFO')
+
 CConfig.timeval = platform.Struct('struct timeval',
                                          [('tv_sec', rffi.LONG),
                                           ('tv_usec', rffi.LONG)])
@@ -601,6 +607,18 @@ elif WIN32:
                          rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
                         rffi.INT)
     tcp_keepalive = cConfig.tcp_keepalive
+
+    WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
+    FROM_PROTOCOL_INFO = cConfig.FROM_PROTOCOL_INFO
+    WSADuplicateSocket = external('WSADuplicateSocket', 
+                                  [socketfd_type, rwin32.DWORD,
+                                   lltype.Ptr(WSAPROTOCOL_INFO)],
+                                  rffi.INT)
+    WSASocket = external('WSASocket', 
+                         [rffi.INT, rffi.INT, rffi.INT,
+                          lltype.Ptr(WSAPROTOCOL_INFO),
+                          rffi.DWORD, rffi.DWORD],
+                         socketfd_type)
 
 if WIN32:
     WSAData = cConfig.WSAData
