@@ -397,7 +397,8 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         self.nursery_ptrs[1] = self.nursery_ptrs[0] + nursery_size
         self.nursery_addr = rffi.cast(lltype.Signed, self.nursery_ptrs)
         self.all_nurseries.append(self.nursery)
-        self.collections.reverse()
+        if hasattr(self, 'collections'):
+            self.collections.reverse()
 
     def _collect(self):
         gcmap = unpack_gcmap(self.frames[-1])
@@ -571,10 +572,20 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         def f(x):
             import pdb
             pdb.set_trace()
-        
+
+        FUNC = lltype.FuncType([lltype.Float], lltype.Float)
+        fptr = llhelper(lltype.Ptr(FUNC), f)
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo.MOST_GENERAL)        
         loop = self.parse("""
         [f0]
         f1 = call_release_gil(ConstClass(fptr), f0, descr=calldescr)
+        guard_not_forced(descr=faildescr) []
         finish(f1)
-        """, namespace={
-        })
+        """, namespace={'fptr': fptr, 'calldescr':calldescr,
+                        'faildescr': BasicFailDescr()})
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        cpu.execute_token(token, 1.3)
