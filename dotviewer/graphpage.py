@@ -44,6 +44,7 @@ class GraphPage(object):
 
 class DotFileGraphPage(GraphPage):
     def compute(self, dotfile):
+        from drawgraph import forceunicode
         f = open(dotfile, 'r')
-        self.source = f.read()
+        self.source = forceunicode(f.read())
         f.close()

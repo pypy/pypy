@@ -10,8 +10,8 @@ from pygame.locals import *
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-FONT = os.path.join(this_dir, 'cyrvetic.ttf')
-FIXEDFONT = os.path.join(this_dir, 'VeraMoBd.ttf')
+FONT = os.path.join(this_dir, 'font', 'DroidSans.ttf')
+FIXEDFONT = os.path.join(this_dir, 'font', 'DroidSansMono.ttf')
 COLOR = {
     'black': (0,0,0),
     'white': (255,255,255),
@@ -50,6 +50,12 @@ def getcolor(name, default):
         return rval
     else:
         return default
+
+def forceunicode(name):
+    return name if isinstance(name, unicode) else name.decode("utf-8")
+
+def forcestr(name):
+    return name if isinstance(name, str) else name.encode("utf-8")
 
 
 class GraphLayout:
@@ -106,12 +112,12 @@ def wait_for_async_cmd():
 
 class Node:
     def __init__(self, name, x, y, w, h, label, style, shape, color, fillcolor):
-        self.name = name
+        self.name = forceunicode(name)
         self.x = float(x)
         self.y = float(y)
         self.w = float(w)
         self.h = float(h)
-        self.label = label
+        self.label = forceunicode(label)
         self.style = style
         self.shape = shape
         self.color = color
@@ -125,8 +131,8 @@ class Edge:
     label = None
     
     def __init__(self, nodes, tail, head, cnt, *rest):
-        self.tail = nodes[tail]
-        self.head = nodes[head]
+        self.tail = nodes[forceunicode(tail)]
+        self.head = nodes[forceunicode(head)]
         cnt = int(cnt)
         self.points = [(float(rest[i]), float(rest[i+1]))
                        for i in range(0, cnt*2, 2)]
@@ -655,11 +661,7 @@ class TextSnippet:
             part = parts[i]
             word = part[0]
             try:
-                try:
-                    img = font.render(word, False, *part[1:])
-                except pygame.error, e:
-                    # Try *with* anti-aliasing to work around a bug in SDL
-                    img = font.render(word, True, *part[1:])
+                img = font.render(word, True, *part[1:])
             except pygame.error:
                 del parts[i]   # Text has zero width
             else:
