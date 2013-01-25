@@ -13,7 +13,6 @@ import tempfile, marshal
 
 from pypy.module.imp import importing
 
-from pypy import conftest
 
 def setuppkg(pkgname, **entries):
     p = udir.join('impsubdir')
@@ -93,7 +92,7 @@ def setup_directory_structure(space):
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
-    if conftest.option.runappdirect:
+    if py.test.config.option.runappdirect:
         import marshal, stat, struct, os, imp
         code = py.code.Source(p.join("x.py").read()).compile()
         s3 = marshal.dumps(code)
@@ -153,7 +152,7 @@ class AppTestImport:
     }
 
     def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(py.test.config.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 

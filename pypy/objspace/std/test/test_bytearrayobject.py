@@ -1,8 +1,8 @@
-from pypy import conftest
+import py
 
 class AppTestBytesArray:
     def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(py.test.config.option.runappdirect)
 
     def test_basics(self):
         b = bytearray()
