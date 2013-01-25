@@ -1,11 +1,15 @@
+import random
+import unicodedata
+
 import py
+
 from rpython.rlib.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
+
 
 class TestUnicodeData(object):
     def setup_class(cls):
-        import random, unicodedata
         if unicodedata.unidata_version != '5.2.0':
-            skip('Needs python with unicode 5.2.0 database.')
+            py.test.skip('Needs python with unicode 5.2.0 database.')
 
         seed = random.getrandbits(32)
         print "random seed: ", seed
@@ -29,14 +33,12 @@ class TestUnicodeData(object):
             py.test.raises(KeyError, unicodedb_5_2_0.name, ord(chr))
 
     def test_compare_functions(self):
-        import unicodedata # CPython implementation
-
         def getX(fun, code):
             try:
                 return getattr(unicodedb_5_2_0, fun)(code)
             except KeyError:
                 return -1
-        
+
         for code in range(0x10000):
             char = unichr(code)
             assert unicodedata.digit(char, -1) == getX('digit', code)
@@ -73,5 +75,3 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
         py.test.raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
         py.test.raises(KeyError, unicodedb_3_2_0.name, 9187)
-
-

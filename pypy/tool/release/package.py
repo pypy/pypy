@@ -11,8 +11,10 @@ The output is found in the directory /tmp/usession-YOURNAME/build/.
 
 import shutil
 import sys
-import py
 import os
+#Add toplevel repository dir to sys.path
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+import py
 import fnmatch
 from rpython.tool.udir import udir
 
@@ -48,7 +50,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         basename = 'pypy-c'
         if sys.platform == 'win32':
             basename += '.exe'
-        pypy_c = basedir.join(basename)
+        pypy_c = basedir.join('pypy', 'goal', basename)
     else:
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():

@@ -1,9 +1,9 @@
-from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
+from rpython.rlib.runicode import code_to_unichr
 from rpython.rlib.unicodedata import unicodedb_5_2_0
-from rpython.rlib.unicodedata.ucd import code_to_unichr
+from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
+
 
 class TestTranslated(BaseRtypingTest, LLRtypeMixin):
-
     def test_translated(self):
         def f(n):
             if n == 0:
