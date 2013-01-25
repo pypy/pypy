@@ -2146,6 +2146,7 @@ class Assembler386(object):
             # like %eax that would be destroyed by this call, *and* they are
             # used by arglocs for the *next* call, then trouble; for now we
             # will just push/pop them.
+            raise NotImplementedError
             xxx
             from rpython.rtyper.memory.gctransform import asmgcroot
             css = self._regalloc.close_stack_struct
