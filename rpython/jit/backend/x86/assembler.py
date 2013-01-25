@@ -223,7 +223,7 @@ class Assembler386(object):
 
     def _build_malloc_slowpath(self):
         """ While arriving on slowpath, we have a gcpattern on stack,
-        nursery_head in eax and the size in edx - eax
+        nursery_head in eax and the size in edi - eax
         """
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [eax, edi], self.cpu.supports_floats)
