@@ -7,3 +7,4 @@
 * fix test_singlefloats in test_calling_conventions
 * slowpaths can have more variants depending on how many registers we're using
   (like floats vs non-floats for failures)
+* fix jit hooks

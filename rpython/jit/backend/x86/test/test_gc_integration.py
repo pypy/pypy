@@ -564,3 +564,17 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
         assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
         assert rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.write_barrier_on_frame_called) == frame
+
+    def test_call_release_gil(self):
+        cpu = self.cpu
+
+        def f(x):
+            import pdb
+            pdb.set_trace()
+        
+        loop = self.parse("""
+        [f0]
+        f1 = call_release_gil(ConstClass(fptr), f0, descr=calldescr)
+        finish(f1)
+        """, namespace={
+        })
