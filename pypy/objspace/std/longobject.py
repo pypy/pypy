@@ -198,7 +198,7 @@ def truediv__Long_Long(space, w_long1, w_long2):
         f = w_long1.num.truediv(w_long2.num)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division or modulo by zero"))
+                             space.wrap("division by zero"))
     except OverflowError:
         raise OperationError(
             space.w_OverflowError,
