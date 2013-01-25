@@ -497,8 +497,8 @@ class ExceptionTests(unittest.TestCase):
             # must clear the latter manually for our test to succeed.
             e.__context__ = None
             obj = None
-            obj = wr()
             gc_collect()
+            obj = wr()
             self.assertTrue(obj is None, "%s" % obj)
 
         # Some complicated construct
@@ -839,6 +839,7 @@ class ExceptionTests(unittest.TestCase):
             self.assertNotEqual(wr(), None)
         else:
             self.fail("MemoryError not raised")
+        gc_collect()
         self.assertEqual(wr(), None)
 
     def test_recursion_error_cleanup(self):
