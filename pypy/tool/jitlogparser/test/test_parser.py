@@ -365,3 +365,14 @@ def test_parse_2_levels_up():
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
     assert len(f.chunks) == 3
+
+def test_parse_from_inside():
+    loop = parse("""
+    []
+    debug_merge_point(1, 0, 'two')
+    debug_merge_point(2, 0, 'three')
+    debug_merge_point(0, 0, 'one')    
+    """)
+    f = Function.from_operations(loop.operations, LoopStorage())
+    assert len(f.chunks) == 2
+    
