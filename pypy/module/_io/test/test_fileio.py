@@ -1,5 +1,6 @@
 from rpython.tool.udir import udir
 import os
+import py
 
 class AppTestFileIO:
     spaceconfig = dict(usemodules=['_io'])
@@ -161,12 +162,11 @@ class AppTestFileIO:
         assert repr(f) == "<_io.FileIO [closed]>"
 
 def test_flush_at_exit():
-    from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
     from rpython.tool.udir import udir
 
     tmpfile = udir.join('test_flush_at_exit')
-    config = make_config(conftest.option)
+    config = make_config(py.test.config.option)
     space = make_objspace(config)
     space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
         import io
@@ -182,7 +182,7 @@ def test_flush_at_exit_IOError_and_ValueError():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
 
-    config = make_config(conftest.option)
+    config = make_config(py.test.config.option)
     space = make_objspace(config)
     space.appexec([], """():
         import io
