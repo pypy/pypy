@@ -99,12 +99,12 @@ def jitframe_trace(obj_addr, prev):
         # 32 possible bits
         state = (fld >> 3) & 0x1f
         no = fld >> (3 + 5)
-        MAX = 31
+        MAX = 32
     else:
         # 64 possible bits
         state = (fld >> 3) & 0x3f
         no = fld >> (3 + 6)
-        MAX = 63
+        MAX = 64
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
     gcmap_lgt = (gcmap + GCMAPLENGTHOFS).signed[0]
     while no < gcmap_lgt:

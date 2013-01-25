@@ -1,3 +1,4 @@
+import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper
@@ -277,7 +278,11 @@ def test_custom_tracer():
         frame = lltype.malloc(jitframe.JITFRAME, 15, zero=True)
         frame.jf_frame_info = frame_info
         frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 2)
-        frame.jf_gcmap[0] = r_uint(1 | 2 | 8 | 32 | 128)
+        if sys.maxint == 2**31 - 1:
+            max = r_uint(2 ** 31)
+        else:
+            max = r_uint(2 ** 63)
+        frame.jf_gcmap[0] = r_uint(1 | 2 | 8 | 32 | 128) | max
         frame.jf_gcmap[1] = r_uint(2 | 16 | 32 | 128)
         frame_adr = llmemory.cast_ptr_to_adr(frame)
         all_addrs = []
@@ -297,10 +302,11 @@ def test_custom_tracer():
         assert all_addrs[8] == indexof(3)
         assert all_addrs[9] == indexof(5)
         assert all_addrs[10] == indexof(7)
+        assert all_addrs[11] == indexof(63)
         # XXX 32bit
-        assert all_addrs[11] == indexof(65)
+        assert all_addrs[12] == indexof(65)
 
-        assert len(all_addrs) == 6 + 5 + 4
+        assert len(all_addrs) == 6 + 6 + 4
         # 6 static fields, 4 addresses from gcmap, 2 from gcpattern
     finally:
         jitframe.STATICSIZE = PREV_STATICSIZE
