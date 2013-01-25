@@ -64,6 +64,7 @@ class AbstractX86CPU(AbstractLLCPU):
     def setup_once(self):
         self.profile_agent.startup()
         self.assembler.setup_once()
+        self.gc_set_extra_threshold()
 
     def finish_once(self):
         self.assembler.finish_once()

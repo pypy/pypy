@@ -481,11 +481,8 @@ class JitDriver(object):
             self.autoreds = True
             self.reds = []
             self.numreds = None # see warmspot.autodetect_jit_markers_redvars
-            for hook in [
-                get_jitcell_at, set_jitcell_at, get_printable_location,
-                confirm_enter_jit
-            ]:
-                assert hook is None, "reds='auto' is not compatible with JitDriver hooks"
+            assert confirm_enter_jit is None, (
+                "reds='auto' is not compatible with confirm_enter_jit")
         else:
             if reds is not None:
                 self.reds = reds
