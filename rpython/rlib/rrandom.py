@@ -116,5 +116,4 @@ class Random(object):
             mt[0] &= r_uint(0xffffffff)
         else:
             mt[0] = r_uint(0x80000000)
-        print mt[:3]
         self.index = N
