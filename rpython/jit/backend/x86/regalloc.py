@@ -58,27 +58,6 @@ class X86_64_RegisterManager(X86RegisterManager):
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
-    REGLOC_TO_GCROOTMAP_REG_INDEX = {
-        ebx: 1,
-        r12: 2,
-        r13: 3,
-        r14: 4,
-        r15: 5,
-    }
-    #REGLOC_TO_COPY_AREA_OFS = {
-    #    ecx: MY_COPY_OF_REGS + 0 * WORD,
-    #    ebx: MY_COPY_OF_REGS + 1 * WORD,
-    #    esi: MY_COPY_OF_REGS + 2 * WORD,
-    #    edi: MY_COPY_OF_REGS + 3 * WORD,
-    #    r8:  MY_COPY_OF_REGS + 4 * WORD,
-    #    r9:  MY_COPY_OF_REGS + 5 * WORD,
-    #    r10: MY_COPY_OF_REGS + 6 * WORD,
-    #    r12: MY_COPY_OF_REGS + 7 * WORD,
-    #    r13: MY_COPY_OF_REGS + 8 * WORD,
-    #    r14: MY_COPY_OF_REGS + 9 * WORD,
-    #3    r15: MY_COPY_OF_REGS + 10 * WORD,
-    #}
-
 class X86XMMRegisterManager(RegisterManager):
 
     box_types = [FLOAT]
