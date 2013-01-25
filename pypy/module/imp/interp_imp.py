@@ -87,8 +87,14 @@ def find_module(space, w_name, w_path=None):
         # object doesn't have a name attached. We do the same in PyPy, because
         # there is no easy way to attach the filename -- too bad
         fd = stream.try_to_find_file_descriptor()
-        w_fileobj = interp_io.open(space, space.wrap(fd), find_info.filemode,
-                                   encoding=encoding)
+        try:
+            w_fileobj = interp_io.open(space, space.wrap(fd),
+                                       find_info.filemode, encoding=encoding)
+        except OperationError as e:
+            if e.match(space, space.w_LookupError):
+                raise OperationError(space.w_SyntaxError,
+                                     space.str(e.get_w_value(space)))
+            raise
     else:
         w_fileobj = space.w_None
     w_import_info = space.newtuple(

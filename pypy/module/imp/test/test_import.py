@@ -92,7 +92,8 @@ def setup_directory_structure(space):
         'a=15\nb=16\rc="""foo\r\nbar"""\r', mode='wb')
     setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
-             line2 = "# encoding: iso-8859-1\n")
+             line2 = "# encoding: iso-8859-1\n",
+             bad = "# encoding: uft-8\n")
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
@@ -667,6 +668,11 @@ class AppTestImport:
         import encoded
         fd = imp.find_module('line2', encoded.__path__)[0]
         assert fd.encoding == 'iso-8859-1'
+
+    def test_bad_source_encoding(self):
+        import imp
+        import encoded
+        raises(SyntaxError, imp.find_module, 'bad', encoded.__path__)
 
 
 class TestAbi:
