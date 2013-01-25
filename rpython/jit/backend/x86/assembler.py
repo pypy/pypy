@@ -527,7 +527,6 @@ class Assembler386(object):
         rgc._make_sure_does_not_move(lltype.cast_opaque_ptr(llmemory.GCREF,
                                                             clt.frame_info))
         looppos = self.mc.get_relative_pos()
-        looptoken._x86_loop_code = looppos
         frame_depth = self._assemble(regalloc, inputargs, operations)
         self.update_frame_depth(frame_depth + JITFRAME_FIXED_SIZE)
         #
@@ -536,6 +535,7 @@ class Assembler386(object):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
+        looptoken._x86_loop_code = looppos + rawstart
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
