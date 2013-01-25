@@ -352,7 +352,7 @@ class BaseIteratorImplementation(object):
         self.pos = 0
 
     def length(self):
-        if self.dictimplementation is not None:
+        if self.dictimplementation is not None and self.len != -1:
             return self.len - self.pos
         return 0
 

@@ -898,7 +898,7 @@ class IteratorImplementation(object):
         raise NotImplementedError
 
     def length(self):
-        if self.setimplementation is not None:
+        if self.setimplementation is not None and self.len != -1:
             return self.len - self.pos
         return 0
 
