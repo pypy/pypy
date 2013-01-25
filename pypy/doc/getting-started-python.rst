@@ -86,8 +86,8 @@ the version you have is not 4.2 or you will run into `this bug`_.
 
 4. Run::
 
-     cd pypy/translator/goal
-     python translate.py --opt=jit targetpypystandalone.py
+     cd pypy/goal
+     python ../../rpython/bin/rpython --opt=jit targetpypystandalone.py
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want to include the JIT

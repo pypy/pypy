@@ -4,7 +4,7 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 
 from sys import maxint
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize
 from rpython.rlib.jit import we_are_jitted
 
 def wrapstr(space, s):
@@ -306,8 +306,10 @@ def makebytesdata_w(space, w_source):
             space.wrap("cannot convert unicode object to bytes"))
 
     # sequence of bytes
-    data = []
     w_iter = space.iter(w_source)
+    length_hint = space.length_hint(w_source, 0)
+    data = newlist_hint(length_hint)
+    extended = 0
     while True:
         try:
             w_item = space.next(w_iter)
@@ -317,6 +319,9 @@ def makebytesdata_w(space, w_source):
             break
         value = getbytevalue(space, w_item)
         data.append(value)
+        extended += 1
+    if extended < length_hint:
+        resizelist_hint(data, extended)
     return data
 
 @unwrap_spec(encoding='str_or_None', errors='str_or_None')

@@ -447,6 +447,12 @@ def _gettmarg(space, w_tup, allowNone=True):
             space.warn("Century info guessed for a 2-digit year.",
                        space.w_DeprecationWarning)
 
+    # tm_wday does not need checking of its upper-bound since taking "%
+    #  7" in gettmarg() automatically restricts the range.
+    if rffi.getintfield(glob_buf, 'c_tm_wday') < -1:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("day of week out of range"))
+
     rffi.setintfield(glob_buf, 'c_tm_year', y - 1900)
     rffi.setintfield(glob_buf, 'c_tm_mon',
                      rffi.getintfield(glob_buf, 'c_tm_mon') - 1)
@@ -454,12 +460,6 @@ def _gettmarg(space, w_tup, allowNone=True):
                      (rffi.getintfield(glob_buf, 'c_tm_wday') + 1) % 7)
     rffi.setintfield(glob_buf, 'c_tm_yday',
                      rffi.getintfield(glob_buf, 'c_tm_yday') - 1)
-
-    # tm_wday does not need checking of its upper-bound since taking "%
-    #  7" in gettmarg() automatically restricts the range.
-    if rffi.getintfield(glob_buf, 'c_tm_wday') < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("day of week out of range"))
 
     return glob_buf
 

@@ -521,7 +521,11 @@ class W_DequeIter(Wrappable):
         return self.space.wrap(self.counter)
 
     def next(self):
-        self.deque.checklock(self.lock)
+        if self.lock is not self.deque.lock:
+            self.counter = 0
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.wrap("deque mutated during iteration"))
         if self.counter == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         self.counter -= 1
@@ -560,7 +564,11 @@ class W_DequeRevIter(Wrappable):
         return self.space.wrap(self.counter)
 
     def next(self):
-        self.deque.checklock(self.lock)
+        if self.lock is not self.deque.lock:
+            self.counter = 0
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.wrap("deque mutated during iteration"))
         if self.counter == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         self.counter -= 1
