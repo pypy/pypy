@@ -5,8 +5,7 @@ and the various cases of write barrier.
 """
 
 import weakref
-import py, os
-from rpython.annotator import policy as annpolicy
+import os
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit import JitDriver, dont_look_inside
@@ -14,6 +13,9 @@ from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
+from rpython.rlib.libffi import CDLL, types, ArgChain, clibffi
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
 
 class X(object):
     def __init__(self, x=0):
@@ -151,7 +153,6 @@ def test_compile_boehm():
 
 
 class BaseFrameworkTests(object):
-    compile_kwds = {}
 
     def setup_class(cls):
         funcs = []
@@ -203,7 +204,7 @@ class BaseFrameworkTests(object):
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
-                                   **cls.compile_kwds)
+                                   thread=True)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -789,9 +790,94 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
 
+    def define_simple_call_release_gil(self):
+        class Glob:
+            pass
+        glob = Glob()
+        #
+        def f42(n):
+            c_strchr = glob.c_strchr
+            raw = rffi.str2charp("foobar" + chr((n & 63) + 32))
+            argchain = ArgChain()
+            argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
+            argchain = argchain.arg(rffi.cast(rffi.INT, ord('b')))
+            res = c_strchr.call(argchain, rffi.CCHARP)
+            check(rffi.charp2str(res) == "bar" + chr((n & 63) + 32))
+            rffi.free_charp(raw)
+        #
+        def before(n, x):
+            libc = CDLL(libc_name)
+            c_strchr = libc.getpointer('strchr', [types.pointer, types.sint],
+                                       types.pointer)
+            glob.c_strchr = c_strchr
+            return (n, None, None, None, None, None,
+                    None, None, None, None, None, None)
+        #
+        def f(n, x, *args):
+            f42(n)
+            n -= 1
+            return (n, x) + args
+        return before, f, None
+
+    def test_simple_call_release_gil(self):
+        self.run('simple_call_release_gil')
+
+    def define_close_stack(self):
+        #
+        class Glob(object):
+            pass
+        glob = Glob()
+        class X(object):
+            pass
+        #
+        def callback(p1, p2):
+            for i in range(100):
+                glob.lst.append(X())
+            return rffi.cast(rffi.INT, 1)
+        CALLBACK = lltype.Ptr(lltype.FuncType([lltype.Signed,
+                                               lltype.Signed], rffi.INT))
+        #
+        @dont_look_inside
+        def alloc1():
+            return llmemory.raw_malloc(16)
+        @dont_look_inside
+        def free1(p):
+            llmemory.raw_free(p)
+        #
+        def f42():
+            length = len(glob.lst)
+            c_qsort = glob.c_qsort
+            raw = alloc1()
+            fn = llhelper(CALLBACK, rffi._make_wrapper_for(CALLBACK, callback))
+            argchain = ArgChain()
+            argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
+            argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 2))
+            argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 8))
+            argchain = argchain.arg(rffi.cast(lltype.Signed, fn))
+            c_qsort.call(argchain, lltype.Void)
+            free1(raw)
+            check(len(glob.lst) > length)
+            del glob.lst[:]
+        #
+        def before(n, x):
+            libc = CDLL(libc_name)
+            types_size_t = clibffi.cast_type_to_ffitype(rffi.SIZE_T)
+            c_qsort = libc.getpointer('qsort', [types.pointer, types_size_t,
+                                                types_size_t, types.pointer],
+                                      types.void)
+            glob.c_qsort = c_qsort
+            glob.lst = []
+            return (n, None, None, None, None, None,
+                    None, None, None, None, None, None)
+        #
+        def f(n, x, *args):
+            f42()
+            n -= 1
+            return (n, x) + args
+        return before, f, None
+
+    def test_close_stack(self):
+        self.run('close_stack')
 
 class TestShadowStack(CompileFrameworkTests):
     gcrootfinder = "shadowstack"
-
-class TestAsmGcc(CompileFrameworkTests):
-    gcrootfinder = "asmgcc"
