@@ -2,7 +2,7 @@
 * 32bit x86
 * ARM
 * asmgcc
-* shadowstack details - slowpath of stack check and call_release_gil
+* shadowstack details - slowpath of stack check
 * kill jit2gc on translator
 * fix test_singlefloats in test_calling_conventions
 * slowpaths can have more variants depending on how many registers we're using
