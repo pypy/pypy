@@ -241,8 +241,7 @@ class Assembler386(object):
             mc.LEA_rb(esi.value, -base_ofs)
         mc.SUB_ri(esp.value, 16 - WORD)
         mc.CALL(imm(addr))
-        # Note: we check this after the code above, just because the code
-        # above is more than 127 bytes on 64-bits...
+        mc.ADD_ri(esp.value, 16 - WORD)
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
         jz_location = mc.get_relative_pos()
@@ -250,7 +249,6 @@ class Assembler386(object):
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         self._reload_frame_if_necessary(mc)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
-        mc.LEA_rs(esp.value, 16 - WORD)
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDX
         # clear the gc pattern
         mc.MOV_bi(ofs, 0)
@@ -387,15 +385,20 @@ class Assembler386(object):
         #
         if not for_frame:
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
+            if IS_X86_32:
+                XXX
+                mc.MOV_rs(eax.value, WORD)
+                mc.MOV_sr(0, eax.value)
+            elif IS_X86_64:
+                mc.MOV_rs(edi.value, WORD)
         else:
-            mc.MOV_sr(0, eax.value)
+            # we're possibly called from the slowpath of malloc, so we have
+            # one extra CALL on the stack, but one less PUSH,
+            # save to store stuff 2 locations away on the stack.
+            mc.MOV_sr(3*WORD, eax.value)
+            base_ofs = self.cpu.get_baseofs_of_frame_field()
+            mc.LEA_rb(edi.value, -base_ofs)
 
-        if IS_X86_32:
-            XXX
-            mc.MOV_rs(eax.value, WORD)
-            mc.MOV_sr(0, eax.value)
-        elif IS_X86_64:
-            mc.MOV_rs(edi.value, WORD)
         mc.CALL(imm(func))
         #
         if withcards:
@@ -409,14 +412,15 @@ class Assembler386(object):
 
         if not for_frame:
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
+            mc.RET16_i(WORD)
         else:
-            mc.MOV_rs(eax.value, 0)
+            mc.MOV_rs(eax.value, 3 * WORD)
+            mc.RET()
         #
         # ADD esp, correct_esp_by --- but cannot use ADD, because
         # of its effects on the CPU flags
         
         #mc.LEA_rs(esp.value, WORD)
-        mc.RET16_i(WORD)
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if for_frame:
@@ -2340,7 +2344,6 @@ class Assembler386(object):
             assert loc_base is ebp
             extra_ofs = self.cpu.get_baseofs_of_frame_field()
             loc = raw_stack(descr.jit_wb_if_flag_byteofs - extra_ofs)
-            loc_base = raw_stack(-extra_ofs)
         else:
             loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
         mc.TEST8(loc, imm(mask))
@@ -2361,7 +2364,9 @@ class Assembler386(object):
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
         helper_num = card_marking
-        if self._regalloc is not None and self._regalloc.xrm.reg_bindings:
+        if is_frame:
+            helper_num = 4
+        elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
@@ -2370,7 +2375,8 @@ class Assembler386(object):
                                     bool(self._regalloc.xrm.reg_bindings))
             assert self.wb_slowpath[helper_num] != 0
         #
-        mc.PUSH(loc_base)
+        if not is_frame:
+            mc.PUSH(loc_base)
         mc.CALL(imm(self.wb_slowpath[helper_num]))
 
         if card_marking:

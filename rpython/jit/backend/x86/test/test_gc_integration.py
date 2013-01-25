@@ -326,8 +326,8 @@ class WriteBarrierDescr(AbstractDescr):
     jit_wb_if_flag_singlebyte = 1
     
     def __init__(self, gc_ll_descr):
-        def write_barrier(x):
-            gc_ll_descr.write_barrier_on_frame_called = True
+        def write_barrier(frame):
+            gc_ll_descr.write_barrier_on_frame_called = frame
 
         self.write_barrier_fn = llhelper_args(write_barrier,
                                               [lltype.Signed], lltype.Void)
@@ -563,4 +563,4 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         thing = frame.jf_frame[unpack_gcmap(frame)[0]]
         assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
         assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
-        assert cpu.gc_ll_descr.write_barrier_on_frame_called
+        assert rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.write_barrier_on_frame_called) == frame
