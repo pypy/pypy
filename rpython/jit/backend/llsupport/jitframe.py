@@ -106,6 +106,8 @@ def jitframe_trace(obj_addr, prev):
         no = fld >> (3 + 6)
         MAX = 64
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
+    if not gcmap:
+        return llmemory.NULL
     gcmap_lgt = (gcmap + GCMAPLENGTHOFS).signed[0]
     while no < gcmap_lgt:
         cur = (gcmap + GCMAPBASEOFS + UNSIGN_SIZE * no).unsigned[0]

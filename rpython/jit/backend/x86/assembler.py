@@ -2019,7 +2019,13 @@ class Assembler386(object):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         self.mov(fail_descr_loc, RawStackLoc(ofs))
         gcmap = self.gcmap_for_finish
-        self.push_gcmap(self.mc, gcmap, store=True)
+        if op.getarg(0).type == REF:
+            self.push_gcmap(self.mc, gcmap, store=True)
+        else:
+            # note that the 0 here is redundant, but I would rather
+            # keep that one and kill all the others
+            ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+            self.mc.MOV_bi(ofs, 0)
         self.mc.LEA_rb(eax.value, -base_ofs)
         # exit function
         self._call_footer()
