@@ -251,7 +251,7 @@ class Assembler386(object):
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         self._reload_frame_if_necessary(mc)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
-        mc.MOV(edi, heap(nursery_free_adr))   # load this in EDX
+        mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
         # clear the gc pattern
         mc.MOV_bi(ofs, 0)
         mc.RET()
