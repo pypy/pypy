@@ -2093,8 +2093,8 @@ class Assembler386(object):
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        self.mc.MOV_bi(ofs, rffi.cast(lltype.Signed,
-                                      cast_instance_to_gcref(faildescr)))
+        self.mc.MOV(ofs, imm(rffi.cast(lltype.Signed,
+                                       cast_instance_to_gcref(faildescr))))
 
     def _emit_guard_not_forced(self, guard_token):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
