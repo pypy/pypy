@@ -84,7 +84,7 @@ class TestParseCommandLine:
 
     def check(self, argv, **expected):
         import StringIO
-        from rpython.translator.goal import app_main
+        from pypy.interpreter import app_main
         saved_sys_argv = sys.argv[:]
         saved_sys_stdout = sys.stdout
         saved_sys_stderr = sys.stdout
@@ -825,7 +825,7 @@ class TestNonInteractive:
 class TestAppMain:
     
     def test_print_info(self):
-        from rpython.translator.goal import app_main
+        from pypy.interpreter import app_main
         import sys, cStringIO
         prev_so = sys.stdout
         prev_ti = getattr(sys, 'pypy_translation_info', 'missing')

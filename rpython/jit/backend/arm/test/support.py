@@ -14,6 +14,9 @@ class JitARMMixin(support.LLJitMixin):
     def check_jumps(self, maxcount):
         pass
 
+if not getattr(os, 'uname', None):
+    pytest.skip('cannot run arm tests on non-posix platform')
+
 if os.uname()[1] == 'llaima.local':
     AS = '~/Code/arm-jit/android/android-ndk-r4b//build/prebuilt/darwin-x86/arm-eabi-4.4.0/arm-eabi/bin/as'
 else:

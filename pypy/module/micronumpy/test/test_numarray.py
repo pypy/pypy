@@ -684,6 +684,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.reshape([1]).shape == (1,)
         raises(ValueError, "a.reshape(3)")
 
+    def test_strides(self):
+        from _numpypy import array
+        a = array([[1.0, 2.0],
+                   [3.0, 4.0]])
+        assert a.strides == (16, 8)
+        assert a[1:].strides == (16, 8)
+
+    def test_strides_scalar(self):
+        from _numpypy import array
+        a = array(42)
+        assert a.strides == ()
+
     def test_add(self):
         from _numpypy import array
         a = array(range(5))

@@ -17,8 +17,8 @@ from pypy.interpreter.main import run_string, run_file
 from pypy.conftest import option as pypy_option 
 
 from pypy.tool.pytest import appsupport 
-from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
-from pypy.config.parse import parse_info
+from pypy.tool.pytest.confpath import pypydir, rpythondir, testdir, testresultdir
+from rpython.config.parse import parse_info
 
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../pypy/']
@@ -40,7 +40,7 @@ def pytest_addoption(parser):
                     dest="unittest_filter",  help="Similar to -k, XXX")
 
 def gettimeout(timeout): 
-    from test import pystone
+    from rpython.translator.test import rpystone
     if timeout.endswith('mp'): 
         megapystone = float(timeout[:-2])
         t, stone = pystone.Proc0(10000)
@@ -281,7 +281,7 @@ testmap = [
     RegrTest('test_ioctl.py'),
     RegrTest('test_isinstance.py', core=True),
     RegrTest('test_iter.py', core=True),
-    RegrTest('test_iterlen.py', skip="undocumented internal API behavior __length_hint__"),
+    RegrTest('test_iterlen.py', core=True, usemodules="_collections itertools"),
     RegrTest('test_itertools.py', core=True, usemodules="itertools struct"),
     RegrTest('test_json.py'),
     RegrTest('test_kqueue.py'),
@@ -584,7 +584,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
             watchdog_name = 'watchdog_nt.py'
         else:
             watchdog_name = 'watchdog.py'
-        watchdog_script = pypydir.join('tool', watchdog_name)
+        watchdog_script = rpythondir.join('tool', watchdog_name)
 
         regr_script = pypydir.join('tool', 'pytest', 
                                    'run-script', 'regrverbose.py')

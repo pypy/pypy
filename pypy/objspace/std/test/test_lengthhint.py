@@ -6,7 +6,7 @@ class TestLengthHint:
     SIZE = 4
     ITEMS = range(SIZE)
 
-    def _test_length_hint(self, w_obj):
+    def _test_length_hint(self, w_obj, w_mutate=None):
         space = self.space
         assert space.length_hint(w_obj, 8) == self.SIZE
 
@@ -17,6 +17,13 @@ class TestLengthHint:
 
         space.next(w_iter)
         assert space.length_hint(w_iter, 8) == self.SIZE - 1
+
+        if w_mutate is not None:
+            # Test handling of collections that enforce length
+            # immutability during iteration
+            space.call_function(w_mutate)
+            space.raises_w(space.w_RuntimeError, space.next, w_iter)
+            assert space.length_hint(w_iter, 8) == 0
 
     def test_bytearray(self):
         space = self.space
@@ -31,16 +38,20 @@ class TestLengthHint:
         self._test_length_hint(w_dict)
 
     def test_dict_iterkeys(self):
-        w_iterkeys = self.space.appexec([], """():
-            return dict.fromkeys(%r).iterkeys()
-        """ % self.ITEMS)
-        self._test_length_hint(w_iterkeys)
+        space = self.space
+        w_iterkeys, w_mutate = space.fixedview(space.appexec([], """():
+            d = dict.fromkeys(%r)
+            return d.iterkeys(), d.popitem
+        """ % self.ITEMS), 2)
+        self._test_length_hint(w_iterkeys, w_mutate)
 
     def test_dict_values(self):
-        w_itervalues = self.space.appexec([], """():
-            return dict.fromkeys(%r).itervalues()
-        """ % self.ITEMS)
-        self._test_length_hint(w_itervalues)
+        space = self.space
+        w_itervalues, w_mutate = space.fixedview(space.appexec([], """():
+            d = dict.fromkeys(%r)
+            return d.itervalues(), d.popitem
+        """ % self.ITEMS), 2)
+        self._test_length_hint(w_itervalues, w_mutate)
 
     def test_frozenset(self):
         space = self.space
@@ -50,7 +61,8 @@ class TestLengthHint:
     def test_set(self):
         space = self.space
         w_set = space.call_function(space.w_set, space.wrap(self.ITEMS))
-        self._test_length_hint(w_set)
+        w_mutate = space.getattr(w_set, space.wrap('pop'))
+        self._test_length_hint(w_set, w_mutate)
 
     def test_list(self):
         self._test_length_hint(self.space.wrap(self.ITEMS))
@@ -101,12 +113,19 @@ class TestLengthHint:
         self._test_length_hint(W_Repeat(space, space.wrap(22),
                                         space.wrap(self.SIZE)))
 
-    def test_collections_deque(self):
+    def _setup_deque(self):
         space = self.space
         w_deque = W_Deque(space)
         space.call_method(w_deque, '__init__', space.wrap(self.ITEMS))
-        self._test_length_hint(w_deque)
-        self._test_length_hint(w_deque.reviter())
+        w_mutate = space.getattr(w_deque, space.wrap('pop'))
+        return w_deque, w_mutate
+
+    def test_collections_deque(self):
+        self._test_length_hint(*self._setup_deque())
+
+    def test_collections_deque_rev(self):
+        w_deque, w_mutate = self._setup_deque()
+        self._test_length_hint(w_deque.reviter(), w_mutate)
 
     def test_default(self):
         space = self.space

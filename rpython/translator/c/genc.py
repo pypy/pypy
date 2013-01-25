@@ -131,7 +131,7 @@ class CBuilder(object):
         self.secondary_entrypoints = secondary_entrypoints
 
     def get_eci(self):
-        pypy_include_dir = py.path.local(os.path.realpath(os.path.dirname(__file__)))
+        pypy_include_dir = py.path.local(__file__).join('..')
         include_dirs = [pypy_include_dir]
         return ExternalCompilationInfo(include_dirs=include_dirs)
 
@@ -753,7 +753,7 @@ def commondefs(defines):
     defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
 def add_extra_files(eci):
-    srcdir = py.path.local(os.path.realpath(os.path.dirname(__file__))).join('src')
+    srcdir = py.path.local(__file__).join('..', 'src')
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
         srcdir / 'allocator.c',        # ifdef PYPY_STANDALONE

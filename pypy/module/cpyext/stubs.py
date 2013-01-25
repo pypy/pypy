@@ -176,12 +176,6 @@ def PyClass_IsSubclass(space, klass, base):
     """Return true if klass is a subclass of base. Return false in all other cases."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PyInstance_New(space, cls, arg, kw):
-    """Create a new instance of a specific class.  The parameters arg and kw are
-    used as the positional and keyword parameters to the object's constructor."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
