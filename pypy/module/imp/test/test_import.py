@@ -418,6 +418,12 @@ class AppTestImport:
         exc = raises(ImportError, imp)
         assert exc.value.args[0] == "No module named pkg.imp"
 
+    def test_import_msg(self):
+        def imp():
+            import pkg.i_am_not_here.neither_am_i
+        exc = raises(ImportError, imp)
+        assert exc.value.args[0] == "No module named i_am_not_here.neither_am_i"
+
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
         assert relative_c.inpackage == 1
