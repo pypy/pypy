@@ -248,6 +248,12 @@ class BlockBuilderMixin(object):
             index += self.SUBBLOCK_SIZE
         block.data[index] = char
 
+    def overwrite32(self, index, val):
+        self.overwrite(index, chr(val & 0xff))
+        self.overwrite(index + 1, chr((val >> 8) & 0xff))
+        self.overwrite(index + 2, chr((val >> 16) & 0xff))
+        self.overwrite(index + 3, chr((val >> 24) & 0xff))
+
     def get_relative_pos(self):
         return self._baserelpos + self._cursubindex
 

@@ -94,7 +94,7 @@ class Assembler386(object):
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
         self.malloc_slowpath = 0
-        self.wb_slowpath = [0, 0, 0, 0]
+        self.wb_slowpath = [0, 0, 0, 0, 0]
         self.memcpy_addr = 0
         self.setup_failure_recovery()
         self._debug = False
@@ -119,6 +119,8 @@ class Assembler386(object):
         self._build_failure_recovery(True)
         self._build_wb_slowpath(False)
         self._build_wb_slowpath(True)
+        self._build_wb_slowpath(False, for_frame=True)
+        # only one of those
         self._build_stack_check_failure()
         if self.cpu.supports_floats:
             self._build_failure_recovery(False, withfloats=True)
@@ -239,18 +241,18 @@ class Assembler386(object):
             mc.LEA_rb(esi.value, -base_ofs)
         mc.SUB_ri(esp.value, 16 - WORD)
         mc.CALL(imm(addr))
-        mc.ADD_ri(esp.value, 16 - WORD)
         # Note: we check this after the code above, just because the code
         # above is more than 127 bytes on 64-bits...
-        self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         mc.TEST_rr(eax.value, eax.value)
-        mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
         jz_location = mc.get_relative_pos()
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        self._reload_frame_if_necessary(mc)
+        self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
+        mc.LEA_rs(esp.value, 16 - WORD)
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDX
         # clear the gc pattern
-        self._reload_frame_if_necessary(mc)
         mc.MOV_bi(ofs, 0)
         mc.RET()
         #
@@ -260,8 +262,7 @@ class Assembler386(object):
         # but the code we jump to will actually restore the stack
         # position based on EBP, which will get us out of here for free.
         offset = mc.get_relative_pos() - jz_location
-        assert 0 < offset <= 127
-        mc.overwrite(jz_location-1, chr(offset))
+        mc.overwrite32(jz_location-4, offset)
         mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -364,7 +365,7 @@ class Assembler386(object):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-    def _build_wb_slowpath(self, withcards, withfloats=False):
+    def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         if descr is None:
             return
@@ -384,61 +385,44 @@ class Assembler386(object):
         # accordingly.
         mc = codebuf.MachineCodeBlockWrapper()
         #
-        frame_size = (1 +     # my argument, considered part of my frame
-                      1 +     # my return address
-                      len(gpr_reg_mgr_cls.save_around_call_regs))
-        if withfloats:
-            frame_size += 16     # X86_32: 16 words for 8 registers;
-                                 # X86_64: just 16 registers
+        if not for_frame:
+            self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
+        else:
+            mc.MOV_sr(0, eax.value)
+
         if IS_X86_32:
-            frame_size += 1      # argument to pass to the call
-        #
-        # align to a multiple of 16 bytes
-        frame_size = (frame_size + (CALL_ALIGN-1)) & ~(CALL_ALIGN-1)
-        #
-        correct_esp_by = (frame_size - 2) * WORD
-        mc.SUB_ri(esp.value, correct_esp_by)
-        #
-        ofs = correct_esp_by
-        if withfloats:
-            for reg in xmm_reg_mgr_cls.save_around_call_regs:
-                ofs -= 8
-                mc.MOVSD_sx(ofs, reg.value)
-        for reg in gpr_reg_mgr_cls.save_around_call_regs:
-            ofs -= WORD
-            mc.MOV_sr(ofs, reg.value)
-        #
-        if IS_X86_32:
-            mc.MOV_rs(eax.value, (frame_size - 1) * WORD)
+            XXX
+            mc.MOV_rs(eax.value, WORD)
             mc.MOV_sr(0, eax.value)
         elif IS_X86_64:
-            mc.MOV_rs(edi.value, (frame_size - 1) * WORD)
+            mc.MOV_rs(edi.value, WORD)
         mc.CALL(imm(func))
         #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            mc.MOV_rs(eax.value, (frame_size - 1) * WORD)
+            mc.MOV_rs(eax.value, WORD)
             mc.TEST8(addr_add_const(eax, descr.jit_wb_if_flag_byteofs),
                      imm(-0x80))
         #
-        ofs = correct_esp_by
-        if withfloats:
-            for reg in xmm_reg_mgr_cls.save_around_call_regs:
-                ofs -= 8
-                mc.MOVSD_xs(reg.value, ofs)
-        for reg in gpr_reg_mgr_cls.save_around_call_regs:
-            ofs -= WORD
-            mc.MOV_rs(reg.value, ofs)
+
+        if not for_frame:
+            self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
+        else:
+            mc.MOV_rs(eax.value, 0)
         #
         # ADD esp, correct_esp_by --- but cannot use ADD, because
         # of its effects on the CPU flags
-        mc.LEA_rs(esp.value, correct_esp_by)
+        
+        #mc.LEA_rs(esp.value, WORD)
         mc.RET16_i(WORD)
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+        if for_frame:
+            self.wb_slowpath[4] = rawstart
+        else:
+            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     @staticmethod
     @rgc.no_collect
@@ -1249,9 +1233,9 @@ class Assembler386(object):
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
         self.push_gcmap(self.mc, self._regalloc.get_gcmap([eax]), store=True)
         self.mc.CALL(x)
+        self._reload_frame_if_necessary(self.mc)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
-        self._reload_frame_if_necessary(self.mc)
         self.pop_gcmap(self.mc)
 
     def _reload_frame_if_necessary(self, mc):
@@ -1264,11 +1248,10 @@ class Assembler386(object):
             mc.ADD_ri(ebp.value, base_ofs)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
-            ofs = self.cpu.get_baseofs_of_frame_field()
             # frame never uses card marking, so we enforce this is not
             # an array
-            self._write_barrier_fastpah(mc, wbdescr, [ebp], array=False,
-                                        extra_ofs=-ofs)
+            self._write_barrier_fastpath(mc, wbdescr, [ebp], array=False,
+                                         is_frame=True)
 
     def call(self, addr, args, res):
         self._emit_call(imm(addr), args)
@@ -1951,9 +1934,14 @@ class Assembler386(object):
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats):
+    def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats,
+                                callee_only=False):
         # Push all general purpose registers
-        for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
+        if callee_only:
+            regs = gpr_reg_mgr_cls.save_around_call_regs
+        else:
+            regs = gpr_reg_mgr_cls.all_regs
+        for i, gpr in enumerate(regs):
             if gpr not in ignored_regs:
                 mc.MOV_br(i * WORD, gpr.value)
         if withfloats:
@@ -1962,9 +1950,14 @@ class Assembler386(object):
             for i in range(len(xmm_reg_mgr_cls.all_regs)):
                 mc.MOVSD_bx((ofs + i) * WORD, i)
 
-    def _pop_all_regs_from_frame(self, mc, ignored_regs, withfloats):
+    def _pop_all_regs_from_frame(self, mc, ignored_regs, withfloats,
+                                 callee_only=False):
         # Pop all general purpose registers
-        for i, gpr in enumerate(gpr_reg_mgr_cls.all_regs):
+        if callee_only:
+            regs = gpr_reg_mgr_cls.save_around_call_regs
+        else:
+            regs = gpr_reg_mgr_cls.all_regs
+        for i, gpr in enumerate(regs):
             if gpr not in ignored_regs:
                 mc.MOV_rb(gpr.value, i * WORD)
         if withfloats:
@@ -2322,8 +2315,8 @@ class Assembler386(object):
         self.mc.overwrite(jmp_location - 1, chr(offset))
         self._emit_guard_not_forced(guard_token)
 
-    def _write_barrier_fastpah(self, mc, descr, arglocs, array=False,
-                               extra_ofs=0):
+    def _write_barrier_fastpath(self, mc, descr, arglocs, array=False,
+                                is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
@@ -2343,11 +2336,13 @@ class Assembler386(object):
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
         loc_base = arglocs[0]
-        if loc_base is ebp:
-            loc = raw_stack(descr.jit_wb_if_flag_byteofs + extra_ofs)
+        if is_frame:
+            assert loc_base is ebp
+            extra_ofs = self.cpu.get_baseofs_of_frame_field()
+            loc = raw_stack(descr.jit_wb_if_flag_byteofs - extra_ofs)
+            loc_base = raw_stack(-extra_ofs)
         else:
-            loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs +
-                                 extra_ofs)
+            loc = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
         mc.TEST8(loc, imm(mask))
         mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = mc.get_relative_pos()
@@ -2433,10 +2428,11 @@ class Assembler386(object):
         mc.overwrite(jz_location-1, chr(offset))
 
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
-        self._write_barrier_fastpah(self.mc, op.getdescr(), arglocs)
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs)
 
     def genop_discard_cond_call_gc_wb_array(self, op, arglocs):
-        self._write_barrier_fastpah(self.mc, op.getdescr(), arglocs, array=True)
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
+                                     array=True)
 
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())

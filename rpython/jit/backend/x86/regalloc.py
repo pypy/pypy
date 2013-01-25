@@ -38,18 +38,6 @@ class X86RegisterManager(RegisterManager):
     save_around_call_regs = [eax, edx, ecx]
     frame_reg = ebp
 
-    REGLOC_TO_GCROOTMAP_REG_INDEX = {
-        ebx: 1,
-        esi: 2,
-        edi: 3,
-    }
-    #REGLOC_TO_COPY_AREA_OFS = {
-    #    ecx: MY_COPY_OF_REGS + 0 * WORD,
-    #    ebx: MY_COPY_OF_REGS + 1 * WORD,
-    #    esi: MY_COPY_OF_REGS + 2 * WORD,
-    #    edi: MY_COPY_OF_REGS + 3 * WORD,
-    #}
-
     def call_result_location(self, v):
         return eax
 

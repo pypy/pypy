@@ -5,7 +5,7 @@
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
      JitCellToken, BasicFailDescr, AbstractDescr
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
-     GcLLDescr_framework, GcCache
+     GcLLDescr_framework, GcCache, JitFrameDescrs
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.llsupport import jitframe
@@ -327,14 +327,36 @@ class WriteBarrierDescr(AbstractDescr):
     
     def __init__(self, gc_ll_descr):
         def write_barrier(x):
-            import pdb
-            pdb.set_trace()
+            gc_ll_descr.write_barrier_on_frame_called = True
 
         self.write_barrier_fn = llhelper_args(write_barrier,
                                               [lltype.Signed], lltype.Void)
 
     def get_write_barrier_fn(self, cpu):
         return self.write_barrier_fn
+
+# a copy of JITFRAM that has 'hdr' field for tests
+
+def jitframe_allocate(frame_info):
+    frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
+    frame.jf_frame_info = frame_info
+    return frame
+
+JITFRAME = lltype.GcStruct(
+    'JITFRAME',
+    ('hdr', lltype.Signed),
+    ('jf_frame_info', lltype.Ptr(jitframe.JITFRAMEINFO)),
+    ('jf_descr', llmemory.GCREF),
+    ('jf_guard_exc', llmemory.GCREF),
+    ('jf_gcmap', lltype.Ptr(jitframe.GCMAP)),
+    ('jf_gc_trace_state', lltype.Signed),
+    ('jf_frame', lltype.Array(lltype.Signed)),
+    adtmeths = {
+        'allocate': jitframe_allocate,
+    },
+)
+
+JITFRAMEPTR = lltype.Ptr(JITFRAME)
 
 class GCDescrShadowstackDirect(GcLLDescr_framework):
     layoutbuilder = None
@@ -387,14 +409,25 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         pos.sort()
         for i in range(len(gcmap)):
             assert col[i] + start == pos[i]
+        self.frames[-1].hdr |= 1
         self.init_nursery()
 
     def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
-        frame = jitframe.JITFRAME.allocate(frame_info)
+        frame = JITFRAME.allocate(frame_info)
         self.frames.append(frame)
         return frame
+
+    def getframedescrs(self, cpu):
+        descrs = JitFrameDescrs()
+        descrs.arraydescr = cpu.arraydescrof(JITFRAME)
+        for name in ['jf_descr', 'jf_guard_exc',
+                     'jf_frame_info', 'jf_gcmap']:
+            setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
+        descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                                  'jfi_frame_depth')
+        return descrs
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
@@ -450,11 +483,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         
         def check(i):
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
-            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
+            frame = rffi.cast(JITFRAMEPTR, i - ofs)
             assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE + 4
             # we "collect"
             frames.append(frame)
-            new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
+            new_frame = JITFRAME.allocate(frame.jf_frame_info)
             gcmap = unpack_gcmap(frame)
             assert gcmap == [28, 29, 30]
             for item, s in zip(gcmap, new_items):
@@ -465,7 +498,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
         def check2(i):
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
-            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
+            frame = rffi.cast(JITFRAMEPTR, i - ofs)
             assert frame == frames[1]
             assert frame != frames[0]
 
@@ -497,8 +530,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         new_items = [lltype.malloc(S), lltype.malloc(S), lltype.malloc(S)]
         new_items[0].x = new_items[2]
         frame = cpu.execute_token(token, p0, p1, p2)
-        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-        gcmap = unpack_gcmap(lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame))
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
+        gcmap = unpack_gcmap(lltype.cast_opaque_ptr(JITFRAMEPTR, frame))
         assert len(gcmap) == 1
         assert gcmap[0] < 29
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
@@ -526,7 +559,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = cpu.execute_token(token)
         # now we should be able to track everything from the frame
-        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
         thing = frame.jf_frame[unpack_gcmap(frame)[0]]
         assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
         assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
+        assert cpu.gc_ll_descr.write_barrier_on_frame_called
