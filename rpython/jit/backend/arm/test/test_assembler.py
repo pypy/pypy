@@ -1,6 +1,6 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.arch import arm_int_div
+from rpython.jit.backend.arm.support import arm_int_div
 from rpython.jit.backend.arm.assembler import AssemblerARM
 from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.arm.test.support import run_asm
