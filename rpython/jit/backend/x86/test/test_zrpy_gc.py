@@ -83,7 +83,7 @@ def get_functions_to_patch():
     return {(gc.GcLLDescr_framework, 'can_use_nursery_malloc'):
                 can_use_nursery_malloc2}
 
-def compile(f, gc, enable_opts='', **kwds):
+def compile(f, gc, **kwds):
     from rpython.annotator.listdef import s_list_of_strings
     from rpython.translator.translator import TranslationContext
     from rpython.jit.metainterp.warmspot import apply_jit
@@ -107,7 +107,7 @@ def compile(f, gc, enable_opts='', **kwds):
                 old_value[obj, attr] = getattr(obj, attr)
                 setattr(obj, attr, value)
             #
-            apply_jit(t, enable_opts=enable_opts)
+            apply_jit(t)
             #
         finally:
             for (obj, attr), oldvalue in old_value.items():
