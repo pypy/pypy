@@ -35,10 +35,8 @@ def attrgetter(attr, *attrs):
 
 def single_attr_getter(attr):
     if not isinstance(attr, str):
-        def _raise_typeerror(obj):
-            raise TypeError("argument must be a string, not %r" %
-                            (type(attr).__name__,))
-        return _raise_typeerror
+        raise TypeError("attribute name must be a string, not {!r}".format(
+                type(attr).__name__))
     #
     def make_getter(name, prevfn=None):
         if prevfn is None:
