@@ -203,9 +203,11 @@ class Assembler386(object):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
         assert not IS_X86_32
+        # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
         mc.MOV_rs(ecx.value, WORD)
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_br(gcmap_ofs, ecx.value)
+        # this is size that we're after, sanity checking only
         mc.MOV_rs(esi.value, WORD*2)
         # push first arg
         mc.LEA_rb(edi.value, -base_ofs)
