@@ -43,3 +43,7 @@ Rudimentary support for bytearray in RPython
 
 .. branch: fix-lookinside-iff-oopspec
 Fixed the interaction between two internal tools for controlling the JIT.
+
+.. branch: inline-virtualref-2
+Better optimized certain types of frame accesses in the JIT, particularly
+around exceptions that escape the function they were raised in.
