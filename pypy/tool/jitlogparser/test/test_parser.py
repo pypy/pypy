@@ -354,3 +354,14 @@ def test_parse_nonpython():
     f = Function.from_operations(loop.operations, LoopStorage())
     assert f.chunks[-1].filename == 'x.py'
     assert f.filename is None
+
+def test_parse_2_levels_up():
+    loop = parse("""
+    []
+    debug_merge_point(0, 0, 'one')
+    debug_merge_point(1, 0, 'two')
+    debug_merge_point(2, 0, 'three')
+    debug_merge_point(0, 0, 'one')    
+    """)
+    f = Function.from_operations(loop.operations, LoopStorage())
+    assert len(f.chunks) == 3

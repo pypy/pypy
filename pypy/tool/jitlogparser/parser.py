@@ -247,12 +247,15 @@ class Function(object):
             if not stack:
                 stack.append([])
             else:
-                if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
-                    if bc.inline_level < len(stack):
-                        last = stack.pop()
-                        stack[-1].append(cls(last, getpath(stack), storage))
-                    else:
+                if bc.inline_level is not None:
+                    if bc.inline_level == len(stack) - 1:
+                        pass
+                    elif bc.inline_level > len(stack) - 1:
                         stack.append([])
+                    else:
+                        while bc.inline_level + 1 < len(stack):
+                            last = stack.pop()
+                            stack[-1].append(cls(last, getpath(stack), storage))
             stack[-1].append(bc)
 
         so_far = []
