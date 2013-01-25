@@ -149,8 +149,6 @@ class GcRewriterAssembler(object):
         op0 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(llref)], lgt_box,
                            descr=descrs.jfi_frame_depth)
         self.newops.append(op0)
-        # XXX for now it generates call_malloc_gc, instead of
-        # call_malloc_nursery, because the array is strange
 
         op1 = ResOperation(rop.NEW_ARRAY, [lgt_box], frame,
                            descr=descrs.arraydescr)
@@ -168,7 +166,7 @@ class GcRewriterAssembler(object):
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         args = [frame]
-        if jd.index_of_virtualizable >= 0:
+        if jd and jd.index_of_virtualizable >= 0:
             args = [frame, arglist[jd.index_of_virtualizable]]
         else:
             args = [frame]
@@ -264,6 +262,8 @@ class GcRewriterAssembler(object):
         """Try to generate or update a CALL_MALLOC_NURSERY.
         If that fails, generate a plain CALL_MALLOC_GC instead.
         """
+        import pdb
+        pdb.set_trace()
         size = self.round_up_for_allocation(size)
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
             return False

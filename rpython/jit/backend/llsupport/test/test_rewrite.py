@@ -738,7 +738,7 @@ class TestFramework(RewriteTests):
         """, """
         [i0, f0]
         i1 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_depth)
-        p1 = call_malloc_gc(ConstClass(malloc_array_nonstandard), 1, 2, 0, 0, i1, descr=malloc_array_nonstandard_descr)
+        p1 = call_malloc_nursery(13)
         setfield_gc(p1, ConstPtr(ll_frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)

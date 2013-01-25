@@ -2213,6 +2213,7 @@ class Assembler386(object):
         if gcrootmap.is_shadow_stack:
             args = []
         else:
+            raise NotImplementedError
             xxx
             assert self.gcrootmap_retaddr_forced == -1, (
                       "missing mark_gc_roots() in CALL_RELEASE_GIL")
