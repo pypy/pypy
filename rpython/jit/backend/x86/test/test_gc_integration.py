@@ -13,9 +13,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 
 from rpython.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
-from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+from rpython.rlib.objectmodel import invoke_around_extcall
 
 CPU = getcpuclass()
 
@@ -347,6 +346,7 @@ JITFRAME = lltype.GcStruct(
     ('hdr', lltype.Signed),
     ('jf_frame_info', lltype.Ptr(jitframe.JITFRAMEINFO)),
     ('jf_descr', llmemory.GCREF),
+    ('jf_force_descr', llmemory.GCREF),
     ('jf_guard_exc', llmemory.GCREF),
     ('jf_gcmap', lltype.Ptr(jitframe.GCMAP)),
     ('jf_gc_trace_state', lltype.Signed),
@@ -423,7 +423,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
     def getframedescrs(self, cpu):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(JITFRAME)
-        for name in ['jf_descr', 'jf_guard_exc',
+        for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
                      'jf_frame_info', 'jf_gcmap']:
             setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
@@ -567,25 +567,40 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.write_barrier_on_frame_called) == frame
 
     def test_call_release_gil(self):
+        # note that we can't test floats here because when untranslated
+        # people actually wreck xmm registers
         cpu = self.cpu
+        l = []
+
+        def before():
+            l.append("before")
+
+        def after():
+            l.append("after")
+
+        invoke_around_extcall(before, after)
 
         def f(x):
-            import pdb
-            pdb.set_trace()
-
-        FUNC = lltype.FuncType([lltype.Float], lltype.Float)
+            assert x == 1
+            return 2
+        
+        FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
         fptr = llhelper(lltype.Ptr(FUNC), f)
         calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                     EffectInfo.MOST_GENERAL)        
         loop = self.parse("""
-        [f0]
-        f1 = call_release_gil(ConstClass(fptr), f0, descr=calldescr)
+        [i0]
+        i1 = call_release_gil(ConstClass(fptr), i0, descr=calldescr)
         guard_not_forced(descr=faildescr) []
-        finish(f1)
+        finish(i1, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr':calldescr,
-                        'faildescr': BasicFailDescr()})
+                        'faildescr': BasicFailDescr(),
+                        'finaldescr': BasicFinalDescr()})
         token = JitCellToken()
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
         cpu.compile_loop(loop.inputargs, loop.operations, token)
-        cpu.execute_token(token, 1.3)
+        frame = cpu.execute_token(token, 1)
+        frame = rffi.cast(JITFRAMEPTR, frame)
+        assert frame.jf_frame[0] == 2
+        assert l == ['before', 'after']

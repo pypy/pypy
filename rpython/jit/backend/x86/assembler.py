@@ -2112,16 +2112,12 @@ class Assembler386(object):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
-            raise NotImplementedError # we need tests
-            xxx
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
         self._store_force_index(guard_op)
         self.genop_call(op, arglocs, result_loc)
         # then reopen the stack
         if gcrootmap:
-            raise NotImplementedError # we need tests
-            xxx
             self.call_reacquire_gil(gcrootmap, result_loc)
         # finally, the guard_not_forced
         self._emit_guard_not_forced(guard_token)
@@ -2199,7 +2195,6 @@ class Assembler386(object):
             if reg in save_registers:
                 self.mc.MOV_rs(reg.value, p)
                 p += WORD
-        self._regalloc.needed_extra_stack_locations(p//WORD)
 
     def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result (eax/xmm0) into the stack temporarily.
@@ -2211,6 +2206,7 @@ class Assembler386(object):
         if gcrootmap.is_shadow_stack:
             args = []
         else:
+            xxx
             assert self.gcrootmap_retaddr_forced == -1, (
                       "missing mark_gc_roots() in CALL_RELEASE_GIL")
             self.gcrootmap_retaddr_forced = 0
@@ -2226,7 +2222,6 @@ class Assembler386(object):
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)
-            self._regalloc.needed_extra_stack_locations(2)
 
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
