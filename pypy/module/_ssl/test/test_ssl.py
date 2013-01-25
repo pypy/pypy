@@ -67,7 +67,8 @@ class AppTestSSL:
 
 class AppTestConnectedSSL:
     spaceconfig = {
-        "usemodules": ['_ssl', '_socket', 'struct', 'array', 'binascii'],
+        "usemodules": ['_ssl', '_socket', 'struct', 'array', 'binascii',
+                       'unicodedata'],
     }
 
     def setup_method(self, method):

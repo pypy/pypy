@@ -6,7 +6,8 @@ from rpython.rlib import rsocket
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct',
+                                            'unicodedata'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
