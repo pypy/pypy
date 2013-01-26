@@ -231,5 +231,6 @@ class AppTestThread(GenericTestThread):
         # This is normally called by app_main.py
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
-        thread.start_new_thread(f, ())
-        raises(KeyboardInterrupt, busy_wait)
+        for i in range(100):
+            thread.start_new_thread(f, ())
+            raises(KeyboardInterrupt, busy_wait)
