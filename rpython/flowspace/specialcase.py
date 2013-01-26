@@ -18,7 +18,7 @@ def sc_operator(space, fn, args):
         if opname == 'pow' and len(args_w) == 2:
             args_w = args_w + [Constant(None)]
         elif opname == 'getattr' and len(args_w) == 3:
-            return space.do_operation('simple_call', Constant(getattr), *args_w)
+            return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
         else:
             raise Exception, "should call %r with exactly %d arguments" % (
                 fn, Arity[opname])
@@ -60,7 +60,7 @@ def sc_r_uint(space, r_uint, args):
     [w_value] = args_w
     if isinstance(w_value, Constant):
         return Constant(r_uint(w_value.value))
-    return space.do_operation('simple_call', space.wrap(r_uint), w_value)
+    return space.frame.do_operation('simple_call', space.wrap(r_uint), w_value)
 
 def sc_we_are_translated(space, we_are_translated, args):
     return Constant(True)

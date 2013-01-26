@@ -9,11 +9,12 @@ from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 from rpython.flowspace.argument import ArgumentsForTranslation
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-    UnwrapException, c_last_exception)
+    UnwrapException, c_last_exception, SpaceOperation)
 from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
         rpython_print_newline)
+from rpython.flowspace.operation import implicit_exceptions
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -471,6 +472,17 @@ class FlowSpaceFrame(object):
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
+    def do_operation(self, name, *args_w):
+        spaceop = SpaceOperation(name, args_w, Variable())
+        spaceop.offset = self.last_instr
+        self.record(spaceop)
+        return spaceop.result
+
+    def do_operation_with_implicit_exceptions(self, name, *args_w):
+        w_result = self.do_operation(name, *args_w)
+        self.handle_implicit_exceptions(implicit_exceptions.get(name))
+        return w_result
+
     def handle_implicit_exceptions(self, exceptions):
         """
         Catch possible exceptions implicitly.
@@ -740,7 +752,7 @@ class FlowSpaceFrame(object):
     def YIELD_VALUE(self, _, next_instr):
         assert self.pycode.is_generator
         w_result = self.popvalue()
-        self.space.do_operation('yield', w_result)
+        self.do_operation('yield', w_result)
         # XXX yield expressions not supported. This will blow up if the value
         # isn't popped straightaway.
         self.pushvalue(None)
@@ -751,7 +763,7 @@ class FlowSpaceFrame(object):
 
     def PRINT_ITEM(self, oparg, next_instr):
         w_item = self.popvalue()
-        w_s = self.space.do_operation('str', w_item)
+        w_s = self.do_operation('str', w_item)
         self.space.appcall(rpython_print_item, w_s)
 
     def PRINT_NEWLINE(self, oparg, next_instr):

@@ -9,7 +9,7 @@ from inspect import CO_NEWLOCALS
 
 from rpython.flowspace.argument import ArgumentsForTranslation
 from rpython.flowspace.model import (Constant, Variable, WrapException,
-    UnwrapException, checkgraph, SpaceOperation)
+    UnwrapException, checkgraph)
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace import operation
 from rpython.flowspace.flowcontext import (FlowSpaceFrame, fixeggblocks,
@@ -91,21 +91,21 @@ class FlowObjSpace(object):
     id  = None     # real version added by add_operations()
 
     def newdict(self, module="ignored"):
-        return self.do_operation('newdict')
+        return self.frame.do_operation('newdict')
 
     def newtuple(self, args_w):
         try:
             content = [self.unwrap(w_arg) for w_arg in args_w]
         except UnwrapException:
-            return self.do_operation('newtuple', *args_w)
+            return self.frame.do_operation('newtuple', *args_w)
         else:
             return Constant(tuple(content))
 
     def newlist(self, args_w, sizehint=None):
-        return self.do_operation('newlist', *args_w)
+        return self.frame.do_operation('newlist', *args_w)
 
     def newslice(self, w_start, w_stop, w_step):
-        return self.do_operation('newslice', w_start, w_stop, w_step)
+        return self.frame.do_operation('newslice', w_start, w_stop, w_step)
 
     def newbool(self, b):
         if b:
@@ -299,22 +299,10 @@ class FlowObjSpace(object):
             if not self.is_true(w_correct):
                 e = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise e
-            return [self.do_operation('getitem', w_iterable, self.wrap(i))
+            return [self.frame.do_operation('getitem', w_iterable, self.wrap(i))
                         for i in range(expected_length)]
 
     # ____________________________________________________________
-    def do_operation(self, name, *args_w):
-        spaceop = SpaceOperation(name, args_w, Variable())
-        spaceop.offset = self.frame.last_instr
-        self.frame.record(spaceop)
-        return spaceop.result
-
-    def do_operation_with_implicit_exceptions(self, name, *args_w):
-        w_result = self.do_operation(name, *args_w)
-        self.frame.handle_implicit_exceptions(
-                operation.implicit_exceptions.get(name))
-        return w_result
-
     def not_(self, w_obj):
         return self.wrap(not self.is_true(w_obj))
 
@@ -325,7 +313,7 @@ class FlowObjSpace(object):
             pass
         else:
             return bool(obj)
-        w_truthvalue = self.do_operation('is_true', w_obj)
+        w_truthvalue = self.frame.do_operation('is_true', w_obj)
         return self.frame.guessbool(w_truthvalue)
 
     def iter(self, w_iterable):
@@ -336,7 +324,7 @@ class FlowObjSpace(object):
         else:
             if isinstance(iterable, unrolling_iterable):
                 return self.wrap(iterable.get_unroller())
-        w_iter = self.do_operation("iter", w_iterable)
+        w_iter = self.frame.do_operation("iter", w_iterable)
         return w_iter
 
     def next(self, w_iter):
@@ -354,7 +342,7 @@ class FlowObjSpace(object):
                 else:
                     frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
-        w_item = self.do_operation("next", w_iter)
+        w_item = frame.do_operation("next", w_iter)
         frame.handle_implicit_exceptions([StopIteration, RuntimeError])
         return w_item
 
@@ -363,8 +351,8 @@ class FlowObjSpace(object):
         if w_obj is self.frame.w_globals:
             raise FlowingError(self.frame,
                     "Attempting to modify global variable  %r." % (w_key))
-        return self.do_operation_with_implicit_exceptions('setitem', w_obj,
-                                                          w_key, w_val)
+        return self.frame.do_operation_with_implicit_exceptions('setitem',
+                w_obj, w_key, w_val)
 
     def setitem_str(self, w_obj, key, w_value):
         return self.setitem(w_obj, self.wrap(key), w_value)
@@ -375,7 +363,7 @@ class FlowObjSpace(object):
         if w_obj in self.not_really_const:
             const_w = self.not_really_const[w_obj]
             if w_name not in const_w:
-                return self.do_operation_with_implicit_exceptions('getattr',
+                return self.frame.do_operation_with_implicit_exceptions('getattr',
                                                                 w_obj, w_name)
         try:
             obj = self.unwrap_for_computation(w_obj)
@@ -394,7 +382,7 @@ class FlowObjSpace(object):
                 return self.wrap(result)
             except WrapException:
                 pass
-        return self.do_operation_with_implicit_exceptions('getattr',
+        return self.frame.do_operation_with_implicit_exceptions('getattr',
                 w_obj, w_name)
 
     def isinstance_w(self, w_obj, w_type):
@@ -414,7 +402,7 @@ class FlowObjSpace(object):
         if w_module in self.not_really_const:
             const_w = self.not_really_const[w_obj]
             if w_name not in const_w:
-                return self.do_operation_with_implicit_exceptions('getattr',
+                return self.frame.do_operation_with_implicit_exceptions('getattr',
                                                                 w_obj, w_name)
         try:
             return self.wrap(getattr(w_module.value, w_name.value))
@@ -433,7 +421,7 @@ class FlowObjSpace(object):
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
         w_func = self.wrap(func)
-        return self.do_operation('simple_call', w_func, *args_w)
+        return self.frame.do_operation('simple_call', w_func, *args_w)
 
     def call_args(self, w_callable, args):
         try:
@@ -454,11 +442,11 @@ class FlowObjSpace(object):
         # NOTE: annrpython needs to know about the following two operations!
         if not kwds_w:
             # simple case
-            w_res = self.do_operation('simple_call', w_callable, *args_w)
+            w_res = self.frame.do_operation('simple_call', w_callable, *args_w)
         else:
             # general case
             shape, args_w = args.flatten()
-            w_res = self.do_operation('call_args', w_callable, Constant(shape),
+            w_res = self.frame.do_operation('call_args', w_callable, Constant(shape),
                                       *args_w)
 
         # maybe the call has generated an exception (any one)
@@ -562,7 +550,7 @@ def make_op(name, arity):
                             # type cannot sanely appear in flow graph,
                             # store operation with variable result instead
                             pass
-        w_result = self.do_operation_with_implicit_exceptions(name, *args_w)
+        w_result = self.frame.do_operation_with_implicit_exceptions(name, *args_w)
         return w_result
 
     setattr(FlowObjSpace, name, generic_operator)
