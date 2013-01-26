@@ -713,7 +713,7 @@ if __name__ == '__main__':
     def pypy_find_stdlib(s):
         from os.path import abspath, join, dirname as dn
         thisfile = abspath(__file__)
-        root = dn(dn(dn(dn(thisfile))))
+        root = dn(dn(dn(thisfile)))
         return [join(root, 'lib-python', '2.7'),
                 join(root, 'lib_pypy')]
     
