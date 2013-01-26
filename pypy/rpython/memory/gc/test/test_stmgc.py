@@ -178,8 +178,7 @@ class StmGCTests:
             gcref = self.gc.malloc_fixedsize_clear(tid, size,
                                                    contains_weakptr=weakref)
             realobj = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
-            addr = llmemory.cast_ptr_to_adr(realobj)
-        return realobj, addr
+        return realobj
     def select_thread(self, threadnum):
         self.gc.stm_operations.threadnum = threadnum
         if threadnum not in self.gc.stm_operations._tls_dict:
@@ -199,10 +198,18 @@ class StmGCTests:
         if must_have_version != '?':
             assert hdr.version == must_have_version
 
-    def stm_readbarrier(self, P):
+    def header(self, P):
         if lltype.typeOf(P) != llmemory.Address:
             P = llmemory.cast_ptr_to_adr(P)
-        hdr = self.gc.header(P)
+        return self.gc.header(P)
+
+    def set_hdr_revision(self, hdr, P):
+        if lltype.typeOf(P) != llmemory.Address:
+            P = llmemory.cast_ptr_to_adr(P)
+        set_hdr_revision(hdr, P)
+
+    def stm_readbarrier(self, P):
+        hdr = self.header(P)
         if hdr.tid & GCFLAG_GLOBAL == 0:
             # already a local object
             R = P
@@ -223,9 +230,7 @@ class StmGCTests:
         return G
 
     def stm_writebarrier(self, P):
-        if lltype.typeOf(P) != llmemory.Address:
-            P = llmemory.cast_ptr_to_adr(P)
-        hdr = self.gc.header(P)
+        hdr = self.header(P)
         if hdr.tid & GCFLAG_NOT_WRITTEN == 0:
             # already a local, written-to object
             assert hdr.tid & GCFLAG_GLOBAL == 0
@@ -295,22 +300,22 @@ class TestBasic(StmGCTests):
 
     def test_write_barrier_exists(self):
         self.select_thread(1)
-        t, t_adr = self.malloc(S)
-        obj = self.stm_writebarrier(t_adr)     # local object
-        assert obj == t_adr
+        t = self.malloc(S)
+        obj = self.stm_writebarrier(t)     # local object
+        assert obj == t
         #
         self.select_thread(0)
-        s, s_adr = self.malloc(S)
+        s = self.malloc(S)
         #
         self.select_thread(1)
-        assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL != 0
-        assert self.gc.header(t_adr).tid & GCFLAG_GLOBAL == 0
-        self.gc.header(s_adr).tid |= GCFLAG_POSSIBLY_OUTDATED
-        self.gc.header(t_adr).tid |= GCFLAG_LOCAL_COPY | GCFLAG_VISITED
-        set_hdr_revision(self.gc.header(t_adr), s_adr)
+        assert self.header(s).tid & GCFLAG_GLOBAL != 0
+        assert self.header(t).tid & GCFLAG_GLOBAL == 0
+        self.header(s).tid |= GCFLAG_POSSIBLY_OUTDATED
+        self.header(t).tid |= GCFLAG_LOCAL_COPY | GCFLAG_VISITED
+        self.set_hdr_revision(self.header(t), s)
         self.gc.stm_operations._tldicts[1][s_adr] = t_adr
-        obj = self.stm_writebarrier(s_adr)     # global copied object
-        assert obj == t_adr
+        obj = self.stm_writebarrier(s)     # global copied object
+        assert obj == t
         assert self.gc.stm_operations._transactional_copies == []
 
     def test_write_barrier_new(self):
@@ -450,20 +455,20 @@ class TestBasic(StmGCTests):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
-        tr1, tr1_adr = self.malloc(SR, globl=True)   # three prebuilt objects
-        tr2, tr2_adr = self.malloc(SR, globl=True)
-        tr3, tr3_adr = self.malloc(SR, globl=True)
+        tr1 = self.malloc(SR, globl=True)   # three prebuilt objects
+        tr2 = self.malloc(SR, globl=True)
+        tr3 = self.malloc(SR, globl=True)
         tr1.sr2 = tr2
         self.gc.root_walker.push(tr1)
-        sr1_adr = self.gc.stm_writebarrier(tr1_adr)
-        assert sr1_adr != tr1_adr
-        sr2_adr = self.gc.stm_writebarrier(tr2_adr)
-        assert sr2_adr != tr2_adr
-        sr3_adr = self.gc.stm_writebarrier(tr3_adr)
-        assert sr3_adr != tr3_adr
-        self.checkflags(sr1_adr, False, True)    # sr1 is local
-        self.checkflags(sr2_adr, False, True)    # sr2 is local
-        self.checkflags(sr3_adr, False, True)    # sr3 is local
+        sr1 = self.stm_writebarrier(tr1)
+        assert sr1 != tr1
+        sr2 = self.stm_writebarrier(tr2)
+        assert sr2 != tr2
+        sr3 = self.gc.stm_writebarrier(tr3)
+        assert sr3 != tr3
+        self.checkflags(sr1, False, True)    # sr1 is local
+        self.checkflags(sr2, False, True)    # sr2 is local
+        self.checkflags(sr3, False, True)    # sr3 is local
         #
         self.gc.stop_transaction()
         self.gc.start_transaction()
