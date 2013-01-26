@@ -30,9 +30,9 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        from pypy.module.signal import interp_signal
-        for name in interp_signal.signal_names:
-            signum = getattr(interp_signal, name)
+        from pypy.rlib import rsignal
+        for name in rsignal.signal_names:
+            signum = getattr(rsignal, name)
             if signum is not None:
                 Module.interpleveldefs[name] = 'space.wrap(%d)' % (signum,)
         super(Module, cls).buildloaders()
@@ -40,11 +40,11 @@ class Module(MixedModule):
 
     def __init__(self, space, *args):
         "NOT_RPYTHON"
-        from pypy.module.signal import interp_signal
+        from pypy.module.signal import sigaction
         MixedModule.__init__(self, space, *args)
         # add the signal-checking callback as an action on the space
-        space.check_signal_action = interp_signal.CheckSignalAction(space)
+        space.check_signal_action = sigaction.CheckSignalAction(space)
         space.actionflag.register_periodic_action(space.check_signal_action,
                                                   use_bytecode_counter=False)
-        space.actionflag.__class__ = interp_signal.SignalActionFlag
+        space.actionflag.__class__ = sigaction.SignalActionFlag
         # xxx yes I know the previous line is a hack

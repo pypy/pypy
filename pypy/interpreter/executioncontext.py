@@ -351,6 +351,8 @@ class AbstractActionFlag(object):
         assert isinstance(action, PeriodicAsyncAction)
         self._periodic_actions.append(action)
         if use_bytecode_counter:
+            assert not action.space.config.translation.stm, (
+                "Cannot use the bytecode counter with STM")
             self.has_bytecode_counter = True
         self._rebuild_action_dispatcher()
 
