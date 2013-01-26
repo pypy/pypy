@@ -13,7 +13,7 @@ import shutil
 import sys
 import os
 #Add toplevel repository dir to sys.path
-sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 import py
 import fnmatch
 from rpython.tool.udir import udir

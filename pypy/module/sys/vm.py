@@ -95,7 +95,7 @@ frame."""
 def exc_info_with_tb(space):
     operror = space.getexecutioncontext().sys_exc_info()
     if operror is None:
-        return space.newtuple([space.w_None,space.w_None,space.w_None])
+        return space.newtuple([space.w_None, space.w_None, space.w_None])
     else:
         return space.newtuple([operror.w_type, operror.get_w_value(space),
                                space.wrap(operror.get_traceback())])
