@@ -36,7 +36,7 @@ class TestCheckSignals:
 
 class AppTestSignal:
     spaceconfig = {
-        "usemodules": ['signal', 'rctime'],
+        "usemodules": ['signal', 'rctime'] + (['fcntl'] if os.name != 'nt' else []),
     }
 
     def setup_class(cls):
