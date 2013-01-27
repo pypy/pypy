@@ -397,13 +397,10 @@ class CallSpec(ArgumentsForTranslation):
     def combine_if_necessary(self):
         if self.combine_has_happened:
             return
-        self._combine_wrapped(self.w_stararg)
+        if self.w_stararg is not None:
+            args_w = self.space.unpackiterable(self.w_stararg)
+            self.arguments_w = self.arguments_w + args_w
         self.combine_has_happened = True
-
-    def _combine_wrapped(self, w_stararg):
-        "unpack the *arg and **kwd into arguments_w and keywords_w"
-        if w_stararg is not None:
-            self._combine_starargs_wrapped(w_stararg)
 
     def _rawshape(self, nextra=0):
         assert not self.combine_has_happened
