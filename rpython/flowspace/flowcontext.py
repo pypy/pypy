@@ -7,7 +7,7 @@ import collections
 
 from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
-from rpython.flowspace.argument import ArgumentsForTranslation
+from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
     UnwrapException, c_last_exception, SpaceOperation)
 from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
@@ -989,7 +989,7 @@ class FlowSpaceFrame(object):
             keywords = None
             keywords_w = None
         arguments = self.popvalues(n_arguments)
-        args = ArgumentsForTranslation(self.space, arguments, keywords,
+        args = CallSpec(self.space, arguments, keywords,
                 keywords_w, w_star, w_starstar)
         w_function  = self.popvalue()
         w_result = self.space.call_args(w_function, args)

@@ -374,6 +374,11 @@ def rawshape(args, nextra=0):
     return args._rawshape(nextra)
 
 
+class CallSpec(ArgumentsForTranslation):
+    """Represents the arguments passed into a function call, i.e. the
+    `a, b, *c, **d` part in `return func(a, b, *c, **d)`.
+    """
+
 #
 # ArgErr family of exceptions raised in case of argument mismatch.
 # We try to give error messages following CPython's, which are very informative.

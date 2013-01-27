@@ -7,7 +7,7 @@ import sys
 import types
 from inspect import CO_NEWLOCALS
 
-from rpython.flowspace.argument import ArgumentsForTranslation
+from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, WrapException,
     UnwrapException, checkgraph)
 from rpython.flowspace.bytecode import HostCode
@@ -396,7 +396,7 @@ class FlowObjSpace(object):
         return self.call_function(w_meth, *arg_w)
 
     def call_function(self, w_func, *args_w):
-        args = ArgumentsForTranslation(self, list(args_w))
+        args = CallSpec(self, list(args_w))
         return self.call_args(w_func, args)
 
     def appcall(self, func, *args_w):
