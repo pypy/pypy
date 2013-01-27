@@ -28,6 +28,7 @@ else:
 
 import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
+pypyroot = os.path.dirname(pypydir)
 del pypy
 from rpython.tool.version import get_repo_version_info
 
@@ -68,7 +69,7 @@ def get_version(space):
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
-        get_repo_version_info()[2],
+        get_repo_version_info(root=pypyroot)[2],
         date,
         time,
         ver,
@@ -91,10 +92,10 @@ def get_subversion_info(space):
     return space.wrap(('PyPy', '', ''))
 
 def get_repo_info(space):
-    info = get_repo_version_info()
+    info = get_repo_version_info(root=pypyroot)
     if info:
         project, repo_tag, repo_version = info
-        return space.newtuple([space.wrap(project),
+        return space.newtuple([space.wrap('PyPy'),
                                space.wrap(repo_tag),
                                space.wrap(repo_version)])
     else:
