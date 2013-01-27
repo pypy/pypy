@@ -29,7 +29,7 @@ else:
 import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
 del pypy
-from pypy.tool.version import get_repo_version_info
+from rpython.tool.version import get_repo_version_info
 
 import time as t
 gmtime = t.gmtime()

@@ -1,10 +1,10 @@
 import py
 import os
 from subprocess import Popen, PIPE
-import pypy
-pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
-pypyroot = os.path.dirname(pypydir)
-default_retval = 'PyPy', '?', '?'
+import rpython
+rpythondir = os.path.dirname(os.path.abspath(rpython.__file__))
+rpythonroot = os.path.dirname(rpythondir)
+default_retval = 'RPython', '?', '?'
 
 def maywarn(err, repo_type='Mercurial'):
     if not err:
@@ -20,16 +20,16 @@ def get_repo_version_info(hgexe=None):
 
     # Try to see if we can get info from Git if hgexe is not specified.
     if not hgexe:
-        if os.path.isdir(os.path.join(pypyroot, '.git')):
+        if os.path.isdir(os.path.join(rpythonroot, '.git')):
             return _get_git_version()
 
     # Fallback to trying Mercurial.
     if hgexe is None:
         hgexe = py.path.local.sysfind('hg')
 
-    if os.path.isfile(os.path.join(pypyroot, '.hg_archival.txt')):
-        return _get_hg_archive_version(os.path.join(pypyroot, '.hg_archival.txt'))
-    elif not os.path.isdir(os.path.join(pypyroot, '.hg')):
+    if os.path.isfile(os.path.join(rpythonroot, '.hg_archival.txt')):
+        return _get_hg_archive_version(os.path.join(rpythonroot, '.hg_archival.txt'))
+    elif not os.path.isdir(os.path.join(rpythonroot, '.hg')):
         maywarn('Not running from a Mercurial repository!')
         return default_retval
     elif not hgexe:
@@ -57,14 +57,14 @@ def _get_hg_version(hgexe):
         maywarn('command does not identify itself as Mercurial')
         return default_retval
 
-    p = Popen([str(hgexe), 'id', '-i', pypyroot],
+    p = Popen([str(hgexe), 'id', '-i', rpythonroot],
               stdout=PIPE, stderr=PIPE, env=env)
     hgid = p.stdout.read().strip()
     maywarn(p.stderr.read())
     if p.wait() != 0:
         hgid = '?'
 
-    p = Popen([str(hgexe), 'id', '-t', pypyroot],
+    p = Popen([str(hgexe), 'id', '-t', rpythonroot],
               stdout=PIPE, stderr=PIPE, env=env)
     hgtags = [t for t in p.stdout.read().strip().split() if t != 'tip']
     maywarn(p.stderr.read())
@@ -72,15 +72,15 @@ def _get_hg_version(hgexe):
         hgtags = ['?']
 
     if hgtags:
-        return 'PyPy', hgtags[0], hgid
+        return 'RPython', hgtags[0], hgid
     else:
         # use the branch instead
-        p = Popen([str(hgexe), 'id', '-b', pypyroot],
+        p = Popen([str(hgexe), 'id', '-b', rpythonroot],
                   stdout=PIPE, stderr=PIPE, env=env)
         hgbranch = p.stdout.read().strip()
         maywarn(p.stderr.read())
 
-        return 'PyPy', hgbranch, hgid
+        return 'RPython', hgbranch, hgid
 
 
 def _get_hg_archive_version(path):
@@ -90,9 +90,9 @@ def _get_hg_archive_version(path):
     finally:
         fp.close()
     if 'tag' in data:
-        return 'PyPy', data['tag'], data['node']
+        return 'RPython', data['tag'], data['node']
     else:
-        return 'PyPy', data['branch'], data['node']
+        return 'RPython', data['branch'], data['node']
 
 
 def _get_git_version():
@@ -105,7 +105,7 @@ def _get_git_version():
     try:
         p = Popen(
             [str(gitexe), 'rev-parse', 'HEAD'],
-            stdout=PIPE, stderr=PIPE, cwd=pypyroot
+            stdout=PIPE, stderr=PIPE, cwd=rpythonroot
             )
     except OSError, e:
         maywarn(e, 'Git')
@@ -116,16 +116,16 @@ def _get_git_version():
     revision_id = p.stdout.read().strip()[:12]
     p = Popen(
         [str(gitexe), 'describe', '--tags', '--exact-match'],
-        stdout=PIPE, stderr=PIPE, cwd=pypyroot
+        stdout=PIPE, stderr=PIPE, cwd=rpythonroot
         )
     if p.wait() != 0:
         p = Popen(
             [str(gitexe), 'branch'], stdout=PIPE, stderr=PIPE,
-            cwd=pypyroot
+            cwd=rpythonroot
             )
         if p.wait() != 0:
             maywarn(p.stderr.read(), 'Git')
-            return 'PyPy', '?', revision_id
+            return 'RPython', '?', revision_id
         branch = '?'
         for line in p.stdout.read().strip().split('\n'):
             if line.startswith('* '):
@@ -133,8 +133,8 @@ def _get_git_version():
                 if branch == '(no branch)':
                     branch = '?'
                 break
-        return 'PyPy', branch, revision_id
-    return 'PyPy', p.stdout.read().strip(), revision_id
+        return 'RPython', branch, revision_id
+    return 'RPython', p.stdout.read().strip(), revision_id
 
 
 if __name__ == '__main__':

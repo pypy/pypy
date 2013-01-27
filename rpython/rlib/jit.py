@@ -310,7 +310,10 @@ def jit_callback(name):
     def decorate(func):
         from rpython.tool.sourcetools import compile2
         #
-        jitdriver = JitDriver(greens=[], reds='auto', name=name)
+        def get_printable_location():
+            return name
+        jitdriver = JitDriver(get_printable_location=get_printable_location,
+                              greens=[], reds='auto', name=name)
         #
         args = ','.join(['a%d' % i for i in range(func.func_code.co_argcount)])
         source = """def callback_with_jitdriver(%(args)s):

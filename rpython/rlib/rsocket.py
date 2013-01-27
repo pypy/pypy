@@ -1044,7 +1044,21 @@ if hasattr(_c, 'socketpair'):
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
 
-if hasattr(_c, 'dup'):
+if _c.WIN32:
+    def dup(fd):
+        with lltype.scoped_alloc(_c.WSAData, zero=True) as info:
+            if _c.WSADuplicateSocket(fd, rwin32.GetCurrentProcessId(), info):
+                raise last_error()
+            result = _c.WSASocket(
+                _c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
+                _c.FROM_PROTOCOL_INFO, info, 0, 0)
+            if result == INVALID_SOCKET:
+                raise last_error()
+            return result
+else:
+    def dup(fd):
+        return _c.dup(fd)
+
     def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
         # Dup the fd so it and the socket can be closed independently
         fd = _c.dup(fd)
