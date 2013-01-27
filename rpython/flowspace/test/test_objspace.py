@@ -716,6 +716,18 @@ class TestFlowObjSpace(Base):
             graph = self.codetest(f2)
         assert 'Dict-unpacking' in str(excinfo.value)
 
+    def test_kwarg_call(self):
+        def g(x):
+            return x
+        def f():
+            return g(x=2)
+        graph = self.codetest(f)
+        for block in graph.iterblocks():
+            for op in block.operations:
+                assert op.opname == "call_args"
+                assert op.args == map(Constant,
+                        [g, (0, ('x',), False, False), 2])
+
     def test_catch_importerror_1(self):
         def f():
             try:
