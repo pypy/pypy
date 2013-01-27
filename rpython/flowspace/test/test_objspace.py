@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from rpython.flowspace.model import Constant, mkentrymap, c_last_exception
 from rpython.translator.simplify import simplify_graph
-from rpython.flowspace.objspace import FlowObjSpace
+from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
@@ -34,7 +34,7 @@ class Base:
         except AttributeError:
             pass
         #name = func.func_name
-        graph = self.space.build_flow(func, **kwds)
+        graph = build_flow(func, **kwds)
         graph.source = inspect.getsource(func)
         self.show(graph)
         return graph
@@ -42,9 +42,6 @@ class Base:
     def show(self, graph):
         if option.view:
             graph.show()
-
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
 
     def all_operations(self, graph):
         result = {}
@@ -740,7 +737,7 @@ class TestFlowObjSpace(Base):
 
     def test_relative_import(self):
         def f():
-            from ..test.test_objspace import FlowObjSpace
+            from ..objspace import build_flow
         # Check that the function works in Python
         assert f() is None
         self.codetest(f)

@@ -1,7 +1,7 @@
 import os
 import inspect, linecache
 from rpython.flowspace.model import *
-from rpython.flowspace.objspace import FlowObjSpace as Space
+from rpython.flowspace.objspace import build_flow
 from rpython.tool.udir import udir
 from py.process import cmdexec
 from rpython.tool.error import offset2lineno
@@ -44,9 +44,9 @@ class DotGen:
     def leave_subgraph(self):
         self.emit("}")
 
-    def emit_edge(self, name1, name2, label="", 
-                  style="dashed", 
-                  color="black", 
+    def emit_edge(self, name1, name2, label="",
+                  style="dashed",
+                  color="black",
                   dir="forward",
                   weight="5",
                   ports=None,
@@ -61,11 +61,11 @@ class DotGen:
         else:
             self.emit('%s -> %s' % (safename(name1), safename(name2)))
 
-    def emit_node(self, name, 
-                  shape="diamond", 
-                  label="", 
+    def emit_node(self, name,
+                  shape="diamond",
+                  label="",
                   color="black",
-                  fillcolor="white", 
+                  fillcolor="white",
                   style="filled",
                   width="0.75",
                   ):
@@ -134,7 +134,7 @@ class FlowGraphDotGen(DotGen):
             data = "BROKEN BLOCK\\n%r" % (block,)
             self.emit_node(name, label=data)
             return
-            
+
         lines = []
         for op in block.operations:
             lines.extend(repr(op).split('\n'))
@@ -247,6 +247,5 @@ if __name__ == '__main__':
             i += 1
         return i
 
-    space = Space()
-    graph = space.build_flow(f)
+    graph = build_flow(f)
     make_dot('f', graph)

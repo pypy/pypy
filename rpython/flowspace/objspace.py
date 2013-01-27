@@ -84,6 +84,9 @@ class FlowObjSpace(object):
     # objects which should keep their SomeObjectness
     not_really_const = NOT_REALLY_CONST
 
+    def build_flow(self, func):
+        return build_flow(func, self)
+
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
 
@@ -261,28 +264,6 @@ class FlowObjSpace(object):
             w_value = w_inst
             w_type = w_instclass
         return FSException(w_type, w_value)
-
-    def build_flow(self, func):
-        """
-        """
-        _assert_rpythonic(func)
-        code = HostCode._from_code(func.func_code)
-        if (code.is_generator and
-                not hasattr(func, '_generator_next_method_of_')):
-            graph = PyGraph(func, code)
-            block = graph.startblock
-            for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
-                if isinstance(w_value, Variable):
-                    w_value.rename(name)
-            return bootstrap_generator(graph)
-        graph = PyGraph(func, code)
-        frame = self.frame = FlowSpaceFrame(self, graph, code)
-        frame.build_flow()
-        fixeggblocks(graph)
-        checkgraph(graph)
-        if code.is_generator:
-            tweak_generator_graph(graph)
-        return graph
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if not isinstance(w_iterable, Variable):
@@ -555,6 +536,29 @@ def make_op(name, arity):
 
     setattr(FlowObjSpace, name, generic_operator)
 
-
 for (name, symbol, arity, specialnames) in operation.MethodTable:
     make_op(name, arity)
+
+
+def build_flow(func, space=FlowObjSpace()):
+    """
+    Create the flow graph for the function.
+    """
+    _assert_rpythonic(func)
+    code = HostCode._from_code(func.func_code)
+    if (code.is_generator and
+            not hasattr(func, '_generator_next_method_of_')):
+        graph = PyGraph(func, code)
+        block = graph.startblock
+        for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
+            if isinstance(w_value, Variable):
+                w_value.rename(name)
+        return bootstrap_generator(graph)
+    graph = PyGraph(func, code)
+    frame = space.frame = FlowSpaceFrame(space, graph, code)
+    frame.build_flow()
+    fixeggblocks(graph)
+    checkgraph(graph)
+    if code.is_generator:
+        tweak_generator_graph(graph)
+    return graph
