@@ -719,7 +719,7 @@ if __name__ == '__main__':
     
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
-        # translator/goal/app_main.py anyway
+        # interpreter/app_main.py anyway
         import os
         return os.path.abspath(os.path.join(s, '..'))
 

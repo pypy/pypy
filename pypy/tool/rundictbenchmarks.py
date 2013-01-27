@@ -3,7 +3,7 @@ import sys, os
 # this file runs some benchmarks with a pypy-c that is assumed to be
 # built using the MeasuringDictImplementation.
 
-# it should be run with pypy/translator/goal as the cwd, and you'll
+# it should be run with pypy/goal as the cwd, and you'll
 # need to hack a copy of rst2html for yourself (svn docutils
 # required).
 
