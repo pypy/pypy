@@ -1874,12 +1874,13 @@ class Assembler386(object):
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
         positions = [0] * len(guardtok.fail_locs)
         for i, loc in enumerate(guardtok.fail_locs):
-            if loc is None or loc is ebp: # frame
+            if loc is None:
                 positions[i] = -1
             elif isinstance(loc, StackLoc):
                 positions[i] = loc.value
             else:
                 assert isinstance(loc, RegLoc)
+                assert loc is not ebp # for now
                 if loc.is_xmm:
                     v = len(gpr_reg_mgr_cls.all_regs) + loc.value
                 else:
@@ -2484,6 +2485,11 @@ class Assembler386(object):
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
+
+    def force_token(self, reg):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        assert isinstance(reg, RegLoc)
+        self.mc.LEA_rb(reg.value, -base_ofs)
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
