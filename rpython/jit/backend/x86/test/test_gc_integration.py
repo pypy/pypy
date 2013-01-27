@@ -479,12 +479,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once() 
         S = self.S
-        ofs = cpu.get_baseofs_of_frame_field()
         frames = []
         
         def check(i):
-            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
-            frame = rffi.cast(JITFRAMEPTR, i - ofs)
+            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
+            frame = rffi.cast(JITFRAMEPTR, i)
             assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE + 4
             # we "collect"
             frames.append(frame)
@@ -498,8 +497,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             frames.append(new_frame)
 
         def check2(i):
-            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
-            frame = rffi.cast(JITFRAMEPTR, i - ofs)
+            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
+            frame = rffi.cast(JITFRAMEPTR, i)
             assert frame == frames[1]
             assert frame != frames[0]
 
@@ -511,11 +510,12 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
         loop = self.parse("""
         [p0, p1, p2]
-        i0 = force_token() # this is a bit below the frame
-        call(ConstClass(check_adr), i0, descr=checkdescr) # this can collect
+        pf = force_token() # this is a bit below the frame
+        call(ConstClass(check_adr), pf, descr=checkdescr) # this can collect
         p3 = getfield_gc(p0, descr=fielddescr)
-        call(ConstClass(check2_adr), i0, descr=checkdescr)
-        guard_true(i0, descr=faildescr) [p0, p1, p2, p3]
+        pf2 = force_token()
+        call(ConstClass(check2_adr), pf2, descr=checkdescr)
+        guard_nonnull(p3, descr=faildescr) [p0, p1, p2, p3]
         p4 = getfield_gc(p0, descr=fielddescr)
         finish(p4, descr=finaldescr)
         """, namespace={'finaldescr': BasicFinalDescr(),
@@ -534,7 +534,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
         gcmap = unpack_gcmap(lltype.cast_opaque_ptr(JITFRAMEPTR, frame))
         assert len(gcmap) == 1
-        assert gcmap[0] < 29
+        assert gcmap[0] < JITFRAME_FIXED_SIZE
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
 

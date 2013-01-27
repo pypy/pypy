@@ -2021,9 +2021,9 @@ class Assembler386(object):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         self.mov(fail_descr_loc, RawStackLoc(ofs))
-        gcmap = self.gcmap_for_finish
         arglist = op.getarglist()
         if arglist and arglist[0].type == REF:
+            gcmap = self.gcmap_for_finish
             self.push_gcmap(self.mc, gcmap, store=True)
         else:
             # note that the 0 here is redundant, but I would rather
