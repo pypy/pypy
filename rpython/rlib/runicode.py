@@ -60,13 +60,13 @@ if MAXUNICODE > 0xFFFF:
     def code_to_unichr(code):
         if not we_are_translated() and sys.maxunicode == 0xFFFF:
             # Host CPython is narrow build, generate surrogates
-            return UNICHR(code)
+            return unichr_returns_surrogate(code)
         else:
             return unichr(code)
 else:
     def code_to_unichr(code):
         # generate surrogates for large codes
-        return UNICHR(code)
+        return unichr_returns_surrogate(code)
 
 def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)
