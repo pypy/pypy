@@ -881,7 +881,6 @@ class AppTestAppMain:
 
     def test_setup_bootstrap_path(self):
         import sys
-        import os
         old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
         try:
