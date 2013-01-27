@@ -507,7 +507,7 @@ class Assembler386(object):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
         clt.allgcrefs = []
-        clt.frame_info.set_frame_depth(0) # for now
+        clt.frame_info.set_frame_depth(0, 0) # for now
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = len(inputargs)
         if not we_are_translated():
@@ -666,12 +666,13 @@ class Assembler386(object):
                 mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
     def update_frame_depth(self, frame_depth):
-        self.current_clt.frame_info.set_frame_depth(frame_depth)
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        self.current_clt.frame_info.set_frame_depth(baseofs, frame_depth)
         new_jumping_to = []
         for wref in self.current_clt.jumping_to:
             clt = wref()
             if clt is not None:
-                clt.frame_info.set_frame_depth(max(frame_depth,
+                clt.frame_info.set_frame_depth(baseofs, max(frame_depth,
                     clt.frame_info.jfi_frame_depth))
                 new_jumping_to.append(weakref.ref(clt))
         self.current_clt.jumping_to = new_jumping_to
@@ -898,7 +899,8 @@ class Assembler386(object):
         # copy frame-info data
         old_fi = oldlooptoken.compiled_loop_token.frame_info
         new_fi = newlooptoken.compiled_loop_token.frame_info
-        old_fi.set_frame_depth(new_fi.jfi_frame_depth)
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        old_fi.set_frame_depth(baseofs, new_fi.jfi_frame_depth)
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()
