@@ -714,7 +714,7 @@ class TestFlowObjSpace(Base):
             return g(*(0,), **{'c':3})
         with py.test.raises(FlowingError) as excinfo:
             graph = self.codetest(f2)
-        assert 'Dict-unpackinga' in str(excinfo.value)
+        assert 'Dict-unpacking' in str(excinfo.value)
 
     def test_catch_importerror_1(self):
         def f():

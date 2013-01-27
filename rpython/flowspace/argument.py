@@ -378,6 +378,45 @@ class CallSpec(ArgumentsForTranslation):
     """Represents the arguments passed into a function call, i.e. the
     `a, b, *c, **d` part in `return func(a, b, *c, **d)`.
     """
+    def __init__(self, space, args_w, keywords=None, keywords_w=None,
+                 w_stararg=None, w_starstararg=None):
+        self.w_stararg = w_stararg
+        assert w_starstararg is None, "No **-unpacking in RPython"
+        self.combine_has_happened = False
+        self.space = space
+        assert isinstance(args_w, list)
+        self.arguments_w = args_w
+        self.keywords = keywords
+        self.keywords_w = keywords_w
+        self.keyword_names_w = None
+
+    def copy(self):
+        return CallSpec(self.space, self.arguments_w,
+                self.keywords, self.keywords_w, self.w_stararg)
+
+    def combine_if_necessary(self):
+        if self.combine_has_happened:
+            return
+        self._combine_wrapped(self.w_stararg)
+        self.combine_has_happened = True
+
+    def _combine_wrapped(self, w_stararg):
+        "unpack the *arg and **kwd into arguments_w and keywords_w"
+        if w_stararg is not None:
+            self._combine_starargs_wrapped(w_stararg)
+
+    def _rawshape(self, nextra=0):
+        assert not self.combine_has_happened
+        shape_cnt  = len(self.arguments_w)+nextra        # Number of positional args
+        if self.keywords:
+            shape_keys = self.keywords[:]                # List of keywords (strings)
+            shape_keys.sort()
+        else:
+            shape_keys = []
+        shape_star = self.w_stararg is not None   # Flag: presence of *arg
+        shape_stst = False # Flag: presence of **kwds
+        return shape_cnt, tuple(shape_keys), shape_star, shape_stst # shape_keys are sorted
+
 
 #
 # ArgErr family of exceptions raised in case of argument mismatch.
