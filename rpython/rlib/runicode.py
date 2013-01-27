@@ -31,7 +31,8 @@ def ord_accepts_surrogate(u):
         ch2 = ord(u[1])
         if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
             return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-    return ord(u)
+    assert len(u) == 1
+    return ord(u[0])
 
 if MAXUNICODE > sys.maxunicode:
     # A version of unichr which allows codes outside the BMP
