@@ -1,5 +1,4 @@
 import os, sys
-import py
 from rpython.tool.version import get_repo_version_info, _get_hg_archive_version
 
 def test_hg_archival_version(tmpdir):
