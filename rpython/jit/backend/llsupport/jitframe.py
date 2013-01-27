@@ -14,10 +14,19 @@ IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
 GCMAP = lltype.GcArray(lltype.Unsigned)
 NULLGCMAP = lltype.nullptr(GCMAP)
 
+def jitframeinfo_set_depth(jfi, new_depth):
+    jfi.jfi_frame_depth = new_depth
+    jfi.jfi_frame_size = STATICSIZE + new_depth * SIZEOFSIGNED
+
 JITFRAMEINFO = lltype.GcStruct(
     'JITFRAMEINFO',
-    # the depth of frame
+    # the depth of the frame
     ('jfi_frame_depth', lltype.Signed),
+    # the total size of the frame, in bytes
+    ('jfi_frame_size', lltype.Signed),
+    adtmeths = {
+        'set_frame_depth': jitframeinfo_set_depth,
+    },
 )
 
 NULLFRAMEINFO = lltype.nullptr(JITFRAMEINFO)

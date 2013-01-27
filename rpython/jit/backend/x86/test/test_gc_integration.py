@@ -451,6 +451,8 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
             setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_depth')
+        descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                                  'jfi_frame_size')
         return descrs
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):

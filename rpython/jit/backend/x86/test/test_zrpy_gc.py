@@ -790,5 +790,11 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
 
+    #def define_compile_framework_call_assembler(self):
+    #    xxx
+
+    #def test_compile_framework_call_assembler(self):
+    #    self.run('compile_framework_call_assembler')
+
 class TestShadowStack(CompileFrameworkTests):
     gcrootfinder = "shadowstack"
