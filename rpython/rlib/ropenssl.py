@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.unroll import unrolling_iterable
 
 import sys, os
 
@@ -92,8 +93,12 @@ class CConfig:
     OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
+    SSL_OP_NO_SSLv2 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv2")
+    SSL_OP_NO_SSLv3 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv3")
+    SSL_OP_NO_TLSv1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
+    HAS_SNI = rffi_platform.Defined("SSL_CTRL_SET_TLSEXT_HOSTNAME")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
     SSL_VERIFY_PEER = rffi_platform.ConstantInteger("SSL_VERIFY_PEER")
     SSL_VERIFY_FAIL_IF_NO_PEER_CERT = rffi_platform.ConstantInteger("SSL_VERIFY_FAIL_IF_NO_PEER_CERT")
@@ -117,6 +122,9 @@ class CConfig:
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
 
     CRYPTO_LOCK = rffi_platform.ConstantInteger("CRYPTO_LOCK")
+
+    OBJ_NAME_TYPE_MD_METH = rffi_platform.ConstantInteger(
+        "OBJ_NAME_TYPE_MD_METH")
 
     # Some structures, with only the fields used in the _ssl module
     X509_name_entry_st = rffi_platform.Struct('struct X509_name_entry_st',
@@ -146,6 +154,12 @@ class CConfig:
     OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
                                              "OPENSSL_EXPORT_VAR_AS_FUNCTION")
 
+    OBJ_NAME_st = rffi_platform.Struct(
+        'OBJ_NAME',
+        [('alias', rffi.INT),
+         ('name', rffi.CCHARP),
+         ]) 
+
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
@@ -166,8 +180,10 @@ ASN1_TIME = rffi.COpaquePtr('ASN1_TIME')
 ASN1_INTEGER = rffi.COpaquePtr('ASN1_INTEGER')
 GENERAL_NAMES = rffi.COpaquePtr('GENERAL_NAMES')
 GENERAL_NAME = rffi.CArrayPtr(GENERAL_NAME_st)
+OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
+HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
@@ -203,12 +219,26 @@ ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)
 ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT)
 ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_get_options', [SSL_CTX], rffi.INT, macro=True)
 ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.INT], rffi.INT, macro=True)
+if HAVE_SSL_CTX_CLEAR_OPTIONS:
+    ssl_external('SSL_CTX_clear_options', [SSL_CTX, rffi.INT], rffi.INT,
+                 macro=True)
 ssl_external('SSL_CTX_ctrl', [SSL_CTX, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
 ssl_external('SSL_CTX_set_verify', [SSL_CTX, rffi.INT, rffi.VOIDP], lltype.Void)
 ssl_external('SSL_CTX_get_verify_mode', [SSL_CTX], rffi.INT)
+ssl_external('SSL_CTX_set_default_verify_paths', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_cipher_list', [SSL_CTX, rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_load_verify_locations', [SSL_CTX, rffi.CCHARP, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_check_private_key', [SSL_CTX], rffi.INT)
+ssl_external('SSL_CTX_set_session_id_context', [SSL_CTX, rffi.CCHARP, rffi.UINT], rffi.INT)
+SSL_CTX_STATS_NAMES = """
+    number connect connect_good connect_renegotiate accept accept_good
+    accept_renegotiate hits misses timeouts cache_full""".split()
+SSL_CTX_STATS = unrolling_iterable(
+    (name, external('SSL_CTX_sess_' + name, [SSL_CTX], rffi.LONG, macro=True))
+    for name in SSL_CTX_STATS_NAMES)
+
 ssl_external('SSL_new', [SSL_CTX], SSL)
 ssl_external('SSL_set_fd', [SSL, rffi.INT], rffi.INT)
 ssl_external('SSL_set_mode', [SSL, rffi.INT], rffi.INT, macro=True)
@@ -224,6 +254,7 @@ ssl_external('SSL_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
 ssl_external('SSL_get_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_set_read_ahead', [SSL, rffi.INT], lltype.Void)
+ssl_external('SSL_set_tlsext_host_name', [SSL, rffi.CCHARP], rffi.INT, macro=True)
 
 ssl_external('SSL_get_peer_certificate', [SSL], X509)
 ssl_external('X509_get_subject_name', [X509], X509_NAME)
@@ -234,7 +265,7 @@ ssl_external('X509_NAME_get_entry', [X509_NAME, rffi.INT], X509_NAME_ENTRY)
 ssl_external('X509_NAME_ENTRY_get_object', [X509_NAME_ENTRY], ASN1_OBJECT)
 ssl_external('X509_NAME_ENTRY_get_data', [X509_NAME_ENTRY], ASN1_STRING)
 ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT)
-ssl_external('X509_free', [X509], lltype.Void)
+ssl_external('X509_free', [X509], lltype.Void, threadsafe=False)
 ssl_external('X509_get_notBefore', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_notAfter', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_serialNumber', [X509], ASN1_INTEGER)
@@ -272,9 +303,12 @@ ssl_external('SSL_CIPHER_get_bits', [SSL_CIPHER, rffi.INTP], rffi.INT)
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_peek_last_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
+ssl_external('ERR_clear_error', [], lltype.Void)
 
-ssl_external('SSL_free', [SSL], lltype.Void)
-ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void)
+# 'threadsafe=False' here indicates that this function will be called
+# with the GIL held, and so is allowed to run in a RPython __del__ method.
+ssl_external('SSL_free', [SSL], lltype.Void, threadsafe=False)
+ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, threadsafe=False)
 ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
 libssl_OPENSSL_free = libssl_CRYPTO_free
 
@@ -315,6 +349,11 @@ EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
 EVP_MD_CTX_cleanup = external(
     'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
+
+OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
+        [OBJ_NAME, rffi.VOIDP], lltype.Void))
+OBJ_NAME_do_all = external(
+    'OBJ_NAME_do_all', [rffi.INT, OBJ_NAME_CALLBACK, rffi.VOIDP], lltype.Void)
 
 # HASH_MALLOC_SIZE is the size of EVP_MD, EVP_MD_CTX plus their points
 # Used for adding memory pressure. Last number is an (under?)estimate of
