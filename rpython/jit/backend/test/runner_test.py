@@ -2062,7 +2062,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_cond_call_gc_wb(self):
         def func_void(a):
-            record.append(a)
+            record.append(rffi.cast(lltype.Signed, a))
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
@@ -2092,13 +2092,13 @@ class LLtypeBackendTest(BaseBackendTest):
                                    [BoxPtr(sgcref), ConstPtr(tgcref)],
                                    'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [s]
+                assert record == [rffi.cast(lltype.Signed, sgcref)]
             else:
                 assert record == []
 
     def test_cond_call_gc_wb_array(self):
         def func_void(a):
-            record.append(a)
+            record.append(rffi.cast(lltype.Signed, a))
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
@@ -2127,13 +2127,13 @@ class LLtypeBackendTest(BaseBackendTest):
                        [BoxPtr(sgcref), ConstInt(123), BoxPtr(sgcref)],
                        'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [s]
+                assert record == [rffi.cast(lltype.Signed, sgcref)]
             else:
                 assert record == []
 
     def test_cond_call_gc_wb_array_card_marking_fast_path(self):
         def func_void(a):
-            record.append(a)
+            record.append(rffi.cast(lltype.Signed, a))
             if cond == 1:      # the write barrier sets the flag
                 s.data.tid |= 32768
         record = []
@@ -2192,7 +2192,7 @@ class LLtypeBackendTest(BaseBackendTest):
                            [BoxPtr(sgcref), box_index, BoxPtr(sgcref)],
                            'void', descr=WriteBarrierDescr())
                 if cond in [0, 1]:
-                    assert record == [s.data]
+                    assert record == [rffi.cast(lltype.Signed, s.data)]
                 else:
                     assert record == []
                 if cond in [1, 2]:
