@@ -202,6 +202,29 @@ class TestMallocFastpath(BaseTestRegalloc):
         # slowpath never called
         assert gc_ll_descr.calls == []
 
+    def test_malloc_nursery_varsize_small(self):
+        self.cpu = self.getcpu(None)
+        ops = '''
+        [i0, i1, i2]
+        p0 = call_malloc_nursery_varsize_small(i0)
+        p1 = call_malloc_nursery_varsize_small(i1)
+        p2 = call_malloc_nursery_varsize_small(i2)
+        guard_true(i0) [p0, p1, p2]
+        ''' 
+        self.interpret(ops, [16, 32, 16])
+        # check the returned pointers
+        gc_ll_descr = self.cpu.gc_ll_descr
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
+        assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
+        assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 16
+        assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 48
+        # check the nursery content and state
+        gc_ll_descr.check_nothing_in_nursery()
+        assert gc_ll_descr.addrs[0] == nurs_adr + 64
+        # slowpath never called
+        assert gc_ll_descr.calls == []       
+
     def test_malloc_slowpath(self):
         def check(frame):
             assert len(frame.jf_gcmap) == 1

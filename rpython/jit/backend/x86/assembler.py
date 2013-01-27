@@ -2486,6 +2486,22 @@ class Assembler386(object):
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
 
+    def malloc_cond_varsize_small(self, nursery_free_adr, nursery_top_adr,
+                                  sizeloc, gcmap):
+        self.mc.MOV(edi, heap(nursery_free_adr))
+        self.mc.MOV(eax, edi)
+        self.mc.ADD(edi, sizeloc)
+        self.mc.CMP(edi, heap(nursery_top_adr))
+        self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
+        jmp_adr = self.mc.get_relative_pos()
+        # save the gcmap
+        self.push_gcmap(self.mc, gcmap, mov=True)
+        self.mc.CALL(imm(self.malloc_slowpath))
+        offset = self.mc.get_relative_pos() - jmp_adr
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_adr-1, chr(offset))
+        self.mc.MOV(heap(nursery_free_adr), edi)
+
     def force_token(self, reg):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         assert isinstance(reg, RegLoc)

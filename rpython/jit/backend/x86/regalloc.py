@@ -4,7 +4,7 @@
 
 import os
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                            BoxPtr, ConstFloat,
+                                            BoxPtr, ConstFloat, BoxInt,
                                             BoxFloat, INT, REF, FLOAT,
                                             TargetToken, JitCellToken)
 from rpython.jit.backend.x86.regloc import *
@@ -873,6 +873,26 @@ class RegAlloc(object):
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             size, gcmap)
+
+    def consider_call_malloc_nursery_varsize_small(self, op):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, BoxInt) # we cannot have a const here!
+        # looking at the result
+        self.rm.force_allocate_reg(op.result, selected_reg=eax)
+        #
+        # We need edx as a temporary, but otherwise don't save any more
+        # register.  See comments in _build_malloc_slowpath().
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box, [op.result, tmp_box])
+        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.assembler.malloc_cond_varsize_small(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc, gcmap)
 
     def get_gcmap(self, forbidden_regs=[]):
         frame_depth = self.fm.get_frame_depth()
