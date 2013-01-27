@@ -954,6 +954,7 @@ class Config:
             withcelldict = False
             withmethodcache = False
             withidentitydict = False
+            withmapdict = False
 
 FakeSpace.config = Config()
 

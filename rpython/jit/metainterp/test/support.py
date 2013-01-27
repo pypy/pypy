@@ -160,16 +160,17 @@ def _run_with_machine_code(testself, args):
 
 class JitMixin:
     basic = True
+
     def check_resops(self, expected=None, **check):
         get_stats().check_resops(expected=expected, **check)
+
     def check_simple_loop(self, expected=None, **check):
         get_stats().check_simple_loop(expected=expected, **check)
-
-    
 
     def check_trace_count(self, count): # was check_loop_count
         # The number of traces compiled
         assert get_stats().compiled_count == count
+
     def check_trace_count_at_most(self, count):
         assert get_stats().compiled_count <= count
 
@@ -178,11 +179,12 @@ class JitMixin:
 
     def check_target_token_count(self, count):
         tokens = get_stats().get_all_jitcell_tokens()
-        n = sum ([len(t.target_tokens) for t in tokens])
+        n = sum([len(t.target_tokens) for t in tokens])
         assert n == count
 
     def check_enter_count(self, count):
         assert get_stats().enter_count == count
+
     def check_enter_count_at_most(self, count):
         assert get_stats().enter_count <= count
 
@@ -192,6 +194,7 @@ class JitMixin:
 
     def check_aborted_count(self, count):
         assert get_stats().aborted_count == count
+
     def check_aborted_count_at_least(self, count):
         assert get_stats().aborted_count >= count
 

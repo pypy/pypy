@@ -1,6 +1,6 @@
 import os, sys
 import py
-from pypy.tool.version import get_repo_version_info, _get_hg_archive_version
+from rpython.tool.version import get_repo_version_info, _get_hg_archive_version
 
 def test_hg_archival_version(tmpdir):
     def version_for(name, **kw):
@@ -11,14 +11,14 @@ def test_hg_archival_version(tmpdir):
     assert version_for('release',
                        tag='release-123',
                        node='000',
-                      ) == ('PyPy', 'release-123', '000')
+                      ) == ('RPython', 'release-123', '000')
     assert version_for('somebranch',
                        node='000',
                        branch='something',
-                      ) == ('PyPy', 'something', '000')
+                      ) == ('RPython', 'something', '000')
 
 
 def test_get_repo_version_info():
     assert get_repo_version_info(None)
-    assert get_repo_version_info(os.devnull) == ('PyPy', '?', '?')
-    assert get_repo_version_info(sys.executable) == ('PyPy', '?', '?')
+    assert get_repo_version_info(os.devnull) == ('RPython', '?', '?')
+    assert get_repo_version_info(sys.executable) == ('RPython', '?', '?')

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """ A sample script that packages PyPy, provided that it's already built.
-It uses 'pypy/translator/goal/pypy-c' and parts of the rest of the working
+It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
     package.py root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
@@ -13,7 +13,7 @@ import shutil
 import sys
 import os
 #Add toplevel repository dir to sys.path
-sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 import py
 import fnmatch
 from rpython.tool.udir import udir

@@ -94,7 +94,11 @@ class TestRepeat(TestInvariantWithoutMutations):
 
     def test_no_len_for_infinite_repeat(self):
         # The repeat() object can also be infinite
-        self.assertRaises(TypeError, len, repeat(None))
+        if test_support.check_impl_detail(pypy=True):
+            # 3.4 (PEP 424) behavior
+            self.assertEqual(len(repeat(None)), NotImplemented)
+        else:
+            self.assertRaises(TypeError, len, repeat(None))
 
 class TestXrange(TestInvariantWithoutMutations):
 
@@ -230,6 +234,7 @@ class TestLengthHintExceptions(unittest.TestCase):
         self.assertRaises(RuntimeError, b.extend, BadLen())
         self.assertRaises(RuntimeError, b.extend, BadLengthHint())
 
+    @test_support.impl_detail("PEP 424 disallows None results", pypy=False)
     def test_invalid_hint(self):
         # Make sure an invalid result doesn't muck-up the works
         self.assertEqual(list(NoneLengthHint()), list(range(10)))

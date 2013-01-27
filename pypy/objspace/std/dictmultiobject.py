@@ -54,6 +54,9 @@ class W_DictMultiObject(W_Object):
             # every module needs its own strategy, because the strategy stores
             # the version tag
             strategy = ModuleDictStrategy(space)
+        elif space.config.objspace.std.withmapdict and instance:
+            from pypy.objspace.std.mapdict import MapDictStrategy
+            strategy = space.fromcache(MapDictStrategy)
 
         elif instance or strdict or module:
             assert w_type is None
@@ -349,7 +352,7 @@ class BaseIteratorImplementation(object):
         self.pos = 0
 
     def length(self):
-        if self.dictimplementation is not None:
+        if self.dictimplementation is not None and self.len != -1:
             return self.len - self.pos
         return 0
 

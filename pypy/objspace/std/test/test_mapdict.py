@@ -1,7 +1,17 @@
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.mapdict import *
 
+class Config:
+    class objspace:
+        class std:
+            withsmalldicts = False
+            withcelldict = False
+            withmethodcache = False
+            withidentitydict = False
+            withmapdict = True
+
 space = FakeSpace()
+space.config = Config
 
 class Class(object):
     def __init__(self, hasdict=True):
@@ -1061,3 +1071,11 @@ class TestDictSubclassShortcutBug(object):
                 return A()
                 """)
         assert w_dict.user_overridden_class
+
+def test_newdict_instance():
+    w_dict = space.newdict(instance=True)
+    assert type(w_dict.strategy) is MapDictStrategy
+
+class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
+    StrategyClass = MapDictStrategy
+    # NB: the get_impl method is not overwritten here, as opposed to above

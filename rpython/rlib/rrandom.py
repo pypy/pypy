@@ -100,9 +100,20 @@ class Random(object):
 
     def jumpahead(self, n):
         mt = self.state
-        for i in range(N - 1, 0, -1):
+        for i in range(N - 1, 1, -1):
             j = n % i
             mt[i], mt[j] = mt[j], mt[i]
-        for i in range(N):
+        nonzero = False
+        for i in range(1, N):
             mt[i] += r_uint(i + 1)
+            mt[i] &= r_uint(0xffffffff)
+            nonzero |= bool(mt[i])
+        # Ensure the state is nonzero: in the unlikely event that mt[1] through
+        # mt[N-1] are all zero, set the MSB of mt[0] (see issue #14591). In the
+        # normal case, we fall back to the pre-issue 14591 behaviour for mt[0].
+        if nonzero:
+            mt[0] += r_uint(1)
+            mt[0] &= r_uint(0xffffffff)
+        else:
+            mt[0] = r_uint(0x80000000)
         self.index = N

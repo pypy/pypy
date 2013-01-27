@@ -1393,6 +1393,8 @@ class Transformer(object):
         elif oopspec_name == 'jit.isvirtual':
             kind = getkind(args[0].concretetype)
             return SpaceOperation('%s_isvirtual' % kind, args, op.result)
+        elif oopspec_name == 'jit.force_virtual':
+            return self._handle_oopspec_call(op, args, EffectInfo.OS_JIT_FORCE_VIRTUAL, EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
