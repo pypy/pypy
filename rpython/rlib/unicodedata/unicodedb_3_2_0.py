@@ -15974,9 +15974,7 @@ def _lookup_cjk(cjk_code):
         if not ('0' <= c <= '9' or 'A' <= c <= 'F'):
             raise KeyError
     code = int(cjk_code, 16)
-    if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x9FA5 or
-        0x20000 <= code <= 0x2A6D6):
+    if (0x3400 <= code <= 0x4DB5 or 0x4E00 <= code <= 0x9FA5 or 0x20000 <= code <= 0x2A6D6):
         return code
     raise KeyError
 
@@ -15998,9 +15996,7 @@ def lookup(name):
                 raise
 
 def name(code):
-    if (0x3400 <= code <= 0x4DB5 or
-        0x4E00 <= code <= 0x9FA5 or
-        0x20000 <= code <= 0x2A6D6):
+    if (0x3400 <= code <= 0x4DB5 or 0x4E00 <= code <= 0x9FA5 or 0x20000 <= code <= 0x2A6D6):
         return "CJK UNIFIED IDEOGRAPH-" + hex(code)[2:].upper()
     if 0xAC00 <= code <= 0xD7A3:
         # vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
@@ -16011,7 +16007,7 @@ def name(code):
         v_code = vl_code % len(_hangul_V)
         return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
                 _hangul_V[v_code] + _hangul_T[t_code])
-    
+
     if not base_mod:
         return lookup_charcode(code)
     else:

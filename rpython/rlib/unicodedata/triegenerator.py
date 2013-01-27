@@ -174,7 +174,7 @@ def build_compression_tree(outfile, ucdata):
     print >> outfile, "_stringtable = ("
     stringidx = {}
     stridx = 0
-    for string in rootnode.allstrings:
+    for string in sorted(rootnode.allstrings):
         strlen = len(string)
         assert strlen < 256, "Substring too long, > 255 chars"
         print >> outfile, "%r" % (chr(strlen) + string)
