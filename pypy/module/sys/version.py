@@ -28,7 +28,7 @@ else:
 
 import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
-pypyroot = os.path.dirname(os.path.dirname(os.path.abspath(pypy.__file__)))
+pypyroot = os.path.dirname(pypydir)
 del pypy
 from rpython.tool.version import get_repo_version_info
 
