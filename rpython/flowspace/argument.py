@@ -378,21 +378,18 @@ class CallSpec(ArgumentsForTranslation):
     """Represents the arguments passed into a function call, i.e. the
     `a, b, *c, **d` part in `return func(a, b, *c, **d)`.
     """
-    def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None):
+    def __init__(self, space, args_w, keywords=None, w_stararg=None,
+            w_starstararg=None):
         self.w_stararg = w_stararg
         assert w_starstararg is None, "No **-unpacking in RPython"
         self.combine_has_happened = False
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        self.keywords = keywords or []
-        self.keywords_w = keywords_w or []
-        self.keyword_names_w = None
+        self.keywords = keywords or {}
 
     def copy(self):
-        return CallSpec(self.space, self.arguments_w,
-                self.keywords, self.keywords_w, self.w_stararg)
+        return self
 
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
@@ -401,23 +398,21 @@ class CallSpec(ArgumentsForTranslation):
             args_w = self.arguments_w + stargs_w
         else:
             args_w = self.arguments_w
-        kwds_w = dict(zip(self.keywords, self.keywords_w))
-        return args_w, kwds_w
+        return args_w, self.keywords
 
     def combine_if_necessary(self):
         raise NotImplementedError
 
-    def _rawshape(self, nextra=0):
-        assert not self.combine_has_happened
-        shape_cnt  = len(self.arguments_w)+nextra        # Number of positional args
-        if self.keywords:
-            shape_keys = self.keywords[:]                # List of keywords (strings)
-            shape_keys.sort()
-        else:
-            shape_keys = []
+    def flatten(self):
+        """ Argument <-> list of w_objects together with "shape" information """
+        shape_cnt  = len(self.arguments_w)    # Number of positional args
+        shape_keys = tuple(sorted(self.keywords))
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
         shape_stst = False # Flag: presence of **kwds
-        return shape_cnt, tuple(shape_keys), shape_star, shape_stst # shape_keys are sorted
+        data_w = self.arguments_w + [self.keywords[key] for key in shape_keys]
+        if shape_star:
+            data_w.append(self.w_stararg)
+        return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
 
 
 #

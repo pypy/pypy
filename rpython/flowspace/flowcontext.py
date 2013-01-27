@@ -975,24 +975,14 @@ class FlowSpaceFrame(object):
             raise FlowingError(self, "Dict-unpacking is not RPython")
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
-        if n_keywords:
-            keywords = [None] * n_keywords
-            keywords_w = [None] * n_keywords
-            while True:
-                n_keywords -= 1
-                if n_keywords < 0:
-                    break
-                w_value = self.popvalue()
-                w_key = self.popvalue()
-                key = self.space.str_w(w_key)
-                keywords[n_keywords] = key
-                keywords_w[n_keywords] = w_value
-        else:
-            keywords = None
-            keywords_w = None
+        keywords = {}
+        for _ in range(n_keywords):
+            w_value = self.popvalue()
+            w_key = self.popvalue()
+            key = self.space.str_w(w_key)
+            keywords[key] = w_value
         arguments = self.popvalues(n_arguments)
-        args = CallSpec(self.space, arguments, keywords,
-                keywords_w, w_star, w_starstar)
+        args = CallSpec(self.space, arguments, keywords, w_star, w_starstar)
         w_function  = self.popvalue()
         w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
