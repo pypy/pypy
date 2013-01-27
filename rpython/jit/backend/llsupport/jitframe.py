@@ -3,7 +3,6 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 
-STATICSIZE = 0 # patch from the assembler backend
 SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
 IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
 

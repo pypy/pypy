@@ -15,8 +15,6 @@ from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import ArrayDescr, FLAG_POINTER,\
      FLAG_FLOAT
 
-jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
-        
 import sys
 
 from rpython.tool.ansi_print import ansi_log
