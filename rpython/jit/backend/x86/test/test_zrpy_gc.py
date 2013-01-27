@@ -793,7 +793,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def define_compile_framework_call_assembler(self):
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S', ('s', lltype.Ptr(S))))
-        driver = JitDriver(greens = [], reds = ['x', 'x0', 'x2'])
+        driver = JitDriver(greens = [], reds = 'auto')
 
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0):
             driver.jit_merge_point(x=x, x0=x0, x2=x2)
