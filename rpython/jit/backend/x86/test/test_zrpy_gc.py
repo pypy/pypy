@@ -803,6 +803,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
                 s = lltype.malloc(S)
                 s.s = prev_s
                 prev_s = s
+                i += 1
             return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0
 
         return None, f, None
