@@ -971,6 +971,8 @@ class FlowSpaceFrame(object):
         self.pushvalue(last_val)
 
     def call_function(self, oparg, w_star=None, w_starstar=None):
+        if w_starstar is not None:
+            raise FlowingError(self, "Dict-unpacking is not RPython")
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         if n_keywords:
