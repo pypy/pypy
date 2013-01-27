@@ -582,7 +582,7 @@ class LLDeadFrame(object):
 
 
 class LLFrame(object):
-    _TYPE = lltype.Signed
+    _TYPE = llmemory.GCREF
 
     forced_deadframe = None
     overflow_flag = False
@@ -594,6 +594,22 @@ class LLFrame(object):
         assert len(argboxes) == len(args)
         for box, arg in zip(argboxes, args):
             self.setenv(box, arg)
+
+    def __eq__(self, other):
+        # this is here to avoid crashes in 'token == TOKEN_TRACING_RESCALL'
+        from rpython.jit.metainterp.virtualizable import TOKEN_NONE
+        from rpython.jit.metainterp.virtualizable import TOKEN_TRACING_RESCALL
+        if isinstance(other, LLFrame):
+            return self is other
+        if other == TOKEN_NONE or other == TOKEN_TRACING_RESCALL:
+            return False
+        assert 0
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def _identityhash(self):
+        return hash(self)
 
     def setenv(self, box, arg):
         if box.type == INT:
@@ -863,7 +879,8 @@ class LLFrame(object):
         def reset_vable(jd, vable):
             if jd.index_of_virtualizable != -1:
                 fielddescr = jd.vable_token_descr
-                self.cpu.bh_setfield_gc(vable, 0, fielddescr)
+                NULL = lltype.nullptr(llmemory.GCREF.TO)
+                self.cpu.bh_setfield_gc(vable, NULL, fielddescr)
         faildescr = self.cpu.get_latest_descr(pframe)
         if faildescr == self.cpu.done_with_this_frame_descr_int:
             reset_vable(jd, vable)
