@@ -790,11 +790,25 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
 
-    #def define_compile_framework_call_assembler(self):
-    #    xxx
+    def define_compile_framework_call_assembler(self):
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('S', ('s', lltype.Ptr(S))))
+        driver = JitDriver(greens = [], reds = ['x', 'x0', 'x2'])
 
-    #def test_compile_framework_call_assembler(self):
-    #    self.run('compile_framework_call_assembler')
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0):
+            driver.jit_merge_point(x=x, x0=x0, x2=x2)
+            i = 0
+            prev_s = lltype.nullptr(S)
+            while i < 100:
+                s = lltype.malloc(S)
+                s.s = prev_s
+                prev_s = s
+            return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0
+
+        return None, f, None
+
+    def test_compile_framework_call_assembler(self):
+        self.run('compile_framework_call_assembler')
 
 class TestShadowStack(CompileFrameworkTests):
     gcrootfinder = "shadowstack"
