@@ -796,7 +796,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
         driver = JitDriver(greens = [], reds = 'auto')
 
         def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0):
-            driver.jit_merge_point(x=x, x0=x0, x2=x2)
+            driver.jit_merge_point()
             i = 0
             prev_s = lltype.nullptr(S)
             while i < 100:
