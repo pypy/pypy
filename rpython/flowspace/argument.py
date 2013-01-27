@@ -386,21 +386,26 @@ class CallSpec(ArgumentsForTranslation):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        self.keywords = keywords
-        self.keywords_w = keywords_w
+        self.keywords = keywords or []
+        self.keywords_w = keywords_w or []
         self.keyword_names_w = None
 
     def copy(self):
         return CallSpec(self.space, self.arguments_w,
                 self.keywords, self.keywords_w, self.w_stararg)
 
-    def combine_if_necessary(self):
-        if self.combine_has_happened:
-            return
+    def unpack(self):
+        "Return a ([w1,w2...], {'kw':w3...}) pair."
         if self.w_stararg is not None:
-            args_w = self.space.unpackiterable(self.w_stararg)
-            self.arguments_w = self.arguments_w + args_w
-        self.combine_has_happened = True
+            stargs_w = self.space.unpackiterable(self.w_stararg)
+            args_w = self.arguments_w + stargs_w
+        else:
+            args_w = self.arguments_w
+        kwds_w = dict(zip(self.keywords, self.keywords_w))
+        return args_w, kwds_w
+
+    def combine_if_necessary(self):
+        raise NotImplementedError
 
     def _rawshape(self, nextra=0):
         assert not self.combine_has_happened
