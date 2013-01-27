@@ -344,7 +344,7 @@ if _WIN32:
          ])
 
     CConfig.WSAPROTOCOL_INFO = platform.Struct(
-        'struct WSAPROTOCOL_INFO',
+        'struct _WSAPROTOCOL_INFO',
         [])  # Struct is just passed between functions
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
