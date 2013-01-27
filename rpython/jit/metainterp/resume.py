@@ -1110,7 +1110,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
-            # is and stays 0.  Note the call to reset_vable_token() in
+            # is and stays NULL.  Note the call to reset_vable_token() in
             # warmstate.py.
             assert not vinfo.is_token_nonnull_gcref(virtualizable)
         return vinfo.write_from_resume_data_partial(virtualizable, self, numb)

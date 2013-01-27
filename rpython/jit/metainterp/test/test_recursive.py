@@ -823,7 +823,8 @@ class RecursiveTests:
             # at the level 2 is set to a non-zero value when doing the
             # call to the level 3 only.  This used to fail when the test
             # is run via rpython.jit.backend.x86.test.test_recursive.
-            assert ll_subframe.vable_token == 0
+            from rpython.jit.metainterp.virtualizable import TOKEN_NONE
+            assert ll_subframe.vable_token == TOKEN_NONE
 
         def main(codeno):
             frame = Frame()

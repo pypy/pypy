@@ -1,6 +1,6 @@
 import py
 
-from rpython.rtyper.lltypesystem import lltype, lloperation
+from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation
 from rpython.rtyper.exceptiondata import UnknownException
 from rpython.rlib.jit import JitDriver, dont_look_inside, vref_None
 from rpython.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
@@ -110,7 +110,10 @@ class VRefTests(object):
                   if str(box._getrepr_()).endswith('JitVirtualRef')]
         assert len(bxs2) == 1
         JIT_VIRTUAL_REF = self.vrefinfo.JIT_VIRTUAL_REF
-        bxs2[0].getref(lltype.Ptr(JIT_VIRTUAL_REF)).virtual_token = 1234567
+        FOO = lltype.GcStruct('FOO')
+        foo = lltype.malloc(FOO)
+        tok = lltype.cast_opaque_ptr(llmemory.GCREF, foo)
+        bxs2[0].getref(lltype.Ptr(JIT_VIRTUAL_REF)).virtual_token = tok
         #
         # try reloading from blackhole.py's point of view
         from rpython.jit.metainterp.resume import ResumeDataDirectReader
