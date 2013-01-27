@@ -32,6 +32,26 @@ class TestUnicodeData(object):
         for chr in self.nocharlist:
             py.test.raises(KeyError, unicodedb_5_2_0.name, ord(chr))
 
+    def test_isprintable(self):
+        assert unicodedb_5_2_0.isprintable(ord(' '))
+        assert unicodedb_5_2_0.isprintable(ord('a'))
+        assert not unicodedb_5_2_0.isprintable(127)
+        assert unicodedb_5_2_0.isprintable(0x00010346)  # GOTHIC LETTER FAIHU
+        assert unicodedb_5_2_0.isprintable(0xfffd)  # REPLACEMENT CHARACTER
+        assert unicodedb_5_2_0.isprintable(0xfffd)  # REPLACEMENT CHARACTER
+        assert not unicodedb_5_2_0.isprintable(0xd800)  # SURROGATE
+        assert not unicodedb_5_2_0.isprintable(0xE0020)  # TAG SPACE
+
+    def test_identifier(self):
+        assert unicodedb_5_2_0.isxidstart(ord('A'))
+        assert not unicodedb_5_2_0.isxidstart(ord('_'))
+        assert not unicodedb_5_2_0.isxidstart(ord('0'))
+        assert not unicodedb_5_2_0.isxidstart(ord('('))
+        assert unicodedb_5_2_0.isxidcontinue(ord('A'))
+        assert unicodedb_5_2_0.isxidcontinue(ord('_'))
+        assert unicodedb_5_2_0.isxidcontinue(ord('0'))
+        assert not unicodedb_5_2_0.isxidcontinue(ord('('))
+
     def test_compare_functions(self):
         def getX(fun, code):
             try:
