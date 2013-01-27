@@ -69,7 +69,7 @@ def get_version(space):
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
-        get_repo_version_info(root=pypyroot)[2],
+        get_repo_version_info(root=pypyroot)[1],
         date,
         time,
         ver,
@@ -94,7 +94,7 @@ def get_subversion_info(space):
 def get_repo_info(space):
     info = get_repo_version_info(root=pypyroot)
     if info:
-        project, repo_tag, repo_version = info
+        repo_tag, repo_version = info
         return space.newtuple([space.wrap('PyPy'),
                                space.wrap(repo_tag),
                                space.wrap(repo_version)])

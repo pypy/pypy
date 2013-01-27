@@ -18,30 +18,25 @@ def maywarn(err, repo_type='Mercurial'):
 def get_repo_version_info(hgexe=None, root=rpythonroot):
     '''Obtain version information by invoking the 'hg' or 'git' commands.'''
 
-    if root == rpythonroot:
-        project = ("RPython",)
-    else:
-        project = ('?',)
-
     # Try to see if we can get info from Git if hgexe is not specified.
     if not hgexe:
         if os.path.isdir(os.path.join(root, '.git')):
-            return project + _get_git_version(root)
+            return _get_git_version(root)
 
     # Fallback to trying Mercurial.
     if hgexe is None:
         hgexe = py.path.local.sysfind('hg')
 
     if os.path.isfile(os.path.join(root, '.hg_archival.txt')):
-        return project + _get_hg_archive_version(os.path.join(root, '.hg_archival.txt'))
+        return _get_hg_archive_version(os.path.join(root, '.hg_archival.txt'))
     elif not os.path.isdir(os.path.join(root, '.hg')):
         maywarn('Not running from a Mercurial repository!')
-        return project + default_retval
+        return default_retval
     elif not hgexe:
         maywarn('Cannot find Mercurial command!')
-        return project + default_retval
+        return default_retval
     else:
-        return project + _get_hg_version(hgexe, root)
+        return _get_hg_version(hgexe, root)
 
 
 def _get_hg_version(hgexe, root):

@@ -19,5 +19,5 @@ def test_hg_archival_version(tmpdir):
 
 def test_get_repo_version_info():
     assert get_repo_version_info(None)
-    assert get_repo_version_info(os.devnull) == ('RPython', '?', '?')
-    assert get_repo_version_info(sys.executable) == ('RPython', '?', '?')
+    assert get_repo_version_info(os.devnull) == ('?', '?')
+    assert get_repo_version_info(sys.executable) == ('?', '?')
