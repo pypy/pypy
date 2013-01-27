@@ -617,7 +617,7 @@ elif WIN32:
     WSASocket = external('WSASocket', 
                          [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(WSAPROTOCOL_INFO),
-                          rffi.DWORD, rffi.DWORD],
+                          rwin32.DWORD, rwin32.DWORD],
                          socketfd_type)
 
 if WIN32:
