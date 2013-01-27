@@ -547,7 +547,7 @@ class TestInteraction:
             assert line.rstrip() == 'Not at all. They could be carried.'
             print 'A five ounce bird could not carry a one pound coconut.'
             """)
-        py_py = os.path.join(pypydir, 'bin', 'py.py')
+        py_py = os.path.join(pypydir, 'bin', 'pyinteractive.py')
         child = self._spawn(sys.executable, [py_py, '-S', path])
         child.expect('Are you suggesting coconuts migrate?', timeout=120)
         child.sendline('Not at all. They could be carried.')
