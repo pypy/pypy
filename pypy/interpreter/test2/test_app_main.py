@@ -907,7 +907,7 @@ class AppTestAppMain:
         sys.path.append(self.goal_dir)
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
             app_main.setup_bootstrap_path(pypy_c)
             newpath = sys.path[:]
             # we get at least lib_pypy 
@@ -925,7 +925,7 @@ class AppTestAppMain:
         sys.path.append(self.goal_dir)
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
             app_main.entry_point(pypy_c, [self.foo_py])
             # assert it did not crash
         finally:
