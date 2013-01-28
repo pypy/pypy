@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
 MANDATORY_LINE_BREAKS = ["BK", "CR", "LF", "NL"] # line break categories

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """ A sample script that packages PyPy, provided that it's already built.
-It uses 'pypy/translator/goal/pypy-c' and parts of the rest of the working
+It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
     package.py root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]

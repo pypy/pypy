@@ -126,6 +126,7 @@ class Lock(object):
         return bool(res)
 
     def acquire_timed(self, timeout):
+        "timeout is in microseconds."
         res = c_thread_acquirelock_timed(self._lock, timeout, 1)
         res = rffi.cast(lltype.Signed, res)
         return bool(res)

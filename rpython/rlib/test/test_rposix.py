@@ -117,7 +117,7 @@ class TestPosixUnicode:
         curdir = os.getcwd()
         try:
             interpret(f, [])
-            assert os.getcwdu() == self.ufilename
+            assert os.getcwdu() == os.path.realpath(self.ufilename)
         finally:
             os.chdir(curdir)
 

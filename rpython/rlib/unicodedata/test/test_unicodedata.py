@@ -42,6 +42,16 @@ class TestUnicodeData(object):
         assert not unicodedb_5_2_0.isprintable(0xd800)  # SURROGATE
         assert not unicodedb_5_2_0.isprintable(0xE0020)  # TAG SPACE
 
+    def test_identifier(self):
+        assert unicodedb_5_2_0.isxidstart(ord('A'))
+        assert not unicodedb_5_2_0.isxidstart(ord('_'))
+        assert not unicodedb_5_2_0.isxidstart(ord('0'))
+        assert not unicodedb_5_2_0.isxidstart(ord('('))
+        assert unicodedb_5_2_0.isxidcontinue(ord('A'))
+        assert unicodedb_5_2_0.isxidcontinue(ord('_'))
+        assert unicodedb_5_2_0.isxidcontinue(ord('0'))
+        assert not unicodedb_5_2_0.isxidcontinue(ord('('))
+
     def test_compare_functions(self):
         def getX(fun, code):
             try:

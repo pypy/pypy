@@ -49,6 +49,8 @@ def compile_extension_module(space, modname, **kwds):
         kwds["libraries"] = [api_library]
         # '%s' undefined; assuming extern returning int
         kwds["compile_extra"] = ["/we4013"]
+    elif sys.platform == 'darwin':
+        kwds["link_files"] = [str(api_library + '.dylib')]
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):

@@ -307,6 +307,10 @@ def _convert_const_maybe(x, encoding):
     return x
     
 def with_unicode_literals(fn=None, **kwds):
+    """Decorator that replace all string literals with unicode literals.
+    Similar to 'from __future__ import string literals' at function level.
+    Useful to limit changes in the py3k branch.
+    """
     encoding = kwds.pop('encoding', 'ascii')
     if kwds:
         raise TypeError("Unexpected keyword argument(s): %s" % ', '.join(kwds.keys()))

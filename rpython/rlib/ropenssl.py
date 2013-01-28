@@ -305,6 +305,8 @@ ssl_external('ERR_peek_last_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 ssl_external('ERR_clear_error', [], lltype.Void)
 
+# 'threadsafe=False' here indicates that this function will be called
+# with the GIL held, and so is allowed to run in a RPython __del__ method.
 ssl_external('SSL_free', [SSL], lltype.Void, threadsafe=False)
 ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, threadsafe=False)
 ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
