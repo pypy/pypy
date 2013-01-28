@@ -144,7 +144,6 @@ class PyPyTarget(object):
         global space, entry_point
 
         if config.translation.stm:
-            config.objspace.usemodules.signal = False     # XXX! FIXME
             config.translation.thread = True
 
         if config.objspace.allworkingmodules:
