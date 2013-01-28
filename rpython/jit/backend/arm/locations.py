@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import INT, FLOAT
-from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD
+from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
 
 
 class AssemblerLocation(object):
@@ -136,9 +136,5 @@ def imm(i):
     return ImmLocation(i)
 
 
-def get_fp_offset(i):
-    if i >= 0:
-        # Take the FORCE_TOKEN into account
-        return (1 + i) * WORD
-    else:
-        return i * WORD
+def get_fp_offset(position):
+    return WORD * (position + JITFRAME_FIXED_SIZE)
