@@ -1,20 +1,25 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError, exception_from_errno
-from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
-from pypy.interpreter.executioncontext import PeriodicAsyncAction
-from pypy.interpreter.gateway import unwrap_spec
+
 import signal as cpy_signal
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.tool import rffi_platform
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir
-import py
 import sys
+
+from pypy.interpreter.error import OperationError, exception_from_errno
+from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
+    PeriodicAsyncAction)
+from pypy.interpreter.gateway import unwrap_spec
+
 from rpython.rlib import jit, rposix
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rsignal import *
+from rpython.rlib.rsignal import (pypysig_getaddr_occurred, pypysig_setflag,
+    pypysig_poll, pypysig_reinstall, pypysig_ignore, pypysig_default,
+    pypysig_set_wakeup_fd, c_alarm, c_pause, c_getitimer, c_setitimer,
+    c_siginterrupt, itimervalP, NSIG, SIG_DFL, SIG_IGN, ITIMER_REAL,
+    ITIMER_PROF, ITIMER_VIRTUAL, signal_values)
+from rpython.rtyper.lltypesystem import lltype, rffi
+
 
 WIN32 = sys.platform == 'win32'
+
 
 class SignalActionFlag(AbstractActionFlag):
     # This class uses the C-level pypysig_counter variable as the tick
@@ -117,6 +122,7 @@ def getsignal(space, signum):
         return action.handlers_w[signum]
     return space.wrap(SIG_DFL)
 
+
 def default_int_handler(space, w_signum, w_frame):
     """
     default_int_handler(...)
@@ -127,21 +133,25 @@ def default_int_handler(space, w_signum, w_frame):
     raise OperationError(space.w_KeyboardInterrupt,
                          space.w_None)
 
+
 @jit.dont_look_inside
 @unwrap_spec(timeout=int)
 def alarm(space, timeout):
     return space.wrap(c_alarm(timeout))
+
 
 @jit.dont_look_inside
 def pause(space):
     c_pause()
     return space.w_None
 
+
 def check_signum_exists(space, signum):
     if signum in signal_values:
         return
     raise OperationError(space.w_ValueError,
                          space.wrap("invalid signal value"))
+
 
 def check_signum_in_range(space, signum):
     if 1 <= signum < NSIG:
@@ -164,7 +174,7 @@ def signal(space, signum, w_handler):
     A signal handler function is called with two arguments:
     the first is the signal number, the second is the interrupted stack frame.
     """
-    ec      = space.getexecutioncontext()
+    ec = space.getexecutioncontext()
     main_ec = space.threadlocals.getmainthreadvalue()
 
     old_handler = getsignal(space, signum)
@@ -187,13 +197,14 @@ def signal(space, signum, w_handler):
     action.handlers_w[signum] = w_handler
     return old_handler
 
+
 @jit.dont_look_inside
 @unwrap_spec(fd=int)
 def set_wakeup_fd(space, fd):
     """Sets the fd to be written to (with '\0') when a signal
     comes in.  Returns the old fd.  A library can use this to
     wakeup select or poll.  The previous fd is returned.
-    
+
     The fd must be non-blocking.
     """
     if space.config.objspace.usemodules.thread:
@@ -205,6 +216,7 @@ def set_wakeup_fd(space, fd):
                 space.wrap("set_wakeup_fd only works in main thread"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
+
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
@@ -221,33 +233,38 @@ def timeval_from_double(d, timeval):
     rffi.setintfield(timeval, 'c_tv_sec', int(d))
     rffi.setintfield(timeval, 'c_tv_usec', int((d - int(d)) * 1000000))
 
+
 def double_from_timeval(tv):
     return rffi.getintfield(tv, 'c_tv_sec') + (
         rffi.getintfield(tv, 'c_tv_usec') / 1000000.0)
+
 
 def itimer_retval(space, val):
     w_value = space.wrap(double_from_timeval(val.c_it_value))
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+
 class Cache:
     def __init__(self, space):
         self.w_itimererror = space.new_exception_class("signal.ItimerError",
                                                        space.w_IOError)
 
+
 def get_itimer_error(space):
     return space.fromcache(Cache).w_itimererror
+
 
 @jit.dont_look_inside
 @unwrap_spec(which=int, first=float, interval=float)
 def setitimer(space, which, first, interval=0):
     """setitimer(which, seconds[, interval])
-    
     Sets given itimer (one of ITIMER_REAL, ITIMER_VIRTUAL
+
     or ITIMER_PROF) to fire after value seconds and after
     that every interval seconds.
     The itimer can be cleared by setting seconds to zero.
-    
+
     Returns old values as a tuple: (delay, interval).
     """
     with lltype.scoped_alloc(itimervalP.TO, 1) as new:
@@ -261,14 +278,14 @@ def setitimer(space, which, first, interval=0):
             if ret != 0:
                 raise exception_from_errno(space, get_itimer_error(space))
 
-
             return itimer_retval(space, old[0])
+
 
 @jit.dont_look_inside
 @unwrap_spec(which=int)
 def getitimer(space, which):
     """getitimer(which)
-    
+
     Returns current value of given itimer.
     """
     with lltype.scoped_alloc(itimervalP.TO, 1) as old:
