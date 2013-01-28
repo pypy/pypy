@@ -88,7 +88,6 @@ class AbstractUnicodeRepr(AbstractStringRepr):
                                           startingpos, endingpos):
         raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
     
-
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rstr.string_repr

@@ -113,6 +113,9 @@ class RPythonAnnotator(object):
         if policy is None:
             from rpython.annotator.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
+            # XXX hack
+            annmodel.TLS.check_str_without_nul = (
+                self.translator.config.translation.check_str_without_nul)
         graph, inputcells = self.get_call_parameters(function, args_s, policy)
         self.build_graph_types(graph, inputcells, complete_now=False)
         self.complete_helpers(policy)
