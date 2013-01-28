@@ -153,6 +153,23 @@ class AbstractThreadTests(AbstractGCTestClass):
         answers = fn()
         assert answers == expected
 
+    def test_acquire_timed(self):
+        import time
+        def f():
+            l = allocate_lock()
+            l.acquire(True)
+            t1 = time.time()
+            ok = l.acquire_timed(1000000)
+            t2 = time.time()
+            delay = t2 - t1
+            if ok:
+                return delay
+            else:
+                return -delay
+        fn = self.getcompiled(f, [])
+        res = fn()
+        assert res < -1.0
+
 #class TestRunDirectly(AbstractThreadTests):
 #    def getcompiled(self, f, argtypes):
 #        return f

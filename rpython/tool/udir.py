@@ -31,7 +31,7 @@ def make_udir(dir=None, basename=None):
     if basename is None:
         info = get_repo_version_info()
         if info:
-            project, hgtag, hgid = info
+            hgtag, hgid = info
             basename = hgtag
             if basename == '?':
                 basename = 'unknown' # directories with ? are not fun

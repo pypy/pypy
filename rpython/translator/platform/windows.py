@@ -269,7 +269,7 @@ class MsvcPlatform(Platform):
             target_name = exe_name.basename
 
         m = NMakefile(path)
-        m.exe_name = path.join(target_name)
+        m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
         linkflags = list(self.link_flags)

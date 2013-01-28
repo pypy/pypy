@@ -213,7 +213,7 @@ class AppTestRCTime:
 
     def test_strftime(self):
         import time as rctime
-        import os
+        import os, sys
 
         t = rctime.time()
         tt = rctime.gmtime(t)
@@ -234,6 +234,10 @@ class AppTestRCTime:
         # input to [w]strftime is not kosher.
         if os.name == 'nt':
             raises(ValueError, rctime.strftime, '%f')
+        elif sys.platform == 'darwin':
+            # darwin strips % of unknown format codes
+            # http://bugs.python.org/issue9811
+            assert rctime.strftime('%f') == 'f'
         else:
             assert rctime.strftime('%f') == '%f'
 
