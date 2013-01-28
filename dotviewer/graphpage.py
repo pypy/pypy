@@ -44,7 +44,8 @@ class GraphPage(object):
 
 class DotFileGraphPage(GraphPage):
     def compute(self, dotfile):
-        from drawgraph import forceunicode
-        f = open(dotfile, 'r')
-        self.source = forceunicode(f.read())
+        import codecs
+        from drawgraph import RAW_ENCODING
+        f = codecs.open(dotfile, 'r', RAW_ENCODING)
+        self.source = f.read()
         f.close()
