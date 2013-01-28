@@ -34,7 +34,7 @@ class W_Continulet(Wrappable):
         if self.sthread is not None:
             raise geterror(self.space, "continulet already __init__ialized")
         sthread = build_sthread(self.space)
-        workaround_disable_jit(sthread)
+        #workaround_disable_jit(sthread)
         #
         # hackish: build the frame "by hand", passing it the correct arguments
         space = self.space
@@ -77,7 +77,7 @@ class W_Continulet(Wrappable):
                 global_state.clear()
                 raise geterror(self.space, "continulet already finished")
         self.check_sthread()
-        workaround_disable_jit(self.sthread)
+        #workaround_disable_jit(self.sthread)
         #
         global_state.origin = self
         if to is None:
