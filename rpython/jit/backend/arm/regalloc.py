@@ -1,3 +1,5 @@
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rlib import rgc
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempBox, compute_vars_longevity
 from rpython.jit.backend.arm import registers as r
@@ -180,10 +182,10 @@ class CoreRegisterManager(ARMRegisterManager):
 
 class Regalloc(object):
 
-    def __init__(self, frame_manager=None, assembler=None):
+    def __init__(self, assembler=None):
         self.cpu = assembler.cpu
         self.assembler = assembler
-        self.frame_manager = frame_manager
+        self.frame_manager = None
         self.jump_target_descr = None
         self.final_jump_op = None
 
@@ -282,7 +284,12 @@ class Regalloc(object):
             assert isinstance(value, ConstFloat)
             return self.vfprm.convert_to_imm(value)
 
-    def _prepare(self,  inputargs, operations):
+    def _prepare(self, inputargs, operations, allgcrefs):
+        self.frame_manager = self.fm = ARMFrameManager()
+        cpu = self.assembler.cpu
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
+                                                       allgcrefs)
+        # compute longevity of variables
         longevity, last_real_usage = compute_vars_longevity(
                                                     inputargs, operations)
         self.longevity = longevity
@@ -291,92 +298,27 @@ class Regalloc(object):
         asm = self.assembler
         self.vfprm = VFPRegisterManager(longevity, fm, asm)
         self.rm = CoreRegisterManager(longevity, fm, asm)
+        return operations
 
-    def prepare_loop(self, inputargs, operations):
-        self._prepare(inputargs, operations)
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self._set_initial_bindings(inputargs)
-        self.possibly_free_vars(inputargs)
+        self.possibly_free_vars(list(inputargs))
+        return operations
 
     def prepare_bridge(self, inputargs, arglocs, ops):
         self._prepare(inputargs, ops)
         self._update_bindings(arglocs, inputargs)
 
+    def get_final_frame_depth(self):
+        return self.frame_manager.get_frame_depth()
+
     def _set_initial_bindings(self, inputargs):
-        # The first inputargs are passed in registers r0-r3
-        # we relly on the soft-float calling convention so we need to move
-        # float params to the coprocessor.
-        if self.cpu.use_hf_abi:
-            self._set_initial_bindings_hf(inputargs)
-        else:
-            self._set_initial_bindings_sf(inputargs)
-
-    def _set_initial_bindings_sf(self, inputargs):
-
-        arg_index = 0
-        count = 0
-        n_register_args = len(r.argument_regs)
-        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
+        # the input args are passed in the jitframe
         for box in inputargs:
             assert isinstance(box, Box)
-            # handle inputargs in argument registers
-            if box.type == FLOAT and arg_index % 2 != 0:
-                arg_index += 1  # align argument index for float passed
-                                # in register
-            if arg_index < n_register_args:
-                if box.type == FLOAT:
-                    loc = r.argument_regs[arg_index]
-                    loc2 = r.argument_regs[arg_index + 1]
-                    vfpreg = self.try_allocate_reg(box)
-                    # move soft-float argument to vfp
-                    self.assembler.mov_to_vfp_loc(loc, loc2, vfpreg)
-                    arg_index += 2  # this argument used two argument registers
-                else:
-                    loc = r.argument_regs[arg_index]
-                    self.try_allocate_reg(box, selected_reg=loc)
-                    arg_index += 1
-            else:
-                # treat stack args as stack locations with a negative offset
-                if box.type == FLOAT:
-                    cur_frame_pos -= 2
-                    if count % 2 != 0: # Stack argument alignment
-                        cur_frame_pos -= 1
-                        count = 0
-                else:
-                    cur_frame_pos -= 1
-                    count += 1
-                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                self.frame_manager.set_binding(box, loc)
-
-    def _set_initial_bindings_hf(self, inputargs):
-
-        arg_index = vfp_arg_index = 0
-        count = 0
-        n_reg_args = len(r.argument_regs)
-        n_vfp_reg_args = len(r.vfp_argument_regs)
-        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
-        for box in inputargs:
-            assert isinstance(box, Box)
-            # handle inputargs in argument registers
-            if box.type != FLOAT and arg_index < n_reg_args:
-                reg = r.argument_regs[arg_index]
-                self.try_allocate_reg(box, selected_reg=reg)
-                arg_index += 1
-            elif box.type == FLOAT and vfp_arg_index < n_vfp_reg_args:
-                reg = r.vfp_argument_regs[vfp_arg_index]
-                self.try_allocate_reg(box, selected_reg=reg)
-                vfp_arg_index += 1
-            else:
-                # treat stack args as stack locations with a negative offset
-                if box.type == FLOAT:
-                    cur_frame_pos -= 2
-                    if count % 2 != 0: # Stack argument alignment
-                        cur_frame_pos -= 1
-                        count = 0
-                else:
-                    cur_frame_pos -= 1
-                    count += 1
-                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                self.frame_manager.set_binding(box, loc)
+            assert box.type != FLOAT
+            self.fm.get_new_loc(box)
 
     def _update_bindings(self, locs, inputargs):
         used = {}
@@ -644,9 +586,19 @@ class Regalloc(object):
         return args
 
     def prepare_op_finish(self, op, fcond):
-        loc = self.loc(op.getarg(0))
-        self.possibly_free_var(op.getarg(0))
-        return [loc]
+        # the frame is in fp, but we have to point where in the frame is
+        # the potential argument to FINISH
+        descr = op.getdescr()
+        fail_descr = cast_instance_to_gcref(descr)
+        # we know it does not move, but well
+        rgc._make_sure_does_not_move(fail_descr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        if op.numargs() == 1:
+            loc = self.make_sure_var_in_reg(op.getarg(0))
+            locs = [loc, imm(fail_descr)]
+        else:
+            locs = [imm(fail_descr)]
+        return locs
 
     def prepare_op_guard_true(self, op, fcond):
         l0 = self.make_sure_var_in_reg(op.getarg(0))

@@ -129,6 +129,8 @@ class BaseBackendTest(Runner):
         assert fail.identifier == 1
 
     def test_compile_linear_float_loop(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         i0 = BoxFloat()
         i1 = BoxFloat()
         operations = [

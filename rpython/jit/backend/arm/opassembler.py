@@ -317,9 +317,27 @@ class ResOpAssembler(object):
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
-        [argloc] = arglocs
-        if argloc is not r.r0: #XXX verify this
-            self.mov_loc_loc(argloc, r.r0, fcond)
+        base_ofs = self.cpu.get_baseofs_of_frame_field() - WORD
+        if len(arglocs) == 2:
+            [return_val, fail_descr_loc] = arglocs
+            if op.getarg(0).type == FLOAT and not IS_X86_64:
+                XXX
+                size = WORD * 2
+            else:
+                size = WORD
+            self.mc.STR_ri(return_val.value, r.fp.value)#, imm=-base_ofs)
+            #self.save_into_mem(raw_stack(0), return_val, imm(size))
+        else:
+            [fail_descr_loc] = arglocs
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+
+        self.mc.gen_load_int(r.ip.value, fail_descr_loc.value)
+        # XXX self.mov(fail_descr_loc, RawStackLoc(ofs))
+        self.mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
+        gcmap = self.gcmap_for_finish
+        self.push_gcmap(self.mc, gcmap, store=True)
+        self.mc.SUB_ri(r.r0.value, r.fp.value, base_ofs)
         # exit function
         self.gen_func_epilog()
         return fcond

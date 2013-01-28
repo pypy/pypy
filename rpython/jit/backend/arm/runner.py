@@ -1,11 +1,17 @@
+from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.assembler import AssemblerARM
 from rpython.jit.backend.arm.registers import all_regs, all_vfp_regs
+from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.metainterp import history
+from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
-from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
-from rpython.jit.backend.arm.arch import FORCE_INDEX_OFS
 
+
+jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
 
 class AbstractARMCPU(AbstractLLCPU):
 
@@ -18,14 +24,9 @@ class AbstractARMCPU(AbstractLLCPU):
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
-        if gcdescr is not None:
-            gcdescr.force_index_ofs = FORCE_INDEX_OFS
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
-        from rpython.jit.backend.llsupport import jitframe
-        self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
-                                                  self.get_failargs_limit())
 
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
@@ -64,7 +65,11 @@ class AbstractARMCPU(AbstractLLCPU):
             setitem(index, null)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+                                             llmemory.GCREF))
+
+        lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
+        kinds = unrolling_iterable(lst)
 
         def execute_token(executable_token, *args):
             clt = executable_token.compiled_loop_token
@@ -74,18 +79,32 @@ class AbstractARMCPU(AbstractLLCPU):
             assert addr % 8 == 0
             func = rffi.cast(FUNCPTR, addr)
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
+            frame_info = clt.frame_info
+            frame = self.gc_ll_descr.malloc_jitframe(frame_info)
+            ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                deadframe = func(*args)
+                num = JITFRAME_FIXED_SIZE * WORD
+                for i, kind in kinds:
+                    arg = args[i]
+                    if kind == history.INT:
+                        self.set_int_value(ll_frame, num, arg)
+                    elif kind == history.FLOAT:
+                        self.set_float_value(ll_frame, num, arg)
+                        num += WORD # on ARM(32 bit) a FLOAT needs two words
+                    else:
+                        assert kind == history.REF
+                        self.set_ref_value(ll_frame, num, arg)
+                    num += WORD
+                ll_frame = func(ll_frame)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            self.gc_set_extra_threshold()
-            return deadframe
+            return ll_frame
         return execute_token
 
     def cast_ptr_to_int(x):
