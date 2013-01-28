@@ -19,9 +19,9 @@ eci = ExternalCompilationInfo(
     separate_module_files = [translator_c_dir / 'src' / 'thread.c'],
     include_dirs = [translator_c_dir],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
-                      'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
-                      'RPyGilAllocate', 'RPyGilYieldThread',
-                      'RPyGilRelease', 'RPyGilAcquire',
+                      'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
+                      'RPyThreadReleaseLock', 'RPyGilAllocate',
+                      'RPyGilYieldThread', 'RPyGilRelease', 'RPyGilAcquire',
                       'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
                       'RPyOpaqueDealloc_ThreadLock',
                       'RPyThreadAfterFork']
@@ -61,6 +61,10 @@ c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   threadsafe=True)    # release the GIL
+c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed', 
+                                        [TLOCKP, rffi.LONGLONG, rffi.INT],
+                                        rffi.INT,
+                                        threadsafe=True)    # release the GIL
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
                                   threadsafe=True)    # release the GIL
 
@@ -118,6 +122,12 @@ class Lock(object):
 
     def acquire(self, flag):
         res = c_thread_acquirelock(self._lock, int(flag))
+        res = rffi.cast(lltype.Signed, res)
+        return bool(res)
+
+    def acquire_timed(self, timeout):
+        "timeout is in microseconds."
+        res = c_thread_acquirelock_timed(self._lock, timeout, 1)
         res = rffi.cast(lltype.Signed, res)
         return bool(res)
 

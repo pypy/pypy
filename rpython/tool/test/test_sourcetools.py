@@ -1,4 +1,7 @@
-from rpython.tool.sourcetools import func_with_new_name, func_renamer, rpython_wrapper
+# -*- encoding: utf-8 -*-
+import py
+from rpython.tool.sourcetools import (
+    func_with_new_name, func_renamer, rpython_wrapper, with_unicode_literals)
 
 def test_rename():
     def f(x, y=5):
@@ -56,3 +59,28 @@ def test_rpython_wrapper():
         ]
 
         
+def test_with_unicode_literals():
+    @with_unicode_literals()
+    def foo():
+        return 'hello'
+    assert type(foo()) is unicode
+    #
+    @with_unicode_literals
+    def foo():
+        return 'hello'
+    assert type(foo()) is unicode
+    #
+    def foo():
+        return 'hello àèì'
+    py.test.raises(UnicodeDecodeError, "with_unicode_literals(foo)")
+    #
+    @with_unicode_literals(encoding='utf-8')
+    def foo():
+        return 'hello àèì'
+    assert foo() == u'hello àèì'
+    #
+    @with_unicode_literals
+    def foo():
+        return ('a', 'b')
+    assert type(foo()[0]) is unicode
+

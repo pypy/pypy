@@ -11,6 +11,7 @@ int pypysig_set_wakeup_fd(int fd);
 
 /* utility to poll for signals that arrived */
 int pypysig_poll(void);   /* => signum or -1 */
+void pypysig_pushback(int signum);
 
 /* When a signal is received, pypysig_counter is set to -1. */
 /* This is a struct for the JIT. See rsignal.py. */

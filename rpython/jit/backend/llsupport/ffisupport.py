@@ -42,11 +42,14 @@ def is_ffi_type_signed(ffi_type):
 
 @specialize.memo()
 def _get_ffi2descr_dict(cpu):
-    d = {('v', 0): ('v', None)}
+    def entry(letter, TYPE):
+        return (letter, cpu.arraydescrof(rffi.CArray(TYPE)), rffi.sizeof(TYPE))
+    #
+    d = {('v', 0): ('v', None, 1)}
     if cpu.supports_floats:
-        d[('f', 0)] = ('f', cpu.arraydescrof(rffi.CArray(lltype.Float)))
+        d[('f', 0)] = entry('f', lltype.Float)
     if cpu.supports_singlefloats:
-        d[('S', 0)] = ('i', cpu.arraydescrof(rffi.CArray(lltype.SingleFloat)))
+        d[('S', 0)] = entry('i', lltype.SingleFloat)
     for SIGNED_TYPE in [rffi.SIGNEDCHAR,
                         rffi.SHORT,
                         rffi.INT,
@@ -59,7 +62,7 @@ def _get_ffi2descr_dict(cpu):
                 continue
             key = ('L', 0)
             kind = 'f'
-        d[key] = (kind, cpu.arraydescrof(rffi.CArray(SIGNED_TYPE)))
+        d[key] = entry(kind, SIGNED_TYPE)
     for UNSIGNED_TYPE in [rffi.UCHAR,
                           rffi.USHORT,
                           rffi.UINT,
@@ -68,7 +71,7 @@ def _get_ffi2descr_dict(cpu):
         key = ('u', rffi.sizeof(UNSIGNED_TYPE))
         if key[1] > rffi.sizeof(lltype.Signed):
             continue
-        d[key] = ('i', cpu.arraydescrof(rffi.CArray(UNSIGNED_TYPE)))
+        d[key] = entry('i', UNSIGNED_TYPE)
     return d
 
 def get_arg_descr(cpu, ffi_type):

@@ -774,7 +774,7 @@ class TestNonInteractive:
         assert data == p + os.sep + '\n'
 
     def test_getfilesystemencoding(self):
-        py.test.skip("this has been failing since forever, but it's not tested nightly because buildbot uses python2.6 :-(")
+        py.test.skip("encoding is only set if stdout.isatty(), test is flawed")
         if sys.version_info < (2, 7):
             skip("test requires Python >= 2.7")
         p = getscript_in_dir("""
@@ -881,7 +881,6 @@ class AppTestAppMain:
 
     def test_setup_bootstrap_path(self):
         import sys
-        import os
         old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
         try:
