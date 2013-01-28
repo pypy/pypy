@@ -5,6 +5,7 @@
 /* Eliminated some memory leaks, gsw@agere.com */
 
 #include <windows.h>
+#include <stdio.h>
 #include <limits.h>
 #include <process.h>
 
@@ -112,7 +113,7 @@ VOID DeleteNonRecursiveMutex(PNRMUTEX mutex)
     mutex->sem = NULL ; /* Just in case */
 }
 
-DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, BOOL wait)
+DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, DWORD milliseconds)
 {
     return WaitForSingleObject(mutex->sem, milliseconds);
 }
@@ -151,26 +152,28 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 {
     /* Fow now, intr_flag does nothing on Windows, and lock acquires are
      * uninterruptible.  */
-    PyLockStatus success;
-    PY_TIMEOUT_T milliseconds;
+    RPyLockStatus success;
+    RPY_TIMEOUT_T milliseconds;
 
     if (microseconds >= 0) {
         milliseconds = microseconds / 1000;
         if (microseconds % 1000 > 0)
             ++milliseconds;
-        if ((DWORD) milliseconds != milliseconds)
-            Py_FatalError("Timeout too large for a DWORD, "
-                           "please check PY_TIMEOUT_MAX");
+        if ((DWORD) milliseconds != milliseconds) {
+            fprintf(stderr, "Timeout too large for a DWORD, "
+                            "please check RPY_TIMEOUT_MAX");
+            abort();
+        }
     }
     else
         milliseconds = INFINITE;
 
     if (lock && EnterNonRecursiveMutex(
 	    lock, (DWORD)milliseconds) == WAIT_OBJECT_0) {
-        success = PY_LOCK_ACQUIRED;
+        success = RPY_LOCK_ACQUIRED;
     }
     else {
-        success = PY_LOCK_FAILURE;
+        success = RPY_LOCK_FAILURE;
     }
 
     return success;

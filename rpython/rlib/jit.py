@@ -578,6 +578,8 @@ class JitDriver(object):
         pass
 
     def inline(self, call_jit_merge_point):
+        assert False, "@inline off: see skipped failures in test_warmspot."
+        #
         assert self.autoreds, "@inline works only with reds='auto'"
         self.inline_jit_merge_point = True
         def decorate(func):
