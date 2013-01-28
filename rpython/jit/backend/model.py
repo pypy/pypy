@@ -1,5 +1,4 @@
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.jit.metainterp import compile
 from rpython.rtyper.lltypesystem import lltype
 
 class CPUTotalTracker(object):
@@ -23,7 +22,6 @@ class AbstractCPU(object):
     propagate_exception_descr = None
 
     def __init__(self):
-        self.__dict__.update(compile.make_done_loop_tokens())
         self.tracker = CPUTotalTracker()
 
     def _freeze_(self):
