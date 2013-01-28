@@ -141,3 +141,10 @@ class TestPosixUnicode:
         assert rposix.is_valid_fd(fd) == 1
         fid.close()
         assert rposix.is_valid_fd(fd) == 0
+
+    def test_putenv(self):
+        def f():
+            rposix.putenv(self.path, self.path)
+            rposix.unsetenv(self.path)
+
+        interpret(f, []) # does not crash
