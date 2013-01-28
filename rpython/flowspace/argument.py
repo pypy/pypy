@@ -374,7 +374,7 @@ def rawshape(args, nextra=0):
     return args._rawshape(nextra)
 
 
-class CallSpec(ArgumentsForTranslation):
+class CallSpec(object):
     """Represents the arguments passed into a function call, i.e. the
     `a, b, *c, **d` part in `return func(a, b, *c, **d)`.
     """
@@ -388,9 +388,6 @@ class CallSpec(ArgumentsForTranslation):
         self.arguments_w = args_w
         self.keywords = keywords or {}
 
-    def copy(self):
-        return self
-
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
         if self.w_stararg is not None:
@@ -399,9 +396,6 @@ class CallSpec(ArgumentsForTranslation):
         else:
             args_w = self.arguments_w
         return args_w, self.keywords
-
-    def combine_if_necessary(self):
-        raise NotImplementedError
 
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """
