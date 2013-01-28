@@ -97,6 +97,7 @@ class CheckSignalAction(PeriodicAsyncAction):
             else:
                 # Otherwise, arrange for perform() to be called again
                 # after we switch to the main thread.
+                self.pending_signal = n
                 self.fire_in_main_thread = True
                 break
 
