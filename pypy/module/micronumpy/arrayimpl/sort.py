@@ -82,11 +82,17 @@ def make_sort_classes(space, itemtype):
 
 def argsort_array(arr, space, w_axis):
     itemtype = arr.dtype.itemtype
-    if (not arr.dtype.is_int_type() and
-        not arr.dtype.is_float_type()):
-        # XXX this should probably be changed
+    # this is for runtime
+    if not (arr.dtype.is_int_type() or \
+            arr.dtype.is_float_type() or \
+            arr.dtype.is_complex_type()):
         raise OperationError(space.w_NotImplementedError,
-           space.wrap("sorting of non-numeric types '%r' is not implemented" % itemtype ))
+           space.wrap("sorting of non-numeric types " + \
+                        "'%r' is not implemented" % arr.dtype ))
+    # this is for translation
+    assert isinstance(itemtype, types.Float) or \
+           isinstance(itemtype, types.Integer) or \
+           isinstance(itemtype, types.ComplexFloating)
     if w_axis is space.w_None:
         # note that it's fine ot pass None here as we're not going
         # to pass the result around (None is the link to base in slices)
@@ -113,7 +119,8 @@ def argsort_array(arr, space, w_axis):
         if axis < 0:
             axis = len(shape) + axis - 1
         if axis < 0 or axis > len(shape):
-            raise OperationError(space.w_IndexError("Wrong axis %d" % axis))
+            raise OperationError(space.w_IndexError, space.wrap(
+                                                "Wrong axis %d" % axis))
         iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
         iter = AxisIterator(arr, iterable_shape, axis, False)
         index_impl = index_arr.implementation
