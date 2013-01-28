@@ -10,11 +10,7 @@ from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib import jit, rposix
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rsignal import (pypysig_getaddr_occurred, pypysig_setflag,
-    pypysig_poll, pypysig_reinstall, pypysig_ignore, pypysig_default,
-    pypysig_set_wakeup_fd, c_alarm, c_pause, c_getitimer, c_setitimer,
-    c_siginterrupt, itimervalP, NSIG, SIG_DFL, SIG_IGN, ITIMER_REAL,
-    ITIMER_PROF, ITIMER_VIRTUAL, signal_values)
+from rpython.rlib.rsignal import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
