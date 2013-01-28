@@ -310,7 +310,10 @@ def jit_callback(name):
     def decorate(func):
         from rpython.tool.sourcetools import compile2
         #
-        jitdriver = JitDriver(greens=[], reds='auto', name=name)
+        def get_printable_location():
+            return name
+        jitdriver = JitDriver(get_printable_location=get_printable_location,
+                              greens=[], reds='auto', name=name)
         #
         args = ','.join(['a%d' % i for i in range(func.func_code.co_argcount)])
         source = """def callback_with_jitdriver(%(args)s):
@@ -481,11 +484,8 @@ class JitDriver(object):
             self.autoreds = True
             self.reds = []
             self.numreds = None # see warmspot.autodetect_jit_markers_redvars
-            for hook in [
-                get_jitcell_at, set_jitcell_at, get_printable_location,
-                confirm_enter_jit
-            ]:
-                assert hook is None, "reds='auto' is not compatible with JitDriver hooks"
+            assert confirm_enter_jit is None, (
+                "reds='auto' is not compatible with confirm_enter_jit")
         else:
             if reds is not None:
                 self.reds = reds
@@ -578,6 +578,8 @@ class JitDriver(object):
         pass
 
     def inline(self, call_jit_merge_point):
+        assert False, "@inline off: see skipped failures in test_warmspot."
+        #
         assert self.autoreds, "@inline works only with reds='auto'"
         self.inline_jit_merge_point = True
         def decorate(func):

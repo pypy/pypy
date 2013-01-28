@@ -115,7 +115,7 @@ class BasePosix(Platform):
             cflags = self.cflags + self.standalone_only
 
         m = GnuMakefile(path)
-        m.exe_name = exe_name
+        m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
         def rpyrel(fpath):

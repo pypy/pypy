@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/time.h>
 
 /* The following is hopefully equivalent to what CPython does
    (which is trying to compile a snippet of code using it) */
@@ -170,6 +171,29 @@ long RPyThreadSetStackSize(long newsize)
 #endif
 }
 
+#ifdef GETTIMEOFDAY_NO_TZ
+#define RPY_GETTIMEOFDAY(ptv) gettimeofday(ptv)
+#else
+#define RPY_GETTIMEOFDAY(ptv) gettimeofday(ptv, (struct timezone *)NULL)
+#endif
+
+#define RPY_MICROSECONDS_TO_TIMESPEC(microseconds, ts) \
+do { \
+    struct timeval tv; \
+    RPY_GETTIMEOFDAY(&tv); \
+    tv.tv_usec += microseconds % 1000000; \
+    tv.tv_sec += microseconds / 1000000; \
+    tv.tv_sec += tv.tv_usec / 1000000; \
+    tv.tv_usec %= 1000000; \
+    ts.tv_sec = tv.tv_sec; \
+    ts.tv_nsec = tv.tv_usec * 1000; \
+} while(0)
+
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+{
+    return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
+}
+
 /************************************************************/
 #ifdef USE_SEMAPHORES
 /************************************************************/
@@ -215,26 +239,50 @@ rpythread_fix_status(int status)
 	return (status == -1) ? errno : status;
 }
 
-int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+RPyLockStatus
+RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
+			  RPY_TIMEOUT_T microseconds, int intr_flag)
 {
-	int success;
+	RPyLockStatus success;
 	sem_t *thelock = &lock->sem;
 	int status, error = 0;
+	struct timespec ts;
 
+	if (microseconds > 0)
+		RPY_MICROSECONDS_TO_TIMESPEC(microseconds, ts);
 	do {
-		if (waitflag)
-			status = rpythread_fix_status(sem_wait(thelock));
-		else
-			status = rpythread_fix_status(sem_trywait(thelock));
-	} while (status == EINTR); /* Retry if interrupted by a signal */
+	    if (microseconds > 0)
+		status = rpythread_fix_status(sem_timedwait(thelock, &ts));
+	    else if (microseconds == 0)
+		status = rpythread_fix_status(sem_trywait(thelock));
+	    else
+		status = rpythread_fix_status(sem_wait(thelock));
+	    /* Retry if interrupted by a signal, unless the caller wants to be
+	       notified.  */
+	} while (!intr_flag && status == EINTR);
 
-	if (waitflag) {
+	/* Don't check the status if we're stopping because of an interrupt.  */
+	if (!(intr_flag && status == EINTR)) {
+	    if (microseconds > 0) {
+		if (status != ETIMEDOUT)
+		    CHECK_STATUS("sem_timedwait");
+	    }
+	    else if (microseconds == 0) {
+		if (status != EAGAIN)
+		    CHECK_STATUS("sem_trywait");
+	    }
+	    else {
 		CHECK_STATUS("sem_wait");
-	} else if (status != EAGAIN) {
-		CHECK_STATUS("sem_trywait");
+	    }
 	}
-	
-	success = (status == 0) ? 1 : 0;
+
+	if (status == 0) {
+	    success = RPY_LOCK_ACQUIRED;
+	} else if (intr_flag && status == EINTR) {
+	    success = RPY_LOCK_INTR;
+	} else {
+	    success = RPY_LOCK_FAILURE;
+	}
 	return success;
 }
 
@@ -326,32 +374,63 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 	}
 }
 
-int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+RPyLockStatus
+RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
+			  RPY_TIMEOUT_T microseconds, int intr_flag)
 {
-	int success;
+	RPyLockStatus success;
 	int status, error = 0;
 
 	status = pthread_mutex_lock( &lock->mut );
 	CHECK_STATUS("pthread_mutex_lock[1]");
-	success = lock->locked == 0;
 
-	if ( !success && waitflag ) {
+	if (lock->locked == 0) {
+	    success = RPY_LOCK_ACQUIRED;
+	} else if (microseconds == 0) {
+	    success = RPY_LOCK_FAILURE;
+	} else {
+		struct timespec ts;
+		if (microseconds > 0)
+		    RPY_MICROSECONDS_TO_TIMESPEC(microseconds, ts);
 		/* continue trying until we get the lock */
 
 		/* mut must be locked by me -- part of the condition
 		 * protocol */
-		while ( lock->locked ) {
-			status = pthread_cond_wait(&lock->lock_released,
-						   &lock->mut);
+		success = RPY_LOCK_FAILURE;
+		while (success == RPY_LOCK_FAILURE) {
+		    if (microseconds > 0) {
+			status = pthread_cond_timedwait(
+			    &lock->lock_released,
+			    &lock->mut, &ts);
+			if (status == ETIMEDOUT)
+			    break;
+			CHECK_STATUS("pthread_cond_timed_wait");
+		    }
+		    else {
+			status = pthread_cond_wait(
+			    &lock->lock_released,
+			    &lock->mut);
 			CHECK_STATUS("pthread_cond_wait");
+		    }
+
+		    if (intr_flag && status == 0 && lock->locked) {
+			/* We were woken up, but didn't get the lock.  We probably received
+			 * a signal.  Return RPY_LOCK_INTR to allow the caller to handle
+			 * it and retry.  */
+			success = RPY_LOCK_INTR;
+			break;
+		    } else if (status == 0 && !lock->locked) {
+			success = RPY_LOCK_ACQUIRED;
+		    } else {
+			success = RPY_LOCK_FAILURE;
+		    }
 		}
-		success = 1;
 	}
-	if (success) lock->locked = 1;
+	if (success == RPY_LOCK_ACQUIRED) lock->locked = 1;
 	status = pthread_mutex_unlock( &lock->mut );
 	CHECK_STATUS("pthread_mutex_unlock[1]");
 
-	if (error) success = 0;
+	if (error) success = RPY_LOCK_FAILURE;
 	return success;
 }
 

@@ -46,6 +46,15 @@ def test_jumpahead():
     assert tuple(rnd.state) + (rnd.index, ) == cpyrandom.getstate()
 
 
+def test_jumpahead_badstate():
+    rnd = Random()
+    s, j = 4043161618, 2674112291824205302
+    rnd.init_by_array([s])
+    rnd.jumpahead(j)
+    for i in range(500):
+        r = rnd.random()
+        assert r <= 1.0, (r, i)
+
 def test_translate():
     def f(x, y):
         x = r_uint(x)
