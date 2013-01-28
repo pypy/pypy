@@ -1,6 +1,6 @@
 import py
 import pypy
-from commands import getoutput
+from subprocess import check_output
 ROOT = py.path.local(pypy.__file__).dirpath().dirpath()
 
 
@@ -29,8 +29,8 @@ def get_merged_branches(path, startrev, endrev):
                       merge() and \
                       branch(default)) and \
               not branch(default)' % (startrev, endrev)
-    cmd = r'hg log -R "%s" -r "%s" --template "{branches}\n"' % (path, revset)
-    out = getoutput(cmd)
+    cmd = ['hg', 'log', '-R', str(path), '-r', revset, '--template', '{branches}\n']
+    out = check_output(cmd)
     branches = set(map(str.strip, out.splitlines()))
     return branches
 

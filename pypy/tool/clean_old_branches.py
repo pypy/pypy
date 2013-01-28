@@ -6,15 +6,15 @@ called 'closed-branch'.  It reduces the number of heads.
 
 import os
 import sys
-import commands
+import subprocess
 
 if not os.path.isdir('.hg'):
     print 'Must run this script from the top-level directory.'
     sys.exit(1)
 
 def heads():
-    result = commands.getoutput(
-        "hg heads --topo --closed --template '{node|short}:{branches}:{extras}\n'")
+    result = subprocess.check_output(
+        ['hg', 'heads', '--topo', '--closed', '--template', '{node|short}:{branches}:{extras}\n'])
     result = result.splitlines(False)
     result = [s.split(':', 2) for s in result]
     for line in result:
