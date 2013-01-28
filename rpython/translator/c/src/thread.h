@@ -2,6 +2,14 @@
 #define __PYPY_THREAD_H
 #include <assert.h>
 
+#define RPY_TIMEOUT_T long long
+
+typedef enum RPyLockStatus {
+    RPY_LOCK_FAILURE = 0,
+    RPY_LOCK_ACQUIRED = 1,
+    RPY_LOCK_INTR
+} RPyLockStatus;
+
 #ifdef _WIN32
 #include "thread_nt.h"
 #else
