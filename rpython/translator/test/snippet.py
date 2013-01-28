@@ -636,6 +636,7 @@ def harmonic(n):
         result += 1.0 / n
     return result
 
+
 # --------------------(Currently) Non runnable Functions ---------------------
 
 def _somebug1(n=int):
