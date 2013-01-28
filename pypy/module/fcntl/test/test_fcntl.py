@@ -1,9 +1,8 @@
-import os
+import os, py
 from rpython.tool.udir import udir
 
-if os.name == "nt":
-    from py.test import skip
-    skip("fcntl module is not available on Windows")
+if os.name != 'posix':
+    py.test.skip("fcntl module only available on unix")
 
 def teardown_module(mod):
     for i in "abcde":
