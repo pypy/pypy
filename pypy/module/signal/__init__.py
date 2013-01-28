@@ -30,9 +30,10 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        from pypy.module.signal import interp_signal
-        for name in interp_signal.signal_names:
-            signum = getattr(interp_signal, name)
+        from rpython.rlib import rsignal
+
+        for name in rsignal.signal_names:
+            signum = getattr(rsignal, name)
             if signum is not None:
                 Module.interpleveldefs[name] = 'space.wrap(%d)' % (signum,)
         super(Module, cls).buildloaders()
