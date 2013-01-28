@@ -71,7 +71,7 @@ void pypysig_default(int signum)
 #endif
 }
 
-static void pypysig_pushback(int signum)
+void pypysig_pushback(int signum)
 {
     if (0 <= signum && signum < NSIG)
       {
