@@ -158,9 +158,11 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
         milliseconds = microseconds / 1000;
         if (microseconds % 1000 > 0)
             ++milliseconds;
-        if ((DWORD) milliseconds != milliseconds)
-            Py_FatalError("Timeout too large for a DWORD, "
-                           "please check PY_TIMEOUT_MAX");
+        if ((DWORD) milliseconds != milliseconds) {
+            fprintf(stderr, "Timeout too large for a DWORD, "
+                            "please check RPY_TIMEOUT_MAX");
+            abort();
+        }
     }
     else
         milliseconds = INFINITE;
