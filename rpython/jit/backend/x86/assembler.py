@@ -2271,7 +2271,9 @@ class Assembler386(object):
             else:
                 raise AssertionError(kind)
 
-        value = rffi.cast(lltype.Signed, cast_instance_to_gcref(value))
+        gcref = cast_instance_to_gcref(value)
+        rgc._make_sure_does_not_move(gcref)
+        value = rffi.cast(lltype.Signed, gcref)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.CMP_mi((eax.value, base_ofs + ofs), value)
