@@ -566,3 +566,6 @@ def c_isinf(r, i):
 def c_isnan(r, i):
     return isnan(r) or isnan(i)
 
+
+def c_isfinite(r, i):
+    return isfinite(r) and isfinite(i)

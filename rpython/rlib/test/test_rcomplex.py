@@ -260,3 +260,24 @@ def test_specific_values():
         rAssertAlmostEqual(expected[1], actual[1],
                            abs_err=real_abs_err,
                            msg=error_message)
+
+def test_isnan():
+    assert not c.c_isnan(0, 0)
+    assert c.c_isnan(float('nan'), 0)
+    assert c.c_isnan(1, float('nan'))
+    assert not c.c_isnan(float('inf'), 0)
+
+def test_isinf():
+    assert not c.c_isinf(0, 0)
+    assert c.c_isinf(float('inf'), 0)
+    assert c.c_isinf(float('-inf'), 0)
+    assert c.c_isinf(1, float('inf'))
+    assert not c.c_isinf(float('nan'), 0)
+
+def test_isfinite():
+    assert c.c_isfinite(0, 0)
+    assert not c.c_isfinite(float('nan'), 0)
+    assert not c.c_isfinite(float('-inf'), 0)
+    assert not c.c_isfinite(0, float('nan'))
+    assert not c.c_isfinite(0, float('-inf'))
+
