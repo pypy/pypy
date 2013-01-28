@@ -1,4 +1,4 @@
-from rpython.flowspace.argument import ArgumentsForTranslation, ArgErr
+from rpython.annotator.argument import ArgumentsForTranslation, ArgErr
 from rpython.annotator import model as annmodel
 from rpython.rtyper import rtuple
 from rpython.rtyper.error import TyperError
