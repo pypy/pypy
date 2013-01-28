@@ -9,6 +9,7 @@ from rpython.rtyper.annlowlevel import LowLevelAnnotatorPolicy
 
 def annotate_at(f, policy=None):
     t = TranslationContext()
+    t.config.translation.check_str_without_nul = True
     a = t.buildannotator(policy=policy)
     a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount, policy=policy)
     return a
@@ -112,6 +113,12 @@ def test_unicode():
         return len(u)
     assert getsig(f) == [model.SomeUnicodeString(), model.SomeInteger()]
 
+def test_str0():
+    @signature(types.unicode0(), returns=types.str0())
+    def f(u):
+        return 'str'
+    assert getsig(f) == [model.SomeUnicodeString(no_nul=True),
+                         model.SomeString(no_nul=True)]
 
 def test_ptr():
     policy = LowLevelAnnotatorPolicy()
