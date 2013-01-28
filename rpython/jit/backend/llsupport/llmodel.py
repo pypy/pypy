@@ -335,6 +335,40 @@ class AbstractLLCPU(AbstractCPU):
 
     # ____________________________________________________________
 
+    def set_int_value(self, newframe, index, value):
+        """ Note that we keep index multiplied by WORD here mostly
+        for completeness with get_int_value and friends
+        """
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        self.write_int_at_mem(newframe, ofs + index, WORD, 1, value)
+
+    def set_ref_value(self, newframe, index, value):
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        self.write_ref_at_mem(newframe, ofs + index, value)
+
+    def set_float_value(self, newframe, index, value):
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        self.write_float_at_mem(newframe, ofs + index, value)
+
+    @specialize.arg(1)
+    def get_ofs_of_frame_field(self, name):
+        descrs = self.gc_ll_descr.getframedescrs(self)
+        if name.startswith('jfi_'):
+            base_ofs = 0 # not relative to frame
+        else:
+            base_ofs = self.unpack_arraydescr(descrs.arraydescr)
+        ofs = self.unpack_fielddescr(getattr(descrs, name))
+        return ofs - base_ofs
+
+    def get_baseofs_of_frame_field(self):
+        descrs = self.gc_ll_descr.getframedescrs(self)
+        base_ofs = self.unpack_arraydescr(descrs.arraydescr)
+        return base_ofs
+    # ____________________________________________________________
+
 
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
