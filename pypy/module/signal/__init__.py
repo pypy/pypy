@@ -40,11 +40,11 @@ class Module(MixedModule):
 
     def __init__(self, space, *args):
         "NOT_RPYTHON"
-        from pypy.module.signal import sigaction
+        from pypy.module.signal import interp_signal
         MixedModule.__init__(self, space, *args)
         # add the signal-checking callback as an action on the space
-        space.check_signal_action = sigaction.CheckSignalAction(space)
+        space.check_signal_action = interp_signal.CheckSignalAction(space)
         space.actionflag.register_periodic_action(space.check_signal_action,
                                                   use_bytecode_counter=False)
-        space.actionflag.__class__ = sigaction.SignalActionFlag
+        space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack

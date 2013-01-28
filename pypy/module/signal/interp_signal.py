@@ -1,10 +1,101 @@
 from __future__ import with_statement
+
+import signal as cpy_signal
+
 from pypy.interpreter.error import OperationError, exception_from_errno
+from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
+    PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rpython.lltypesystem import lltype, rffi
+
 from pypy.rlib import jit, rposix
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rsignal import *
+from pypy.rlib.rsignal import (pypysig_getaddr_occurred, pypysig_setflag,
+    pypysig_poll, pypysig_reinstall, pypysig_ignore, pypysig_default,
+    pypysig_set_wakeup_fd, c_alarm, c_pause, c_getitimer, c_setitimer,
+    c_siginterrupt, itimervalP, NSIG, SIG_DFL, SIG_IGN, ITIMER_REAL,
+    ITIMER_PROF, ITIMER_VIRTUAL, signal_values)
+from pypy.rpython.lltypesystem import lltype, rffi
+
+
+class SignalActionFlag(AbstractActionFlag):
+    # This class uses the C-level pypysig_counter variable as the tick
+    # counter.  The C-level signal handler will reset it to -1 whenever
+    # a signal is received.  This causes CheckSignalAction.perform() to
+    # be called.
+
+    def get_ticker(self):
+        p = pypysig_getaddr_occurred()
+        return p.c_value
+
+    def reset_ticker(self, value):
+        p = pypysig_getaddr_occurred()
+        p.c_value = value
+
+    def decrement_ticker(self, by):
+        p = pypysig_getaddr_occurred()
+        value = p.c_value
+        if self.has_bytecode_counter:    # this 'if' is constant-folded
+            if jit.isconstant(by) and by == 0:
+                pass     # normally constant-folded too
+            else:
+                value -= by
+                p.c_value = value
+        return value
+
+
+class CheckSignalAction(PeriodicAsyncAction):
+    """An action that is automatically invoked when a signal is received."""
+
+    def __init__(self, space):
+        AsyncAction.__init__(self, space)
+        self.handlers_w = {}
+        self.emulated_sigint = False
+
+    @jit.dont_look_inside
+    def perform(self, executioncontext, frame):
+        if self.space.config.objspace.usemodules.thread:
+            main_ec = self.space.threadlocals.getmainthreadvalue()
+            in_main = executioncontext is main_ec
+        else:
+            in_main = True
+        # If we are in the main thread, poll and report the signals now.
+        if in_main:
+            if self.emulated_sigint:
+                self.emulated_sigint = False
+                self._report_signal(cpy_signal.SIGINT)
+            while True:
+                n = pypysig_poll()
+                if n < 0:
+                    break
+                self._report_signal(n)
+        else:
+            # Otherwise, don't call pypysig_poll() at all.  Instead,
+            # arrange for perform() to be called again after a thread
+            # switch.  It might be called again and again, until we
+            # land in the main thread.
+            self.fire_after_thread_switch()
+
+    @jit.dont_look_inside
+    def set_interrupt(self):
+        "Simulates the effect of a SIGINT signal arriving"
+        ec = self.space.getexecutioncontext()
+        self.emulated_sigint = True
+        self.perform(ec, None)
+
+    def _report_signal(self, n):
+        try:
+            w_handler = self.handlers_w[n]
+        except KeyError:
+            return    # no handler, ignore signal
+        space = self.space
+        if not space.is_true(space.callable(w_handler)):
+            return    # w_handler is SIG_IGN or SIG_DFL?
+        # re-install signal handler, for OSes that clear it
+        pypysig_reinstall(n)
+        # invoke the app-level handler
+        ec = space.getexecutioncontext()
+        w_frame = space.wrap(ec.gettopframe_nohidden())
+        space.call_function(w_handler, space.wrap(n), w_frame)
 
 
 @unwrap_spec(signum=int)
