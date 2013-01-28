@@ -4,7 +4,18 @@ A color print.
 
 import sys
 from py.io import ansi_print
-from rpython.tool.ansi_mandelbrot import Driver
+from rpython.tool.ansi_mandelbrot import Driver as MandelbrotDriver
+
+class SpinningDriver(object):
+    def __init__(self):
+        self.states = ['|', '/', '-', '\\']
+        self.state = 0
+    def reset(self):
+        self.state = 0
+    def dot(self):
+        sys.stderr.write(self.states[self.state] + '\b')
+        self.state += 1
+        self.state %= len(self.states)
 
 class AnsiLog:
     wrote_dot = False # XXX sharing state with all instances
@@ -20,17 +31,32 @@ class AnsiLog:
         'info': ((35,), False),
         'stub': ((34,), False),
     }
+    
+    log_on_quiet = [
+        "ERROR",
+        "Error",
+        "info",
+    ]
 
     def __init__(self, kw_to_color={}, file=None):
         self.kw_to_color = self.KW_TO_COLOR.copy()
         self.kw_to_color.update(kw_to_color)
         self.file = file
-        self.fancy = True
         self.isatty = getattr(sys.stderr, 'isatty', lambda: False)
-        if self.fancy and self.isatty(): 
-            self.mandelbrot_driver = Driver()
-        else:
-            self.mandelbrot_driver = None
+        self.driver = None
+        self.set_option(fancy=True, quiet=False)
+
+    def set_option(self, fancy=None, quiet=None):
+        if fancy is not None:
+            self.fancy = fancy
+        if quiet is not None:
+            self.quiet = quiet
+        
+        self.driver = None
+        if self.isatty and self.fancy:
+            self.driver = MandelbrotDriver()
+        if self.isatty and self.quiet:
+            self.driver = SpinningDriver()
 
     def __call__(self, msg):
         tty = self.isatty()
@@ -55,10 +81,10 @@ class AnsiLog:
                 return
         elif 'dot' in keywords:
             if tty:
-                if self.fancy:
+                if self.driver is not None:
                     if not AnsiLog.wrote_dot:
-                        self.mandelbrot_driver.reset()
-                    self.mandelbrot_driver.dot()
+                        self.driver.reset()
+                    self.driver.dot()
                 else:
                     ansi_print(".", tuple(esc), file=self.file, newline=False, flush=flush)
                 AnsiLog.wrote_dot = True
@@ -67,8 +93,9 @@ class AnsiLog:
             AnsiLog.wrote_dot = False
             sys.stderr.write("\n")
         esc = tuple(esc)
-        for line in msg.content().splitlines():
-            ansi_print("[%s] %s" %(":".join(keywords), line), esc, 
-                       file=self.file, newline=newline, flush=flush)
+        if not self.quiet or any([kw in self.log_on_quiet for kw in keywords]):
+            for line in msg.content().splitlines():
+                ansi_print("[%s] %s" %(":".join(keywords), line), esc, 
+                            file=self.file, newline=newline, flush=flush)
 
 ansi_log = AnsiLog()

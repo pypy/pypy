@@ -74,6 +74,8 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
                cmdline="-h --help", negation=False),
     BoolOption("fullhelp", "show full help message and exit", default=False,
                cmdline="--full-help", negation=False),
+    BoolOption("quiet", "be less verbose and don't paint fractals", default=False,
+               cmdline="-q --quiet", negation=False),
     ArbitraryOption("goals", "XXX",
                     defaultfactory=list),
     # xxx default goals ['annotate', 'rtype', 'backendopt', 'source', 'compile']
@@ -116,6 +118,8 @@ def parse_options_and_load_target():
     to_optparse(translateconfig, parser=opt_parser)
 
     options, args = opt_parser.parse_args()
+
+    ansi_log.set_option(quiet=translateconfig.quiet)
 
     # set goals and skipped_goals
     reset = False
