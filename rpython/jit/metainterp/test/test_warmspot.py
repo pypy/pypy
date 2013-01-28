@@ -401,6 +401,7 @@ class WarmspotTests(object):
         assert len(oplabel.getarglist()) == 2     # 'n', 'res' in some order
 
     def test_inline_jit_merge_point(self):
+        py.test.skip("fix the test if you want to re-enable this")
         # test that the machinery to inline jit_merge_points in callers
         # works. The final user does not need to mess manually with the
         # _inline_jit_merge_point_ attribute and similar, it is all nicely
@@ -430,6 +431,7 @@ class WarmspotTests(object):
         self.check_resops(int_add=4)
 
     def test_jitdriver_inline(self):
+        py.test.skip("fix the test if you want to re-enable this")
         myjitdriver = JitDriver(greens = [], reds = 'auto')
         class MyRange(object):
             def __init__(self, n):
@@ -462,6 +464,7 @@ class WarmspotTests(object):
         self.check_trace_count(1)
 
     def test_jitdriver_inline_twice(self):
+        py.test.skip("fix the test if you want to re-enable this")
         myjitdriver = JitDriver(greens = [], reds = 'auto')
 
         def jit_merge_point(a, b):
@@ -492,6 +495,7 @@ class WarmspotTests(object):
         self.check_trace_count(2)
 
     def test_jitdriver_inline_exception(self):
+        py.test.skip("fix the test if you want to re-enable this")
         # this simulates what happens in a real case scenario: inside the next
         # we have a call which we cannot inline (e.g. space.next in the case
         # of W_InterpIterable), but we need to put it in a try/except block.
