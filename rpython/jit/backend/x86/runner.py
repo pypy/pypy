@@ -15,8 +15,6 @@ from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import ArrayDescr, FLAG_POINTER,\
      FLAG_FLOAT
 
-jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
-        
 import sys
 
 from rpython.tool.ansi_print import ansi_log
@@ -153,9 +151,7 @@ class AbstractX86CPU(AbstractLLCPU):
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
     def force(self, addr_of_force_token):
-        descr = self.signedarraydescr
-        ofs = self.unpack_arraydescr(descr)
-        frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token - ofs)
+        frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)
         frame.jf_descr = frame.jf_force_descr
         return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
 

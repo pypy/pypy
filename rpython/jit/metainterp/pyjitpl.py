@@ -1420,6 +1420,11 @@ class MetaInterpStaticData(object):
         self._addr2name_values = []
 
         self.__dict__.update(compile.make_done_loop_tokens())
+        for val in ['int', 'float', 'ref', 'void']:
+            fullname = 'done_with_this_frame_descr_' + val
+            setattr(self.cpu, fullname, getattr(self, fullname))
+        d = self.exit_frame_with_exception_descr_ref
+        self.cpu.exit_frame_with_exception_descr_ref = d
 
     def _freeze_(self):
         return True
@@ -2283,7 +2288,7 @@ class MetaInterp(object):
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             vinfo.tracing_before_residual_call(virtualizable)
             #
-            force_token_box = history.BoxInt()
+            force_token_box = history.BoxPtr()
             self.history.record(rop.FORCE_TOKEN, [], force_token_box)
             self.history.record(rop.SETFIELD_GC, [virtualizable_box,
                                                   force_token_box],
@@ -2376,7 +2381,7 @@ class MetaInterp(object):
             self.virtualizable_boxes = virtualizable_boxes
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
-            # is and stays 0.  Note the call to reset_vable_token() in
+            # is and stays NULL.  Note the call to reset_vable_token() in
             # warmstate.py.
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)

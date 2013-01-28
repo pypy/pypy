@@ -985,11 +985,9 @@ class Stats(object):
     def get_all_jitcell_tokens(self):
         tokens = [t() for t in self.jitcell_token_wrefs]
         if None in tokens:
-            assert False, "get_all_jitcell_tokens will not work as "+\
-                          "loops have been freed"
+            assert False, ("get_all_jitcell_tokens will not work as "
+                           "loops have been freed")
         return tokens
-            
-        
 
     def check_history(self, expected=None, **check):
         insns = {}

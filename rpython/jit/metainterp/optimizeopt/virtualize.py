@@ -1,12 +1,14 @@
-from rpython.jit.codewriter.heaptracker import vtable2descr
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.executor import execute
+from rpython.jit.codewriter.heaptracker import vtable2descr
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
+from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
 from rpython.jit.metainterp.optimizeopt import optimizer
+from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     descrlist_dict, sort_descrs)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 
 
 class AbstractVirtualValue(optimizer.OptValue):
@@ -386,6 +388,24 @@ class OptVirtualize(optimizer.Optimization):
         self.make_equal_to(box, vvalue)
         return vvalue
 
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            return
+        self.emit_operation(op)
+
+    def optimize_GUARD_NOT_FORCED(self, op):
+        if self.last_emitted_operation is REMOVED:
+            return
+        self.emit_operation(op)
+
+    def optimize_CALL_MAY_FORCE(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
+            if self._optimize_JIT_FORCE_VIRTUAL(op):
+                return
+        self.emit_operation(op)
+
     def optimize_VIRTUAL_REF(self, op):
         indexbox = op.getarg(1)
         #
@@ -399,7 +419,7 @@ class OptVirtualize(optimizer.Optimization):
         # but the point is that doing so does not force the original structure.
         op = ResOperation(rop.NEW_WITH_VTABLE, [c_cls], op.result)
         vrefvalue = self.make_virtual(c_cls, op.result, op)
-        tokenbox = BoxInt()
+        tokenbox = BoxPtr()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
 
@@ -422,20 +442,34 @@ class OptVirtualize(optimizer.Optimization):
 
         # - set 'forced' to point to the real object
         objbox = op.getarg(1)
-        if not self.optimizer.cpu.ts.CONST_NULL.same_constant(objbox):
+        if not CONST_NULL.same_constant(objbox):
             seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
                              descr = vrefinfo.descr_forced))
 
-        # - set 'virtual_token' to TOKEN_NONE
-        args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
+        # - set 'virtual_token' to TOKEN_NONE (== NULL)
+        args = [op.getarg(0), CONST_NULL]
         seo(ResOperation(rop.SETFIELD_GC, args, None,
-                         descr = vrefinfo.descr_virtual_token))
+                         descr=vrefinfo.descr_virtual_token))
         # Note that in some cases the virtual in op.getarg(1) has been forced
         # already.  This is fine.  In that case, and *if* a residual
         # CALL_MAY_FORCE suddenly turns out to access it, then it will
         # trigger a ResumeGuardForcedDescr.handle_async_forcing() which
         # will work too (but just be a little pointless, as the structure
         # was already forced).
+
+    def _optimize_JIT_FORCE_VIRTUAL(self, op):
+        vref = self.getvalue(op.getarg(1))
+        vrefinfo = self.optimizer.metainterp_sd.virtualref_info
+        if vref.is_virtual():
+            tokenvalue = vref.getfield(vrefinfo.descr_virtual_token, None)
+            if (tokenvalue is not None and tokenvalue.is_constant() and
+                    not tokenvalue.box.nonnull()):
+                forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
+                if forcedvalue is not None and not forcedvalue.is_null():
+                    self.make_equal_to(op.result, forcedvalue)
+                    self.last_emitted_operation = REMOVED
+                    return True
+        return False
 
     def optimize_GETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))

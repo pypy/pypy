@@ -76,8 +76,11 @@ class RewriteTests(object):
         ll_frame_info = lltype.cast_opaque_ptr(llmemory.GCREF, frame_info)
         clt.frame_info = frame_info
         frame_info.jfi_frame_depth = 13
+        frame_info.jfi_frame_size = 255
         framedescrs = self.gc_ll_descr.getframedescrs(self.cpu)
+        framelendescr = framedescrs.arraydescr.lendescr
         jfi_frame_depth = framedescrs.jfi_frame_depth
+        jfi_frame_size = framedescrs.jfi_frame_size
         jf_frame_info = framedescrs.jf_frame_info
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
@@ -737,12 +740,13 @@ class TestFramework(RewriteTests):
         i2 = call_assembler(i0, f0, descr=casmdescr)
         """, """
         [i0, f0]
-        i1 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_depth)
-        p1 = call_malloc_gc(ConstClass(malloc_array_nonstandard), 1, 2, 0, 0, i1, descr=malloc_array_nonstandard_descr)
+        i1 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_size)
+        p1 = call_malloc_nursery_varsize_small(i1)
+        setfield_gc(p1, 0, descr=tiddescr)
+        i2 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_depth)
+        setfield_gc(p1, i2, descr=framelendescr)
         setfield_gc(p1, ConstPtr(ll_frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
-        i2 = call_assembler(p1, descr=casmdescr)
+        i3 = call_assembler(p1, descr=casmdescr)
         """)
-        # XXX we want call_malloc_nursery actually, but let's not care
-        # for now, the array is a bit non-standard

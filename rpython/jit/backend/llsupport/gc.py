@@ -122,6 +122,8 @@ class GcLLDescription(GcCache):
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
                      'jf_frame_info', 'jf_gcmap']:
             setattr(descrs, name, cpu.fielddescrof(jitframe.JITFRAME, name))
+        descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                                  'jfi_frame_size')
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_depth')
         return descrs

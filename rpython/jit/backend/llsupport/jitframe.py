@@ -3,7 +3,6 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 
-STATICSIZE = 0 # patch from the assembler backend
 SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
 IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
 
@@ -14,10 +13,19 @@ IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
 GCMAP = lltype.GcArray(lltype.Unsigned)
 NULLGCMAP = lltype.nullptr(GCMAP)
 
+def jitframeinfo_set_depth(jfi, base_ofs, new_depth):
+    jfi.jfi_frame_depth = new_depth
+    jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
+
 JITFRAMEINFO = lltype.GcStruct(
     'JITFRAMEINFO',
-    # the depth of frame
+    # the depth of the frame
     ('jfi_frame_depth', lltype.Signed),
+    # the total size of the frame, in bytes
+    ('jfi_frame_size', lltype.Signed),
+    adtmeths = {
+        'set_frame_depth': jitframeinfo_set_depth,
+    },
 )
 
 NULLFRAMEINFO = lltype.nullptr(JITFRAMEINFO)
@@ -99,13 +107,15 @@ def jitframe_trace(obj_addr, prev):
         # 32 possible bits
         state = (fld >> 3) & 0x1f
         no = fld >> (3 + 5)
-        MAX = 31
+        MAX = 32
     else:
         # 64 possible bits
         state = (fld >> 3) & 0x3f
         no = fld >> (3 + 6)
-        MAX = 63
+        MAX = 64
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
+    if not gcmap:
+        return llmemory.NULL
     gcmap_lgt = (gcmap + GCMAPLENGTHOFS).signed[0]
     while no < gcmap_lgt:
         cur = (gcmap + GCMAPBASEOFS + UNSIGN_SIZE * no).unsigned[0]

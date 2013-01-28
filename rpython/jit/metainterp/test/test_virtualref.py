@@ -1,19 +1,20 @@
 import py
+
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation
 from rpython.rtyper.exceptiondata import UnknownException
 from rpython.rlib.jit import JitDriver, dont_look_inside, vref_None
 from rpython.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
 from rpython.rlib.jit import non_virtual_ref
 from rpython.rlib.objectmodel import compute_unique_id
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin, _get_jitcodes
+from rpython.jit.metainterp.test.support import LLJitMixin, _get_jitcodes
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.virtualref import VirtualRefInfo
+
 
 debug_print = lloperation.llop.debug_print
 
 
-class VRefTests:
-
+class VRefTests(object):
     def finish_setup_for_interp_operations(self):
         self.vrefinfo = VirtualRefInfo(self.warmrunnerstate)
         self.cw.setup_vrefinfo(self.vrefinfo)
@@ -109,14 +110,16 @@ class VRefTests:
                   if str(box._getrepr_()).endswith('JitVirtualRef')]
         assert len(bxs2) == 1
         JIT_VIRTUAL_REF = self.vrefinfo.JIT_VIRTUAL_REF
-        bxs2[0].getref(lltype.Ptr(JIT_VIRTUAL_REF)).virtual_token = 1234567
+        FOO = lltype.GcStruct('FOO')
+        foo = lltype.malloc(FOO)
+        tok = lltype.cast_opaque_ptr(llmemory.GCREF, foo)
+        bxs2[0].getref(lltype.Ptr(JIT_VIRTUAL_REF)).virtual_token = tok
         #
         # try reloading from blackhole.py's point of view
         from rpython.jit.metainterp.resume import ResumeDataDirectReader
         cpu = self.metainterp.cpu
         cpu.get_int_value = lambda df,i:guard_op.getfailargs()[i].getint()
         cpu.get_ref_value = lambda df,i:guard_op.getfailargs()[i].getref_base()
-        cpu.clear_latest_values = lambda count: None
         class FakeMetaInterpSd:
             callinfocollection = None
         FakeMetaInterpSd.cpu = cpu
@@ -417,15 +420,18 @@ class VRefTests:
         self.check_aborted_count(0)
 
     def test_jit_force_virtual_seen(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n'])
-        #
+        myjitdriver = JitDriver(greens=[], reds=['n'])
+
         A = lltype.GcArray(lltype.Signed)
-        class XY:
+
+        class XY(object):
             pass
-        class ExCtx:
+
+        class ExCtx(object):
             pass
         exctx = ExCtx()
-        #
+        escapes = []
+
         def f(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
@@ -433,16 +439,16 @@ class VRefTests:
                 xy = XY()
                 xy.n = n
                 exctx.topframeref = vref = virtual_ref(xy)
+                escapes.append(xy)
                 xy.next1 = lltype.malloc(A, 0)
                 n = exctx.topframeref().n - 1
-                xy.next1 = lltype.nullptr(A)
                 exctx.topframeref = vref_None
                 virtual_ref_finish(vref, xy)
             return 1
         #
         res = self.meta_interp(f, [15])
         assert res == 1
-        self.check_resops(new_with_vtable=4,     # vref, xy
+        self.check_resops(new_with_vtable=2,     # xy
                           new_array=2)           # next1
         self.check_aborted_count(0)
 
@@ -654,6 +660,34 @@ class VRefTests:
         #
         res = self.meta_interp(f, [10])
         assert res == 0
+
+    def test_force_virtual_vref(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'ec'])
+
+        class ExecutionContext(object):
+            pass
+
+        class Frame(object):
+            def __init__(self, x):
+                self.x = x
+
+        def f(n):
+            ec = ExecutionContext()
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, ec=ec)
+                frame = Frame(1)
+                ec.topframeref = virtual_ref(frame)
+                n -= ec.topframeref().x
+                frame_vref = ec.topframeref
+                ec.topframeref = vref_None
+                virtual_ref_finish(frame_vref, frame)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops({
+            'int_sub': 2, 'int_gt': 2, 'jump': 1, 'guard_true': 2,
+            'force_token': 2, 'setfield_gc': 1
+        })
 
 
 class TestLLtype(VRefTests, LLJitMixin):

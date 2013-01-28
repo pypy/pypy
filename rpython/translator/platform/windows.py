@@ -7,7 +7,7 @@ from rpython.translator.platform import log, _run_subprocess
 from rpython.translator.platform import Platform, posix
 
 import rpython
-rpydir = os.path.dirname(rpython.__file__)
+rpydir = str(py.path.local(rpython.__file__).join('..'))
 
 def _get_compiler_type(cc, x64_flag):
     import subprocess
@@ -261,8 +261,15 @@ class MsvcPlatform(Platform):
         else:
             exe_name = exe_name.new(ext=self.exe_ext)
 
+        if shared:
+            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
+                                   ext=self.so_ext)
+            target_name = so_name.basename
+        else:
+            target_name = exe_name.basename
+
         m = NMakefile(path)
-        m.exe_name = exe_name
+        m.exe_name = path.join(target_name)
         m.eci = eci
 
         linkflags = list(self.link_flags)
@@ -273,13 +280,6 @@ class MsvcPlatform(Platform):
         # Make sure different functions end up at different addresses!
         # This is required for the JIT.
         linkflags.append('/opt:noicf')
-
-        if shared:
-            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
-                                   ext=self.so_ext)
-            target_name = so_name.basename
-        else:
-            target_name = exe_name.basename
 
         def rpyrel(fpath):
             rel = py.path.local(fpath).relto(rpypath)

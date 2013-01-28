@@ -5,7 +5,7 @@
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
      JitCellToken, BasicFailDescr, AbstractDescr
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
-     GcLLDescr_framework, GcCache
+     GcLLDescr_framework, GcCache, JitFrameDescrs
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.llsupport import jitframe
@@ -13,9 +13,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 
 from rpython.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
-from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+from rpython.rlib.objectmodel import invoke_around_extcall
 
 CPU = getcpuclass()
 
@@ -203,10 +202,33 @@ class TestMallocFastpath(BaseTestRegalloc):
         # slowpath never called
         assert gc_ll_descr.calls == []
 
+    def test_malloc_nursery_varsize_small(self):
+        self.cpu = self.getcpu(None)
+        ops = '''
+        [i0, i1, i2]
+        p0 = call_malloc_nursery_varsize_small(i0)
+        p1 = call_malloc_nursery_varsize_small(i1)
+        p2 = call_malloc_nursery_varsize_small(i2)
+        guard_true(i0) [p0, p1, p2]
+        ''' 
+        self.interpret(ops, [16, 32, 16])
+        # check the returned pointers
+        gc_ll_descr = self.cpu.gc_ll_descr
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
+        assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
+        assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 16
+        assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 48
+        # check the nursery content and state
+        gc_ll_descr.check_nothing_in_nursery()
+        assert gc_ll_descr.addrs[0] == nurs_adr + 64
+        # slowpath never called
+        assert gc_ll_descr.calls == []       
+
     def test_malloc_slowpath(self):
         def check(frame):
             assert len(frame.jf_gcmap) == 1
-            assert frame.jf_gcmap[0] == (2 | (1<<29) | (1 << 30))
+            assert frame.jf_gcmap[0] == (1<<29) | (1 << 30)
         
         self.cpu = self.getcpu(check)
         ops = '''
@@ -235,7 +257,7 @@ class TestMallocFastpath(BaseTestRegalloc):
             x = frame.jf_gcmap
             assert len(x) == 1
             assert (bin(x[0]).count('1') ==
-                    '0b1111100000000000000001111111011111'.count('1'))
+                    '0b1111100000000000000001111111011110'.count('1'))
             # all but two registers + some stuff on stack
         
         self.cpu = self.getcpu(check)
@@ -326,9 +348,8 @@ class WriteBarrierDescr(AbstractDescr):
     jit_wb_if_flag_singlebyte = 1
     
     def __init__(self, gc_ll_descr):
-        def write_barrier(x):
-            import pdb
-            pdb.set_trace()
+        def write_barrier(frame):
+            gc_ll_descr.write_barrier_on_frame_called = frame
 
         self.write_barrier_fn = llhelper_args(write_barrier,
                                               [lltype.Signed], lltype.Void)
@@ -336,31 +357,109 @@ class WriteBarrierDescr(AbstractDescr):
     def get_write_barrier_fn(self, cpu):
         return self.write_barrier_fn
 
+# a copy of JITFRAM that has 'hdr' field for tests
+
+def jitframe_allocate(frame_info):
+    frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
+    frame.jf_frame_info = frame_info
+    return frame
+
+JITFRAME = lltype.GcStruct(
+    'JITFRAME',
+    ('hdr', lltype.Signed),
+    ('jf_frame_info', lltype.Ptr(jitframe.JITFRAMEINFO)),
+    ('jf_descr', llmemory.GCREF),
+    ('jf_force_descr', llmemory.GCREF),
+    ('jf_guard_exc', llmemory.GCREF),
+    ('jf_gcmap', lltype.Ptr(jitframe.GCMAP)),
+    ('jf_gc_trace_state', lltype.Signed),
+    ('jf_frame', lltype.Array(lltype.Signed)),
+    adtmeths = {
+        'allocate': jitframe_allocate,
+    },
+)
+
+JITFRAMEPTR = lltype.Ptr(JITFRAME)
+
 class GCDescrShadowstackDirect(GcLLDescr_framework):
     layoutbuilder = None
 
     class GCClass:
         JIT_WB_IF_FLAG = 0
 
-    def __init__(self, nursery_size=100):
+    def __init__(self):
         GcCache.__init__(self, False, None)
         self._generated_functions = []
         self.gcrootmap = MockShadowStackRootMap()
-        self.nursery = lltype.malloc(rffi.CArray(lltype.Char), nursery_size,
-                                     flavor='raw')
+        self.write_barrier_descr = WriteBarrierDescr(self)
         self.nursery_ptrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
                                           flavor='raw')
+        self._initialize_for_tests()
+        self.frames = []
+
+        def malloc_slowpath(size):
+            self._collect()
+            res = self.nursery_ptrs[0]
+            self.nursery_ptrs[0] += size
+            return res
+
+        self.malloc_slowpath_fnptr = llhelper_args(malloc_slowpath,
+                                                   [lltype.Signed],
+                                                   lltype.Signed)
+        self.all_nurseries = []
+
+    def init_nursery(self, nursery_size=None):
+        if nursery_size is None:
+            nursery_size = self.nursery_size
+        else:
+            self.nursery_size = nursery_size
+        self.nursery = lltype.malloc(rffi.CArray(lltype.Char), nursery_size,
+                                     flavor='raw', zero=True,
+                                     track_allocation=False)
         self.nursery_ptrs[0] = rffi.cast(lltype.Signed, self.nursery)
         self.nursery_ptrs[1] = self.nursery_ptrs[0] + nursery_size
         self.nursery_addr = rffi.cast(lltype.Signed, self.nursery_ptrs)
-        self.write_barrier_descr = WriteBarrierDescr(self)
-        self._initialize_for_tests()
+        self.all_nurseries.append(self.nursery)
+        if hasattr(self, 'collections'):
+            self.collections.reverse()
+
+    def _collect(self):
+        gcmap = unpack_gcmap(self.frames[-1])
+        col = self.collections.pop()
+        frame = self.frames[-1].jf_frame
+        start = rffi.cast(lltype.Signed, self.nursery)
+        assert len(gcmap) == len(col)
+        pos = [frame[item] for item in gcmap]
+        pos.sort()
+        for i in range(len(gcmap)):
+            assert col[i] + start == pos[i]
+        self.frames[-1].hdr |= 1
+        self.init_nursery()
+
+    def malloc_jitframe(self, frame_info):
+        """ Allocate a new frame, overwritten by tests
+        """
+        frame = JITFRAME.allocate(frame_info)
+        self.frames.append(frame)
+        return frame
+
+    def getframedescrs(self, cpu):
+        descrs = JitFrameDescrs()
+        descrs.arraydescr = cpu.arraydescrof(JITFRAME)
+        for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
+                     'jf_frame_info', 'jf_gcmap']:
+            setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
+        descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                                  'jfi_frame_depth')
+        descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
+                                                  'jfi_frame_size')
+        return descrs
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
 
     def get_malloc_slowpath_addr(self):
-        return 0
+        return self.malloc_slowpath_fnptr
 
     def get_nursery_free_addr(self):
         return self.nursery_addr
@@ -369,7 +468,8 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         return self.nursery_addr + rffi.sizeof(lltype.Signed)
 
     def __del__(self):
-        lltype.free(self.nursery, flavor='raw')
+        for nursery in self.all_nurseries:
+            lltype.free(nursery, flavor='raw', track_allocation=False)
         lltype.free(self.nursery_ptrs, flavor='raw')
     
 def unpack_gcmap(frame):
@@ -391,7 +491,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr = GCDescrShadowstackDirect()
         wbd = cpu.gc_ll_descr.write_barrier_descr
         wbd.jit_wb_if_flag_byteofs = 0 # directly into 'hdr' field
-        cpu.setup_once() 
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S',
                                  ('hdr', lltype.Signed),
@@ -402,17 +501,18 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_shadowstack_call(self):
         cpu = self.cpu
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once() 
         S = self.S
-        ofs = cpu.get_baseofs_of_frame_field()
         frames = []
         
         def check(i):
-            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
-            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
+            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
+            frame = rffi.cast(JITFRAMEPTR, i)
             assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE + 4
             # we "collect"
             frames.append(frame)
-            new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
+            new_frame = JITFRAME.allocate(frame.jf_frame_info)
             gcmap = unpack_gcmap(frame)
             assert gcmap == [28, 29, 30]
             for item, s in zip(gcmap, new_items):
@@ -422,8 +522,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             frames.append(new_frame)
 
         def check2(i):
-            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i - ofs
-            frame = rffi.cast(jitframe.JITFRAMEPTR, i - ofs)
+            assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
+            frame = rffi.cast(JITFRAMEPTR, i)
             assert frame == frames[1]
             assert frame != frames[0]
 
@@ -435,11 +535,12 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
         loop = self.parse("""
         [p0, p1, p2]
-        i0 = force_token() # this is a bit below the frame
-        call(ConstClass(check_adr), i0, descr=checkdescr) # this can collect
+        pf = force_token() # this is a bit below the frame
+        call(ConstClass(check_adr), pf, descr=checkdescr) # this can collect
         p3 = getfield_gc(p0, descr=fielddescr)
-        call(ConstClass(check2_adr), i0, descr=checkdescr)
-        guard_true(i0, descr=faildescr) [p0, p1, p2, p3]
+        pf2 = force_token()
+        call(ConstClass(check2_adr), pf2, descr=checkdescr)
+        guard_nonnull(p3, descr=faildescr) [p0, p1, p2, p3]
         p4 = getfield_gc(p0, descr=fielddescr)
         finish(p4, descr=finaldescr)
         """, namespace={'finaldescr': BasicFinalDescr(),
@@ -455,10 +556,10 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         new_items = [lltype.malloc(S), lltype.malloc(S), lltype.malloc(S)]
         new_items[0].x = new_items[2]
         frame = cpu.execute_token(token, p0, p1, p2)
-        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-        gcmap = unpack_gcmap(lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame))
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
+        gcmap = unpack_gcmap(lltype.cast_opaque_ptr(JITFRAMEPTR, frame))
         assert len(gcmap) == 1
-        assert gcmap[0] < 29
+        assert gcmap[0] < JITFRAME_FIXED_SIZE
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
 
@@ -466,17 +567,65 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu = self.cpu
         sizeof = cpu.sizeof(self.S)
         sizeof.tid = 0
+        size = sizeof.size
         loop = self.parse("""
         []
-        p0 = new(descr=sizedescr)
-        finish(p0, descr=finaldescr)
-        """, namespace={'sizedescr': sizeof,
-                        'finaldescr': BasicFinalDescr()})
+        p0 = call_malloc_nursery(%d)
+        p1 = call_malloc_nursery(%d)
+        p2 = call_malloc_nursery(%d) # this overflows
+        guard_nonnull(p2, descr=faildescr) [p0, p1, p2]
+        finish(p2, descr=finaldescr)
+        """ % (size, size, size), namespace={'sizedescr': sizeof,
+                        'finaldescr': BasicFinalDescr(),
+                        'faildescr': BasicFailDescr()})
         token = JitCellToken()
+        cpu.gc_ll_descr.collections = [[0, sizeof.size]]
+        cpu.gc_ll_descr.init_nursery(2 * sizeof.size)
+        cpu.setup_once()
         cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = cpu.execute_token(token)
         # now we should be able to track everything from the frame
-        frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
         thing = frame.jf_frame[unpack_gcmap(frame)[0]]
         assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
         assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
+        assert rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.write_barrier_on_frame_called) == frame
+
+    def test_call_release_gil(self):
+        # note that we can't test floats here because when untranslated
+        # people actually wreck xmm registers
+        cpu = self.cpu
+        l = []
+
+        def before():
+            l.append("before")
+
+        def after():
+            l.append("after")
+
+        invoke_around_extcall(before, after)
+
+        def f(x):
+            assert x == 1
+            return 2
+        
+        FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
+        fptr = llhelper(lltype.Ptr(FUNC), f)
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo.MOST_GENERAL)        
+        loop = self.parse("""
+        [i0]
+        i1 = call_release_gil(ConstClass(fptr), i0, descr=calldescr)
+        guard_not_forced(descr=faildescr) []
+        finish(i1, descr=finaldescr)
+        """, namespace={'fptr': fptr, 'calldescr':calldescr,
+                        'faildescr': BasicFailDescr(),
+                        'finaldescr': BasicFinalDescr()})
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        frame = cpu.execute_token(token, 1)
+        frame = rffi.cast(JITFRAMEPTR, frame)
+        assert frame.jf_frame[0] == 2
+        assert l == ['before', 'after']

@@ -5,7 +5,7 @@ import py, os, sys
 from rpython.translator.platform import Platform, log, _run_subprocess
 
 import rpython
-rpydir = os.path.dirname(rpython.__file__)
+rpydir = str(py.path.local(rpython.__file__).join('..'))
 
 class BasePosix(Platform):
     exe_ext = ''
@@ -115,7 +115,7 @@ class BasePosix(Platform):
             cflags = self.cflags + self.standalone_only
 
         m = GnuMakefile(path)
-        m.exe_name = exe_name
+        m.exe_name = path.join(target_name)
         m.eci = eci
 
         def rpyrel(fpath):

@@ -5,8 +5,7 @@ and the various cases of write barrier.
 """
 
 import weakref
-import py, os
-from rpython.annotator import policy as annpolicy
+import os
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit import JitDriver, dont_look_inside
@@ -14,6 +13,9 @@ from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
+from rpython.rlib.libffi import CDLL, types, ArgChain, clibffi
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
 
 class X(object):
     def __init__(self, x=0):
@@ -81,7 +83,7 @@ def get_functions_to_patch():
     return {(gc.GcLLDescr_framework, 'can_use_nursery_malloc'):
                 can_use_nursery_malloc2}
 
-def compile(f, gc, enable_opts='', **kwds):
+def compile(f, gc, **kwds):
     from rpython.annotator.listdef import s_list_of_strings
     from rpython.translator.translator import TranslationContext
     from rpython.jit.metainterp.warmspot import apply_jit
@@ -105,7 +107,7 @@ def compile(f, gc, enable_opts='', **kwds):
                 old_value[obj, attr] = getattr(obj, attr)
                 setattr(obj, attr, value)
             #
-            apply_jit(t, enable_opts=enable_opts)
+            apply_jit(t)
             #
         finally:
             for (obj, attr), oldvalue in old_value.items():
@@ -151,7 +153,6 @@ def test_compile_boehm():
 
 
 class BaseFrameworkTests(object):
-    compile_kwds = {}
 
     def setup_class(cls):
         funcs = []
@@ -203,7 +204,7 @@ class BaseFrameworkTests(object):
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
-                                   **cls.compile_kwds)
+                                   thread=True)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -789,9 +790,26 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
 
+    def define_compile_framework_call_assembler(self):
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('S', ('s', lltype.Ptr(S))))
+        driver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0):
+            driver.jit_merge_point()
+            i = 0
+            prev_s = lltype.nullptr(S)
+            while i < 100:
+                s = lltype.malloc(S)
+                s.s = prev_s
+                prev_s = s
+                i += 1
+            return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0
+
+        return None, f, None
+
+    def test_compile_framework_call_assembler(self):
+        self.run('compile_framework_call_assembler')
 
 class TestShadowStack(CompileFrameworkTests):
     gcrootfinder = "shadowstack"
-
-class TestAsmGcc(CompileFrameworkTests):
-    gcrootfinder = "asmgcc"

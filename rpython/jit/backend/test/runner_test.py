@@ -2064,7 +2064,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_cond_call_gc_wb(self):
         def func_void(a):
-            record.append(a)
+            record.append(rffi.cast(lltype.Signed, a))
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
@@ -2094,13 +2094,13 @@ class LLtypeBackendTest(BaseBackendTest):
                                    [BoxPtr(sgcref), ConstPtr(tgcref)],
                                    'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [s]
+                assert record == [rffi.cast(lltype.Signed, sgcref)]
             else:
                 assert record == []
 
     def test_cond_call_gc_wb_array(self):
         def func_void(a):
-            record.append(a)
+            record.append(rffi.cast(lltype.Signed, a))
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
@@ -2129,13 +2129,13 @@ class LLtypeBackendTest(BaseBackendTest):
                        [BoxPtr(sgcref), ConstInt(123), BoxPtr(sgcref)],
                        'void', descr=WriteBarrierDescr())
             if cond:
-                assert record == [s]
+                assert record == [rffi.cast(lltype.Signed, sgcref)]
             else:
                 assert record == []
 
     def test_cond_call_gc_wb_array_card_marking_fast_path(self):
         def func_void(a):
-            record.append(a)
+            record.append(rffi.cast(lltype.Signed, a))
             if cond == 1:      # the write barrier sets the flag
                 s.data.tid |= 32768
         record = []
@@ -2194,7 +2194,7 @@ class LLtypeBackendTest(BaseBackendTest):
                            [BoxPtr(sgcref), box_index, BoxPtr(sgcref)],
                            'void', descr=WriteBarrierDescr())
                 if cond in [0, 1]:
-                    assert record == [s.data]
+                    assert record == [rffi.cast(lltype.Signed, s.data)]
                 else:
                     assert record == []
                 if cond in [1, 2]:
@@ -2222,7 +2222,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 values.append(self.cpu.get_int_value(deadframe, 1))
                 self.cpu.set_savedata_ref(deadframe, random_gcref)
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -2230,7 +2230,7 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         i0 = BoxInt()
         i1 = BoxInt()
-        tok = BoxInt()
+        tok = BoxPtr()
         faildescr = BasicFailDescr(1)
         ops = [
         ResOperation(rop.FORCE_TOKEN, [], tok),
@@ -2267,7 +2267,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 self.cpu.set_savedata_ref(deadframe, random_gcref)
             return 42
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Signed)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -2276,7 +2276,7 @@ class LLtypeBackendTest(BaseBackendTest):
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
-        tok = BoxInt()
+        tok = BoxPtr()
         faildescr = BasicFailDescr(1)
         ops = [
         ResOperation(rop.FORCE_TOKEN, [], tok),
@@ -2315,7 +2315,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 self.cpu.set_savedata_ref(deadframe, random_gcref)
             return 42.5
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Float)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Float)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -2324,7 +2324,7 @@ class LLtypeBackendTest(BaseBackendTest):
         i0 = BoxInt()
         i1 = BoxInt()
         f2 = BoxFloat()
-        tok = BoxInt()
+        tok = BoxPtr()
         faildescr = BasicFailDescr(1)
         ops = [
         ResOperation(rop.FORCE_TOKEN, [], tok),
@@ -2789,6 +2789,7 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         finish_descr = loop.operations[-1].getdescr()
+        self.cpu.done_with_this_frame_descr_int = BasicFinalDescr()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
@@ -2860,6 +2861,7 @@ class LLtypeBackendTest(BaseBackendTest):
         finish_descr = loop.operations[-1].getdescr()
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.done_with_this_frame_descr_float = BasicFinalDescr()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         args = [longlong.getfloatstorage(1.2),
                 longlong.getfloatstorage(2.3)]
@@ -2952,6 +2954,7 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse(ops)
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.done_with_this_frame_descr_float = BasicFinalDescr()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         finish_descr = loop.operations[-1].getdescr()
         args = [longlong.getfloatstorage(1.25),
@@ -3699,7 +3702,7 @@ class LLtypeBackendTest(BaseBackendTest):
             values.append(self.cpu.get_int_value(deadframe, 0))
             return 42
 
-        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Signed)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -3707,7 +3710,7 @@ class LLtypeBackendTest(BaseBackendTest):
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
-        tok = BoxInt()
+        tok = BoxPtr()
         faildescr = BasicFailDescr(23)
         ops = [
         ResOperation(rop.FORCE_TOKEN, [], tok),

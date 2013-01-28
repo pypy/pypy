@@ -215,6 +215,7 @@ class Function(object):
     _lineset = None
     is_bytecode = False
     inline_level = None
+    bytecode_name = None
 
     # factory method
     TraceForOpcode = TraceForOpcode
@@ -244,23 +245,29 @@ class Function(object):
             return ",".join([str(len(v)) for v in stack])
 
         def append_to_res(bc):
-            if not stack:
-                stack.append([])
-            else:
-                if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
-                    if bc.inline_level < len(stack):
+            if bc.inline_level is not None:
+                if bc.inline_level == len(stack) - 1:
+                    pass
+                elif bc.inline_level > len(stack) - 1:
+                    stack.append([])
+                else:
+                    while bc.inline_level + 1 < len(stack):
                         last = stack.pop()
                         stack[-1].append(cls(last, getpath(stack), storage))
-                    else:
-                        stack.append([])
             stack[-1].append(bc)
 
         so_far = []
         stack = []
+        nothing_yet = True
         for op in operations:
             if op.name == 'debug_merge_point':
                 if so_far:
-                    append_to_res(cls.TraceForOpcode(so_far, storage, loopname))
+                    opc = cls.TraceForOpcode(so_far, storage, loopname)
+                    if nothing_yet:
+                        nothing_yet = False
+                        for i in xrange(opc.inline_level + 1):
+                            stack.append([])
+                    append_to_res(opc)
                     if limit:
                         break
                     so_far = []
@@ -365,7 +372,7 @@ def import_log(logname, ParserCls=SimpleParser):
             m = re.search('has address ([-\da-f]+)', entry)
             addr = int(m.group(1), 16)
             entry = entry.lower()
-            m = re.search('guard \d+', entry)
+            m = re.search('guard [\da-f]+', entry)
             name = m.group(0)
         else:
             name = entry[:entry.find('(') - 1].lower()
@@ -388,8 +395,8 @@ def import_log(logname, ParserCls=SimpleParser):
         comm = loop.comment
         comm = comm.lower()
         if comm.startswith('# bridge'):
-            m = re.search('guard \d+', comm)
-            name = m.group(0)
+            m = re.search('guard (\d+)', comm)
+            name = 'guard ' + hex(int(m.group(1)))[2:]
         elif "(" in comm:
             name = comm[2:comm.find('(')-1]
         else:
@@ -437,3 +444,7 @@ def parse_log_counts(input, loops):
         if line:
             num, count = line.split(':', 2)
             mapping[num].count = int(count)
+
+if __name__ == '__main__':
+    import_log(sys.argv[1])
+    
