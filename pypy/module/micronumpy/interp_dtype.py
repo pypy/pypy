@@ -155,6 +155,9 @@ class W_Dtype(Wrappable):
     def is_complex_type(self):
         return False
 
+    def is_float_type(self):
+        return (self.kind == FLOATINGLTR or self.float_type is not None)
+
     def is_bool_type(self):
         return self.kind == BOOLLTR
 
