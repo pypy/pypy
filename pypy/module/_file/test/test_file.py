@@ -432,10 +432,10 @@ class AppTestFile25:
     def test_readline_unbuffered_should_read_one_line_only(self):
         import os
 
-        with self.file(self.temppath, 'w') as f:
+        with self.file(self.temppath, 'wb') as f:
             f.write('foo\nbar\n')
 
-        with self.file(self.temppath, 'r', 0) as f:
+        with self.file(self.temppath, 'rb', 0) as f:
             s = f.readline()
             assert s == 'foo\n'
             s = os.read(f.fileno(), 10)
