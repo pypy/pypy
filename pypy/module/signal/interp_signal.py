@@ -8,7 +8,8 @@ from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
 
-from rpython.rlib import jit, rposix
+from rpython.rlib import jit, rposix, rgc
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsignal import *
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -31,6 +32,11 @@ class SignalActionFlag(AbstractActionFlag):
         p = pypysig_getaddr_occurred()
         p.c_value = value
 
+    @staticmethod
+    def rearm_ticker():
+        p = pypysig_getaddr_occurred()
+        p.c_value = -1
+
     def decrement_ticker(self, by):
         p = pypysig_getaddr_occurred()
         value = p.c_value
@@ -46,41 +52,62 @@ class SignalActionFlag(AbstractActionFlag):
 class CheckSignalAction(PeriodicAsyncAction):
     """An action that is automatically invoked when a signal is received."""
 
+    # Note that this is a PeriodicAsyncAction: it means more precisely
+    # that it is called whenever the C-level ticker becomes < 0.
+    # Without threads, it is only ever set to -1 when we receive a
+    # signal.  With threads, it also decrements steadily (but slowly).
+
     def __init__(self, space):
+        "NOT_RPYTHON"
         AsyncAction.__init__(self, space)
         self.handlers_w = {}
-        self.emulated_sigint = False
+        self.pending_signal = -1
+        self.fire_in_main_thread = False
+        if self.space.config.objspace.usemodules.thread:
+            from pypy.module.thread import gil
+            gil.after_thread_switch = self._after_thread_switch
+
+    @rgc.no_collect
+    def _after_thread_switch(self):
+        if self.fire_in_main_thread:
+            if self.space.threadlocals.ismainthread():
+                self.fire_in_main_thread = False
+                SignalActionFlag.rearm_ticker()
+                # this occurs when we just switched to the main thread
+                # and there is a signal pending: we force the ticker to
+                # -1, which should ensure perform() is called quickly.
 
     @jit.dont_look_inside
     def perform(self, executioncontext, frame):
-        if self.space.config.objspace.usemodules.thread:
-            main_ec = self.space.threadlocals.getmainthreadvalue()
-            in_main = executioncontext is main_ec
-        else:
-            in_main = True
-        # If we are in the main thread, poll and report the signals now.
-        if in_main:
-            if self.emulated_sigint:
-                self.emulated_sigint = False
-                self._report_signal(cpy_signal.SIGINT)
-            while True:
-                n = pypysig_poll()
-                if n < 0:
-                    break
+        # Poll for the next signal, if any
+        n = self.pending_signal
+        if n < 0: n = pypysig_poll()
+        while n >= 0:
+            if self.space.config.objspace.usemodules.thread:
+                in_main = self.space.threadlocals.ismainthread()
+            else:
+                in_main = True
+            if in_main:
+                # If we are in the main thread, report the signal now,
+                # and poll more
+                self.pending_signal = -1
                 self._report_signal(n)
-        else:
-            # Otherwise, don't call pypysig_poll() at all.  Instead,
-            # arrange for perform() to be called again after a thread
-            # switch.  It might be called again and again, until we
-            # land in the main thread.
-            self.fire_after_thread_switch()
+                n = self.pending_signal
+                if n < 0: n = pypysig_poll()
+            else:
+                # Otherwise, arrange for perform() to be called again
+                # after we switch to the main thread.
+                self.fire_in_main_thread = True
+                break
 
-    @jit.dont_look_inside
     def set_interrupt(self):
         "Simulates the effect of a SIGINT signal arriving"
-        ec = self.space.getexecutioncontext()
-        self.emulated_sigint = True
-        self.perform(ec, None)
+        if not we_are_translated():
+            self.pending_signal = cpy_signal.SIGINT
+            # ^^^ may override another signal, but it's just for testing
+        else:
+            pypysig_pushback(cpy_signal.SIGINT)
+        self.fire_in_main_thread = True
 
     def _report_signal(self, n):
         try:

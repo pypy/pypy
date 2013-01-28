@@ -62,22 +62,7 @@ class GILReleaseAction(PeriodicAsyncAction):
         do_yield_thread()
 
 
-class SpaceState:
-
-    def _cleanup_(self):
-        self.action_after_thread_switch = None
-        # ^^^ set by AsyncAction.fire_after_thread_switch()
-
-    def after_thread_switch(self):
-        # this is support logic for the signal module, to help it deliver
-        # signals to the main thread.
-        action = self.action_after_thread_switch
-        if action is not None:
-            self.action_after_thread_switch = None
-            action.fire()
-
-spacestate = SpaceState()
-spacestate._cleanup_()
+after_thread_switch = lambda: None     # hook for signal.py
 
 # Fragile code below.  We have to preserve the C-level errno manually...
 
@@ -94,7 +79,7 @@ def after_external_call():
     e = get_errno()
     thread.gil_acquire()
     thread.gc_thread_run()
-    spacestate.after_thread_switch()
+    after_thread_switch()
     set_errno(e)
 after_external_call._gctransformer_hint_cannot_collect_ = True
 after_external_call._dont_reach_me_in_del_ = True
@@ -112,7 +97,7 @@ def do_yield_thread():
     # the same thread).
     if thread.gil_yield_thread():
         thread.gc_thread_run()
-        spacestate.after_thread_switch()
+        after_thread_switch()
 do_yield_thread._gctransformer_hint_close_stack_ = True
 do_yield_thread._dont_reach_me_in_del_ = True
 do_yield_thread._dont_inline_ = True

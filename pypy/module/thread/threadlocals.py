@@ -48,6 +48,9 @@ class OSThreadLocals:
         ident = self._mainthreadident
         return self._valuedict.get(ident, None)
 
+    def ismainthread(self):
+        return thread.get_ident() == self._mainthreadident
+
     def getallvalues(self):
         return self._valuedict
 
