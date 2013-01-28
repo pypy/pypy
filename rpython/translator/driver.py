@@ -268,10 +268,10 @@ class TranslationDriver(SimpleTaskEngine):
     def _do(self, goal, func, *args, **kwds):
         title = func.task_title
         if goal in self.done:
-            self.log.info("already done: %s" % title)
+            self.log.init("already done: %s" % title)
             return
         else:
-            self.log.info("%s..." % title)
+            self.log.init("%s" % title)
         debug_start('translation-task')
         debug_print('starting', goal)
         self.timer.start_event(goal)
@@ -300,7 +300,7 @@ class TranslationDriver(SimpleTaskEngine):
         #import gc; gc.dump_rpy_heap('rpyheap-after-%s.dump' % goal)
         return res
 
-    @taskdef([], "Annotating&simplifying")
+    @taskdef([], "Annotating & simplifying")
     def task_annotate(self):
         """ Annotate
         """

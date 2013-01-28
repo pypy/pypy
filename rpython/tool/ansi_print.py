@@ -30,12 +30,13 @@ class AnsiLog:
         'Error': ((1, 31), False),
         'info': ((35,), False),
         'stub': ((34,), False),
+        'init': ((1, 34), False),
     }
     
     log_on_quiet = [
         "ERROR",
         "Error",
-        "info",
+        "init",
     ]
 
     def __init__(self, kw_to_color={}, file=None):
