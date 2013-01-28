@@ -2304,8 +2304,7 @@ class Assembler386(object):
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
             vtoken_ofs = fielddescr.offset
-            vable_ofs = base_ofs + (jd.index_of_virtualizable + JITFRAME_FIXED_SIZE) * WORD
-            self.mc.MOV_rm(edx.value, (eax.value, vable_ofs))
+            self.mc.MOV(edx, vloc) # we know vloc is on the current frame
             self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
             # in the line above, TOKEN_NONE = 0
         #
