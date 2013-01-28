@@ -114,7 +114,10 @@ class AppTestRCTime:
             assert rctime.mktime(rctime.localtime(-1)) == -1
 
         res = rctime.mktime((2000, 1, 1, 0, 0, 0, -1, -1, -1))
-        assert rctime.ctime(res) == 'Sat Jan  1 00:00:00 2000'
+        if os.name == 'nt':
+            assert rctime.ctime(res) == 'Sat Jan 01 00:00:00 2000'
+        else:
+            assert rctime.ctime(res) == 'Sat Jan  1 00:00:00 2000'
 
     def test_asctime(self):
         import time as rctime
