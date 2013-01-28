@@ -612,6 +612,7 @@ class AppTestAFewExtra:
                                   repr(unicode(self.temptestfile)))
         f.close()
 
+    @py.test.mark.skipif("os.name != 'posix'")
     def test_EAGAIN(self):
         import _socket, posix
         s1, s2 = _socket.socketpair()

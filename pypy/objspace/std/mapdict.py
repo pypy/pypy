@@ -593,6 +593,9 @@ def _make_subclass_size_n(supercls, n):
 # ____________________________________________________________
 # dict implementation
 
+def get_terminator_for_dicts(space):
+    return DictTerminator(space, None)
+
 class MapDictStrategy(DictStrategy):
 
     erase, unerase = rerased.new_erasing_pair("map")
@@ -602,13 +605,19 @@ class MapDictStrategy(DictStrategy):
     def __init__(self, space):
         self.space = space
 
+    def get_empty_storage(self):
+        w_result = Object()
+        terminator = self.space.fromcache(get_terminator_for_dicts)
+        w_result._init_empty(terminator)
+        return self.erase(w_result)
+
     def switch_to_object_strategy(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)
         dict_w = strategy.unerase(strategy.get_empty_storage())
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(dict_w)
-        assert w_obj.getdict(self.space) is w_dict
+        assert w_obj.getdict(self.space) is w_dict or w_obj._get_mapdict_map().terminator.w_cls is None
         materialize_r_dict(self.space, w_obj, dict_w)
 
     def getitem(self, w_dict, w_key):

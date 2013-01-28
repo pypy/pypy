@@ -509,7 +509,7 @@ class __extend__(SomeString,
         return getbookkeeper().newlist(s_item)
 
     def method_replace(str, s1, s2):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul and s2.no_nul)
 
     def getslice(str, s_start, s_stop):
         check_negative_slice(s_start, s_stop)

@@ -713,13 +713,13 @@ if __name__ == '__main__':
     def pypy_find_stdlib(s):
         from os.path import abspath, join, dirname as dn
         thisfile = abspath(__file__)
-        root = dn(dn(dn(dn(thisfile))))
+        root = dn(dn(dn(thisfile)))
         return [join(root, 'lib-python', '2.7'),
                 join(root, 'lib_pypy')]
     
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
-        # translator/goal/app_main.py anyway
+        # interpreter/app_main.py anyway
         import os
         return os.path.abspath(os.path.join(s, '..'))
 

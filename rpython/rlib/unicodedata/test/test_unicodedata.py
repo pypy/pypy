@@ -1,11 +1,15 @@
+import random
+import unicodedata
+
 import py
+
 from rpython.rlib.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
+
 
 class TestUnicodeData(object):
     def setup_class(cls):
-        import random, unicodedata
         if unicodedata.unidata_version != '5.2.0':
-            skip('Needs python with unicode 5.2.0 database.')
+            py.test.skip('Needs python with unicode 5.2.0 database.')
 
         seed = random.getrandbits(32)
         print "random seed: ", seed
@@ -28,15 +32,33 @@ class TestUnicodeData(object):
         for chr in self.nocharlist:
             py.test.raises(KeyError, unicodedb_5_2_0.name, ord(chr))
 
-    def test_compare_functions(self):
-        import unicodedata # CPython implementation
+    def test_isprintable(self):
+        assert unicodedb_5_2_0.isprintable(ord(' '))
+        assert unicodedb_5_2_0.isprintable(ord('a'))
+        assert not unicodedb_5_2_0.isprintable(127)
+        assert unicodedb_5_2_0.isprintable(0x00010346)  # GOTHIC LETTER FAIHU
+        assert unicodedb_5_2_0.isprintable(0xfffd)  # REPLACEMENT CHARACTER
+        assert unicodedb_5_2_0.isprintable(0xfffd)  # REPLACEMENT CHARACTER
+        assert not unicodedb_5_2_0.isprintable(0xd800)  # SURROGATE
+        assert not unicodedb_5_2_0.isprintable(0xE0020)  # TAG SPACE
 
+    def test_identifier(self):
+        assert unicodedb_5_2_0.isxidstart(ord('A'))
+        assert not unicodedb_5_2_0.isxidstart(ord('_'))
+        assert not unicodedb_5_2_0.isxidstart(ord('0'))
+        assert not unicodedb_5_2_0.isxidstart(ord('('))
+        assert unicodedb_5_2_0.isxidcontinue(ord('A'))
+        assert unicodedb_5_2_0.isxidcontinue(ord('_'))
+        assert unicodedb_5_2_0.isxidcontinue(ord('0'))
+        assert not unicodedb_5_2_0.isxidcontinue(ord('('))
+
+    def test_compare_functions(self):
         def getX(fun, code):
             try:
                 return getattr(unicodedb_5_2_0, fun)(code)
             except KeyError:
                 return -1
-        
+
         for code in range(0x10000):
             char = unichr(code)
             assert unicodedata.digit(char, -1) == getX('digit', code)
@@ -73,5 +95,3 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
         py.test.raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
         py.test.raises(KeyError, unicodedb_3_2_0.name, 9187)
-
-

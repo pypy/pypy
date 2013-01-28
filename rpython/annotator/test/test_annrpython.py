@@ -2694,6 +2694,23 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         assert s.nonneg
 
+    def test_range_nonneg_variablestep(self):
+        def get_step(n):
+            if n == 1:
+                return 2
+            else:
+                return 3
+        def fun(n, k):
+            step = get_step(n)
+            for i in range(0, n, step):
+                if k == 17:
+                    return i
+            return 0
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [int, int])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.nonneg
+
     def test_reverse_range_nonneg(self):
         def fun(n, k):
             for i in range(n-1, -1, -1):
@@ -3254,6 +3271,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
         def f(x):
             return u'a'.replace(x, u'b')

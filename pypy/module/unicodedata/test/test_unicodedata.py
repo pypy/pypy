@@ -1,3 +1,5 @@
+import py
+import sys
 
 class AppTestUnicodeData:
     spaceconfig = dict(usemodules=('unicodedata',))
@@ -80,10 +82,9 @@ class AppTestUnicodeData:
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
 
+    @py.test.mark.skipif("sys.maxunicode < 0x10ffff")
     def test_normalize_wide(self):
-        import sys, unicodedata
-        if sys.maxunicode < 0x10ffff:
-            skip("requires a 'wide' python build.")
+        import unicodedata
         assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
 
     def test_linebreaks(self):

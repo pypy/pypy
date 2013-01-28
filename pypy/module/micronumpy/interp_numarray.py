@@ -40,6 +40,10 @@ class __extend__(W_NDimArray):
         self.implementation = self.implementation.set_shape(space,
             get_shape_from_iterable(space, self.get_size(), w_new_shape))
 
+    def descr_get_strides(self, space):
+        strides = self.implementation.get_strides()
+        return space.newtuple([space.wrap(i) for i in strides])
+
     def get_dtype(self):
         return self.implementation.dtype
 
@@ -645,6 +649,7 @@ W_NDimArray.typedef = TypeDef(
     dtype = GetSetProperty(W_NDimArray.descr_get_dtype),
     shape = GetSetProperty(W_NDimArray.descr_get_shape,
                            W_NDimArray.descr_set_shape),
+    strides = GetSetProperty(W_NDimArray.descr_get_strides),
     ndim = GetSetProperty(W_NDimArray.descr_get_ndim),
     size = GetSetProperty(W_NDimArray.descr_get_size),
     itemsize = GetSetProperty(W_NDimArray.descr_get_itemsize),
