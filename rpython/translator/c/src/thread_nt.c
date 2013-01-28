@@ -5,6 +5,7 @@
 /* Eliminated some memory leaks, gsw@agere.com */
 
 #include <windows.h>
+#include <stdio.h>
 #include <limits.h>
 #include <process.h>
 
