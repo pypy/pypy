@@ -112,7 +112,7 @@ VOID DeleteNonRecursiveMutex(PNRMUTEX mutex)
     mutex->sem = NULL ; /* Just in case */
 }
 
-DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, BOOL wait)
+DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, DWORD milliseconds)
 {
     return WaitForSingleObject(mutex->sem, milliseconds);
 }
@@ -151,8 +151,8 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 {
     /* Fow now, intr_flag does nothing on Windows, and lock acquires are
      * uninterruptible.  */
-    PyLockStatus success;
-    PY_TIMEOUT_T milliseconds;
+    RPyLockStatus success;
+    RPY_TIMEOUT_T milliseconds;
 
     if (microseconds >= 0) {
         milliseconds = microseconds / 1000;
@@ -167,10 +167,10 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 
     if (lock && EnterNonRecursiveMutex(
 	    lock, (DWORD)milliseconds) == WAIT_OBJECT_0) {
-        success = PY_LOCK_ACQUIRED;
+        success = RPY_LOCK_ACQUIRED;
     }
     else {
-        success = PY_LOCK_FAILURE;
+        success = RPY_LOCK_FAILURE;
     }
 
     return success;
