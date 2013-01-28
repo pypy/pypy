@@ -42,3 +42,7 @@ JIT: finish (missing: the call in execute_token(), reorganize pypy source, ?)
 ------------------------------------------------------------
 
 implement thread-locals in RPython (for the executioncontext)
+
+------------------------------------------------------------
+
+optimize the static placement of the STM_XxxBARRIERs
