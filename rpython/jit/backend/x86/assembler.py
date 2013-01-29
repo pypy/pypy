@@ -141,7 +141,7 @@ class Assembler386(object):
             self.set_debug(have_debug_prints())
             debug_stop('jit-backend-counts')
         # when finishing, we only have one value at [0], the rest dies
-        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1, zero=True,
+        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
                                               flavor='raw', immortal=True)
         self.gcmap_for_finish[0] = r_uint(1)
 
