@@ -596,9 +596,6 @@ class Assembler386(object):
                     (descr_number, rawstart, rawstart + codeendpos))
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
-        if not we_are_translated():
-            # for the benefit of tests
-            faildescr._x86_bridge_frame_depth = frame_depth
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
