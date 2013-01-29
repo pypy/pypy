@@ -1,5 +1,6 @@
+import os
+import sys
 import py
-import sys, os
 from pypy.conftest import pypydir
 from rpython.tool.udir import udir
 

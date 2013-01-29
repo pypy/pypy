@@ -1,4 +1,5 @@
-import os, py
+import os
+import py
 
 if os.name != 'posix':
     py.test.skip('crypt module only available on unix')
