@@ -1420,6 +1420,11 @@ class MetaInterpStaticData(object):
         self._addr2name_values = []
 
         self.__dict__.update(compile.make_done_loop_tokens())
+        for val in ['int', 'float', 'ref', 'void']:
+            fullname = 'done_with_this_frame_descr_' + val
+            setattr(self.cpu, fullname, getattr(self, fullname))
+        d = self.exit_frame_with_exception_descr_ref
+        self.cpu.exit_frame_with_exception_descr_ref = d
 
     def _freeze_(self):
         return True

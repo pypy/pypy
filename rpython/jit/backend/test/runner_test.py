@@ -129,6 +129,8 @@ class BaseBackendTest(Runner):
         assert fail.identifier == 1
 
     def test_compile_linear_float_loop(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         i0 = BoxFloat()
         i1 = BoxFloat()
         operations = [
@@ -2787,6 +2789,7 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         finish_descr = loop.operations[-1].getdescr()
+        self.cpu.done_with_this_frame_descr_int = BasicFinalDescr()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
@@ -2858,6 +2861,7 @@ class LLtypeBackendTest(BaseBackendTest):
         finish_descr = loop.operations[-1].getdescr()
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.done_with_this_frame_descr_float = BasicFinalDescr()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         args = [longlong.getfloatstorage(1.2),
                 longlong.getfloatstorage(2.3)]
@@ -2950,6 +2954,7 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse(ops)
         looptoken = JitCellToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.done_with_this_frame_descr_float = BasicFinalDescr()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         finish_descr = loop.operations[-1].getdescr()
         args = [longlong.getfloatstorage(1.25),

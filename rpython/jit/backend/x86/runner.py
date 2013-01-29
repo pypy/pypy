@@ -107,7 +107,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
         lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
         kinds = unrolling_iterable(lst)
-        
+
         def execute_token(executable_token, *args):
             clt = executable_token.compiled_loop_token
             assert len(args) == clt._debug_nbargs
@@ -160,7 +160,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def invalidate_loop(self, looptoken):
         from rpython.jit.backend.x86 import codebuf
-        
+
         for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
             mc = codebuf.MachineCodeBlockWrapper()
             mc.JMP_l(tgt)
@@ -178,38 +178,6 @@ class AbstractX86CPU(AbstractLLCPU):
             l[i].counter = ll_s.i
         return l
 
-    def set_int_value(self, newframe, index, value):
-        """ Note that we keep index multiplied by WORD here mostly
-        for completeness with get_int_value and friends
-        """
-        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
-        ofs = self.unpack_arraydescr(descr)
-        self.write_int_at_mem(newframe, ofs + index, WORD, 1, value)
-
-    def set_ref_value(self, newframe, index, value):
-        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
-        ofs = self.unpack_arraydescr(descr)
-        self.write_ref_at_mem(newframe, ofs + index, value)
-
-    def set_float_value(self, newframe, index, value):
-        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
-        ofs = self.unpack_arraydescr(descr)
-        self.write_float_at_mem(newframe, ofs + index, value)
-
-    @specialize.arg(1)
-    def get_ofs_of_frame_field(self, name):
-        descrs = self.gc_ll_descr.getframedescrs(self)
-        if name.startswith('jfi_'):
-            base_ofs = 0 # not relative to frame
-        else:
-            base_ofs = self.unpack_arraydescr(descrs.arraydescr)
-        ofs = self.unpack_fielddescr(getattr(descrs, name))
-        return ofs - base_ofs
-
-    def get_baseofs_of_frame_field(self):
-        descrs = self.gc_ll_descr.getframedescrs(self)
-        base_ofs = self.unpack_arraydescr(descrs.arraydescr)
-        return base_ofs
 
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'

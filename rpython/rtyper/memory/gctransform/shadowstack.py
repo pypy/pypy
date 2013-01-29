@@ -268,12 +268,6 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.gc_start_fresh_new_state_ptr = getfn(gc_start_fresh_new_state,
                                                   [], annmodel.s_None,
                                                   inline=True)
-        # fish...
-        translator = gctransformer.translator
-        if hasattr(translator, '_jit2gc'):
-            from rpython.rlib._rffi_stacklet import _translate_pointer
-            root_iterator = translator._jit2gc['root_iterator']
-            root_iterator.translateptr = _translate_pointer
 
 # ____________________________________________________________
 
@@ -366,23 +360,18 @@ class ShadowStackPool(object):
 def get_root_iterator(gctransformer):
     if hasattr(gctransformer, '_root_iterator'):
         return gctransformer._root_iterator     # if already built
-    translator = gctransformer.translator
-    if (hasattr(translator, '_jit2gc') and
-            'root_iterator' in translator._jit2gc):
-        result = translator._jit2gc['root_iterator']
-    else:
-        class RootIterator(object):
-            def _freeze_(self):
-                return True
-            def setcontext(self, context):
-                pass
-            def nextleft(self, gc, start, addr):
-                while addr != start:
-                    addr -= sizeofaddr
-                    if gc.points_to_valid_gc_object(addr):
-                        return addr
-                return llmemory.NULL
-        result = RootIterator()
+    class RootIterator(object):
+        def _freeze_(self):
+            return True
+        def setcontext(self, context):
+            pass
+        def nextleft(self, gc, start, addr):
+            while addr != start:
+                addr -= sizeofaddr
+                if gc.points_to_valid_gc_object(addr):
+                    return addr
+            return llmemory.NULL
+    result = RootIterator()
     gctransformer._root_iterator = result
     return result
 
