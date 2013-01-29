@@ -19,6 +19,8 @@ def jitframeinfo_set_depth(jfi, base_ofs, new_depth):
     jfi.jfi_frame_depth = new_depth
     jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
 
+JITFRAMEINFO_SIZE = 2 * SIZEOFSIGNED # make sure this stays correct
+
 JITFRAMEINFO = lltype.Struct(
     'JITFRAMEINFO',
     # the depth of the frame
@@ -31,6 +33,7 @@ JITFRAMEINFO = lltype.Struct(
 )
 
 NULLFRAMEINFO = lltype.nullptr(JITFRAMEINFO)
+JITFRAMEINFOPTR = lltype.Ptr(JITFRAMEINFO)
 
 # the JITFRAME that's stored on the heap. See backend/<backend>/arch.py for
 # detailed explanation how it is on your architecture

@@ -44,23 +44,21 @@ def align_stack_words(words):
 
 
 class GuardToken(object):
-    def __init__(self, faildescr, failargs, fail_locs, exc, frame_depth,
-                 is_guard_not_invalidated, is_guard_not_forced):
+    def __init__(self, gcmap, faildescr, failargs, fail_locs, exc,
+                 frame_depth, is_guard_not_invalidated, is_guard_not_forced):
         self.faildescr = faildescr
         self.failargs = failargs
         self.fail_locs = fail_locs
-        self.gcmap = self.compute_gcmap(failargs, fail_locs, frame_depth)
+        self.gcmap = self.compute_gcmap(gcmap, failargs,
+                                        fail_locs, frame_depth)
         self.exc = exc
         self.is_guard_not_invalidated = is_guard_not_invalidated
         self.is_guard_not_forced = is_guard_not_forced
 
-    def compute_gcmap(self, failargs, fail_locs, frame_depth):
+    def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
         # note that regalloc has a very similar compute, but
         # one that does iteration over all bindings, so slightly different,
         # eh
-        size = frame_depth + JITFRAME_FIXED_SIZE
-        gcmap = lltype.malloc(jitframe.GCMAP, size // WORD // 8 + 1,
-                              zero=True)
         input_i = 0
         for i in range(len(failargs)):
             arg = failargs[i]
@@ -143,7 +141,8 @@ class Assembler386(object):
             self.set_debug(have_debug_prints())
             debug_stop('jit-backend-counts')
         # when finishing, we only have one value at [0], the rest dies
-        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1, zero=True)
+        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1, zero=True,
+                                              flavor='raw', immortal=True)
         self.gcmap_for_finish[0] = r_uint(1)
 
     def setup(self, looptoken):
@@ -505,9 +504,6 @@ class Assembler386(object):
         # about not storing on 'self' attributes that will live only
         # for the duration of compiling one loop or a one bridge.
         clt = CompiledLoopToken(self.cpu, looptoken.number)
-        clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
-        clt.allgcrefs = []
-        clt.frame_info.set_frame_depth(0, 0) # for now
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = len(inputargs)
         if not we_are_translated():
@@ -515,6 +511,13 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
+
+        frame_info = self.datablockwrapper.malloc_aligned(
+            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+        clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
+        clt.allgcrefs = []
+        clt.frame_info.set_frame_depth(0, 0) # for now
+
         if log:
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
@@ -524,8 +527,6 @@ class Assembler386(object):
         self._call_header_with_stack_check()
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
-        rgc._make_sure_does_not_move(lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                            clt.frame_info))
         looppos = self.mc.get_relative_pos()
         frame_depth = self._assemble(regalloc, inputargs, operations)
         self.update_frame_depth(frame_depth + JITFRAME_FIXED_SIZE)
@@ -1842,8 +1843,18 @@ class Assembler386(object):
                guard_opnum == rop.GUARD_NOT_FORCED)
         is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
         is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
-        return GuardToken(faildescr, failargs, fail_locs, exc, frame_depth,
+        gcmap = self.allocate_gcmap(frame_depth)
+        return GuardToken(gcmap, faildescr, failargs,
+                          fail_locs, exc, frame_depth,
                           is_guard_not_invalidated, is_guard_not_forced)
+
+    def allocate_gcmap(self, frame_depth):
+        size = frame_depth + JITFRAME_FIXED_SIZE
+        malloc_size = (size // WORD // 8 + 1) + 1
+        rawgcmap = self.datablockwrapper.malloc_aligned(WORD * malloc_size,
+                                                        WORD)
+        gcmap = rffi.cast(lltype.Ptr(jitframe.GCMAP), rawgcmap)
+        return gcmap
 
     def generate_propagate_error_64(self):
         assert WORD == 8
@@ -1882,6 +1893,8 @@ class Assembler386(object):
                 positions[i] = v * WORD
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
+        # we want the descr to keep alive
+        guardtok.faildescr.rd_loop_token = self.current_clt
         #if WORD == 4:
         #    mc.PUSH(imm(fail_descr))
         #    mc.PUSH(imm(gcpattern))
@@ -1893,19 +1906,15 @@ class Assembler386(object):
         return startpos
 
     def push_gcmap(self, mc, gcmap, push=False, mov=False, store=False):
-        gcmapref = lltype.cast_opaque_ptr(llmemory.GCREF, gcmap)
-        # keep the ref alive
-        self.current_clt.allgcrefs.append(gcmapref)
-        rgc._make_sure_does_not_move(gcmapref)
         if push:
-            mc.PUSH(imm(rffi.cast(lltype.Signed, gcmapref)))
+            mc.PUSH(imm(rffi.cast(lltype.Signed, gcmap)))
         elif mov:
             mc.MOV(RawEspLoc(0, REF),
-                   imm(rffi.cast(lltype.Signed, gcmapref)))
+                   imm(rffi.cast(lltype.Signed, gcmap)))
         else:
             assert store
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-            mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed, gcmapref)))
+            mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed, gcmap)))
 
     def pop_gcmap(self, mc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
