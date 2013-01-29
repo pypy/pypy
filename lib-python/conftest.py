@@ -353,7 +353,7 @@ testmap = [
     RegrTest('test_profile.py'),
     RegrTest('test_property.py', core=True),
     RegrTest('test_pstats.py'),
-    RegrTest('test_pty.py', skip=True),
+    RegrTest('test_pty.py', usemodules='fcntl termios select'),
     RegrTest('test_pwd.py', usemodules="pwd"),
     RegrTest('test_py3kwarn.py'),
     RegrTest('test_py_compile.py'),
