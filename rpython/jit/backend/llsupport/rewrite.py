@@ -1,5 +1,4 @@
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
@@ -140,7 +139,7 @@ class GcRewriterAssembler(object):
     def gen_malloc_frame(self, frame_info, frame, size_box):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op0)
@@ -149,14 +148,14 @@ class GcRewriterAssembler(object):
             self.handle_new_array(descrs.arraydescr, op1)
         else:
             # we read size in bytes here, not the length
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_size)
             self.newops.append(op0)
             self.gen_malloc_nursery_varsize(size_box, frame, is_small=True)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             length_box = history.BoxInt()
-            op1 = ResOperation(rop.GETFIELD_GC, [history.ConstPtr(frame_info)],
+            op1 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
                                length_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op1)
@@ -168,12 +167,11 @@ class GcRewriterAssembler(object):
         loop_token = op.getdescr()
         assert isinstance(loop_token, history.JitCellToken)
         jfi = loop_token.compiled_loop_token.frame_info
-        llref = lltype.cast_opaque_ptr(llmemory.GCREF, jfi)
-        rgc._make_sure_does_not_move(llref)
+        llfi = heaptracker.adr2int(llmemory.cast_ptr_to_adr(jfi))
         size_box = history.BoxInt()
         frame = history.BoxPtr()
-        self.gen_malloc_frame(llref, frame, size_box)
-        op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstPtr(llref)],
+        self.gen_malloc_frame(llfi, frame, size_box)
+        op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstInt(llfi)],
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
         arglist = op.getarglist()

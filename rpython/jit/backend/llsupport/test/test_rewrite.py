@@ -9,7 +9,7 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
-from rpython.rtyper.lltypesystem import lltype, rclass, llmemory
+from rpython.rtyper.lltypesystem import lltype, rclass, rffi
 from rpython.jit.backend.x86.arch import WORD
 
 class Evaluator(object):
@@ -72,8 +72,7 @@ class RewriteTests(object):
 
         casmdescr = JitCellToken()
         clt = FakeLoopToken()
-        frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
-        ll_frame_info = lltype.cast_opaque_ptr(llmemory.GCREF, frame_info)
+        frame_info = lltype.malloc(jitframe.JITFRAMEINFO, flavor='raw')
         clt.frame_info = frame_info
         frame_info.jfi_frame_depth = 13
         frame_info.jfi_frame_size = 255
@@ -100,6 +99,7 @@ class RewriteTests(object):
                                                         ops.operations,
                                                         [])
         equaloplists(operations, expected.operations)
+        lltype.free(frame_info, flavor='raw')
 
 class FakeTracker(object):
     pass
@@ -740,12 +740,12 @@ class TestFramework(RewriteTests):
         i2 = call_assembler(i0, f0, descr=casmdescr)
         """, """
         [i0, f0]
-        i1 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_size)
+        i1 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_size)
         p1 = call_malloc_nursery_varsize_small(i1)
         setfield_gc(p1, 0, descr=tiddescr)
-        i2 = getfield_gc(ConstPtr(ll_frame_info), descr=jfi_frame_depth)
+        i2 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
         setfield_gc(p1, i2, descr=framelendescr)
-        setfield_gc(p1, ConstPtr(ll_frame_info), descr=jf_frame_info)
+        setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
         i3 = call_assembler(p1, descr=casmdescr)
