@@ -533,11 +533,11 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(list(izip()), zip())
         self.assertRaises(TypeError, izip, 3)
         self.assertRaises(TypeError, izip, range(3), 3)
-
         self.assertEqual([tuple(list(pair)) for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
+
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_izip_tuple_reuse(self):
         ids = map(id, izip('abc', 'def'))
@@ -588,6 +588,7 @@ class TestBasicOps(unittest.TestCase):
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip_longest('abc', 'def')],
                          zip('abc', 'def'))
+
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_izip_longest_tuple_reuse(self):
         ids = map(id, izip_longest('abc', 'def'))
