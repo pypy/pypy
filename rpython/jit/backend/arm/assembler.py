@@ -975,13 +975,13 @@ class AssemblerARM(ResOpAssembler):
             offset = loc.value
             if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([temp.value], cond=cond)
-                self.mc.gen_load_int(temp.value, -offset, cond=cond)
+                self.mc.gen_load_int(temp.value, offset, cond=cond)
                 self.mc.STR_rr(prev_loc.value, r.fp.value,
                                             temp.value, cond=cond)
                 self.mc.POP([temp.value], cond=cond)
             else:
                 self.mc.STR_ri(prev_loc.value, r.fp.value,
-                                            imm=-offset, cond=cond)
+                                            imm=offset, cond=cond)
         else:
             assert 0, 'unsupported case'
 
@@ -1089,15 +1089,15 @@ class AssemblerARM(ResOpAssembler):
             offset = vfp_loc.value
             if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.ip.value], cond=cond)
-                self.mc.gen_load_int(r.ip.value, -offset, cond=cond)
+                self.mc.gen_load_int(r.ip.value, offset, cond=cond)
                 self.mc.LDR_rr(reg1.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.ADD_ri(r.ip.value, r.ip.value, imm=WORD, cond=cond)
                 self.mc.LDR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.POP([r.ip.value], cond=cond)
             else:
-                self.mc.LDR_ri(reg1.value, r.fp.value, imm=-offset, cond=cond)
+                self.mc.LDR_ri(reg1.value, r.fp.value, imm=offset, cond=cond)
                 self.mc.LDR_ri(reg2.value, r.fp.value,
-                                                imm=-offset + WORD, cond=cond)
+                                                imm=offset + WORD, cond=cond)
         else:
             assert 0, 'unsupported case'
 
@@ -1112,15 +1112,15 @@ class AssemblerARM(ResOpAssembler):
             offset = vfp_loc.value
             if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.ip.value], cond=cond)
-                self.mc.gen_load_int(r.ip.value, -offset, cond=cond)
+                self.mc.gen_load_int(r.ip.value, offset, cond=cond)
                 self.mc.STR_rr(reg1.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.ADD_ri(r.ip.value, r.ip.value, imm=WORD, cond=cond)
                 self.mc.STR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.POP([r.ip.value], cond=cond)
             else:
-                self.mc.STR_ri(reg1.value, r.fp.value, imm=-offset, cond=cond)
+                self.mc.STR_ri(reg1.value, r.fp.value, imm=offset, cond=cond)
                 self.mc.STR_ri(reg2.value, r.fp.value,
-                                                imm=-offset + WORD, cond=cond)
+                                                imm=offset + WORD, cond=cond)
         else:
             assert 0, 'unsupported case'
 
