@@ -2,7 +2,7 @@ from __future__ import with_statement
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import shift
-from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD
+from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
 
 from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                 gen_emit_op_unary_cmp,
@@ -21,7 +21,7 @@ from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempInt, TempPtr
 from rpython.jit.backend.arm.locations import imm
-from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
 from rpython.jit.metainterp.history import (Box, AbstractFailDescr,
                                             INT, FLOAT, REF)
@@ -35,17 +35,42 @@ NO_FORCE_INDEX = -1
 
 
 class GuardToken(object):
-    def __init__(self, descr, failargs, faillocs, offset, save_exc, fcond=c.AL,
+    def __init__(self, faildescr, failargs, fail_locs, offset, exc, fcond=c.AL,
                  is_guard_not_invalidated=False, is_guard_not_forced=False):
-        assert isinstance(save_exc, bool)
-        self.descr = descr
+        assert isinstance(exc, bool)
+        self.faildescr = faildescr
+        self.failargs = failargs
+        self.fail_locs = fail_locs[1:]
         self.offset = offset
+        self.gcmap = self.compute_gcmap(failargs, fail_locs, fail_locs[0].value)
+        self.exc = exc
         self.is_guard_not_invalidated = is_guard_not_invalidated
         self.is_guard_not_forced = is_guard_not_forced
-        self.failargs = failargs
-        self.faillocs = faillocs
-        self.save_exc = save_exc
         self.fcond = fcond
+
+    def compute_gcmap(self, failargs, fail_locs, frame_depth):
+        # note that regalloc has a very similar compute, but
+        # one that does iteration over all bindings, so slightly different,
+        # eh
+        size = frame_depth + JITFRAME_FIXED_SIZE
+        gcmap = lltype.malloc(jitframe.GCMAP, size // WORD // 8 + 1,
+                              zero=True)
+        input_i = 0
+        for i in range(len(failargs)):
+            arg = failargs[i]
+            if arg is None:
+                continue
+            loc = fail_locs[input_i]
+            input_i += 1
+            if arg.type == REF:
+                loc = fail_locs[i]
+                if loc.is_reg():
+                    val = loc.value
+                else:
+                    assert 0, 'ffuu, implement'
+                    val = loc.value // WORD
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        return gcmap
 
 
 class ResOpAssembler(object):
@@ -211,9 +236,9 @@ class ResOpAssembler(object):
             self.mc.BKPT()
         self.pending_guards.append(GuardToken(descr,
                                     failargs=op.getfailargs(),
-                                    faillocs=arglocs,
+                                    fail_locs=arglocs,
                                     offset=pos,
-                                    save_exc=save_exc,
+                                    exc=save_exc,
                                     is_guard_not_invalidated=is_guard_not_invalidated,
                                     is_guard_not_forced=is_guard_not_forced,
                                     fcond=fcond))
