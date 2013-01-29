@@ -59,18 +59,13 @@ class AbstractLLCPU(AbstractCPU):
             frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
             assert size <= frame.jf_frame_info.jfi_frame_depth
             new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
-            # XXX now we know, rewrite this
-            # YYY it doesn't matter at all, it's fine that way too
-            # we need to do this, because we're not sure what things
-            # are GC pointers and which ones are not
-            llop.gc_writebarrier_before_copy(lltype.Bool, frame, new_frame,
-                                             0, 0, len(frame.jf_frame))
             i = 0
             while i < len(frame.jf_frame):
                 new_frame.jf_frame[i] = frame.jf_frame[i]
                 i += 1
             new_frame.jf_savedata = frame.jf_savedata
             # all other fields are empty
+            llop.gc_assume_young_pointers(lltype.Void, new_frame)
             return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
 
         if not translate_support_code:

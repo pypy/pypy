@@ -1,6 +1,7 @@
 import py
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
@@ -136,6 +137,9 @@ class AbstractX86CPU(AbstractLLCPU):
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
                     num += WORD
+                # no GC operation between gc_assume_young_pointers and
+                # the actual call to assembler!
+                llop.gc_assume_young_pointers(lltype.Void, frame)
                 ll_frame = func(ll_frame)
             finally:
                 if not self.translate_support_code:
