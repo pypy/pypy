@@ -369,7 +369,8 @@ class AppTestSocket:
         s.close()
         assert s.fileno() < 0
         s.close()
-        raises(OSError, os.close, fileno)
+        if os.name != 'nt':
+            raises(OSError, os.close, fileno)
 
     def test_socket_close_error(self):
         import _socket, os
