@@ -655,26 +655,25 @@ class __extend__(pyframe.PyFrame):
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
-        # fall-back
-        self.LOAD_GLOBAL(nameindex, next_instr, "name '%s' is not defined")
+        self.LOAD_GLOBAL(nameindex, next_instr)    # fall-back
 
-    def _load_global(self, varname, errmsg):
+    def _load_global(self, varname):
         w_value = self.space.finditem_str(self.w_globals, varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
             if w_value is None:
-                self._load_global_failed(errmsg, varname)
+                self._load_global_failed(varname)
         return w_value
     _load_global._always_inline_ = True
 
-    def _load_global_failed(self, errmsg, varname):
-        raise operationerrfmt(self.space.w_NameError, errmsg, varname)
+    def _load_global_failed(self, varname):
+        message = "global name '%s' is not defined"
+        raise operationerrfmt(self.space.w_NameError, message, varname)
     _load_global_failed._dont_inline_ = True
 
-    def LOAD_GLOBAL(self, nameindex, next_instr,
-                    errmsg="global name '%s' is not defined"):
-        self.pushvalue(self._load_global(self.getname_u(nameindex), errmsg))
+    def LOAD_GLOBAL(self, nameindex, next_instr):
+        self.pushvalue(self._load_global(self.getname_u(nameindex)))
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
