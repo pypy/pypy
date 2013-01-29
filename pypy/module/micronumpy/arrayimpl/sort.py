@@ -82,10 +82,16 @@ def make_sort_classes(space, itemtype):
 
 def argsort_array(arr, space, w_axis):
     itemtype = arr.dtype.itemtype
-    # this is for runtime
-    if not (arr.dtype.is_int_type() or \
-            arr.dtype.is_float_type() or \
-            arr.dtype.is_complex_type()):
+    # this is for runtime - written like this to simplify
+    # logic since translation could not handle it as one 
+    # statement
+    if arr.dtype.is_int_type():
+        pass
+    elif arr.dtype.is_float_type():
+        pass
+    elif arr.dtype.is_complex_type():
+        pass
+    else:    
         raise OperationError(space.w_NotImplementedError,
            space.wrap("sorting of non-numeric types " + \
                       "'%s' is not implemented" % arr.dtype.get_name() ))
