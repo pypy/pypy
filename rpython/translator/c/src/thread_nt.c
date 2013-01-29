@@ -13,7 +13,7 @@
 /*
  * Thread support.
  */
-#include "thread.h"
+/* In rpython, this file is pulled in by thread.c */
 
 typedef struct RPyOpaque_ThreadLock NRMUTEX, *PNRMUTEX;
 
