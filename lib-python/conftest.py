@@ -61,7 +61,8 @@ class RegrTest:
                                  usemodules = '',
                                  skip=None): 
         self.basename = basename 
-        self._usemodules = usemodules.split() + ['signal', '_warnings']
+        self._usemodules = usemodules.split() + ['signal', 'rctime', 'binascii', '_socket',
+                'select', 'fcntl', '_posixsubprocess']
         self._compiler = compiler 
         self.core = core
         self.skip = skip
@@ -103,19 +104,19 @@ else:
 testmap = [
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
-    RegrTest('test__locale.py', skip=skip_win32),
+    RegrTest('test__locale.py', usemodules='_locale', skip=skip_win32),
     RegrTest('test_abc.py'),
     RegrTest('test_abstract_numbers.py'),
     RegrTest('test_aifc.py'),
-    RegrTest('test_argparse.py'),
-    RegrTest('test_array.py', core=True, usemodules='struct array'),
-    RegrTest('test_ast.py', core=True),
-    RegrTest('test_asynchat.py', usemodules='thread'),
-    RegrTest('test_asyncore.py'),
+    RegrTest('test_argparse.py', usemodules='binascii'),
+    RegrTest('test_array.py', core=True, usemodules='struct array binascii'),
+    RegrTest('test_ast.py', core=True, usemodules='struct'),
+    RegrTest('test_asynchat.py', usemodules='select fcntl'),
+    RegrTest('test_asyncore.py', usemodules='select fcntl'),
     RegrTest('test_atexit.py', core=True),
     RegrTest('test_audioop.py', skip=True),
     RegrTest('test_augassign.py', core=True),
-    RegrTest('test_base64.py'),
+    RegrTest('test_base64.py', usemodules='struct'),
     RegrTest('test_bigaddrspace.py'),
     RegrTest('test_bigmem.py'),
     RegrTest('test_binascii.py', usemodules='binascii'),
@@ -124,8 +125,8 @@ testmap = [
     RegrTest('test_bisect.py', core=True, usemodules='_bisect'),
     RegrTest('test_bool.py', core=True),
     RegrTest('test_bufio.py', core=True),
-    RegrTest('test_builtin.py', core=True),
-    RegrTest('test_bytes.py'),
+    RegrTest('test_builtin.py', core=True, usemodules='binascii'),
+    RegrTest('test_bytes.py', usemodules='struct binascii'),
     RegrTest('test_bz2.py', usemodules='bz2'),
     RegrTest('test_calendar.py'),
     RegrTest('test_call.py', core=True),
@@ -371,7 +372,7 @@ testmap = [
     RegrTest('test_sort.py', core=True),
     RegrTest('test_sqlite.py', usemodules="thread _rawffi zlib"),
     RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
-    RegrTest('test_startfile.py'), # skip="bogus test"?
+    RegrTest('test_startfile.py'),
     RegrTest('test_strftime.py'),
     RegrTest('test_string.py', core=True),
     RegrTest('test_stringprep.py'),
@@ -461,6 +462,7 @@ testmap = [
 
 def check_testmap_complete():
     listed_names = dict.fromkeys([regrtest.basename for regrtest in testmap])
+    assert len(listed_names) == len(testmap)
     listed_names['test_support.py'] = True     # ignore this
     missing = []
     for path in testdir.listdir(fil='test_*.py'):
@@ -516,7 +518,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
     def getinvocation(self, regrtest): 
         fspath = regrtest.getfspath() 
         python = sys.executable 
-        pypy_script = pypydir.join('bin', 'py.py')
+        pypy_script = pypydir.join('bin', 'pyinteractive.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
         if sys.platform == 'win32':
             watchdog_name = 'watchdog_nt.py'

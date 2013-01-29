@@ -797,14 +797,19 @@ class AppTestPosix:
 
     if hasattr(os, 'chmod'):
         def test_chmod(self):
+            import sys
             os = self.posix
             os.unlink(self.path)
             raises(OSError, os.chmod, self.path, 0o600)
             f = open(self.path, "w")
             f.write("this is a test")
             f.close()
-            os.chmod(self.path, 0o200)
-            assert (os.stat(self.path).st_mode & 0o777) == 0o200
+            if sys.platform == 'win32':
+                os.chmod(self.path, 0o400)
+                assert (os.stat(self.path).st_mode & 0o600) == 0o400
+            else:
+                os.chmod(self.path, 0o200)
+                assert (os.stat(self.path).st_mode & 0o777) == 0o200
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):

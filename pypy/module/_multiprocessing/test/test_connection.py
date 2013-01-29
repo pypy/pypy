@@ -67,7 +67,7 @@ class BaseConnectionTest(object):
         assert rhandle.readable
 
 class AppTestWinpipeConnection(BaseConnectionTest):
-    spaceconfig = dict(usemodules=('_multiprocessing', 'thread'))
+    spaceconfig = dict(usemodules=('_multiprocessing', 'thread', 'signal'))
 
     def setup_class(cls):
         if sys.platform != "win32":
