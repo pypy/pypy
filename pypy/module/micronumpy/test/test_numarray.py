@@ -346,6 +346,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.copy()
         assert (b == a).all()
 
+        a = array(['abc', 'def','xyz'], dtype='S3')
+        b = a.copy()
+        assert (b == a).all()
+
     def test_iterator_init(self):
         from _numpypy import array
         a = array(range(5))

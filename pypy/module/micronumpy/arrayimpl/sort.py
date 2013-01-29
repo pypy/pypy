@@ -88,7 +88,7 @@ def argsort_array(arr, space, w_axis):
             arr.dtype.is_complex_type()):
         raise OperationError(space.w_NotImplementedError,
            space.wrap("sorting of non-numeric types " + \
-                        "'%r' is not implemented" % arr.dtype ))
+                      "'%s' is not implemented" % arr.dtype.get_name() ))
     # this is for translation
     assert isinstance(itemtype, types.Float) or \
            isinstance(itemtype, types.Integer) or \
