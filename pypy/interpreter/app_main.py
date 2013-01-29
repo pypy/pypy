@@ -587,9 +587,8 @@ def run_command_line(interactive,
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
-                        f = open(python_startup)
-                        startup = f.read()
-                        f.close()
+                        with open(python_startup, 'rb') as f:
+                            startup = f.read()
                     except IOError as e:
                         print("Could not open PYTHONSTARTUP", file=sys.stderr)
                         print("IOError:", e, file=sys.stderr)
@@ -642,7 +641,7 @@ def run_command_line(interactive,
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
                     def execfile(filename, namespace):
-                        with open(filename) as f:
+                        with open(filename, 'rb') as f:
                             code = f.read()
                         exec_(compile(code, filename, 'exec'), namespace)
                     args = (execfile, filename, mainmodule.__dict__)
