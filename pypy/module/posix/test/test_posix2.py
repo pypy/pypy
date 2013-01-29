@@ -823,6 +823,7 @@ class AppTestPosix:
 
     if hasattr(os, 'chmod'):
         def test_chmod(self):
+            import sys
             os = self.posix
             os.unlink(self.path)
             raises(OSError, os.chmod, self.path, 0600)
