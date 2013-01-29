@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import enforceargs
 
 SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
 IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
@@ -13,6 +14,7 @@ IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
 GCMAP = lltype.GcArray(lltype.Unsigned)
 NULLGCMAP = lltype.nullptr(GCMAP)
 
+@enforceargs(None, int, int)
 def jitframeinfo_set_depth(jfi, base_ofs, new_depth):
     jfi.jfi_frame_depth = new_depth
     jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
