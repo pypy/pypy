@@ -1332,6 +1332,7 @@ class RegAlloc(object):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
+        
 
     def consider_keepalive(self, op):
         pass

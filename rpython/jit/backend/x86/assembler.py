@@ -670,7 +670,7 @@ class Assembler386(object):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.set_frame_depth(baseofs, frame_depth)
 
-    def _check_frame_depth(self, mc, gcmap):
+    def _check_frame_depth(self, mc, gcmap, expected_size=-1):
         """ check if the frame is of enough depth to follow this bridge.
         Otherwise reallocate the frame in a helper.
         There are other potential solutions
@@ -679,12 +679,18 @@ class Assembler386(object):
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        mc.CMP_bi(ofs - base_ofs, 0xffffff)
+        if expected_size == -1:
+            mc.CMP_bi(ofs - base_ofs, 0xffffff)
+        else:
+            mc.CMP_bi(ofs - base_ofs, expected_size)
         stack_check_cmp_ofs = mc.get_relative_pos() - 4
         assert not IS_X86_32
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
-        mc.MOV_si(WORD, 0xffffff)
+        if expected_size == -1:
+            mc.MOV_si(WORD, 0xffffff)
+        else:
+            mc.MOV_si(WORD, expected_size)            
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._stack_check_failure))
@@ -1853,7 +1859,12 @@ class Assembler386(object):
         malloc_size = (size // WORD // 8 + 1) + 1
         rawgcmap = self.datablockwrapper.malloc_aligned(WORD * malloc_size,
                                                         WORD)
+        # set the length field
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), rawgcmap)[0] = malloc_size - 1
         gcmap = rffi.cast(lltype.Ptr(jitframe.GCMAP), rawgcmap)
+        # zero the area
+        for i in range(malloc_size - 1):
+            gcmap[i] = r_uint(0)
         return gcmap
 
     def generate_propagate_error_64(self):
@@ -2469,6 +2480,13 @@ class Assembler386(object):
             curpos = self.mc.get_relative_pos() + 5
             self.mc.JMP_l(target - curpos)
         else:
+            if target_token._x86_clt is not self.current_clt:
+                # We can have a frame coming from god knows where that's
+                # passed to a jump to another loop. Make sure it has the
+                # correct depth
+                expected_size = target_token._x86_clt.frame_info.jfi_frame_depth
+                self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
+                                        expected_size=expected_size)
             self.mc.JMP(imm(target))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
