@@ -54,13 +54,13 @@ class AbstractLLCPU(AbstractCPU):
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
                                              llmemory.GCREF))
+        base_ofs = self.get_baseofs_of_frame_field()
 
         def realloc_frame(frame, size):
             frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
             if size > frame.jf_frame_info.jfi_frame_depth:
                 # update the frame_info size, which is for whatever reason
                 # not up to date
-                base_ofs = self.get_baseofs_of_frame_field()
                 frame.jf_frame_info.set_frame_depth(base_ofs, size)
             new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
             i = 0
