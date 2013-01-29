@@ -30,31 +30,31 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype, llmemory
+from rpython.rlib.rarithmetic import r_uint
 
 NO_FORCE_INDEX = -1
 
 
 class GuardToken(object):
-    def __init__(self, faildescr, failargs, fail_locs, offset, exc, fcond=c.AL,
-                 is_guard_not_invalidated=False, is_guard_not_forced=False):
+    def __init__(self, gcmap, faildescr, failargs, fail_locs, offset, exc,
+                       frame_depth, fcond=c.AL, is_guard_not_invalidated=False,
+                       is_guard_not_forced=False):
         assert isinstance(exc, bool)
         self.faildescr = faildescr
         self.failargs = failargs
         self.fail_locs = fail_locs[1:]
         self.offset = offset
-        self.gcmap = self.compute_gcmap(failargs, fail_locs, fail_locs[0].value)
+        self.gcmap = self.compute_gcmap(gcmap, failargs,
+                                        fail_locs, frame_depth)
         self.exc = exc
         self.is_guard_not_invalidated = is_guard_not_invalidated
         self.is_guard_not_forced = is_guard_not_forced
         self.fcond = fcond
 
-    def compute_gcmap(self, failargs, fail_locs, frame_depth):
+    def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
         # note that regalloc has a very similar compute, but
         # one that does iteration over all bindings, so slightly different,
         # eh
-        size = frame_depth + JITFRAME_FIXED_SIZE
-        gcmap = lltype.malloc(jitframe.GCMAP, size // WORD // 8 + 1,
-                              zero=True)
         input_i = 0
         for i in range(len(failargs)):
             arg = failargs[i]
@@ -234,15 +234,31 @@ class ResOpAssembler(object):
             self.mc.NOP()
         else:
             self.mc.BKPT()
-        self.pending_guards.append(GuardToken(descr,
+        gcmap = self.allocate_gcmap(arglocs[0].value)
+        self.pending_guards.append(GuardToken(gcmap,
+                                    descr,
                                     failargs=op.getfailargs(),
-                                    fail_locs=arglocs,
+                                    fail_locs=arglocs[1:],
                                     offset=pos,
                                     exc=save_exc,
+                                    frame_depth=arglocs[0].value,
                                     is_guard_not_invalidated=is_guard_not_invalidated,
                                     is_guard_not_forced=is_guard_not_forced,
                                     fcond=fcond))
         return c.AL
+
+    def allocate_gcmap(self, frame_depth):
+        size = frame_depth + JITFRAME_FIXED_SIZE
+        malloc_size = (size // WORD // 8 + 1) + 1
+        rawgcmap = self.datablockwrapper.malloc_aligned(WORD * malloc_size,
+                                                        WORD)
+        # set the length field
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), rawgcmap)[0] = malloc_size - 1
+        gcmap = rffi.cast(lltype.Ptr(jitframe.GCMAP), rawgcmap)
+        # zero the area
+        for i in range(malloc_size - 1):
+            gcmap[i] = r_uint(0)
+        return gcmap
 
     def _emit_guard_overflow(self, guard, failargs, fcond):
         if guard.getopnum() == rop.GUARD_OVERFLOW:
@@ -327,18 +343,18 @@ class ResOpAssembler(object):
         # so that the locations [ebp+8..] of the input arguments are valid
         # stack locations both before and after the jump.
         #
-        descr = op.getdescr()
-        assert isinstance(descr, TargetToken)
+        target_token = op.getdescr()
+        assert isinstance(target_token, TargetToken)
         assert fcond == c.AL
         my_nbargs = self.current_clt._debug_nbargs
-        target_nbargs = descr._arm_clt._debug_nbargs
+        target_nbargs = target_token._arm_clt._debug_nbargs
         assert my_nbargs == target_nbargs
 
         self._insert_checks()
-        if descr in self.target_tokens_currently_compiling:
-            self.mc.B_offs(descr._arm_loop_code, fcond)
+        if target_token in self.target_tokens_currently_compiling:
+            self.mc.B_offs(target_token._arm_loop_code, fcond)
         else:
-            self.mc.B(descr._arm_loop_code, fcond)
+            self.mc.B(target_token._arm_loop_code, fcond)
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):

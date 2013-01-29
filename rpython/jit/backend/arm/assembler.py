@@ -115,7 +115,8 @@ class AssemblerARM(ResOpAssembler):
             self.set_debug(have_debug_prints())
             debug_stop('jit-backend-counts')
         # when finishing, we only have one value at [0], the rest dies
-        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1, zero=True)
+        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
+                                              flavor='raw', immortal=True)
         self.gcmap_for_finish[0] = r_uint(1)
 
     def setup_failure_recovery(self):
@@ -502,6 +503,8 @@ class AssemblerARM(ResOpAssembler):
                 positions[i] = v * WORD
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
+        # we want the descr to keep alive
+        guardtok.faildescr.rd_loop_token = self.current_clt
         self.regalloc_push(imm(fail_descr))
         self.push_gcmap(self.mc, gcmap=guardtok.gcmap, push=True)
         self.mc.BL(target)
@@ -603,9 +606,6 @@ class AssemblerARM(ResOpAssembler):
     # cpu interface
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
-        clt.frame_info = lltype.malloc(jitframe.JITFRAMEINFO)
-        clt.allgcrefs = []
-        clt.frame_info.jfi_frame_depth = 0 # for now
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = len(inputargs)
 
@@ -614,6 +614,13 @@ class AssemblerARM(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
+
+        frame_info = self.datablockwrapper.malloc_aligned(
+            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+        clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
+        clt.allgcrefs = []
+        clt.frame_info.set_frame_depth(0, 0) # for now
+
         if False and log:
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
@@ -624,8 +631,6 @@ class AssemblerARM(ResOpAssembler):
         regalloc = Regalloc(assembler=self)
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
-        rgc._make_sure_does_not_move(lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                            clt.frame_info))
 
         loop_head = self.mc.get_relative_pos()
         looptoken._arm_loop_code = loop_head
@@ -755,7 +760,8 @@ class AssemblerARM(ResOpAssembler):
                                    self.cpu.gc_ll_descr.gcrootmap)
 
     def update_frame_depth(self, frame_depth):
-        self.current_clt.frame_info.jfi_frame_depth = frame_depth
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        self.current_clt.frame_info.set_frame_depth(baseofs, frame_depth)
 
     def write_pending_failure_recoveries(self):
         for tok in self.pending_guards:
@@ -1118,6 +1124,7 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.STR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.POP([r.ip.value], cond=cond)
             else:
+                assert 0, 'verify this code'
                 self.mc.STR_ri(reg1.value, r.fp.value, imm=offset, cond=cond)
                 self.mc.STR_ri(reg2.value, r.fp.value,
                                                 imm=offset + WORD, cond=cond)
@@ -1221,21 +1228,17 @@ class AssemblerARM(ResOpAssembler):
             return 0
 
     def push_gcmap(self, mc, gcmap, push=False, mov=False, store=False):
-        gcmapref = lltype.cast_opaque_ptr(llmemory.GCREF, gcmap)
-        # keep the ref alive
-        self.current_clt.allgcrefs.append(gcmapref)
-        rgc._make_sure_does_not_move(gcmapref)
+        ptr = rffi.cast(lltype.Signed, gcmap)
         if push:
-            mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, gcmapref))
+            mc.gen_load_int(r.ip.value, ptr)
             mc.PUSH([r.ip.value])
         elif mov:
             assert 0
-            mc.MOV(RawEspLoc(0, REF),
-                   imm(rffi.cast(lltype.Signed, gcmapref)))
+            mc.MOV(RawEspLoc(0, REF), ptr)
         else:
             assert store
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-            mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, gcmapref))
+            mc.gen_load_int(r.ip.value, ptr)
             mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
 
     def pop_gcmap(self, mc):
