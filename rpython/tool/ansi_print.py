@@ -17,6 +17,12 @@ class SpinningDriver(object):
         self.state += 1
         self.state %= len(self.states)
 
+class DotDriver(object):
+    def dot(self):
+        sys.stderr.write('.')
+    def reset(self):
+        pass
+
 class AnsiLog:
     wrote_dot = False # XXX sharing state with all instances
 
@@ -30,13 +36,13 @@ class AnsiLog:
         'Error': ((1, 31), False),
         'info': ((35,), False),
         'stub': ((34,), False),
-        'init': ((1, 34), False),
+        'step': ((1, 34), False),
     }
     
     log_on_quiet = [
         "ERROR",
         "Error",
-        "init",
+        "step",
     ]
 
     def __init__(self, kw_to_color={}, file=None):
@@ -54,10 +60,18 @@ class AnsiLog:
             self.quiet = quiet
         
         self.driver = None
-        if self.isatty and self.fancy:
-            self.driver = MandelbrotDriver()
-        if self.isatty and self.quiet:
-            self.driver = SpinningDriver()
+        if self.isatty:
+            self.driver = DotDriver()
+            if self.fancy:
+                self.driver = MandelbrotDriver()
+            if self.quiet:
+                self.driver = SpinningDriver()
+
+    def dot(self):
+        if self.driver is None:
+            return
+        self.driver.dot()
+        AnsiLog.wrote_dot = True
 
     def __call__(self, msg):
         tty = self.isatty()
@@ -81,22 +95,17 @@ class AnsiLog:
                 print >> sys.stderr
                 return
         elif 'dot' in keywords:
-            if tty:
-                if self.driver is not None:
-                    if not AnsiLog.wrote_dot:
-                        self.driver.reset()
-                    self.driver.dot()
-                else:
-                    ansi_print(".", tuple(esc), file=self.file, newline=False, flush=flush)
-                AnsiLog.wrote_dot = True
-                return
-        if AnsiLog.wrote_dot:
-            AnsiLog.wrote_dot = False
-            sys.stderr.write("\n")
+            self.dot()
+            return
         esc = tuple(esc)
         if not self.quiet or any([kw in self.log_on_quiet for kw in keywords]):
+            if AnsiLog.wrote_dot and self.driver is not None:
+                self.driver.reset()
+            AnsiLog.wrote_dot = False
             for line in msg.content().splitlines():
                 ansi_print("[%s] %s" %(":".join(keywords), line), esc, 
                             file=self.file, newline=newline, flush=flush)
+        else:
+            self.dot()
 
 ansi_log = AnsiLog()

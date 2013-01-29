@@ -118,6 +118,7 @@ class Driver(object):
     def reset(self, cnt=0):
         """ Resets to the beginning of the line and drops cnt lines internally. """
         self.mandelbrot.reset(cnt)
+        print >>sys.stderr
 
     def catchup(self):
         """ Fills the current line. """

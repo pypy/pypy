@@ -92,7 +92,7 @@ log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)
 
 def load_target(targetspec):
-    log.init("Translating target %s" % targetspec)
+    log.step("Translating target %s" % targetspec)
     if not targetspec.endswith('.py'):
         targetspec += '.py'
     thismod = sys.modules[__name__]

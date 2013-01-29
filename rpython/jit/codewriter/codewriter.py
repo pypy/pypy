@@ -65,14 +65,14 @@ class CodeWriter(object):
             self.print_ssa_repr(ssarepr, portal_jd, verbose)
 
     def make_jitcodes(self, verbose=False):
-        log.info("making JitCodes...")
+        log.info("Producing JitCodes")
         self.callcontrol.grab_initial_jitcodes()
         count = 0
         for graph, jitcode in self.callcontrol.enum_pending_graphs():
             self.transform_graph_to_jitcode(graph, jitcode, verbose)
             count += 1
-            if not count % 500:
-                log.info("Produced %d jitcodes" % count)
+            if not count % 10:
+                log.dot()
         self.assembler.finished(self.callcontrol.callinfocollection)
         heaptracker.finish_registering(self.cpu)
         log.info("there are %d JitCode instances." % count)

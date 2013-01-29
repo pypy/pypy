@@ -268,12 +268,10 @@ class TranslationDriver(SimpleTaskEngine):
     def _do(self, goal, func, *args, **kwds):
         title = func.task_title
         if goal in self.done:
-            self.log.init("already done: %s" % title)
+            self.log.step("already done: %s" % title)
             return
         else:
-            self.log.init("%s" % title)
-        debug_start('translation-task')
-        debug_print('starting', goal)
+            self.log.step("%s" % title)
         self.timer.start_event(goal)
         try:
             instrument = False
@@ -291,7 +289,6 @@ class TranslationDriver(SimpleTaskEngine):
                 assert False, 'we should not get here'
         finally:
             try:
-                debug_stop('translation-task')
                 self.timer.end_event(goal)
             except (KeyboardInterrupt, SystemExit):
                 raise
@@ -514,7 +511,7 @@ class TranslationDriver(SimpleTaskEngine):
                                     str(newsoname.new(ext='lib')))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
-        self.log.info("created: %s" % (self.c_entryp,))
+        self.log.step("created: %s" % (self.c_entryp,))
 
     @taskdef(['source_c'], "Compiling c source")
     def task_compile_c(self):

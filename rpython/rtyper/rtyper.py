@@ -271,8 +271,7 @@ class RPythonTyper(object):
         if self.typererrors: 
             self.dump_typererrors(to_log=True) 
             raise TyperError("there were %d error" % len(self.typererrors))
-        self.log.event('-=- specialized %d%s blocks -=-' % (
-            blockcount, newtext))
+        self.log.dot()
         annmixlevel = self.annmixlevel
         del self.annmixlevel
         if annmixlevel is not None:
