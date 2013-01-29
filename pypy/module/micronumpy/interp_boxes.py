@@ -289,7 +289,7 @@ class W_StringBox(W_CharacterBox):
         return W_StringBox(arr, 0, arr.dtype)
             
     def convert_to(self, dtype):
-        from pypy.modules.micronumpy import types
+        from pypy.module.micronumpy import types
         assert isinstance(dtype.itemtype, types.StringType)
         return self        
 
@@ -306,7 +306,7 @@ class W_UnicodeBox(W_CharacterBox):
         return W_UnicodeBox(arr, 0, arr.dtype)
 
     def convert_to(self, dtype):
-        from pypy.modules.micronumpy import types
+        from pypy.module.micronumpy import types
         assert isinstance(dtype.itemtype, types.UnicodeType)
         return self        
 
