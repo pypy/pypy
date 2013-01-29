@@ -94,17 +94,10 @@ class RegrTest:
                 m.test_main()
         ''' % locals())
 
-if sys.platform == 'win32':
-    skip_win32 = "Not supported on Windows"
-    only_win32 = False
-else:
-    skip_win32 = False
-    only_win32 = "Only on Windows"
-
 testmap = [
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
-    RegrTest('test__locale.py', usemodules='_locale', skip=skip_win32),
+    RegrTest('test__locale.py', usemodules='_locale'),
     RegrTest('test_abc.py'),
     RegrTest('test_abstract_numbers.py'),
     RegrTest('test_aifc.py'),
@@ -114,7 +107,7 @@ testmap = [
     RegrTest('test_asynchat.py', usemodules='select fcntl'),
     RegrTest('test_asyncore.py', usemodules='select fcntl'),
     RegrTest('test_atexit.py', core=True),
-    RegrTest('test_audioop.py', skip=True),
+    RegrTest('test_audioop.py', skip="unsupported extension module"),
     RegrTest('test_augassign.py', core=True),
     RegrTest('test_base64.py', usemodules='struct'),
     RegrTest('test_bigaddrspace.py'),
@@ -167,10 +160,10 @@ testmap = [
     RegrTest('test_copy.py', core=True),
     RegrTest('test_copyreg.py', core=True),
     RegrTest('test_cprofile.py'),
-    RegrTest('test_crypt.py', usemodules='crypt', skip=skip_win32),
+    RegrTest('test_crypt.py', usemodules='crypt'),
     RegrTest('test_csv.py', usemodules='_csv'),
     RegrTest('test_ctypes.py', usemodules="_rawffi thread"),
-    RegrTest('test_curses.py', skip="unsupported extension module"),
+    RegrTest('test_curses.py'),
     RegrTest('test_datetime.py'),
     RegrTest('test_dbm.py'),
     RegrTest('test_dbm_dumb.py'),
@@ -202,7 +195,7 @@ testmap = [
     RegrTest('test_exception_variations.py'),
     RegrTest('test_exceptions.py', core=True),
     RegrTest('test_extcall.py', core=True),
-    RegrTest('test_fcntl.py', usemodules='fcntl', skip=skip_win32),
+    RegrTest('test_fcntl.py', usemodules='fcntl'),
     RegrTest('test_file.py', usemodules="posix", core=True),
     RegrTest('test_filecmp.py', core=True),
     RegrTest('test_fileinput.py', core=True),
@@ -228,13 +221,13 @@ testmap = [
     RegrTest('test_generators.py', core=True, usemodules='thread _weakref'),
     RegrTest('test_genericpath.py'),
     RegrTest('test_genexps.py', core=True, usemodules='_weakref'),
-    RegrTest('test_getargs2.py', skip="unsupported extension module"),
+    RegrTest('test_getargs2.py', usemodules='binascii', skip=True),
     RegrTest('test_getopt.py', core=True),
     RegrTest('test_gettext.py'),
     RegrTest('test_glob.py', core=True),
     RegrTest('test_global.py', core=True),
     RegrTest('test_grammar.py', core=True),
-    RegrTest('test_grp.py', skip=skip_win32),
+    RegrTest('test_grp.py'),
     RegrTest('test_gzip.py', usemodules='zlib'),
     RegrTest('test_hash.py', core=True),
     RegrTest('test_hashlib.py', core=True),
@@ -285,13 +278,12 @@ testmap = [
     RegrTest('test_mmap.py', usemodules="mmap"),
     RegrTest('test_module.py', core=True),
     RegrTest('test_modulefinder.py'),
-    RegrTest('test_msilib.py', skip=only_win32),
+    RegrTest('test_msilib.py'),
     RegrTest('test_multibytecodec.py', usemodules='_multibytecodec'),
-    RegrTest('test_multibytecodec_support.py', skip="not a test"),
-    RegrTest('test_multiprocessing.py', skip="FIXME leaves subprocesses"),
+    RegrTest('test_multiprocessing.py', skip=True),
     RegrTest('test_mutants.py', core="possibly"),
     RegrTest('test_netrc.py'),
-    RegrTest('test_nis.py', skip="unsupported extension module"),
+    RegrTest('test_nis.py'),
     RegrTest('test_nntplib.py'),
     RegrTest('test_normalization.py'),
     RegrTest('test_ntpath.py'),
@@ -301,7 +293,7 @@ testmap = [
     RegrTest('test_operator.py', core=True),
     RegrTest('test_optparse.py'),
     RegrTest('test_os.py', core=True),
-    RegrTest('test_ossaudiodev.py', skip="unsupported extension module"),
+    RegrTest('test_ossaudiodev.py'),
     RegrTest('test_osx_env.py'),
     RegrTest('test_parser.py', skip="slowly deprecating compiler"),
     RegrTest('test_pdb.py'),
@@ -320,8 +312,8 @@ testmap = [
     RegrTest('test_pkgimport.py', core=True),
     RegrTest('test_pkgutil.py'),
     RegrTest('test_platform.py'),
-    RegrTest('test_plistlib.py', skip="unsupported module"),
-    RegrTest('test_poll.py', skip=skip_win32),
+    RegrTest('test_plistlib.py'),
+    RegrTest('test_poll.py'),
     RegrTest('test_popen.py'),
     RegrTest('test_poplib.py'),
     RegrTest('test_posix.py', usemodules="_rawffi"),
@@ -332,8 +324,8 @@ testmap = [
     RegrTest('test_profile.py'),
     RegrTest('test_property.py', core=True),
     RegrTest('test_pstats.py'),
-    RegrTest('test_pty.py', skip="unsupported extension module"),
-    RegrTest('test_pwd.py', usemodules="pwd", skip=skip_win32),
+    RegrTest('test_pty.py', usemodules='fcntl termios select'),
+    RegrTest('test_pwd.py', usemodules="pwd"),
     RegrTest('test_py_compile.py'),
     RegrTest('test_pyclbr.py'),
     RegrTest('test_pydoc.py'),
@@ -346,7 +338,7 @@ testmap = [
     RegrTest('test_re.py', core=True),
     RegrTest('test_readline.py'),
     RegrTest('test_reprlib.py', core=True),
-    RegrTest('test_resource.py', skip=skip_win32),
+    RegrTest('test_resource.py'),
     RegrTest('test_richcmp.py', core=True),
     RegrTest('test_rlcompleter.py'),
     RegrTest('test_robotparser.py'),
@@ -383,7 +375,7 @@ testmap = [
     RegrTest('test_structmembers.py', skip="CPython specific"),
     RegrTest('test_structseq.py'),
     RegrTest('test_subprocess.py', usemodules='signal'),
-    RegrTest('test_sunau.py', skip=True),
+    RegrTest('test_sunau.py', skip="unsupported extension module"),
     RegrTest('test_sundry.py'),
     RegrTest('test_super.py', core=True),
     RegrTest('test_symtable.py', skip="implementation detail"),
@@ -394,7 +386,7 @@ testmap = [
     RegrTest('test_sysconfig.py'),
     RegrTest('test_syslog.py'),
     RegrTest('test_tarfile.py'),
-    RegrTest('test_tcl.py', skip="unsupported extension module"),
+    RegrTest('test_tcl.py'),
     RegrTest('test_telnetlib.py'),
     RegrTest('test_tempfile.py'),
     RegrTest('test_textwrap.py'),
@@ -441,11 +433,11 @@ testmap = [
     RegrTest('test_wait3.py', usemodules="thread"),
     RegrTest('test_wait4.py', usemodules="thread"),
     RegrTest('test_warnings.py', core=True),
-    RegrTest('test_wave.py', skip="unsupported extension module"),
+    RegrTest('test_wave.py'),
     RegrTest('test_weakref.py', core=True, usemodules='_weakref'),
     RegrTest('test_weakset.py'),
-    RegrTest('test_winreg.py', skip=only_win32),
-    RegrTest('test_winsound.py', skip="unsupported extension module"),
+    RegrTest('test_winreg.py'),
+    RegrTest('test_winsound.py'),
     RegrTest('test_with.py'),
     RegrTest('test_wsgiref.py'),
     RegrTest('test_xdrlib.py'),
@@ -463,7 +455,9 @@ testmap = [
 def check_testmap_complete():
     listed_names = dict.fromkeys([regrtest.basename for regrtest in testmap])
     assert len(listed_names) == len(testmap)
-    listed_names['test_support.py'] = True     # ignore this
+    # names to ignore
+    listed_names['test_support.py'] = True
+    listed_names['test_multibytecodec_support.py'] = True
     missing = []
     for path in testdir.listdir(fil='test_*.py'):
         name = path.basename

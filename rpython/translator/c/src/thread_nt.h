@@ -9,6 +9,7 @@ typedef struct RPyOpaque_ThreadLock {
 } NRMUTEX, *PNRMUTEX;
 
 /* prototypes */
+long RPyThreadGetIdent(void);
 long RPyThreadStart(void (*func)(void));
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
