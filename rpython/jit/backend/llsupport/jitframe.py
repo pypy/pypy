@@ -11,7 +11,7 @@ IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
 # compiled loop token (in fact we could use this as a compiled loop token
 # XXX do this
 
-GCMAP = lltype.GcArray(lltype.Unsigned)
+GCMAP = lltype.Array(lltype.Unsigned)
 NULLGCMAP = lltype.nullptr(GCMAP)
 
 @enforceargs(None, int, int)
@@ -19,7 +19,7 @@ def jitframeinfo_set_depth(jfi, base_ofs, new_depth):
     jfi.jfi_frame_depth = new_depth
     jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
 
-JITFRAMEINFO = lltype.GcStruct(
+JITFRAMEINFO = lltype.Struct(
     'JITFRAMEINFO',
     # the depth of the frame
     ('jfi_frame_depth', lltype.Signed),
@@ -84,25 +84,19 @@ UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
 def jitframe_trace(obj_addr, prev):
     if prev == llmemory.NULL:
         (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 0
-        return obj_addr + getofs('jf_frame_info')
+        return obj_addr + getofs('jf_descr')
     fld = (obj_addr + getofs('jf_gc_trace_state')).signed[0]
     state = fld & 0x7 # 3bits of possible states
     if state == 0:
         (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 1
-        return obj_addr + getofs('jf_descr')
+        return obj_addr + getofs('jf_force_descr')
     elif state == 1:
         (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 2
-        return obj_addr + getofs('jf_force_descr')
+        return obj_addr + getofs('jf_savedata')
     elif state == 2:
         (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 3
-        return obj_addr + getofs('jf_gcmap')
-    elif state == 3:
-        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 4
-        return obj_addr + getofs('jf_savedata')
-    elif state == 4:
-        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 5
         return obj_addr + getofs('jf_guard_exc')
-    ll_assert(state == 5, "invalid state")
+    ll_assert(state == 3, "invalid state")
     # bit pattern
     # decode the pattern
     if IS_32BIT:
@@ -127,9 +121,9 @@ def jitframe_trace(obj_addr, prev):
             # found it
             # save new state
             if IS_32BIT:
-                new_state = 5 | ((state + 1) << 3) | (no << 8)
+                new_state = 3 | ((state + 1) << 3) | (no << 8)
             else:
-                new_state = 5 | ((state + 1) << 3) | (no << 9)
+                new_state = 3 | ((state + 1) << 3) | (no << 9)
             (obj_addr + getofs('jf_gc_trace_state')).signed[0] = new_state
             return (obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE *
                     (no * SIZEOFSIGNED * 8 + state))
