@@ -811,7 +811,7 @@ class OtherTests(unittest.TestCase):
         with zipfile.ZipFile(data, mode="w") as zipf:
             zipf.writestr("foo.txt", "O, for a Muse of Fire!")
 
-        # This is correct; calling .read on a closed ZipFile should throw
+        # This is correct; calling .read on a closed ZipFile should raise
         # a RuntimeError, and so should calling .testzip.  An earlier
         # version of .testzip would swallow this exception (and any other)
         # and report that the first file in the archive was corrupt.
@@ -858,6 +858,17 @@ class OtherTests(unittest.TestCase):
         """Check that bad compression methods passed to ZipFile.open are
         caught."""
         self.assertRaises(RuntimeError, zipfile.ZipFile, TESTFN, "w", -1)
+
+    def test_unsupported_compression(self):
+        # data is declared as shrunk, but actually deflated
+        data = (b'PK\x03\x04.\x00\x00\x00\x01\x00\xe4C\xa1@\x00\x00\x00'
+        b'\x00\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00x\x03\x00PK\x01'
+        b'\x02.\x03.\x00\x00\x00\x01\x00\xe4C\xa1@\x00\x00\x00\x00\x02\x00\x00'
+        b'\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        b'\x80\x01\x00\x00\x00\x00xPK\x05\x06\x00\x00\x00\x00\x01\x00\x01\x00'
+        b'/\x00\x00\x00!\x00\x00\x00\x00\x00')
+        with zipfile.ZipFile(io.BytesIO(data), 'r') as zipf:
+            self.assertRaises(NotImplementedError, zipf.open, 'x')
 
     def test_null_byte_in_filename(self):
         """Check that a filename containing a null byte is properly
@@ -907,6 +918,22 @@ class OtherTests(unittest.TestCase):
             zipf.writestr("foo.txt", "O, for a Muse of Fire!")
         with zipfile.ZipFile(TESTFN, mode="r") as zipf:
             self.assertEqual(zipf.comment, comment2)
+
+    def test_change_comment_in_empty_archive(self):
+        with zipfile.ZipFile(TESTFN, "a", zipfile.ZIP_STORED) as zipf:
+            self.assertFalse(zipf.filelist)
+            zipf.comment = b"this is a comment"
+        with zipfile.ZipFile(TESTFN, "r") as zipf:
+            self.assertEqual(zipf.comment, b"this is a comment")
+
+    def test_change_comment_in_nonempty_archive(self):
+        with zipfile.ZipFile(TESTFN, "w", zipfile.ZIP_STORED) as zipf:
+            zipf.writestr("foo.txt", "O, for a Muse of Fire!")
+        with zipfile.ZipFile(TESTFN, "a", zipfile.ZIP_STORED) as zipf:
+            self.assertTrue(zipf.filelist)
+            zipf.comment = b"this is a comment"
+        with zipfile.ZipFile(TESTFN, "r") as zipf:
+            self.assertEqual(zipf.comment, b"this is a comment")
 
     def check_testzip_with_bad_crc(self, compression):
         """Tests that files with bad CRCs return their name from testzip."""

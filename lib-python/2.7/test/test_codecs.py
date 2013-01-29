@@ -281,7 +281,7 @@ class UTF32Test(ReadTest):
 
     def test_partial(self):
         self.check_partial(
-            u"\x00\xff\u0100\uffff",
+            u"\x00\xff\u0100\uffff\U00010000",
             [
                 u"", # first byte of BOM read
                 u"", # second byte of BOM read
@@ -303,6 +303,10 @@ class UTF32Test(ReadTest):
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff\U00010000",
             ]
         )
 
@@ -331,7 +335,7 @@ class UTF32LETest(ReadTest):
 
     def test_partial(self):
         self.check_partial(
-            u"\x00\xff\u0100\uffff",
+            u"\x00\xff\u0100\uffff\U00010000",
             [
                 u"",
                 u"",
@@ -349,6 +353,10 @@ class UTF32LETest(ReadTest):
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff\U00010000",
             ]
         )
 
@@ -371,7 +379,7 @@ class UTF32BETest(ReadTest):
 
     def test_partial(self):
         self.check_partial(
-            u"\x00\xff\u0100\uffff",
+            u"\x00\xff\u0100\uffff\U00010000",
             [
                 u"",
                 u"",
@@ -389,6 +397,10 @@ class UTF32BETest(ReadTest):
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff\U00010000",
             ]
         )
 
@@ -439,7 +451,7 @@ class UTF16Test(ReadTest):
 
     def test_partial(self):
         self.check_partial(
-            u"\x00\xff\u0100\uffff",
+            u"\x00\xff\u0100\uffff\U00010000",
             [
                 u"", # first byte of BOM read
                 u"", # second byte of BOM read => byteorder known
@@ -451,6 +463,10 @@ class UTF16Test(ReadTest):
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff\U00010000",
             ]
         )
 
@@ -481,7 +497,7 @@ class UTF16LETest(ReadTest):
 
     def test_partial(self):
         self.check_partial(
-            u"\x00\xff\u0100\uffff",
+            u"\x00\xff\u0100\uffff\U00010000",
             [
                 u"",
                 u"\x00",
@@ -491,18 +507,34 @@ class UTF16LETest(ReadTest):
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff\U00010000",
             ]
         )
 
     def test_errors(self):
-        self.assertRaises(UnicodeDecodeError, codecs.utf_16_le_decode, "\xff", "strict", True)
+        tests = [
+            (b'\xff', u'\ufffd'),
+            (b'A\x00Z', u'A\ufffd'),
+            (b'A\x00B\x00C\x00D\x00Z', u'ABCD\ufffd'),
+            (b'\x00\xd8', u'\ufffd'),
+            (b'\x00\xd8A', u'\ufffd'),
+            (b'\x00\xd8A\x00', u'\ufffdA'),
+            (b'\x00\xdcA\x00', u'\ufffdA'),
+        ]
+        for raw, expected in tests:
+            self.assertRaises(UnicodeDecodeError, codecs.utf_16_le_decode,
+                              raw, 'strict', True)
+            self.assertEqual(raw.decode('utf-16le', 'replace'), expected)
 
 class UTF16BETest(ReadTest):
     encoding = "utf-16-be"
 
     def test_partial(self):
         self.check_partial(
-            u"\x00\xff\u0100\uffff",
+            u"\x00\xff\u0100\uffff\U00010000",
             [
                 u"",
                 u"\x00",
@@ -512,18 +544,34 @@ class UTF16BETest(ReadTest):
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100",
                 u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff",
+                u"\x00\xff\u0100\uffff\U00010000",
             ]
         )
 
     def test_errors(self):
-        self.assertRaises(UnicodeDecodeError, codecs.utf_16_be_decode, "\xff", "strict", True)
+        tests = [
+            (b'\xff', u'\ufffd'),
+            (b'\x00A\xff', u'A\ufffd'),
+            (b'\x00A\x00B\x00C\x00DZ', u'ABCD\ufffd'),
+            (b'\xd8\x00', u'\ufffd'),
+            (b'\xd8\x00\xdc', u'\ufffd'),
+            (b'\xd8\x00\x00A', u'\ufffdA'),
+            (b'\xdc\x00\x00A', u'\ufffdA'),
+        ]
+        for raw, expected in tests:
+            self.assertRaises(UnicodeDecodeError, codecs.utf_16_be_decode,
+                              raw, 'strict', True)
+            self.assertEqual(raw.decode('utf-16be', 'replace'), expected)
 
 class UTF8Test(ReadTest):
     encoding = "utf-8"
 
     def test_partial(self):
         self.check_partial(
-            u"\x00\xff\u07ff\u0800\uffff",
+            u"\x00\xff\u07ff\u0800\uffff\U00010000",
             [
                 u"\x00",
                 u"\x00",
@@ -536,6 +584,10 @@ class UTF8Test(ReadTest):
                 u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff",
+                u"\x00\xff\u07ff\u0800\uffff\U00010000",
             ]
         )
 
@@ -595,7 +647,7 @@ class UTF8SigTest(ReadTest):
 
     def test_partial(self):
         self.check_partial(
-            u"\ufeff\x00\xff\u07ff\u0800\uffff",
+            u"\ufeff\x00\xff\u07ff\u0800\uffff\U00010000",
             [
                 u"",
                 u"",
@@ -614,6 +666,10 @@ class UTF8SigTest(ReadTest):
                 u"\ufeff\x00\xff\u07ff\u0800",
                 u"\ufeff\x00\xff\u07ff\u0800",
                 u"\ufeff\x00\xff\u07ff\u0800\uffff",
+                u"\ufeff\x00\xff\u07ff\u0800\uffff",
+                u"\ufeff\x00\xff\u07ff\u0800\uffff",
+                u"\ufeff\x00\xff\u07ff\u0800\uffff",
+                u"\ufeff\x00\xff\u07ff\u0800\uffff\U00010000",
             ]
         )
 
@@ -673,6 +729,50 @@ class UTF8SigTest(ReadTest):
 class EscapeDecodeTest(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(codecs.escape_decode(""), ("", 0))
+
+    def test_raw(self):
+        for b in ''.join(map(chr, range(256))):
+            if b != '\\':
+                self.assertEqual(codecs.escape_decode(b + '0'),
+                                 (b + '0', 2))
+
+    def test_escape(self):
+        self.assertEqual(codecs.escape_decode(b"[\\\n]"), (b"[]", 4))
+        self.assertEqual(codecs.escape_decode(br'[\"]'), (b'["]', 4))
+        self.assertEqual(codecs.escape_decode(br"[\']"), (b"[']", 4))
+        self.assertEqual(codecs.escape_decode(br"[\\]"), (br"[\]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\a]"), (b"[\x07]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\b]"), (b"[\x08]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\t]"), (b"[\x09]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\n]"), (b"[\x0a]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\v]"), (b"[\x0b]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\f]"), (b"[\x0c]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\r]"), (b"[\x0d]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\7]"), (b"[\x07]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\8]"), (br"[\8]", 4))
+        self.assertEqual(codecs.escape_decode(br"[\78]"), (b"[\x078]", 5))
+        self.assertEqual(codecs.escape_decode(br"[\41]"), (b"[!]", 5))
+        self.assertEqual(codecs.escape_decode(br"[\418]"), (b"[!8]", 6))
+        self.assertEqual(codecs.escape_decode(br"[\101]"), (b"[A]", 6))
+        self.assertEqual(codecs.escape_decode(br"[\1010]"), (b"[A0]", 7))
+        self.assertEqual(codecs.escape_decode(br"[\501]"), (b"[A]", 6))
+        self.assertEqual(codecs.escape_decode(br"[\x41]"), (b"[A]", 6))
+        self.assertEqual(codecs.escape_decode(br"[\X41]"), (br"[\X41]", 6))
+        self.assertEqual(codecs.escape_decode(br"[\x410]"), (b"[A0]", 7))
+        for b in ''.join(map(chr, range(256))):
+            if b not in '\n"\'\\abtnvfr01234567x':
+                self.assertEqual(codecs.escape_decode('\\' + b),
+                                 ('\\' + b, 2))
+
+    def test_errors(self):
+        self.assertRaises(ValueError, codecs.escape_decode, br"\x")
+        self.assertRaises(ValueError, codecs.escape_decode, br"[\x]")
+        self.assertEqual(codecs.escape_decode(br"[\x]\x", "ignore"), (b"[]", 6))
+        self.assertEqual(codecs.escape_decode(br"[\x]\x", "replace"), (b"[?]?", 6))
+        self.assertRaises(ValueError, codecs.escape_decode, br"\x0")
+        self.assertRaises(ValueError, codecs.escape_decode, br"[\x0]")
+        self.assertEqual(codecs.escape_decode(br"[\x0]\x0", "ignore"), (b"[]", 8))
+        self.assertEqual(codecs.escape_decode(br"[\x0]\x0", "replace"), (b"[?]?", 8))
 
 class RecodingTest(unittest.TestCase):
     def test_recoding(self):
@@ -1495,6 +1595,14 @@ class CharmapTest(unittest.TestCase):
             (u"abc", 3)
         )
 
+        self.assertRaises(UnicodeDecodeError,
+            codecs.charmap_decode, b"\x00\x01\x02", "strict", u"ab"
+        )
+
+        self.assertRaises(UnicodeDecodeError,
+            codecs.charmap_decode, "\x00\x01\x02", "strict", u"ab\ufffe"
+        )
+
         self.assertEqual(
             codecs.charmap_decode("\x00\x01\x02", "replace", u"ab"),
             (u"ab\ufffd", 3)
@@ -1520,6 +1628,149 @@ class CharmapTest(unittest.TestCase):
             codecs.charmap_decode(allbytes, "ignore", u""),
             (u"", len(allbytes))
         )
+
+    def test_decode_with_int2str_map(self):
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "strict",
+                                  {0: u'a', 1: u'b', 2: u'c'}),
+            (u"abc", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "strict",
+                                  {0: u'Aa', 1: u'Bb', 2: u'Cc'}),
+            (u"AaBbCc", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "strict",
+                                  {0: u'\U0010FFFF', 1: u'b', 2: u'c'}),
+            (u"\U0010FFFFbc", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "strict",
+                                  {0: u'a', 1: u'b', 2: u''}),
+            (u"ab", 3)
+        )
+
+        self.assertRaises(UnicodeDecodeError,
+            codecs.charmap_decode, "\x00\x01\x02", "strict",
+                                   {0: u'a', 1: u'b'}
+        )
+
+        self.assertRaises(UnicodeDecodeError,
+            codecs.charmap_decode, "\x00\x01\x02", "strict",
+                                   {0: u'a', 1: u'b', 2: None}
+        )
+
+        # Issue #14850
+        self.assertRaises(UnicodeDecodeError,
+            codecs.charmap_decode, "\x00\x01\x02", "strict",
+                                   {0: u'a', 1: u'b', 2: u'\ufffe'}
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "replace",
+                                  {0: u'a', 1: u'b'}),
+            (u"ab\ufffd", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "replace",
+                                  {0: u'a', 1: u'b', 2: None}),
+            (u"ab\ufffd", 3)
+        )
+
+        # Issue #14850
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "replace",
+                                  {0: u'a', 1: u'b', 2: u'\ufffe'}),
+            (u"ab\ufffd", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "ignore",
+                                  {0: u'a', 1: u'b'}),
+            (u"ab", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "ignore",
+                                  {0: u'a', 1: u'b', 2: None}),
+            (u"ab", 3)
+        )
+
+        # Issue #14850
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "ignore",
+                                  {0: u'a', 1: u'b', 2: u'\ufffe'}),
+            (u"ab", 3)
+        )
+
+        allbytes = "".join(chr(i) for i in xrange(256))
+        self.assertEqual(
+            codecs.charmap_decode(allbytes, "ignore", {}),
+            (u"", len(allbytes))
+        )
+
+    def test_decode_with_int2int_map(self):
+        a = ord(u'a')
+        b = ord(u'b')
+        c = ord(u'c')
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "strict",
+                                  {0: a, 1: b, 2: c}),
+            (u"abc", 3)
+        )
+
+        # Issue #15379
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "strict",
+                                  {0: 0x10FFFF, 1: b, 2: c}),
+            (u"\U0010FFFFbc", 3)
+        )
+
+        self.assertRaises(TypeError,
+            codecs.charmap_decode, "\x00\x01\x02", "strict",
+                                   {0: 0x110000, 1: b, 2: c}
+        )
+
+        self.assertRaises(UnicodeDecodeError,
+            codecs.charmap_decode, "\x00\x01\x02", "strict",
+                                   {0: a, 1: b},
+        )
+
+        self.assertRaises(UnicodeDecodeError,
+            codecs.charmap_decode, "\x00\x01\x02", "strict",
+                                   {0: a, 1: b, 2: 0xFFFE},
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "replace",
+                                  {0: a, 1: b}),
+            (u"ab\ufffd", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "replace",
+                                  {0: a, 1: b, 2: 0xFFFE}),
+            (u"ab\ufffd", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "ignore",
+                                  {0: a, 1: b}),
+            (u"ab", 3)
+        )
+
+        self.assertEqual(
+            codecs.charmap_decode("\x00\x01\x02", "ignore",
+                                  {0: a, 1: b, 2: 0xFFFE}),
+            (u"ab", 3)
+        )
+
 
 class WithStmtTest(unittest.TestCase):
     def test_encodedfile(self):

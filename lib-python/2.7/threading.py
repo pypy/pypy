@@ -10,6 +10,7 @@ except ImportError:
 
 import warnings
 
+from collections import deque as _deque
 from time import time as _time, sleep as _sleep
 from traceback import format_exc as _format_exc
 
@@ -605,6 +606,10 @@ class Thread(_Verbose):
                     pass
 
     def __stop(self):
+        # DummyThreads delete self.__block, but they have no waiters to
+        # notify anyway (join() is forbidden on them).
+        if not hasattr(self, '_Thread__block'):
+            return
         self.__block.acquire()
         self.__stopped = True
         self.__block.notify_all()
@@ -909,7 +914,7 @@ def _test():
             self.rc = Condition(self.mon)
             self.wc = Condition(self.mon)
             self.limit = limit
-            self.queue = deque()
+            self.queue = _deque()
 
         def put(self, item):
             self.mon.acquire()

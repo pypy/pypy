@@ -1,7 +1,9 @@
 import __builtin__
+import gc
 import sys
 import types
 import unittest
+import weakref
 
 from copy import deepcopy
 from test import test_support
@@ -1127,7 +1129,6 @@ order (MRO) for bases """
         self.assertEqual(Counted.counter, 0)
 
         # Test lookup leaks [SF bug 572567]
-        import gc
         if hasattr(gc, 'get_objects'):
             class G(object):
                 def __cmp__(self, other):
@@ -1418,6 +1419,22 @@ order (MRO) for bases """
         self.assertEqual(x, spam.spamlist)
         self.assertEqual(a, a1)
         self.assertEqual(d, d1)
+        spam_cm = spam.spamlist.__dict__['classmeth']
+        x2, a2, d2 = spam_cm(spam.spamlist, *a, **d)
+        self.assertEqual(x2, spam.spamlist)
+        self.assertEqual(a2, a1)
+        self.assertEqual(d2, d1)
+        class SubSpam(spam.spamlist): pass
+        x2, a2, d2 = spam_cm(SubSpam, *a, **d)
+        self.assertEqual(x2, SubSpam)
+        self.assertEqual(a2, a1)
+        self.assertEqual(d2, d1)
+        with self.assertRaises(TypeError):
+            spam_cm()
+        with self.assertRaises(TypeError):
+            spam_cm(spam.spamlist())
+        with self.assertRaises(TypeError):
+            spam_cm(list)
 
     def test_staticmethods(self):
         # Testing static methods...
@@ -4541,7 +4558,6 @@ order (MRO) for bases """
         self.assertRaises(AttributeError, getattr, C(), "attr")
         self.assertEqual(descr.counter, 4)
 
-        import gc
         class EvilGetattribute(object):
             # This used to segfault
             def __getattr__(self, name):
@@ -4553,6 +4569,9 @@ order (MRO) for bases """
                 raise AttributeError(name)
 
         self.assertRaises(AttributeError, getattr, EvilGetattribute(), "attr")
+
+    def test_type___getattribute__(self):
+        self.assertRaises(TypeError, type.__getattribute__, list, type)
 
     def test_abstractmethods(self):
         # type pretends not to have __abstractmethods__.
@@ -4588,7 +4607,30 @@ order (MRO) for bases """
             pass
         Foo.__repr__ = Foo.__str__
         foo = Foo()
-        str(foo)
+        self.assertRaises(RuntimeError, str, foo)
+        self.assertRaises(RuntimeError, repr, foo)
+
+    def test_mixing_slot_wrappers(self):
+        class X(dict):
+            __setattr__ = dict.__setitem__
+        x = X()
+        x.y = 42
+        self.assertEqual(x["y"], 42)
+
+    def test_cycle_through_dict(self):
+        # See bug #1469629
+        class X(dict):
+            def __init__(self):
+                dict.__init__(self)
+                self.__dict__ = self
+        x = X()
+        x.attr = 42
+        wr = weakref.ref(x)
+        del x
+        test_support.gc_collect()
+        self.assertIsNone(wr())
+        for o in gc.get_objects():
+            self.assertIsNot(type(o), X)
 
 class DictProxyTests(unittest.TestCase):
     def setUp(self):

@@ -71,16 +71,16 @@ class CallTips:
         if not sur_paren:
             return
         hp.set_index(sur_paren[0])
-        name = hp.get_expression()
-        if not name or (not evalfuncs and name.find('(') != -1):
+        expression = hp.get_expression()
+        if not expression or (not evalfuncs and expression.find('(') != -1):
             return
-        arg_text = self.fetch_tip(name)
+        arg_text = self.fetch_tip(expression)
         if not arg_text:
             return
         self.calltip = self._make_calltip_window()
         self.calltip.showtip(arg_text, sur_paren[0], sur_paren[1])
 
-    def fetch_tip(self, name):
+    def fetch_tip(self, expression):
         """Return the argument list and docstring of a function or class
 
         If there is a Python subprocess, get the calltip there.  Otherwise,
@@ -96,23 +96,27 @@ class CallTips:
         """
         try:
             rpcclt = self.editwin.flist.pyshell.interp.rpcclt
-        except:
+        except AttributeError:
             rpcclt = None
         if rpcclt:
             return rpcclt.remotecall("exec", "get_the_calltip",
-                                     (name,), {})
+                                     (expression,), {})
         else:
-            entity = self.get_entity(name)
+            entity = self.get_entity(expression)
             return get_arg_text(entity)
 
-    def get_entity(self, name):
-        "Lookup name in a namespace spanning sys.modules and __main.dict__"
-        if name:
+    def get_entity(self, expression):
+        """Return the object corresponding to expression evaluated
+        in a namespace spanning sys.modules and __main.dict__.
+        """
+        if expression:
             namespace = sys.modules.copy()
             namespace.update(__main__.__dict__)
             try:
-                return eval(name, namespace)
-            except (NameError, AttributeError):
+                return eval(expression, namespace)
+            except BaseException:
+                # An uncaught exception closes idle, and eval can raise any
+                # exception, especially if user classes are involved.
                 return None
 
 def _find_constructor(class_ob):
@@ -127,9 +131,10 @@ def _find_constructor(class_ob):
     return None
 
 def get_arg_text(ob):
-    """Get a string describing the arguments for the given object"""
+    """Get a string describing the arguments for the given object,
+       only if it is callable."""
     arg_text = ""
-    if ob is not None:
+    if ob is not None and hasattr(ob, '__call__'):
         arg_offset = 0
         if type(ob) in (types.ClassType, types.TypeType):
             # Look for the highest __init__ in the class chain.

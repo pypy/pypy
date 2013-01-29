@@ -1498,7 +1498,8 @@ def resolve(thing, forceload=0):
             raise ImportError, 'no Python documentation found for %r' % thing
         return object, thing
     else:
-        return thing, getattr(thing, '__name__', None)
+        name = getattr(thing, '__name__', None)
+        return thing, name if isinstance(name, str) else None
 
 def render_doc(thing, title='Python Library Documentation: %s', forceload=0):
     """Render text documentation, given an object or a path to an object."""
@@ -1799,7 +1800,7 @@ has the same effect as typing a particular string at the help> prompt.
 Welcome to Python %s!  This is the online help utility.
 
 If this is your first time using Python, you should definitely check out
-the tutorial on the Internet at http://docs.python.org/tutorial/.
+the tutorial on the Internet at http://docs.python.org/%s/tutorial/.
 
 Enter the name of any module, keyword, or topic to get help on writing
 Python programs and using Python modules.  To quit this help utility and
@@ -1809,7 +1810,7 @@ To get a list of available modules, keywords, or topics, type "modules",
 "keywords", or "topics".  Each module also comes with a one-line summary
 of what it does; to list the modules whose summaries contain a given word
 such as "spam", type "modules spam".
-''' % sys.version[:3])
+''' % tuple([sys.version[:3]]*2))
 
     def list(self, items, columns=4, width=80):
         items = items[:]

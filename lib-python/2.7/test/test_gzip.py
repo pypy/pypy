@@ -53,6 +53,13 @@ class TestGzip(unittest.TestCase):
             d = f.read()
         self.assertEqual(d, data1*50)
 
+    def test_read_universal_newlines(self):
+        # Issue #5148: Reading breaks when mode contains 'U'.
+        self.test_write()
+        with gzip.GzipFile(self.filename, 'rU') as f:
+            d = f.read()
+        self.assertEqual(d, data1*50)
+
     def test_io_on_closed_object(self):
         # Test that I/O operations on closed GzipFile objects raise a
         # ValueError, just like the corresponding functions on file objects.
@@ -281,6 +288,24 @@ class TestGzip(unittest.TestCase):
         with os.fdopen(fd, "wb") as f:
             with gzip.GzipFile(fileobj=f, mode="w") as g:
                 self.assertEqual(g.name, "")
+
+    def test_read_truncated(self):
+        data = data1*50
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode="w") as f:
+            f.write(data)
+        # Drop the CRC (4 bytes) and file size (4 bytes).
+        truncated = buf.getvalue()[:-8]
+        with gzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
+            self.assertRaises(EOFError, f.read)
+        with gzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
+            self.assertEqual(f.read(len(data)), data)
+            self.assertRaises(EOFError, f.read, 1)
+        # Incomplete 10-byte header.
+        for i in range(2, 10):
+            with gzip.GzipFile(fileobj=io.BytesIO(truncated[:i])) as f:
+                self.assertRaises(EOFError, f.read, 1)
+
 
 def test_main(verbose=None):
     test_support.run_unittest(TestGzip)

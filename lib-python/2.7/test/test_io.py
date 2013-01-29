@@ -34,6 +34,7 @@ import signal
 import errno
 from itertools import cycle, count
 from collections import deque
+from UserList import UserList
 from test import test_support as support
 
 import codecs
@@ -572,6 +573,7 @@ class IOTest(unittest.TestCase):
             raise IOError()
         f.flush = bad_flush
         self.assertRaises(IOError, f.close) # exception not swallowed
+        self.assertTrue(f.closed)
 
     def test_multi_close(self):
         f = self.open(support.TESTFN, "wb", buffering=0)
@@ -592,6 +594,19 @@ class IOTest(unittest.TestCase):
         self.assertEqual(rawio.read(2), b"g")
         self.assertEqual(rawio.read(2), None)
         self.assertEqual(rawio.read(2), b"")
+
+    def test_fileio_closefd(self):
+        # Issue #4841
+        with self.open(__file__, 'rb') as f1, \
+             self.open(__file__, 'rb') as f2:
+            fileio = self.FileIO(f1.fileno(), closefd=False)
+            # .__init__() must not close f1
+            fileio.__init__(f2.fileno(), closefd=False)
+            f1.readline()
+            # .close() must not close f2
+            fileio.close()
+            f2.readline()
+
 
 class CIOTest(IOTest):
 
@@ -718,6 +733,21 @@ class CommonBufferedTests:
         raw.flush = bad_flush
         b = self.tp(raw)
         self.assertRaises(IOError, b.close) # exception not swallowed
+        self.assertTrue(b.closed)
+
+    def test_close_error_on_close(self):
+        raw = self.MockRawIO()
+        def bad_flush():
+            raise IOError('flush')
+        def bad_close():
+            raise IOError('close')
+        raw.close = bad_close
+        b = self.tp(raw)
+        b.flush = bad_flush
+        with self.assertRaises(IOError) as err: # exception not swallowed
+            b.close()
+        self.assertEqual(err.exception.args, ('close',))
+        self.assertFalse(b.closed)
 
     def test_multi_close(self):
         raw = self.MockRawIO()
@@ -733,6 +763,20 @@ class CommonBufferedTests:
         x = self.MockRawIO()
         with self.assertRaises((AttributeError, TypeError)):
             buf.raw = x
+
+
+class SizeofTest:
+
+    @support.cpython_only
+    def test_sizeof(self):
+        bufsize1 = 4096
+        bufsize2 = 8192
+        rawio = self.MockRawIO()
+        bufio = self.tp(rawio, buffer_size=bufsize1)
+        size = sys.getsizeof(bufio) - bufsize1
+        rawio = self.MockRawIO()
+        bufio = self.tp(rawio, buffer_size=bufsize2)
+        self.assertEqual(sys.getsizeof(bufio), size + bufsize2)
 
 
 class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
@@ -918,7 +962,7 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
                              "failed for {}: {} != 0".format(n, rawio._extraneous_reads))
 
 
-class CBufferedReaderTest(BufferedReaderTest):
+class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
     tp = io.BufferedReader
 
     def test_constructor(self):
@@ -1099,6 +1143,28 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
         bufio.flush()
         self.assertEqual(b"abc", writer._write_stack[0])
 
+    def test_writelines(self):
+        l = [b'ab', b'cd', b'ef']
+        writer = self.MockRawIO()
+        bufio = self.tp(writer, 8)
+        bufio.writelines(l)
+        bufio.flush()
+        self.assertEqual(b''.join(writer._write_stack), b'abcdef')
+
+    def test_writelines_userlist(self):
+        l = UserList([b'ab', b'cd', b'ef'])
+        writer = self.MockRawIO()
+        bufio = self.tp(writer, 8)
+        bufio.writelines(l)
+        bufio.flush()
+        self.assertEqual(b''.join(writer._write_stack), b'abcdef')
+
+    def test_writelines_error(self):
+        writer = self.MockRawIO()
+        bufio = self.tp(writer, 8)
+        self.assertRaises(TypeError, bufio.writelines, [1, 2, 3])
+        self.assertRaises(TypeError, bufio.writelines, None)
+
     def test_destructor(self):
         writer = self.MockRawIO()
         bufio = self.tp(writer, 8)
@@ -1180,8 +1246,18 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
                                      DeprecationWarning)):
             self.tp(self.MockRawIO(), 8, 12)
 
+    def test_write_error_on_close(self):
+        raw = self.MockRawIO()
+        def bad_write(b):
+            raise IOError()
+        raw.write = bad_write
+        b = self.tp(raw)
+        b.write(b'spam')
+        self.assertRaises(IOError, b.close) # exception not swallowed
+        self.assertTrue(b.closed)
 
-class CBufferedWriterTest(BufferedWriterTest):
+
+class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
     tp = io.BufferedWriter
 
     def test_constructor(self):
@@ -1569,8 +1645,8 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
                 f.flush()
                 self.assertEqual(raw.getvalue(), b'1b\n2def\n3\n')
 
-
-class CBufferedRandomTest(CBufferedReaderTest, CBufferedWriterTest, BufferedRandomTest):
+class CBufferedRandomTest(CBufferedReaderTest, CBufferedWriterTest,
+                          BufferedRandomTest, SizeofTest):
     tp = io.BufferedRandom
 
     def test_constructor(self):
@@ -2183,6 +2259,28 @@ class TextIOWrapperTest(unittest.TestCase):
             reads += c
         self.assertEqual(reads, "A"*127+"\nB")
 
+    def test_writelines(self):
+        l = ['ab', 'cd', 'ef']
+        buf = self.BytesIO()
+        txt = self.TextIOWrapper(buf)
+        txt.writelines(l)
+        txt.flush()
+        self.assertEqual(buf.getvalue(), b'abcdef')
+
+    def test_writelines_userlist(self):
+        l = UserList(['ab', 'cd', 'ef'])
+        buf = self.BytesIO()
+        txt = self.TextIOWrapper(buf)
+        txt.writelines(l)
+        txt.flush()
+        self.assertEqual(buf.getvalue(), b'abcdef')
+
+    def test_writelines_error(self):
+        txt = self.TextIOWrapper(self.BytesIO())
+        self.assertRaises(TypeError, txt.writelines, [1, 2, 3])
+        self.assertRaises(TypeError, txt.writelines, None)
+        self.assertRaises(TypeError, txt.writelines, b'abc')
+
     def test_issue1395_1(self):
         txt = self.TextIOWrapper(self.BytesIO(self.testdata), encoding="ascii")
 
@@ -2306,6 +2404,7 @@ class TextIOWrapperTest(unittest.TestCase):
             raise IOError()
         txt.flush = bad_flush
         self.assertRaises(IOError, txt.close) # exception not swallowed
+        self.assertTrue(txt.closed)
 
     def test_multi_close(self):
         txt = self.TextIOWrapper(self.BytesIO(self.testdata), encoding="ascii")

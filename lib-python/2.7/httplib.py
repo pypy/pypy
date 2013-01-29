@@ -1,4 +1,4 @@
-"""HTTP/1.1 client library
+r"""HTTP/1.1 client library
 
 <intro stuff goes here>
 <other stuff, too>
@@ -362,7 +362,9 @@ class HTTPResponse:
 
     def _read_status(self):
         # Initialize with Simple-Response defaults
-        line = self.fp.readline()
+        line = self.fp.readline(_MAXLINE + 1)
+        if len(line) > _MAXLINE:
+            raise LineTooLong("header line")
         if self.debuglevel > 0:
             print "reply:", repr(line)
         if not line:
@@ -563,6 +565,10 @@ class HTTPResponse:
             self.length -= len(s)
             if not self.length:
                 self.close()
+        else:
+            if not s:
+                self.close()
+
         return s
 
     def _read_chunked(self, amt):
@@ -748,7 +754,11 @@ class HTTPConnection:
             line = response.fp.readline(_MAXLINE + 1)
             if len(line) > _MAXLINE:
                 raise LineTooLong("header line")
-            if line == '\r\n': break
+            if not line:
+                # for sites which EOF without sending trailer
+                break
+            if line == '\r\n':
+                break
 
 
     def connect(self):
@@ -985,7 +995,7 @@ class HTTPConnection:
 
         self.putrequest(method, url, **skips)
 
-        if body and ('content-length' not in header_names):
+        if body is not None and 'content-length' not in header_names:
             self._set_content_length(body)
         for hdr, value in headers.iteritems():
             self.putheader(hdr, value)
@@ -1058,7 +1068,7 @@ class HTTP:
         if port == 0:
             port = None
 
-        # Note that we may pass an empty string as the host; this will throw
+        # Note that we may pass an empty string as the host; this will raise
         # an error when we attempt to connect. Presumably, the client code
         # will call connect before then, with a proper host.
         self._setup(self._connection_class(host, port, strict))

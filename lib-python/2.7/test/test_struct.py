@@ -3,7 +3,8 @@ import array
 import unittest
 import struct
 import inspect
-from test.test_support import run_unittest, check_warnings, check_py3k_warnings
+from test import test_support as support
+from test.test_support import (check_warnings, check_py3k_warnings)
 
 import sys
 ISBIGENDIAN = sys.byteorder == "big"
@@ -544,8 +545,29 @@ class StructTest(unittest.TestCase):
         hugecount2 = '{}b{}H'.format(sys.maxsize//2, sys.maxsize//2)
         self.assertRaises(struct.error, struct.calcsize, hugecount2)
 
+    def check_sizeof(self, format_str, number_of_codes):
+        # The size of 'PyStructObject'
+        totalsize = support.calcobjsize('5P')
+        # The size taken up by the 'formatcode' dynamic array
+        totalsize += struct.calcsize('3P') * (number_of_codes + 1)
+        support.check_sizeof(self, struct.Struct(format_str), totalsize)
+
+    @support.cpython_only
+    def test__sizeof__(self):
+        for code in integer_codes:
+            self.check_sizeof(code, 1)
+        self.check_sizeof('BHILfdspP', 9)
+        self.check_sizeof('B' * 1234, 1234)
+        self.check_sizeof('fd', 2)
+        self.check_sizeof('xxxxxxxxxxxxxx', 0)
+        self.check_sizeof('100H', 100)
+        self.check_sizeof('187s', 1)
+        self.check_sizeof('20p', 1)
+        self.check_sizeof('0s', 1)
+        self.check_sizeof('0c', 0)
+
 def test_main():
-    run_unittest(StructTest)
+    support.run_unittest(StructTest)
 
 if __name__ == '__main__':
     test_main()

@@ -95,12 +95,8 @@ class BasicSocketTests(unittest.TestCase):
             sys.stdout.write("\n RAND_status is %d (%s)\n"
                              % (v, (v and "sufficient randomness") or
                                 "insufficient randomness"))
-        try:
-            ssl.RAND_egd(1)
-        except TypeError:
-            pass
-        else:
-            print "didn't raise TypeError"
+        self.assertRaises(TypeError, ssl.RAND_egd, 1)
+        self.assertRaises(TypeError, ssl.RAND_egd, 'foo', 1)
         ssl.RAND_add("this is a random string", 75.0)
 
     def test_parse_cert(self):
@@ -284,6 +280,34 @@ class NetworkedTests(unittest.TestCase):
             finally:
                 s.close()
 
+    def test_timeout_connect_ex(self):
+        # Issue #12065: on a timeout, connect_ex() should return the original
+        # errno (mimicking the behaviour of non-SSL sockets).
+        with test_support.transient_internet("svn.python.org"):
+            s = ssl.wrap_socket(socket.socket(socket.AF_INET),
+                                cert_reqs=ssl.CERT_REQUIRED,
+                                ca_certs=SVN_PYTHON_ORG_ROOT_CERT,
+                                do_handshake_on_connect=False)
+            try:
+                s.settimeout(0.0000001)
+                rc = s.connect_ex(('svn.python.org', 443))
+                if rc == 0:
+                    self.skipTest("svn.python.org responded too quickly")
+                self.assertIn(rc, (errno.EAGAIN, errno.EWOULDBLOCK))
+            finally:
+                s.close()
+
+    def test_connect_ex_error(self):
+        with test_support.transient_internet("svn.python.org"):
+            s = ssl.wrap_socket(socket.socket(socket.AF_INET),
+                                cert_reqs=ssl.CERT_REQUIRED,
+                                ca_certs=SVN_PYTHON_ORG_ROOT_CERT)
+            try:
+                self.assertEqual(errno.ECONNREFUSED,
+                                 s.connect_ex(("svn.python.org", 444)))
+            finally:
+                s.close()
+
     @unittest.skipIf(os.name == "nt", "Can't use a socket as a file under Windows")
     def test_makefile_close(self):
         # Issue #5238: creating a file-like object with makefile() shouldn't
@@ -355,7 +379,8 @@ class NetworkedTests(unittest.TestCase):
         # SHA256 was added in OpenSSL 0.9.8
         if ssl.OPENSSL_VERSION_INFO < (0, 9, 8, 0, 15):
             self.skipTest("SHA256 not available on %r" % ssl.OPENSSL_VERSION)
-        # NOTE: https://sha256.tbs-internet.com is another possible test host
+        self.skipTest("remote host needs SNI, only available on Python 3.2+")
+        # NOTE: https://sha2.hboeck.de is another possible test host
         remote = ("sha256.tbs-internet.com", 443)
         sha256_cert = os.path.join(os.path.dirname(__file__), "sha256.pem")
         with test_support.transient_internet("sha256.tbs-internet.com"):
