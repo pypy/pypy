@@ -60,6 +60,7 @@ class AbstractLLCPU(AbstractCPU):
             assert size <= frame.jf_frame_info.jfi_frame_depth
             new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
             # XXX now we know, rewrite this
+            # YYY it doesn't matter at all, it's fine that way too
             # we need to do this, because we're not sure what things
             # are GC pointers and which ones are not
             llop.gc_writebarrier_before_copy(lltype.Bool, frame, new_frame,
