@@ -1,3 +1,4 @@
+# coding: utf-8
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
@@ -58,7 +59,10 @@ def parsestr(space, encoding, s):
             # latin-1; So multibyte sequences must be escaped.
             lis = [] # using a list to assemble the value
             end = q
-            # Worst case: "\XX" may become "\u005c\uHHLL" (12 bytes)
+            # Worst case:
+            # "ä" (2 bytes) may become "\U000000E4" (10 bytes), or 1:5
+            # "\ä" (3 bytes) may become "\u005c\U000000E4" (16 bytes),
+            # or ~1:6
             while ps < end:
                 if s[ps] == '\\':
                     lis.append(s[ps])
@@ -70,13 +74,15 @@ def parsestr(space, encoding, s):
                         # instead.
                         lis.append("u005c")
                 if ord(s[ps]) & 0x80: # XXX inefficient
-                    w, ps = decode_utf8(space, s, ps, end, "utf-16-be")
+                    w, ps = decode_utf8(space, s, ps, end, "utf-32-be")
                     rn = len(w)
-                    assert rn % 2 == 0
-                    for i in range(0, rn, 2):
-                        lis.append('\\u')
+                    assert rn % 4 == 0
+                    for i in range(0, rn, 4):
+                        lis.append('\\U')
                         lis.append(hexbyte(ord(w[i])))
                         lis.append(hexbyte(ord(w[i+1])))
+                        lis.append(hexbyte(ord(w[i+2])))
+                        lis.append(hexbyte(ord(w[i+3])))
                 else:
                     lis.append(s[ps])
                     ps += 1

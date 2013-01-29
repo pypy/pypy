@@ -199,3 +199,11 @@ class AppTestExecStmt:
         x = ns['x']
         assert len(x) == 6
         assert ord(x[0]) == 0x0439
+
+    def test_issue3297(self):
+        c = compile("a, b = '\U0001010F', '\\U0001010F'", "dummy", "exec")
+        d = {}
+        exec(c, d)
+        assert d['a'] == d['b']
+        assert len(d['a']) == len(d['b'])
+        assert ascii(d['a']) == ascii(d['b'])
