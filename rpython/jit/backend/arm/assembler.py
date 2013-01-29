@@ -8,7 +8,7 @@ from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
                                     N_REGISTERS_SAVED_BY_MALLOC, \
                                     JITFRAME_FIXED_SIZE, FRAME_FIXED_SIZE
 from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
-from rpython.jit.backend.arm.locations import get_fp_offset
+from rpython.jit.backend.arm.locations import get_fp_offset, imm
 from rpython.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                     CoreRegisterManager, check_imm_arg,
                     operations as regalloc_operations,
@@ -117,6 +117,9 @@ class AssemblerARM(ResOpAssembler):
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1, zero=True)
         self.gcmap_for_finish[0] = r_uint(1)
+
+    def setup_failure_recovery(self):
+        self.failure_recovery_code = [0, 0, 0, 0]
 
     def finish_once(self):
         if self._debug:
@@ -334,199 +337,6 @@ class AssemblerARM(ResOpAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
-    def setup_failure_recovery(self):
-
-        #@rgc.no_collect -- XXX still true, but hacked gc_set_extra_threshold
-        def failure_recovery_func(mem_loc, frame_pointer, stack_pointer):
-            """mem_loc is a structure in memory describing where the values for
-            the failargs are stored.  frame loc is the address of the frame
-            pointer for the frame to be decoded frame """
-            vfp_registers = rffi.cast(rffi.LONGP, stack_pointer)
-            registers = rffi.ptradd(vfp_registers, 2*len(r.all_vfp_regs))
-            registers = rffi.cast(rffi.LONGP, registers)
-            bytecode = rffi.cast(rffi.UCHARP, mem_loc)
-            return self.grab_frame_values(self.cpu, bytecode, frame_pointer,
-                                                    registers, vfp_registers)
-        self.failure_recovery_code = [0, 0, 0, 0]
-
-        self.failure_recovery_func = failure_recovery_func
-
-    _FAILURE_RECOVERY_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP] * 3,
-                                                        llmemory.GCREF))
-
-    @staticmethod
-    #@rgc.no_collect -- XXX still true, but hacked gc_set_extra_threshold
-    def grab_frame_values(cpu, bytecode, frame_pointer,
-                                                registers, vfp_registers):
-        # no malloc allowed here!!  xxx apart from one, hacking a lot
-        force_index = rffi.cast(lltype.Signed, frame_pointer)
-        num = 0
-        deadframe = lltype.nullptr(jitframe.DEADFRAME)
-        # step 1: lots of mess just to count the final value of 'num'
-        bytecode1 = bytecode
-        while 1:
-            code = rffi.cast(lltype.Signed, bytecode1[0])
-            bytecode1 = rffi.ptradd(bytecode1, 1)
-            if code >= AssemblerARM.CODE_FROMSTACK:
-                while code > 0x7F:
-                    code = rffi.cast(lltype.Signed, bytecode1[0])
-                    bytecode1 = rffi.ptradd(bytecode1, 1)
-            else:
-                kind = code & 3
-                if kind == AssemblerARM.DESCR_SPECIAL:
-                    if code == AssemblerARM.CODE_HOLE:
-                        num += 1
-                        continue
-                    if code == AssemblerARM.CODE_INPUTARG:
-                        continue
-                    if code == AssemblerARM.CODE_FORCED:
-                        # resuming from a GUARD_NOT_FORCED
-                        token = force_index
-                        deadframe = (
-                            cpu.assembler.force_token_to_dead_frame.pop(token))
-                        deadframe = lltype.cast_opaque_ptr(
-                            jitframe.DEADFRAMEPTR, deadframe)
-                        continue
-                    assert code == AssemblerARM.CODE_STOP
-                    break
-            num += 1
-
-        # allocate the deadframe
-        if not deadframe:
-            # Remove the "reserve" at the end of the nursery.  This means
-            # that it is guaranteed that the following malloc() works
-            # without requiring a collect(), but it needs to be re-added
-            # as soon as possible.
-            cpu.gc_clear_extra_threshold()
-            assert num <= cpu.get_failargs_limit()
-            try:
-                deadframe = lltype.malloc(jitframe.DEADFRAME, num)
-            except MemoryError:
-                fatalerror("memory usage error in grab_frame_values")
-        # fill it
-        code_inputarg = False
-        num = 0
-        value_hi = 0
-        while 1:
-            # decode the next instruction from the bytecode
-            code = rffi.cast(lltype.Signed, bytecode[0])
-            bytecode = rffi.ptradd(bytecode, 1)
-            if code >= AssemblerARM.CODE_FROMSTACK:
-                if code > 0x7F:
-                    shift = 7
-                    code &= 0x7F
-                    while True:
-                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
-                        bytecode = rffi.ptradd(bytecode, 1)
-                        code |= (nextcode & 0x7F) << shift
-                        shift += 7
-                        if nextcode <= 0x7F:
-                            break
-                # load the value from the stack
-                kind = code & 3
-                code = (code - AssemblerARM.CODE_FROMSTACK) >> 2
-                if code_inputarg:
-                    code = ~code
-                    code_inputarg = False
-                stackloc = force_index - get_fp_offset(int(code))
-                value = rffi.cast(rffi.LONGP, stackloc)[0]
-                if kind == AssemblerARM.DESCR_FLOAT:
-                    assert WORD == 4
-                    value_hi = value
-                    value = rffi.cast(rffi.LONGP, stackloc - WORD)[0]
-            else:
-                kind = code & 3
-                if kind == AssemblerARM.DESCR_SPECIAL:
-                    if code == AssemblerARM.CODE_HOLE:
-                        num += 1
-                        continue
-                    if code == AssemblerARM.CODE_INPUTARG:
-                        code_inputarg = True
-                        continue
-                    if code == AssemblerARM.CODE_FORCED:
-                        continue
-                    assert code == AssemblerARM.CODE_STOP
-                    break
-                # 'code' identifies a register: load its value
-                code >>= 2
-                if kind == AssemblerARM.DESCR_FLOAT:
-                    if WORD == 4:
-                        value = vfp_registers[2*code]
-                        value_hi = vfp_registers[2*code + 1]
-                    else:
-                        value = registers[code]
-                else:
-                    value = registers[code]
-            # store the loaded value into fail_boxes_<type>
-            if kind == AssemblerARM.DESCR_INT:
-                deadframe.jf_values[num].int = value
-            elif kind == AssemblerARM.DESCR_REF:
-                deadframe.jf_values[num].ref = rffi.cast(llmemory.GCREF, value)
-            elif kind == AssemblerARM.DESCR_FLOAT:
-                assert WORD == 4
-                assert not longlong.is_64_bit
-                floatvalue = rffi.cast(lltype.SignedLongLong, value_hi)
-                floatvalue <<= 32
-                floatvalue |= rffi.cast(lltype.SignedLongLong,
-                                        rffi.cast(lltype.Unsigned, value))
-                deadframe.jf_values[num].float = floatvalue
-            else:
-                assert 0, "bogus kind"
-            num += 1
-        #
-        assert num == len(deadframe.jf_values)
-        if not we_are_translated():
-            assert bytecode[4] == 0xCC
-        fail_index = rffi.cast(rffi.INTP, bytecode)[0]
-        fail_descr = cpu.get_fail_descr_from_number(fail_index)
-        deadframe.jf_descr = fail_descr.hide(cpu)
-        return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
-
-    def decode_inputargs(self, code):
-        descr_to_box_type = [REF, INT, FLOAT]
-        bytecode = rffi.cast(rffi.UCHARP, code)
-        arglocs = []
-        code_inputarg = False
-        while 1:
-            # decode the next instruction from the bytecode
-            code = rffi.cast(lltype.Signed, bytecode[0])
-            bytecode = rffi.ptradd(bytecode, 1)
-            if code >= self.CODE_FROMSTACK:
-                # 'code' identifies a stack location
-                if code > 0x7F:
-                    shift = 7
-                    code &= 0x7F
-                    while True:
-                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
-                        bytecode = rffi.ptradd(bytecode, 1)
-                        code |= (nextcode & 0x7F) << shift
-                        shift += 7
-                        if nextcode <= 0x7F:
-                            break
-                kind = code & 3
-                code = (code - self.CODE_FROMSTACK) >> 2
-                if code_inputarg:
-                    code = ~code
-                    code_inputarg = False
-                loc = ARMFrameManager.frame_pos(code, descr_to_box_type[kind])
-            elif code == self.CODE_STOP:
-                break
-            elif code == self.CODE_HOLE:
-                continue
-            elif code == self.CODE_INPUTARG:
-                code_inputarg = True
-                continue
-            else:
-                # 'code' identifies a register
-                kind = code & 3
-                code >>= 2
-                if kind == self.DESCR_FLOAT:
-                    loc = r.all_vfp_regs[code]
-                else:
-                    loc = r.all_regs[code]
-            arglocs.append(loc)
-        return arglocs[:]
-
     def _build_malloc_slowpath(self):
         mc = ARMv7Builder()
         if self.cpu.supports_floats:
@@ -562,48 +372,63 @@ class AssemblerARM(ResOpAssembler):
         # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
         self.mc.CMP_ri(r.r0.value, 0)
         self.mc.B(self.propagate_exception_path, c=c.EQ)
+    
+    def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
+                                callee_only=False):
+        if callee_only:
+            regs = CoreRegisterManager.save_around_call_regs
+        else:
+            regs = CoreRegisterManager.all_regs
+        # use STMDB ops here
+        for i, gpr in enumerate(regs):
+            if gpr in ignored_regs:
+                continue
+            mc.STR_ri(gpr.value, r.fp.value, i * WORD)
+        if withfloats:
+            assert 0, 'implement me'
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = ARMv7Builder()
-        failure_recovery = llhelper(self._FAILURE_RECOVERY_FUNC,
-                                            self.failure_recovery_func)
+        self._push_all_regs_to_jitframe(mc, [], withfloats)
         self._insert_checks(mc)
-        if withfloats:
-            f = r.all_vfp_regs
-        else:
-            f = []
-        with saved_registers(mc, r.all_regs, f):
-            if exc:
-                # We might have an exception pending.  Load it into r4
-                # (this is a register saved across calls)
-                mc.gen_load_int(r.r5.value, self.cpu.pos_exc_value())
-                mc.LDR_ri(r.r4.value, r.r5.value)
-                # clear the exc flags
-                mc.gen_load_int(r.r6.value, 0)
-                mc.STR_ri(r.r6.value, r.r5.value)
-                mc.gen_load_int(r.r5.value, self.cpu.pos_exception())
-                mc.STR_ri(r.r6.value, r.r5.value)
-            # move mem block address, to r0 to pass as
-            mc.MOV_rr(r.r0.value, r.lr.value)
-            # pass the current frame pointer as second param
-            mc.MOV_rr(r.r1.value, r.fp.value)
-            # pass the current stack pointer as third param
-            mc.MOV_rr(r.r2.value, r.sp.value)
-            self._insert_checks(mc)
-            mc.BL(rffi.cast(lltype.Signed, failure_recovery))
-            if exc:
-                # save ebx into 'jf_guard_exc'
-                from rpython.jit.backend.llsupport.descr import unpack_fielddescr
-                descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-                offset, size, _ = unpack_fielddescr(descrs.jf_guard_exc)
-                mc.STR_rr(r.r4.value, r.r0.value, offset, cond=c.AL)
-            mc.MOV_rr(r.ip.value, r.r0.value)
-        mc.MOV_rr(r.r0.value, r.ip.value)
-        self.gen_func_epilog(mc=mc)
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [],
-                                   self.cpu.gc_ll_descr.gcrootmap)
+
+        if exc:
+            # We might have an exception pending.  Load it into r4
+            # (this is a register saved across calls)
+            mc.gen_load_int(r.r5.value, self.cpu.pos_exc_value())
+            mc.LDR_ri(r.r4.value, r.r5.value)
+            # clear the exc flags
+            mc.gen_load_int(r.r6.value, 0)
+            mc.STR_ri(r.r6.value, r.r5.value) # pos_exc_value is still in r5
+            mc.gen_load_int(r.r5.value, self.cpu.pos_exception())
+            mc.STR_ri(r.r6.value, r.r5.value)
+            # save r4 into 'jf_guard_exc'
+            offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            assert check_imm_arg(abs(offset))
+            mc.STR_ri(r.r4.value, r.fp.value, imm=offset)
+        # now we return from the complete frame, which starts from
+        # _call_header_with_stack_check().  The LEA in _call_footer below
+        # throws away most of the frame, including all the PUSHes that we
+        # did just above.
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        assert check_imm_arg(abs(ofs))
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        assert check_imm_arg(abs(ofs2))
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        # store the gcmap
+        mc.POP([r.ip.value])
+        mc.STR_ri(r.ip.value, r.fp.value, imm=ofs2)
+        # store the descr
+        mc.POP([r.ip.value])
+        mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
+
+        # set return value
+        assert check_imm_arg(base_ofs)
+        mc.SUB_ri(r.r0.value, r.fp.value, base_ofs)
+
+        self.gen_func_epilog(mc)
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
-        self.mc = None
 
     DESCR_REF       = 0x00
     DESCR_INT       = 0x01
@@ -649,30 +474,37 @@ class AssemblerARM(ResOpAssembler):
 
 
     def generate_quick_failure(self, guardtok, fcond=c.AL):
-        assert isinstance(guardtok.save_exc, bool)
-        fail_index = self.cpu.get_fail_descr_number(guardtok.descr)
+        assert isinstance(guardtok.exc, bool)
         startpos = self.mc.currpos()
         withfloats = False
         for box in guardtok.failargs:
             if box is not None and box.type == FLOAT:
                 withfloats = True
                 break
-        exc = guardtok.save_exc
+        exc = guardtok.exc
         target = self.failure_recovery_code[exc + 2 * withfloats]
-        assert target != 0
+        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        positions = [0] * len(guardtok.fail_locs)
+        for i, loc in enumerate(guardtok.fail_locs):
+            if loc is None:
+                positions[i] = -1
+            elif loc.is_stack():
+                positions[i] = loc.value
+            else:
+                if loc.is_reg():
+                    assert loc is not r.fp # for now
+                    v = loc.value
+                else:
+                    assert 0, 'fix for floats'
+                    assert loc.is_vfp_reg()
+                    #v = len(VFPRegisterManager.all_regs) + loc.value
+                positions[i] = v * WORD
+        # write down the positions of locs
+        guardtok.faildescr.rd_locs = positions
+        self.regalloc_push(imm(fail_descr))
+        self.push_gcmap(self.mc, gcmap=guardtok.gcmap, push=True)
         self.mc.BL(target)
-        # write tight data that describes the failure recovery
-        if guardtok.is_guard_not_forced:
-            self.mc.writechar(chr(self.CODE_FORCED))
-        self.write_failure_recovery_description(guardtok.descr,
-                                guardtok.failargs, guardtok.faillocs[1:])
-        self.mc.write32(fail_index)
-        # for testing the decoding, write a final byte 0xCC
-        if not we_are_translated():
-            self.mc.writechar('\xCC')
-            faillocs = [loc for loc in guardtok.faillocs if loc is not None]
-            guardtok.descr._arm_debug_faillocs = faillocs
-        self.align()
         return startpos
 
     def align(self):
@@ -929,13 +761,11 @@ class AssemblerARM(ResOpAssembler):
         for tok in self.pending_guards:
             #generate the exit stub and the encoded representation
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
-            # store info on the descr
-            tok.descr._arm_current_frame_depth = tok.faillocs[0].getint()
 
     def process_pending_guards(self, block_start):
         clt = self.current_clt
         for tok in self.pending_guards:
-            descr = tok.descr
+            descr = tok.faildescr
             assert isinstance(descr, AbstractFailDescr)
             failure_recovery_pos = block_start + tok.pos_recovery_stub
             descr._arm_failure_recovery_block = failure_recovery_pos
@@ -1395,16 +1225,18 @@ class AssemblerARM(ResOpAssembler):
         # keep the ref alive
         self.current_clt.allgcrefs.append(gcmapref)
         rgc._make_sure_does_not_move(gcmapref)
-        pass
-        #if push:
-        #    mc.PUSH(imm(rffi.cast(lltype.Signed, gcmapref)))
-        #elif mov:
-        #    mc.MOV(RawEspLoc(0, REF),
-        #           imm(rffi.cast(lltype.Signed, gcmapref)))
-        #else:
-        #    assert store
-        #    ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        #    mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed, gcmapref)))
+        if push:
+            mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, gcmapref))
+            mc.PUSH([r.ip.value])
+        elif mov:
+            assert 0
+            mc.MOV(RawEspLoc(0, REF),
+                   imm(rffi.cast(lltype.Signed, gcmapref)))
+        else:
+            assert store
+            ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+            mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, gcmapref))
+            mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
 
     def pop_gcmap(self, mc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')

@@ -709,6 +709,7 @@ class Regalloc(object):
         # optimization only: fill in the 'hint_frame_locations' dictionary
         # of rm and xrm based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
+        return # XXX disabled for now
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return

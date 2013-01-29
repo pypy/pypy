@@ -1,7 +1,7 @@
 from rpython.jit.backend.arm import conditions as cond
 from rpython.jit.backend.arm import registers as reg
 from rpython.jit.backend.arm import support
-from rpython.jit.backend.arm.arch import (WORD, FUNC_ALIGN)
+from rpython.jit.backend.arm.arch import (WORD, FUNC_ALIGN, PC_OFFSET)
 from rpython.jit.backend.arm.instruction_builder import define_instructions
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.rlib.objectmodel import we_are_translated
@@ -186,7 +186,7 @@ class AbstractARMv7Builder(object):
 
     def B_offs(self, target_ofs, c=cond.AL):
         pos = self.currpos()
-        target_ofs = target_ofs - (pos + arch.PC_OFFSET)
+        target_ofs = target_ofs - (pos + PC_OFFSET)
         assert target_ofs & 0x3 == 0
         self.write32(c << 28 | 0xA << 24 | (target_ofs >> 2) & 0xFFFFFF)
 
