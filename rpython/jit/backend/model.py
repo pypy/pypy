@@ -288,14 +288,11 @@ class CompiledLoopToken(object):
     asmmemmgr_blocks = None
     asmmemmgr_gcroots = 0
 
-    frame_depth = 0
-
     def __init__(self, cpu, number):
         cpu.tracker.total_compiled_loops += 1
         self.cpu = cpu
         self.number = number
         self.bridges_count = 0
-        self.jumping_to = [] # a list of weakrefs who jump here
         # This growing list gives the 'descr_number' of all fail descrs
         # that belong to this loop or to a bridge attached to it.
         # Filled by the frontend calling record_faildescr_index().

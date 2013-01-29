@@ -271,10 +271,10 @@ def test_custom_tracer():
         return (frame_adr + jitframe.getofs('jf_frame') +
                 jitframe.BASEITEMOFS + jitframe.SIGN_SIZE * no)
     
-    frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True)
+    frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
     frame = lltype.malloc(jitframe.JITFRAME, 15, zero=True)
     frame.jf_frame_info = frame_info
-    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 2)
+    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 2, flavor='raw')
     if sys.maxint == 2**31 - 1:
         max = r_uint(2 ** 31)
     else:
@@ -290,18 +290,20 @@ def test_custom_tracer():
     counter = 0
     for name in jitframe.JITFRAME._names:
         TP = getattr(jitframe.JITFRAME, name)
-        if isinstance(TP, lltype.Ptr): # only GC pointers
+        if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc': 
             assert all_addrs[counter] == frame_adr + jitframe.getofs(name)
             counter += 1
     # gcpattern
-    assert all_addrs[6] == indexof(0)
-    assert all_addrs[7] == indexof(1)
-    assert all_addrs[8] == indexof(3)
-    assert all_addrs[9] == indexof(5)
-    assert all_addrs[10] == indexof(7)
-    assert all_addrs[11] == indexof(63)
+    assert all_addrs[4] == indexof(0)
+    assert all_addrs[5] == indexof(1)
+    assert all_addrs[6] == indexof(3)
+    assert all_addrs[7] == indexof(5)
+    assert all_addrs[8] == indexof(7)
+    assert all_addrs[9] == indexof(63)
     # XXX 32bit
-    assert all_addrs[12] == indexof(65)
+    assert all_addrs[10] == indexof(65)
 
-    assert len(all_addrs) == 6 + 6 + 4
-    # 6 static fields, 4 addresses from gcmap, 2 from gcpattern
+    assert len(all_addrs) == 4 + 6 + 4
+    # 4 static fields, 4 addresses from gcmap, 2 from gcpattern
+    lltype.free(frame_info, flavor='raw')
+    lltype.free(frame.jf_gcmap, flavor='raw')

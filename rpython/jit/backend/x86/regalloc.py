@@ -896,9 +896,7 @@ class RegAlloc(object):
 
     def get_gcmap(self, forbidden_regs=[]):
         frame_depth = self.fm.get_frame_depth()
-        size = frame_depth + JITFRAME_FIXED_SIZE
-        gcmap = lltype.malloc(GCMAP, size // WORD // 8 + 1,
-                              zero=True)
+        gcmap = self.assembler.allocate_gcmap(frame_depth)
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:
                 continue
@@ -1334,6 +1332,7 @@ class RegAlloc(object):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
+        
 
     def consider_keepalive(self, op):
         pass
