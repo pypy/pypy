@@ -731,7 +731,11 @@ def build_bridge(space):
             global_objects.append('%s %s = NULL;' % (typ, name))
     global_code = '\n'.join(global_objects)
 
-    prologue = ("#include <Python.h>\n"
+    if sys.platform == "win32":
+        prologue = ("#include <Python.h>\n"
+                "#include <src/thread_nt.c>\n")
+    else:
+        prologue = ("#include <Python.h>\n"
                 "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
@@ -922,8 +926,8 @@ def build_eci(building_bridge, export_symbols, code):
             kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
+            compile_extra.append('-g')
         export_symbols_eci.append('pypyAPI')
-        compile_extra.append('-g')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 

@@ -13,6 +13,7 @@
 /*
  * Thread support.
  */
+#include "thread.h"
 
 typedef struct RPyOpaque_ThreadLock NRMUTEX, *PNRMUTEX;
 
