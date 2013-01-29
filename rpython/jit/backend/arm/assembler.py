@@ -924,14 +924,6 @@ class AssemblerARM(ResOpAssembler):
 
     def update_frame_depth(self, frame_depth):
         self.current_clt.frame_info.jfi_frame_depth = frame_depth
-        new_jumping_to = []
-        for wref in self.current_clt.jumping_to:
-            clt = wref()
-            if clt is not None:
-                clt.frame_info.jfi_frame_depth = max(frame_depth,
-                    clt.frame_info.jfi_frame_depth)
-                new_jumping_to.append(weakref.ref(clt))
-        self.current_clt.jumping_to = new_jumping_to
 
     def write_pending_failure_recoveries(self):
         for tok in self.pending_guards:

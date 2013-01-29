@@ -295,7 +295,6 @@ class CompiledLoopToken(object):
         self.cpu = cpu
         self.number = number
         self.bridges_count = 0
-        self.jumping_to = [] # a list of weakrefs who jump here
         # This growing list gives the 'descr_number' of all fail descrs
         # that belong to this loop or to a bridge attached to it.
         # Filled by the frontend calling record_faildescr_index().
