@@ -1134,6 +1134,16 @@ class TestAstBuilder:
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(japan))
+
+    def test_issue3574(self):
+        space = self.space
+        source = u'# coding: Latin-1\nu = "Ç"\n'
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parser.parse_source(source.encode("Latin-1"), info)
+        assert info.encoding == "iso-8859-1"
+        s = ast_from_node(space, tree, info).body[0].value
+        assert isinstance(s, ast.Str)
+        assert space.eq_w(s.s, space.wrap(u'Ç'))
  
     def test_string_bug(self):
         py.test.py3k_skip('fixme')

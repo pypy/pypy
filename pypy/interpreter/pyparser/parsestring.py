@@ -5,7 +5,6 @@ from rpython.rlib.rstring import StringBuilder
 def parsestr(space, encoding, s):
     """Parses a string or unicode literal, and return a wrapped value.
 
-    If encoding=iso8859-1, the source string is also in this encoding.
     If encoding=None, the source string is ascii only.
     In other cases, the source string is in utf-8 encoding.
 
@@ -49,8 +48,7 @@ def parsestr(space, encoding, s):
         q -= 2
 
     if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
-        if encoding is None or encoding == "iso-8859-1":
-            # 'unicode_escape' expects latin-1 bytes, string is ready.
+        if encoding is None:
             buf = s
             bufp = ps
             bufq = q
