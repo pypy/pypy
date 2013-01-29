@@ -40,11 +40,14 @@ uses_netloc = ['ftp', 'http', 'gopher', 'nntp', 'telnet',
                'imap', 'wais', 'file', 'mms', 'https', 'shttp',
                'snews', 'prospero', 'rtsp', 'rtspu', 'rsync', '',
                'svn', 'svn+ssh', 'sftp','nfs','git', 'git+ssh']
-non_hierarchical = ['gopher', 'hdl', 'mailto', 'news',
-                    'telnet', 'wais', 'imap', 'snews', 'sip', 'sips']
 uses_params = ['ftp', 'hdl', 'prospero', 'http', 'imap',
                'https', 'shttp', 'rtsp', 'rtspu', 'sip', 'sips',
-               'mms', '', 'sftp']
+               'mms', '', 'sftp', 'tel']
+
+# These are not actually used anymore, but should stay for backwards
+# compatibility.  (They are undocumented, but have a public-looking name.)
+non_hierarchical = ['gopher', 'hdl', 'mailto', 'news',
+                    'telnet', 'wais', 'imap', 'snews', 'sip', 'sips']
 uses_query = ['http', 'wais', 'imap', 'https', 'shttp', 'mms',
               'gopher', 'rtsp', 'rtspu', 'sip', 'sips', '']
 uses_fragment = ['ftp', 'hdl', 'http', 'gopher', 'news',
@@ -104,9 +107,11 @@ class ResultMixin(object):
         netloc = self.netloc.split('@')[-1].split(']')[-1]
         if ':' in netloc:
             port = netloc.split(':')[1]
-            return int(port, 10)
-        else:
-            return None
+            port = int(port, 10)
+            # verify legal port
+            if (0 <= port <= 65535):
+                return port
+        return None
 
 from collections import namedtuple
 
@@ -192,21 +197,21 @@ def urlsplit(url, scheme='', allow_fragments=True):
             if c not in scheme_chars:
                 break
         else:
-            try:
-                # make sure "url" is not actually a port number (in which case
-                # "scheme" is really part of the path
-                _testportnum = int(url[i+1:])
-            except ValueError:
-                scheme, url = url[:i].lower(), url[i+1:]
+            # make sure "url" is not actually a port number (in which case
+            # "scheme" is really part of the path)
+            rest = url[i+1:]
+            if not rest or any(c not in '0123456789' for c in rest):
+                # not a port number
+                scheme, url = url[:i].lower(), rest
 
     if url[:2] == '//':
         netloc, url = _splitnetloc(url, 2)
         if (('[' in netloc and ']' not in netloc) or
                 (']' in netloc and '[' not in netloc)):
             raise ValueError("Invalid IPv6 URL")
-    if allow_fragments and scheme in uses_fragment and '#' in url:
+    if allow_fragments and '#' in url:
         url, fragment = url.split('#', 1)
-    if scheme in uses_query and '?' in url:
+    if '?' in url:
         url, query = url.split('?', 1)
     v = SplitResult(scheme, netloc, url, query, fragment)
     _parse_cache[key] = v

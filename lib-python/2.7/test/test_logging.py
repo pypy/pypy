@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright 2001-2010 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2012 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -18,7 +18,7 @@
 
 """Test harness for the logging module. Run all tests.
 
-Copyright (C) 2001-2010 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2012 Vinay Sajip. All Rights Reserved.
 """
 
 import logging
@@ -31,6 +31,7 @@ import cStringIO
 import gc
 import json
 import os
+import random
 import re
 import select
 import socket
@@ -40,6 +41,7 @@ import sys
 import tempfile
 from test.test_support import captured_stdout, run_with_locale, run_unittest
 import textwrap
+import time
 import unittest
 import warnings
 import weakref
@@ -1873,6 +1875,47 @@ class ChildLoggerTest(BaseTest):
         self.assertTrue(c2 is c3)
 
 
+class HandlerTest(BaseTest):
+
+    @unittest.skipIf(os.name == 'nt', 'WatchedFileHandler not appropriate for Windows.')
+    @unittest.skipUnless(threading, 'Threading required for this test.')
+    def test_race(self):
+        # Issue #14632 refers.
+        def remove_loop(fname, tries):
+            for _ in range(tries):
+                try:
+                    os.unlink(fname)
+                except OSError:
+                    pass
+                time.sleep(0.004 * random.randint(0, 4))
+
+        del_count = 500
+        log_count = 500
+
+        for delay in (False, True):
+            fd, fn = tempfile.mkstemp('.log', 'test_logging-3-')
+            os.close(fd)
+            remover = threading.Thread(target=remove_loop, args=(fn, del_count))
+            remover.daemon = True
+            remover.start()
+            h = logging.handlers.WatchedFileHandler(fn, delay=delay)
+            f = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
+            h.setFormatter(f)
+            try:
+                for _ in range(log_count):
+                    time.sleep(0.005)
+                    r = logging.makeLogRecord({'msg': 'testing' })
+                    h.handle(r)
+            finally:
+                remover.join()
+                try:
+                    h.close()
+                except ValueError:
+                    pass
+                if os.path.exists(fn):
+                    os.unlink(fn)
+
+
 # Set the locale to the platform-dependent default.  I have no idea
 # why the test does this, but in any case we save the current locale
 # first and restore it at the end.
@@ -1882,7 +1925,7 @@ def test_main():
                  CustomLevelsAndFiltersTest, MemoryHandlerTest,
                  ConfigFileTest, SocketHandlerTest, MemoryTest,
                  EncodingTest, WarningsTest, ConfigDictTest, ManagerTest,
-                 ChildLoggerTest)
+                 ChildLoggerTest, HandlerTest)
 
 if __name__ == "__main__":
     test_main()

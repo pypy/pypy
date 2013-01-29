@@ -2,9 +2,13 @@
 # All tests are executed with environment variables ignored
 # See test_cmd_line_script.py for testing of script execution
 
-import test.test_support, unittest
+import test.test_support
 import sys
-from test.script_helper import spawn_python, kill_python, python_exit_code
+import unittest
+from test.script_helper import (
+    assert_python_ok, assert_python_failure, spawn_python, kill_python,
+    python_exit_code
+)
 from test.test_support import check_impl_detail
 
 
@@ -102,6 +106,36 @@ class CmdLineTest(unittest.TestCase):
         code = 'import sys; print sys.flags'
         data = self.start_python('-R', '-c', code)
         self.assertTrue('hash_randomization=1' in data)
+
+    def test_del___main__(self):
+        # Issue #15001: PyRun_SimpleFileExFlags() did crash because it kept a
+        # borrowed reference to the dict of __main__ module and later modify
+        # the dict whereas the module was destroyed
+        filename = test.test_support.TESTFN
+        self.addCleanup(test.test_support.unlink, filename)
+        with open(filename, "w") as script:
+            print >>script, "import sys"
+            print >>script, "del sys.modules['__main__']"
+        assert_python_ok(filename)
+
+    def test_unknown_options(self):
+        rc, out, err = assert_python_failure('-E', '-z')
+        self.assertIn(b'Unknown option: -z', err)
+        self.assertEqual(err.splitlines().count(b'Unknown option: -z'), 1)
+        self.assertEqual(b'', out)
+        # Add "without='-E'" to prevent _assert_python to append -E
+        # to env_vars and change the output of stderr
+        rc, out, err = assert_python_failure('-z', without='-E')
+        self.assertIn(b'Unknown option: -z', err)
+        self.assertEqual(err.splitlines().count(b'Unknown option: -z'), 1)
+        self.assertEqual(b'', out)
+        rc, out, err = assert_python_failure('-a', '-z', without='-E')
+        self.assertIn(b'Unknown option: -a', err)
+        # only the first unknown option is reported
+        self.assertNotIn(b'Unknown option: -z', err)
+        self.assertEqual(err.splitlines().count(b'Unknown option: -a'), 1)
+        self.assertEqual(b'', out)
+
 
 def test_main():
     test.test_support.run_unittest(CmdLineTest)

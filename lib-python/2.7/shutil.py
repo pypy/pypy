@@ -102,8 +102,10 @@ def copystat(src, dst):
         try:
             os.chflags(dst, st.st_flags)
         except OSError, why:
-            if (not hasattr(errno, 'EOPNOTSUPP') or
-                why.errno != errno.EOPNOTSUPP):
+            for err in 'EOPNOTSUPP', 'ENOTSUP':
+                if hasattr(errno, err) and why.errno == getattr(errno, err):
+                    break
+            else:
                 raise
 
 def copy(src, dst):
@@ -201,7 +203,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
             # Copying file access times may fail on Windows
             pass
         else:
-            errors.extend((src, dst, str(why)))
+            errors.append((src, dst, str(why)))
     if errors:
         raise Error, errors
 

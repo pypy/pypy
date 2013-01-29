@@ -9,6 +9,7 @@ import errno
 import sys
 import time
 import os
+import platform
 import pwd
 import shutil
 import stat
@@ -107,7 +108,11 @@ class PosixTester(unittest.TestCase):
         # If a non-privileged user invokes it, it should fail with OSError
         # EPERM.
         if os.getuid() != 0:
-            name = pwd.getpwuid(posix.getuid()).pw_name
+            try:
+                name = pwd.getpwuid(posix.getuid()).pw_name
+            except KeyError:
+                # the current UID may not have a pwd entry
+                raise unittest.SkipTest("need a pwd entry")
             try:
                 posix.initgroups(name, 13)
             except OSError as e:
@@ -219,6 +224,9 @@ class PosixTester(unittest.TestCase):
 
     def _test_all_chown_common(self, chown_func, first_param):
         """Common code for chown, fchown and lchown tests."""
+        # test a successful chown call
+        chown_func(first_param, os.getuid(), os.getgid())
+
         if os.getuid() == 0:
             try:
                 # Many linux distros have a nfsnobody user as MAX_UID-2
@@ -230,13 +238,15 @@ class PosixTester(unittest.TestCase):
                 chown_func(first_param, ent.pw_uid, ent.pw_gid)
             except KeyError:
                 pass
+        elif platform.system() in ('HP-UX', 'SunOS'):
+            # HP-UX and Solaris can allow a non-root user to chown() to root
+            # (issue #5113)
+            raise unittest.SkipTest("Skipping because of non-standard chown() "
+                                    "behavior")
         else:
             # non-root cannot chown to root, raises OSError
             self.assertRaises(OSError, chown_func,
                               first_param, 0, 0)
-
-        # test a successful chown call
-        chown_func(first_param, os.getuid(), os.getgid())
 
     @unittest.skipUnless(hasattr(posix, 'chown'), "test needs os.chown()")
     def test_chown(self):
@@ -324,7 +334,16 @@ class PosixTester(unittest.TestCase):
     def _test_chflags_regular_file(self, chflags_func, target_file):
         st = os.stat(target_file)
         self.assertTrue(hasattr(st, 'st_flags'))
-        chflags_func(target_file, st.st_flags | stat.UF_IMMUTABLE)
+
+        # ZFS returns EOPNOTSUPP when attempting to set flag UF_IMMUTABLE.
+        try:
+            chflags_func(target_file, st.st_flags | stat.UF_IMMUTABLE)
+        except OSError as err:
+            if err.errno != errno.EOPNOTSUPP:
+                raise
+            msg = 'chflag UF_IMMUTABLE not supported by underlying fs'
+            self.skipTest(msg)
+
         try:
             new_st = os.stat(target_file)
             self.assertEqual(st.st_flags | stat.UF_IMMUTABLE, new_st.st_flags)
@@ -353,8 +372,16 @@ class PosixTester(unittest.TestCase):
         self.teardown_files.append(_DUMMY_SYMLINK)
         dummy_symlink_st = os.lstat(_DUMMY_SYMLINK)
 
-        posix.lchflags(_DUMMY_SYMLINK,
-                       dummy_symlink_st.st_flags | stat.UF_IMMUTABLE)
+        # ZFS returns EOPNOTSUPP when attempting to set flag UF_IMMUTABLE.
+        try:
+            posix.lchflags(_DUMMY_SYMLINK,
+                           dummy_symlink_st.st_flags | stat.UF_IMMUTABLE)
+        except OSError as err:
+            if err.errno != errno.EOPNOTSUPP:
+                raise
+            msg = 'chflag UF_IMMUTABLE not supported by underlying fs'
+            self.skipTest(msg)
+
         try:
             new_testfn_st = os.stat(test_support.TESTFN)
             new_dummy_symlink_st = os.lstat(_DUMMY_SYMLINK)
@@ -395,8 +422,16 @@ class PosixTester(unittest.TestCase):
                             _create_and_do_getcwd(dirname, current_path_length + len(dirname) + 1)
                     except OSError as e:
                         expected_errno = errno.ENAMETOOLONG
-                        if 'sunos' in sys.platform or 'openbsd' in sys.platform:
-                            expected_errno = errno.ERANGE # Issue 9185
+                        # The following platforms have quirky getcwd()
+                        # behaviour -- see issue 9185 and 15765 for
+                        # more information.
+                        quirky_platform = (
+                            'sunos' in sys.platform or
+                            'netbsd' in sys.platform or
+                            'openbsd' in sys.platform
+                        )
+                        if quirky_platform:
+                            expected_errno = errno.ERANGE
                         self.assertEqual(e.errno, expected_errno)
                     finally:
                         os.chdir('..')
@@ -412,8 +447,9 @@ class PosixTester(unittest.TestCase):
     def test_getgroups(self):
         with os.popen('id -G') as idg:
             groups = idg.read().strip()
+            ret = idg.close()
 
-        if not groups:
+        if ret != None or not groups:
             raise unittest.SkipTest("need working 'id -G'")
 
         # 'id -G' and 'os.getgroups()' should return the same
