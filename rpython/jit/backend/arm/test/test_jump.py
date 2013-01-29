@@ -1,6 +1,5 @@
 import random
 import py
-from rpython.jit.backend.x86.test.test_jump import MockAssembler
 from rpython.jit.backend.arm.registers import *
 from rpython.jit.backend.arm.locations import *
 from rpython.jit.backend.arm.regalloc import ARMFrameManager
@@ -8,6 +7,35 @@ from rpython.jit.backend.arm.jump import remap_frame_layout, remap_frame_layout_
 from rpython.jit.metainterp.history import INT
 
 frame_pos = ARMFrameManager.frame_pos
+
+class MockAssembler:
+    def __init__(self):
+        self.ops = []
+
+    def regalloc_mov(self, from_loc, to_loc):
+        self.ops.append(('mov', from_loc, to_loc))
+
+    def regalloc_push(self, loc):
+        self.ops.append(('push', loc))
+
+    def regalloc_pop(self, loc):
+        self.ops.append(('pop', loc))
+
+    def got(self, expected):
+        print '------------------------ comparing ---------------------------'
+        for op1, op2 in zip(self.ops, expected):
+            print '%-38s| %-38s' % (op1, op2)
+            if op1 == op2:
+                continue
+            assert len(op1) == len(op2)
+            for x, y in zip(op1, op2):
+                if isinstance(x, StackLoc) and isinstance(y, MODRM):
+                    assert x.byte == y.byte
+                    assert x.extradata == y.extradata
+                else:
+                    assert x == y
+        assert len(self.ops) == len(expected)
+        return True
 
 class TestJump(object):
     def setup_method(self, m):
