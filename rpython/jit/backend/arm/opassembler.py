@@ -42,7 +42,7 @@ class GuardToken(object):
         assert isinstance(exc, bool)
         self.faildescr = faildescr
         self.failargs = failargs
-        self.fail_locs = fail_locs[1:]
+        self.fail_locs = fail_locs
         self.offset = offset
         self.gcmap = self.compute_gcmap(gcmap, failargs,
                                         fail_locs, frame_depth)
