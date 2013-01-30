@@ -1482,9 +1482,10 @@ class ObjSpace(object):
                     )
                 raise
             w_fd = self.call_function(w_fileno)
-            if not self.isinstance_w(w_fd, self.w_int):
+            if (not self.isinstance_w(w_fd, self.w_int) and
+                not self.isinstance_w(w_fd, self.w_long)):
                 raise OperationError(self.w_TypeError,
-                    self.wrap("fileno() must return an integer")
+                    self.wrap("fileno() returned a non-integer")
                 )
         fd = self.c_int_w(w_fd)
         if fd < 0:
