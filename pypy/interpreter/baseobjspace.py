@@ -1487,8 +1487,8 @@ class ObjSpace(object):
                 raise OperationError(self.w_TypeError,
                     self.wrap("fileno() returned a non-integer")
                 )
-        fd = self.c_int_w(w_fd)
-        if fd < 0:
+        fd = self.int_w(w_fd)
+        if fd < 0 or fd > 2147483647:
             raise operationerrfmt(self.w_ValueError,
                 "file descriptor cannot be a negative integer (%d)", fd
             )
