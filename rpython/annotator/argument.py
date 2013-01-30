@@ -1,6 +1,52 @@
 """
 Arguments objects.
 """
+from rpython.annotator.model import SomeTuple, SomeObject
+
+# for parsing call arguments
+class RPythonCallsSpace(object):
+    """Pseudo Object Space providing almost no real operation.
+    For the Arguments class: if it really needs other operations, it means
+    that the call pattern is too complex for R-Python.
+    """
+    w_tuple = SomeTuple
+    def newtuple(self, items_s):
+        if len(items_s) == 1 and items_s[0] is Ellipsis:
+            res = SomeObject()   # hack to get a SomeObject as the *arg
+            res.from_ellipsis = True
+            return res
+        else:
+            return SomeTuple(items_s)
+
+    def newdict(self):
+        raise CallPatternTooComplex, "'**' argument"
+
+    def unpackiterable(self, s_obj, expected_length=None):
+        if isinstance(s_obj, SomeTuple):
+            if (expected_length is not None and
+                expected_length != len(s_obj.items)):
+                raise ValueError
+            return list(s_obj.items)
+        if (s_obj.__class__ is SomeObject and
+            getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
+            return [Ellipsis]
+        raise CallPatternTooComplex, "'*' argument must be SomeTuple"
+    fixedview = unpackiterable
+    listview  = unpackiterable
+
+    def is_w(self, one, other):
+        return one is other
+
+    def type(self, item):
+        return type(item)
+
+    def is_true(self, s_tup):
+        assert isinstance(s_tup, SomeTuple)
+        return bool(s_tup.items)
+
+class CallPatternTooComplex(Exception):
+    pass
+
 class ArgumentsForTranslation(object):
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None):
