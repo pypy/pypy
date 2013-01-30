@@ -361,12 +361,10 @@ class ResOpAssembler(object):
         base_ofs = self.cpu.get_baseofs_of_frame_field() - WORD
         if len(arglocs) == 2:
             [return_val, fail_descr_loc] = arglocs
-            if op.getarg(0).type == FLOAT and not IS_X86_64:
-                XXX
-                size = WORD * 2
+            if op.getarg(0).type == FLOAT:
+                self.mc.VSTR(return_val.value, r.fp.value)#, imm=-base_ofs)
             else:
-                size = WORD
-            self.mc.STR_ri(return_val.value, r.fp.value)#, imm=-base_ofs)
+                self.mc.STR_ri(return_val.value, r.fp.value)#, imm=-base_ofs)
             #self.save_into_mem(raw_stack(0), return_val, imm(size))
         else:
             [fail_descr_loc] = arglocs
