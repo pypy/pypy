@@ -58,50 +58,13 @@ class ArgumentsForTranslation(object):
         "unpack the *arg and **kwd into arguments_w and keywords_w"
         if w_stararg is not None:
             self._combine_starargs_wrapped(w_stararg)
-        if w_starstararg is not None:
-            self._combine_starstarargs_wrapped(w_starstararg)
+        assert w_starstararg is None
 
     def _combine_starargs_wrapped(self, w_stararg):
         # unpack the * arguments
         space = self.space
         args_w = space.unpackiterable(w_stararg)
         self.arguments_w = self.arguments_w + args_w
-
-    def _combine_starstarargs_wrapped(self, w_starstararg):
-        # unpack the ** arguments
-        space = self.space
-        keywords, values_w = space.view_as_kwargs(w_starstararg)
-        if keywords is not None: # this path also taken for empty dicts
-            if self.keywords is None:
-                self.keywords = keywords
-                self.keywords_w = values_w
-            else:
-                if set(keywords) & set(self.keywords):
-                    raise TypeError("got multiple values for keyword arguments '%s'", set(keywords) & set(self.keywords))
-                self.keywords = self.keywords + keywords
-                self.keywords_w = self.keywords_w + values_w
-            return
-        if space.isinstance_w(w_starstararg, space.w_dict):
-            keys_w = space.unpackiterable(w_starstararg)
-        else:
-            w_keys = space.call_method(w_starstararg, "keys")
-            keys_w = space.unpackiterable(w_keys)
-        keywords_w = [None] * len(keys_w)
-        keywords = [None] * len(keys_w)
-        for i, w_key in enumerate(keys_w):
-            key = space.str_w(w_key)
-            if key in self.keywords:
-                raise TypeError("got multiple values for keyword argument '%s'" % key)
-            keywords[i] = key
-            keywords_w[i] = space.getitem(w_starstararg, w_key)
-        self.keyword_names_w = keys_w
-        if self.keywords is None:
-            self.keywords = keywords
-            self.keywords_w = keywords_w
-        else:
-            self.keywords = self.keywords + keywords
-            self.keywords_w = self.keywords_w + keywords_w
-
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,

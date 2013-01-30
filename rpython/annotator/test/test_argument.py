@@ -3,86 +3,16 @@ import py
 from rpython.annotator.argument import ArgumentsForTranslation, rawshape
 from rpython.flowspace.argument import Signature
 
-class dummy_wrapped_dict(dict):
-    def __nonzero__(self):
-        raise NotImplementedError
-
-class kwargsdict(dict):
-    pass
-
 class DummySpace(object):
     def newtuple(self, items):
         return tuple(items)
 
     def is_true(self, obj):
-        if isinstance(obj, dummy_wrapped_dict):
-            return bool(dict(obj))
         return bool(obj)
-
-    def fixedview(self, it):
-        return list(it)
-
-    def listview(self, it):
-        return list(it)
 
     def unpackiterable(self, it):
         return list(it)
 
-    def view_as_kwargs(self, x):
-        if len(x) == 0:
-            return [], []
-        return None, None
-
-    def newdict(self):
-        return {}
-
-    def newlist(self, l=[]):
-        return l
-
-    def setitem(self, obj, key, value):
-        obj[key] = value
-
-    def getitem(self, obj, key):
-        return obj[key]
-
-    def wrap(self, obj):
-        return obj
-
-    def str_w(self, s):
-        return str(s)
-
-    def len(self, x):
-        return len(x)
-
-    def int_w(self, x):
-        return x
-
-    def eq_w(self, x, y):
-        return x == y
-
-    def isinstance(self, obj, cls):
-        return isinstance(obj, cls)
-    isinstance_w = isinstance
-
-    def exception_match(self, w_type1, w_type2):
-        return issubclass(w_type1, w_type2)
-
-    def call_method(self, obj, name, *args):
-        method = getattr(obj, name)
-        return method(*args)
-
-    def type(self, obj):
-        class Type:
-            def getname(self, space, default='?'):
-                return type(obj).__name__
-        return Type()
-
-
-    w_TypeError = TypeError
-    w_AttributeError = AttributeError
-    w_UnicodeEncodeError = UnicodeEncodeError
-    w_dict = dict
-    w_str = str
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
                                    w_stararg=None, w_starstararg=None):
@@ -183,14 +113,6 @@ class TestArgumentsForTranslation(object):
                                        w_stararg=[3,4,5],
                                        w_starstararg={'e': 5, 'd': 7})
         assert rawshape(args) == (2, ('g', ), True, True)
-
-    def test_copy_and_shape(self):
-        space = DummySpace()
-        args = ArgumentsForTranslation(space, ['a'], ['x'], [1],
-                                       ['w1'], {'y': 'w2'})
-        args1 = args.copy()
-        args.combine_if_necessary()
-        assert rawshape(args1) == (1, ('x',), True, True)
 
 
     def test_flatten(self):
