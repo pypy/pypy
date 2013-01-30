@@ -1241,10 +1241,13 @@ class Assembler386(object):
         # Load the singlefloat arguments from main regs or stack to xmm regs
         if singlefloats is not None:
             for src, dst in singlefloats:
-                if isinstance(dst, RawEspLoc) and isinstance(src, RawStackLoc):
+                if isinstance(dst, RawEspLoc):
                     # XXX too much special logic
-                    self.mc.MOV32(X86_64_SCRATCH_REG, src)
-                    self.mc.MOV32(dst, X86_64_SCRATCH_REG)
+                    if isinstance(src, RawStackLoc):
+                        self.mc.MOV32(X86_64_SCRATCH_REG, src)
+                        self.mc.MOV32(dst, X86_64_SCRATCH_REG)
+                    else:
+                        self.mc.MOV32(dst, src)
                     continue
                 if isinstance(src, ImmedLoc):
                     self.mc.MOV(X86_64_SCRATCH_REG, src)

@@ -315,7 +315,6 @@ class TestCallingConv(Runner):
 
 
     def test_call_with_singlefloats(self):
-        py.test.skip("skip for now")
         cpu = self.cpu
         if not cpu.supports_floats or not cpu.supports_singlefloats:
             py.test.skip('requires floats and singlefloats')
