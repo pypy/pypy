@@ -649,29 +649,25 @@ class __extend__(pyframe.PyFrame):
         self.space.delitem(self.w_globals, w_varname)
 
     def LOAD_NAME(self, nameindex, next_instr):
+        w_varname = self.getname_w(nameindex)
         if self.w_locals is not self.w_globals:
-            w_varname = self.getname_w(nameindex)
             w_value = self.space.finditem(self.w_locals, w_varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
         # fall-back
-        self.LOAD_GLOBAL(nameindex, next_instr, self._load_name_failed)
+        varname = self.space.str_w(w_varname)
+        w_value = self._load_global(varname)
+        if w_value is None:
+            message = "name '%s' is not defined"
+            raise operationerrfmt(self.space.w_NameError, message, varname)
+        self.pushvalue(w_value)
 
-    def _load_name_failed(self, varname):
-        message = "name '%s' is not defined"
-        raise operationerrfmt(self.space.w_NameError, message, varname)
-    _load_name_failed._dont_inline_ = True
-
-    def _load_global(self, varname, error_handler):
+    def _load_global(self, varname):
         w_value = self.space.finditem_str(self.w_globals, varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
-            if w_value is None:
-                if error_handler is None:
-                    error_handler = self._load_global_failed
-                error_handler(varname)
         return w_value
     _load_global._always_inline_ = True
 
@@ -680,9 +676,12 @@ class __extend__(pyframe.PyFrame):
         raise operationerrfmt(self.space.w_NameError, message, varname)
     _load_global_failed._dont_inline_ = True
 
-    def LOAD_GLOBAL(self, nameindex, next_instr, error_handler=None):
-        self.pushvalue(self._load_global(self.getname_u(nameindex),
-                                         error_handler))
+    def LOAD_GLOBAL(self, nameindex, next_instr):
+        varname = self.getname_u(nameindex)
+        w_value = self._load_global(varname)
+        if w_value is None:
+            self._load_global_failed(varname)
+        self.pushvalue(w_value)
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
