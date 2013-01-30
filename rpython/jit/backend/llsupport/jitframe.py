@@ -81,6 +81,7 @@ def getofs(name):
 GCMAPLENGTHOFS = llmemory.arraylengthoffset(GCMAP)
 GCMAPBASEOFS = llmemory.itemoffsetof(GCMAP, 0)
 BASEITEMOFS = llmemory.itemoffsetof(JITFRAME.jf_frame, 0)
+LENGTHOFS = llmemory.arraylengthoffset(JITFRAME.jf_frame)
 SIGN_SIZE = llmemory.sizeof(lltype.Signed)
 UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
 
@@ -128,8 +129,12 @@ def jitframe_trace(obj_addr, prev):
             else:
                 new_state = 3 | ((state + 1) << 3) | (no << 9)
             (obj_addr + getofs('jf_gc_trace_state')).signed[0] = new_state
+            index = no * SIZEOFSIGNED * 8 + state
+            # sanity check
+            frame_lgt = (obj_addr + getofs('jf_frame') + LENGTHOFS).signed[0]
+            ll_assert(index < frame_lgt, "bogus frame field get")
             return (obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE *
-                    (no * SIZEOFSIGNED * 8 + state))
+                    (index))
         no += 1
         state = 0
     return llmemory.NULL

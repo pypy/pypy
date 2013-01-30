@@ -272,7 +272,7 @@ def test_custom_tracer():
                 jitframe.BASEITEMOFS + jitframe.SIGN_SIZE * no)
     
     frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
-    frame = lltype.malloc(jitframe.JITFRAME, 15, zero=True)
+    frame = lltype.malloc(jitframe.JITFRAME, 100, zero=True)
     frame.jf_frame_info = frame_info
     frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 2, flavor='raw')
     if sys.maxint == 2**31 - 1:
