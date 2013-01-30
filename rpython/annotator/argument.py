@@ -9,7 +9,6 @@ class RPythonCallsSpace(object):
     For the Arguments class: if it really needs other operations, it means
     that the call pattern is too complex for R-Python.
     """
-    w_tuple = SomeTuple
     def newtuple(self, items_s):
         if len(items_s) == 1 and items_s[0] is Ellipsis:
             res = SomeObject()   # hack to get a SomeObject as the *arg
@@ -18,27 +17,13 @@ class RPythonCallsSpace(object):
         else:
             return SomeTuple(items_s)
 
-    def newdict(self):
-        raise CallPatternTooComplex, "'**' argument"
-
     def unpackiterable(self, s_obj, expected_length=None):
         if isinstance(s_obj, SomeTuple):
-            if (expected_length is not None and
-                expected_length != len(s_obj.items)):
-                raise ValueError
             return list(s_obj.items)
         if (s_obj.__class__ is SomeObject and
             getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
             return [Ellipsis]
-        raise CallPatternTooComplex, "'*' argument must be SomeTuple"
-    fixedview = unpackiterable
-    listview  = unpackiterable
-
-    def is_w(self, one, other):
-        return one is other
-
-    def type(self, item):
-        return type(item)
+        raise CallPatternTooComplex("'*' argument must be SomeTuple")
 
     def is_true(self, s_tup):
         assert isinstance(s_tup, SomeTuple)
