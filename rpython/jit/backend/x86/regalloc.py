@@ -1322,6 +1322,7 @@ class RegAlloc(object):
         descr._x86_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
         self.possibly_free_vars_for_op(op)
+        self.assembler.label()
         #
         # if the LABEL's descr is precisely the target of the JUMP at the
         # end of the same loop, i.e. if what we are compiling is a single

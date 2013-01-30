@@ -72,6 +72,16 @@ class AbstractLLCPU(AbstractCPU):
             llop.gc_assume_young_pointers(lltype.Void, new_frame)
             return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
 
+        def realloc_frame_check(frame, size):
+            frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
+            if size > len(frame.jf_frame) or size > frame.jf_frame_info.jfi_frame_depth:
+                print "CHECK FAILED"
+                import pdb
+                pdb.set_trace()
+                assert False
+            print "SOMETHING INCREDIBLY FISHY"
+            return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
+
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame)
         else:
@@ -83,6 +93,18 @@ class AbstractLLCPU(AbstractCPU):
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
         self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
+
+        if not translate_support_code:
+            fptr = llhelper(FUNC_TP, realloc_frame_check)
+        else:
+            FUNC = FUNC_TP.TO
+            args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+            s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+            mixlevelann = MixLevelHelperAnnotator(self.rtyper)
+            graph = mixlevelann.getgraph(realloc_frame, args_s, s_result)
+            fptr = mixlevelann.graph2delayed(graph, FUNC)
+            mixlevelann.finish()
+        self.realloc_frame_check = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
 
     def _setup_exception_handling_untranslated(self):
         # for running un-translated only, all exceptions occurring in the
