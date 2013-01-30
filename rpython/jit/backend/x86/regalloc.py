@@ -29,6 +29,8 @@ from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.rarithmetic import r_longlong, r_uint
+from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
+                                have_debug_prints)
 
 class X86RegisterManager(RegisterManager):
 
@@ -896,6 +898,7 @@ class RegAlloc(object):
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
         gcmap = self.assembler.allocate_gcmap(frame_depth)
+        debug_start("jit-backend-gcmap")
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:
                 continue
@@ -909,6 +912,9 @@ class RegAlloc(object):
                 assert isinstance(loc, StackLoc)
                 val = loc.value // WORD
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        for i in range(len(gcmap)):
+            debug_print(str(gcmap[i]))
+        debug_stop('jit-backend-gcmap')
         return gcmap
 
 

@@ -1883,6 +1883,8 @@ class Assembler386(object):
         malloc_size = (size // WORD // 8 + 1) + 1
         rawgcmap = self.datablockwrapper.malloc_aligned(WORD * malloc_size,
                                                         WORD)
+        debug_print("gcmap: %x, len %d for %d" % (rawgcmap, malloc_size - 1,
+                                                  self.mc.get_relative_pos()))
         # set the length field
         rffi.cast(rffi.CArrayPtr(lltype.Signed), rawgcmap)[0] = malloc_size - 1
         gcmap = rffi.cast(lltype.Ptr(jitframe.GCMAP), rawgcmap)
