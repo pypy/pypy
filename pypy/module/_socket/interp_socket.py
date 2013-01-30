@@ -272,7 +272,7 @@ class W_RSocket(Wrappable, RSocket):
             return space.w_None
         return space.wrap(timeout)
 
-    @unwrap_spec(backlog=int)
+    @unwrap_spec(backlog="c_int")
     def listen_w(self, space, backlog):
         """listen(backlog)
 
@@ -492,7 +492,7 @@ class W_RSocket(Wrappable, RSocket):
         finally:
             lltype.free(recv_ptr, flavor='raw')
 
-    @unwrap_spec(how=int)
+    @unwrap_spec(how="c_int")
     def shutdown_w(self, space, how):
         """shutdown(flag)
 
