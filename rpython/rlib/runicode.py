@@ -13,6 +13,27 @@ else:
 
 BYTEORDER = sys.byteorder
 
+# python 2.7 has a preview of py3k behavior, so those functions
+# are used either when we're testing wide pypy on narrow cpython
+# or in unicodedata in pypy
+
+def unichr_returns_surrogate(c):
+    if c <= sys.maxunicode or c > MAXUNICODE:
+        return unichr(c)
+    else:
+        c -= 0x10000
+        return (unichr(0xD800 + (c >> 10)) +
+                unichr(0xDC00 + (c & 0x03FF)))
+
+def ord_accepts_surrogate(u):
+    if isinstance(u, unicode) and len(u) == 2:
+        ch1 = ord(u[0])
+        ch2 = ord(u[1])
+        if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
+            return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
+    assert len(u) == 1
+    return ord(u[0])
+
 if MAXUNICODE > sys.maxunicode:
     # A version of unichr which allows codes outside the BMP
     # even on narrow unicode builds.
@@ -21,12 +42,7 @@ if MAXUNICODE > sys.maxunicode:
     # Note that Python3 uses a similar implementation.
     def UNICHR(c):
         assert not we_are_translated()
-        if c <= sys.maxunicode or c > MAXUNICODE:
-            return unichr(c)
-        else:
-            c -= 0x10000
-            return (unichr(0xD800 + (c >> 10)) +
-                    unichr(0xDC00 + (c & 0x03FF)))
+        return unichr_returns_surrogate(c)
     UNICHR._flowspace_rewrite_directly_as_ = unichr
     # ^^^ NB.: for translation, it's essential to use this hack instead
     # of calling unichr() from UNICHR(), because unichr() detects if there
@@ -34,12 +50,7 @@ if MAXUNICODE > sys.maxunicode:
 
     def ORD(u):
         assert not we_are_translated()
-        if isinstance(u, unicode) and len(u) == 2:
-            ch1 = ord(u[0])
-            ch2 = ord(u[1])
-            if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
-                return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-        return ord(u)
+        return ord_accepts_surrogate(u)
     ORD._flowspace_rewrite_directly_as_ = ord
 
 else:
@@ -50,13 +61,13 @@ if MAXUNICODE > 0xFFFF:
     def code_to_unichr(code):
         if not we_are_translated() and sys.maxunicode == 0xFFFF:
             # Host CPython is narrow build, generate surrogates
-            return UNICHR(code)
+            return unichr_returns_surrogate(code)
         else:
             return unichr(code)
 else:
     def code_to_unichr(code):
         # generate surrogates for large codes
-        return UNICHR(code)
+        return unichr_returns_surrogate(code)
 
 def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)

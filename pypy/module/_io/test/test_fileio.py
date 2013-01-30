@@ -2,7 +2,7 @@ from rpython.tool.udir import udir
 import os
 
 class AppTestFileIO:
-    spaceconfig = dict(usemodules=['_io'])
+    spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
 
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')

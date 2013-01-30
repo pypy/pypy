@@ -1,5 +1,6 @@
+from rpython.flowspace.model import Variable, Constant
 from rpython.rlib.unroll import SpecTag
-from rpython.flowspace.model import *
+
 
 class FrameState:
     def __init__(self, mergeable, blocklist, next_instr):
@@ -86,6 +87,7 @@ def union(w1, w2):
     raise TypeError('union of %r and %r' % (w1.__class__.__name__,
                                             w2.__class__.__name__))
 
+
 # ____________________________________________________________
 #
 # We have to flatten out the state of the frame into a list of
@@ -102,6 +104,7 @@ class PickleTag:
 PICKLE_TAGS = {}
 UNPICKLE_TAGS = {}
 
+
 def recursively_flatten(space, lst):
     from rpython.flowspace.flowcontext import SuspendedUnroller
     i = 0
@@ -117,14 +120,15 @@ def recursively_flatten(space, lst):
             except:
                 tag = PICKLE_TAGS[key] = Constant(PickleTag())
                 UNPICKLE_TAGS[tag] = key
-            lst[i:i+1] = [tag] + vars
+            lst[i:i + 1] = [tag] + vars
+
 
 def recursively_unflatten(space, lst):
-    for i in xrange(len(lst)-1, -1, -1):
+    for i in xrange(len(lst) - 1, -1, -1):
         item = lst[i]
         if item in UNPICKLE_TAGS:
             unrollerclass, argcount = UNPICKLE_TAGS[item]
-            arguments = lst[i+1: i+1+argcount]
-            del lst[i+1: i+1+argcount]
+            arguments = lst[i + 1:i + 1 + argcount]
+            del lst[i + 1:i + 1 + argcount]
             unroller = unrollerclass.state_pack_variables(space, *arguments)
             lst[i] = unroller

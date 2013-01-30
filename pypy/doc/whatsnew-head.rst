@@ -34,6 +34,9 @@ Rudimentary support for bytearray in RPython
 .. branch: kill-faking
 .. branch: improved_ebnfparse_error
 .. branch: task-decorator
+.. branch: fix-e4fa0b2
+.. branch: win32-fixes
+.. branch: fix-version-tool
 
 .. branch: release-2.0-beta1
 

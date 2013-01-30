@@ -32,6 +32,15 @@ try:
 except ImportError:
     class tlsobject(object):
         pass
+try:
+    from threading import RLock
+except ImportError:
+    class RLock(object):
+        def __enter__(self):
+            pass
+        def __exit__(self, *args):
+            pass
+rlock = RLock()
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
@@ -694,10 +703,11 @@ def get_rtyper():
         return None
 
 def lltype2ctypes(llobj, normalize=True):
-    """Convert the lltype object 'llobj' to its ctypes equivalent.
-    'normalize' should only be False in tests, where we want to
-    inspect the resulting ctypes object manually.
-    """
+  """Convert the lltype object 'llobj' to its ctypes equivalent.
+  'normalize' should only be False in tests, where we want to
+  inspect the resulting ctypes object manually.
+  """
+  with rlock:
     if isinstance(llobj, lltype._uninitialized):
         return uninitialized2ctypes(llobj.TYPE)
     if isinstance(llobj, llmemory.AddressAsInt):
@@ -875,9 +885,10 @@ def lltype2ctypes(llobj, normalize=True):
     return llobj
 
 def ctypes2lltype(T, cobj):
-    """Convert the ctypes object 'cobj' to its lltype equivalent.
-    'T' is the expected lltype type.
-    """
+  """Convert the ctypes object 'cobj' to its lltype equivalent.
+  'T' is the expected lltype type.
+  """
+  with rlock:
     if T is lltype.Void:
         return None
     if isinstance(T, lltype.Typedef):
@@ -1176,10 +1187,11 @@ class LL2CtypesCallable(object):
         #self.funcptr = ...  set later
 
     def __call__(self, *argvalues):
-        if self.trampoline is None:
-            # lazily build the corresponding ctypes function object
-            cfunc = get_ctypes_callable(self.funcptr, self.calling_conv)
-            self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc)
+        with rlock:
+            if self.trampoline is None:
+                # lazily build the corresponding ctypes function object
+                cfunc = get_ctypes_callable(self.funcptr, self.calling_conv)
+                self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc)
         # perform the call
         return self.trampoline(*argvalues)
 
@@ -1215,8 +1227,9 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
         return ctypes2lltype(RESULT, cres)
     return invoke_via_ctypes
 
+
 def force_cast(RESTYPE, value):
-    """Cast a value to a result type, trying to use the same rules as C."""
+  with rlock:
     if not isinstance(RESTYPE, lltype.LowLevelType):
         raise TypeError("rffi.cast() first arg should be a TYPE")
     if isinstance(value, llmemory.AddressAsInt):
