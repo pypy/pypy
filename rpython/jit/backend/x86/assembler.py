@@ -313,9 +313,8 @@ class Assembler386(object):
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
-        #if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
-        return      # no stack check (for tests, or non-translated)
-        xxx
+        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
+            return      # no stack check (for tests, or non-translated)
         #
         # make a "function" that is called immediately at the start of
         # an assembler function.  In particular, the stack looks like:
@@ -327,18 +326,14 @@ class Assembler386(object):
         #
         mc = codebuf.MachineCodeBlockWrapper()
         #
-        stack_size = WORD
         if IS_X86_64:
             # on the x86_64, we have to save all the registers that may
-            # have been used to pass arguments
-            stack_size += 6*WORD + 8*8
-            for reg in [edi, esi, edx, ecx, r8, r9]:
-                mc.PUSH_r(reg.value)
-            mc.SUB_ri(esp.value, 8*8)
-            for i in range(8):
-                mc.MOVSD_sx(8*i, i)     # xmm0 to xmm7
+            # have been used to pass arguments. Note that we pass only
+            # one argument, that is the frame
+            mc.PUSH_r(edi.value)
         #
         if IS_X86_32:
+            xxx
             stack_size += 2*WORD
             mc.PUSH_r(eax.value)        # alignment
             mc.PUSH_r(esp.value)
@@ -354,14 +349,11 @@ class Assembler386(object):
         jnz_location = mc.get_relative_pos()
         #
         if IS_X86_32:
+            xxxx
             mc.ADD_ri(esp.value, 2*WORD)    # cancel the two PUSHes above
         elif IS_X86_64:
-            # restore the registers
-            for i in range(7, -1, -1):
-                mc.MOVSD_xs(i, 8*i)
-            mc.ADD_ri(esp.value, 8*8)
-            for reg in [r9, r8, ecx, edx, esi, edi]:
-                mc.POP_r(reg.value)
+            # restore the edi
+            mc.POP_r(edi.value)
         #
         mc.RET()
         #
@@ -379,7 +371,7 @@ class Assembler386(object):
         # function, and will instead return to the caller's caller.  Note
         # also that we completely ignore the saved arguments, because we
         # are interrupting the function.
-        mc.ADD_ri(esp.value, stack_size)
+        mc.ADD_ri(esp.value, 2*WORD)
         mc.RET()
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
