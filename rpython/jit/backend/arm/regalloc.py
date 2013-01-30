@@ -303,9 +303,12 @@ class Regalloc(object):
         self.possibly_free_vars(list(inputargs))
         return operations
 
-    def prepare_bridge(self, inputargs, arglocs, ops):
-        self._prepare(inputargs, ops)
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs,
+                       frame_info):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
+        return operations
+
 
     def get_final_frame_depth(self):
         return self.frame_manager.get_frame_depth()
@@ -320,16 +323,19 @@ class Regalloc(object):
         used = {}
         i = 0
         for loc in locs:
+            if loc is None:
+                loc = r.fp
             arg = inputargs[i]
             i += 1
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
+                used[loc] = None
             elif loc.is_vfp_reg():
                 self.vfprm.reg_bindings[arg] = loc
+                used[loc] = None
             else:
                 assert loc.is_stack()
-                self.frame_manager.set_binding(arg, loc)
-            used[loc] = None
+                self.frame_manager.bind(arg, loc)
 
         # XXX combine with x86 code and move to llsupport
         self.rm.free_regs = []
