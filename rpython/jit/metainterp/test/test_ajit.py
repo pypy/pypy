@@ -1695,8 +1695,6 @@ class BasicTests:
 
     def test_guard_always_changing_value(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'a'])
-        class A:
-            pass
         def f(x):
             a = 0
             while x > 0:
