@@ -66,10 +66,7 @@ class ARMFrameManager(FrameManager):
 
     @staticmethod
     def frame_pos(i, box_type):
-        if box_type == FLOAT:
-            return locations.StackLocation(i, get_fp_offset(i + 1), box_type)
-        else:
-            return locations.StackLocation(i, get_fp_offset(i), box_type)
+        return locations.StackLocation(i, get_fp_offset(i), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -317,7 +314,6 @@ class Regalloc(object):
         # the input args are passed in the jitframe
         for box in inputargs:
             assert isinstance(box, Box)
-            assert box.type != FLOAT
             self.fm.get_new_loc(box)
 
     def _update_bindings(self, locs, inputargs):
