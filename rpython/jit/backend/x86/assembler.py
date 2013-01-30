@@ -1261,7 +1261,8 @@ class Assembler386(object):
             dst_locs.append(r10)
             x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        self.push_gcmap(self.mc, self._regalloc.get_gcmap([eax]), store=True)
+        self.push_gcmap(self.mc, self._regalloc.get_gcmap([eax], noregs=True),
+                        store=True)
         self.mc.CALL(x)
         self._reload_frame_if_necessary(self.mc)
         if align:

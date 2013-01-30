@@ -139,6 +139,7 @@ class GcLLDescription(GcCache):
         """ Allocate a new frame, overwritten by tests
         """
         frame = jitframe.JITFRAME.allocate(frame_info)
+        llop.gc_assume_young_pointers(lltype.Void, frame)
         return frame
 
 class JitFrameDescrs:
