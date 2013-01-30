@@ -2502,19 +2502,24 @@ class Assembler386(object):
         not_implemented("not implemented operation (guard): %s" %
                         op.getopname())
 
+    def check_frame_before_jump(self, target_token):
+        if target_token in self.target_tokens_currently_compiling:
+            return
+        if target_token._x86_clt is self.current_clt:
+            return
+        # We can have a frame coming from god knows where that's
+        # passed to a jump to another loop. Make sure it has the
+        # correct depth
+        expected_size = target_token._x86_clt.frame_info.jfi_frame_depth
+        self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
+                                expected_size=expected_size)
+
     def closing_jump(self, target_token):
         target = target_token._x86_loop_code
         if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
             self.mc.JMP_l(target - curpos)
         else:
-            if target_token._x86_clt is not self.current_clt:
-                # We can have a frame coming from god knows where that's
-                # passed to a jump to another loop. Make sure it has the
-                # correct depth
-                expected_size = target_token._x86_clt.frame_info.jfi_frame_depth
-                self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
-                                        expected_size=expected_size)
             self.mc.JMP(imm(target))
 
     def label(self):

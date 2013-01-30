@@ -1260,6 +1260,7 @@ class RegAlloc(object):
             tmpreg = None
             xmmtmp = None
         # Do the remapping
+        assembler.check_frame_before_jump(self.jump_target_descr)
         remap_frame_layout_mixed(assembler,
                                  src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
