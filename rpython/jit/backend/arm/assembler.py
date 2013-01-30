@@ -688,31 +688,35 @@ class AssemblerARM(ResOpAssembler):
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
-        assert 0
-        operations = self.setup(original_loop_token, operations)
-        descr_number = self.cpu.get_fail_descr_number(faildescr)
+        if not we_are_translated():
+            # Arguments should be unique
+            assert len(set(inputargs)) == len(inputargs)
+
+        self.setup(original_loop_token)
+        descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
+
         assert isinstance(faildescr, AbstractFailDescr)
-        code = self._find_failure_recovery_bytecode(faildescr)
-        frame_depth = faildescr._arm_current_frame_depth
-        arglocs = self.decode_inputargs(code)
-        if not we_are_translated():
-            assert len(inputargs) == len(arglocs)
 
-        regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
-        regalloc.prepare_bridge(inputargs, arglocs, operations)
+        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
 
-        sp_patch_location = self._prepare_sp_patch_position()
+        regalloc = Regalloc(assembler=self)
+        operations = regalloc.prepare_bridge(inputargs, arglocs,
+                                             operations,
+                                             self.current_clt.allgcrefs,
+                                             self.current_clt.frame_info)
+
+        #sp_patch_location = self._prepare_sp_patch_position()
 
         startpos = self.mc.get_relative_pos()
 
-        frame_depth = self._assemble(operations, regalloc)
+        frame_depth = self._assemble(regalloc, inputargs, operations)
 
         codeendpos = self.mc.get_relative_pos()
 
-        self._patch_sp_offset(sp_patch_location, frame_depth)
+        #self._patch_sp_offset(sp_patch_location, frame_depth)
 
         self.write_pending_failure_recoveries()
 
@@ -721,6 +725,7 @@ class AssemblerARM(ResOpAssembler):
         self.process_pending_guards(rawstart)
         self.fixup_target_tokens(rawstart)
 
+        # patch the jump from original guard
         self.patch_trace(faildescr, original_loop_token,
                                     rawstart, regalloc)
 
@@ -728,10 +733,9 @@ class AssemblerARM(ResOpAssembler):
             # for the benefit of tests
             faildescr._arm_bridge_frame_depth = frame_depth
             if log:
-                self.mc._dump_trace(rawstart, 'bridge_%d.asm' %
-                self.cpu.total_compiled_bridges)
-        self.current_clt.frame_depth = max(self.current_clt.frame_depth,
-                                                                frame_depth)
+                self.mc._dump_trace(rawstart, 'bridge.asm')
+        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
+                          frame_depth + JITFRAME_FIXED_SIZE)
         ops_offset = self.mc.ops_offset
         self.teardown()
 
@@ -742,15 +746,26 @@ class AssemblerARM(ResOpAssembler):
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
-    def _find_failure_recovery_bytecode(self, faildescr):
-        guard_stub_addr = faildescr._arm_failure_recovery_block
-        if guard_stub_addr == 0:
-            # This case should be prevented by the logic in compile.py:
-            # look for CNT_BUSY_FLAG, which disables tracing from a guard
-            # when another tracing from the same guard is already in progress.
-            raise BridgeAlreadyCompiled
-        # a guard requires 3 words to encode the jump to the exit code.
-        return guard_stub_addr + 3 * WORD
+    def rebuild_faillocs_from_descr(self, descr, inputargs):
+        locs = []
+        GPR_REGS = len(CoreRegisterManager.all_regs)
+        VFP_REGS = len(VFPRegisterManager.all_regs)
+        input_i = 0
+        for pos in descr.rd_locs:
+            if pos == -1:
+                continue
+            elif pos < GPR_REGS * WORD:
+                locs.append(CoreRegisterManager.all_regs[pos // WORD])
+            elif pos < (GPR_REGS * WORD + VFP_REGS * DOUBLE_WORD):
+                pos = pos // DOUBLE_WORD - GPR_REGS * WORD // DOUBLE_WORD
+                locs.append(VFPRegisterManager.all_regs[pos])
+            else:
+                i = pos // WORD - JITFRAME_FIXED_SIZE
+                assert i >= 0
+                tp = inputargs[input_i].type
+                locs.append(StackLocation(i, pos, tp))
+            input_i += 1
+        return locs
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
