@@ -22,13 +22,23 @@ class AppTestFcntl:
         import sys
         import struct
 
+        class F:
+            def __init__(self, fn):
+                self.fn = fn
+            def fileno(self):
+                return self.fn
+
         f = open(self.tmp + "b", "w+")
 
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
+        fcntl.fcntl(F(long(f.fileno())), 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
-        raises((IOError, ValueError), fcntl.fcntl, -1, 1, 0)
+        raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        raises(ValueError, fcntl.fcntl, -1, 1, 0)
+        raises(ValueError, fcntl.fcntl, F(-1), 1, 0)
+        raises(ValueError, fcntl.fcntl, F(long(-1)), 1, 0)
         assert fcntl.fcntl(f, 1, 0) == 0
         assert fcntl.fcntl(f, 2, "foo") == "foo"
         assert fcntl.fcntl(f, 2, buffer("foo")) == "foo"
