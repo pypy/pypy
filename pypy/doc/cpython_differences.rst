@@ -318,10 +318,5 @@ Miscellaneous
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
 
-* the ``__len__`` or ``__length_hint__`` special methods are sometimes
-  called by CPython to get a length estimate to preallocate internal arrays.
-  So far, PyPy never calls ``__len__`` for this purpose, and never calls
-  ``__length_hint__`` at all.
-
 
 .. include:: _ref.txt
