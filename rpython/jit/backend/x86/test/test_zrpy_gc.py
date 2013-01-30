@@ -7,15 +7,13 @@ and the various cases of write barrier.
 import weakref
 import os
 from rpython.rlib import rgc
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
-from rpython.rlib.libffi import CDLL, types, ArgChain, clibffi
-from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
+
 
 class X(object):
     def __init__(self, x=0):
@@ -29,18 +27,6 @@ class CheckError(Exception):
 def check(flag):
     if not flag:
         raise CheckError
-
-def get_g(main):
-    main._dont_inline_ = True
-    def g(name, n):
-        x = X()
-        x.foo = 2
-        main(n, x)
-        x.foo = 5
-        return weakref.ref(x)
-    g._dont_inline_ = True
-    return g
-
 
 def get_entry(g):
 
@@ -66,7 +52,6 @@ def get_entry(g):
         return 0
 
     return entrypoint
-
 
 def get_functions_to_patch():
     from rpython.jit.backend.llsupport import gc
@@ -123,31 +108,6 @@ def run(cbuilder, args=''):
     pypylog = udir.join('test_zrpy_gc.log')
     data = cbuilder.cmdexec(args, env={'PYPYLOG': ':%s' % pypylog})
     return data.strip()
-
-def compile_and_run(f, gc, **kwds):
-    cbuilder = compile(f, gc, **kwds)
-    return run(cbuilder)
-
-
-
-def test_compile_boehm():
-    myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
-    @dont_look_inside
-    def see(lst, n):
-        assert len(lst) == 3
-        assert lst[0] == n+10
-        assert lst[1] == n+20
-        assert lst[2] == n+30
-    def main(n, x):
-        while n > 0:
-            myjitdriver.can_enter_jit(n=n, x=x)
-            myjitdriver.jit_merge_point(n=n, x=x)
-            y = X()
-            y.foo = x.foo
-            n -= y.foo
-            see([n+10, n+20, n+30], n)
-    res = compile_and_run(get_entry(get_g(main)), "boehm", jit=True)
-    assert int(res) >= 16
 
 # ______________________________________________________________________
 

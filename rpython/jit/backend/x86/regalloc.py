@@ -749,8 +749,7 @@ class RegAlloc(object):
         #  - at least the non-callee-saved registers
         #
         #  - for shadowstack, we assume that any call can collect, and we
-        #    save also the callee-saved registers that contain GC pointers,
-        #    so that they can be found by follow_stack_frame_of_assembler()
+        #    save also the callee-saved registers that contain GC pointers.
         #
         #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
         #    anyway, in case we need to do cpu.force().  The issue is that
@@ -894,13 +893,14 @@ class RegAlloc(object):
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)
 
-    def get_gcmap(self, forbidden_regs=[]):
+    def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
         gcmap = self.assembler.allocate_gcmap(frame_depth)
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:
                 continue
             if box.type == REF:
+                assert not noregs
                 assert isinstance(loc, RegLoc)
                 val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
