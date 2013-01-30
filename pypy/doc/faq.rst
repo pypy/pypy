@@ -300,12 +300,26 @@ coercion rules would probably drive you insane first).  -- mwh
 Do I have to rewrite my programs in RPython?
 --------------------------------------------
 
-No.  And you shouldn't try.  PyPy always runs your code in its own interpreter, which is a
-full and compliant Python 2.7 interpreter.  RPython is only the
-language in which parts of PyPy itself are written and extension
-modules for it.  Not only is it not necessary for you to rewrite your
-code in RPython, it probably won't give you any speed improvements if you 
-try.
+No.  And you shouldn't try.  First and foremost, RPython is a language
+that is designed to write interpreters in.  It is a restricted subset of
+Python.  If you program is not an interpreter but tries to do "real
+things", like use *any* part of the standard Python library or *any*
+3rd-party library, then it is not RPython to start with.  You should
+only look at RPython if you try to `write your own interpreter`__.
+
+.. __: `how do I compile my own interpreters`_
+
+If your goal is to speed up Python code, then look at the regular PyPy,
+which is a full and compliant Python 2.7 interpreter (which happens to
+be written in RPython).  Not only is it not necessary for you to rewrite
+your code in RPython, it might not give you any speed improvements even
+if you manage to.
+
+Yes, it is possible with enough effort to compile small self-contained
+pieces of RPython code doing a few performance-sensitive things.  But
+this case is not interesting for us.  If you needed to rewrite the code
+in RPython, you could as well have rewritten it in C for example.  The
+latter is a much more supported, much more documented language `:-)`
 
 ---------------------------------------------------
 Which backends are there for the RPython toolchain?
