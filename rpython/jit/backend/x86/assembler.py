@@ -1143,9 +1143,10 @@ class Assembler386(object):
         return genop_cmp_guard_float
 
     def _emit_call(self, x, arglocs, start=0, tmp=eax,
-                   argtypes=None, callconv=FFI_DEFAULT_ABI):
+                   argtypes=None, callconv=FFI_DEFAULT_ABI, can_collect=True):
         if IS_X86_64:
-            return self._emit_call_64(x, arglocs, start, argtypes)
+            return self._emit_call_64(x, arglocs, start, argtypes,
+                                      can_collect=can_collect)
         XXX
         p = 0
         n = len(arglocs)
@@ -1183,7 +1184,7 @@ class Assembler386(object):
         # the called function just added 'p' to ESP, by subtracting it again.
         self.mc.SUB_ri(esp.value, p)
 
-    def _emit_call_64(self, x, arglocs, start, argtypes):
+    def _emit_call_64(self, x, arglocs, start, argtypes, can_collect=True):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
@@ -1261,13 +1262,16 @@ class Assembler386(object):
             dst_locs.append(r10)
             x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        self.push_gcmap(self.mc, self._regalloc.get_gcmap([eax], noregs=True),
-                        store=True)
+        if can_collect:
+            self.push_gcmap(self.mc, self._regalloc.get_gcmap([eax], noregs=True),
+                            store=True)
         self.mc.CALL(x)
-        self._reload_frame_if_necessary(self.mc)
+        if can_collect:
+            self._reload_frame_if_necessary(self.mc)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
-        self.pop_gcmap(self.mc)
+        if can_collect:
+            self.pop_gcmap(self.mc)
 
     def _reload_frame_if_necessary(self, mc):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
