@@ -8,9 +8,10 @@ from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
                                     N_REGISTERS_SAVED_BY_MALLOC, \
                                     JITFRAME_FIXED_SIZE, FRAME_FIXED_SIZE
 from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
-from rpython.jit.backend.arm.locations import get_fp_offset, imm
+from rpython.jit.backend.arm.locations import get_fp_offset, imm, StackLocation
 from rpython.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                     CoreRegisterManager, check_imm_arg,
+                    VFPRegisterManager,
                     operations as regalloc_operations,
                     operations_with_guard as regalloc_operations_with_guard)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -373,7 +374,7 @@ class AssemblerARM(ResOpAssembler):
         # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
         self.mc.CMP_ri(r.r0.value, 0)
         self.mc.B(self.propagate_exception_path, c=c.EQ)
-    
+
     def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
                                 callee_only=False):
         if callee_only:
@@ -386,7 +387,15 @@ class AssemblerARM(ResOpAssembler):
                 continue
             mc.STR_ri(gpr.value, r.fp.value, i * WORD)
         if withfloats:
-            assert 0, 'implement me'
+            if callee_only:
+                regs = VFPRegisterManager.save_around_call_regs
+            else:
+                regs = VFPRegisterManager.all_regs
+            for i, vfpr in enumerate(regs):
+                if vfpr in ignored_regs:
+                    continue
+                # add the offset of the gpr_regs
+                mc.VSTR(vfpr.value, r.fp.value, imm=i * DOUBLE_WORD)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = ARMv7Builder()
@@ -497,9 +506,8 @@ class AssemblerARM(ResOpAssembler):
                     assert loc is not r.fp # for now
                     v = loc.value
                 else:
-                    assert 0, 'fix for floats'
                     assert loc.is_vfp_reg()
-                    #v = len(VFPRegisterManager.all_regs) + loc.value
+                    v = len(CoreRegisterManager.all_regs) + loc.value * 2
                 positions[i] = v * WORD
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
