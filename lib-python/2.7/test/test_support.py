@@ -1181,7 +1181,6 @@ def _run_suite(suite):
     else:
         runner = BasicTestRunner()
 
-
     result = runner.run(suite)
     if not result.wasSuccessful():
         if len(result.errors) == 1 and not result.failures:
