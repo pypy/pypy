@@ -72,6 +72,7 @@ The blocking operation is interruptible."""
         microseconds = parse_acquire_args(space, blocking, timeout)
         mylock = self.lock
         result = mylock.acquire_timed(microseconds)
+        result = (result == 1)    # XXX handle RPY_LOCK_INTR (see e80549fefb75)
         return space.newbool(result)
 
     def descr_lock_release(self, space):
@@ -184,6 +185,7 @@ class W_RLock(Wrappable):
             if not blocking:
                 return space.w_False
             r = self.lock.acquire_timed(microseconds)
+            r = (r == 1)    # XXX handle RPY_LOCK_INTR (see e80549fefb75)
         if r:
             assert self.rlock_count == 0
             self.rlock_owner = tid
