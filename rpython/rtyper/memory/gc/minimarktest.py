@@ -1,7 +1,7 @@
-from pypy.rpython.lltypesystem import llarena
-from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
-from pypy.rlib.debug import ll_assert
-from pypy.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper.lltypesystem import llarena
+from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
+from rpython.rlib.debug import ll_assert
+from rpython.rlib.rarithmetic import LONG_BIT
 
 # For testing, a simple implementation of ArenaCollection.
 # This version could be used together with obmalloc.c, but

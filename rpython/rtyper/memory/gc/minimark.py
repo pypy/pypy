@@ -254,7 +254,7 @@ class MiniMarkGC(MovingGCBase):
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
         if ArenaCollectionClass is None:
-            from pypy.rpython.memory.gc import minimarkpage
+            from rpython.rtyper.memory.gc import minimarkpage
             ArenaCollectionClass = minimarkpage.ArenaCollection
         self.ac = ArenaCollectionClass(arena_size, page_size,
                                        small_request_threshold)
