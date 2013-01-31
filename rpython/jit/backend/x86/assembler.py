@@ -215,10 +215,18 @@ class Assembler386(object):
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.ADD_ri(esp.value, WORD)
         mc.LEA_rm(ebp.value, (eax.value, base_ofs))
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._load_shadowstack_top_in_ebx(mc, gcrootmap)
+            mc.MOV_mr((ebx.value, -WORD), eax.value)
+
         mc.MOV_bi(gcmap_ofs, 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
         self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
+
+        # XXX an almost identical copy for debugging, remove
 
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
@@ -236,6 +244,11 @@ class Assembler386(object):
         mc.CALL(imm(self.cpu.realloc_frame_check))
         mc.ADD_ri(esp.value, WORD)
         mc.LEA_rm(ebp.value, (eax.value, base_ofs))
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._load_shadowstack_top_in_ebx(mc, gcrootmap)
+            mc.MOV_mr((ebx.value, -WORD), eax.value)
         mc.MOV_bi(gcmap_ofs, 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
@@ -877,27 +890,33 @@ class Assembler386(object):
         self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.RET()
 
+    def _load_shadowstack_top_in_ebx(self, mc, gcrootmap):
+        rst = gcrootmap.get_root_stack_top_addr()
+        if rx86.fits_in_32bits(rst):
+            mc.MOV_rj(ebx.value, rst)            # MOV ebx, [rootstacktop]
+        else:
+            mc.MOV_ri(X86_64_SCRATCH_REG.value, rst) # MOV r11, rootstacktop
+            mc.MOV_rm(ebx.value, (X86_64_SCRATCH_REG.value, 0))
+            # MOV ebx, [r11]
+        #
+        return rst
+
     def _call_header_shadowstack(self, gcrootmap):
         # we don't *really* have to do it, since we have the frame
         # being referenced by the caller. However, we still do it
         # to provide a place where we can read the frame from, in case
         # we need to reload it after a collection
-        rst = gcrootmap.get_root_stack_top_addr()
-        if rx86.fits_in_32bits(rst):
-            self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]
-        else:
-            self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
-            self.mc.MOV_rm(eax.value, (r13.value, 0)) # MOV eax, [r13]
-        #
+        rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
         if IS_X86_64:
-            self.mc.MOV_mr((eax.value, 0), edi.value)      # MOV [eax], edi
+            self.mc.MOV_mr((ebx.value, 0), edi.value)      # MOV [ebx], edi
         else:
             xxx
-        self.mc.ADD_ri(eax.value, WORD)
+        self.mc.ADD_ri(ebx.value, WORD)
         if rx86.fits_in_32bits(rst):
-            self.mc.MOV_jr(rst, eax.value)            # MOV [rootstacktop], eax
+            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], edx
         else:
-            self.mc.MOV_mr((r13.value, 0), eax.value) # MOV [r13], eax
+            self.mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
+                           ebx.value) # MOV [r11], edx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
