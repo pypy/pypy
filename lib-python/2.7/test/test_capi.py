@@ -21,7 +21,6 @@ if test_support.check_impl_detail(pypy=True):
             'test_lazy_hash_inheritance',
             'test_long_api',
             'test_longlong_api',
-            'test_null_strings',
             'test_widechar',
             'TestThreadState',
             'TestPendingCalls',
