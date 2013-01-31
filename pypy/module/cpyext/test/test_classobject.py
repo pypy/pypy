@@ -7,8 +7,10 @@ class TestClassObject(BaseApiTest):
         w_class = space.appexec([], """():
             class C:
                 x = None
-                def __init__(self):
+                def __init__(self, *args, **kwargs):
                     self.x = 1
+                    self.args = args
+                    self.__dict__.update(kwargs)
             return C
         """)
 
@@ -21,6 +23,13 @@ class TestClassObject(BaseApiTest):
         w_instance = api.PyInstance_NewRaw(w_class, space.wrap(dict(a=3)))
         assert space.getattr(w_instance, space.wrap('x')) is space.w_None
         assert space.unwrap(space.getattr(w_instance, space.wrap('a'))) == 3
+
+        w_instance = api.PyInstance_New(w_class,
+                                        space.wrap((3,)), space.wrap(dict(y=2)))
+        assert space.unwrap(space.getattr(w_instance, space.wrap('x'))) == 1
+        assert space.unwrap(space.getattr(w_instance, space.wrap('y'))) == 2
+        assert space.unwrap(space.getattr(w_instance, space.wrap('args'))) == (3,)
+        
 
     def test_lookup(self, space, api):
         w_instance = space.appexec([], """():

@@ -1,4 +1,4 @@
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread as thread
 
 
 class OSThreadLocals:
@@ -52,6 +52,9 @@ class OSThreadLocals:
     def getmainthreadvalue(self):
         ident = self._mainthreadident
         return self._valuedict.get(ident, None)
+
+    def ismainthread(self):
+        return thread.get_ident() == self._mainthreadident
 
     def getallvalues(self):
         return self._valuedict

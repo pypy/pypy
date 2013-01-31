@@ -262,7 +262,7 @@ class AppTestDelNotBlocked:
     def setup_method(self, meth):
         if not self.runappdirect:
             py.test.skip("test is meant for running with py.test -A")
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         tmpfile = udir.join('test_execution_context')
         tmpfile.write("""
 import gc

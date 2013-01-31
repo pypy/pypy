@@ -1,11 +1,11 @@
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.translator.cli.dotnet import box
+from rpython.translator.cli.dotnet import box
 
 class __extend__(W_Root):
     __metaclass__ = extendabletype
@@ -44,7 +44,7 @@ class __extend__(W_StringObject):
         return box(self._value)
 
 ##from pypy.objspace.fake.objspace import W_Object as W_Object_Fake
-##from pypy.rlib.nonconst import NonConstant
+##from rpython.rlib.nonconst import NonConstant
 
 ##class __extend__(W_Object_Fake):
 ##    __metaclass__ = extendabletype

@@ -17,7 +17,7 @@ class Module(MixedModule):
         'DebugMergePoint': 'interp_resop.DebugMergePoint',
         'JitLoopInfo': 'interp_resop.W_JitLoopInfo',
         'Box': 'interp_resop.WrappedBox',
-        'PARAMETER_DOCS': 'space.wrap(pypy.rlib.jit.PARAMETER_DOCS)',
+        'PARAMETER_DOCS': 'space.wrap(rpython.rlib.jit.PARAMETER_DOCS)',
     }
 
     def setup_after_space_initialization(self):
@@ -25,7 +25,7 @@ class Module(MixedModule):
         from pypy.module.pypyjit.interp_jit import pypyjitdriver
         from pypy.module.pypyjit.policy import pypy_hooks
         # add the 'defaults' attribute
-        from pypy.rlib.jit import PARAMETERS
+        from rpython.rlib.jit import PARAMETERS
         space = self.space
         pypyjitdriver.space = space
         w_obj = space.wrap(PARAMETERS)

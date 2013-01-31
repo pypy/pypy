@@ -1,8 +1,8 @@
 import re, sys
 
-from pypy.jit.metainterp.resoperation import opname
-from pypy.jit.tool.oparser import OpParser
-from pypy.tool.logparser import parse_log_file, extract_category
+from rpython.jit.metainterp.resoperation import opname
+from rpython.jit.tool.oparser import OpParser
+from rpython.tool.logparser import parse_log_file, extract_category
 from copy import copy
 
 def parse_code_data(arg):
@@ -113,7 +113,7 @@ class SimpleParser(OpParser):
         return loop
 
     def _asm_disassemble(self, d, origin_addr, tp):
-        from pypy.jit.backend.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump
         return list(machine_code_dump(d, tp, origin_addr))
 
     @classmethod
@@ -215,6 +215,7 @@ class Function(object):
     _lineset = None
     is_bytecode = False
     inline_level = None
+    bytecode_name = None
 
     # factory method
     TraceForOpcode = TraceForOpcode
@@ -244,23 +245,29 @@ class Function(object):
             return ",".join([str(len(v)) for v in stack])
 
         def append_to_res(bc):
-            if not stack:
-                stack.append([])
-            else:
-                if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
-                    if bc.inline_level < len(stack):
+            if bc.inline_level is not None:
+                if bc.inline_level == len(stack) - 1:
+                    pass
+                elif bc.inline_level > len(stack) - 1:
+                    stack.append([])
+                else:
+                    while bc.inline_level + 1 < len(stack):
                         last = stack.pop()
                         stack[-1].append(cls(last, getpath(stack), storage))
-                    else:
-                        stack.append([])
             stack[-1].append(bc)
 
         so_far = []
         stack = []
+        nothing_yet = True
         for op in operations:
             if op.name == 'debug_merge_point':
                 if so_far:
-                    append_to_res(cls.TraceForOpcode(so_far, storage, loopname))
+                    opc = cls.TraceForOpcode(so_far, storage, loopname)
+                    if nothing_yet:
+                        nothing_yet = False
+                        for i in xrange(opc.inline_level + 1):
+                            stack.append([])
+                    append_to_res(opc)
                     if limit:
                         break
                     so_far = []

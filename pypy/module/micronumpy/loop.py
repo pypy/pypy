@@ -4,9 +4,9 @@ operations. This is the place to look for all the computations that iterate
 over all the array elements.
 """
 
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib import jit
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import jit
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 
 call2_driver = jit.JitDriver(name='numpy_call2',

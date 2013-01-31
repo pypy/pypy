@@ -8,12 +8,12 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std import identitydict
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import promote, elidable_promote, we_are_jitted,\
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
+from rpython.rlib.jit import promote, elidable_promote, we_are_jitted,\
      promote_string
-from pypy.rlib.jit import elidable, dont_look_inside, unroll_safe
-from pypy.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.jit import elidable, dont_look_inside, unroll_safe
+from rpython.rlib.rarithmetic import intmask, r_uint
 
 class TypeCell(W_Root):
     def __init__(self, w_value=None):

@@ -2,7 +2,7 @@ from pypy.module.cpyext.api import (
     cpython_api, PyObject, PyObjectP, CANNOT_FAIL
     )
 from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 # we don't really care
 PyTypeObjectPtr = rffi.VOIDP
@@ -174,12 +174,6 @@ def PyCell_SET(space, cell, value):
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyClass_IsSubclass(space, klass, base):
     """Return true if klass is a subclass of base. Return false in all other cases."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PyInstance_New(space, cls, arg, kw):
-    """Create a new instance of a specific class.  The parameters arg and kw are
-    used as the positional and keyword parameters to the object's constructor."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)

@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 import py
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 try:
     from lib_pypy import dbm
 except ImportError, e:

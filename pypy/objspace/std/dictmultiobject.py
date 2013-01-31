@@ -3,17 +3,15 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
-from pypy.interpreter import gateway
-from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.signature import Signature
 
-from pypy.rlib.objectmodel import r_dict, we_are_translated, specialize,\
-     newlist_hint
-from pypy.rlib.debug import mark_dict_non_null
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import r_dict, specialize, newlist_hint
+from rpython.rlib.debug import mark_dict_non_null
+from rpython.tool.sourcetools import func_with_new_name
 
-from pypy.rlib import rerased
-from pypy.rlib import jit
+from rpython.rlib import rerased
+from rpython.rlib import jit
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -56,6 +54,9 @@ class W_DictMultiObject(W_Object):
             # every module needs its own strategy, because the strategy stores
             # the version tag
             strategy = ModuleDictStrategy(space)
+        elif space.config.objspace.std.withmapdict and instance:
+            from pypy.objspace.std.mapdict import MapDictStrategy
+            strategy = space.fromcache(MapDictStrategy)
 
         elif instance or strdict or module:
             assert w_type is None
@@ -351,7 +352,7 @@ class BaseIteratorImplementation(object):
         self.pos = 0
 
     def length(self):
-        if self.dictimplementation is not None:
+        if self.dictimplementation is not None and self.len != -1:
             return self.len - self.pos
         return 0
 

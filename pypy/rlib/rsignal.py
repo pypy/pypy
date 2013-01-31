@@ -1,11 +1,11 @@
 import signal as cpy_signal
 import sys
 import py
-from pypy.tool import autopath
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rarithmetic import is_valid_int
+from rpython.conftest import cdir
+from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rarithmetic import is_valid_int
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
@@ -35,7 +35,7 @@ includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')
 
-cdir = py.path.local(autopath.pypydir).join('translator', 'c')
+cdir = py.path.local(cdir)
 
 eci = ExternalCompilationInfo(
     includes = includes,
@@ -80,6 +80,8 @@ pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
 # pointless and a performance issue
+pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
+                            threadsafe=False)
 
 # don't use rffi.LONGP because the JIT doesn't support raw arrays so far
 struct_name = 'pypysig_long_struct'

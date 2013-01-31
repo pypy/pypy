@@ -5,6 +5,9 @@ What's new in PyPy 2.0
 .. this is a revision shortly after release-2.0-beta1
 .. startrev: 0e6161a009c6
 
+.. branch: split-rpython
+Split rpython and pypy into seperate directories
+
 .. branch: callback-jit
 Callbacks from C are now better JITted
 
@@ -31,6 +34,9 @@ Rudimentary support for bytearray in RPython
 .. branch: kill-faking
 .. branch: improved_ebnfparse_error
 .. branch: task-decorator
+.. branch: fix-e4fa0b2
+.. branch: win32-fixes
+.. branch: fix-version-tool
 
 .. branch: release-2.0-beta1
 
@@ -40,3 +46,7 @@ Rudimentary support for bytearray in RPython
 
 .. branch: fix-lookinside-iff-oopspec
 Fixed the interaction between two internal tools for controlling the JIT.
+
+.. branch: inline-virtualref-2
+Better optimized certain types of frame accesses in the JIT, particularly
+around exceptions that escape the function they were raised in.

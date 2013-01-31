@@ -1,4 +1,4 @@
-from pypy.config.config import *
+from rpython.config.config import *
 from pypy.config.makerestdoc import make_cmdline_overview
 
 from pypy.tool.rest.rest import process as restcheck

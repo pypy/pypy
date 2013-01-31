@@ -34,6 +34,9 @@ class Scalar(base.BaseArrayImplementation):
     def get_shape(self):
         return []
 
+    def get_strides(self):
+        return []
+
     def create_iter(self, shape=None):
         return ScalarIterator(self.value)
 
