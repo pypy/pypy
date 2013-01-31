@@ -1,6 +1,6 @@
-from pypy.rpython.memory.gctransform.boehm import BoehmGCTransformer
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rlib.rarithmetic import r_uint, LONG_BIT
+from rpython.rtyper.memory.gctransform.boehm import BoehmGCTransformer
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rlib.rarithmetic import r_uint, LONG_BIT
 
 
 _first_gcflag            = 1 << (LONG_BIT//2)

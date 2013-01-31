@@ -106,9 +106,9 @@ class GcLLDescription(GcCache):
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         if not self.stm:
-            from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
+            from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
         else:
-            from pypy.jit.backend.llsupport import stmrewrite
+            from rpython.jit.backend.llsupport import stmrewrite
             GcRewriterAssembler = stmrewrite.GcStmRewriterAssembler
         rewriter = GcRewriterAssembler(self, cpu)
         newops = rewriter.rewrite(operations)
@@ -824,7 +824,7 @@ class GcLLDescr_framework(GcLLDescription):
             self.do_write_barrier = do_write_barrier
 
     def _setup_barriers_for_stm(self):
-        from pypy.rpython.memory.gc import stmgc
+        from rpython.rtyper.memory.gc import stmgc
         WBDescr = WriteBarrierDescr
         self.P2Rdescr = WBDescr(self, (stmgc.GCFLAG_GLOBAL,      'P2R',
                                        'stm_DirectReadBarrier'))
@@ -933,7 +933,7 @@ class GcLLDescr_framework(GcLLDescription):
 
         if self.stm:
             # XXX remove the indirections in the following calls
-            from pypy.rlib import rstm
+            from rpython.rlib import rstm
             self.generate_function('stm_try_inevitable',
                                    rstm.become_inevitable, [],
                                    RESULT=lltype.Void)

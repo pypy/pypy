@@ -289,7 +289,7 @@ class __extend__(pyframe.PyFrame):
                 # one of the opcodes in the one of the sequences
                 #    * POP_TOP/LOAD_CONST/RETURN_VALUE
                 #    * POP_TOP/LOAD_FAST/RETURN_VALUE
-                from pypy.rlib import rstm
+                from rpython.rlib import rstm
                 if rstm.should_break_transaction():
                     opcode = ord(co_code[next_instr])
                     if opcode not in (self.opcodedesc.RETURN_VALUE.index,

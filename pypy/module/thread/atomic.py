@@ -5,7 +5,7 @@ from pypy.module.thread.error import wrap_thread_error
 
 def exclusive_atomic_enter(space):
     if space.config.translation.stm:
-        from pypy.rlib.rstm import is_atomic
+        from rpython.rlib.rstm import is_atomic
         count = is_atomic()
     else:
         giltl = space.threadlocals
@@ -18,7 +18,7 @@ def exclusive_atomic_enter(space):
 
 def atomic_enter(space):
     if space.config.translation.stm:
-        from pypy.rlib.rstm import increment_atomic
+        from rpython.rlib.rstm import increment_atomic
         increment_atomic()
     else:
         giltl = space.threadlocals
@@ -27,7 +27,7 @@ def atomic_enter(space):
 
 def atomic_exit(space, w_ignored1=None, w_ignored2=None, w_ignored3=None):
     if space.config.translation.stm:
-        from pypy.rlib.rstm import decrement_atomic, is_atomic
+        from rpython.rlib.rstm import decrement_atomic, is_atomic
         if is_atomic():
             decrement_atomic()
             return

@@ -1,5 +1,5 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena
-from pypy.rlib.objectmodel import free_non_gc_object
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
+from rpython.rlib.objectmodel import free_non_gc_object
 
 NULL = llmemory.NULL
 

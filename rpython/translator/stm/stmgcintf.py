@@ -1,8 +1,8 @@
 import py
 from pypy.tool.autopath import pypydir
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rarithmetic import LONG_BIT
 
 
 cdir = py.path.local(pypydir) / 'translator' / 'stm'

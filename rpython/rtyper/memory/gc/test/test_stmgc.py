@@ -1,13 +1,13 @@
 import py
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
-from pypy.rpython.memory.gc.stmgc import StmGC, WORD, REV_INITIAL
-from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_NOT_WRITTEN
-from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY, GCFLAG_VISITED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD
-from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
-from pypy.rpython.memory.support import mangle_hash
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
+from rpython.rtyper.memory.gc.stmgc import StmGC, WORD, REV_INITIAL
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_NOT_WRITTEN
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_LOCAL_COPY, GCFLAG_VISITED
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_HASH_FIELD
+from rpython.rtyper.memory.gc.stmgc import hdr_revision, set_hdr_revision
+from rpython.rtyper.memory.support import mangle_hash
 
 
 S = lltype.GcStruct('S', ('a', lltype.Signed), ('b', lltype.Signed),
@@ -84,7 +84,7 @@ class FakeStmOperations:
         tldict[obj] = localobj
 
     def tldict_enum(self):
-        from pypy.rpython.memory.gc.stmtls import StmGCTLS
+        from rpython.rtyper.memory.gc.stmtls import StmGCTLS
         callback = StmGCTLS._stm_enum_callback
         tls = self.get_tls()
         for key, value in self._tldicts[self.threadnum].iteritems():
@@ -347,7 +347,7 @@ class TestBasic(StmGCTests):
 
     def test_random_gc_usage(self):
         import random
-        from pypy.rpython.memory.gc.test import test_stmtls
+        from rpython.rtyper.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
         sr2 = {}    # {obj._obj: obj._obj} following the 'sr2' attribute
@@ -452,7 +452,7 @@ class TestBasic(StmGCTests):
             print 'Iteration %d finished' % iteration
 
     def test_relocalize_objects_after_transaction_break(self):
-        from pypy.rpython.memory.gc.test import test_stmtls
+        from rpython.rtyper.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
         tr1 = self.malloc(SR, globl=True)   # three prebuilt objects
@@ -477,7 +477,7 @@ class TestBasic(StmGCTests):
         self.checkflags(tr3_adr, True, True)     # tr3 has become global again
 
     def test_obj_with_invalid_offset_after_transaction_stop(self):
-        from pypy.rpython.memory.gc.test import test_stmtls
+        from rpython.rtyper.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
         tr1, tr1_adr = self.malloc(SR, globl=False)  # local
@@ -489,7 +489,7 @@ class TestBasic(StmGCTests):
         py.test.raises(llarena.ArenaError, self.gc.root_walker.pop)
 
     def test_non_prebuilt_relocalize_after_transaction_break(self):
-        from pypy.rpython.memory.gc.test import test_stmtls
+        from rpython.rtyper.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
         tr1, tr1_adr = self.malloc(SR, globl=False)  # local
@@ -707,7 +707,7 @@ class TestBasic(StmGCTests):
         assert s2 == tr1.s1   # tr1 is a root, so not copied yet
 
     def test_weakref_to_local_in_main_thread(self):
-        from pypy.rpython.memory.gc.test import test_stmtls
+        from rpython.rtyper.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
         sr1, sr1_adr = self.malloc(SR, globl=False)
@@ -750,7 +750,7 @@ class TestBasic(StmGCTests):
         assert a == sr1_adr
 
     def test_prebuilt_nongc(self):
-        from pypy.rpython.memory.gc.test import test_stmtls
+        from rpython.rtyper.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         NONGC = lltype.Struct('NONGC', ('s', lltype.Ptr(S)))
         nongc = lltype.malloc(NONGC, immortal=True, flavor='raw')

@@ -1,8 +1,8 @@
-from pypy.rpython.lltypesystem import lltype, lloperation, rclass
-from pypy.translator.stm.writebarrier import is_immutable
-from pypy.objspace.flow.model import SpaceOperation, Constant
-from pypy.translator.unsimplify import varoftype
-from pypy.translator.simplify import get_funcobj
+from rpython.rtyper.lltypesystem import lltype, lloperation, rclass
+from rpython.translator.stm.writebarrier import is_immutable
+from rpython.flowspace.model import SpaceOperation, Constant
+from rpython.translator.unsimplify import varoftype
+from rpython.translator.simplify import get_funcobj
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
@@ -112,7 +112,7 @@ def turn_inevitable_op(info):
                           varoftype(lltype.Void))
 
 def insert_turn_inevitable(graph):
-    from pypy.translator.backendopt.writeanalyze import FreshMallocs
+    from rpython.translator.backendopt.writeanalyze import FreshMallocs
     fresh_mallocs = FreshMallocs(graph)
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):

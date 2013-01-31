@@ -1,10 +1,10 @@
 import time
 from pypy.module.thread import ll_thread
-from pypy.rlib import rstm, jit
-from pypy.rlib.objectmodel import invoke_around_extcall, we_are_translated
-from pypy.rlib.objectmodel import compute_identity_hash
-from pypy.rlib.debug import ll_assert
-from pypy.rpython.lltypesystem import lltype, rffi, rclass
+from rpython.rlib import rstm, jit
+from rpython.rlib.objectmodel import invoke_around_extcall, we_are_translated
+from rpython.rlib.objectmodel import compute_identity_hash
+from rpython.rlib.debug import ll_assert
+from rpython.rtyper.lltypesystem import lltype, rffi, rclass
 
 
 class Node:

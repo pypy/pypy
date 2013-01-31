@@ -1,7 +1,7 @@
 import py
 from pypy.tool.autopath import pypydir
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 cdir = py.path.local(pypydir) / 'translator' / 'stm'

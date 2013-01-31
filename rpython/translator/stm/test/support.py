@@ -1,6 +1,6 @@
 """CompiledSTMTests, a support class for translated tests with STM"""
 
-from pypy.translator.c.test.test_standalone import StandaloneTests
+from rpython.translator.c.test.test_standalone import StandaloneTests
 
 
 class CompiledSTMTests(StandaloneTests):
@@ -14,7 +14,7 @@ class CompiledSTMTests(StandaloneTests):
         #
         # Prevent the RaiseAnalyzer from just emitting "WARNING: Unknown
         # operation".  We want instead it to crash.
-        from pypy.translator.backendopt.canraise import RaiseAnalyzer
+        from rpython.translator.backendopt.canraise import RaiseAnalyzer
         RaiseAnalyzer.fail_on_unknown_operation = True
         try:
             res = StandaloneTests.compile(self, entry_point, debug=True,

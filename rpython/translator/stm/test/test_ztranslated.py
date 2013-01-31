@@ -1,8 +1,8 @@
 import py
-from pypy.rlib import rstm, rgc
-from pypy.translator.stm.test.support import NoGcCompiledSTMTests
-from pypy.translator.stm.test.support import CompiledSTMTests
-from pypy.translator.stm.test import targetdemo2
+from rpython.rlib import rstm, rgc
+from rpython.translator.stm.test.support import NoGcCompiledSTMTests
+from rpython.translator.stm.test.support import CompiledSTMTests
+from rpython.translator.stm.test import targetdemo2
 
 
 class TestNoGcSTMTranslated(NoGcCompiledSTMTests):
@@ -81,7 +81,7 @@ class TestSTMTranslated(CompiledSTMTests):
             pass
         def check(foobar, retry_counter):
             return 0    # do nothing
-        from pypy.rpython.lltypesystem import lltype
+        from rpython.rtyper.lltypesystem import lltype
         R = lltype.GcStruct('R', ('x', lltype.Signed))
         S1 = lltype.Struct('S1', ('r', lltype.Ptr(R)))
         s1 = lltype.malloc(S1, immortal=True, flavor='raw')

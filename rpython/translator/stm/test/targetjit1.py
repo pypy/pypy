@@ -1,6 +1,6 @@
 from pypy.module.thread import ll_thread
-from pypy.rlib import jit, rstm
-from pypy.rlib.objectmodel import invoke_around_extcall
+from rpython.rlib import jit, rstm
+from rpython.rlib.objectmodel import invoke_around_extcall
 
 
 class Global(object):
@@ -162,7 +162,7 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
-from pypy.jit.codewriter.policy import JitPolicy
+from rpython.jit.codewriter.policy import JitPolicy
 
 def jitpolicy(driver):
     return JitPolicy()

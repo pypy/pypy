@@ -270,8 +270,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
 
     def _declare_functions(self, GCClass, getfn, s_gc, s_typeid16):
-        from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
-        from pypy.rpython.memory.gc import inspector
+        from rpython.rtyper.memory.gc.base import ARRAY_TYPEID_MAP
+        from rpython.rtyper.memory.gc import inspector
 
         s_gcref = annmodel.SomePtr(llmemory.GCREF)
         gcdata = self.gcdata

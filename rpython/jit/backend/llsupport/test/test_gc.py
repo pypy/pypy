@@ -406,7 +406,7 @@ class TestFramework(object):
         assert self.llop1.record == [('barrier', s_adr)]
 
     def test_gen_write_barrier(self):
-        from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
+        from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
         gc_ll_descr = self.gc_ll_descr
         llop1 = self.llop1
         #

@@ -564,7 +564,7 @@ class AddressAsInt(Symbolic):
 
 class AddressAsUInt(AddressAsInt):
     def annotation(self):
-        from pypy.annotation import model
+        from rpython.annotator import model
         return model.SomeInteger(unsigned=True)
     def lltype(self):
         return lltype.Unsigned

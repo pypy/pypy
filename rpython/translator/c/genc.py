@@ -139,7 +139,7 @@ class CBuilder(object):
         translator = self.translator
 
         if self.config.translation.stm:
-            from pypy.translator.stm import transform2
+            from rpython.translator.stm import transform2
             self.getentrypointptr()    # build the wrapper first
             # ^^ this is needed to make sure we see the no-GC wrapper function
             # calling the GC entrypoint function.
@@ -195,7 +195,7 @@ class CBuilder(object):
         self.merge_eci(db.gcpolicy.compilation_info())
 
         if self.config.translation.stm:
-            from pypy.translator.stm.stmgcintf import eci
+            from rpython.translator.stm.stmgcintf import eci
             self.merge_eci(eci)
 
         all = []
@@ -322,16 +322,16 @@ class CStandaloneBuilder(CBuilder):
         if self._entrypoint_wrapper is not None:
             return self._entrypoint_wrapper
         #
-        from pypy.annotation import model as annmodel
-        from pypy.rpython.lltypesystem import rffi
-        from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
         entrypoint = self.entrypoint
         stm_nogc = (self.config.translation.stm and
                     self.config.translation.gc == "none")
         #
         def entrypoint_wrapper(argc, argv):
             if stm_nogc:
-                from pypy.translator.stm.funcgen import _stm_nogc_init_function
+                from rpython.translator.stm.funcgen import _stm_nogc_init_function
                 _stm_nogc_init_function()
             list = [""] * argc
             i = 0

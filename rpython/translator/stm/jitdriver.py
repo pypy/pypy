@@ -1,12 +1,12 @@
-from pypy.rpython.lltypesystem import lltype, rclass
-from pypy.objspace.flow.model import checkgraph, copygraph
-from pypy.objspace.flow.model import Block, Link, SpaceOperation, Constant
-from pypy.translator.unsimplify import split_block, varoftype
-from pypy.translator.stm.stmgcintf import StmOperations
-from pypy.annotation.model import lltype_to_annotation, s_Int
-from pypy.rpython.annlowlevel import (MixLevelHelperAnnotator,
+from rpython.rtyper.lltypesystem import lltype, rclass
+from rpython.flowspace.model import checkgraph, copygraph
+from rpython.flowspace.model import Block, Link, SpaceOperation, Constant
+from rpython.translator.unsimplify import split_block, varoftype
+from rpython.translator.stm.stmgcintf import StmOperations
+from rpython.annotator.model import lltype_to_annotation, s_Int
+from rpython.rtyper.annlowlevel import (MixLevelHelperAnnotator,
                                       cast_base_ptr_to_instance)
-from pypy.rlib import rstm
+from rpython.rlib import rstm
 from pypy.tool.sourcetools import compile2
 
 

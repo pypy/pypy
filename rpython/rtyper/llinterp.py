@@ -61,7 +61,7 @@ class LLInterpreter(object):
             self.tracer = Tracer()
 
     def eval_entry_point(self, graph, args=()):
-        from pypy.rpython.lltypesystem import lltype, rffi
+        from rpython.rtyper.lltypesystem import lltype, rffi
         ARGV = graph.startblock.inputargs[1].concretetype
         args = [''] + list(args)
         ll_args = lltype.malloc(ARGV.TO, len(args), flavor='raw')

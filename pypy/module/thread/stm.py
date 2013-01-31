@@ -5,8 +5,8 @@ Software Transactional Memory emulation of the GIL.
 from pypy.module.thread.threadlocals import OSThreadLocals
 from pypy.module.thread.error import wrap_thread_error
 from pypy.module.thread import ll_thread
-from pypy.rlib import rstm
-from pypy.rlib.objectmodel import invoke_around_extcall
+from rpython.rlib import rstm
+from rpython.rlib.objectmodel import invoke_around_extcall
 
 
 class STMThreadLocals(OSThreadLocals):

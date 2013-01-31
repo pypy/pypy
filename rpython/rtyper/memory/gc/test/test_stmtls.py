@@ -1,9 +1,9 @@
 import py
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
-from pypy.rpython.memory.gc.stmtls import StmGCTLS, WORD
-from pypy.rpython.memory.support import get_address_stack, get_address_deque
-from pypy.rpython.memory.gcheader import GCHeaderBuilder
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
+from rpython.rtyper.memory.gc.stmtls import StmGCTLS, WORD
+from rpython.rtyper.memory.support import get_address_stack, get_address_deque
+from rpython.rtyper.memory.gcheader import GCHeaderBuilder
 
 
 NULL = llmemory.NULL
@@ -66,7 +66,7 @@ class FakeRootWalker:
             callback(arg, root)
 
 class FakeGC:
-    from pypy.rpython.memory.support import AddressDict, null_address_dict
+    from rpython.rtyper.memory.support import AddressDict, null_address_dict
     DEBUG = True
     AddressStack = get_address_stack()
     AddressDeque = get_address_deque()

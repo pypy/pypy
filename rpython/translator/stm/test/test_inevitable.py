@@ -1,8 +1,8 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.llinterp import LLFrame
-from pypy.rpython.test import test_llinterp
-from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
-from pypy.translator.stm.inevitable import insert_turn_inevitable
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.llinterp import LLFrame
+from rpython.rtyper.test import test_llinterp
+from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
+from rpython.translator.stm.inevitable import insert_turn_inevitable
 from pypy.conftest import option
 
 

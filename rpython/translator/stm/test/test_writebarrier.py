@@ -1,5 +1,5 @@
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.stm.test.transform2_support import BaseTestTransform
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.stm.test.transform2_support import BaseTestTransform
 
 
 class TestTransform(BaseTestTransform):

@@ -608,7 +608,7 @@ def is_in_callback():
     return rffi.stackcounter.stacks_counter > 1
 
 def has_around_extcall():
-    from pypy.rpython.lltypesystem import rffi
+    from rpython.rtyper.lltypesystem import rffi
     return rffi.aroundstate.before is not None
 
 

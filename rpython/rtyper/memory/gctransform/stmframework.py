@@ -1,12 +1,12 @@
-from pypy.rpython.memory.gctransform import shadowstack
-from pypy.rpython.memory.gctransform.framework import BaseRootWalker
-from pypy.rpython.memory.gctransform.framework import sizeofaddr
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython import rmodel
-from pypy.annotation import model as annmodel
-from pypy.rlib.debug import fatalerror_notb
-from pypy.rlib.nonconst import NonConstant
-from pypy.rlib.objectmodel import specialize
+from rpython.rtyper.memory.gctransform import shadowstack
+from rpython.rtyper.memory.gctransform.framework import BaseRootWalker
+from rpython.rtyper.memory.gctransform.framework import sizeofaddr
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rmodel
+from rpython.annotator import model as annmodel
+from rpython.rlib.debug import fatalerror_notb
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.objectmodel import specialize
 
 
 END_MARKER = -8      # keep in sync with src_stm/rpyintf.c
@@ -84,7 +84,7 @@ class StmShadowStackRootWalker(BaseRootWalker):
     root_stack_depth = 163840
 
     def __init__(self, gctransformer):
-        from pypy.rpython.memory.gctransform import shadowstack
+        from rpython.rtyper.memory.gctransform import shadowstack
         #
         BaseRootWalker.__init__(self, gctransformer)
         # we use the thread-local self.stackgcdata to store state;

@@ -1,5 +1,5 @@
-from pypy.rlib.atomic_ops import bool_cas
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.atomic_ops import bool_cas
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 
 ARRAY = rffi.CArray(llmemory.Address)
@@ -24,7 +24,7 @@ def test_bool_cas():
     return 0
 
 def test_translate_bool_cas():
-    from pypy.translator.c.test.test_genc import compile
+    from rpython.translator.c.test.test_genc import compile
 
     f = compile(test_bool_cas, [])
     res = f()

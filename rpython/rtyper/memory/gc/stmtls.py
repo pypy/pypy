@@ -1,21 +1,21 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.annlowlevel import cast_instance_to_base_ptr, llhelper
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, base_ptr_lltype
-from pypy.rlib.objectmodel import we_are_translated, free_non_gc_object
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.debug import ll_assert, fatalerror
-from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr, llhelper
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, base_ptr_lltype
+from rpython.rlib.objectmodel import we_are_translated, free_non_gc_object
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.debug import ll_assert, fatalerror
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
-from pypy.rpython.memory.gc.stmgc import WORD, NULL
-from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
-from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY
-from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_NOT_WRITTEN
-from pypy.rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, GCFLAG_NEW_HASH
-from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
+from rpython.rtyper.memory.gc.stmgc import WORD, NULL
+from rpython.rtyper.memory.gc.stmgc import always_inline, dont_inline
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_LOCAL_COPY
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_NOT_WRITTEN
+from rpython.rtyper.memory.gc.stmgc import GCFLAG_HASH_FIELD, GCFLAG_NEW_HASH
+from rpython.rtyper.memory.gc.stmgc import hdr_revision, set_hdr_revision
 
 SIZE_OF_SIGNED = llmemory.sizeof(lltype.Signed)
 
@@ -49,7 +49,7 @@ class StmGCTLS(object):
         self.set_extra_threshold(self.gc.maximum_extra_threshold)
         #
         # --- a thread-local allocator for the shared area
-        from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
+        from rpython.rtyper.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
         self.copied_local_objects = self.AddressStack()   # XXX KILL
         # --- the LOCAL objects which are weakrefs.  They are also listed
@@ -185,7 +185,7 @@ class StmGCTLS(object):
             self.detect_flag_combination = -1
         #
         # Move away the previous sharedarea_tls and start a new one.
-        from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
+        from rpython.rtyper.memory.gc.stmshared import StmGCThreadLocalAllocator
         previous_sharedarea_tls = self.sharedarea_tls
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
         #

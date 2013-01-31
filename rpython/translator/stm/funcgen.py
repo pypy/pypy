@@ -1,5 +1,5 @@
-from pypy.translator.c.support import c_string_constant
-from pypy.translator.stm.stmgcintf import StmOperations
+from rpython.translator.c.support import c_string_constant
+from rpython.translator.stm.stmgcintf import StmOperations
 
 
 def stm_start_transaction(funcgen, op):

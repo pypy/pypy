@@ -1,7 +1,7 @@
-from pypy.jit.backend.llsupport.descr import *
-from pypy.jit.backend.llsupport.gc import *
-from pypy.jit.metainterp.gc import get_description
-from pypy.jit.backend.llsupport.test.test_rewrite import RewriteTests
+from rpython.jit.backend.llsupport.descr import *
+from rpython.jit.backend.llsupport.gc import *
+from rpython.jit.metainterp.gc import get_description
+from rpython.jit.backend.llsupport.test.test_rewrite import RewriteTests
 
 
 class TestStm(RewriteTests):

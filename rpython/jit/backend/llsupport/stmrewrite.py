@@ -1,7 +1,7 @@
-from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
-from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
-from pypy.rlib.objectmodel import specialize
+from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
+from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
+from rpython.rlib.objectmodel import specialize
 
 #
 # STM Support

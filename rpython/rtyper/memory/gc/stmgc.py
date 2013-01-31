@@ -1,12 +1,12 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, raw_memcopy
-from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
-from pypy.rpython.memory.support import mangle_hash
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.rarithmetic import LONG_BIT, r_uint
-from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
-from pypy.rlib.debug import debug_print
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage, raw_memcopy
+from rpython.rtyper.memory.gc.base import GCBase, MovingGCBase
+from rpython.rtyper.memory.support import mangle_hash
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint
+from rpython.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
+from rpython.rlib.debug import debug_print
 from pypy.module.thread import ll_thread
 
 
@@ -165,10 +165,10 @@ class StmGC(MovingGCBase):
             assert stm_operations == 'use_real_one', (
                 "XXX not provided so far: stm_operations == %r" % (
                 stm_operations,))
-            from pypy.translator.stm.stmgcintf import StmOperations
+            from rpython.translator.stm.stmgcintf import StmOperations
             stm_operations = StmOperations()
         #
-        from pypy.rpython.memory.gc import stmshared
+        from rpython.rtyper.memory.gc import stmshared
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
         self.maximum_extra_threshold = 0
@@ -202,7 +202,7 @@ class StmGC(MovingGCBase):
         of the GC.  The C-level transaction should already be started."""
         ll_assert(self.stm_operations.in_transaction(),
                   "setup_thread: not in a transaction")
-        from pypy.rpython.memory.gc.stmtls import StmGCTLS
+        from rpython.rtyper.memory.gc.stmtls import StmGCTLS
         stmtls = StmGCTLS(self)
         stmtls.start_transaction()
 
@@ -221,7 +221,7 @@ class StmGC(MovingGCBase):
 
     @always_inline
     def get_tls(self):
-        from pypy.rpython.memory.gc.stmtls import StmGCTLS
+        from rpython.rtyper.memory.gc.stmtls import StmGCTLS
         tls = self.stm_operations.get_tls()
         return StmGCTLS.cast_address_to_tls_object(tls)
 

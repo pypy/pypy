@@ -300,7 +300,7 @@ class NoneGcPolicy(BoehmGcPolicy):
 
     def gettransformer(self):
         if self.db.translator.config.translation.stm:
-            from pypy.rpython.memory.gctransform import nogcstm
+            from rpython.rtyper.memory.gctransform import nogcstm
             return nogcstm.NoneSTMGCTransformer(self.db.translator)
         return BoehmGcPolicy.gettransformer(self)
 
@@ -460,7 +460,7 @@ class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 class StmFrameworkGcPolicy(BasicFrameworkGcPolicy):
     
     def gettransformer(self):
-        from pypy.rpython.memory.gctransform import stmframework
+        from rpython.rtyper.memory.gctransform import stmframework
         return stmframework.StmFrameworkGCTransformer(self.db.translator)
 
 

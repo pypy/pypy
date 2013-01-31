@@ -1,7 +1,7 @@
-from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
-from pypy.translator.unsimplify import varoftype, insert_empty_block
-from pypy.rpython.lltypesystem import lltype
-from pypy.translator.backendopt.writeanalyze import top_set
+from rpython.flowspace.model import SpaceOperation, Constant, Variable
+from rpython.translator.unsimplify import varoftype, insert_empty_block
+from rpython.rtyper.lltypesystem import lltype
+from rpython.translator.backendopt.writeanalyze import top_set
 
 
 MALLOCS = set([

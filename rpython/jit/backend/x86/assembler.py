@@ -430,7 +430,7 @@ class Assembler386(object):
 
     def stm_threadlocal(self, globaladdr):
         if self.with_stm():
-            from pypy.jit.backend.x86 import stmtlocal
+            from rpython.jit.backend.x86 import stmtlocal
             globaladdr -= stmtlocal.threadlocal_base()
             assert -0x10000 <= globaladdr < 0x10000 #estimate: "should be small"
             # --- in particular, fits_in_32bits() must be true
@@ -438,7 +438,7 @@ class Assembler386(object):
 
     def stm_SEGPREFIX(self, mc):
         if self.with_stm():
-            from pypy.jit.backend.x86 import stmtlocal
+            from rpython.jit.backend.x86 import stmtlocal
             stmtlocal.tl_segment_prefix(mc)
 
     @staticmethod

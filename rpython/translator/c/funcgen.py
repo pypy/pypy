@@ -582,7 +582,7 @@ class FunctionCodeGenerator(object):
             if not self._is_stm():
                 raise AssertionError("STM transformation not applied.  "
                                      "You need '--stm'")
-            from pypy.translator.stm.funcgen import op_stm
+            from rpython.translator.stm.funcgen import op_stm
             self.__class__.op_stm = op_stm
         return self.op_stm(op)
     OP_STM_START_TRANSACTION = _OP_STM

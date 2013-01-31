@@ -1,6 +1,6 @@
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.jit.backend.x86.arch import WORD
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.jit.backend.x86.arch import WORD
 
 
 if WORD == 4:

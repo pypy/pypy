@@ -1,6 +1,6 @@
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.stm.test.transform2_support import BaseTestTransform
-from pypy.rlib.jit import JitDriver
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.stm.test.transform2_support import BaseTestTransform
+from rpython.rlib.jit import JitDriver
 
 
 class TestJitDriver(BaseTestTransform):

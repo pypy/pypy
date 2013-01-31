@@ -1,12 +1,12 @@
 import threading
-from pypy.translator.stm import stmgcintf
-from pypy.rlib.debug import ll_assert, fatalerror
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rposix import get_errno, set_errno
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
+from rpython.translator.stm import stmgcintf
+from rpython.rlib.debug import ll_assert, fatalerror
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rposix import get_errno, set_errno
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
                                       llhelper)
 
 def is_inevitable():
