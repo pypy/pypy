@@ -6,7 +6,7 @@ IS_WINDOWS = os.name == 'nt'
 
 def test_rabspath_relative(tmpdir):
     tmpdir.chdir()
-    assert rpath.rabspath('foo') == tmpdir.join('foo')
+    assert rpath.rabspath('foo') == os.path.realpath(tmpdir.join('foo'))
 
 @py.test.mark.skipif("IS_WINDOWS")
 def test_rabspath_absolute_posix():
