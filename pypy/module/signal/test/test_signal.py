@@ -36,7 +36,7 @@ class TestCheckSignals:
 
 class AppTestSignal:
     spaceconfig = {
-        "usemodules": ['signal', 'rctime'],
+        "usemodules": ['signal', 'rctime'] + (['fcntl'] if os.name != 'nt' else []),
     }
 
     def setup_class(cls):
@@ -55,7 +55,7 @@ class AppTestSignal:
             skip("requires os.kill() and os.getpid()")
         signal = self.signal   # the signal module to test
         if not hasattr(signal, 'SIGUSR1'):
-            py.test.skip("requires SIGUSR1 in signal")
+            skip("requires SIGUSR1 in signal")
         signum = signal.SIGUSR1
 
         received = []
@@ -155,6 +155,9 @@ class AppTestSignal:
         raises(ValueError, signal, 4444, lambda *args: None)
         import sys
         if sys.platform == 'win32':
+            raises(ValueError, signal, 42, lambda *args: None)
+            raises(ValueError, signal, 7, lambda *args: None)
+        elif sys.platform == 'darwin':
             raises(ValueError, signal, 42, lambda *args: None)
         else:
             signal(42, lambda *args: None)

@@ -30,7 +30,8 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        from pypy.rlib import rsignal
+        from rpython.rlib import rsignal
+
         for name in rsignal.signal_names:
             signum = getattr(rsignal, name)
             if signum is not None:
