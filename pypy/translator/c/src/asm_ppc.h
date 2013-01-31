@@ -16,6 +16,7 @@ LL_flush_icache(long base, long size)
 {
 	long i;
 
+    fprintf(stderr, "please review c/src/asm_ppc.c: looks wrong\n");
 	for (i = 0; i < size; i += 32){
 		__dcbst(base, i);
 	}
