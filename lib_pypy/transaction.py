@@ -15,6 +15,12 @@ from __future__ import with_statement
 import sys, thread, collections
 
 try:
+    import signal, posix
+    from signal import SIGUSR2 as SIG_DONE
+except ImportError:
+    signal = None
+
+try:
     from thread import atomic
 except ImportError:
     # Not a STM-enabled PyPy.  We can still provide a version of 'atomic'
@@ -109,12 +115,29 @@ class _ThreadPool(object):
         self.in_transaction = True
 
     def run(self):
+        self.use_signals = hasattr(signal, 'pause')
+        if self.use_signals:
+            try:
+                self.signalled = 0
+                def signal_handler(*args):
+                    self.signalled = 1
+                prev_handler = signal.signal(SIG_DONE, signal_handler)
+            except ValueError:
+                self.use_signals = False
         # start the N threads
         for i in range(self.num_threads):
             thread.start_new_thread(self._run_thread, ())
         # now wait.  When we manage to acquire the following lock, then
         # we are finished.
-        self.lock_if_released_then_finished.acquire()
+        if self.use_signals:
+            try:
+                while not self.signalled:
+                    signal.pause()
+            finally:
+                self.use_signals = False
+            signal.signal(SIG_DONE, prev_handler)
+        else:
+            self.lock_if_released_then_finished.acquire()
 
     def teardown(self):
         self.in_transaction = False
@@ -193,6 +216,9 @@ class _ThreadPool(object):
                 self.lock_mutex.release()
                 if last_one_to_leave:
                     self.lock_if_released_then_finished.release()
+                    with atomic:
+                        if self.use_signals:
+                            posix.kill(posix.getpid(), SIG_DONE)
                 raise _Done
 
     @staticmethod
