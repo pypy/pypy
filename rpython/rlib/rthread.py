@@ -126,10 +126,11 @@ class Lock(object):
         return bool(res)
 
     def acquire_timed(self, timeout):
-        "timeout is in microseconds."
+        """Timeout is in microseconds.  Returns 0 in case of failure,
+        1 in case it works, 2 if interrupted by a signal."""
         res = c_thread_acquirelock_timed(self._lock, timeout, 1)
         res = rffi.cast(lltype.Signed, res)
-        return bool(res)
+        return res
 
     def release(self):
         # Sanity check: the lock must be locked
