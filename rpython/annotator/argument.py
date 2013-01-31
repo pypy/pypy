@@ -33,11 +33,11 @@ class CallPatternTooComplex(Exception):
     pass
 
 class ArgumentsForTranslation(object):
+    w_starstararg = None
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None):
         self.w_stararg = w_stararg
-        self.w_starstararg = w_starstararg
-        self.combine_has_happened = False
+        assert w_starstararg is None
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
@@ -54,17 +54,13 @@ class ArgumentsForTranslation(object):
             return '%s(%s, %s, %s)' % (name, self.arguments_w,
                                        self.keywords, self.keywords_w)
 
-    def _combine_wrapped(self, w_stararg, w_starstararg):
-        "unpack the *arg and **kwd into arguments_w and keywords_w"
-        if w_stararg is not None:
-            self._combine_starargs_wrapped(w_stararg)
-        assert w_starstararg is None
-
-    def _combine_starargs_wrapped(self, w_stararg):
-        # unpack the * arguments
-        space = self.space
-        args_w = space.unpackiterable(w_stararg)
-        self.arguments_w = self.arguments_w + args_w
+    @property
+    def positional_args(self):
+        if self.w_stararg is not None:
+            args_w = self.space.unpackiterable(self.w_stararg)
+            return self.arguments_w + args_w
+        else:
+            return self.arguments_w
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
@@ -76,12 +72,6 @@ class ArgumentsForTranslation(object):
         elif len(self.arguments_w) < argcount:
             raise ValueError, "not enough arguments (%d expected)" % argcount
         return self.arguments_w
-
-    def combine_if_necessary(self):
-        if self.combine_has_happened:
-            return
-        self._combine_wrapped(self.w_stararg, self.w_starstararg)
-        self.combine_has_happened = True
 
     def prepend(self, w_firstarg): # used often
         "Return a new Arguments with a new argument inserted first."
@@ -101,10 +91,9 @@ class ArgumentsForTranslation(object):
         #   args_w = list of the normal actual parameters, wrapped
         #   scope_w = resulting list of wrapped values
         #
-        self.combine_if_necessary()
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
 
-        args_w = self.arguments_w
+        args_w = self.positional_args
         num_args = len(args_w)
         keywords = self.keywords or []
         num_kwds = len(keywords)
@@ -186,12 +175,11 @@ class ArgumentsForTranslation(object):
 
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
-        self.combine_if_necessary()
         kwds_w = {}
         if self.keywords:
             for i in range(len(self.keywords)):
                 kwds_w[self.keywords[i]] = self.keywords_w[i]
-        return self.arguments_w, kwds_w
+        return self.positional_args, kwds_w
 
 
     def match_signature(self, signature, defaults_w):
@@ -282,7 +270,6 @@ class ArgumentsForTranslation(object):
         return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
 
     def _rawshape(self, nextra=0):
-        assert not self.combine_has_happened
         shape_cnt  = len(self.arguments_w)+nextra        # Number of positional args
         if self.keywords:
             shape_keys = self.keywords[:]                # List of keywords (strings)

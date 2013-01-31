@@ -81,7 +81,6 @@ class CallSpec(object):
             w_starstararg=None):
         self.w_stararg = w_stararg
         assert w_starstararg is None, "No **-unpacking in RPython"
-        self.combine_has_happened = False
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w

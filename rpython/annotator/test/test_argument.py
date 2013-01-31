@@ -104,16 +104,6 @@ class TestArgumentsForTranslation(object):
         args = make_arguments_for_translation(space, [1,2,3,4,5], {'e': 5, 'd': 7})
         assert rawshape(args) == (5, ('d', 'e'), False, False)
 
-        args = make_arguments_for_translation(space, [], {},
-                                       w_stararg=[1],
-                                       w_starstararg={'c': 5, 'd': 7})
-        assert rawshape(args) == (0, (), True, True)
-
-        args = make_arguments_for_translation(space, [1,2], {'g': 9},
-                                       w_stararg=[3,4,5],
-                                       w_starstararg={'e': 5, 'd': 7})
-        assert rawshape(args) == (2, ('g', ), True, True)
-
 
     def test_flatten(self):
         space = DummySpace()
@@ -137,16 +127,6 @@ class TestArgumentsForTranslation(object):
 
         args = make_arguments_for_translation(space, [1,2,3,4,5], {'e': 5, 'd': 7})
         assert args.flatten() == ((5, ('d', 'e'), False, False), [1, 2, 3, 4, 5, 7, 5])
-
-        args = make_arguments_for_translation(space, [], {},
-                                       w_stararg=[1],
-                                       w_starstararg={'c': 5, 'd': 7})
-        assert args.flatten() == ((0, (), True, True), [[1], {'c': 5, 'd': 7}])
-
-        args = make_arguments_for_translation(space, [1,2], {'g': 9},
-                                       w_stararg=[3,4,5],
-                                       w_starstararg={'e': 5, 'd': 7})
-        assert args.flatten() == ((2, ('g', ), True, True), [1, 2, 9, [3, 4, 5], {'e': 5, 'd': 7}])
 
     def test_stararg_flowspace_variable(self):
         space = DummySpace()
@@ -189,12 +169,3 @@ class TestArgumentsForTranslation(object):
         shape = ((5, ('d', 'e'), False, False), [1, 2, 3, 4, 5, 7, 5])
         args = ArgumentsForTranslation.fromshape(space, *shape)
         assert args.flatten() == shape
-
-        shape = ((0, (), True, True), [[1], {'c': 5, 'd': 7}])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
-        shape = ((2, ('g', ), True, True), [1, 2, 9, [3, 4, 5], {'e': 5, 'd': 7}])
-        args = ArgumentsForTranslation.fromshape(space, *shape)
-        assert args.flatten() == shape
-
