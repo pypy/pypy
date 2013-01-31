@@ -2,6 +2,7 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
+import sys
 from rpython.rlib import rthread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
@@ -51,6 +52,23 @@ The blocking operation is not interruptible."""
         result = mylock.acquire(bool(waitflag))
         return space.newbool(result)
 
+    def descr_lock_acquire_interruptible(self, space):
+        """Lock the lock.  Unlike acquire(), this is always blocking
+but may be interrupted: signal handlers are still called, and may
+raise (e.g. a Ctrl-C will correctly raise KeyboardInterrupt).
+
+This is an extension only available on PyPy."""
+        mylock = self.lock
+        while True:
+            result = mylock.acquire_timed(-1)
+            if result == 1:      # RPY_LOCK_ACQUIRED
+                return
+            assert result == 2   # RPY_LOCK_INTR
+            space.getexecutioncontext().checksignals()
+        # then retry, if the signal handler did not raise
+    assert sys.platform != 'win32', (
+        "acquire_interruptible: fix acquire_timed() on Windows")
+
     def descr_lock_release(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
 the lock to acquire the lock.  The lock must be in the locked state,
@@ -83,6 +101,7 @@ but it needn't be locked by the same thread that unlocks it."""
         self.descr_lock_release(self.space)
 
 descr_acquire = interp2app(Lock.descr_lock_acquire)
+descr_acquire_interruptible = interp2app(Lock.descr_lock_acquire_interruptible)
 descr_release = interp2app(Lock.descr_lock_release)
 descr_locked  = interp2app(Lock.descr_lock_locked)
 descr__enter__ = interp2app(Lock.descr__enter__)
@@ -102,6 +121,7 @@ A lock is not owned by the thread that locked it; another thread may
 unlock it.  A thread attempting to lock a lock that it has already locked
 will block until another thread unlocks it.  Deadlocks may ensue.""",
     acquire = descr_acquire,
+    acquire_interruptible = descr_acquire_interruptible,
     release = descr_release,
     locked  = descr_locked,
     __enter__ = descr__enter__,

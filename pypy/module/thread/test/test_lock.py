@@ -46,6 +46,34 @@ class AppTestLock(GenericTestThread):
             assert feedback == [42]
         assert lock.locked() is False
 
+    def test_acquire_interruptible(self):
+        import thread, signal, posix
+        ticks = []
+        def tick(*args):
+            ticks.append(1)
+            if len(ticks) == 3:
+                raise OverflowError
+        prev_handler = signal.signal(signal.SIGUSR1, tick)
+        #
+        lock = thread.allocate_lock()
+        lock.acquire()
+        def f():
+            self.busywait(0.25)
+            posix.kill(posix.getpid(), signal.SIGUSR1)
+            self.busywait(0.25)
+            posix.kill(posix.getpid(), signal.SIGUSR1)
+            self.busywait(0.25)
+            posix.kill(posix.getpid(), signal.SIGUSR1)
+        thread.start_new_thread(f, ())
+        try:
+            lock.acquire_interruptible()
+            raise AssertionError("should not reach here")
+        except OverflowError:
+            pass
+        assert ticks == [1, 1, 1]
+        signal.signal(signal.SIGUSR1, prev_handler)
+
+
 def test_compile_lock():
     from rpython.rlib import rgc
     from rpython.rlib.rthread import allocate_lock
