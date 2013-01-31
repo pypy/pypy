@@ -1,3 +1,4 @@
+import gc
 import sys
 import unittest
 import UserList
@@ -919,7 +920,7 @@ class MappingTestCase(TestBase):
         gc.collect()
         n1 = len(dct)
         del it
-        gc.collect()
+        test_support.gc_collect()
         n2 = len(dct)
         # one item may be kept alive inside the iterator
         self.assertIn(n1, (0, 1))
@@ -933,11 +934,11 @@ class MappingTestCase(TestBase):
 
     def check_len_race(self, dict_type, cons):
         # Extended sanity checks for len() in the face of cyclic collection
-        self.addCleanup(gc.set_threshold, *gc.get_threshold())
+        #self.addCleanup(gc.set_threshold, *gc.get_threshold())
         for th in range(1, 100):
             N = 20
-            gc.collect(0)
-            gc.set_threshold(th, th, th)
+            test_support.gc_collect()
+            #gc.set_threshold(th, th, th)
             items = [RefCycle() for i in range(N)]
             dct = dict_type(cons(o) for o in items)
             del items
