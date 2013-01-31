@@ -17,7 +17,7 @@ remember that low level functions eat `low level types`_ (like
 lltype.Signed or lltype.Array) and memory management must be done
 by hand. To declare a function, we write::
 
-  from pypy.rpython.lltypesystem import rffi
+  from rpython.rtyper.lltypesystem import rffi
 
   external_function = rffi.llexternal(name, args, result)
 
@@ -31,7 +31,7 @@ You can pass in additional information about C-level includes,
 libraries and sources by passing in the optional ``compilation_info``
 parameter::
 
-  from pypy.rpython.lltypesystem import rffi
+  from rpython.rtyper.lltypesystem import rffi
   from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
   info = ExternalCompilationInfo(includes=[], libraries=[])
