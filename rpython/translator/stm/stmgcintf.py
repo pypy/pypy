@@ -1,12 +1,11 @@
-import py
-from pypy.tool.autopath import pypydir
+import py, os
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.conftest import cdir as cdir2
 
 
-cdir = py.path.local(pypydir) / 'translator' / 'stm'
-cdir2 = py.path.local(pypydir) / 'translator' / 'c'
+cdir = os.path.abspath(os.path.join(cdir2, '..', 'stm'))
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir, cdir2],

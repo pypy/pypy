@@ -3,7 +3,7 @@ from rpython.rtyper.llinterp import LLFrame
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.translator.stm.transform2 import STMTransformer
 from rpython.translator.stm.writebarrier import MORE_PRECISE_CATEGORIES
-from pypy.conftest import option
+from rpython.conftest import option
 
 
 class _stmptr(lltype._ptr):

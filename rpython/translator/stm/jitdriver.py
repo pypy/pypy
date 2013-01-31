@@ -7,7 +7,7 @@ from rpython.annotator.model import lltype_to_annotation, s_Int
 from rpython.rtyper.annlowlevel import (MixLevelHelperAnnotator,
                                       cast_base_ptr_to_instance)
 from rpython.rlib import rstm
-from pypy.tool.sourcetools import compile2
+from rpython.tool.sourcetools import compile2
 
 
 def find_jit_merge_point(graph):

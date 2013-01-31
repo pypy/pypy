@@ -3,7 +3,7 @@ from rpython.rtyper.llinterp import LLFrame
 from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.translator.stm.inevitable import insert_turn_inevitable
-from pypy.conftest import option
+from rpython.conftest import option
 
 
 class LLSTMInevFrame(LLFrame):

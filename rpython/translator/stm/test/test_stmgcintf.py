@@ -1,12 +1,11 @@
 import os
-from pypy.tool import autopath
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 def test_all():
     executable = str(udir.join('test_stmgcintf'))
     prevdir = os.getcwd()
-    thisdir = os.path.join(autopath.pypydir, 'translator', 'stm', 'test')
+    thisdir = os.path.dirname(__file__)
     try:
         os.chdir(thisdir)
         exitcode = os.system(
