@@ -1196,7 +1196,9 @@ class _TestPool(BaseTestCase):
         p.join()
 
 def unpickleable_result():
-    return lambda: 42
+    class C:
+        pass
+    return C
 
 class _TestPoolWorkerErrors(BaseTestCase):
     ALLOWED_TYPES = ('processes', )
