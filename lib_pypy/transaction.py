@@ -114,7 +114,11 @@ class _ThreadPool(object):
             thread.start_new_thread(self._run_thread, ())
         # now wait.  When we manage to acquire the following lock, then
         # we are finished.
-        self.lock_if_released_then_finished.acquire()
+        try:
+            acquire = self.lock_if_released_then_finished.acquire_interruptible
+        except AttributeError:     # not on pypy-stm
+            acquire = self.lock_if_released_then_finished.acquire
+        acquire()
 
     def teardown(self):
         self.in_transaction = False
