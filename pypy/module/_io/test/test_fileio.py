@@ -41,7 +41,11 @@ class AppTestFileIO:
 
     def test_open_directory(self):
         import _io
+        import os
         raises(IOError, _io.FileIO, self.tmpdir, "rb")
+        fd = os.open(self.tmpdir, os.O_RDONLY)
+        raises(IOError, _io.FileIO, fd, "rb")
+        os.close(fd)
 
     def test_readline(self):
         import _io

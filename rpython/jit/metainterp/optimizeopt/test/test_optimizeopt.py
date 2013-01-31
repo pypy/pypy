@@ -2623,7 +2623,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p2)
         """
         self.raises(InvalidLoop, self.optimize_loop,
-                       ops, ops)
+                       ops, "crash!")
 
     def test_invalid_loop_2(self):
         ops = """
@@ -2635,7 +2635,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p2)
         """
         self.raises(InvalidLoop, self.optimize_loop,
-                       ops, ops)
+                       ops, "crash!")
 
     def test_invalid_loop_3(self):
         ops = """
@@ -2648,8 +2648,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p3, p4, descr=nextdescr)
         jump(p3)
         """
-        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        self.raises(InvalidLoop, self.optimize_loop, ops, "crash!")
 
+    def test_invalid_loop_guard_value_of_virtual(self):
+        ops = """
+        [p1]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        guard_value(p2, ConstPtr(myptr)) []
+        jump(p2)
+        """
+        self.raises(InvalidLoop, self.optimize_loop,
+                       ops, "crash!")
 
     def test_merge_guard_class_guard_value(self):
         ops = """
