@@ -112,6 +112,13 @@ class BaseBackendTest(Runner):
 
     avoid_instances = False
 
+    def setup_method(self, _):
+        self.cpu = self.get_cpu()
+        self.cpu.done_with_this_frame_descr_int = None
+        self.cpu.done_with_this_frame_descr_ref = None
+        self.cpu.done_with_this_frame_descr_float = None
+        self.cpu.done_with_this_frame_descr_void = None
+
     def test_compile_linear_loop(self):
         i0 = BoxInt()
         i1 = BoxInt()
@@ -2816,17 +2823,13 @@ class LLtypeBackendTest(BaseBackendTest):
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
-        prev_descr = self.cpu.done_with_this_frame_descr_int
         self.cpu.done_with_this_frame_descr_int = finish_descr
-        try:
-            othertoken = JitCellToken()
-            self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
-            args = [i+1 for i in range(10)]
-            deadframe = self.cpu.execute_token(othertoken, *args)
-            assert self.cpu.get_int_value(deadframe, 0) == 97
-            assert not called
-        finally:
-            self.cpu.done_with_this_frame_int_v = prev_descr
+        othertoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        args = [i+1 for i in range(10)]
+        deadframe = self.cpu.execute_token(othertoken, *args)
+        assert self.cpu.get_int_value(deadframe, 0) == 97
+        assert not called
 
     def test_assembler_call_float(self):
         if not self.cpu.supports_floats:
@@ -2886,19 +2889,15 @@ class LLtypeBackendTest(BaseBackendTest):
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
-        prev_descr = self.cpu.done_with_this_frame_descr_float
         self.cpu.done_with_this_frame_descr_float = finish_descr
-        try:
-            othertoken = JitCellToken()
-            self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
-            args = [longlong.getfloatstorage(1.2),
-                    longlong.getfloatstorage(4.2)]
-            deadframe = self.cpu.execute_token(othertoken, *args)
-            x = self.cpu.get_float_value(deadframe, 0)
-            assert longlong.getrealfloat(x) == 1.2 + 4.2
-            assert not called
-        finally:
-            self.cpu.done_with_this_frame_descr_float = prev_descr
+        othertoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        args = [longlong.getfloatstorage(1.2),
+                longlong.getfloatstorage(4.2)]
+        deadframe = self.cpu.execute_token(othertoken, *args)
+        x = self.cpu.get_float_value(deadframe, 0)
+        assert longlong.getrealfloat(x) == 1.2 + 4.2
+        assert not called
 
     def test_raw_malloced_getarrayitem(self):
         ARRAY = rffi.CArray(lltype.Signed)

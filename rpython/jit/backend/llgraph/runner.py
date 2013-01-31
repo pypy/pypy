@@ -885,13 +885,13 @@ class LLFrame(object):
         if faildescr == self.cpu.done_with_this_frame_descr_int:
             reset_vable(jd, vable)
             return self.cpu.get_int_value(pframe, 0)
-        if faildescr == self.cpu.done_with_this_frame_descr_ref:
+        elif faildescr == self.cpu.done_with_this_frame_descr_ref:
             reset_vable(jd, vable)
             return self.cpu.get_ref_value(pframe, 0)
-        if faildescr == self.cpu.done_with_this_frame_descr_float:
+        elif faildescr == self.cpu.done_with_this_frame_descr_float:
             reset_vable(jd, vable)
             return self.cpu.get_float_value(pframe, 0)
-        if faildescr == self.cpu.done_with_this_frame_descr_void:
+        elif faildescr == self.cpu.done_with_this_frame_descr_void:
             reset_vable(jd, vable)
             return None
         #

@@ -34,9 +34,10 @@ class TestX86(LLtypeBackendTest):
     bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'mov', 'mov',
                                 'call', 'mov', 'jmp']
 
-    def setup_method(self, meth):
-        self.cpu = CPU(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+    def get_cpu(self):
+        cpu = CPU(rtyper=None, stats=FakeStats())
+        cpu.setup_once()
+        return cpu
 
     def test_execute_ptr_operation(self):
         cpu = self.cpu

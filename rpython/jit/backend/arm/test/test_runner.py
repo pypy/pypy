@@ -30,9 +30,10 @@ class TestARM(LLtypeBackendTest):
                              'adds', 'cmp', 'beq', 'b']
     bridge_loop_instructions = ['movw', 'movt', 'bx']
 
-    def setup_method(self, meth):
-        self.cpu = CPU(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+    def get_cpu(self):
+        cpu = CPU(rtyper=None, stats=FakeStats())
+        cpu.setup_once()
+        return cpu
 
     def test_result_is_spilled(self):
         cpu = self.cpu
