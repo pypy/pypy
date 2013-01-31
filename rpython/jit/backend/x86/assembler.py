@@ -226,34 +226,6 @@ class Assembler386(object):
         mc.RET()
         self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
 
-        # XXX an almost identical copy for debugging, remove
-
-        mc = codebuf.MachineCodeBlockWrapper()
-        self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
-        assert not IS_X86_32
-        # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
-        mc.MOV_rs(ecx.value, WORD)
-        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.MOV_br(gcmap_ofs, ecx.value)
-        # this is size that we're after, sanity checking only
-        mc.MOV_rs(esi.value, WORD*2)
-        # push first arg
-        mc.LEA_rb(edi.value, -base_ofs)
-        # align
-        mc.SUB_ri(esp.value, WORD)
-        mc.CALL(imm(self.cpu.realloc_frame_check))
-        mc.ADD_ri(esp.value, WORD)
-        mc.LEA_rm(ebp.value, (eax.value, base_ofs))
-
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            self._load_shadowstack_top_in_ebx(mc, gcrootmap)
-            mc.MOV_mr((ebx.value, -WORD), eax.value)
-        mc.MOV_bi(gcmap_ofs, 0)
-        self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
-        mc.RET()
-        self._stack_check_failure_2 = mc.materialize(self.cpu.asmmemmgr, [])
-
     def _build_malloc_slowpath(self):
         """ While arriving on slowpath, we have a gcpattern on stack,
         nursery_head in eax and the size in edi - eax
@@ -580,10 +552,6 @@ class Assembler386(object):
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
         looptoken._x86_function_addr = rawstart
-        for label in self.labels_to_patch:
-            self._patch_stackadjust(label + rawstart, frame_depth_no_fixed_size
-                                    + JITFRAME_FIXED_SIZE)
-        self.labels_to_patch = None
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -634,9 +602,6 @@ class Assembler386(object):
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
         self._patch_stackadjust(ofs2 + rawstart, frame_depth)
-        for label in self.labels_to_patch:
-            self._patch_stackadjust(label + rawstart, frame_depth)
-        self.labels_to_patch = None
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
@@ -701,7 +666,7 @@ class Assembler386(object):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.set_frame_depth(baseofs, frame_depth)
 
-    def _check_frame_depth(self, mc, gcmap, expected_size=-1, check_only=False):
+    def _check_frame_depth(self, mc, gcmap, expected_size=-1):
         """ check if the frame is of enough depth to follow this bridge.
         Otherwise reallocate the frame in a helper.
         There are other potential solutions
@@ -724,10 +689,7 @@ class Assembler386(object):
             mc.MOV_si(WORD, expected_size)            
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
-        if check_only:
-            mc.CALL(imm(self._stack_check_failure_2))
-        else:
-            mc.CALL(imm(self._stack_check_failure))
+        mc.CALL(imm(self._stack_check_failure))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
@@ -829,7 +791,6 @@ class Assembler386(object):
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
-        self.labels_to_patch = []
         regalloc.compute_hint_frame_locations(operations)
         regalloc.walk_operations(inputargs, operations)
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
@@ -2546,10 +2507,7 @@ class Assembler386(object):
             self.mc.JMP(imm(target))
 
     def label(self):
-        ofs, ofs2 = self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
-                                            check_only=True)
-        self.labels_to_patch.append(ofs)
-        self.labels_to_patch.append(ofs2)
+        pass
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
