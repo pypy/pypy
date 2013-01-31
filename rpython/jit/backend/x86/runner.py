@@ -137,9 +137,6 @@ class AbstractX86CPU(AbstractLLCPU):
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
                     num += WORD
-                # no GC operation between gc_assume_young_pointers and
-                # the actual call to assembler!
-                llop.gc_assume_young_pointers(lltype.Void, frame)
                 ll_frame = func(ll_frame)
             finally:
                 if not self.translate_support_code:
