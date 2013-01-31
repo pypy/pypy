@@ -175,10 +175,7 @@ class ArgumentsForTranslation(object):
 
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
-        kwds_w = {}
-        if self.keywords:
-            for i in range(len(self.keywords)):
-                kwds_w[self.keywords[i]] = self.keywords_w[i]
+        kwds_w = dict(zip(self.keywords, self.keywords_w)) if self.keywords else {}
         return self.positional_args, kwds_w
 
 
@@ -193,9 +190,8 @@ class ArgumentsForTranslation(object):
 
     def unmatch_signature(self, signature, data_w):
         """kind of inverse of match_signature"""
-        args_w, kwds_w = self.unpack()
-        need_cnt = len(args_w)
-        need_kwds = kwds_w.keys()
+        need_cnt = len(self.positional_args)
+        need_kwds = self.keywords or []
         space = self.space
         argnames, varargname, kwargname = signature
         cnt = len(argnames)
@@ -216,20 +212,14 @@ class ArgumentsForTranslation(object):
             cnt += 1
         assert len(data_w) == cnt
 
-        ndata_args_w = len(data_args_w)
-        if ndata_args_w >= need_cnt:
+        if len(data_args_w) >= need_cnt:
             args_w = data_args_w[:need_cnt]
             for argname, w_arg in zip(argnames[need_cnt:], data_args_w[need_cnt:]):
                 unfiltered_kwds_w[argname] = w_arg
             assert not space.is_true(data_w_stararg)
         else:
             stararg_w = space.unpackiterable(data_w_stararg)
-            datalen = len(data_args_w)
-            args_w = [None] * (datalen + len(stararg_w))
-            for i in range(0, datalen):
-                args_w[i] = data_args_w[i]
-            for i in range(0, len(stararg_w)):
-                args_w[i + datalen] = stararg_w[i]
+            args_w = data_args_w + stararg_w
             assert len(args_w) == need_cnt
 
         keywords = []
