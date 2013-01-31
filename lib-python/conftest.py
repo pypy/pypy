@@ -311,7 +311,7 @@ testmap = [
     RegrTest('test_msilib.py'),
     RegrTest('test_multibytecodec.py', usemodules='_multibytecodec'),
     RegrTest('test_multifile.py'),
-    RegrTest('test_multiprocessing.py', skip=True),
+    RegrTest('test_multiprocessing.py'),
     RegrTest('test_mutants.py', core="possibly"),
     RegrTest('test_mutex.py'),
     RegrTest('test_netrc.py'),
