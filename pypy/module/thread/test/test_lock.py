@@ -12,7 +12,10 @@ class AppTestLock(GenericTestThread):
         assert lock.locked() is False
         raises(thread.error, lock.release)
         assert lock.locked() is False
-        lock.acquire()
+        r = lock.acquire()
+        assert r is True
+        r = lock.acquire(False)
+        assert r is False
         assert lock.locked() is True
         lock.release()
         assert lock.locked() is False

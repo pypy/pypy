@@ -34,8 +34,7 @@ def compile_shared():
             library = os.path.join(thisdir, '..', 'include', 'python27')
         if not os.path.exists(library + '.lib'):
             # For a local translation
-            library = os.path.join(thisdir, '..', 'pypy', 'translator',
-                    'goal', 'libpypy-c')
+            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'libpypy-c')
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST',  # needed for VC10
                         '/EXPORT:init_testcapi']
