@@ -84,10 +84,11 @@ class PyPyModule(py.test.collect.Module):
         if self.config.option.runappdirect:
             # only collect regular tests if we are in an 'app_test' directory,
             # or in test_lib_pypy
-            names = self.listnames()
-            return "app_test" in names or "test_lib_pypy" in names
-        else:
-            return True
+            for name in self.listnames():
+                if "app_test" in name or "test_lib_pypy" in name:
+                    return True
+            return False
+        return True
 
     def funcnamefilter(self, name):
         if name.startswith('test_'):
