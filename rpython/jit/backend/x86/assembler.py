@@ -603,7 +603,7 @@ class Assembler386(object):
                                              self.current_clt.frame_info)
         stack_check_patch_ofs, ofs2 = self._check_frame_depth(self.mc,
                                                        regalloc.get_gcmap())
-        frame_depth = self._assemble(regalloc, inputargs, operations)
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
@@ -618,7 +618,7 @@ class Assembler386(object):
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
-                          frame_depth + JITFRAME_FIXED_SIZE)
+                          frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
         self._patch_stackadjust(ofs2 + rawstart, frame_depth)
         for label in self.labels_to_patch:
