@@ -541,8 +541,9 @@ class Assembler386(object):
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
                                            clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
-        frame_depth = self._assemble(regalloc, inputargs, operations)
-        self.update_frame_depth(frame_depth + JITFRAME_FIXED_SIZE)
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
+                                                   operations)
+        self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -567,7 +568,8 @@ class Assembler386(object):
             looptoken._x86_ops_offset = ops_offset
         looptoken._x86_function_addr = rawstart
         for label in self.labels_to_patch:
-            self._patch_stackadjust(label + rawstart, frame_depth + JITFRAME_FIXED_SIZE)
+            self._patch_stackadjust(label + rawstart, frame_depth_no_fixed_size
+                                    + JITFRAME_FIXED_SIZE)
         self.labels_to_patch = None
 
         self.fixup_target_tokens(rawstart)
