@@ -53,9 +53,18 @@ class Platform(object):
         ofiles = self._compile_o_files(cfiles, eci, standalone)
         return self._finish_linking(ofiles, eci, outputfilename, standalone)
 
+    def _all_cfiles(self, cfiles, eci):
+        seen = set()
+        result = []
+        for cfile in list(cfiles) + list(eci.separate_module_files):
+            cfile = py.path.local(cfile)
+            if cfile not in seen:
+                seen.add(cfile)
+                result.append(cfile)
+        return result
+
     def _compile_o_files(self, cfiles, eci, standalone=True):
-        cfiles = [py.path.local(f) for f in cfiles]
-        cfiles += [py.path.local(f) for f in eci.separate_module_files]
+        cfiles = self._all_cfiles(cfiles, eci)
         compile_args = self._compile_args_from_eci(eci, standalone)
         ofiles = []
         for cfile in cfiles:
