@@ -84,8 +84,7 @@ def argsort_array(arr, space, w_axis):
     itemtype = arr.dtype.itemtype
     if (not isinstance(itemtype, types.Float) and
         not isinstance(itemtype, types.Integer) and 
-        not isinstance(itemtype, types.ComplexFloating) 
-       ):
+        not isinstance(itemtype, types.ComplexFloating)):
         # XXX this should probably be changed
         raise OperationError(space.w_NotImplementedError,
                space.wrap("sorting of non-numeric types " + \
