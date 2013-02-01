@@ -874,10 +874,10 @@ class Assembler386(object):
             xxx
         self.mc.ADD_ri(ebx.value, WORD)
         if rx86.fits_in_32bits(rst):
-            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], edx
+            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
         else:
             self.mc.MOV_mr((X86_64_SCRATCH_REG.value, 0),
-                           ebx.value) # MOV [r11], edx
+                           ebx.value) # MOV [r11], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
