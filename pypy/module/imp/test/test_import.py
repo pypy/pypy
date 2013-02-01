@@ -422,7 +422,7 @@ class AppTestImport:
         def imp():
             import pkg.i_am_not_here.neither_am_i
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named i_am_not_here.neither_am_i"
+        assert exc.value.args[0] == "No module named pkg.i_am_not_here"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
@@ -1094,6 +1094,12 @@ class AppTestImportHooks(object):
             (mydir):
                 import sys
                 sys.path.append(mydir)
+
+                # Obscure: manually bootstrap the utf-8 codec for
+                # TextIOs opened by imp.find_module. It's not otherwise
+                # loaded by the test infrastructure but would have been
+                # in any other situation
+                import encodings.utf_8
         """)
 
     def teardown_class(cls):
