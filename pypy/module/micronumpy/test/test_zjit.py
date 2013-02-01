@@ -493,3 +493,14 @@ class TestNumpyJIt(LLJitMixin):
                                 'new_with_vtable': 1, 
                                 'int_add': 2, 
                                 'float_ne': 1})
+
+    def define_argsort():
+        return """
+        a = |30|
+        argsort(a)
+        a->6
+        """
+
+    def test_argsort(self):
+        result = self.run("argsort")
+        assert result == 6
