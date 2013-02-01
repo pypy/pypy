@@ -248,8 +248,7 @@ class MsvcPlatform(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False):
-        cfiles = [py.path.local(f) for f in cfiles]
-        cfiles += [py.path.local(f) for f in eci.separate_module_files]
+        cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
             path = cfiles[0].dirpath()
