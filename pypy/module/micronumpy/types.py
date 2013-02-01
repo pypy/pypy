@@ -383,7 +383,7 @@ class Integer(Primitive):
     def str_format(self, box):
         return str(self.for_computation(self.unbox(box)))
 
-    #@staticmethod #v can be all kinds of int
+    @staticmethod
     def for_computation(self, v):
         return widen(v)
 
@@ -649,7 +649,7 @@ class Float(Primitive):
         return float2string(self.for_computation(self.unbox(box)), "g",
                             rfloat.DTSF_STR_PRECISION)
 
-    #@staticmethod #v can be a longfloat
+    @staticmethod
     def for_computation(self, v):
         return float(v)
 
@@ -966,6 +966,7 @@ class Float16(BaseType, Float):
         fval = unpack_float(s, native_is_bigendian)
         return self.box(fval)
 
+    @staticmethod
     def for_computation(self, v):
         return float(v)
 
@@ -1070,6 +1071,7 @@ class ComplexFloating(object):
         op = '+' if imag >= 0 else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
+    @staticmethod
     def for_computation(self, v):   
         return float(v[0]), float(v[1])
 
