@@ -1,16 +1,16 @@
-from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes, BadVirtualState
+import sys
+
 from rpython.jit.metainterp.compile import ResumeGuardDescr
-from rpython.jit.metainterp.history import TreeLoop, TargetToken, JitCellToken
-from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.rlib.debug import debug_print, debug_start, debug_stop
-from rpython.jit.metainterp.optimizeopt.optimizer import *
-from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
+from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
 from rpython.jit.metainterp.inliner import Inliner
+from rpython.jit.metainterp.optimize import InvalidLoop
+from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
+from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes, BadVirtualState
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.resume import Snapshot
-import sys, os
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
@@ -18,6 +18,7 @@ def optimize_unroll(metainterp_sd, loop, optimizations, inline_short_preamble=Tr
     opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
     opt.inline_short_preamble = inline_short_preamble
     opt.propagate_all_forward()
+
 
 class UnrollableOptimizer(Optimizer):
     def setup(self):
@@ -51,7 +52,7 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     inline_short_preamble = True
-    
+
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
         self.boxes_created_this_iteration = None
@@ -59,14 +60,14 @@ class UnrollOptimizer(Optimization):
     def fix_snapshot(self, jump_args, snapshot):
         if snapshot is None:
             return None
-        snapshot_args = snapshot.boxes 
+        snapshot_args = snapshot.boxes
         new_snapshot_args = []
         for a in snapshot_args:
             a = self.getvalue(a).get_key_box()
             new_snapshot_args.append(a)
         prev = self.fix_snapshot(jump_args, snapshot.prev)
         return Snapshot(prev, new_snapshot_args)
-            
+
     def propagate_all_forward(self):
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
@@ -78,7 +79,7 @@ class UnrollOptimizer(Optimization):
             # will clear heap caches
             self.optimizer.send_extra_operation(start_label)
         else:
-            start_label = None            
+            start_label = None
 
         jumpop = loop.operations[-1]
         if jumpop.getopnum() == rop.JUMP or jumpop.getopnum() == rop.LABEL:
@@ -96,7 +97,6 @@ class UnrollOptimizer(Optimization):
         assert isinstance(cell_token, JitCellToken)
         stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), None, TargetToken(cell_token))
 
-        
         if jumpop.getopnum() == rop.JUMP:
             if self.jump_to_already_compiled_trace(jumpop):
                 # Found a compiled trace to jump to
@@ -130,7 +130,7 @@ class UnrollOptimizer(Optimization):
                     return
 
         # Found nothing to jump to, emit a label instead
-        
+
         if self.short:
             # Construct our short preamble
             assert start_label
@@ -146,7 +146,7 @@ class UnrollOptimizer(Optimization):
     def jump_to_start_label(self, start_label, stop_label):
         if not start_label or not stop_label:
             return False
-        
+
         stop_target = stop_label.getdescr()
         start_target = start_label.getdescr()
         assert isinstance(stop_target, TargetToken)
@@ -161,7 +161,6 @@ class UnrollOptimizer(Optimization):
         #virtual_state = modifier.get_virtual_state(args)
         #if self.initial_virtual_state.generalization_of(virtual_state):
         #    return True
-        
 
     def export_state(self, targetop):
         original_jump_args = targetop.getarglist()
@@ -174,11 +173,10 @@ class UnrollOptimizer(Optimization):
 
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
-            
+
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
         short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
-
 
         if self.boxes_created_this_iteration is not None:
             for box in self.inputargs:
@@ -210,7 +208,7 @@ class UnrollOptimizer(Optimization):
             if op and op.result:
                 box = op.result
                 exported_values[box] = self.optimizer.getvalue(box)
-            
+
         target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops,
                                                     exported_values)
 
@@ -232,7 +230,7 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(self.inputargs)
             self.initial_virtual_state = virtual_state
             return
-        
+
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
@@ -276,7 +274,7 @@ class UnrollOptimizer(Optimization):
                     #if self.optimizer.loop.logops:
                     #    debug_print('  Falling back to add extra: ' +
                     #                self.optimizer.loop.logops.repr_of_resop(op))
-                    
+
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
 
@@ -287,7 +285,7 @@ class UnrollOptimizer(Optimization):
         # We dont need to inline the short preamble we are creating as we are conneting
         # the bridge to a different trace with a different short preamble
         self.short_inliner = None
-        
+
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
         i = 0
@@ -333,7 +331,7 @@ class UnrollOptimizer(Optimization):
                                       'same box passed to multiple of its ' +
                                       'inputargs, but the jump at the ' +
                                       'end of this bridge does not do that.')
-                                      
+
             args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         i = 1
@@ -400,7 +398,7 @@ class UnrollOptimizer(Optimization):
                               'loop is not compatible with the virtual ' +
                               'state at the start of the loop which makes ' +
                               'it impossible to close the loop')
-            
+
         #debug_stop('jit-log-virtualstate')
 
         maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
@@ -408,9 +406,9 @@ class UnrollOptimizer(Optimization):
             target_token = jumpop.getdescr()
             assert isinstance(target_token, TargetToken)
             target_token.targeting_jitcell_token.retraced_count = sys.maxint
-            
+
         self.finilize_short_preamble(start_label)
-            
+
     def finilize_short_preamble(self, start_label):
         short = self.short
         assert short[-1].getopnum() == rop.JUMP
@@ -482,11 +480,11 @@ class UnrollOptimizer(Optimization):
         if op is None:
             return None
         if op.result is not None and op.result in self.short_seen:
-            if emit and self.short_inliner:                
+            if emit and self.short_inliner:
                 return self.short_inliner.inline_arg(op.result)
             else:
                 return None
-        
+
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in self.short_seen:
                 self.add_op_to_short(self.short_boxes.producer(a), emit, guards_needed)
@@ -497,7 +495,7 @@ class UnrollOptimizer(Optimization):
         if guards_needed and self.short_boxes.has_producer(op.result):
             value_guards = self.getvalue(op.result).make_guards(op.result)
         else:
-            value_guards = []            
+            value_guards = []
 
         self.short.append(op)
         self.short_seen[op.result] = True
@@ -517,7 +515,7 @@ class UnrollOptimizer(Optimization):
         if newop:
             return newop.result
         return None
-        
+
     def import_box(self, box, inputargs, short_jumpargs, jumpargs):
         if isinstance(box, Const) or box in inputargs:
             return
@@ -603,7 +601,7 @@ class UnrollOptimizer(Optimization):
                             classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
                             if not classbox or not classbox.same_constant(target.assumed_classes[shop.result]):
                                 raise InvalidLoop('The class of an opaque pointer at the end ' +
-                                                  'of the bridge does not mach the class ' + 
+                                                  'of the bridge does not mach the class ' +
                                                   'it has at the start of the target loop')
                 except InvalidLoop:
                     #debug_print("Inlining failed unexpectedly",
@@ -615,6 +613,7 @@ class UnrollOptimizer(Optimization):
         debug_stop('jit-log-virtualstate')
         return False
 
+
 class ValueImporter(object):
     def __init__(self, unroll, value, op):
         self.unroll = unroll
@@ -623,7 +622,8 @@ class ValueImporter(object):
 
     def import_value(self, value):
         value.import_from(self.preamble_value, self.unroll.optimizer)
-        self.unroll.add_op_to_short(self.op, False, True)        
+        self.unroll.add_op_to_short(self.op, False, True)
+
 
 class ExportedState(object):
     def __init__(self, short_boxes, inputarg_setup_ops, exported_values):

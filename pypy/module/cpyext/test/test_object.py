@@ -95,14 +95,17 @@ class TestObject(BaseApiTest):
     def test_size(self, space, api):
         assert api.PyObject_Size(space.newlist([space.w_None])) == 1
 
-    def test_repr(self, space, api):
+    def test_str(self, space, api):
         w_list = space.newlist([space.w_None, space.wrap(42)])
-        assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
-        assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
-
-        w_list = space.newlist([space.w_None, space.wrap(42)])
+        assert space.str_w(api.PyObject_Str(None)) == "<NULL>"
         assert space.str_w(api.PyObject_Str(w_list)) == "[None, 42]"
         assert space.str_w(api.PyObject_Str(space.wrap("a"))) == "a"
+
+    def test_repr(self, space, api):
+        w_list = space.newlist([space.w_None, space.wrap(42)])
+        assert space.str_w(api.PyObject_Repr(None)) == "<NULL>"
+        assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
+        assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
 
     def test_RichCompare(self, space, api):
         def compare(w_o1, w_o2, opid):

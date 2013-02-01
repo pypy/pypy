@@ -198,15 +198,12 @@ def signal(space, signum, w_handler):
     A signal handler function is called with two arguments:
     the first is the signal number, the second is the interrupted stack frame.
     """
-    ec = space.getexecutioncontext()
-    main_ec = space.threadlocals.getmainthreadvalue()
-
-    old_handler = getsignal(space, signum)
-
-    if ec is not main_ec:
+    if not space.threadlocals.ismainthread():
         raise OperationError(space.w_ValueError,
                              space.wrap("signal() must be called from the "
                                         "main thread"))
+    old_handler = getsignal(space, signum)
+
     action = space.check_signal_action
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
         pypysig_default(signum)
@@ -231,13 +228,10 @@ def set_wakeup_fd(space, fd):
 
     The fd must be non-blocking.
     """
-    if space.config.objspace.usemodules.thread:
-        main_ec = space.threadlocals.getmainthreadvalue()
-        ec = space.getexecutioncontext()
-        if ec is not main_ec:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("set_wakeup_fd only works in main thread"))
+    if not space.threadlocals.ismainthread():
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("set_wakeup_fd only works in main thread"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 
