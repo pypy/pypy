@@ -1298,6 +1298,7 @@ class MiniMarkGC(MovingGCBase):
         self.debug_rotate_nursery()
         self.nursery_free = self.nursery
         self.nursery_top = self.nursery + self.nursery_cleanup
+        self.nursery_real_top = self.nursery + self.nursery_size
         #
         debug_print("minor collect, total memory used:",
                     self.get_total_memory_used())
