@@ -194,6 +194,7 @@ class ArgumentsForTranslation(object):
         need_kwds = self.keywords or []
         space = self.space
         argnames, varargname, kwargname = signature
+        assert kwargname is None
         cnt = len(argnames)
         data_args_w = data_w[:cnt]
         if varargname:
@@ -201,17 +202,9 @@ class ArgumentsForTranslation(object):
             cnt += 1
         else:
             data_w_stararg = space.newtuple([])
-
-        unfiltered_kwds_w = {}
-        if kwargname:
-            data_w_starargarg = data_w[cnt]
-            for w_key in space.unpackiterable(data_w_starargarg):
-                key = space.str_w(w_key)
-                w_value = space.getitem(data_w_starargarg, w_key)
-                unfiltered_kwds_w[key] = w_value
-            cnt += 1
         assert len(data_w) == cnt
 
+        unfiltered_kwds_w = {}
         if len(data_args_w) >= need_cnt:
             args_w = data_args_w[:need_cnt]
             for argname, w_arg in zip(argnames[need_cnt:], data_args_w[need_cnt:]):
