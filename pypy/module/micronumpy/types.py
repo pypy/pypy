@@ -115,6 +115,9 @@ def raw_binary_op(func):
 class BaseType(object):
     _attrs_ = ()
 
+    SortRepr = None # placeholders for sorting classes, overloaded in sort.py
+    Sort = None
+
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
 
@@ -384,7 +387,7 @@ class Integer(Primitive):
         return str(self.for_computation(self.unbox(box)))
 
     @staticmethod
-    def for_computation(self, v):
+    def for_computation(v):
         return widen(v)
 
     def default_fromstring(self, space):
@@ -650,7 +653,7 @@ class Float(Primitive):
                             rfloat.DTSF_STR_PRECISION)
 
     @staticmethod
-    def for_computation(self, v):
+    def for_computation(v):
         return float(v)
 
     def default_fromstring(self, space):
@@ -951,7 +954,9 @@ class NonNativeFloat(NonNativePrimitive, Float):
         swapped_value = byteswap(rffi.cast(self.T, value))
         raw_storage_setitem(storage, i + offset, swapped_value)
 
-class Float16(BaseType, Float):
+class BaseFloat16(Float):
+    _mixin_ = True
+
     _attrs_ = ()
     _STORAGE_T = rffi.USHORT
     T = rffi.DOUBLE
@@ -966,21 +971,8 @@ class Float16(BaseType, Float):
         fval = unpack_float(s, native_is_bigendian)
         return self.box(fval)
 
-    @staticmethod
-    def for_computation(self, v):
-        return float(v)
-
     def default_fromstring(self, space):
         return self.box(-1.0)
-
-    def _read(self, storage, i, offset):
-        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
-        return float_unpack(r_ulonglong(hbits), 2)
-
-    def _write(self, storage, i, offset, value):
-        hbits = float_pack(value,2)
-        raw_storage_setitem(storage, i + offset,
-                rffi.cast(self._STORAGE_T, hbits))
 
     def byteswap(self, w_v):
         value = self.unbox(w_v)
@@ -988,10 +980,17 @@ class Float16(BaseType, Float):
         swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
-class NonNativeFloat16(Float16):
-    _attrs_ = ()
-    BoxType = interp_boxes.W_Float16Box
+class Float16(BaseType, BaseFloat16):
+    def _read(self, storage, i, offset):
+        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        return float_unpack(r_ulonglong(hbits), 2)
 
+    def _write(self, storage, i, offset, value):
+        hbits = float_pack(value,2)
+        raw_storage_setitem(storage, i + offset,
+                rffi.cast(self._STORAGE_T, hbits))    
+
+class NonNativeFloat16(BaseType, BaseFloat16):
     def _read(self, storage, i, offset):
         hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
         return float_unpack(r_ulonglong(byteswap(hbits)), 2)
@@ -1072,7 +1071,7 @@ class ComplexFloating(object):
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     @staticmethod
-    def for_computation(self, v):   
+    def for_computation(v):   
         return float(v[0]), float(v[1])
 
     def read_bool(self, arr, i, offset):
@@ -1607,8 +1606,7 @@ elif interp_boxes.long_double_size == 16:
             pack_float80(result, value, 16, not native_is_bigendian)
             return self.box(unpack_float128(result.build(), native_is_bigendian))
 
-    class NonNativeFloat128(Float128):
-        pass
+    NonNativeFloat128 = Float128
 
     class Complex256(ComplexFloating, BaseType):
         _attrs_ = ()
@@ -1756,10 +1754,20 @@ for tp in [UInt32, UInt64]:
         break
 del tp
 
+all_float_types = []
+all_int_types = []
+all_complex_types = []
+
 def _setup():
     # compute alignment
     for tp in globals().values():
         if isinstance(tp, type) and hasattr(tp, 'T'):
             tp.alignment = clibffi.cast_type_to_ffitype(tp.T).c_alignment
+            if issubclass(tp, Float):
+                all_float_types.append(tp)
+            if issubclass(tp, Integer):
+                all_int_types.append(tp)
+            if issubclass(tp, ComplexFloating):
+                all_complex_types.append(tp)
 _setup()
 del _setup

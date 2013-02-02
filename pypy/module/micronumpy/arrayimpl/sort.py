@@ -5,7 +5,6 @@ because it only makes sense on a concrete array
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.listsort import make_timsort_class
-from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem, \
         free_raw_storage, alloc_raw_storage
 from pypy.interpreter.error import OperationError
@@ -15,7 +14,6 @@ from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
-@specialize.memo()
 def make_sort_classes(space, itemtype):
     TP = itemtype.T
     
@@ -81,10 +79,9 @@ def make_sort_classes(space, itemtype):
     return ArgArrayRepresentation, ArgSort
 
 def argsort_array(arr, space, w_axis):
+    space.fromcache(SortCache) # that populates SortClasses
     itemtype = arr.dtype.itemtype
-    if (not isinstance(itemtype, types.Float) and
-        not isinstance(itemtype, types.Integer) and 
-        not isinstance(itemtype, types.ComplexFloating)):
+    if itemtype.Sort is None:
         # XXX this should probably be changed
         raise OperationError(space.w_NotImplementedError,
                space.wrap("sorting of non-numeric types " + \
@@ -98,6 +95,8 @@ def argsort_array(arr, space, w_axis):
         axis = -1
     else:
         axis = space.int_w(w_axis)
+    Repr = itemtype.SortRepr
+    Sort = itemtype.Sort
     itemsize = itemtype.get_element_size()
     # create array of indexes
     dtype = interp_dtype.get_dtype_cache(space).w_longdtype
@@ -106,7 +105,6 @@ def argsort_array(arr, space, w_axis):
     if len(arr.get_shape()) == 1:
         for i in range(arr.get_size()):
             raw_storage_setitem(storage, i * INT_SIZE, i)
-        Repr, Sort = make_sort_classes(space, itemtype)
         r = Repr(INT_SIZE, itemsize, arr.get_size(), arr.get_storage(),
                  storage, 0, arr.start)
         Sort(r).sort()
@@ -124,7 +122,6 @@ def argsort_array(arr, space, w_axis):
         stride_size = arr.strides[axis]
         index_stride_size = index_impl.strides[axis]
         axis_size = arr.shape[axis]
-        Repr, Sort = make_sort_classes(space, itemtype)
         while not iter.done():
             for i in range(axis_size):
                 raw_storage_setitem(storage, i * index_stride_size +
@@ -135,3 +132,16 @@ def argsort_array(arr, space, w_axis):
             iter.next()
             index_iter.next()
     return index_arr
+
+class SortCache(object):
+    built = False
+    
+    def __init__(self, space):
+        if self.built:
+            return
+        for cls in types.all_float_types:
+            cls.SortRepr, cls.Sort = make_sort_classes(space, cls)
+        for cls in types.all_int_types:
+            cls.SortRepr, cls.Sort = make_sort_classes(space, cls)
+        for cls in types.all_complex_types:
+            cls.SortRepr, cls.Sort = make_sort_classes(space, cls)
