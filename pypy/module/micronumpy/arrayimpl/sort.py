@@ -31,16 +31,20 @@ def make_sort_function(space, itemtype):
             self.indexes = indexes
 
         def getitem(self, item):
-            v = raw_storage_getitem(TP, self.values, item * self.stride_size
-                                    + self.start)
+            #v = raw_storage_getitem(TP, self.values, item * self.stride_size
+            #                        + self.start)
+            v = itemtype.read_from_storage(TP, self.values, self.start, 
+                                item*self.stride_size)
             v = itemtype.for_computation(v)
             return (v, raw_storage_getitem(lltype.Signed, self.indexes,
                                            item * self.index_stride_size +
                                            self.index_start))
 
         def setitem(self, idx, item):
-            raw_storage_setitem(self.values, idx * self.stride_size +
-                                self.start, rffi.cast(TP, item[0]))
+            #raw_storage_setitem(self.values, idx * self.stride_size +
+            #                    self.start, rffi.cast(TP, item[0]))
+            itemtype.write_to_storage(TP, self.values, self.start, 
+                                      idx * self.stride_size, item[0])
             raw_storage_setitem(self.indexes, idx * self.index_stride_size +
                                 self.index_start, item[1])
 
