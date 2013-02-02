@@ -1639,17 +1639,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(42)
         assert _weakref.ref(a)
 
-    def test_argsort(self):
-        from _numpypy import array, arange
-        assert array(2.0).argsort() == 0
-        for dtype in ['int', 'float', 'int8', 'int16', 'float32']:
-            a = array([6, 4, 1, 3, 8, 3], dtype=dtype)
-            res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4]).all()
-            assert (a == [6, 4, 1, 3, 8, 3]).all() # not modified
-            a = arange(100)
-            assert (a.argsort() == a).all()
-
     def test_astype(self):
         from _numpypy import array
         b = array(1).astype(float)
@@ -2263,7 +2252,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_fromstring(self):
         import sys
-        from _numpypy import fromstring, array, uint8, float32, int32
+        from _numpypy import fromstring, uint8, float32, int32
 
         a = fromstring(self.data)
         for i in range(4):
@@ -2380,7 +2369,18 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
 
-    def test_argsort(self):
+    def test_argsort_dtypes(self):
+        from _numpypy import array, arange
+        assert array(2.0).argsort() == 0
+        for dtype in ['int', 'float', 'int8', 'int16', 'float32']:
+            a = array([6, 4, 1, 3, 8, 3], dtype=dtype)
+            res = a.argsort()
+            assert (res == [2, 3, 5, 1, 0, 4]).all()
+            assert (a == [6, 4, 1, 3, 8, 3]).all() # not modified
+            a = arange(100)
+            assert (a.argsort() == a).all()
+
+    def test_argsort_nd(self):
         from _numpypy import array
         a = array([[4, 2], [1, 3]])
         assert (a.argsort() == [[1, 0], [0, 1]]).all()
@@ -2405,7 +2405,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
 class AppTestRanges(BaseNumpyAppTest):
     def test_arange(self):
-        from _numpypy import arange, array, dtype
+        from _numpypy import arange, dtype
         a = arange(3)
         assert (a == [0, 1, 2]).all()
         assert a.dtype is dtype(int)
