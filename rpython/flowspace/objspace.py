@@ -271,7 +271,7 @@ class FlowObjSpace(object):
         else:
             raise UnwrapException("cannot unpack a Variable iterable ")
 
-    def unpacksequence(self, w_iterable, expected_length):
+    def unpack_sequence(self, w_iterable, expected_length):
         if isinstance(w_iterable, Constant):
             l = list(self.unwrap(w_iterable))
             if len(l) != expected_length:
@@ -412,7 +412,9 @@ class FlowObjSpace(object):
             except (KeyError, TypeError):
                 pass
             else:
-                return sc(self, fn, args)
+                args_w, kwds_w = args.unpack()
+                assert kwds_w == {}, "should not call %r with keyword arguments" % (fn,)
+                return sc(self, fn, args_w)
 
         try:
             args_w, kwds_w = args.unpack()

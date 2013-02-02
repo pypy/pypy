@@ -1019,7 +1019,7 @@ class FlowSpaceFrame(object):
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
-        items = self.space.unpacksequence(w_iterable, itemcount)
+        items = self.space.unpack_sequence(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
 
     def slice(self, w_start, w_end):
