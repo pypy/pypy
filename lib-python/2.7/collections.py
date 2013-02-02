@@ -6,7 +6,6 @@ import _abcoll
 __all__ += _abcoll.__all__
 
 from _collections import deque, defaultdict
-from operator import itemgetter as _itemgetter
 from keyword import iskeyword as _iskeyword
 import sys as _sys
 import heapq as _heapq
@@ -298,7 +297,7 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
         _fields = %(field_names)r \n
         def __new__(_cls, %(argtxt)s):
             'Create new instance of %(typename)s(%(argtxt)s)'
-            return _tuple.__new__(_cls, (%(argtxt)s)) \n
+            return tuple.__new__(_cls, (%(argtxt)s)) \n
         @classmethod
         def _make(cls, iterable, new=tuple.__new__, len=len):
             'Make a new %(typename)s object from a sequence or iterable'
@@ -323,14 +322,13 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
             'Return self as a plain tuple.  Used by copy and pickle.'
             return tuple(self) \n\n''' % locals()
     for i, name in enumerate(field_names):
-        template += "        %s = _property(_itemgetter(%d), doc='Alias for field number %d')\n" % (name, i, i)
+        template += "        %s = property(lambda self: self[%d], doc='Alias for field number %d')\n" % (name, i, i)
     if verbose:
         print template
 
     # Execute the template string in a temporary namespace and
     # support tracing utilities by setting a value for frame.f_globals['__name__']
-    namespace = dict(_itemgetter=_itemgetter, __name__='namedtuple_%s' % typename,
-                     OrderedDict=OrderedDict, _property=property, _tuple=tuple)
+    namespace = {'__name__': 'namedtuple_%s' % typename}
     try:
         exec template in namespace
     except SyntaxError, e:
