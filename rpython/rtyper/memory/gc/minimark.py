@@ -357,6 +357,8 @@ class MiniMarkGC(MovingGCBase):
 
             nursery_cleanup = env.read_from_env('PYPY_GC_NURSERY_CLEANUP')
             if nursery_cleanup > 0:
+                if nursery_cleanup < self.nonlarge_max + 1:
+                    nursery_cleanup = self.nonlarge_max + 1
                 self.nursery_cleanup = nursery_cleanup
             #
             major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
@@ -599,8 +601,10 @@ class MiniMarkGC(MovingGCBase):
             self.major_collection()
 
     def move_nursery_top(self, totalsize):
-        llarena.arena_reset(self.nursery_top, self.nursery_cleanup, 2)
-        self.nursery_top += self.nursery_cleanup
+        size = min(self.nursery_real_top - self.nursery_top,
+                   self.nursery_cleanup)
+        llarena.arena_reset(self.nursery_top, size, 2)
+        self.nursery_top += size
 
     def collect_and_reserve(self, prev_result, totalsize):
         """To call when nursery_free overflows nursery_top.
@@ -611,8 +615,7 @@ class MiniMarkGC(MovingGCBase):
         and finally reserve 'totalsize' bytes at the start of the
         now-empty nursery.
         """
-        if (self.nursery_top < self.nursery_real_top and
-            self.nursery_free < self.nursery_real_top):
+        if self.nursery_top < self.nursery_real_top:
             self.move_nursery_top(totalsize)
             return prev_result
         self.minor_collection()
@@ -623,7 +626,7 @@ class MiniMarkGC(MovingGCBase):
             # The nursery might not be empty now, because of
             # execute_finalizers().  If it is almost full again,
             # we need to fix it with another call to minor_collection().
-            if self.nursery_free + totalsize > self.nursery_top:
+            if self.nursery_free + totalsize > self.nursery_real_top:
                 self.minor_collection()
         #
         result = self.nursery_free
@@ -786,6 +789,7 @@ class MiniMarkGC(MovingGCBase):
         if self.next_major_collection_threshold < 0:
             # cannot trigger a full collection now, but we can ensure
             # that one will occur very soon
+            self.nursery_top = self.nursery_real_top
             self.nursery_free = self.nursery_real_top
 
     def can_malloc_nonmovable(self):
@@ -1859,10 +1863,13 @@ class MiniMarkGC(MovingGCBase):
         ll_assert(reserved_size <= self.nonlarge_max,
                   "set_extra_threshold: too big!")
         diff = reserved_size - self.extra_threshold
-        if diff > 0 and self.nursery_free + diff > self.nursery_real_top:
+        if (diff > 0 and self.nursery_free + diff > self.nursery_real_top and
+            self.nursery_top == self.nursery_real_top):
             self.minor_collection()
         self.nursery_size -= diff
         self.nursery_real_top -= diff
+        ll_assert(self.nursery_cleanup >= diff, "set_extra_threshold: too big!")
+        self.nursery_top -= diff
         self.extra_threshold += diff
 
 
