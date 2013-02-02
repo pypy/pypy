@@ -5,6 +5,7 @@
 /* Eliminated some memory leaks, gsw@agere.com */
 
 #include <windows.h>
+#include <stdio.h>
 #include <limits.h>
 #include <process.h>
 
@@ -12,6 +13,7 @@
 /*
  * Thread support.
  */
+/* In rpython, this file is pulled in by thread.c */
 
 typedef struct RPyOpaque_ThreadLock NRMUTEX, *PNRMUTEX;
 
@@ -102,47 +104,24 @@ long RPyThreadSetStackSize(long newsize)
 
 BOOL InitializeNonRecursiveMutex(PNRMUTEX mutex)
 {
-	mutex->owned = -1 ;  /* No threads have entered NonRecursiveMutex */
-	mutex->thread_id = 0 ;
-	mutex->hevent = CreateEvent(NULL, FALSE, FALSE, NULL) ;
-	return mutex->hevent != NULL ;	/* TRUE if the mutex is created */
+    mutex->sem = CreateSemaphore(NULL, 1, 1, NULL);
 }
 
 VOID DeleteNonRecursiveMutex(PNRMUTEX mutex)
 {
-	/* No in-use check */
-	CloseHandle(mutex->hevent) ;
-	mutex->hevent = NULL ; /* Just in case */
+    /* No in-use check */
+    CloseHandle(mutex->sem);
+    mutex->sem = NULL ; /* Just in case */
 }
 
-DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, BOOL wait)
+DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, DWORD milliseconds)
 {
-	/* Assume that the thread waits successfully */
-	DWORD ret ;
-
-	/* InterlockedIncrement(&mutex->owned) == 0 means that no thread currently owns the mutex */
-	if (!wait)
-	{
-		if (InterlockedCompareExchange(&mutex->owned, 0, -1) != -1)
-			return WAIT_TIMEOUT ;
-		ret = WAIT_OBJECT_0 ;
-	}
-	else
-		ret = InterlockedIncrement(&mutex->owned) ?
-			/* Some thread owns the mutex, let's wait... */
-			WaitForSingleObject(mutex->hevent, INFINITE) : WAIT_OBJECT_0 ;
-
-	mutex->thread_id = GetCurrentThreadId() ; /* We own it */
-	return ret ;
+    return WaitForSingleObject(mutex->sem, milliseconds);
 }
 
 BOOL LeaveNonRecursiveMutex(PNRMUTEX mutex)
 {
-	/* We don't own the mutex */
-	mutex->thread_id = 0 ;
-	return
-		InterlockedDecrement(&mutex->owned) < 0 ||
-		SetEvent(mutex->hevent) ; /* Other threads are waiting, wake one on them up */
+    return ReleaseSemaphore(mutex->sem, 1, NULL);
 }
 
 /************************************************************/
@@ -158,8 +137,8 @@ int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 {
-	if (lock->hevent != NULL)
-		DeleteNonRecursiveMutex(lock);
+    if (lock->sem != NULL)
+	DeleteNonRecursiveMutex(lock);
 }
 
 /*
@@ -168,9 +147,42 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
  * and 0 if the lock was not acquired. This means a 0 is returned
  * if the lock has already been acquired by this thread!
  */
+RPyLockStatus
+RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
+			  RPY_TIMEOUT_T microseconds, int intr_flag)
+{
+    /* Fow now, intr_flag does nothing on Windows, and lock acquires are
+     * uninterruptible.  */
+    RPyLockStatus success;
+    RPY_TIMEOUT_T milliseconds;
+
+    if (microseconds >= 0) {
+        milliseconds = microseconds / 1000;
+        if (microseconds % 1000 > 0)
+            ++milliseconds;
+        if ((DWORD) milliseconds != milliseconds) {
+            fprintf(stderr, "Timeout too large for a DWORD, "
+                            "please check RPY_TIMEOUT_MAX");
+            abort();
+        }
+    }
+    else
+        milliseconds = INFINITE;
+
+    if (lock && EnterNonRecursiveMutex(
+	    lock, (DWORD)milliseconds) == WAIT_OBJECT_0) {
+        success = RPY_LOCK_ACQUIRED;
+    }
+    else {
+        success = RPY_LOCK_FAILURE;
+    }
+
+    return success;
+}
+
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
 {
-	return EnterNonRecursiveMutex(lock, (waitflag != 0 ? INFINITE : 0)) == WAIT_OBJECT_0;
+    return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
 }
 
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)

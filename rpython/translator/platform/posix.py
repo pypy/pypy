@@ -84,8 +84,7 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False):
-        cfiles = [py.path.local(f) for f in cfiles]
-        cfiles += [py.path.local(f) for f in eci.separate_module_files]
+        cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
             path = cfiles[0].dirpath()
@@ -115,7 +114,7 @@ class BasePosix(Platform):
             cflags = self.cflags + self.standalone_only
 
         m = GnuMakefile(path)
-        m.exe_name = path.join(target_name)
+        m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
         def rpyrel(fpath):

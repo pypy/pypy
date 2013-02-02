@@ -306,7 +306,7 @@ class RegisterOs(BaseLazyRegistering):
                                    rffi.INT, compilation_info = eci)
 
         def execv_llimpl(path, args):
-            l_args = rffi.liststr2charpp(args)
+            l_args = rffi.ll_liststr2charpp(args)
             os_execv(path, l_args)
             rffi.free_charpp(l_args)
             raise OSError(rposix.get_errno(), "execv failed")
@@ -332,8 +332,8 @@ class RegisterOs(BaseLazyRegistering):
                 envstr = "%s=%s" % item
                 envstrs.append(envstr)
 
-            l_args = rffi.liststr2charpp(args)
-            l_env = rffi.liststr2charpp(envstrs)
+            l_args = rffi.ll_liststr2charpp(args)
+            l_env = rffi.ll_liststr2charpp(envstrs)
             os_execve(path, l_args, l_env)
 
             # XXX untested
@@ -357,7 +357,7 @@ class RegisterOs(BaseLazyRegistering):
 
         def spawnv_llimpl(mode, path, args):
             mode = rffi.cast(rffi.INT, mode)
-            l_args = rffi.liststr2charpp(args)
+            l_args = rffi.ll_liststr2charpp(args)
             childpid = os_spawnv(mode, path, l_args)
             rffi.free_charpp(l_args)
             if childpid == -1:
@@ -380,8 +380,8 @@ class RegisterOs(BaseLazyRegistering):
                 envstrs.append("%s=%s" % item)
 
             mode = rffi.cast(rffi.INT, mode)
-            l_args = rffi.liststr2charpp(args)
-            l_env = rffi.liststr2charpp(envstrs)
+            l_args = rffi.ll_liststr2charpp(args)
+            l_env = rffi.ll_liststr2charpp(envstrs)
             childpid = os_spawnve(mode, path, l_args, l_env)
             rffi.free_charpp(l_env)
             rffi.free_charpp(l_args)

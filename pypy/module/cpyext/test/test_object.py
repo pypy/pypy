@@ -94,27 +94,30 @@ class TestObject(BaseApiTest):
 
     def test_size(self, space, api):
         assert api.PyObject_Size(space.newlist([space.w_None])) == 1
-        
-    def test_repr(self, space, api):
+
+    def test_str(self, space, api):
         w_list = space.newlist([space.w_None, space.wrap(42)])
-        assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
-        assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
-        
-        w_list = space.newlist([space.w_None, space.wrap(42)])
+        assert space.str_w(api.PyObject_Str(None)) == "<NULL>"
         assert space.str_w(api.PyObject_Str(w_list)) == "[None, 42]"
         assert space.str_w(api.PyObject_Str(space.wrap("a"))) == "a"
-        
+
+    def test_repr(self, space, api):
+        w_list = space.newlist([space.w_None, space.wrap(42)])
+        assert space.str_w(api.PyObject_Repr(None)) == "<NULL>"
+        assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
+        assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
+
     def test_RichCompare(self, space, api):
         def compare(w_o1, w_o2, opid):
             res = api.PyObject_RichCompareBool(w_o1, w_o2, opid)
             w_res = api.PyObject_RichCompare(w_o1, w_o2, opid)
             assert space.is_true(w_res) == res
             return res
-        
+
         def test_compare(o1, o2):
             w_o1 = space.wrap(o1)
             w_o2 = space.wrap(o2)
-            
+
             for opid, expected in [
                     (Py_LT, o1 <  o2), (Py_LE, o1 <= o2),
                     (Py_NE, o1 != o2), (Py_EQ, o1 == o2),
@@ -190,6 +193,7 @@ class TestObject(BaseApiTest):
             api.PyErr_Clear()
 
     def test_unicode(self, space, api):
+        assert space.unwrap(api.PyObject_Unicode(None)) == u"<NULL>"
         assert space.unwrap(api.PyObject_Unicode(space.wrap([]))) == u"[]"
         assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
         assert api.PyObject_Unicode(space.wrap("\xe9")) is None

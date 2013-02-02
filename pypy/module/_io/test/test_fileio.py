@@ -2,7 +2,7 @@ from rpython.tool.udir import udir
 import os
 
 class AppTestFileIO:
-    spaceconfig = dict(usemodules=['_io'])
+    spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
 
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
@@ -41,7 +41,12 @@ class AppTestFileIO:
 
     def test_open_directory(self):
         import _io
+        import os
         raises(IOError, _io.FileIO, self.tmpdir, "rb")
+        if os.name != 'nt':
+            fd = os.open(self.tmpdir, os.O_RDONLY)
+            raises(IOError, _io.FileIO, fd, "rb")
+            os.close(fd)
 
     def test_readline(self):
         import _io

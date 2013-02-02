@@ -15,7 +15,7 @@ Improve the interpreter API
     from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
     from pypy.interpreter.gateway import interp2app
     from pypy.interpreter.error import OperationError
-    from pypy.rpython.lltypesystem import rffi, lltype
+    from rpython.rtyper.lltypesystem import rffi, lltype
 
 - A more direct declarative way to write Typedef::
 

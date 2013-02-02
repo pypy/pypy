@@ -373,6 +373,15 @@ def test_dup():
     assert s.fd != s2.fd
     assert s.getsockname().eq(s2.getsockname())
 
+def test_c_dup():
+    # rsocket.dup() duplicates fd, it also works on Windows
+    # (but only on socket handles!)
+    s = RSocket(AF_INET, SOCK_STREAM)
+    s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
+    s.bind(INETAddress('localhost', 50007))
+    fd2 = dup(s.fd)
+    assert s.fd != fd2
+
 def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
     assert inet_aton('127.0.0.1') == '\x7f\x00\x00\x01'

@@ -1,14 +1,12 @@
+from rpython.jit.metainterp import history
+from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
+from rpython.jit.metainterp.warmstate import wrap, unwrap
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper import rvirtualizable2
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.rclass import IR_IMMUTABLE_ARRAY, IR_IMMUTABLE
-from rpython.rtyper import rvirtualizable2
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.nonconst import NonConstant
-from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
-from rpython.jit.metainterp import history
-from rpython.jit.metainterp.warmstate import wrap, unwrap
-from rpython.rlib.objectmodel import specialize
+
 
 
 class VirtualizableInfo(object):
@@ -75,7 +73,7 @@ class VirtualizableInfo(object):
         getlength = cpu.ts.getlength
         getarrayitem = cpu.ts.getarrayitem
         setarrayitem = cpu.ts.setarrayitem
-        #
+
         def read_boxes(cpu, virtualizable):
             assert lltype.typeOf(virtualizable) == llmemory.GCREF
             virtualizable = cast_gcref_to_vtype(virtualizable)
@@ -88,7 +86,7 @@ class VirtualizableInfo(object):
                 for i in range(getlength(lst)):
                     boxes.append(wrap(cpu, getarrayitem(lst, i)))
             return boxes
-        #
+
         def write_boxes(virtualizable, boxes):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             i = 0
@@ -103,7 +101,7 @@ class VirtualizableInfo(object):
                     setarrayitem(lst, j, x)
                     i = i + 1
             assert len(boxes) == i + 1
-        #
+
         def write_from_resume_data_partial(virtualizable, reader, numb):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Load values from the reader (see resume.py) described by
@@ -116,7 +114,7 @@ class VirtualizableInfo(object):
             assert i >= 0
             for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst)-1, -1, -1):
+                for j in range(getlength(lst) - 1, -1, -1):
                     i -= 1
                     assert i >= 0
                     x = reader.load_value_of_type(ARRAYITEMTYPE, numb.nums[i])
@@ -127,7 +125,7 @@ class VirtualizableInfo(object):
                 x = reader.load_value_of_type(FIELDTYPE, numb.nums[i])
                 setattr(virtualizable, fieldname, x)
             return i
-        #
+
         def load_list_of_boxes(virtualizable, reader, numb):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Uses 'virtualizable' only to know the length of the arrays;
@@ -139,10 +137,10 @@ class VirtualizableInfo(object):
             boxes = [reader.decode_box_of_type(self.VTYPEPTR, numb.nums[i])]
             for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst)-1, -1, -1):
+                for j in range(getlength(lst) - 1, -1, -1):
                     i -= 1
                     assert i >= 0
-                    box = reader.decode_box_of_type(ARRAYITEMTYPE,numb.nums[i])
+                    box = reader.decode_box_of_type(ARRAYITEMTYPE, numb.nums[i])
                     boxes.append(box)
             for FIELDTYPE, fieldname in unroll_static_fields_rev:
                 i -= 1
@@ -151,7 +149,7 @@ class VirtualizableInfo(object):
                 boxes.append(box)
             boxes.reverse()
             return boxes
-        #
+
         def check_boxes(virtualizable, boxes):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # for debugging
@@ -167,7 +165,7 @@ class VirtualizableInfo(object):
                     assert getarrayitem(lst, j) == x
                     i = i + 1
             assert len(boxes) == i + 1
-        #
+
         def get_index_in_array(virtualizable, arrayindex, index):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             index += self.num_static_extra_boxes
@@ -179,7 +177,7 @@ class VirtualizableInfo(object):
                 index += getlength(lst)
                 j = j + 1
             assert False, "invalid arrayindex"
-        #
+
         def get_array_length(virtualizable, arrayindex):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             j = 0
@@ -187,16 +185,16 @@ class VirtualizableInfo(object):
                 if arrayindex == j:
                     lst = getattr(virtualizable, fieldname)
                     return getlength(lst)
-                j = j + 1
+                j += 1
             assert False, "invalid arrayindex"
-        #
+
         unroll_static_fields = unrolling_iterable(zip(FIELDTYPES,
                                                       static_fields))
         unroll_array_fields = unrolling_iterable(zip(ARRAYITEMTYPES,
                                                      array_fields))
         unroll_static_fields_rev = unrolling_iterable(
                                           reversed(list(unroll_static_fields)))
-        unroll_array_fields_rev  = unrolling_iterable(
+        unroll_array_fields_rev = unrolling_iterable(
                                           reversed(list(unroll_array_fields)))
         self.read_boxes = read_boxes
         self.write_boxes = write_boxes
@@ -290,7 +288,7 @@ class VirtualizableInfo(object):
 
     def unwrap_virtualizable_box(self, virtualizable_box):
         return virtualizable_box.getref(llmemory.GCREF)
-     
+
     def is_vtypeptr(self, TYPE):
         return rvirtualizable2.match_virtualizable_type(TYPE, self.VTYPEPTR)
 

@@ -9,7 +9,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.runicode import MAXUNICODE
 from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
-from rpython.rlib.runicode import code_to_unichr, ORD
+from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
 import sys
 
 
@@ -28,8 +28,6 @@ SCount = (LCount*NCount)
 # handling: on narrow unicode builds, a surrogate pair is considered as one
 # unicode code point.
 
-# The functions below are subtly different from the ones in runicode.py.
-# When PyPy implements Python 3 they should be merged.
 
 if MAXUNICODE > 0xFFFF:
     # Target is wide build
@@ -41,7 +39,7 @@ if MAXUNICODE > 0xFFFF:
         if not we_are_translated() and sys.maxunicode == 0xFFFF:
             # Host CPython is narrow build, accept surrogates
             try:
-                return ORD(space.unicode_w(w_unichr))
+                return ord_accepts_surrogate(space.unicode_w(w_unichr))
             except ValueError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
@@ -68,7 +66,7 @@ else:
         else:
             # Accept surrogates
             try:
-                return ORD(space.unicode_w(w_unichr))
+                return ord_accepts_surrogate(space.unicode_w(w_unichr))
             except ValueError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))

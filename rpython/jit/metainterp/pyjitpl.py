@@ -2569,7 +2569,8 @@ class MetaInterp(object):
         self.history.operations.pop()
         arg_boxes = []
         for i in range(cif_description.nargs):
-            kind, descr = get_arg_descr(self.cpu, cif_description.atypes[i])
+            kind, descr, itemsize = get_arg_descr(self.cpu,
+                                                  cif_description.atypes[i])
             if kind == 'i':
                 box_arg = history.BoxInt()
             elif kind == 'f':
@@ -2578,16 +2579,14 @@ class MetaInterp(object):
                 assert kind == 'v'
                 continue
             ofs = cif_description.exchange_args[i]
-            box_argpos = history.BoxInt()
-            self.history.record(rop.INT_ADD,
-                                [box_exchange_buffer, ConstInt(ofs)],
-                                box_argpos)
+            assert ofs % itemsize == 0     # alignment check
             self.history.record(rop.GETARRAYITEM_RAW,
-                                [box_argpos, ConstInt(0)],
+                                [box_exchange_buffer,
+                                 ConstInt(ofs // itemsize)],
                                 box_arg, descr)
             arg_boxes.append(box_arg)
         #
-        kind, descr = get_arg_descr(self.cpu, cif_description.rtype)
+        kind, descr, itemsize = get_arg_descr(self.cpu, cif_description.rtype)
         if kind == 'i':
             box_result = history.BoxInt()
         elif kind == 'f':
@@ -2603,12 +2602,10 @@ class MetaInterp(object):
         #
         if box_result is not None:
             ofs = cif_description.exchange_result
-            box_resultpos = history.BoxInt()
-            self.history.record(rop.INT_ADD,
-                                [box_exchange_buffer, ConstInt(ofs)],
-                                box_resultpos)
+            assert ofs % itemsize == 0     # alignment check (result)
             self.history.record(rop.SETARRAYITEM_RAW,
-                                [box_resultpos, ConstInt(0), box_result],
+                                [box_exchange_buffer,
+                                 ConstInt(ofs // itemsize), box_result],
                                 None, descr)
 
     def direct_call_release_gil(self):

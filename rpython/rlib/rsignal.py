@@ -80,6 +80,8 @@ pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
 # pointless and a performance issue
+pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
+                            threadsafe=False)
 
 # don't use rffi.LONGP because the JIT doesn't support raw arrays so far
 struct_name = 'pypysig_long_struct'

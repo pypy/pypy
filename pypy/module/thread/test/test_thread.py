@@ -220,16 +220,24 @@ class AppTestThread(GenericTestThread):
         import signal
 
         def f():
-            time.sleep(0.5)
-            thread.interrupt_main()
+            for x in range(50):
+                if waiting:
+                    thread.interrupt_main()
+                    return
+                print 'tock...', x  # <-force the GIL to be released, as
+                time.sleep(0.01)    #   time.sleep doesn't do non-translated
 
         def busy_wait():
-            for x in range(1000):
+            waiting.append(None)
+            for x in range(100):
                 print 'tick...', x  # <-force the GIL to be released, as
                 time.sleep(0.01)    #   time.sleep doesn't do non-translated
+            waiting.pop()
 
         # This is normally called by app_main.py
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
-        thread.start_new_thread(f, ())
-        raises(KeyboardInterrupt, busy_wait)
+        for i in range(100):
+            waiting = []
+            thread.start_new_thread(f, ())
+            raises(KeyboardInterrupt, busy_wait)
