@@ -47,7 +47,12 @@ def PyLong_AsUnsignedLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
-    return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+    try:
+        return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+    except OperationError, e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        raise
 
 @cpython_api([PyObject], rffi.ULONG, error=-1)
 def PyLong_AsUnsignedLongMask(space, w_long):
@@ -86,7 +91,12 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
-    return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
+    try:
+        return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
+    except OperationError, e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        raise
 
 @cpython_api([PyObject], rffi.ULONGLONG, error=-1)
 def PyLong_AsUnsignedLongLongMask(space, w_long):

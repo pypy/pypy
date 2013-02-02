@@ -8,8 +8,8 @@
 #include <sched.h>
 #endif
 
-cpu_set_t base_cpu_set;
-int profiling_setup = 0;
+static cpu_set_t base_cpu_set;
+static int profiling_setup = 0;
 
 void pypy_setup_profiling()
 {
@@ -37,8 +37,8 @@ void pypy_teardown_profiling()
 
 #include <windows.h>
 
-DWORD_PTR base_affinity_mask;
-int profiling_setup = 0;
+static DWORD_PTR base_affinity_mask;
+static int profiling_setup = 0;
 
 void pypy_setup_profiling() { 
     if (!profiling_setup) {
