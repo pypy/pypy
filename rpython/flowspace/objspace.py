@@ -97,12 +97,11 @@ class FlowObjSpace(object):
         return self.frame.do_operation('newdict')
 
     def newtuple(self, args_w):
-        try:
-            content = [self.unwrap(w_arg) for w_arg in args_w]
-        except UnwrapException:
-            return self.frame.do_operation('newtuple', *args_w)
-        else:
+        if all(isinstance(w_arg, Constant) for w_arg in args_w):
+            content = [w_arg.value for w_arg in args_w]
             return Constant(tuple(content))
+        else:
+            return self.frame.do_operation('newtuple', *args_w)
 
     def newlist(self, args_w, sizehint=None):
         return self.frame.do_operation('newlist', *args_w)
@@ -298,11 +297,8 @@ class FlowObjSpace(object):
         return self.frame.guessbool(w_truthvalue)
 
     def iter(self, w_iterable):
-        try:
-            iterable = self.unwrap(w_iterable)
-        except UnwrapException:
-            pass
-        else:
+        if isinstance(w_iterable, Constant):
+            iterable = w_iterable.value
             if isinstance(iterable, unrolling_iterable):
                 return self.wrap(iterable.get_unroller())
         w_iter = self.frame.do_operation("iter", w_iterable)
@@ -310,11 +306,8 @@ class FlowObjSpace(object):
 
     def next(self, w_iter):
         frame = self.frame
-        try:
-            it = self.unwrap(w_iter)
-        except UnwrapException:
-            pass
-        else:
+        if isinstance(w_iter, Constant):
+            it = w_iter.value
             if isinstance(it, _unroller):
                 try:
                     v, next_unroller = it.step()
@@ -405,16 +398,17 @@ class FlowObjSpace(object):
         return self.frame.do_operation('simple_call', w_func, *args_w)
 
     def call_args(self, w_callable, args):
-        try:
-            fn = self.unwrap(w_callable)
+        if isinstance(w_callable, Constant):
+            fn = w_callable.value
             if hasattr(fn, "_flowspace_rewrite_directly_as_"):
                 fn = fn._flowspace_rewrite_directly_as_
                 w_callable = self.wrap(fn)
-            sc = self.specialcases[fn]   # TypeError if 'fn' not hashable
-        except (UnwrapException, KeyError, TypeError):
-            pass
-        else:
-            return sc(self, fn, args)
+            try:
+                sc = self.specialcases[fn]   # TypeError if 'fn' not hashable
+            except (KeyError, TypeError):
+                pass
+            else:
+                return sc(self, fn, args)
 
         try:
             args_w, kwds_w = args.unpack()
