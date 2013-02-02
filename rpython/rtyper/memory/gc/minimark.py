@@ -356,7 +356,7 @@ class MiniMarkGC(MovingGCBase):
                 newsize = minsize
 
             nursery_cleanup = env.read_from_env('PYPY_GC_NURSERY_CLEANUP')
-            if nursery_cleanup >= 0:
+            if nursery_cleanup > 0:
                 self.nursery_cleanup = nursery_cleanup
             #
             major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
@@ -410,8 +410,8 @@ class MiniMarkGC(MovingGCBase):
         self.nursery = self._alloc_nursery()
         # the current position in the nursery:
         self.nursery_free = self.nursery
-        # the end of the nursery:
         self.nursery_top = self.nursery + self.nursery_cleanup
+        # the end of the nursery:
         self.nursery_real_top = self.nursery + self.nursery_size
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
@@ -598,7 +598,7 @@ class MiniMarkGC(MovingGCBase):
         if gen > 0:
             self.major_collection()
 
-    def move_nursery_top_and_malloc(self, totalsize):
+    def move_nursery_top(self, totalsize):
         llarena.arena_reset(self.nursery_top, self.nursery_cleanup, 2)
         self.nursery_top += self.nursery_cleanup
 
@@ -611,8 +611,9 @@ class MiniMarkGC(MovingGCBase):
         and finally reserve 'totalsize' bytes at the start of the
         now-empty nursery.
         """
-        if self.nursery_top < self.nursery_real_top:
-            self.move_nursery_top_and_malloc(totalsize)
+        if (self.nursery_top < self.nursery_real_top and
+            self.nursery_free < self.nursery_real_top):
+            self.move_nursery_top(totalsize)
             return prev_result
         self.minor_collection()
         #
