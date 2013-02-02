@@ -264,15 +264,19 @@ class FlowObjSpace(object):
             w_type = w_instclass
         return FSException(w_type, w_value)
 
-    def unpackiterable(self, w_iterable, expected_length=None):
-        if not isinstance(w_iterable, Variable):
+    def unpackiterable(self, w_iterable):
+        if isinstance(w_iterable, Constant):
+            l = w_iterable.value
+            return [self.wrap(x) for x in l]
+        else:
+            raise UnwrapException("cannot unpack a Variable iterable ")
+
+    def unpacksequence(self, w_iterable, expected_length):
+        if isinstance(w_iterable, Constant):
             l = list(self.unwrap(w_iterable))
-            if expected_length is not None and len(l) != expected_length:
+            if len(l) != expected_length:
                 raise ValueError
             return [self.wrap(x) for x in l]
-        elif expected_length is None:
-            raise UnwrapException("cannot unpack a Variable iterable "
-                                    "without knowing its length")
         else:
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
