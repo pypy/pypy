@@ -1,21 +1,32 @@
-from rpython.jit.metainterp.history import AbstractFailDescr
-from rpython.jit.backend.model import AbstractCPU
+from rpython.jit.backend.model import CompiledLoopToken
 
+class FakeCPU(object):
+    class tracker:
+        total_compiled_loops = 0
+        total_freed_loops = 0
+        total_freed_bridges = 0
 
-def test_faildescr_numbering():
-    cpu = AbstractCPU()
-    fail_descr1 = AbstractFailDescr()
-    fail_descr2 = AbstractFailDescr()    
+    def free_loop_and_bridges(self, *args):
+        pass
 
-    n1 = cpu.get_fail_descr_number(fail_descr1)
-    n2 = cpu.get_fail_descr_number(fail_descr2)
-    assert n1 != n2
+class FrameInfo(object):
+    def __init__(self, depth):
+        self.jfi_frame_depth = depth
 
-    fail_descr = cpu.get_fail_descr_from_number(n1)
-    assert fail_descr is fail_descr1
-    fail_descr = cpu.get_fail_descr_from_number(n2)
-    assert fail_descr is fail_descr2
+    def set_frame_depth(self, baseofs, newdepth):
+        self.jfi_frame_depth = newdepth
 
-    # provides interning on its own
-    n1_1 = cpu.get_fail_descr_number(fail_descr1)
-    assert n1_1 == n1
+def test_redirect_loop_token():
+    cpu = FakeCPU()
+    c = CompiledLoopToken(cpu, 0)
+    c2 = CompiledLoopToken(cpu, 0)
+    c.frame_info = FrameInfo(1)
+    c2.frame_info = FrameInfo(2)
+    c2.update_frame_info(c, 0)
+    assert c.frame_info.jfi_frame_depth == 2
+    c3 = CompiledLoopToken(cpu, 0)
+    c3.frame_info = FrameInfo(3)
+    c3.update_frame_info(c2, 0)
+    assert c.frame_info.jfi_frame_depth == 3
+    assert c2.frame_info.jfi_frame_depth == 3
+    

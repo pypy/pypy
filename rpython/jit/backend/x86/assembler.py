@@ -892,16 +892,15 @@ class Assembler386(object):
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
         assert old_nbargs == new_nbargs
-        # we overwrite the instructions at the old _x86_direct_bootstrap_code
-        # to start with a JMP to the new _x86_direct_bootstrap_code.
+        # we overwrite the instructions at the old _x86_function_addr
+        # to start with a JMP to the new _x86_function_addr.
         # Ideally we should rather patch all existing CALLs, but well.
         oldadr = oldlooptoken._x86_function_addr
         target = newlooptoken._x86_function_addr
         # copy frame-info data
-        old_fi = oldlooptoken.compiled_loop_token.frame_info
-        new_fi = newlooptoken.compiled_loop_token.frame_info
         baseofs = self.cpu.get_baseofs_of_frame_field()
-        old_fi.set_frame_depth(baseofs, new_fi.jfi_frame_depth)
+        newlooptoken.compiled_loop_token.update_frame_info(
+            oldlooptoken.compiled_loop_token, baseofs)
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()

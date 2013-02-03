@@ -1294,6 +1294,8 @@ class ResOpAssembler(object):
         # we overwrite the instructions at the old _arm_func_adddr
         # to start with a JMP to the new _arm_func_addr.
         # Ideally we should rather patch all existing CALLs, but well.
+        XXX # this is wrong, copy the logic from x86, but also, shouldn't
+        # it live on a base class instead?
         oldadr = oldlooptoken._arm_func_addr
         target = newlooptoken._arm_func_addr
         mc = ARMv7Builder()

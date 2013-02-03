@@ -1,3 +1,4 @@
+import weakref
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rtyper.lltypesystem import lltype
 
@@ -293,24 +294,13 @@ class CompiledLoopToken(object):
         self.cpu = cpu
         self.number = number
         self.bridges_count = 0
-        # This growing list gives the 'descr_number' of all fail descrs
-        # that belong to this loop or to a bridge attached to it.
-        # Filled by the frontend calling record_faildescr_index().
-        self.faildescr_indices = []
         self.invalidate_positions = []
+        # a list of weakrefs to looptokens that has been redirected to
+        # this one
+        self.looptokens_redirected_to = []
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")
-
-    def record_faildescr_index(self, n):
-        self.faildescr_indices.append(n)
-
-    def reserve_and_record_some_faildescr_index(self):
-        # like record_faildescr_index(), but invent and return a new,
-        # unused faildescr index
-        n = self.cpu.reserve_some_free_fail_descr_number()
-        self.record_faildescr_index(n)
-        return n
 
     def compiling_a_bridge(self):
         self.cpu.tracker.total_compiled_bridges += 1
@@ -318,6 +308,19 @@ class CompiledLoopToken(object):
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Bridge #", self.bridges_count, "of Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")
+
+    def update_frame_info(self, oldlooptoken, baseofs):
+        new_fi = self.frame_info
+        new_loop_tokens = []
+        for ref in oldlooptoken.looptokens_redirected_to:
+            looptoken = ref()
+            if looptoken:
+                looptoken.frame_info.set_frame_depth(baseofs,
+                                                     new_fi.jfi_frame_depth)
+                new_loop_tokens.append(ref)
+        oldlooptoken.frame_info.set_frame_depth(baseofs, new_fi.jfi_frame_depth)
+        new_loop_tokens.append(weakref.ref(oldlooptoken))
+        self.looptokens_redirected_to = new_loop_tokens
 
     def __del__(self):
         #debug_start("jit-mem-looptoken-free")
