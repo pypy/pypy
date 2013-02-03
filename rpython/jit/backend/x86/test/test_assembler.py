@@ -55,7 +55,7 @@ class TestRegallocPushPop(object):
         asm = cpu.assembler
         asm.setup_once()
         asm.setup(looptoken)
-        self.fm = X86FrameManager()
+        self.fm = X86FrameManager(0)
         self.xrm = X86XMMRegisterManager(None, frame_manager=self.fm,
                                          assembler=asm)
         callback(asm)
