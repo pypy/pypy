@@ -199,7 +199,6 @@ class Assembler386(object):
     def _build_stack_check_failure(self):
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
-        assert not IS_X86_32
         # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
         mc.MOV_rs(ecx.value, WORD)
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
@@ -209,9 +208,11 @@ class Assembler386(object):
         # push first arg
         mc.MOV_rr(edi.value, ebp.value)
         # align
-        mc.SUB_ri(esp.value, WORD)
+        align = align_stack_words(1)
+        mc.SUB_ri(esp.value, (align - 1) * WORD)
+
         mc.CALL(imm(self.cpu.realloc_frame))
-        mc.ADD_ri(esp.value, WORD)
+        mc.ADD_ri(esp.value, (align - 1) * WORD)
         mc.MOV_rr(ebp.value, eax.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
