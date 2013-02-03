@@ -85,6 +85,15 @@ def getslice__Tuple_ANY_ANY(space, w_tuple, w_start, w_stop):
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
     return space.newtuple(w_tuple.wrappeditems[start:stop])
 
+THRESHOLD = 7
+
+def unroll_tuple_contains(space, w_tuple, w_obj):
+    if (jit.isconstant(w_tuple) or jit.isvirtual(w_tuple) and
+        len(w_tuple.wrappeditems) < THRESHOLD):
+        return True
+    return False
+
+@jit.look_inside_iff(unroll_tuple_contains)
 def contains__Tuple_ANY(space, w_tuple, w_obj):
     for w_item in w_tuple.wrappeditems:
         if space.eq_w(w_item, w_obj):

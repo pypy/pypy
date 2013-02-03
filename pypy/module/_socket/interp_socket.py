@@ -181,7 +181,8 @@ class W_RSocket(Wrappable, RSocket):
         try:
             self.close()
         except SocketError, e:
-            raise converted_error(space, e)
+            # cpython doesn't return any errors on close
+            pass
 
     def connect_w(self, space, w_addr):
         """connect(address)
@@ -448,7 +449,7 @@ class W_RSocket(Wrappable, RSocket):
                 w_addr = space.w_None
             return space.newtuple([space.wrap(readlgt), w_addr])
         except SocketError, e:
-            raise converted_error(space, e)        
+            raise converted_error(space, e)
 
     @unwrap_spec(cmd=int)
     def ioctl_w(self, space, cmd, w_option):

@@ -80,7 +80,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         assert s is not None
         bytes = self.runicode_encode_utf_8(
             s, len(s), 'strict',
-            errorhandler=self.ll_raise_unicode_exception_decode,
+            errorhandler=self.ll_raise_unicode_exception_encode,
             allow_surrogates=False)
         return self.ll.llstr(bytes)
 

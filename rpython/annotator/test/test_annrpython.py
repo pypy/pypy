@@ -2068,7 +2068,23 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
-        
+
+    def test_getitem_str0(self):
+        def f(s, n):
+            if n == 1:
+                return s[0]
+            elif n == 2:
+                return s[1]
+            elif n == 3:
+                return s[1:]
+            return s
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True),
+                              annmodel.SomeInteger()])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
