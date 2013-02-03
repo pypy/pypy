@@ -2,7 +2,10 @@ import os
 from rpython.jit.metainterp.history import Const, Box, REF, INT
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    OrderedDict = dict # too bad
 
 class TempBox(Box):
     def __init__(self):
