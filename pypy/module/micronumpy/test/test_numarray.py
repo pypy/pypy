@@ -2378,7 +2378,8 @@ class AppTestSupport(BaseNumpyAppTest):
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
             c = a.copy()
             res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all()
+            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all(), \
+                'a,res,dtype %r,%r,%r' % (a,res,dtype)
             assert (a == c).all() # not modified
             a = arange(100)
             assert (a.argsort() == a).all()
