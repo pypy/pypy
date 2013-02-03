@@ -16,8 +16,9 @@ from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
-def make_sort_function(space, itemtype):
+def make_sort_function(space, itemtype, count=1):
     TP = itemtype.T
+    step = rffi.sizeof(TP)
     
     class Repr(object):
         def __init__(self, index_stride_size, stride_size, size, values,
@@ -31,16 +32,29 @@ def make_sort_function(space, itemtype):
             self.indexes = indexes
 
         def getitem(self, item):
-            v = raw_storage_getitem(TP, self.values, item * self.stride_size
+            if count < 2:
+                v = raw_storage_getitem(TP, self.values, item * self.stride_size
                                     + self.start)
-            v = itemtype.for_computation(v)
+                v = itemtype.for_computation(v)
+            else:
+                v = []
+                for i in range(count):
+                    _v = raw_storage_getitem(TP, self.values, item * self.stride_size
+                                    + self.start + step * i)
+                    v.append(_v)
+                v = itemtype.for_computation(v)
             return (v, raw_storage_getitem(lltype.Signed, self.indexes,
                                            item * self.index_stride_size +
                                            self.index_start))
 
         def setitem(self, idx, item):
-            raw_storage_setitem(self.values, idx * self.stride_size +
+            if count < 2:
+                raw_storage_setitem(self.values, idx * self.stride_size +
                                 self.start, rffi.cast(TP, item[0]))
+            else:
+                for i in range(count):
+                    raw_storage_setitem(self.values, idx * self.stride_size +
+                                self.start + i*step, rffi.cast(TP, item[0][i]))
             raw_storage_setitem(self.indexes, idx * self.index_stride_size +
                                 self.index_start, item[1])
 
@@ -49,7 +63,8 @@ def make_sort_function(space, itemtype):
             start = 0
             dtype = interp_dtype.get_dtype_cache(space).w_longdtype
             self.indexes = dtype.itemtype.malloc(size*dtype.get_size())
-            self.values = alloc_raw_storage(size*rffi.sizeof(TP), track_allocation=False)
+            self.values = alloc_raw_storage(size * stride_size, 
+                                            track_allocation=False)
             Repr.__init__(self, index_stride_size, stride_size, 
                           size, self.values, self.indexes, start, start)
 
@@ -152,6 +167,9 @@ class SortCache(object):
         self.built = True
         cache = {}
         for cls in all_types._items:
-            cache[cls] = make_sort_function(space, cls)
+            if cls in types.all_complex_types:
+                cache[cls] = make_sort_function(space, cls, 2)
+            else:
+                cache[cls] = make_sort_function(space, cls)
         self.cache = cache
         self._lookup = specialize.memo()(lambda tp : cache[tp])

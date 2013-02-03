@@ -1080,7 +1080,7 @@ class ComplexFloating(object):
         return bool(v[0]) or bool(v[1])
 
     def get_element_size(self):
-        return 2 * rffi.sizeof(self._COMPONENTS_T)
+        return 2 * rffi.sizeof(self.T)
 
     def byteswap(self, w_v):
         real, imag = self.unbox(w_v)
@@ -1089,19 +1089,19 @@ class ComplexFloating(object):
     @specialize.argtype(1)
     def box(self, value):
         return self.BoxType(
-            rffi.cast(self._COMPONENTS_T, value),
-            rffi.cast(self._COMPONENTS_T, 0.0))
+            rffi.cast(self.T, value),
+            rffi.cast(self.T, 0.0))
 
     @specialize.argtype(1)
     def box_component(self, value):
         return self.ComponentBoxType(
-            rffi.cast(self._COMPONENTS_T, value))
+            rffi.cast(self.T, value))
 
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
         return self.BoxType(
-            rffi.cast(self._COMPONENTS_T, real),
-            rffi.cast(self._COMPONENTS_T, imag))
+            rffi.cast(self.T, real),
+            rffi.cast(self.T, imag))
 
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
@@ -1113,12 +1113,12 @@ class ComplexFloating(object):
         real, imag = self.unbox(box)
         raw_storage_setitem(arr.storage, i+offset, real)
         raw_storage_setitem(arr.storage,
-                i+offset+rffi.sizeof(self._COMPONENTS_T), imag)
+                i+offset+rffi.sizeof(self.T), imag)
 
     def _read(self, storage, i, offset):
-        real = raw_storage_getitem(self._COMPONENTS_T, storage, i + offset)
-        imag = raw_storage_getitem(self._COMPONENTS_T, storage,
-                              i + offset + rffi.sizeof(self._COMPONENTS_T))
+        real = raw_storage_getitem(self.T, storage, i + offset)
+        imag = raw_storage_getitem(self.T, storage,
+                              i + offset + rffi.sizeof(self.T))
         return real, imag
 
     def read(self, arr, i, offset, dtype=None):
@@ -1536,8 +1536,7 @@ class ComplexFloating(object):
 class Complex64(ComplexFloating, BaseType):
     _attrs_ = ()
 
-    T = rffi.CHAR
-    _COMPONENTS_T = rffi.FLOAT
+    T = rffi.FLOAT
     BoxType = interp_boxes.W_Complex64Box
     ComponentBoxType = interp_boxes.W_Float32Box
 
@@ -1547,8 +1546,7 @@ NonNativeComplex64 = Complex64
 class Complex128(ComplexFloating, BaseType):
     _attrs_ = ()
 
-    T = rffi.CHAR
-    _COMPONENTS_T = rffi.DOUBLE
+    T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
     ComponentBoxType = interp_boxes.W_Float64Box
 
@@ -1580,8 +1578,7 @@ if interp_boxes.long_double_size == 12:
     class Complex192(ComplexFloating, BaseType):
         _attrs_ = ()
 
-        T = rffi.CHAR
-        _COMPONENTS_T = rffi.LONGDOUBLE
+        T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_Complex192Box
         ComponentBoxType = interp_boxes.W_Float96Box
 
@@ -1612,8 +1609,7 @@ elif interp_boxes.long_double_size == 16:
     class Complex256(ComplexFloating, BaseType):
         _attrs_ = ()
 
-        T = rffi.CHAR
-        _COMPONENTS_T = rffi.LONGDOUBLE
+        T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_Complex256Box
         ComponentBoxType = interp_boxes.W_Float128Box
 
