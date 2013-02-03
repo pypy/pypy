@@ -420,8 +420,13 @@ class __extend__(W_NDimArray):
         # happily ignore the kind
         # create a contiguous copy of the array
         # we must do that, because we need a working set. otherwise
-        # we would modify the array in-place
-        contig = self.descr_copy(space)
+        # we would modify the array in-place. Use this to our advantage
+        # by converting nonnative byte order.
+        s = self.get_dtype().name
+        if not self.get_dtype().native:
+            s = s[1:]
+        dtype = interp_dtype.get_dtype_cache(space).dtypes_by_name[s]
+        contig = self.implementation.astype(space, dtype)
         return contig.implementation.argsort(space, w_axis)
 
     def descr_astype(self, space, w_dtype):
