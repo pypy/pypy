@@ -800,13 +800,9 @@ class Assembler386(object):
         return frame_depth
 
     def _call_header(self):
-        # XXX should be LEA?
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
-        if IS_X86_64:
-            self.mc.MOV_rr(ebp.value, edi.value)
-        else:
-            xxx
+        self.mc.MOV_rr(ebp.value, edi.value)
 
         for i, loc in enumerate(self.cpu.CALLEE_SAVE_REGISTERS):
             self.mc.MOV_sr((PASS_ON_MY_FRAME + i + 1) * WORD, loc.value)
@@ -863,10 +859,7 @@ class Assembler386(object):
         # to provide a place where we can read the frame from, in case
         # we need to reload it after a collection
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
-        if IS_X86_64:
-            self.mc.MOV_mr((ebx.value, 0), edi.value)      # MOV [ebx], edi
-        else:
-            xxx
+        self.mc.MOV_mr((ebx.value, 0), edi.value)      # MOV [ebx], edi
         self.mc.ADD_ri(ebx.value, WORD)
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
