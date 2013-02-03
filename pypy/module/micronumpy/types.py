@@ -959,12 +959,13 @@ class BaseFloat16(Float):
 
     _attrs_ = ()
     _STORAGE_T = rffi.USHORT
-    T = rffi.DOUBLE
+    T = rffi.SHORT
 
     BoxType = interp_boxes.W_Float16Box
 
-    def get_element_size(self):
-        return rffi.sizeof(self._STORAGE_T)
+    @specialize.argtype(1)
+    def box(self, value):
+        return self.BoxType(rffi.cast(rffi.DOUBLE, value))
 
     def runpack_str(self, s):
         assert len(s) == 2

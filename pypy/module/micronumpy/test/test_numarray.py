@@ -1688,7 +1688,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert s1[39:31:-1] == s2[32:40]
         assert s1[:39:-1] == s2[40:]
 
-        a = array([1, -1, 10000], dtype='float16')
+        a = array([3.14, -1.5, 10000], dtype='float16')
         s1 = map(ord,a.tostring())
         s2 = map(ord, a.byteswap().tostring())
         s3 = [s1[1], s1[0],s1[3], s1[2], s1[5], s1[4]]
