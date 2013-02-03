@@ -17,7 +17,6 @@ from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.backend.llsupport.jitframe import NULLGCMAP, GCMAP
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
@@ -29,8 +28,7 @@ from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.rarithmetic import r_longlong, r_uint
-from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
-                                have_debug_prints)
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
 class X86RegisterManager(RegisterManager):
 
@@ -128,9 +126,6 @@ else:
 gpr_reg_mgr_cls.all_reg_indexes = [-1] * WORD * 2 # eh, happens to be true
 for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
-
-if __name__ == '__main__':
-    print gpr_reg_mgr_cls.all_reg_indexes
 
 class RegAlloc(object):
 
