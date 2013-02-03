@@ -2372,11 +2372,14 @@ class AppTestSupport(BaseNumpyAppTest):
     def test_argsort_dtypes(self):
         from _numpypy import array, arange
         assert array(2.0).argsort() == 0
-        for dtype in ['int', 'float', 'int8', 'int16', 'float32']:
-            a = array([6, 4, 1, 3, 8, 3], dtype=dtype)
+        nnp = self.non_native_prefix
+        for dtype in ['int', 'float', 'int8', 'int16', 'float32',
+                        nnp + 'i2']:
+            a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
+            c = a.copy()
             res = a.argsort()
-            assert (res == [2, 3, 5, 1, 0, 4]).all()
-            assert (a == [6, 4, 1, 3, 8, 3]).all() # not modified
+            assert (res == [2, 3, 5, 1, 0, 4, 7, 8, 6]).all()
+            assert (a == c).all() # not modified
             a = arange(100)
             assert (a.argsort() == a).all()
 
