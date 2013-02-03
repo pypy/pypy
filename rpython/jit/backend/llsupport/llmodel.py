@@ -356,12 +356,8 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.arg(1)
     def get_ofs_of_frame_field(self, name):
         descrs = self.gc_ll_descr.getframedescrs(self)
-        if name.startswith('jfi_'):
-            base_ofs = 0 # not relative to frame
-        else:
-            base_ofs = self.unpack_arraydescr(descrs.arraydescr)
         ofs = self.unpack_fielddescr(getattr(descrs, name))
-        return ofs - base_ofs
+        return ofs
 
     def get_baseofs_of_frame_field(self):
         descrs = self.gc_ll_descr.getframedescrs(self)

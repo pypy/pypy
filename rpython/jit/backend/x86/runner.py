@@ -48,6 +48,23 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
+        ad = self.gc_ll_descr.getframedescrs(self).arraydescr
+        self.signedarraydescr = ad
+        # the same as normal JITFRAME, however with an array of pointers
+        self.refarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
+                                        FLAG_POINTER)
+        self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
+                                          FLAG_FLOAT)
+
+    def getarraydescr_for_frame(self, type, index):
+        if type == history.FLOAT:
+            descr = self.floatarraydescr
+        elif type == history.REF:
+            descr = self.refarraydescr
+        else:
+            descr = self.signedarraydescr
+        return JITFRAME_FIXED_SIZE + index, descr
+
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
@@ -201,26 +218,5 @@ class CPU_X86_64(AbstractX86CPU):
     WORD = 8
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
-
-    def __init__(self, *args, **kwargs):
-        assert sys.maxint == (2**63 - 1)
-        super(CPU_X86_64, self).__init__(*args, **kwargs)
-        descrs = self.gc_ll_descr.getframedescrs(self)
-        ad = descrs.arraydescr
-        # the same as normal JITFRAME, however with an array of pointers
-        self.signedarraydescr = ad
-        self.refarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
-                                        FLAG_POINTER)
-        self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
-                                          FLAG_FLOAT)
-
-    def getarraydescr_for_frame(self, type, index):
-        if type == history.FLOAT:
-            descr = self.floatarraydescr
-        elif type == history.REF:
-            descr = self.refarraydescr
-        else:
-            descr = self.signedarraydescr
-        return JITFRAME_FIXED_SIZE + index, descr
 
 CPU = CPU386

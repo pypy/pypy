@@ -100,15 +100,20 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
         return RegisterManager.after_call(self, v)
 
 class X86FrameManager(FrameManager):
-    @staticmethod
-    def frame_pos(i, box_type):
-        return StackLoc(i, get_ebp_ofs(i), box_type)
+    def __init__(self, base_ofs):
+        FrameManager.__init__(self)
+        self.base_ofs = base_ofs
+    
+    def frame_pos(self, i, box_type):
+        return StackLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
+
     @staticmethod
     def frame_size(box_type):
         if IS_X86_32 and box_type == FLOAT:
             return 2
         else:
             return 1
+
     @staticmethod
     def get_loc_index(loc):
         assert isinstance(loc, StackLoc)
@@ -140,8 +145,8 @@ class RegAlloc(object):
         self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
-        self.fm = X86FrameManager()
         cpu = self.assembler.cpu
+        self.fm = X86FrameManager(cpu.get_baseofs_of_frame_field())
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
@@ -1367,11 +1372,11 @@ for name, value in RegAlloc.__dict__.iteritems():
         else:
             oplist[num] = value
 
-def get_ebp_ofs(position):
+def get_ebp_ofs(base_ofs, position):
     # Argument is a frame position (0, 1, 2...).
     # Returns (ebp+20), (ebp+24), (ebp+28)...
     # i.e. the n'th word beyond the fixed frame size.
-    return WORD * (position + JITFRAME_FIXED_SIZE)
+    return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
 def _valid_addressing_size(size):
     return size == 1 or size == 2 or size == 4 or size == 8

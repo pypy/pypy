@@ -241,15 +241,18 @@ class FrameManager(object):
         lst.append(var)
 
     # abstract methods that need to be overwritten for specific assemblers
-    @staticmethod
+
     def frame_pos(loc, type):
         raise NotImplementedError("Purely abstract")
+
     @staticmethod
     def frame_size(type):
         return 1
+
     @staticmethod
     def get_loc_index(loc):
         raise NotImplementedError("Purely abstract")
+
     @staticmethod
     def newloc(pos, size, tp):
         """ Reverse of get_loc_index

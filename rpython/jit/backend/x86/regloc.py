@@ -101,16 +101,14 @@ class StackLoc(RawStackLoc):
     _immutable_ = True
     
     def __init__(self, position, ebp_offset, type):
-        from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE, WORD
-        
         # _getregkey() returns self.value; the value returned must not
         # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
         # so let it fail the following assert if it no longer does.
         assert ebp_offset >= 0
         #assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
         self.position = position
-        if position != 9999:
-            assert (position + JITFRAME_FIXED_SIZE) * WORD == ebp_offset
+        #if position != 9999:
+        #    assert (position + JITFRAME_FIXED_SIZE) * WORD == ebp_offset
         self.value = ebp_offset
         # One of INT, REF, FLOAT
         self.type = type
