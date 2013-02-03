@@ -982,7 +982,7 @@ class FlowSpaceFrame(object):
             key = self.space.str_w(w_key)
             keywords[key] = w_value
         arguments = self.popvalues(n_arguments)
-        args = CallSpec(self.space, arguments, keywords, w_star, w_starstar)
+        args = CallSpec(arguments, keywords, w_star, w_starstar)
         w_function  = self.popvalue()
         w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)

@@ -393,7 +393,7 @@ class FlowObjSpace(object):
         return self.call_function(w_meth, *arg_w)
 
     def call_function(self, w_func, *args_w):
-        args = CallSpec(self, list(args_w))
+        args = CallSpec(list(args_w))
         return self.call_args(w_func, args)
 
     def appcall(self, func, *args_w):

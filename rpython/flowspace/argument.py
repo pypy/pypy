@@ -77,11 +77,10 @@ class CallSpec(object):
     """Represents the arguments passed into a function call, i.e. the
     `a, b, *c, **d` part in `return func(a, b, *c, **d)`.
     """
-    def __init__(self, space, args_w, keywords=None, w_stararg=None,
+    def __init__(self, args_w, keywords=None, w_stararg=None,
             w_starstararg=None):
         self.w_stararg = w_stararg
         assert w_starstararg is None, "No **-unpacking in RPython"
-        self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
         self.keywords = keywords or {}
