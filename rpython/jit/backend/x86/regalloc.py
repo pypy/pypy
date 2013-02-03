@@ -910,7 +910,7 @@ class RegAlloc(object):
         for box, loc in self.fm.bindings.iteritems():
             if box.type == REF:
                 assert isinstance(loc, StackLoc)
-                val = loc.value // WORD
+                val = loc.position + JITFRAME_FIXED_SIZE
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for i in range(len(gcmap)):
             debug_print(str(gcmap[i]))

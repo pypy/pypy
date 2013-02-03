@@ -70,7 +70,7 @@ class GuardToken(object):
                 if isinstance(loc, RegLoc):
                     val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 else:
-                    val = loc.value // WORD
+                    val = loc.position + JITFRAME_FIXED_SIZE
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
@@ -1939,6 +1939,7 @@ class Assembler386(object):
         locs = []
         GPR_REGS = len(gpr_reg_mgr_cls.all_regs)
         XMM_REGS = len(xmm_reg_mgr_cls.all_regs)
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
         input_i = 0
         for pos in descr.rd_locs:
             if pos == -1:
@@ -1952,7 +1953,7 @@ class Assembler386(object):
                 i = pos // WORD - JITFRAME_FIXED_SIZE
                 assert i >= 0
                 tp = inputargs[input_i].type
-                locs.append(StackLoc(i, pos, tp))
+                locs.append(StackLoc(i, get_ebp_ofs(base_ofs, i), tp))
             input_i += 1
         return locs
 
