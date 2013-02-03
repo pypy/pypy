@@ -2374,7 +2374,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array(2.0).argsort() == 0
         nnp = self.non_native_prefix
         for dtype in ['int', 'float', 'int16', 'float32',
-                        nnp + 'i2']:
+                        nnp + 'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
             c = a.copy()
             res = a.argsort()
