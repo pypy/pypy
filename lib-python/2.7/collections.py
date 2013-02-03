@@ -328,7 +328,8 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
 
     # Execute the template string in a temporary namespace and
     # support tracing utilities by setting a value for frame.f_globals['__name__']
-    namespace = {'__name__': 'namedtuple_%s' % typename}
+    namespace = {'__name__': 'namedtuple_%s' % typename,
+                 'OrderedDict': OrderedDict}
     try:
         exec template in namespace
     except SyntaxError, e:
