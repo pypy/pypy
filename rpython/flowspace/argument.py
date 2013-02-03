@@ -86,15 +86,6 @@ class CallSpec(object):
         self.arguments_w = args_w
         self.keywords = keywords or {}
 
-    def unpack(self):
-        "Return a ([w1,w2...], {'kw':w3...}) pair."
-        if self.w_stararg is not None:
-            stargs_w = self.space.unpackiterable(self.w_stararg)
-            args_w = self.arguments_w + stargs_w
-        else:
-            args_w = self.arguments_w
-        return args_w, self.keywords
-
     def flatten(self):
         """ Argument <-> list of w_objects together with "shape" information """
         shape_cnt  = len(self.arguments_w)    # Number of positional args

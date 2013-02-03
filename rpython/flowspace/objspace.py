@@ -412,23 +412,23 @@ class FlowObjSpace(object):
             except (KeyError, TypeError):
                 pass
             else:
-                args_w, kwds_w = args.unpack()
-                assert kwds_w == {}, "should not call %r with keyword arguments" % (fn,)
+                assert args.keywords == {}, "should not call %r with keyword arguments" % (fn,)
+                if args.w_stararg is not None:
+                    args_w = args.arguments_w + self.unpackiterable(args.w_stararg)
+                else:
+                    args_w = args.arguments_w
                 return sc(self, fn, args_w)
 
-        try:
-            args_w, kwds_w = args.unpack()
-        except UnwrapException:
-            args_w, kwds_w = '?', '?'
-        # NOTE: annrpython needs to know about the following two operations!
-        if not kwds_w:
-            # simple case
-            w_res = self.frame.do_operation('simple_call', w_callable, *args_w)
-        else:
-            # general case
+        if args.keywords or isinstance(args.w_stararg, Variable):
             shape, args_w = args.flatten()
-            w_res = self.frame.do_operation('call_args', w_callable, Constant(shape),
-                                      *args_w)
+            w_res = self.frame.do_operation('call_args', w_callable,
+                    Constant(shape), *args_w)
+        else:
+            if args.w_stararg is not None:
+                args_w = args.arguments_w + self.unpackiterable(args.w_stararg)
+            else:
+                args_w = args.arguments_w
+            w_res = self.frame.do_operation('simple_call', w_callable, *args_w)
 
         # maybe the call has generated an exception (any one)
         # but, let's say, not if we are calling a built-in class or function
