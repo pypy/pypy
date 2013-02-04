@@ -16,9 +16,10 @@ from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
-def make_sort_function(space, itemtype, count=1):
+def make_sort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
     step = rffi.sizeof(TP)
+    print itemtype
     
     class Repr(object):
         def __init__(self, index_stride_size, stride_size, size, values,
@@ -35,14 +36,21 @@ def make_sort_function(space, itemtype, count=1):
             if count < 2:
                 v = raw_storage_getitem(TP, self.values, item * self.stride_size
                                     + self.start)
-                v = itemtype.for_computation(v)
+                if comp_type=='int':
+                    v = int(v)
+                elif comp_type=='float':
+                    v = float(v)
+                elif comp_type=='complex':
+                    v = float(v[0]),float(v[1])
+                else:
+                    raise NotImplementedError('cannot reach')
             else:
                 v = []
                 for i in range(count):
                     _v = raw_storage_getitem(TP, self.values, item * self.stride_size
                                     + self.start + step * i)
                     v.append(_v)
-                v = itemtype.for_computation(v)
+                v = for_computation(v)
             return (v, raw_storage_getitem(lltype.Signed, self.indexes,
                                            item * self.index_stride_size +
                                            self.index_start))
@@ -145,7 +153,7 @@ def argsort_array(arr, space, w_axis):
     cache = space.fromcache(SortCache) # that populates SortClasses
     itemtype = arr.dtype.itemtype
     for tp in all_types:
-        if isinstance(itemtype, tp):
+        if isinstance(itemtype, tp[0]):
             return cache._lookup(tp)(arr, space, w_axis,
                                      itemtype.get_element_size())
     # XXX this should probably be changed
@@ -153,9 +161,10 @@ def argsort_array(arr, space, w_axis):
            space.wrap("sorting of non-numeric types " + \
                   "'%s' is not implemented" % arr.dtype.get_name(), ))
 
-all_types = (types.all_int_types + types.all_complex_types +
-             types.all_float_types)
-all_types = [i for i in all_types if not '_mixin_' in i.__dict__]
+all_types = (types.all_float_types) # + types.all_complex_types +
+            # types.all_int_types)
+all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__]
+all_types = [i for i in all_types if not 'NonNative' in str(i[0])]
 all_types = unrolling_iterable(all_types)
 
 class SortCache(object):
@@ -166,10 +175,10 @@ class SortCache(object):
             return
         self.built = True
         cache = {}
-        for cls in all_types._items:
+        for cls, it in all_types._items:
             if cls in types.all_complex_types:
-                cache[cls] = make_sort_function(space, cls, 2)
+                cache[cls] = make_sort_function(space, cls, it, 2)
             else:
-                cache[cls] = make_sort_function(space, cls)
+                cache[cls] = make_sort_function(space, cls, it)
         self.cache = cache
-        self._lookup = specialize.memo()(lambda tp : cache[tp])
+        self._lookup = specialize.memo()(lambda tp : cache[tp[0]])
