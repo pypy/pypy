@@ -140,7 +140,7 @@ class Primitive(object):
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
         #XXX this is the place to display a warning
-        return self.BoxType(rffi.cast(self.T, real))
+        return self.box(real)
 
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
