@@ -19,7 +19,6 @@ INT_SIZE = rffi.sizeof(lltype.Signed)
 def make_sort_function(space, itemtype, comp_type, count=1):
     TP = itemtype.T
     step = rffi.sizeof(TP)
-    print itemtype
     
     class Repr(object):
         def __init__(self, index_stride_size, stride_size, size, values,
@@ -164,7 +163,6 @@ def argsort_array(arr, space, w_axis):
 all_types = (types.all_float_types) # + types.all_complex_types +
             # types.all_int_types)
 all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__]
-all_types = [i for i in all_types if not 'NonNative' in str(i[0])]
 all_types = unrolling_iterable(all_types)
 
 class SortCache(object):
