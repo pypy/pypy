@@ -70,6 +70,7 @@ class GuardToken(object):
                 if isinstance(loc, RegLoc):
                     val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 else:
+                    assert isinstance(loc, StackLoc)
                     val = loc.position + JITFRAME_FIXED_SIZE
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
