@@ -146,7 +146,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             fd, addr = self.accept()
             sock = rsocket.make_socket(
-                fd, self.family, self.type, self.proto, W_RSocket)
+                fd, self.family, self.s_type, self.proto, W_RSocket)
             return space.newtuple([space.wrap(sock),
                                    addr_as_object(addr, sock.fd, space)])
         except SocketError, e:
@@ -540,16 +540,16 @@ def makefile(self, mode="r", buffersize=-1):
     return os.fdopen(newfd, mode, buffersize)
 ''', filename =__file__).interphook('makefile')
 
-@unwrap_spec(family=int, type=int, proto=int)
+@unwrap_spec(family=int, s_type=int, proto=int)
 def newsocket(space, w_subtype, family=AF_INET,
-              type=SOCK_STREAM, proto=0):
-    # XXX If we want to support subclassing the socket type we will need
+              s_type=SOCK_STREAM, proto=0):
+    # XXX If we want to support subclassing the socket s_type we will need
     # something along these lines. But allocate_instance is only defined
     # on the standard object space, so this is not really correct.
     #sock = space.allocate_instance(W_RSocket, w_subtype)
-    #Socket.__init__(sock, space, fd, family, type, proto)
+    #Socket.__init__(sock, space, fd, family, s_type, proto)
     try:
-        sock = W_RSocket(family, type, proto)
+        sock = W_RSocket(family, s_type, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)
@@ -651,7 +651,7 @@ shutdown(how) -- shut down traffic in one or both directions
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
     __weakref__ = make_weakref_descr(W_RSocket),
-    type = interp_attrproperty('type', W_RSocket),
+    s_type = interp_attrproperty('s_type', W_RSocket),
     proto = interp_attrproperty('proto', W_RSocket),
     family = interp_attrproperty('family', W_RSocket),
     ** socketmethods
