@@ -243,8 +243,7 @@ class Assembler386(object):
         # the arg is already in edi
         if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
             # for tests only
-            base_ofs = self.cpu.get_baseofs_of_frame_field()
-            mc.LEA_rb(esi.value, -base_ofs)
+            mc.MOV_rr(esi.value, ebp.value)
         mc.SUB_ri(esp.value, 16 - WORD)
         mc.CALL(imm(addr))
         mc.ADD_ri(esp.value, 16 - WORD)
