@@ -319,6 +319,7 @@ class CompiledLoopToken(object):
                                                      new_fi.jfi_frame_depth)
                 new_loop_tokens.append(ref)
         oldlooptoken.frame_info.set_frame_depth(baseofs, new_fi.jfi_frame_depth)
+        assert oldlooptoken is not None
         new_loop_tokens.append(weakref.ref(oldlooptoken))
         self.looptokens_redirected_to = new_loop_tokens
 
