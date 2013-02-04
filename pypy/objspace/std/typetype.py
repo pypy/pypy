@@ -1,5 +1,4 @@
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import (GetSetProperty, descr_get_dict,
                                       weakref_descr)
@@ -90,9 +89,9 @@ def descr_get__name__(space, w_type):
     return space.wrap(w_type.name)
 
 def descr_set__name__(space, w_type, w_value):
-    w_type = _check(space, w_type)    
+    w_type = _check(space, w_type)
     if not w_type.is_heaptype():
-        raise operationerrfmt(space.w_TypeError, 
+        raise operationerrfmt(space.w_TypeError,
                               "can't set %s.__name__", w_type.name)
     w_type.name = space.str_w(w_value)
 
@@ -119,10 +118,9 @@ def mro_subclasses(space, w_type, temp):
 
 def descr_set__bases__(space, w_type, w_value):
     # this assumes all app-level type objects are W_TypeObject
-    from pypy.objspace.std.typeobject import W_TypeObject
-    from pypy.objspace.std.typeobject import check_and_find_best_base
-    from pypy.objspace.std.typeobject import get_parent_layout
-    from pypy.objspace.std.typeobject import is_mro_purely_of_types
+    from pypy.objspace.std.typeobject import (W_TypeObject, get_parent_layout,
+        check_and_find_best_base, is_mro_purely_of_types)
+
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise operationerrfmt(space.w_TypeError,
@@ -213,9 +211,12 @@ def descr__flags(space, w_type):
     #
     w_type = _check(space, w_type)
     flags = 0
-    if w_type.flag_heaptype: flags |= _HEAPTYPE
-    if w_type.flag_cpytype:  flags |= _CPYTYPE
-    if w_type.flag_abstract: flags |= _ABSTRACT
+    if w_type.flag_heaptype:
+        flags |= _HEAPTYPE
+    if w_type.flag_cpytype:
+        flags |= _CPYTYPE
+    if w_type.flag_abstract:
+        flags |= _ABSTRACT
     return space.wrap(flags)
 
 def descr_get__module(space, w_type):
