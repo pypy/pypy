@@ -1232,8 +1232,9 @@ class Assembler386(object):
             x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
         if can_collect:
-            self.push_gcmap(self.mc, self._regalloc.get_gcmap([eax], noregs=True),
-                            store=True)
+            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            gcmap = self._regalloc.get_gcmap([eax], noregs=noregs)
+            self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(x)
         if can_collect:
             self._reload_frame_if_necessary(self.mc)

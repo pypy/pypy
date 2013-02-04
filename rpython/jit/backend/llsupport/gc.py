@@ -159,6 +159,9 @@ class GcLLDescr_boehm(GcLLDescription):
     unicode_type_id       = 0
     get_malloc_slowpath_addr = None
 
+    def is_shadow_stack(self):
+        return False
+
     @classmethod
     def configure_boehm_once(cls):
         """ Configure boehm only once, since we don't cache failures
@@ -318,6 +321,9 @@ class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
     kind = 'framework'
     round_up = True
+
+    def is_shadow_stack(self):
+        return self.gcrootmap.is_shadow_stack
 
     def __init__(self, gcdescr, translator, rtyper, llop1=llop,
                  really_not_translated=False):
