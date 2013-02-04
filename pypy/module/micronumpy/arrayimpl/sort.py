@@ -160,8 +160,8 @@ def argsort_array(arr, space, w_axis):
            space.wrap("sorting of non-numeric types " + \
                   "'%s' is not implemented" % arr.dtype.get_name(), ))
 
-all_types = (types.all_float_types) # + types.all_complex_types +
-            # types.all_int_types)
+all_types = (types.all_float_types + types.all_complex_types +
+             types.all_int_types)
 all_types = [i for i in all_types if not '_mixin_' in i[0].__dict__]
 all_types = unrolling_iterable(all_types)
 
