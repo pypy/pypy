@@ -1974,18 +1974,19 @@ class Assembler386(object):
     def _pop_all_regs_from_frame(self, mc, ignored_regs, withfloats,
                                  callee_only=False):
         # Pop all general purpose registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
         if callee_only:
             regs = gpr_reg_mgr_cls.save_around_call_regs
         else:
             regs = gpr_reg_mgr_cls.all_regs
         for i, gpr in enumerate(regs):
             if gpr not in ignored_regs:
-                mc.MOV_rb(gpr.value, i * WORD)
+                mc.MOV_rb(gpr.value, i * WORD + base_ofs)
         if withfloats:
             # Pop all XMM regs
             ofs = len(gpr_reg_mgr_cls.all_regs)
             for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_xb(i, (ofs + i) * WORD)
+                mc.MOVSD_xb(i, (ofs + i) * WORD + base_ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = codebuf.MachineCodeBlockWrapper()
