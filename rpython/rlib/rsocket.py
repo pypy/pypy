@@ -704,16 +704,14 @@ class RSocket(object):
         return err
 
     if hasattr(_c, 'dup'):
-        def dup(self, SocketClass):
-        #def dup(self, SocketClass=None):
-            #if SocketClass is None:
-            #    SocketClass = RSocket
-            # assert SocketClass is not None
+        def dup(self, SocketClass=None):
+            if SocketClass is None:
+                SocketClass = RSocket
             fd = _c.dup(self.fd)
             if fd < 0:
                 raise self.error_handler()
             return make_socket(fd, self.family, self.s_type, self.proto,
-                               SocketClass)
+                               SocketClass=SocketClass)
         
     def getpeername(self):
         """Return the address of the remote endpoint."""
@@ -956,7 +954,7 @@ class RSocket(object):
 
 # ____________________________________________________________
 
-def make_socket(fd, family, s_type, proto, SocketClass):
+def make_socket(fd, family, s_type, proto, SocketClass=RSocket):
     result = instantiate(SocketClass)
     result.fd = fd
     result.family = family
