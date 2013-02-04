@@ -2373,7 +2373,7 @@ class AppTestSupport(BaseNumpyAppTest):
         from _numpypy import array, arange
         assert array(2.0).argsort() == 0
         nnp = self.non_native_prefix
-        for dtype in ['int', 'float', 'int16', 'float32', 'float16', 
+        for dtype in ['int', 'float', 'int16', 'float32', 'uint64', 
                         nnp + 'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
             c = a.copy()
@@ -2383,6 +2383,7 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (a == c).all() # not modified
             a = arange(100)
             assert (a.argsort() == a).all()
+        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')    
 
     def test_argsort_nd(self):
         from _numpypy import array
