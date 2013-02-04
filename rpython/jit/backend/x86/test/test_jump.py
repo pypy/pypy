@@ -5,7 +5,8 @@ from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.metainterp.history import INT
 
-frame_pos = X86FrameManager.frame_pos
+fm = X86FrameManager(0)
+frame_pos = fm.frame_pos
 
 class MockAssembler:
     def __init__(self):
