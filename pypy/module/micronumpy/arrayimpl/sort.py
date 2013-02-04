@@ -42,11 +42,11 @@ def make_sort_function(space, itemtype, comp_type, count=1):
                     _v = raw_storage_getitem(TP, self.values, item * self.stride_size
                                     + self.start + step * i)
                     v.append(_v)
-            if comp_type=='int':
+            if comp_type == 'int':
                 v = intmask(v)
-            elif comp_type=='float':
+            elif comp_type == 'float':
                 v = float(v)
-            elif comp_type=='complex':
+            elif comp_type == 'complex':
                 v = [float(v[0]),float(v[1])]
             else:
                 raise NotImplementedError('cannot reach')
