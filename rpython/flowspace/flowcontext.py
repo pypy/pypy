@@ -360,11 +360,6 @@ class FlowSpaceFrame(object):
             "peek past the bottom of the stack")
         return self.locals_stack_w[index]
 
-    def pushrevvalues(self, n, values_w): # n should be len(values_w)
-        assert len(values_w) == n
-        for i in range(n - 1, -1, -1):
-            self.pushvalue(values_w[i])
-
     def settopvalue(self, w_object, index_from_top=0):
         index = self.valuestackdepth + ~index_from_top
         assert index >= self.pycode.co_nlocals, (
@@ -374,16 +369,6 @@ class FlowSpaceFrame(object):
     def popvalues(self, n):
         values_w = [self.popvalue() for i in range(n)]
         values_w.reverse()
-        return values_w
-
-    def peekvalues(self, n):
-        values_w = [None] * n
-        base = self.valuestackdepth - n
-        while True:
-            n -= 1
-            if n < 0:
-                break
-            values_w[n] = self.locals_stack_w[base+n]
         return values_w
 
     def dropvalues(self, n):
@@ -1020,7 +1005,8 @@ class FlowSpaceFrame(object):
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
         items = self.space.unpack_sequence(w_iterable, itemcount)
-        self.pushrevvalues(itemcount, items)
+        for w_item in reversed(items):
+            self.pushvalue(w_item)
 
     def slice(self, w_start, w_end):
         w_obj = self.popvalue()
