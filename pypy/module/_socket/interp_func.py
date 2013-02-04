@@ -126,24 +126,24 @@ def getnameinfo(space, w_sockaddr, flags):
         raise converted_error(space, e)
     return space.newtuple([space.wrap(host), space.wrap(servport)])
 
-@unwrap_spec(fd=int, family=int, s_type=int, proto=int)
-def fromfd(space, fd, family, s_type, proto=0):
-    """fromfd(fd, family, s_type[, proto]) -> socket object
+@unwrap_spec(fd=int, family=int, type=int, proto=int)
+def fromfd(space, fd, family, type, proto=0):
+    """fromfd(fd, family, type[, proto]) -> socket object
 
     Create a socket object from the given file descriptor.
     The remaining arguments are the same as for socket().
     """
     try:
-        sock = rsocket.fromfd(fd, family, s_type, proto, W_RSocket)
+        sock = rsocket.fromfd(fd, family, type, proto, W_RSocket)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)
 
-@unwrap_spec(family=int, s_type=int, proto=int)
+@unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,
-                      s_type  =rsocket.SOCK_STREAM,
+                      type  =rsocket.SOCK_STREAM,
                       proto =0):
-    """socketpair([family[, s_type[, proto]]]) -> (socket object, socket object)
+    """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
     Create a pair of socket objects from the sockets returned by the platform
     socketpair() function.
@@ -151,7 +151,7 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
     """
     try:
-        sock1, sock2 = rsocket.socketpair(family, s_type, proto, W_RSocket)
+        sock1, sock2 = rsocket.socketpair(family, type, proto, W_RSocket)
     except SocketError, e:
         raise converted_error(space, e)
     return space.newtuple([space.wrap(sock1), space.wrap(sock2)])

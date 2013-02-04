@@ -480,17 +480,17 @@ class RSocket(object):
     """
     _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
-    def __init__(self, family=AF_INET, s_type=SOCK_STREAM, proto=0,
+    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
                  fd=_c.INVALID_SOCKET):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            fd = _c.socket(family, s_type, proto)
+            fd = _c.socket(family, type, proto)
         if _c.invalid_socket(fd):
             raise self.error_handler()
         # PLAT RISCOS
         self.fd = fd
         self.family = family
-        self.s_type = s_type
+        self.type = type
         self.proto = proto
         self.timeout = defaults.timeout
         
@@ -710,7 +710,7 @@ class RSocket(object):
             fd = _c.dup(self.fd)
             if fd < 0:
                 raise self.error_handler()
-            return make_socket(fd, self.family, self.s_type, self.proto,
+            return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
         
     def getpeername(self):
@@ -954,11 +954,11 @@ class RSocket(object):
 
 # ____________________________________________________________
 
-def make_socket(fd, family, s_type, proto, SocketClass=RSocket):
+def make_socket(fd, family, type, proto, SocketClass=RSocket):
     result = instantiate(SocketClass)
     result.fd = fd
     result.family = family
-    result.s_type = s_type
+    result.type = type
     result.proto = proto
     result.timeout = defaults.timeout
     return result
@@ -1025,9 +1025,9 @@ else:
     socketpair_default_family = AF_UNIX
 
 if hasattr(_c, 'socketpair'):
-    def socketpair(family=socketpair_default_family, s_type=SOCK_STREAM, proto=0,
+    def socketpair(family=socketpair_default_family, type=SOCK_STREAM, proto=0,
                    SocketClass=RSocket):
-        """socketpair([family[, s_type[, proto]]]) -> (socket object, socket object)
+        """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
         Create a pair of socket objects from the sockets returned by the platform
         socketpair() function.
@@ -1035,14 +1035,14 @@ if hasattr(_c, 'socketpair'):
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
         result = lltype.malloc(_c.socketpair_t, 2, flavor='raw')
-        res = _c.socketpair(family, s_type, proto, result)
+        res = _c.socketpair(family, type, proto, result)
         if res < 0:
             raise last_error()
         fd0 = rffi.cast(lltype.Signed, result[0])
         fd1 = rffi.cast(lltype.Signed, result[1])
         lltype.free(result, flavor='raw')
-        return (make_socket(fd0, family, s_type, proto, SocketClass),
-                make_socket(fd1, family, s_type, proto, SocketClass))
+        return (make_socket(fd0, family, type, proto, SocketClass),
+                make_socket(fd1, family, type, proto, SocketClass))
 
 if _c.WIN32:
     def dup(fd):
@@ -1059,12 +1059,12 @@ else:
     def dup(fd):
         return _c.dup(fd)
 
-    def fromfd(fd, family, s_type, proto=0, SocketClass=RSocket):
+    def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
         # Dup the fd so it and the socket can be closed independently
         fd = _c.dup(fd)
         if fd < 0:
             raise last_error()
-        return make_socket(fd, family, s_type, proto, SocketClass)
+        return make_socket(fd, family, type, proto, SocketClass)
 
 def getdefaulttimeout():
     return defaults.timeout
