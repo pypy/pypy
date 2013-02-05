@@ -9,6 +9,7 @@ from _collections import deque, defaultdict
 from keyword import iskeyword as _iskeyword
 import sys as _sys
 import heapq as _heapq
+from operator import itemgetter as _itemgetter
 from itertools import repeat as _repeat, chain as _chain, starmap as _starmap
 
 try:
