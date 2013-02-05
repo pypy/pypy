@@ -420,20 +420,6 @@ class TestSpecialCases(_LLVMMixin):
         fc = self.getcompiled(f, [])
         assert fc() == 1
 
-    def test_consider_constant_with_llgroup(self):
-        Y = lltype.GcStruct('Y')
-        y = lltype.malloc(Y)
-        X = lltype.Struct('X', ('y', lltype.Ptr(Y)))
-        x = lltype.malloc(X, immortal=True)
-        x.y = y
-        grp = llgroup.group('test')
-        offset = grp.add_member(x)
-        grpptr = grp._as_ptr()
-        def f():
-            return len([(offset, grpptr)])
-        fc = self.getcompiled(f, [])
-        assert fc() == 1
-
     def test_consider_constant_with_llgroup_delayed(self):
         class X1(object):
             y = 11
