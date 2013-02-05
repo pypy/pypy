@@ -60,7 +60,6 @@ class CheckSignalAction(PeriodicAsyncAction):
     def __init__(self, space):
         "NOT_RPYTHON"
         AsyncAction.__init__(self, space)
-        self.handlers_w = {}
         self.pending_signal = -1
         self.fire_in_main_thread = False
         if self.space.config.objspace.usemodules.thread:
@@ -91,7 +90,7 @@ class CheckSignalAction(PeriodicAsyncAction):
                 # If we are in the main thread, report the signal now,
                 # and poll more
                 self.pending_signal = -1
-                self._report_signal(n)
+                report_signal(self.space, n)
                 n = self.pending_signal
                 if n < 0: n = pypysig_poll()
             else:
@@ -110,20 +109,31 @@ class CheckSignalAction(PeriodicAsyncAction):
             pypysig_pushback(cpy_signal.SIGINT)
         self.fire_in_main_thread = True
 
-    def _report_signal(self, n):
-        try:
-            w_handler = self.handlers_w[n]
-        except KeyError:
-            return    # no handler, ignore signal
-        space = self.space
-        if not space.is_true(space.callable(w_handler)):
-            return    # w_handler is SIG_IGN or SIG_DFL?
-        # re-install signal handler, for OSes that clear it
-        pypysig_reinstall(n)
-        # invoke the app-level handler
-        ec = space.getexecutioncontext()
-        w_frame = space.wrap(ec.gettopframe_nohidden())
-        space.call_function(w_handler, space.wrap(n), w_frame)
+# ____________________________________________________________
+
+
+class Handlers:
+    def __init__(self, space):
+        self.handlers_w = {}
+
+def _get_handlers(space):
+    return space.fromcache(Handlers).handlers_w
+
+
+def report_signal(space, n):
+    handlers_w = _get_handlers(space)
+    try:
+        w_handler = handlers_w[n]
+    except KeyError:
+        return    # no handler, ignore signal
+    if not space.is_true(space.callable(w_handler)):
+        return    # w_handler is SIG_IGN or SIG_DFL?
+    # re-install signal handler, for OSes that clear it
+    pypysig_reinstall(n)
+    # invoke the app-level handler
+    ec = space.getexecutioncontext()
+    w_frame = space.wrap(ec.gettopframe_nohidden())
+    space.call_function(w_handler, space.wrap(n), w_frame)
 
 
 @unwrap_spec(signum=int)
@@ -141,9 +151,9 @@ def getsignal(space, signum):
         check_signum_exists(space, signum)
     else:
         check_signum_in_range(space, signum)
-    action = space.check_signal_action
-    if signum in action.handlers_w:
-        return action.handlers_w[signum]
+    handlers_w = _get_handlers(space)
+    if signum in handlers_w:
+        return handlers_w[signum]
     return space.wrap(SIG_DFL)
 
 
@@ -204,7 +214,6 @@ def signal(space, signum, w_handler):
                                         "main thread"))
     old_handler = getsignal(space, signum)
 
-    action = space.check_signal_action
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
         pypysig_default(signum)
     elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
@@ -215,7 +224,8 @@ def signal(space, signum, w_handler):
                                  space.wrap("'handler' must be a callable "
                                             "or SIG_DFL or SIG_IGN"))
         pypysig_setflag(signum)
-    action.handlers_w[signum] = w_handler
+    handlers_w = _get_handlers(space)
+    handlers_w[signum] = w_handler
     return old_handler
 
 

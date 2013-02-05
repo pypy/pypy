@@ -65,8 +65,18 @@ def sc_r_uint(space, r_uint, args):
 def sc_we_are_translated(space, we_are_translated, args):
     return Constant(True)
 
+def sc_locals(space, locals, args):
+    raise Exception(
+        "A function calling locals() is not RPython.  "
+        "Note that if you're translating code outside the PyPy "
+        "repository, a likely cause is that py.test's --assert=rewrite "
+        "mode is getting in the way.  You should copy the file "
+        "pytest.ini from the root of the PyPy repository into your "
+        "own project.")
+
 SPECIAL_CASES = {__import__: sc_import, r_uint: sc_r_uint,
-        we_are_translated: sc_we_are_translated}
+        we_are_translated: sc_we_are_translated,
+        locals: sc_locals}
 for fn in OperationName:
     SPECIAL_CASES[fn] = sc_operator
 
