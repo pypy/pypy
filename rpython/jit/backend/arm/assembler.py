@@ -231,6 +231,7 @@ class AssemblerARM(ResOpAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
+        self.mc.MOV_rr(r.r0.value, r.fp.value)
         self.mc.BKPT()
         #base_ofs = self.cpu.get_baseofs_of_frame_field()
         #self.mc.MOV_bi(ofs, propagate_exception_descr)
@@ -377,15 +378,16 @@ class AssemblerARM(ResOpAssembler):
 
     def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
                                 callee_only=False):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
         if callee_only:
             regs = CoreRegisterManager.save_around_call_regs
         else:
             regs = CoreRegisterManager.all_regs
-        # use STMDB ops here
+        # XXX use STMDB ops here
         for i, gpr in enumerate(regs):
             if gpr in ignored_regs:
                 continue
-            mc.STR_ri(gpr.value, r.fp.value, i * WORD)
+            self.store_reg(mc, gpr, r.fp, base_ofs + i * WORD)
         if withfloats:
             if callee_only:
                 regs = VFPRegisterManager.save_around_call_regs
@@ -394,8 +396,36 @@ class AssemblerARM(ResOpAssembler):
             for i, vfpr in enumerate(regs):
                 if vfpr in ignored_regs:
                     continue
-                # add the offset of the gpr_regs
-                mc.VSTR(vfpr.value, r.fp.value, imm=i * DOUBLE_WORD)
+                ofs = len(CoreRegisterManager.all_regs) * WORD
+                ofs += i * DOUBLE_WORD + base_ofs
+                self.store_reg(mc, vfpr, r.fp, ofs)
+
+    def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
+                                 callee_only=False):
+        # Pop all general purpose registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            regs = CoreRegisterManager.save_around_call_regs
+        else:
+            regs = CoreRegisterManager.all_regs
+        # XXX use LDMDB ops here
+        for i, gpr in enumerate(regs):
+            if gpr in ignored_regs:
+                continue
+            ofs = i * WORD + base_ofs
+            self.load_reg(mc, gpr, r.fp, ofs)
+        if withfloats:
+            # Pop all XMM regs
+            if callee_only:
+                regs = VFPRegisterManager.save_around_call_regs
+            else:
+                regs = VFPRegisterManager.all_regs
+            for i, vfpr in enumerate(regs):
+                if vfpr in ignored_regs:
+                    continue
+                ofs = len(CoreRegisterManager.all_regs) * WORD
+                ofs += i * DOUBLE_WORD + base_ofs
+                self.load_reg(mc, vfpr, r.fp, ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = ARMv7Builder()
@@ -434,8 +464,8 @@ class AssemblerARM(ResOpAssembler):
 
         # set return value
         assert check_imm_arg(base_ofs)
-        mc.SUB_ri(r.r0.value, r.fp.value, base_ofs)
-
+        mc.MOV_rr(r.r0.value, r.fp.value)
+        #
         self.gen_func_epilog(mc)
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
@@ -547,10 +577,8 @@ class AssemblerARM(ResOpAssembler):
         self.mc.SUB_ri(r.sp.value, r.sp.value, WORD) # for the force index
         assert stack_size % 8 == 0 # ensure we keep alignment
 
-        # set fp to point to the JITFRAME + ofs
-        ofs = self.cpu.get_baseofs_of_frame_field()
-        assert check_imm_arg(ofs)
-        self.mc.ADD_ri(r.fp.value, r.r0.value, imm=ofs)
+        # set fp to point to the JITFRAME
+        self.mc.MOV_rr(r.fp.value, r.r0.value)
         #
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -734,9 +762,12 @@ class AssemblerARM(ResOpAssembler):
             faildescr._arm_bridge_frame_depth = frame_depth
             if log:
                 self.mc._dump_trace(rawstart, 'bridge.asm')
-        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
-                          frame_depth + JITFRAME_FIXED_SIZE)
+
         ops_offset = self.mc.ops_offset
+        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
+                          frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        self.fixup_target_tokens(rawstart)
+        self.update_frame_depth(frame_depth)
         self.teardown()
 
         debug_start("jit-backend-addr")
@@ -1307,6 +1338,7 @@ class AssemblerARM(ResOpAssembler):
     def pop_gcmap(self, mc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_bi(ofs, 0)
+
 
 
 def not_implemented(msg):

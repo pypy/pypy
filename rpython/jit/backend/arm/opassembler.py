@@ -67,8 +67,8 @@ class GuardToken(object):
                 if loc.is_reg():
                     val = loc.value
                 else:
-                    assert 0, 'ffuu, implement'
-                    val = loc.value // WORD
+                    assert loc.is_stack()
+                    val = JITFRAME_FIXED_SIZE + loc.value
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
@@ -358,25 +358,20 @@ class ResOpAssembler(object):
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
-        base_ofs = self.cpu.get_baseofs_of_frame_field() - WORD
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) == 2:
             [return_val, fail_descr_loc] = arglocs
-            if op.getarg(0).type == FLOAT:
-                self.mc.VSTR(return_val.value, r.fp.value)#, imm=-base_ofs)
-            else:
-                self.mc.STR_ri(return_val.value, r.fp.value)#, imm=-base_ofs)
-            #self.save_into_mem(raw_stack(0), return_val, imm(size))
+            self.store_reg(self.mc, return_val, r.fp, base_ofs)
         else:
             [fail_descr_loc] = arglocs
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
 
         self.mc.gen_load_int(r.ip.value, fail_descr_loc.value)
         # XXX self.mov(fail_descr_loc, RawStackLoc(ofs))
-        self.mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
+        self.store_reg(self.mc, r.ip, r.fp, ofs, helper=r.lr)
         gcmap = self.gcmap_for_finish
         self.push_gcmap(self.mc, gcmap, store=True)
-        self.mc.SUB_ri(r.r0.value, r.fp.value, base_ofs)
+        self.mc.MOV_rr(r.r0.value, r.fp.value)
         # exit function
         self.gen_func_epilog()
         return fcond

@@ -61,12 +61,12 @@ class TempFloat(TempBox):
 
 class ARMFrameManager(FrameManager):
 
-    def __init__(self):
+    def __init__(self, base_ofs):
         FrameManager.__init__(self)
+        self.base_ofs = base_ofs
 
-    @staticmethod
-    def frame_pos(i, box_type):
-        return locations.StackLocation(i, get_fp_offset(i), box_type)
+    def frame_pos(self, i, box_type):
+        return locations.StackLocation(i, get_fp_offset(self.base_ofs, i), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -282,8 +282,9 @@ class Regalloc(object):
             return self.vfprm.convert_to_imm(value)
 
     def _prepare(self, inputargs, operations, allgcrefs):
-        self.frame_manager = self.fm = ARMFrameManager()
         cpu = self.assembler.cpu
+        self.fm = ARMFrameManager(cpu.get_baseofs_of_frame_field())
+        self.frame_manager = self.fm
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables

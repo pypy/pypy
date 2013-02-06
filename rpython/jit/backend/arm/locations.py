@@ -136,5 +136,5 @@ def imm(i):
     return ImmLocation(i)
 
 
-def get_fp_offset(position):
-    return WORD * (position + JITFRAME_FIXED_SIZE)
+def get_fp_offset(base_ofs, position):
+    return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
