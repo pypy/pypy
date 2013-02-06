@@ -966,6 +966,46 @@ class AssemblerARM(ResOpAssembler):
         faildescr._arm_failure_recovery_block = 0
 
     # regalloc support
+    def load_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
+        if target.is_vfp_reg():
+            return self._load_vfp_reg(mc, target, base, ofs, cond)
+        elif target.is_reg():
+            return self._load_core_reg(mc, target, base, ofs, cond)
+
+    def _load_vfp_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.VLDR(target.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs)
+            mc.VLDR(target.value, base.value, helper.value, cond=cond)
+
+    def _load_core_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.LDR_ri(target.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs)
+            mc.LDR_rr(target.value, base.value, helper.value, cond=cond)
+
+    def store_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
+        if source.is_vfp_reg():
+            return self._store_vfp_reg(mc, source, base, ofs, cond)
+        else:
+            return self._store_core_reg(mc, source, base, ofs, cond)
+
+    def _store_vfp_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.VSTR(source.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs)
+            mc.VSTR(source.value, base.value, helper.value, cond=cond)
+
+    def _store_core_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.STR_ri(source.value, base.value, imm=ofs, cond=cond)
+        else:
+            gen_load_int(helper.value, ofs)
+            mc.STR_rr(source.value, base.value, helper.value, cond=cond)
+
     def load(self, loc, value):
         assert (loc.is_reg() and value.is_imm()
                     or loc.is_vfp_reg() and value.is_imm_float())
