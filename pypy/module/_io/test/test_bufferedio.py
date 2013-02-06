@@ -214,6 +214,19 @@ class AppTestBufferedReader:
         assert r == b"abca"
         assert rawio.count == 4
 
+    def test_unseekable(self):
+        import _io
+        class Unseekable(_io.BytesIO):
+            def seekable(self):
+                return False
+            def seek(self, *args):
+                raise _io.UnsupportedOperation("not seekable")
+            def tell(self, *args):
+                raise _io.UnsupportedOperation("not seekable")
+        bufio = _io.BufferedReader(Unseekable())
+        raises(_io.UnsupportedOperation, bufio.tell)
+        raises(_io.UnsupportedOperation, bufio.seek, 0)
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread'])
 

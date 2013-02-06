@@ -42,6 +42,15 @@ class AppTestTextIO:
         txt = _io.TextIOWrapper(UnReadable())
         raises(IOError, txt.read)
 
+    def test_unseekable(self):
+        import _io
+        class Unseekable(_io.BytesIO):
+            def seekable(self):
+                return False
+        txt = _io.TextIOWrapper(Unseekable())
+        raises(_io.UnsupportedOperation, txt.tell)
+        raises(_io.UnsupportedOperation, txt.seek, 0)
+
     def test_detach(self):
         import _io
         b = _io.BytesIO()

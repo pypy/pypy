@@ -809,8 +809,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_closed(space)
 
         if not self.seekable:
-            raise OperationError(space.w_IOError, space.wrap(
-                "underlying stream is not seekable"))
+            self._unsupportedoperation("underlying stream is not seekable")
 
         if whence == 1:
             # seek relative to current position
@@ -888,8 +887,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_closed(space)
 
         if not self.seekable:
-            raise OperationError(space.w_IOError, space.wrap(
-                "underlying stream is not seekable"))
+            self._unsupportedoperation("underlying stream is not seekable")
 
         if not self.telling:
             raise OperationError(space.w_IOError, space.wrap(
