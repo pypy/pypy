@@ -14,7 +14,7 @@ import sys
 import signal
 
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'struct', 'rctime']
+    usemodules = ['binascii', 'posix', 'struct', 'rctime', 'signal', 'select']
     if os.name != 'nt':
         usemodules += ['fcntl']
     else:

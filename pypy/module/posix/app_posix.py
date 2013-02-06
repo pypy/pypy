@@ -140,7 +140,7 @@ if osname == 'posix':
 
         Open a pipe to/from a command returning a file object."""
 
-        from popen2 import MAXFD
+        from subprocess import MAXFD
         import os, gc
 
         def try_close(fd):
