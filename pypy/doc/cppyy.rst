@@ -86,10 +86,10 @@ Then run the translation to build ``pypy-c``::
     $ hg clone https://bitbucket.org/pypy/pypy
     $ cd pypy
     $ hg up reflex-support         # optional
-    $ cd pypy/translator/goal
+    $ cd pypy/goal
     
     # This example shows python, but using pypy-c is faster and uses less memory
-    $ python translate.py -O jit --gcrootfinder=shadowstack targetpypystandalone.py --withmod-cppyy
+    $ python ../../rpython/bin/rpython.py -O jit --gcrootfinder=shadowstack targetpypystandalone.py --withmod-cppyy
 
 This will build a ``pypy-c`` that includes the cppyy module, and through that,
 Reflex support.
