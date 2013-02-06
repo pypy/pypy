@@ -6,6 +6,7 @@ import random
 import py
 
 from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.module.bz2.test.support import CheckAllocation
 
 
 if os.name == "nt":
@@ -50,10 +51,7 @@ def setup_module(mod):
     mod.RANDOM_DATA = ''.join([s[int(random.random() * len(s))] for i in range(30000)])
 
 
-class AppTestBZ2File: #(CheckAllocation):
-    # XXX for unknown reasons, we cannot do allocation checks, as sth is
-    # keeping those objects alive (BZ2File objects)
-
+class AppTestBZ2File(CheckAllocation):
     spaceconfig = {
         "usemodules": ["bz2", "binascii", "rctime"]
     }
