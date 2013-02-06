@@ -1983,13 +1983,9 @@ class TestAnnotateTestCase:
                 return None
         def g(a):
             x = f(a)
-            #assert x is not None
             if x is None:
                 return "abcd"
             return x
-            if isinstance(x, str):
-                return x
-            return "impossible"
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
