@@ -37,6 +37,7 @@ Rudimentary support for bytearray in RPython
 .. branch: fix-e4fa0b2
 .. branch: win32-fixes
 .. branch: fix-version-tool
+.. branch: popen2-removal
 
 .. branch: release-2.0-beta1
 
