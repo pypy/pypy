@@ -105,4 +105,4 @@ class AppTestUnicodeData:
 
     def test_bidirectional(self):
         import unicodedata
-        raises(ValueError, unicodedata.bidirectional, u'xx')
+        raises(TypeError, unicodedata.bidirectional, u'xx')
