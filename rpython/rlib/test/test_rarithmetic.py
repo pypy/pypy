@@ -1,5 +1,5 @@
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from rpython.test.test_llinterp import interpret
+from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
 import sys
 import py
