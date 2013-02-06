@@ -351,3 +351,22 @@ class AppTestOpen:
         self._check_warn_on_dealloc(self.tmpfile, 'wb', buffering=0)
         self._check_warn_on_dealloc(self.tmpfile, 'wb')
         self._check_warn_on_dealloc(self.tmpfile, 'w')
+
+    def test_pickling(self):
+        import _io
+        import pickle
+        # Pickling file objects is forbidden
+        for kwargs in [
+                {"mode": "w"},
+                {"mode": "wb"},
+                {"mode": "wb", "buffering": 0},
+                {"mode": "r"},
+                {"mode": "rb"},
+                {"mode": "rb", "buffering": 0},
+                {"mode": "w+"},
+                {"mode": "w+b"},
+                {"mode": "w+b", "buffering": 0},
+            ]:
+            for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
+                with _io.open(self.tmpfile, **kwargs) as f:
+                    raises(TypeError, pickle.dumps, f, protocol)

@@ -796,6 +796,7 @@ W_BufferedReader.typedef = TypeDef(
     'BufferedReader', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedReader),
     __init__  = interp2app(W_BufferedReader.descr_init),
+    __getstate__ = interp2app(W_BufferedReader.getstate_w),
     __module__ = "_io",
 
     read = interp2app(W_BufferedReader.read_w),
@@ -843,6 +844,7 @@ W_BufferedWriter.typedef = TypeDef(
     'BufferedWriter', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedWriter),
     __init__  = interp2app(W_BufferedWriter.descr_init),
+    __getstate__ = interp2app(W_BufferedWriter.getstate_w),
     __module__ = "_io",
 
     write = interp2app(W_BufferedWriter.write_w),
@@ -939,6 +941,7 @@ W_BufferedRWPair.typedef = TypeDef(
     '_io.BufferedRWPair', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRWPair),
     __init__  = interp2app(W_BufferedRWPair.descr_init),
+    __getstate__ = interp2app(W_BufferedRWPair.getstate_w),
     closed = GetSetProperty(W_BufferedRWPair.closed_get_w),
     **methods
 )
@@ -969,6 +972,7 @@ W_BufferedRandom.typedef = TypeDef(
     'BufferedRandom', W_BufferedIOBase.typedef,
     __new__ = generic_new_descr(W_BufferedRandom),
     __init__ = interp2app(W_BufferedRandom.descr_init),
+    __getstate__ = interp2app(W_BufferedRandom.getstate_w),
     __module__ = "_io",
 
     read = interp2app(W_BufferedRandom.read_w),

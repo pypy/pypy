@@ -164,6 +164,11 @@ class W_IOBase(Wrappable):
     def seekable_w(self, space):
         return space.w_False
 
+    def getstate_w(self, space):
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot serialize '%s' object",
+                              space.type(self).getname(space))
+
     # ______________________________________________________________
 
     def readline_w(self, space, w_limit=None):

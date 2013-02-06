@@ -989,9 +989,10 @@ W_TextIOWrapper.typedef = TypeDef(
     __new__ = generic_new_descr(W_TextIOWrapper),
     __init__  = interp2app(W_TextIOWrapper.descr_init),
     __repr__ = interp2app(W_TextIOWrapper.descr_repr),
+    __next__ = interp2app(W_TextIOWrapper.next_w),
+    __getstate__ = interp2app(W_TextIOWrapper.getstate_w),
     __module__ = "_io",
 
-    __next__ = interp2app(W_TextIOWrapper.next_w),
     read = interp2app(W_TextIOWrapper.read_w),
     readline = interp2app(W_TextIOWrapper.readline_w),
     write = interp2app(W_TextIOWrapper.write_w),

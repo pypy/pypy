@@ -438,6 +438,7 @@ W_FileIO.typedef = TypeDef(
     __new__  = interp2app(W_FileIO.descr_new.im_func),
     __init__  = interp2app(W_FileIO.descr_init),
     __repr__ = interp2app(W_FileIO.repr_w),
+    __getstate__ = interp2app(W_FileIO.getstate_w),
 
     seek = interp2app(W_FileIO.seek_w),
     tell = interp2app(W_FileIO.tell_w),
