@@ -22,6 +22,7 @@ from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempInt, TempPtr
 from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
 from rpython.jit.metainterp.history import (Box, AbstractFailDescr,
                                             INT, FLOAT, REF)
@@ -234,7 +235,7 @@ class ResOpAssembler(object):
             self.mc.NOP()
         else:
             self.mc.BKPT()
-        gcmap = self.allocate_gcmap(arglocs[0].value)
+        gcmap = allocate_gcmap(self, arglocs[0].value, JITFRAME_FIXED_SIZE)
         self.pending_guards.append(GuardToken(gcmap,
                                     descr,
                                     failargs=op.getfailargs(),
@@ -246,19 +247,6 @@ class ResOpAssembler(object):
                                     is_guard_not_forced=is_guard_not_forced,
                                     fcond=fcond))
         return c.AL
-
-    def allocate_gcmap(self, frame_depth):
-        size = frame_depth + JITFRAME_FIXED_SIZE
-        malloc_size = (size // WORD // 8 + 1) + 1
-        rawgcmap = self.datablockwrapper.malloc_aligned(WORD * malloc_size,
-                                                        WORD)
-        # set the length field
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), rawgcmap)[0] = malloc_size - 1
-        gcmap = rffi.cast(lltype.Ptr(jitframe.GCMAP), rawgcmap)
-        # zero the area
-        for i in range(malloc_size - 1):
-            gcmap[i] = r_uint(0)
-        return gcmap
 
     def _emit_guard_overflow(self, guard, failargs, fcond):
         if guard.getopnum() == rop.GUARD_OVERFLOW:
@@ -344,6 +332,7 @@ class ResOpAssembler(object):
         # stack locations both before and after the jump.
         #
         target_token = op.getdescr()
+        target = target_token._arm_loop_code
         assert isinstance(target_token, TargetToken)
         assert fcond == c.AL
         my_nbargs = self.current_clt._debug_nbargs
@@ -352,9 +341,9 @@ class ResOpAssembler(object):
 
         self._insert_checks()
         if target_token in self.target_tokens_currently_compiling:
-            self.mc.B_offs(target_token._arm_loop_code, fcond)
+            self.mc.B_offs(target, fcond)
         else:
-            self.mc.B(target_token._arm_loop_code, fcond)
+            self.mc.B(target, fcond)
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):

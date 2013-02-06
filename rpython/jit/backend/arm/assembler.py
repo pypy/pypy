@@ -96,6 +96,7 @@ class AssemblerARM(ResOpAssembler):
         self._build_failure_recovery(exc=False, withfloats=False)
         self._build_wb_slowpath(False)
         self._build_wb_slowpath(True)
+        self._build_stack_check_failure()
         if self.cpu.supports_floats:
             self._build_wb_slowpath(False, withfloats=True)
             self._build_wb_slowpath(True, withfloats=True)
@@ -341,6 +342,7 @@ class AssemblerARM(ResOpAssembler):
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_malloc_slowpath(self):
+        return # XXX fix me
         mc = ARMv7Builder()
         if self.cpu.supports_floats:
             vfp_regs = r.all_vfp_regs
@@ -731,35 +733,30 @@ class AssemblerARM(ResOpAssembler):
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
 
         regalloc = Regalloc(assembler=self)
+        startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
 
-        #sp_patch_location = self._prepare_sp_patch_position()
+        stack_check_patch_ofs = self._check_frame_depth(self.mc,
+                                                       regalloc.get_gcmap())
 
-        startpos = self.mc.get_relative_pos()
-
-        frame_depth = self._assemble(regalloc, inputargs, operations)
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
 
         codeendpos = self.mc.get_relative_pos()
-
-        #self._patch_sp_offset(sp_patch_location, frame_depth)
 
         self.write_pending_failure_recoveries()
 
         rawstart = self.materialize_loop(original_loop_token)
 
         self.process_pending_guards(rawstart)
-        self.fixup_target_tokens(rawstart)
 
         # patch the jump from original guard
         self.patch_trace(faildescr, original_loop_token,
                                     rawstart, regalloc)
 
         if not we_are_translated():
-            # for the benefit of tests
-            faildescr._arm_bridge_frame_depth = frame_depth
             if log:
                 self.mc._dump_trace(rawstart, 'bridge.asm')
 
@@ -797,6 +794,108 @@ class AssemblerARM(ResOpAssembler):
                 locs.append(StackLocation(i, pos, tp))
             input_i += 1
         return locs
+
+    def check_frame_before_jump(self, target_token):
+        if target_token in self.target_tokens_currently_compiling:
+            return
+        if target_token._arm_clt is self.current_clt:
+            return
+        # We can have a frame coming from god knows where that's
+        # passed to a jump to another loop. Make sure it has the
+        # correct depth
+        expected_size = target_token._arm_clt.frame_info.jfi_frame_depth
+        self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
+                                expected_size=expected_size)
+
+
+    def _check_frame_depth(self, mc, gcmap, expected_size=-1):
+        """ check if the frame is of enough depth to follow this bridge.
+        Otherwise reallocate the frame in a helper.
+        There are other potential solutions
+        to that, but this one does not sound too bad.
+        """
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        mc.gen_load_int(r.ip.value, ofs)
+        mc.SUB_ri(r.ip.value, r.ip.value, base_ofs)
+        stack_check_cmp_ofs = mc.currpos()
+        if expected_size == -1:
+            mc.gen_load_int(r.lr.value, 0xffffff)
+        else:
+            mc.gen_load_int(r.lr.value, expected_size)
+        mc.CMP_rr(r.ip.value, r.lr.value)
+
+        jg_location = mc.currpos()
+        mc.BKPT()
+
+        self.push_gcmap(mc, gcmap, push=True)
+
+        # the size value is still stored in lr
+        mc.PUSH([r.lr.value])
+
+        self.mc.BL(self._stack_check_failure)
+
+        # patch jg_location above
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(mc, jg_location, WORD)
+        pmc.B_offs(currpos, c.GE)
+
+        return stack_check_cmp_ofs
+
+    def _build_stack_check_failure(self):
+        # this code should do the following steps
+        # a) store all registers in the jitframe
+        # b) fish for the arguments passed by the caller
+        # c) store the gcmap in the jitframe
+        # d) call realloc_frame
+        # e) set the fp to point to the new jitframe
+        # f) store the address of the new jitframe in the shadowstack
+        # c) set the gcmap field to 0 in the new jitframe
+        # g) restore registers and return
+        mc = ARMv7Builder()
+        self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats)
+        # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
+        # and the expected_size pushed in _check_stack_frame
+        # pop the values passed on the stack, gcmap -> r0, expected_size -> r1
+        mc.POP([r.r0.value, r.r1.value])
+        # store return address and keep the stack aligned
+        mc.PUSH([r.ip.value, r.lr.value])
+
+        # store the current gcmap(r1) in the jitframe
+        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        assert check_imm_arg(abs(gcmap_ofs))
+        mc.STR_ri(r.r1.value, r.fp.value, imm=gcmap_ofs)
+
+        # set first arg, which is the old jitframe address
+        mc.MOV_rr(r.r0.value, r.fp.value)
+        # call realloc_frame, it takes two arguments
+        # arg0: the old jitframe
+        # arg1: the new size
+        mc.BL(self.cpu.realloc_frame)
+        # set fp to the new jitframe plus the baseofs
+        mc.ADD_ri(r.fp.value, r.r0.value)
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._load_shadowstack_top(mc, r.r5, gcrootmap)
+            # store the new jitframe addr in the shadowstack
+            mc.STR_ri(r.r0.value, r.r5.value, imm=-WORD)
+
+        # reset the jf_gcmap field in the jitframe
+        mc.gen_load_int(r.ip.value, 0)
+        mc.STR_ri(r.ip.value, r.fp.value, imm=gcmap_ofs)
+
+        # restore registers
+        self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
+        mc.POP([r.ip.value, r.pc.value]) # return
+        self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
+
+    def _load_shadowstack_top(self, mc, reg, gcrootmap):
+        rst = gcrootmap.get_root_stack_top_addr()
+        self.mc.gen_load_int(reg.value, rst)
+        self.mc.gen_load_int(reg.value, reg.value)
+        return rst
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
