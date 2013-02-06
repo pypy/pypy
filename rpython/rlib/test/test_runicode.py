@@ -5,16 +5,26 @@ import sys, random
 from rpython.rlib import runicode
 
 def test_unichr():
-    a = runicode.UNICHR(0xffff)
-    assert a == u'\uffff'
+    assert runicode.UNICHR(0xffff) == u'\uffff'
     if runicode.MAXUNICODE > 0xffff:
-        a = runicode.UNICHR(0x10000)
         if sys.maxunicode < 0x10000:
-            assert len(a) == 2      # surrogates
+            assert runicode.UNICHR(0x10000) == u'\ud800\udc00'
         else:
-            assert len(a) == 1
+            assert runicode.UNICHR(0x10000) == u'\U00010000'
     else:
         py.test.raises(ValueError, runicode.UNICHR, 0x10000)
+    py.test.raises(TypeError, runicode.UNICHR, 'abc')
+
+def test_ord():
+    assert runicode.ORD(u'\uffff') == 0xffff
+    if runicode.MAXUNICODE > 0xffff:
+        if sys.maxunicode < 0x10000:
+            assert runicode.ORD(u'\ud800\udc00') == 0x10000
+        else:
+            assert runicode.ORD(u'\U00010000') == 0x10000
+    else:
+        py.test.raises(TypeError, runicode.ORD, u'\ud800\udc00')
+    py.test.raises(TypeError, runicode.ORD, 'abc')
 
 
 class UnicodeTests(object):
