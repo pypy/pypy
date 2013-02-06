@@ -104,6 +104,9 @@ class W_BufferedIOBase(W_IOBase):
         rwbuffer.setslice(0, data)
         return space.wrap(len(data))
 
+    def _complain_about_max_buffer_size(self, space):
+        space.warn("max_buffer_size is deprecated", space.w_DeprecationWarning)
+
 W_BufferedIOBase.typedef = TypeDef(
     '_io._BufferedIOBase', W_IOBase.typedef,
     __new__ = generic_new_descr(W_BufferedIOBase),
@@ -315,6 +318,9 @@ class BufferedMixin:
         space.call_method(self, "flush")
         with self.lock:
             space.call_method(self.w_raw, "close")
+
+    def _dealloc_warn_w(self, space, w_source):
+        space.call_method(self.w_raw, "_dealloc_warn", w_source)
 
     def simple_flush_w(self, space):
         self._check_init(space)
@@ -810,14 +816,18 @@ W_BufferedReader.typedef = TypeDef(
     truncate = interp2app(W_BufferedReader.truncate_w),
     fileno = interp2app(W_BufferedReader.fileno_w),
     isatty = interp2app(W_BufferedReader.isatty_w),
+    _dealloc_warn = interp2app(W_BufferedReader._dealloc_warn_w),
     closed = GetSetProperty(W_BufferedReader.closed_get_w),
     name = GetSetProperty(W_BufferedReader.name_get_w),
     mode = GetSetProperty(W_BufferedReader.mode_get_w),
 )
 
 class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec(buffer_size=int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
+    @unwrap_spec(buffer_size=int, max_buffer_size=int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
+                   max_buffer_size=-234):
+        if max_buffer_size != -234:
+            self._complain_about_max_buffer_size(space)
         self.state = STATE_ZERO
         check_writable_w(space, w_raw)
 
@@ -851,6 +861,7 @@ W_BufferedWriter.typedef = TypeDef(
     isatty = interp2app(W_BufferedWriter.isatty_w),
     detach = interp2app(W_BufferedWriter.detach_w),
     truncate = interp2app(W_BufferedWriter.truncate_w),
+    _dealloc_warn = interp2app(W_BufferedWriter._dealloc_warn_w),
     closed = GetSetProperty(W_BufferedWriter.closed_get_w),
     name = GetSetProperty(W_BufferedWriter.name_get_w),
     mode = GetSetProperty(W_BufferedWriter.mode_get_w),
@@ -876,10 +887,12 @@ class W_BufferedRWPair(W_BufferedIOBase):
     w_reader = None
     w_writer = None
 
-    @unwrap_spec(buffer_size=int)
+    @unwrap_spec(buffer_size=int, max_buffer_size=int)
     def descr_init(self, space, w_reader, w_writer, 
-                   buffer_size=DEFAULT_BUFFER_SIZE):
+                   buffer_size=DEFAULT_BUFFER_SIZE, max_buffer_size=-234):
         try:
+            if max_buffer_size != -234:
+                self._complain_about_max_buffer_size(space)
             self.w_reader = W_BufferedReader(space)
             self.w_reader.descr_init(space, w_reader, buffer_size)
             self.w_writer = W_BufferedWriter(space)
@@ -931,10 +944,13 @@ W_BufferedRWPair.typedef = TypeDef(
 )
 
 class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec(buffer_size=int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
-        self.state = STATE_ZERO
+    @unwrap_spec(buffer_size=int, max_buffer_size=int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
+                   max_buffer_size=-234):
+        if max_buffer_size != -234:
+            self._complain_about_max_buffer_size(space)
 
+        self.state = STATE_ZERO
         check_readable_w(space, w_raw)
         check_writable_w(space, w_raw)
         check_seekable_w(space, w_raw)
@@ -975,6 +991,7 @@ W_BufferedRandom.typedef = TypeDef(
     truncate = interp2app(W_BufferedRandom.truncate_w),
     fileno = interp2app(W_BufferedRandom.fileno_w),
     isatty = interp2app(W_BufferedRandom.isatty_w),
+    _dealloc_warn = interp2app(W_BufferedRandom._dealloc_warn_w),
     closed = GetSetProperty(W_BufferedRandom.closed_get_w),
     name = GetSetProperty(W_BufferedRandom.name_get_w),
     mode = GetSetProperty(W_BufferedRandom.mode_get_w),

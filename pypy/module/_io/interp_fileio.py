@@ -246,6 +246,16 @@ class W_FileIO(W_RawIOBase):
         self._close(space)
         W_RawIOBase.close_w(self, space)
 
+    def _dealloc_warn_w(self, space, w_source):
+        if self.fd >= 0 and self.closefd:
+            try:
+                r = space.unicode_w(space.repr(w_source))
+                space.warn("unclosed file %s" % r, space.w_ResourceWarning)
+            except OperationError as e:
+                # Spurious errors can appear at shutdown
+                if e.match(space, space.w_Warning):
+                    e.write_unraisable(space, '', space.wrap(self))
+
     def _dircheck(self, space, w_filename):
         # On Unix, fopen will succeed for directories.
         # In Python, there should be no file objects referring to
@@ -443,6 +453,7 @@ W_FileIO.typedef = TypeDef(
     seekable = interp2app(W_FileIO.seekable_w),
     fileno = interp2app(W_FileIO.fileno_w),
     isatty = interp2app(W_FileIO.isatty_w),
+    _dealloc_warn = interp2app(W_FileIO._dealloc_warn_w),
     name = interp_member_w('w_name', cls=W_FileIO),
     closefd = interp_attrproperty(
         'closefd', cls=W_FileIO,

@@ -71,7 +71,10 @@ class W_IOBase(Wrappable):
             # If `closed` doesn't exist or can't be evaluated as bool, then
             # the object is probably in an unusable state, so ignore.
             if w_closed is not None and not space.is_true(w_closed):
-                space.call_method(self, "close")
+                try:
+                    self._dealloc_warn_w(space, space.wrap(self))
+                finally:
+                    space.call_method(self, "close")
         except OperationError:
             # Silencing I/O errors is bad, but printing spurious tracebacks is
             # equally as bad, and potentially more frequent (because of
@@ -108,6 +111,10 @@ class W_IOBase(Wrappable):
         finally:
             self.__IOBase_closed = True
             get_autoflushher(space).remove(self)
+
+    def _dealloc_warn_w(self, space, w_source):
+        """Called when the io is implicitly closed via the deconstructor"""
+        pass
 
     def flush_w(self, space):
         if self._CLOSED():

@@ -333,3 +333,21 @@ class AppTestOpen:
             assert res == "world\n"
             assert f.newlines == "\n"
             assert type(f.newlines) is str
+
+    def w__check_warn_on_dealloc(self, *args, **kwargs):
+        import gc
+        import warnings
+
+        f = open(*args, **kwargs)
+        r = repr(f)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            f = None
+            gc.collect()
+        assert len(w) == 1, len(w)
+        assert r in str(w[0])
+
+    def test_warn_on_dealloc(self):
+        self._check_warn_on_dealloc(self.tmpfile, 'wb', buffering=0)
+        self._check_warn_on_dealloc(self.tmpfile, 'wb')
+        self._check_warn_on_dealloc(self.tmpfile, 'w')

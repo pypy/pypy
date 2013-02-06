@@ -503,6 +503,9 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self, "flush")
             return space.call_method(self.w_buffer, "close")
 
+    def _dealloc_warn_w(self, space, w_source):
+        space.call_method(self.w_buffer, "_dealloc_warn", w_source)
+
     # _____________________________________________________________
     # read methods
 
@@ -1007,6 +1010,7 @@ W_TextIOWrapper.typedef = TypeDef(
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),
     fileno = interp2app(W_TextIOWrapper.fileno_w),
+    _dealloc_warn = interp2app(W_TextIOWrapper._dealloc_warn_w),
     name = GetSetProperty(W_TextIOWrapper.name_get_w),
     buffer = interp_attrproperty_w("w_buffer", cls=W_TextIOWrapper),
     closed = GetSetProperty(W_TextIOWrapper.closed_get_w),

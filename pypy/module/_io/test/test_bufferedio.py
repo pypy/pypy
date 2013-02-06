@@ -613,6 +613,31 @@ class AppTestBufferedRandom:
                 assert raw.getvalue() == b'1b\n2def\n3\n'
 
 
+class AppTestDeprecation:
+
+    def w_check_max_buffer_size_deprecation(self, test):
+        import _io
+        import _warnings
+        def simplefilter(action, category):
+            _warnings.filters.insert(0, (action, None, category, None, 0))
+        simplefilter('error', DeprecationWarning)
+        try:
+            test(_io.BytesIO(), 8, 12)
+        except DeprecationWarning as e:
+            assert 'max_buffer_size is deprecated' in str(e)
+        else:
+            assert False, 'Expected DeprecationWarning'
+        finally:
+            simplefilter('default', DeprecationWarning)
+
+    def test_max_buffer_size_deprecation(self):
+        import _io
+        self.check_max_buffer_size_deprecation(_io.BufferedWriter)
+        self.check_max_buffer_size_deprecation(_io.BufferedRandom)
+        self.check_max_buffer_size_deprecation(
+            lambda raw, *args: _io.BufferedRWPair(raw, raw, *args))
+
+
 class TestNonReentrantLock:
     spaceconfig = dict(usemodules=['thread'])
 
