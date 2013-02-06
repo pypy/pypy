@@ -103,11 +103,11 @@ class AppTestBZ2File(CheckAllocation):
         # writeonly
         bz2f = BZ2File(self.temppath, mode='w')
         bz2f.close()
-        # since we use fclose() internally you can't close it twice
-        # bz2f.close()
+        bz2f.close()
 
         # readonly
         bz2f = BZ2File(self.temppath, mode='r')
+        bz2f.close()
         bz2f.close()
 
     def test_tell(self):
@@ -240,8 +240,7 @@ class AppTestBZ2File(CheckAllocation):
         self.create_temp_file()
 
         bz2f = BZ2File(self.temppath)
-        # XXX
-        #raises(TypeError, bz2f.readline, None)
+        raises(TypeError, bz2f.readline, None)
         sio = StringIO(self.TEXT)
         for line in sio.readlines():
             line_read = bz2f.readline()
@@ -253,8 +252,7 @@ class AppTestBZ2File(CheckAllocation):
         self.create_temp_file()
 
         bz2f = BZ2File(self.temppath)
-        # XXX
-        # raises(TypeError, bz2f.read, None)
+        raises(TypeError, bz2f.read, None)
         text_read = bz2f.read()
         assert text_read == self.TEXT
         bz2f.close()
@@ -333,8 +331,7 @@ class AppTestBZ2File(CheckAllocation):
         self.create_temp_file()
 
         bz2f = BZ2File(self.temppath)
-        # XXX
-        #raises(TypeError, bz2f.readlines, None)
+        raises(TypeError, bz2f.readlines, None)
         sio = StringIO(self.TEXT)
         assert bz2f.readlines() == sio.readlines()
         bz2f.close()
