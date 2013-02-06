@@ -13,8 +13,6 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.x86 import regloc
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.backend.llsupport.descr import ArrayDescr, FLAG_POINTER,\
-     FLAG_FLOAT
 
 import sys
 
@@ -47,23 +45,6 @@ class AbstractX86CPU(AbstractLLCPU):
             self.with_threads = config.translation.thread
 
         self.profile_agent = profile_agent
-
-        ad = self.gc_ll_descr.getframedescrs(self).arraydescr
-        self.signedarraydescr = ad
-        # the same as normal JITFRAME, however with an array of pointers
-        self.refarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
-                                        FLAG_POINTER)
-        self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
-                                          FLAG_FLOAT)
-
-    def getarraydescr_for_frame(self, type, index):
-        if type == history.FLOAT:
-            descr = self.floatarraydescr
-        elif type == history.REF:
-            descr = self.refarraydescr
-        else:
-            descr = self.signedarraydescr
-        return JITFRAME_FIXED_SIZE + index, descr
 
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
