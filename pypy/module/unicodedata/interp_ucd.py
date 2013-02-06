@@ -67,7 +67,7 @@ else:
             # Accept surrogates
             try:
                 return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except ValueError:
+            except TypeError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
 
