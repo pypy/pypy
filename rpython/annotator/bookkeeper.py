@@ -447,6 +447,9 @@ class Bookkeeper(object):
             if (x is type(None) or      # add cases here if needed
                 x.__module__ == 'rpython.rtyper.lltypesystem.lltype'):
                 result = SomeType()
+            #elif x.__dict__.get('_mixin_', False):
+            #    raise Exception("Creating a PBC of a mixin class is "
+            #            "not RPython for class %r" % x)
             else:
                 result = SomePBC([self.getdesc(x)])
         elif callable(x):
