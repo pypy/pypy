@@ -18,7 +18,7 @@ BYTEORDER = sys.byteorder
 # or in unicodedata in pypy
 
 def unichr_returns_surrogate(c):
-    if c <= sys.maxunicode or c > MAXUNICODE:
+    if c <= 0xffff or c > 0x10ffff:
         return unichr(c)
     else:
         c -= 0x10000
@@ -31,8 +31,12 @@ def ord_accepts_surrogate(u):
         ch2 = ord(u[1])
         if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
             return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-    assert len(u) == 1
-    return ord(u[0])
+    if not we_are_translated():
+        return ord(u)
+    else:
+        if len(u) == 1:
+            return ord(u[0])
+        raise TypeError
 
 if MAXUNICODE > sys.maxunicode:
     # A version of unichr which allows codes outside the BMP

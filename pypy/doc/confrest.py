@@ -4,7 +4,8 @@ import py
 from confrest_oldpy import Project, Page, relpath
 html = py.xml.html
 
-class PyPyPage(Page): 
+
+class PyPyPage(Page):
     googlefragment = """
 <script type="text/javascript">
 var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
@@ -16,26 +17,27 @@ var pageTracker = _gat._getTracker("UA-7778406-2");
 pageTracker._trackPageview();
 } catch(err) {}</script>
 """
+
     def fill_menubar(self):
         self.menubar = html.div(
-            html.a("home", 
-                   href=self.get_doclink("index.html"), 
-                   class_="menu"), 
+            html.a("home",
+                   href=self.get_doclink("index.html"),
+                   class_="menu"),
             " ",
             html.a("blog", href="http://morepypy.blogspot.com", class_="menu"),
-            " ", 
+            " ",
             html.a("getting-started",
                    href=self.get_doclink("getting-started.html"),
-                   class_="menu"), 
+                   class_="menu"),
             " ",
             html.a("documentation", href=self.get_doclink("docindex.html"),
                    class_="menu"),
-            " ", 
+            " ",
             html.a("hg", href="https://bitbucket.org/pypy/pypy",
                    class_="menu"),
-            " ", 
+            " ",
             html.a("issues",
-                   href="https://codespeak.net/issue/pypy-dev/",
+                   href="https://bugs.pypy.org/",
                    class_="menu"),
             " ", id="menubar")
 
@@ -43,25 +45,25 @@ pageTracker._trackPageview();
         return relpath(self.targetpath.strpath,
                        self.project.docpath.join(target).strpath)
 
-    def unicode(self, doctype=True): 
-        page = self._root.unicode() 
+    def unicode(self, doctype=True):
+        page = self._root.unicode()
         page = page.replace("</body>", self.googlefragment + "</body>")
-        if doctype: 
-            return self.doctype + page 
-        else: 
-            return page 
-        
+        if doctype:
+            return self.doctype + page
+        else:
+            return page
 
-class Project(Project): 
+
+class Project(Project):
     mydir = py.path.local(__file__).dirpath()
 
-    title = "PyPy" 
+    title = "PyPy"
     stylesheet = 'style.css'
-    encoding = 'latin1' 
+    encoding = 'latin1'
     prefix_title = "PyPy"
     logo = html.div(
         html.a(
-            html.img(alt="PyPy", id="pyimg", 
-                     src="http://codespeak.net/pypy/img/py-web1.png", 
+            html.img(alt="PyPy", id="pyimg",
+                     src="http://codespeak.net/pypy/img/py-web1.png",
                      height=110, width=149)))
-    Page = PyPyPage 
+    Page = PyPyPage

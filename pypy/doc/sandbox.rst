@@ -87,15 +87,15 @@ Howto
 -----
 
 
-In pypy/translator/goal::
+In pypy/goal::
 
-   ./translate.py -O2 --sandbox targetpypystandalone.py
+   ../../rpython/bin/rpython -O2 --sandbox targetpypystandalone.py
 
 If you don't have a regular PyPy installed, you should, because it's
 faster to translate, but you can also run ``python translate.py`` instead.
 
 
-To run it, use the tools in the pypy/translator/sandbox directory::
+To run it, use the tools in the pypy/sandbox directory::
 
    ./pypy_interact.py /some/path/pypy-c-sandbox [args...]
 

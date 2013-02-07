@@ -113,7 +113,7 @@ From pyglet, the following examples are known to work:
 The pypy-c translated to run the ctypes tests can be used to run the pyglet examples as well. They can be run like e.g.::
 
     $ cd pyglet/
-    $ PYTHONPATH=. ../ctypes-stable/pypy/translator/goal/pypy-c examples/opengl.py
+    $ PYTHONPATH=. ../ctypes-stable/pypy/goal/pypy-c examples/opengl.py
 
 
 they usually should be terminated with ctrl-c. Refer to the their doc strings for details about how they should behave.

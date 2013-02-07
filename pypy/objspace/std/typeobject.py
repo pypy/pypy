@@ -1,23 +1,22 @@
+from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.function import Function, StaticMethod
+from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.typedef import weakref_descr
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
-from pypy.objspace.std.objecttype import object_typedef
-from pypy.objspace.std import identitydict
-from rpython.rlib.objectmodel import we_are_translated
+
+from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
+     promote_string, elidable, dont_look_inside, unroll_safe)
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from rpython.rlib.jit import promote, elidable_promote, we_are_jitted,\
-     promote_string
-from rpython.rlib.jit import elidable, dont_look_inside, unroll_safe
 from rpython.rlib.rarithmetic import intmask, r_uint
+
 
 class TypeCell(W_Root):
     def __init__(self, w_value=None):
         self.w_value = w_value
+
 
 def unwrap_cell(space, w_value):
     if (space.config.objspace.std.withtypeversion and
@@ -278,7 +277,7 @@ class W_TypeObject(W_Object):
             if attr in w_self.lazyloaders:
                 # very clever next line: it forces the attr string
                 # to be interned.
-                w_attr = space.new_interned_str(attr)
+                space.new_interned_str(attr)
                 loader = w_self.lazyloaders[attr]
                 del w_self.lazyloaders[attr]
                 w_value = loader()
@@ -497,7 +496,7 @@ class W_TypeObject(W_Object):
 
     def get_module(w_self):
         space = w_self.space
-        if w_self.is_heaptype() and '__module__' in w_self.dict_w:
+        if w_self.is_heaptype() and w_self.getdictvalue(space, '__module__') is not None:
             return w_self.getdictvalue(space, '__module__')
         else:
             # for non-heap types, CPython checks for a module.name in the
@@ -516,7 +515,7 @@ class W_TypeObject(W_Object):
             mod = '__builtin__'
         else:
             mod = space.str_w(w_mod)
-        if mod !='__builtin__':
+        if mod != '__builtin__':
             return '%s.%s' % (mod, w_self.name)
         else:
             return w_self.name
@@ -560,13 +559,15 @@ class W_TypeObject(W_Object):
                 subclasses_w.append(w_ob)
         return subclasses_w
 
-
     # for now, weakref support for W_TypeObject is hard to get automatically
     _lifeline_ = None
+
     def getweakref(self):
         return self._lifeline_
+
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+
     def delweakref(self):
         self._lifeline_ = None
 
@@ -693,9 +694,12 @@ def create_all_slots(w_self, hasoldstylebase):
             else:
                 create_slot(w_self, slot_name)
     wantdict = wantdict or hasoldstylebase
-    if wantdict: create_dict_slot(w_self)
-    if wantweakref: create_weakref_slot(w_self)
-    if '__del__' in dict_w: w_self.needsdel = True
+    if wantdict:
+        create_dict_slot(w_self)
+    if wantweakref:
+        create_weakref_slot(w_self)
+    if '__del__' in dict_w:
+        w_self.needsdel = True
 
 def create_slot(w_self, slot_name):
     space = w_self.space
@@ -868,7 +872,7 @@ def repr__Type(space, w_obj):
         kind = 'type'
     else:
         kind = 'class'
-    if mod is not None and mod !='__builtin__':
+    if mod is not None and mod != '__builtin__':
         return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
     else:
         return space.wrap("<%s '%s'>" % (kind, w_obj.name))
@@ -887,7 +891,7 @@ def getattr__Type_ANY(space, w_type, w_name):
         # __get__(None, type): turns e.g. functions into unbound methods
         return space.get(w_value, space.w_None, w_type)
     if w_descr is not None:
-        return space.get(w_descr,w_type)
+        return space.get(w_descr, w_type)
     raise operationerrfmt(space.w_AttributeError,
                           "type object '%s' has no attribute '%s'",
                           w_type.name, name)
@@ -933,7 +937,7 @@ def compute_C3_mro(space, cls):
             return mro_error(space, orderlists)  # no candidate found
         assert candidate not in order
         order.append(candidate)
-        for i in range(len(orderlists)-1, -1, -1):
+        for i in range(len(orderlists) - 1, -1, -1):
             if orderlists[i][0] is candidate:
                 del orderlists[i][0]
                 if len(orderlists[i]) == 0:

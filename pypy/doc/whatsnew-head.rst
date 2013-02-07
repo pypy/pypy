@@ -37,6 +37,7 @@ Rudimentary support for bytearray in RPython
 .. branch: fix-e4fa0b2
 .. branch: win32-fixes
 .. branch: fix-version-tool
+.. branch: popen2-removal
 
 .. branch: release-2.0-beta1
 
@@ -50,3 +51,6 @@ Fixed the interaction between two internal tools for controlling the JIT.
 .. branch: inline-virtualref-2
 Better optimized certain types of frame accesses in the JIT, particularly
 around exceptions that escape the function they were raised in.
+
+.. branch: missing-ndarray-attributes
+Some missing attributes from ndarrays

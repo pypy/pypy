@@ -2,6 +2,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
+from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 
 def issequence_w(space, w_obj):
     return (space.isinstance_w(w_obj, space.w_tuple) or
@@ -15,6 +16,7 @@ class W_NDimArray(Wrappable):
     __metaclass__ = extendabletype
 
     def __init__(self, implementation):
+        assert isinstance(implementation, BaseArrayImplementation)
         self.implementation = implementation
     
     @staticmethod
@@ -38,11 +40,11 @@ class W_NDimArray(Wrappable):
 
 
     @staticmethod
-    def new_slice(offset, strides, backstrides, shape, parent, dtype=None):
+    def new_slice(offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
-                                   dtype)
+                                   orig_arr, dtype)
         return W_NDimArray(impl)
 
     @staticmethod
