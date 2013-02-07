@@ -721,9 +721,10 @@ class AppTestNotDirect(BaseNumpyAppTest):
             else:
                 assert stor2[1] == '\x01'
                 assert stor2[0] == '\x00'
-        cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
         if option.runappdirect:
-            py.test.skip("not a direct test")
+            cls.w_check_non_native = lambda *args : None
+        else:
+            cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
 
     def test_non_native(self):
         from _numpypy import array
@@ -731,6 +732,21 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'f8')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'f4')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'f2')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'g') # longdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
 
 class AppTestPyPyOnly(BaseNumpyAppTest):
     def setup_class(cls):

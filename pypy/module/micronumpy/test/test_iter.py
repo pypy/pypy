@@ -1,4 +1,4 @@
-from pypy.module.micronumpy.arrayimpl.concrete import MultiDimViewIterator
+from pypy.module.micronumpy.iter import MultiDimViewIterator
 
 class MockArray(object):
     size = 1

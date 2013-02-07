@@ -57,7 +57,8 @@ class greenlet(_continulet):
     def __switch(target, methodname, *args):
         current = getcurrent()
         #
-        while not target:
+        while not (target.__main or _continulet.is_pending(target)):
+            # inlined __nonzero__ ^^^ in case it's overridden
             if not target.__started:
                 if methodname == 'switch':
                     greenlet_func = _greenlet_start

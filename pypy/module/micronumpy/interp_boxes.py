@@ -43,6 +43,9 @@ class PrimitiveBox(object):
     def convert_to(self, dtype):
         return dtype.box(self.value)
 
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.value)
+
 class ComplexBox(object):
     _mixin_ = True
 
@@ -284,6 +287,11 @@ class W_StringBox(W_CharacterBox):
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
+            
+    def convert_to(self, dtype):
+        from pypy.module.micronumpy import types
+        assert isinstance(dtype.itemtype, types.StringType)
+        return self        
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
@@ -296,6 +304,11 @@ class W_UnicodeBox(W_CharacterBox):
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
+
+    def convert_to(self, dtype):
+        from pypy.module.micronumpy import types
+        assert isinstance(dtype.itemtype, types.UnicodeType)
+        return self        
 
 
 class W_ComplexFloatingBox(W_InexactBox):

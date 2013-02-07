@@ -6,6 +6,7 @@ import _abcoll
 __all__ += _abcoll.__all__
 
 from _collections import deque, defaultdict
+from operator import itemgetter as _itemgetter
 from keyword import iskeyword as _iskeyword
 import sys as _sys
 import heapq as _heapq
@@ -328,7 +329,8 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
 
     # Execute the template string in a temporary namespace and
     # support tracing utilities by setting a value for frame.f_globals['__name__']
-    namespace = {'__name__': 'namedtuple_%s' % typename}
+    namespace = {'__name__': 'namedtuple_%s' % typename,
+                 'OrderedDict': OrderedDict}
     try:
         exec template in namespace
     except SyntaxError, e:
