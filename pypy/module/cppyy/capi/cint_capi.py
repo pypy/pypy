@@ -5,9 +5,9 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib import libffi, rdynload
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib import libffi, rdynload
 
 from pypy.module.itertools import interp_itertools
 
@@ -53,7 +53,7 @@ eci = ExternalCompilationInfo(
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-    link_extra=["-lCore", "-lCint"],
+    libraries=["Core", "Cint"],
     use_cpp_linker=True,
 )
 
@@ -65,13 +65,20 @@ _c_load_dictionary = rffi.llexternal(
 
 def c_load_dictionary(name):
     result = _c_load_dictionary(name)
-    if not result:
-        err = rdynload.dlerror()
-        raise rdynload.DLOpenError(err)
-    return libffi.CDLL(name)       # should return handle to already open file
+    # ignore result: libffi.CDLL(name) either returns a handle to the already
+    # open file, or will fail as well and produce a correctly formatted error
+    return libffi.CDLL(name)
 
 
 # CINT-specific pythonizations ===============================================
+
+def _get_string_data(space, w_obj, m1, m2 = None):
+    from pypy.module.cppyy import interp_cppyy
+    obj = space.interp_w(interp_cppyy.W_CPPInstance, w_obj)
+    w_1 = obj.space.call_method(w_obj, m1)
+    if m2 is None:
+        return w_1
+    return obj.space.call_method(w_1, m2)
 
 ### TTree --------------------------------------------------------------------
 _ttree_Branch = rffi.llexternal(
@@ -212,25 +219,41 @@ _pythonizations = {}
 def register_pythonizations(space):
     "NOT_RPYTHON"
 
-    ### TTree
-    _pythonizations['ttree_Branch']  = space.wrap(interp2app(ttree_Branch))
-    _pythonizations['ttree_iter']    = space.wrap(interp2app(ttree_iter))
-    _pythonizations['ttree_getattr'] = space.wrap(interp2app(ttree_getattr))
+    allfuncs = [
+
+        ### TTree
+        ttree_Branch, ttree_iter, ttree_getattr,
+    ]
+
+    for f in allfuncs:
+        _pythonizations[f.__name__] = space.wrap(interp2app(f))
+
+def _method_alias(space, w_pycppclass, m1, m2):
+    space.setattr(w_pycppclass, space.wrap(m1),
+                  space.getattr(w_pycppclass, space.wrap(m2)))
 
 # callback coming in when app-level bound classes have been created
 def pythonize(space, name, w_pycppclass):
 
-    if name == 'TFile':
-        space.setattr(w_pycppclass, space.wrap("__getattr__"),
-                      space.getattr(w_pycppclass, space.wrap("Get")))
+    if name == "TFile":
+        _method_alias(space, w_pycppclass, "__getattr__", "Get")
 
-    elif name == 'TTree':
-        space.setattr(w_pycppclass, space.wrap("_unpythonized_Branch"),
-                      space.getattr(w_pycppclass, space.wrap("Branch")))
-        space.setattr(w_pycppclass, space.wrap("Branch"), _pythonizations["ttree_Branch"])
-        space.setattr(w_pycppclass, space.wrap("__iter__"), _pythonizations["ttree_iter"])
+    elif name == "TObjString":
+        _method_alias(space, w_pycppclass, "__str__", "GetName")
+        _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "GetString")
+
+    elif name == "TString":
+        _method_alias(space, w_pycppclass, "__str__", "Data")
+        _method_alias(space, w_pycppclass, "__len__", "Length")
+        _method_alias(space, w_pycppclass, "__cmp__", "CompareTo")
+        _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "Data")
+
+    elif name == "TTree":
+        _method_alias(space, w_pycppclass, "_unpythonized_Branch", "Branch")
+
+        space.setattr(w_pycppclass, space.wrap("Branch"),      _pythonizations["ttree_Branch"])
+        space.setattr(w_pycppclass, space.wrap("__iter__"),    _pythonizations["ttree_iter"])
         space.setattr(w_pycppclass, space.wrap("__getattr__"), _pythonizations["ttree_getattr"])
 
     elif name[0:8] == "TVectorT":    # TVectorT<> template
-        space.setattr(w_pycppclass, space.wrap("__len__"),
-                      space.getattr(w_pycppclass, space.wrap("GetNoElements")))
+        _method_alias(space, w_pycppclass, "__len__", "GetNoElements")

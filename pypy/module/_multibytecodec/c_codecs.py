@@ -1,7 +1,7 @@
 import py
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.autopath import pypydir
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.conftest import cdir
 
 UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
 
@@ -15,7 +15,7 @@ class EncodeDecodeError(Exception):
         return 'EncodeDecodeError(%r, %r, %r)' % (self.start, self.end,
                                                   self.reason)
 
-srcdir = py.path.local(pypydir).join('translator', 'c')
+srcdir = py.path.local(cdir)
 
 codecs = [
     # _codecs_cn
@@ -279,10 +279,15 @@ def multibytecodec_encerror(encodebuf, e, errors,
             replace = "?"
     else:
         assert errorcb
-        ret, end = errorcb(errors, namecb, reason,
-                           unicodedata, start, end)
-        codec = pypy_cjk_enc_getcodec(encodebuf)
-        replace = encode(codec, ret, "strict", errorcb, namecb)
+        retu, rets, end = errorcb(errors, namecb, reason,
+                                  unicodedata, start, end)
+        if rets is not None:
+            # py3k only
+            replace = rets
+        else:
+            assert retu is not None
+            codec = pypy_cjk_enc_getcodec(encodebuf)
+            replace = encode(codec, retu, "strict", errorcb, namecb)
     inbuf = rffi.get_nonmovingbuffer(replace)
     try:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)

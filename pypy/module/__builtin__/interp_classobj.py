@@ -4,9 +4,9 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, descr_set_dict
-from pypy.rlib.objectmodel import compute_identity_hash
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
+from rpython.rlib.objectmodel import compute_identity_hash
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
 
 
 def raise_type_err(space, argument, expected, w_obj):

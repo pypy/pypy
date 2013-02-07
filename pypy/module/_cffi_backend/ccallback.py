@@ -3,10 +3,10 @@ Callbacks.
 """
 import os
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
-from pypy.rlib import clibffi, rweakref, rgc
-from pypy.rlib.rarithmetic import r_ulonglong
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
+from rpython.rlib import clibffi, rweakref
+from rpython.rlib import jit
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
@@ -77,22 +77,24 @@ class W_CDataCallback(W_CData):
                                  space.wrap("expected a function ctype"))
         return ctype
 
-    def invoke(self, ll_args, ll_res):
+    @jit.unroll_safe
+    def invoke(self, ll_args):
         space = self.space
         ctype = self.getfunctype()
         args_w = []
         for i, farg in enumerate(ctype.fargs):
             ll_arg = rffi.cast(rffi.CCHARP, ll_args[i])
             args_w.append(farg.convert_to_object(ll_arg))
-        fresult = ctype.ctitem
-        #
-        w_res = space.call(self.w_callable, space.newtuple(args_w))
-        #
+        return space.call(self.w_callable, space.newtuple(args_w))
+
+    def convert_result(self, ll_res, w_res):
+        fresult = self.getfunctype().ctitem
         convert_from_object_fficallback(fresult, ll_res, w_res)
 
-    def print_error(self, operr):
+    def print_error(self, operr, extra_line):
         space = self.space
-        operr.write_unraisable(space, "cffi callback", self.w_callable)
+        operr.write_unraisable(space, "callback ", self.w_callable,
+                               with_traceback=True, extra_line=extra_line)
 
     def write_error_return_value(self, ll_res):
         fresult = self.getfunctype().ctitem
@@ -150,6 +152,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
 
 STDERR = 2
 
+@jit.jit_callback("CFFI")
 def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
@@ -178,11 +181,14 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     try:
         ec = cerrno.get_errno_container(callback.space)
         cerrno.save_errno_into(ec, e)
+        extra_line = ''
         try:
-            callback.invoke(ll_args, ll_res)
+            w_res = callback.invoke(ll_args)
+            extra_line = "Trying to convert the result back to C:\n"
+            callback.convert_result(ll_res, w_res)
         except OperationError, e:
             # got an app-level exception
-            callback.print_error(e)
+            callback.print_error(e, extra_line)
             callback.write_error_return_value(ll_res)
         #
     except Exception, e:

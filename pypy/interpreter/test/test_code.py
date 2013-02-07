@@ -1,18 +1,15 @@
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 from pypy.interpreter.astcompiler import consts
 import py
 
 class AppTestCodeIntrospection:
     def setup_class(cls):
-        space = gettestobjspace()
-        cls.space = space
         filename = __file__
         if filename[-3:] != '.py':
             filename = filename[:-1]
 
-        cls.w_file = space.wrap(filename)
-        cls.w_CO_CONTAINSGLOBALS = space.wrap(consts.CO_CONTAINSGLOBALS)
+        cls.w_file = cls.space.wrap(filename)
+        cls.w_CO_CONTAINSGLOBALS = cls.space.wrap(consts.CO_CONTAINSGLOBALS)
 
     def test_attributes(self):
         def f(): pass

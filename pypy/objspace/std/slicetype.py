@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
 
 # indices multimehtod
 slice_indices = SMM('indices', 2,

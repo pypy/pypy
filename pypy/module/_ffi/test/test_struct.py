@@ -1,8 +1,7 @@
-import sys
-from pypy.conftest import gettestobjspace, option
-from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
-from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module._ffi.interp_ffitype import app_types, W_FFIType
+from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
+from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
 
 
 class TestStruct(object):
@@ -38,12 +37,14 @@ class TestStruct(object):
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
 
+
 class AppTestStruct(BaseAppTestFFI):
 
     def setup_class(cls):
         BaseAppTestFFI.setup_class.im_func(cls)
-        #
-        def read_raw_mem(self, addr, typename, length):
+
+        @unwrap_spec(addr=int, typename=str, length=int)
+        def read_raw_mem(space, addr, typename, length):
             import ctypes
             addr = ctypes.cast(addr, ctypes.c_void_p)
             c_type = getattr(ctypes, typename)
@@ -51,18 +52,21 @@ class AppTestStruct(BaseAppTestFFI):
             ptr_array = ctypes.cast(addr, array_type)
             array = ptr_array[0]
             lst = [array[i] for i in range(length)]
-            return lst
-        cls.w_read_raw_mem = cls.space.wrap(read_raw_mem)
+            return space.wrap(lst)
+        if cls.runappdirect:
+            cls.w_read_raw_mem = lambda self, *args: read_raw_mem(cls.space, *args)
+        else:
+            cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem))
         #
-        from pypy.rlib import clibffi
-        from pypy.rlib.rarithmetic import r_uint
-        from pypy.rpython.lltypesystem import lltype, rffi
+        from rpython.rlib import clibffi
+        from rpython.rlib.rarithmetic import r_uint
+        from rpython.rtyper.lltypesystem import lltype, rffi
         dummy_type = lltype.malloc(clibffi.FFI_TYPE_P.TO, flavor='raw')
         dummy_type.c_size = r_uint(123)
         dummy_type.c_alignment = rffi.cast(rffi.USHORT, 0)
         dummy_type.c_type = rffi.cast(rffi.USHORT, 0)
         cls.w_dummy_type = W_FFIType('dummy', dummy_type)
-        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         
     def test__StructDescr(self):
         from _ffi import _StructDescr, Field, types

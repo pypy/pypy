@@ -19,20 +19,19 @@ import py, sys, ctypes
 if sys.version_info < (2, 6):
     py.test.skip("requires the b'' literal syntax")
 
-from pypy.tool.udir import udir
-from pypy.conftest import gettestobjspace, option
+from rpython.tool.udir import udir
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend import Module
-from pypy.translator.platform import host
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import host
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 class AppTestC(object):
     """Populated below, hack hack hack."""
 
+    spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_cffi_backend',))
-        cls.space = space
         testfuncs_w = []
         keepalive_funcs = []
 
@@ -64,7 +63,8 @@ class AppTestC(object):
             addr = cdll.gettestfunc(w_num)
             return space.wrap(addr)
 
-        if option.runappdirect:
+        space = cls.space
+        if cls.runappdirect:
             def interp2app(func):
                 def run(*args):
                     return func(space, *args)

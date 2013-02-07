@@ -43,6 +43,8 @@ class Module(MixedModule):
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'list_strategy'             : 'interp_magic.list_strategy',
         'validate_fd'               : 'interp_magic.validate_fd',
+        'resizelist_hint'           : 'interp_magic.resizelist_hint',
+        'newlist_hint'              : 'interp_magic.newlist_hint',
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
     }
@@ -57,7 +59,6 @@ class Module(MixedModule):
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
         if not self.space.config.translating:
-            self.extra_interpdef('isfake', 'interp_magic.isfake')
             self.extra_interpdef('interp_pdb', 'interp_magic.interp_pdb')
         if self.space.config.objspace.std.withmethodcachecounter:
             self.extra_interpdef('method_cache_counter',
@@ -70,6 +71,6 @@ class Module(MixedModule):
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
         #
-        from pypy.jit.backend import detect_cpu
+        from rpython.jit.backend import detect_cpu
         model = detect_cpu.autodetect_main_model_and_size()
         self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)

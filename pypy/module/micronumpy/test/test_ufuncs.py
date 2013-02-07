@@ -1,17 +1,17 @@
-
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.rlib.rcomplex import c_pow
-
 from pypy.conftest import option
+from pypy.interpreter.gateway import interp2app
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from rpython.rlib.rcomplex import c_pow
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
         import os
         BaseNumpyAppTest.setup_class.im_func(cls)
-        def cls_c_pow(self, *args):
-            return c_pow(*args)
-        cls.w_c_pow = cls.space.wrap(cls_c_pow)
+
+        def cls_c_pow(space, args_w):
+            return space.wrap(c_pow(*map(space.unwrap, args_w)))
+        cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
         cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
@@ -672,6 +672,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_isnan_isinf(self):
         from _numpypy import isnan, isinf, float64, array
         assert isnan(float('nan'))
+        assert not isnan(3)
+        assert not isinf(3)
         assert isnan(float64(float('nan')))
         assert not isnan(3)
         assert isinf(float('inf'))
@@ -686,6 +688,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_isposinf_isneginf(self):
         from _numpypy import isneginf, isposinf
         assert isposinf(float('inf'))
+        assert not isposinf(3)
+        assert not isneginf(3)
         assert not isposinf(float('-inf'))
         assert not isposinf(float('nan'))
         assert not isposinf(0)
@@ -705,6 +709,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             [True, True, True, True]).all()
         assert (isfinite([ninf, inf, -nan, nan]) ==
             [False, False, False, False]).all()
+        assert (isfinite([1, 2, 3]) == [True, True, True]).all()
 
         a = [complex(0, 0), complex(1e50, -1e-50), complex(inf, 0),
              complex(inf, inf), complex(inf, ninf), complex(0, inf),

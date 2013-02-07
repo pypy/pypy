@@ -6,7 +6,6 @@ import py_compile
 import shutil
 import time
 import zipfile
-from pypy.conftest import gettestobjspace
 
 TESTFN = '@test'
 
@@ -17,13 +16,15 @@ created_paths = dict.fromkeys(['_top_level',
                      os.path.join('_pkg', '_subpkg', 'submodule')
                                ])
 
+
 class AppTestZipImport:
+    spaceconfig = {
+        "usemodules": ['zipimport', 'rctime', 'struct', 'itertools', 'binascii']
+    }
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=['zipimport', 'rctime', 'struct',
-                                            'itertools'])
-        cls.space = space
-        cls.w_created_paths = space.wrap(created_paths)
-    
+        cls.w_created_paths = cls.space.wrap(created_paths)
+
     def w_temp_zipfile(self, created_paths, source=True, bytecode=True):
         """Create a temporary zip file for testing.
 

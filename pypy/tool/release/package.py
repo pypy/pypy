@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """ A sample script that packages PyPy, provided that it's already built.
-It uses 'pypy/translator/goal/pypy-c' and parts of the rest of the working
+It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
     package.py root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
@@ -9,13 +9,14 @@ Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
 """
 
-import autopath
 import shutil
 import sys
-import py
 import os
+#Add toplevel repository dir to sys.path
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+import py
 import fnmatch
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
@@ -49,7 +50,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         basename = 'pypy-c'
         if sys.platform == 'win32':
             basename += '.exe'
-        pypy_c = basedir.join('pypy', 'translator', 'goal', basename)
+        pypy_c = basedir.join('pypy', 'goal', basename)
     else:
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
@@ -93,7 +94,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
-    for file in ['LICENSE', 'README']:
+    for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
     if sys.platform == 'win32':
@@ -122,7 +123,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     try:
         os.chdir(str(builddir))
         #
-        # 'strip' fun: see https://codespeak.net/issue/pypy-dev/issue587
+        # 'strip' fun: see issue #587
         for source, target in binaries:
             if sys.platform == 'win32':
                 pass

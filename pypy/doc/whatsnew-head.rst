@@ -1,57 +1,56 @@
 ======================
-What's new in PyPy xxx
+What's new in PyPy 2.0
 ======================
 
-.. this is the revision of the last merge from default to release-1.9.x
-.. startrev: 8d567513d04d
+.. this is a revision shortly after release-2.0-beta1
+.. startrev: 0e6161a009c6
 
-.. branch: default
-.. branch: app_main-refactor
-.. branch: win-ordinal
+.. branch: split-rpython
+Split rpython and pypy into seperate directories
+
+.. branch: callback-jit
+Callbacks from C are now better JITted
+
+.. branch: remove-globals-in-jit
+
+.. branch: length-hint
+Implement __lenght_hint__ according to PEP 424
+
+.. branch: numpypy-longdouble
+Long double support for numpypy
+.. branch: numpypy-real-as-view
+Convert real, imag from ufuncs to views. This involves the beginning of 
+view() functionality
+
+.. branch: signatures
+Improved RPython typing
+
+.. branch: rpython-bytearray
+Rudimentary support for bytearray in RPython
+
+.. branches we don't care about
+.. branch: autoreds
 .. branch: reflex-support
-Provides cppyy module (disabled by default) for access to C++ through Reflex.
-See doc/cppyy.rst for full details and functionality.
-.. branch: nupypy-axis-arg-check
-Check that axis arg is valid in _numpypy
+.. branch: kill-faking
+.. branch: improved_ebnfparse_error
+.. branch: task-decorator
+.. branch: fix-e4fa0b2
+.. branch: win32-fixes
+.. branch: fix-version-tool
+.. branch: popen2-removal
 
-.. branch: iterator-in-rpython
-.. branch: numpypy_count_nonzero
-.. branch: numpy-refactor
-Remove numpy lazy evaluation and simplify everything
-.. branch: numpy-reintroduce-jit-drivers
-.. branch: numpy-fancy-indexing
-Support for array[array-of-ints] in numpy
-.. branch: even-more-jit-hooks
-Implement better JIT hooks
-.. branch: virtual-arguments
-Improve handling of **kwds greatly, making them virtual sometimes.
-.. branch: improve-rbigint
-Introduce __int128 on systems where it's supported and improve the speed of
-rlib/rbigint.py greatly.
-.. branch: translation-cleanup
-Start to clean up a bit the flow object space.
-.. branch: ffi-backend
-Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
-.. branch: speedup-unpackiterable
-.. branch: stdlib-2.7.3
-The stdlib was updated to version 2.7.3
+.. branch: release-2.0-beta1
 
-.. branch: numpypy-complex2
-Complex dtype support for numpy
-.. branch: numpypy-problems
-Improve dtypes intp, uintp, void, string and record
-.. branch: kill-someobject
-major cleanups including killing some object support
-.. branch: cpyext-PyThreadState_New
-implement threadstate-related functions in cpyext
+.. branch: remove-PYPY_NOT_MAIN_FILE
 
+.. branch: missing-jit-operations
 
-.. "uninteresting" branches that we should just ignore for the whatsnew:
-.. branch: slightly-shorter-c
-.. branch: better-enforceargs
-.. branch: rpython-unicode-formatting
-.. branch: jit-opaque-licm
-.. branch: rpython-utf8
-Support for utf-8 encoding in RPython
-.. branch: arm-backend-2
-Support ARM in the JIT.
+.. branch: fix-lookinside-iff-oopspec
+Fixed the interaction between two internal tools for controlling the JIT.
+
+.. branch: inline-virtualref-2
+Better optimized certain types of frame accesses in the JIT, particularly
+around exceptions that escape the function they were raised in.
+
+.. branch: missing-ndarray-attributes
+Some missing attributes from ndarrays

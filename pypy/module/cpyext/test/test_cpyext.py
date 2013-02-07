@@ -4,21 +4,20 @@ import os.path
 
 import py
 
-from pypy.conftest import gettestobjspace
+from pypy.conftest import pypydir
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app
-from pypy.rpython.lltypesystem import rffi, lltype, ll2ctypes
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator import platform
-from pypy.translator.gensupp import uniquemodulename
-from pypy.tool.udir import udir
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator import platform
+from rpython.translator.gensupp import uniquemodulename
+from rpython.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
-from pypy.translator.goal import autopath
-from pypy.tool.identity_dict import identity_dict
-from pypy.tool import leakfinder
+from rpython.tool.identity_dict import identity_dict
+from rpython.tool import leakfinder
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -33,29 +32,7 @@ class TestApi:
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
 
-class AppTestApi:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
-        from pypy.rlib.clibffi import get_libc_name
-        cls.w_libc = cls.space.wrap(get_libc_name())
-
-    def test_load_error(self):
-        import cpyext
-        raises(ImportError, cpyext.load_module, "missing.file", "foo")
-        raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
-
-    def test_dllhandle(self):
-        import sys
-        if sys.platform != "win32" or sys.version_info < (2, 6):
-            skip("Windows Python >= 2.6 only")
-        assert sys.dllhandle
-        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
-        import ctypes # slow
-        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
-        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
-        assert PyUnicode_GetDefaultEncoding() == 'ascii'
-
-def compile_module(space, modname, **kwds):
+def compile_extension_module(space, modname, **kwds):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -66,6 +43,19 @@ def compile_module(space, modname, **kwds):
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
+    state = space.fromcache(State)
+    api_library = state.api_lib
+    if sys.platform == 'win32':
+        kwds["libraries"] = [api_library]
+        # '%s' undefined; assuming extern returning int
+        kwds["compile_extra"] = ["/we4013"]
+    elif sys.platform == 'darwin':
+        kwds["link_files"] = [str(api_library + '.dylib')]
+    else:
+        kwds["link_files"] = [str(api_library + '.so')]
+        if sys.platform.startswith('linux'):
+            kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
+
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
         export_symbols=['init%s' % (modname,)],
@@ -92,6 +82,9 @@ def freeze_refcnts(self):
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
 class LeakCheckingTest(object):
+    """Base class for all cpyext tests."""
+    spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
+                                   'itertools', 'rctime', 'binascii'])
     enable_leak_checking = True
 
     @staticmethod
@@ -164,123 +157,156 @@ class LeakCheckingTest(object):
         # enabled automatically by pypy.conftest.
         return leaking
 
+class AppTestApi(LeakCheckingTest):
+    def setup_class(cls):
+        from rpython.rlib.clibffi import get_libc_name
+        cls.w_libc = cls.space.wrap(get_libc_name())
+
+    def test_load_error(self):
+        import cpyext
+        raises(ImportError, cpyext.load_module, "missing.file", "foo")
+        raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
+
+    def test_dllhandle(self):
+        import sys
+        if sys.platform != "win32" or sys.version_info < (2, 6):
+            skip("Windows Python >= 2.6 only")
+        assert sys.dllhandle
+        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
+        import ctypes # slow
+        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
+        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
+        assert PyUnicode_GetDefaultEncoding() == 'ascii'
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
     
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts
         state = cls.space.fromcache(RefcountState)
         state.non_heaptypes_w[:] = []
 
-    def compile_module(self, name, **kwds):
-        """
-        Build an extension module linked against the cpyext api library.
-        """
-        state = self.space.fromcache(State)
-        api_library = state.api_lib
-        if sys.platform == 'win32':
-            kwds["libraries"] = [api_library]
-            # '%s' undefined; assuming extern returning int
-            kwds["compile_extra"] = ["/we4013"]
-        else:
-            kwds["link_files"] = [str(api_library + '.so')]
-            if sys.platform.startswith('linux'):
-                kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
-        return compile_module(self.space, name, **kwds)
-
-
-    def import_module(self, name, init=None, body='', load_it=True, filename=None):
-        """
-        init specifies the overall template of the module.
-
-        if init is None, the module source will be loaded from a file in this
-        test direcory, give a name given by the filename parameter.
-
-        if filename is None, the module name will be used to construct the
-        filename.
-        """
-        if init is not None:
-            code = """
-            #include <Python.h>
-            %(body)s
-
-            void init%(name)s(void) {
-            %(init)s
-            }
-            """ % dict(name=name, init=init, body=body)
-            kwds = dict(separate_module_sources=[code])
-        else:
-            if filename is None:
-                filename = name
-            filename = py.path.local(autopath.pypydir) / 'module' \
-                    / 'cpyext'/ 'test' / (filename + ".c")
-            kwds = dict(separate_module_files=[filename])
-
-        mod = self.compile_module(name, **kwds)
-
-        if load_it:
-            api.load_extension_module(self.space, mod, name)
-            self.imported_module_names.append(name)
-            return self.space.getitem(
-                self.space.sys.get('modules'),
-                self.space.wrap(name))
-        else:
-            return os.path.dirname(mod)
-
-    def reimport_module(self, mod, name):
-        api.load_extension_module(self.space, mod, name)
-        return self.space.getitem(
-            self.space.sys.get('modules'),
-            self.space.wrap(name))
-
-    def import_extension(self, modname, functions, prologue=""):
-        methods_table = []
-        codes = []
-        for funcname, flags, code in functions:
-            cfuncname = "%s_%s" % (modname, funcname)
-            methods_table.append("{\"%s\", %s, %s}," %
-                                 (funcname, cfuncname, flags))
-            func_code = """
-            static PyObject* %s(PyObject* self, PyObject* args)
-            {
-            %s
-            }
-            """ % (cfuncname, code)
-            codes.append(func_code)
-
-        body = prologue + "\n".join(codes) + """
-        static PyMethodDef methods[] = {
-        %s
-        { NULL }
-        };
-        """ % ('\n'.join(methods_table),)
-        init = """Py_InitModule("%s", methods);""" % (modname,)
-        return self.import_module(name=modname, init=init, body=body)
-
-    def record_imported_module(self, name):
-        """
-        Record a module imported in a test so that it can be cleaned up in
-        teardown before the check for leaks is done.
-
-        name gives the name of the module in the space's sys.modules.
-        """
-        self.imported_module_names.append(name)
-
     def setup_method(self, func):
+        @unwrap_spec(name=str)
+        def compile_module(space, name,
+                           w_separate_module_files=None,
+                           w_separate_module_sources=None):
+            """
+            Build an extension module linked against the cpyext api library.
+            """
+            if not space.is_none(w_separate_module_files):
+                separate_module_files = space.listview_str(w_separate_module_files)
+                assert separate_module_files is not None
+            else:
+                separate_module_files = []
+            if not space.is_none(w_separate_module_sources):
+                separate_module_sources = space.listview_str(w_separate_module_sources)
+                assert separate_module_sources is not None
+            else:
+                separate_module_sources = []
+            pydname = compile_extension_module(
+                space, name,
+                separate_module_files=separate_module_files,
+                separate_module_sources=separate_module_sources)
+            return space.wrap(pydname)
+
+        @unwrap_spec(name=str, init='str_or_None', body=str,
+                     load_it=bool, filename='str_or_None')
+        def import_module(space, name, init=None, body='',
+                          load_it=True, filename=None):
+            """
+            init specifies the overall template of the module.
+
+            if init is None, the module source will be loaded from a file in this
+            test direcory, give a name given by the filename parameter.
+
+            if filename is None, the module name will be used to construct the
+            filename.
+            """
+            if init is not None:
+                code = """
+                #include <Python.h>
+                %(body)s
+
+                void init%(name)s(void) {
+                %(init)s
+                }
+                """ % dict(name=name, init=init, body=body)
+                kwds = dict(separate_module_sources=[code])
+            else:
+                if filename is None:
+                    filename = name
+                filename = py.path.local(pypydir) / 'module' \
+                        / 'cpyext'/ 'test' / (filename + ".c")
+                kwds = dict(separate_module_files=[filename])
+
+            mod = compile_extension_module(space, name, **kwds)
+
+            if load_it:
+                api.load_extension_module(space, mod, name)
+                self.imported_module_names.append(name)
+                return space.getitem(
+                    space.sys.get('modules'),
+                    space.wrap(name))
+            else:
+                return os.path.dirname(mod)
+
+        @unwrap_spec(mod=str, name=str)
+        def reimport_module(space, mod, name):
+            api.load_extension_module(space, mod, name)
+            return space.getitem(
+                space.sys.get('modules'),
+                space.wrap(name))
+
+        @unwrap_spec(modname=str, prologue=str)
+        def import_extension(space, modname, w_functions, prologue=""):
+            functions = space.unwrap(w_functions)
+            methods_table = []
+            codes = []
+            for funcname, flags, code in functions:
+                cfuncname = "%s_%s" % (modname, funcname)
+                methods_table.append("{\"%s\", %s, %s}," %
+                                     (funcname, cfuncname, flags))
+                func_code = """
+                static PyObject* %s(PyObject* self, PyObject* args)
+                {
+                %s
+                }
+                """ % (cfuncname, code)
+                codes.append(func_code)
+
+            body = prologue + "\n".join(codes) + """
+            static PyMethodDef methods[] = {
+            %s
+            { NULL }
+            };
+            """ % ('\n'.join(methods_table),)
+            init = """Py_InitModule("%s", methods);""" % (modname,)
+            return import_module(space, name=modname, init=init, body=body)
+
+        @unwrap_spec(name=str)
+        def record_imported_module(name):
+            """
+            Record a module imported in a test so that it can be cleaned up in
+            teardown before the check for leaks is done.
+
+            name gives the name of the module in the space's sys.modules.
+            """
+            self.imported_module_names.append(name)
+
         # A list of modules which the test caused to be imported (in
         # self.space).  These will be cleaned up automatically in teardown.
         self.imported_module_names = []
 
-        self.w_import_module = self.space.wrap(self.import_module)
-        self.w_reimport_module = self.space.wrap(self.reimport_module)
-        self.w_import_extension = self.space.wrap(self.import_extension)
-        self.w_compile_module = self.space.wrap(self.compile_module)
+        self.w_compile_module = self.space.wrap(interp2app(compile_module))
+        self.w_import_module = self.space.wrap(interp2app(import_module))
+        self.w_reimport_module = self.space.wrap(interp2app(reimport_module))
+        self.w_import_extension = self.space.wrap(interp2app(import_extension))
         self.w_record_imported_module = self.space.wrap(
-            self.record_imported_module)
+            interp2app(record_imported_module))
         self.w_here = self.space.wrap(
-            str(py.path.local(autopath.pypydir)) + '/module/cpyext/test/')
+            str(py.path.local(pypydir)) + '/module/cpyext/test/')
 
 
         # create the file lock before we count allocations

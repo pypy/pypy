@@ -19,16 +19,19 @@ else:
 
 if sys.platform == 'win32':
     standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
+    standard_c_lib._errno.argtypes = None
     def _where_is_errno():
         return standard_c_lib._errno()
     
 elif sys.platform in ('linux2', 'freebsd6'):
     standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
+    standard_c_lib.__errno_location.argtypes = None
     def _where_is_errno():
         return standard_c_lib.__errno_location()
 
 elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
     standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
+    standard_c_lib.__error.argtypes = None
     def _where_is_errno():
         return standard_c_lib.__error()
 

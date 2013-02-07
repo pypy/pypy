@@ -55,10 +55,6 @@ def typeoffsetof(space, ctype, fieldname):
     ctype, offset = ctype.typeoffsetof(fieldname)
     return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
-@unwrap_spec(ctype=ctypeobj.W_CType)
-def _getfields(space, ctype):
-    return ctype._getfields()
-
 @unwrap_spec(ctype=ctypeobj.W_CType, cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, ctype, cdata, offset=0):
     return ctype.rawaddressof(cdata, offset)

@@ -1,12 +1,10 @@
-
-from pypy.conftest import gettestobjspace
 from pypy.module._rawffi.tracker import Tracker
 
 class AppTestTracker:
+    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
+
     def setup_class(cls):
         Tracker.DO_TRACING = True
-        space = gettestobjspace(usemodules=('_rawffi','struct'))
-        cls.space = space
 
     def test_array(self):
         import _rawffi

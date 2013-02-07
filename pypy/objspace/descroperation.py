@@ -4,9 +4,9 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
-from pypy.tool.sourcetools import compile2, func_with_new_name
+from rpython.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
@@ -694,7 +694,7 @@ def _make_binop_impl(symbol, specialnames):
             # sanity reasons, we just compare the two places where the
             # __xxx__ and __rxxx__ methods where found by identity.
             # Note that space.is_w() is potentially not happy if one of them
-            # is None (e.g. with the thunk space)...
+            # is None...
             if w_left_src is not w_right_src:    # XXX
                 # -- cpython bug compatibility: see objspace/std/test/
                 # -- test_unicodeobject.test_str_unicode_concat_overrides.

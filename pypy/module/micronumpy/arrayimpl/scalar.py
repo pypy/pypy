@@ -34,6 +34,9 @@ class Scalar(base.BaseArrayImplementation):
     def get_shape(self):
         return []
 
+    def get_strides(self):
+        return []
+
     def create_iter(self, shape=None):
         return ScalarIterator(self.value)
 
@@ -51,10 +54,10 @@ class Scalar(base.BaseArrayImplementation):
     def get_size(self):
         return 1
 
-    def transpose(self):
+    def transpose(self, _):
         return self
 
-    def descr_getitem(self, space, w_idx):
+    def descr_getitem(self, space, _, w_idx):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
 
@@ -62,14 +65,14 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
 
-    def descr_setitem(self, space, w_idx, w_val):
+    def descr_setitem(self, space, _, w_idx, w_val):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
         
     def setitem_index(self, space, idx, w_val):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
-    def set_shape(self, space, new_shape):
+    def set_shape(self, space, orig_array, new_shape):
         if not new_shape:
             return self
         if support.product(new_shape) == 1:
@@ -80,13 +83,13 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_ValueError, space.wrap(
             "total size of the array must be unchanged"))
 
-    def reshape(self, space, new_shape):
-        return self.set_shape(space, new_shape)
+    def reshape(self, space, orig_array, new_shape):
+        return self.set_shape(space, orig_array, new_shape)
         
-    def create_axis_iter(self, shape, dim):
+    def create_axis_iter(self, shape, dim, cum):
         raise Exception("axis iter should not happen on scalar")
 
-    def swapaxes(self, axis1, axis2):
+    def swapaxes(self, orig_array, axis1, axis2):
         raise Exception("should not be called")
 
     def fill(self, w_value):
@@ -95,3 +98,17 @@ class Scalar(base.BaseArrayImplementation):
     def get_storage_as_int(self, space):
         raise OperationError(space.w_ValueError,
                              space.wrap("scalars have no address"))
+
+    def argsort(self, space, w_axis):
+        return space.wrap(0)
+
+    def astype(self, space, dtype):
+        return W_NDimArray.new_scalar(space, dtype, self.value)
+
+    def base(self):
+        return None
+
+    def get_buffer(self, space):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "cannot point buffer to a scalar"))
+

@@ -5,15 +5,13 @@ from pypy.objspace.std.test import test_stringobject
 WITH_BUILTINSHORTCUT = {'objspace.std.builtinshortcut': True}
 
 class AppTestUserObject(test_userobject.AppTestUserObject):
-    OPTIONS = WITH_BUILTINSHORTCUT
+    spaceconfig = WITH_BUILTINSHORTCUT
 
 class AppTestWithMultiMethodVersion2(test_userobject.AppTestWithMultiMethodVersion2):
-    OPTIONS = WITH_BUILTINSHORTCUT
+    spaceconfig = WITH_BUILTINSHORTCUT
 
 class AppTestBug:
-    def setup_class(cls):
-        from pypy import conftest
-        cls.space = conftest.gettestobjspace(**WITH_BUILTINSHORTCUT)
+    spaceconfig = WITH_BUILTINSHORTCUT
 
     def test_frozen_subtype(self):
         class S(set): pass
@@ -81,10 +79,9 @@ class AppTestBug:
    
 
 class AppTestSet(test_setobject.AppTestAppSetTest):
+    spaceconfig = WITH_BUILTINSHORTCUT
     # this tests tons of funny comparison combinations that can easily go wrong
     def setup_class(cls):
-        from pypy import conftest
-        cls.space = conftest.gettestobjspace(**WITH_BUILTINSHORTCUT)
         w_fakeint = cls.space.appexec([], """():
             class FakeInt(object):
                 def __init__(self, value):
@@ -101,6 +98,4 @@ class AppTestSet(test_setobject.AppTestAppSetTest):
         cls.w_FakeInt = w_fakeint
 
 class AppTestString(test_stringobject.AppTestStringObject):
-    def setup_class(cls):
-        from pypy import conftest
-        cls.space = conftest.gettestobjspace(**WITH_BUILTINSHORTCUT)
+    spaceconfig = WITH_BUILTINSHORTCUT

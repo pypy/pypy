@@ -1,9 +1,9 @@
 
 # -*- coding: utf-8 -*-
 
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
+from pypy.interpreter.signature import Signature
 import py
 import sys
 
@@ -21,24 +21,24 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    gateway.W_Root,
                                                    'args_w'])
-        assert code.signature() == argument.Signature(['x', 'y'], 'hello', None)
+        assert code.signature() == Signature(['x', 'y'], 'hello', None)
         def d(self, w_boo):
             pass
         code = gateway.BuiltinCode(d, unwrap_spec= ['self',
                                                    gateway.W_Root], self_type=gateway.Wrappable)
-        assert code.signature() == argument.Signature(['self', 'boo'], None, None)
+        assert code.signature() == Signature(['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass
         code = gateway.BuiltinCode(e, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.W_Root,
                                                    gateway.Arguments])
-        assert code.signature() == argument.Signature(['x', 'y'], 'args', 'keywords')
+        assert code.signature() == Signature(['x', 'y'], 'args', 'keywords')
 
         def f(space, index):
             pass
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace, "index"])
-        assert code.signature() == argument.Signature(["index"], None, None)
+        assert code.signature() == Signature(["index"], None, None)
 
 
     def test_call(self):
@@ -198,7 +198,7 @@ class TestGateway:
                        space.call_function, w_app_g, space.wrap(-1))
 
     def test_interp2app_unwrap_spec_c_int(self):
-        from pypy.rlib.rarithmetic import r_longlong
+        from rpython.rlib.rarithmetic import r_longlong
         space = self.space
         w = space.wrap
         def g(space, x):
@@ -715,12 +715,9 @@ y = a.m(33)
         assert isinstance(called[0], argument.Arguments)
 
 class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
-
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('itertools',), **{
+    spaceconfig = dict(usemodules=('itertools',), **{
             "objspace.opcodes.CALL_METHOD": True
             })
-        cls.space = space
 
 class AppTestKeywordsToBuiltinSanity(object):
 

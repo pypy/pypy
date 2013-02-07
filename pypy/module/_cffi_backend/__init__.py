@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import rdynload
+from rpython.rlib import rdynload
 
 
 class Module(MixedModule):
@@ -8,8 +8,6 @@ class Module(MixedModule):
         }
     interpleveldefs = {
         '__version__': 'space.wrap("0.4")',
-
-        'nonstandard_integer_types': 'misc.nonstandard_integer_types',
 
         'load_library': 'libraryobj.load_library',
 
@@ -31,7 +29,6 @@ class Module(MixedModule):
         'typeof': 'func.typeof',
         'typeoffsetof': 'func.typeoffsetof',
         'rawaddressof': 'func.rawaddressof',
-        '_getfields': 'func._getfields',
         'getcname': 'func.getcname',
         '_get_types': 'func._get_types',
 

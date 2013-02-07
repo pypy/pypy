@@ -13,7 +13,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.interp_numarray import array
 from pypy.module.micronumpy.interp_arrayops import where
 from pypy.module.micronumpy import interp_ufuncs
-from pypy.rlib.objectmodel import specialize, instantiate
+from rpython.rlib.objectmodel import specialize, instantiate
 
 
 class BogusBytecode(Exception):
@@ -35,7 +35,8 @@ class BadToken(Exception):
     pass
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
-                        "unegative", "flat", "tostring","count_nonzero"]
+                        "unegative", "flat", "tostring","count_nonzero",
+                        "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
 THREE_ARG_FUNCTIONS = ['where']
 
@@ -156,6 +157,12 @@ class FakeSpace(object):
             return w_obj
         assert isinstance(w_obj, interp_boxes.W_GenericBox)
         return self.int(w_obj.descr_int(self))
+
+    def str(self, w_obj):
+        if isinstance(w_obj, StringObject):
+            return w_obj
+        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        return self.str(w_obj.descr_str(self))
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
@@ -476,6 +483,8 @@ class FunctionCall(Node):
                 w_res = cos.call(interp.space, [arr])                
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
+            elif self.name == "argsort":
+                w_res = arr.descr_argsort(interp.space)
             elif self.name == "tostring":
                 arr.descr_tostring(interp.space)
                 w_res = None

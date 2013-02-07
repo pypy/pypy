@@ -11,9 +11,9 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib import streamio, jit
-from pypy.rlib.streamio import StreamErrors
-from pypy.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib import streamio, jit
+from rpython.rlib.streamio import StreamErrors
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
 
 SEARCH_ERROR = 0
@@ -238,7 +238,6 @@ def _get_relative_name(space, modulename, level, w_globals):
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
-    space.timer.start_name("importhook", modulename)
     if not modulename and level < 0:
         raise OperationError(
             space.w_ValueError,
@@ -277,13 +276,11 @@ def importhook(space, name, w_globals=None,
                 w_mod = absolute_import(space, rel_modulename, rel_level,
                                         fromlist_w, tentative=False)
             if w_mod is not None:
-                space.timer.stop_name("importhook", modulename)
                 return w_mod
 
     w_mod = absolute_import(space, modulename, 0, fromlist_w, tentative=0)
     if rel_modulename is not None:
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
-    space.timer.stop_name("importhook", modulename)
     return w_mod
 
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):

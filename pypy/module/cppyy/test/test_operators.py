@@ -1,11 +1,8 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("operatorsDict.so"))
-
-space = gettestobjspace(usemodules=['cppyy'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -15,11 +12,11 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestOPERATORS:
+    spaceconfig = dict(usemodules=['cppyy'])
+
     def setup_class(cls):
-        cls.space = space
-        env = os.environ
-        cls.w_N = space.wrap(5)    # should be imported from the dictionary
-        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
+        cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_operators = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

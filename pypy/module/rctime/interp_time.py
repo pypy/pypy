@@ -1,11 +1,11 @@
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask
-from pypy.rlib import rposix
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask
+from rpython.rlib import rposix
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import os
 import sys
 import time as pytime
@@ -28,9 +28,9 @@ if _WIN:
     # time.sleep() will actually call WaitForSingleObject with the desired
     # timeout.  On Ctrl-C, the signal handler is called, the event is set,
     # and the wait function exits.
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     from pypy.interpreter.error import wrap_windowserror, wrap_oserror
-    from pypy.module.thread import ll_thread as thread
+    from rpython.rlib import rthread as thread
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h'],
@@ -311,7 +311,7 @@ if sys.platform != 'win32':
                                  space.wrap("Invalid argument: negative time in sleep"))
         pytime.sleep(secs)
 else:
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     from errno import EINTR
     def _simple_sleep(space, secs, interruptible):
         if secs == 0.0 or not interruptible:
@@ -448,7 +448,9 @@ def _gettmarg(space, w_tup, allowNone=True):
             raise OperationError(space.w_ValueError,
                 space.wrap("year out of range"))
 
-    if rffi.getintfield(glob_buf, 'c_tm_wday') < 0:
+    # tm_wday does not need checking of its upper-bound since taking "%
+    #  7" in gettmarg() automatically restricts the range.
+    if rffi.getintfield(glob_buf, 'c_tm_wday') < -1:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of week out of range"))
 

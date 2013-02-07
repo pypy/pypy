@@ -904,8 +904,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Set(self, s):
         self.update_position(s.lineno)
+        elt_count = len(s.elts) if s.elts is not None else 0
         self.visit_sequence(s.elts)
-        self.emit_op_arg(ops.BUILD_SET, len(s.elts))
+        self.emit_op_arg(ops.BUILD_SET, elt_count)
 
     def visit_Name(self, name):
         self.update_position(name.lineno)

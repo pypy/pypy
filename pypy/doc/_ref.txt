@@ -56,7 +56,6 @@
 .. _`pypy/module/__builtin__/__init__.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/__builtin__/__init__.py
 .. _`pypy/objspace`:
 .. _`pypy/objspace/`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/
-.. _`pypy/objspace/dump.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/dump.py
 .. _`pypy/objspace/flow`:
 .. _`pypy/objspace/flow/`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/flow/
 .. _`pypy/objspace/flow/model.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/flow/model.py
@@ -71,8 +70,6 @@
 .. _`pypy/objspace/std/transparent.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/transparent.py
 .. _`pypy/objspace/std/tupleobject.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/tupleobject.py
 .. _`pypy/objspace/std/tupletype.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/std/tupletype.py
-.. _`pypy/objspace/thunk.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/thunk.py
-.. _`pypy/objspace/trace.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/trace.py
 .. _`pypy/rlib`:
 .. _`pypy/rlib/`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/
 .. _`pypy/rlib/listsort.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/rlib/listsort.py

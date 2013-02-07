@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rstackovf
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
 
 
@@ -50,10 +50,8 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
-    space.timer.start("marshal loads")
     u = StringUnmarshaller(space, w_str)
     obj = u.load_w_obj()
-    space.timer.stop("marshal loads")
     return obj
 
 

@@ -2,7 +2,7 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -38,10 +38,10 @@ class Lock(Wrappable):
 
     @unwrap_spec(waitflag=int)
     def descr_lock_acquire(self, space, waitflag=1):
-        """Lock the lock.  Without argument, this blocks if the lock is already
-locked (even by the same thread), waiting for another thread to release
-the lock, and return None once the lock is acquired.
-With an argument, this will only block if the argument is true,
+        """Lock the lock.  With the default argument of True, this blocks
+if the lock is already locked (even by the same thread), waiting for
+another thread to release the lock, and returns True once the lock is
+acquired.  With an argument of False, this will always return immediately
 and the return value reflects whether the lock is acquired.
 The blocking operation is not interruptible."""
         mylock = self.lock

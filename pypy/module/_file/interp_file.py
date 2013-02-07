@@ -2,9 +2,9 @@ import py
 import os
 import stat
 import errno
-from pypy.rlib import streamio
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib import streamio
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -179,7 +179,17 @@ class W_File(W_AbstractStream):
         else:
             result = StringBuilder(n)
             while n > 0:
-                data = stream.read(n)
+                try:
+                    data = stream.read(n)
+                except OSError, e:
+                    # a special-case only for read() (similar to CPython, which
+                    # also looses partial data with other methods): if we get
+                    # EAGAIN after already some data was received, return it.
+                    if is_wouldblock_error(e):
+                        got = result.build()
+                        if len(got) > 0:
+                            return got
+                    raise
                 if not data:
                     break
                 n -= len(data)
@@ -569,6 +579,16 @@ class FileState:
 
 def getopenstreams(space):
     return space.fromcache(FileState).openstreams
+
+MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
+MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)
+
+def is_wouldblock_error(e):
+    if MAYBE_EAGAIN is not None and e.errno == MAYBE_EAGAIN:
+        return True
+    if MAYBE_EWOULDBLOCK is not None and e.errno == MAYBE_EWOULDBLOCK:
+        return True
+    return False
 
 
 @unwrap_spec(file=W_File, encoding="str_or_None", errors="str_or_None")

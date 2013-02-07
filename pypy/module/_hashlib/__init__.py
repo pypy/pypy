@@ -14,5 +14,5 @@ class Module(MixedModule):
         interpleveldefs['openssl_' + name] = 'interp_hashlib.new_' + name
 
     def startup(self, space):
-        from pypy.rlib.ropenssl import init_digests
+        from rpython.rlib.ropenssl import init_digests
         init_digests()

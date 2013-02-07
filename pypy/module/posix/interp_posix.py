@@ -1,22 +1,22 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib import rposix, objectmodel, rurandom
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib import rposix, objectmodel, rurandom
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.interpreter.error import operationerrfmt
-from pypy.rpython.module.ll_os import RegisterOs
-from pypy.rpython.module import ll_os_stat
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.rtyper.module import ll_os_stat
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
-    from pypy.rlib.rwin32 import _MAX_ENV
+    from rpython.rlib.rwin32 import _MAX_ENV
     
 c_int = "c_int"
 
@@ -581,6 +581,16 @@ def chmod(space, w_path, mode):
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
 
+@unwrap_spec(mode=c_int)
+def fchmod(space, w_fd, mode):
+    """Change the access permissions of the file given by file
+descriptor fd."""
+    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        os.fchmod(fd, mode)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
 def rename(space, w_old, w_new):
     "Rename a file or directory."
     try:
@@ -1117,23 +1127,36 @@ def fpathconf(space, fd, w_name):
 
 @unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
+    """Change the owner and group id of path to the numeric uid and gid."""
     check_uid_range(space, uid)
     check_uid_range(space, gid)
     try:
         os.chown(path, uid, gid)
     except OSError, e:
         raise wrap_oserror(space, e, path)
-    return space.w_None
 
 @unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
+    """Change the owner and group id of path to the numeric uid and gid.
+This function will not follow symbolic links."""
     check_uid_range(space, uid)
     check_uid_range(space, gid)
     try:
         os.lchown(path, uid, gid)
     except OSError, e:
         raise wrap_oserror(space, e, path)
-    return space.w_None
+
+@unwrap_spec(uid=c_uid_t, gid=c_gid_t)
+def fchown(space, w_fd, uid, gid):
+    """Change the owner and group id of the file given by file descriptor
+fd to the numeric uid and gid."""
+    fd = space.c_filedescriptor_w(w_fd)
+    check_uid_range(space, uid)
+    check_uid_range(space, gid)
+    try:
+        os.fchown(fd, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
 
 def getloadavg(space):
     try:

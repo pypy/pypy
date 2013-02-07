@@ -1,5 +1,5 @@
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.lltypesystem.lltype import Ptr, FuncType, Void
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem.lltype import Ptr, FuncType, Void
 from pypy.module.cpyext.api import (cpython_struct, Py_ssize_t, Py_ssize_tP,
     PyVarObjectFields, PyTypeObject, PyTypeObjectPtr, FILEP,
     Py_TPFLAGS_READYING, Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE)

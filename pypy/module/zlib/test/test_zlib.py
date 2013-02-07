@@ -13,8 +13,6 @@ try:
 except ImportError:
     import py; py.test.skip("no zlib C library on this machine")
  
-from pypy.conftest import gettestobjspace
-
 def test_unsigned_to_signed_32bit():
     assert interp_zlib.unsigned_to_signed_32bit(123) == 123
     assert interp_zlib.unsigned_to_signed_32bit(2**31) == -2**31
@@ -22,6 +20,8 @@ def test_unsigned_to_signed_32bit():
 
 
 class AppTestZlib(object):
+    spaceconfig = dict(usemodules=['zlib'])
+
     def setup_class(cls):
         """
         Create a space with the zlib module and import it for use by the tests.
@@ -29,11 +29,7 @@ class AppTestZlib(object):
         compression and decompression tests have a little real data to assert
         against.
         """
-        cls.space = gettestobjspace(usemodules=['zlib'])
-        cls.w_zlib = cls.space.appexec([], """():
-            import zlib
-            return zlib
-        """)
+        cls.w_zlib = cls.space.getbuiltinmodule('zlib')
         expanded = 'some bytes which will be compressed'
         cls.w_expanded = cls.space.wrap(expanded)
         cls.w_compressed = cls.space.wrap(zlib.compress(expanded))

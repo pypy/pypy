@@ -1,18 +1,18 @@
 import py
 
-from pypy.conftest import gettestobjspace
 from pypy.module._file.test.test_file import getfile
 
 class AppTestLargeFile(object):
+    spaceconfig = dict(usemodules=("_file",))
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=("_file", ))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("large.data")))
         cls.w_file = getfile(cls.space)
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
-            from pypy.module.posix.test.test_posix2 import need_sparse_files
+            from rpython.translator.c.test.test_extfunc import need_sparse_files
             need_sparse_files()
 
     def test_large_seek_offsets(self):

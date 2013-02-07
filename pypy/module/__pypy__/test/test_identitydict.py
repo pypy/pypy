@@ -1,9 +1,5 @@
-import py
-from pypy.conftest import gettestobjspace
-
 class AppTestIdentityDict:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['__pypy__'])
+    spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_numbers(self):
         from __pypy__ import identity_dict
@@ -60,3 +56,10 @@ class AppTestIdentityDict:
 
         assert None in d
         assert [] not in d
+
+    def test_iterate(self):
+        from __pypy__ import identity_dict
+        d = identity_dict()
+        d[None] = 1
+        raises(TypeError, iter, d)
+        raises(TypeError, list, d)

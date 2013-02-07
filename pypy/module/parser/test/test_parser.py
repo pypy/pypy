@@ -1,16 +1,11 @@
-from pypy.conftest import gettestobjspace
-
-def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=["parser"])
-
 class ParserModuleTest:
+    spaceconfig = dict(usemodules=["parser"])
 
     def setup_class(cls):
-        cls.space = space
-        cls.w_m = space.appexec([], """():
+        cls.w_m = cls.space.appexec([], """():
     import parser
     return parser""")
-        cls.w_symbol = space.appexec([], """():
+        cls.w_symbol = cls.space.appexec([], """():
     import symbol
     return symbol""")
 

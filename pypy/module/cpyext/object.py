@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, Py_buffer,
@@ -218,6 +218,8 @@ def PyObject_Type(space, w_obj):
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Str(space, w_obj):
+    if w_obj is None:
+        return space.wrap("<NULL>")
     return space.str(w_obj)
 
 @cpython_api([PyObject], PyObject)
@@ -226,6 +228,8 @@ def PyObject_Repr(space, w_obj):
     representation on success, NULL on failure.  This is the equivalent of the
     Python expression repr(o).  Called by the repr() built-in function and
     by reverse quotes."""
+    if w_obj is None:
+        return space.wrap("<NULL>")
     return space.repr(w_obj)
 
 @cpython_api([PyObject], PyObject)
@@ -234,6 +238,8 @@ def PyObject_Unicode(space, w_obj):
     string representation on success, NULL on failure. This is the equivalent of
     the Python expression unicode(o).  Called by the unicode() built-in
     function."""
+    if w_obj is None:
+        return space.wrap(u"<NULL>")
     return space.call_function(space.w_unicode, w_obj)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

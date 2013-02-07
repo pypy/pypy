@@ -1,8 +1,7 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestItertools:
+    spaceconfig = dict(usemodules=['itertools'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools'])
         cls.w_itertools = cls.space.appexec([], "(): import itertools; return itertools")
 
     def test_chain(self):

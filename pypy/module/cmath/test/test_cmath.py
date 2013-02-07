@@ -1,12 +1,11 @@
 from __future__ import with_statement
-from pypy.conftest import gettestobjspace
-from pypy.rlib.rfloat import copysign, isnan, isinf
+from rpython.rlib.rfloat import copysign, isnan, isinf
 from pypy.module.cmath import interp_cmath
 import os, sys, math
 
 
 def test_special_values():
-    from pypy.rlib.special_value import sqrt_special_values
+    from rpython.rlib.special_value import sqrt_special_values
     assert len(sqrt_special_values) == 7
     assert len(sqrt_special_values[4]) == 7
     assert isinstance(sqrt_special_values[5][1], tuple)
@@ -16,8 +15,7 @@ def test_special_values():
 
 
 class AppTestCMath:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cmath'])
+    spaceconfig = dict(usemodules=['cmath'])
 
     def test_sign(self):
         import math
@@ -186,8 +184,9 @@ def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
     
+    import rpython
     # too fragile...
-    fname = os.path.join(os.path.dirname(__file__), '../../../rlib/test', 'rcomplex_testcases.txt')
+    fname = os.path.join(os.path.dirname(rpython.rlib.__file__), 'test', 'rcomplex_testcases.txt')
     for id, fn, ar, ai, er, ei, flags in parse_testfile(fname):
         arg = (ar, ai)
         expected = (er, ei)

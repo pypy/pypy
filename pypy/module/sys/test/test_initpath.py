@@ -43,6 +43,7 @@ def test_include_libtk(tmpdir):
 
 def test_find_executable(tmpdir, monkeypatch):
     from pypy.module.sys import initpath
+    tmpdir = py.path.local(os.path.realpath(str(tmpdir)))
     # /tmp/a/pypy
     # /tmp/b/pypy
     # /tmp/c

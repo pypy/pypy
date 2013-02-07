@@ -1,16 +1,15 @@
 import os, py, sys
 import signal as cpy_signal
-from pypy.conftest import gettestobjspace
 
 
 class TestCheckSignals:
+    spaceconfig = dict(usemodules=['signal'])
 
     def setup_class(cls):
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             py.test.skip("requires os.kill() and os.getpid()")
-        if not hasattr(cpy_signal, 'SIGUSR1'):    
+        if not hasattr(cpy_signal, 'SIGUSR1'):
             py.test.skip("requires SIGUSR1 in signal")
-        cls.space = gettestobjspace(usemodules=['signal'])
 
     def test_checksignals(self):
         space = self.space
@@ -36,11 +35,12 @@ class TestCheckSignals:
 
 
 class AppTestSignal:
+    spaceconfig = {
+        "usemodules": ['signal', 'rctime'] + (['fcntl'] if os.name != 'nt' else []),
+    }
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=['signal'])
-        cls.space = space
-        cls.w_signal = space.appexec([], "(): import signal; return signal")
+        cls.w_signal = cls.space.getbuiltinmodule('signal')
 
     def test_exported_names(self):
         import os
@@ -54,8 +54,8 @@ class AppTestSignal:
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             skip("requires os.kill() and os.getpid()")
         signal = self.signal   # the signal module to test
-        if not hasattr(signal, 'SIGUSR1'):    
-            py.test.skip("requires SIGUSR1 in signal")
+        if not hasattr(signal, 'SIGUSR1'):
+            skip("requires SIGUSR1 in signal")
         signum = signal.SIGUSR1
 
         received = []
@@ -156,6 +156,9 @@ class AppTestSignal:
         import sys
         if sys.platform == 'win32':
             raises(ValueError, signal, 42, lambda *args: None)
+            raises(ValueError, signal, 7, lambda *args: None)
+        elif sys.platform == 'darwin':
+            raises(ValueError, signal, 42, lambda *args: None)
         else:
             signal(42, lambda *args: None)
             signal(42, SIG_DFL)
@@ -253,10 +256,7 @@ class AppTestSignal:
             signal.signal(signum, oldhandler)
 
 class AppTestSignalSocket:
-
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=['signal', '_socket'])
-        cls.space = space
+    spaceconfig = dict(usemodules=['signal', '_socket'])
 
     def test_alarm_raise(self):
         try:

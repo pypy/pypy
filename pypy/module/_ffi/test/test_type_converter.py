@@ -1,7 +1,6 @@
 import sys
-from pypy.conftest import gettestobjspace
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong, r_ulonglong
-from pypy.rlib.libffi import IS_32_BIT
+from rpython.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong, r_ulonglong
+from rpython.rlib.libffi import IS_32_BIT
 from pypy.module._ffi.interp_ffitype import app_types, descr_new_pointer
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
@@ -30,9 +29,9 @@ class DummyFromAppLevelConverter(FromAppLevelConverter):
 
 
 class TestFromAppLevel(object):
+    spaceconfig = dict(usemodules=('_ffi',))
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('_ffi',))
         converter = DummyFromAppLevelConverter(cls.space)
         cls.from_app_level = staticmethod(converter.convert)
 
@@ -152,9 +151,9 @@ class DummyToAppLevelConverter(ToAppLevelConverter):
 
 
 class TestFromAppLevel(object):
+    spaceconfig = dict(usemodules=('_ffi',))
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('_ffi',))
         converter = DummyToAppLevelConverter(cls.space)
         cls.from_app_level = staticmethod(converter.convert)
 

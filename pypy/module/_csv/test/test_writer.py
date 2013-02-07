@@ -1,10 +1,7 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestWriter(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_csv'])
+    spaceconfig = dict(usemodules=['_csv'])
 
+    def setup_class(cls):
         w__write_test = cls.space.appexec([], r"""():
             import _csv
 

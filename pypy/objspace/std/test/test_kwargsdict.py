@@ -1,5 +1,4 @@
 import py
-from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.kwargsdict import *
 
@@ -125,7 +124,7 @@ class TestDevolvedKwargsDictImplementation(BaseTestDevolvedDictImplementation):
 
 class AppTestKwargsDictStrategy(object):
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
 
     def w_get_strategy(self, obj):

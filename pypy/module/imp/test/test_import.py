@@ -3,9 +3,10 @@ from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
-from pypy.tool.udir import udir
-from pypy.rlib import streamio
-from pypy.conftest import gettestobjspace
+from rpython.tool.udir import udir
+from rpython.rlib import streamio
+from pypy.tool.option import make_config
+from pypy.tool.pytest.objspace import maketestobjspace
 import pytest
 import sys, os
 import tempfile, marshal
@@ -138,23 +139,25 @@ def _setup(space):
 
 def _teardown(space, w_saved_modules):
     space.appexec([w_saved_modules], """
-        ((saved_path, saved_modules)): 
+        ((saved_path, saved_modules)):
             import sys
             sys.path[:] = saved_path
             sys.modules.clear()
             sys.modules.update(saved_modules)
     """)
 
-class AppTestImport:
 
-    def setup_class(cls): # interpreter-level
-        cls.space = gettestobjspace(usemodules=['_md5'])
+class AppTestImport:
+    spaceconfig = {
+        "usemodules": ['_md5', 'rctime'],
+    }
+
+    def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
-        
-    def teardown_class(cls): # interpreter-level
+    def teardown_class(cls):
         _teardown(cls.space, cls.saved_modules)
 
     def test_set_sys_modules_during_import(self):
@@ -642,8 +645,8 @@ class AppTestImport:
 
 class TestAbi:
     def test_abi_tag(self):
-        space1 = gettestobjspace(soabi='TEST')
-        space2 = gettestobjspace(soabi='')
+        space1 = maketestobjspace(make_config(None, soabi='TEST'))
+        space2 = maketestobjspace(make_config(None, soabi=''))
         if sys.platform == 'win32':
             assert importing.get_so_extension(space1) == '.TESTi.pyd'
             assert importing.get_so_extension(space2) == '.pyd'
@@ -953,7 +956,7 @@ class TestPycStuff:
         allspaces = [self.space]
         for opcodename in self.space.config.objspace.opcodes.getpaths():
             key = 'objspace.opcodes.' + opcodename
-            space2 = gettestobjspace(**{key: True})
+            space2 = maketestobjspace(make_config(None, **{key: True}))
             allspaces.append(space2)
         for space1 in allspaces:
             for space2 in allspaces:
@@ -991,24 +994,27 @@ def test_PYTHONPATH_takes_precedence(space):
     extrapath.join("urllib.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
-    try: 
+    try:
         os.environ['PYTHONPATH'] = str(extrapath)
-        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' % 
-                                 (sys.executable, pypypath) )
-        assert output.strip() == '42' 
-    finally: 
-        if old: 
-            os.environ['PYTHONPATH'] = old 
+        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' %
+                                 (sys.executable, pypypath))
+        assert output.strip() == '42'
+    finally:
+        if old:
+            os.environ['PYTHONPATH'] = old
         if oldlang:
             os.environ['LANG'] = oldlang
 
+
 class AppTestImportHooks(object):
+    spaceconfig = {
+        "usemodules": ['struct', 'itertools', 'rctime'],
+    }
 
     def setup_class(cls):
-        space = cls.space = gettestobjspace(usemodules=('struct', 'itertools'))
         mydir = os.path.dirname(__file__)
-        cls.w_hooktest = space.wrap(os.path.join(mydir, 'hooktest'))
-        space.appexec([space.wrap(mydir)], """
+        cls.w_hooktest = cls.space.wrap(os.path.join(mydir, 'hooktest'))
+        cls.space.appexec([cls.space.wrap(mydir)], """
             (mydir):
                 import sys
                 sys.path.append(mydir)
@@ -1144,7 +1150,7 @@ class AppTestImportHooks(object):
         sys.path_hooks.append(ImpWrapper)
         sys.path_importer_cache.clear()
         try:
-            mnames = ("colorsys", "urlparse", "distutils.core", "compiler.misc")
+            mnames = ("colorsys", "urlparse", "email.mime", "compiler.misc")
             for mname in mnames:
                 parent = mname.split(".")[0]
                 for n in sys.modules.keys():
@@ -1176,9 +1182,9 @@ class AppTestImportHooks(object):
             sys.path_hooks.pop()
 
 class AppTestPyPyExtension(object):
+    spaceconfig = dict(usemodules=['imp', 'zipimport', '__pypy__'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['imp', 'zipimport',
-                                                '__pypy__'])
         cls.w_udir = cls.space.wrap(str(udir))
 
     def test_run_compiled_module(self):
@@ -1262,10 +1268,11 @@ class AppTestLonePycFile(AppTestNoPycFile):
 
 
 class AppTestMultithreadedImp(object):
+    spaceconfig = dict(usemodules=['thread', 'rctime'])
+
     def setup_class(cls):
         #if not conftest.option.runappdirect:
         #    py.test.skip("meant as an -A test")
-        cls.space = gettestobjspace(usemodules=['thread', 'time'])
         tmpfile = udir.join('test_multithreaded_imp.py')
         tmpfile.write('''if 1:
             x = 666

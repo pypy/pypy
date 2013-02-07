@@ -3,18 +3,18 @@ from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
-from pypy.rlib.clibffi import *
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.unroll import unrolling_iterable
-import pypy.rlib.rposix as rposix
+from rpython.rlib.clibffi import *
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.unroll import unrolling_iterable
+import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
 
 if _MS_WINDOWS:
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
 
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rarithmetic import intmask, r_uint
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.tracker import tracker
 
 TYPEMAP = {
@@ -133,6 +133,11 @@ def unpack_argshapes(space, w_argtypes):
     return [unpack_simple_shape(space, w_arg)
             for w_arg in space.unpackiterable(w_argtypes)]
 
+def got_libffi_error(space):
+    raise OperationError(space.w_SystemError,
+                         space.wrap("not supported by libffi"))
+
+
 class W_CDLL(Wrappable):
     def __init__(self, space, name, cdll):
         self.cdll = cdll
@@ -175,6 +180,8 @@ class W_CDLL(Wrappable):
             except KeyError:
                 raise operationerrfmt(space.w_AttributeError,
                     "No symbol %s found in library %s", name, self.name)
+            except LibFFIError:
+                raise got_libffi_error(space)
 
         elif (_MS_WINDOWS and
               space.is_true(space.isinstance(w_name, space.w_int))):
@@ -185,6 +192,8 @@ class W_CDLL(Wrappable):
             except KeyError:
                 raise operationerrfmt(space.w_AttributeError,
                     "No symbol %d found in library %s", ordinal, self.name)
+            except LibFFIError:
+                raise got_libffi_error(space)
         else:
             raise OperationError(space.w_TypeError, space.wrap(
                 "function name must be string or integer"))
@@ -448,8 +457,11 @@ def descr_new_funcptr(space, w_tp, addr, w_args, w_res, flags=FUNCFLAG_CDECL):
     resshape = unpack_resshape(space, w_res)
     ffi_args = [shape.get_basic_ffi_type() for shape in argshapes]
     ffi_res = resshape.get_basic_ffi_type()
-    ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
-                     flags)
+    try:
+        ptr = RawFuncPtr('???', ffi_args, ffi_res, rffi.cast(rffi.VOIDP, addr),
+                         flags)
+    except LibFFIError:
+        raise got_libffi_error(space)
     return space.wrap(W_FuncPtr(space, ptr, argshapes, resshape))
 
 W_FuncPtr.typedef = TypeDef(
@@ -541,11 +553,11 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     def get_last_error(space):
-        from pypy.rlib.rwin32 import GetLastError
+        from rpython.rlib.rwin32 import GetLastError
         return space.wrap(GetLastError())
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        from pypy.rlib.rwin32 import SetLastError
+        from rpython.rlib.rwin32 import SetLastError
         SetLastError(error)
 else:
     # always have at least a dummy version of these functions

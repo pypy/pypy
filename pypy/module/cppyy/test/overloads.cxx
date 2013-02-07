@@ -47,3 +47,10 @@ std::string more_overloads2::call(const bb_ol*) { return "bb_olptr"; }
 
 std::string more_overloads2::call(const dd_ol*, int) { return "dd_olptr"; }
 std::string more_overloads2::call(const dd_ol&, int) { return "dd_olref"; }
+
+
+double calc_mean(long n, const float* a)     { return calc_mean<float>(n, a); }
+double calc_mean(long n, const double* a)    { return calc_mean<double>(n, a); }
+double calc_mean(long n, const int* a)       { return calc_mean<int>(n, a); }
+double calc_mean(long n, const short* a)     { return calc_mean<short>(n, a); }
+double calc_mean(long n, const long* a)      { return calc_mean<long>(n, a); }

@@ -3,12 +3,12 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
-from pypy.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
+from rpython.rlib import jit
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, ctypeprim, misc
@@ -27,26 +27,28 @@ class W_CTypeStructOrUnion(W_CType):
         name = '%s %s' % (self.kind, name)
         W_CType.__init__(self, space, -1, name, len(name))
 
-    def check_complete(self):
+    def check_complete(self, w_errorcls=None):
         if self.fields_dict is None:
             space = self.space
-            raise operationerrfmt(space.w_TypeError,
+            raise operationerrfmt(w_errorcls or space.w_TypeError,
                                   "'%s' is not completed yet", self.name)
 
     def _alignof(self):
-        self.check_complete()
+        self.check_complete(w_errorcls=self.space.w_ValueError)
         return self.alignment
 
-    def _getfields(self):
-        if self.size < 0:
-            return None
-        space = self.space
-        result = [None] * len(self.fields_list)
-        for fname, field in self.fields_dict.iteritems():
-            i = self.fields_list.index(field)
-            result[i] = space.newtuple([space.wrap(fname),
-                                        space.wrap(field)])
-        return space.newlist(result)
+    def _fget(self, attrchar):
+        if attrchar == 'f':     # fields
+            space = self.space
+            if self.size < 0:
+                return space.w_None
+            result = [None] * len(self.fields_list)
+            for fname, field in self.fields_dict.iteritems():
+                i = self.fields_list.index(field)
+                result[i] = space.newtuple([space.wrap(fname),
+                                            space.wrap(field)])
+            return space.newlist(result)
+        return W_CType._fget(self, attrchar)
 
     def convert_to_object(self, cdata):
         space = self.space

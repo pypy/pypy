@@ -1,10 +1,7 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestReader(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_csv'])
+    spaceconfig = dict(usemodules=['_csv'])
 
+    def setup_class(cls):
         w__read_test = cls.space.appexec([], r"""():
             import _csv
             def _read_test(input, expect, **kwargs):

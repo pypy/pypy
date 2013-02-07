@@ -1,7 +1,7 @@
 import py, os
 
-from pypy.rlib import libffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib import libffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 __all__ = ['identify', 'eci', 'c_load_dictionary']
 
@@ -35,7 +35,7 @@ eci = ExternalCompilationInfo(
     include_dirs=[incpath] + rootincpath,
     includes=["reflexcwrapper.h"],
     library_dirs=rootlibpath,
-    link_extra=["-lReflex"],
+    libraries=["Reflex"],
     use_cpp_linker=True,
 )
 

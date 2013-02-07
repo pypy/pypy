@@ -1,12 +1,11 @@
 import py, sys
-from pypy.conftest import gettestobjspace
 
 class AppTestPwd:
+    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'itertools', 'binascii'))
+
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("Unix only")
-        cls.space = gettestobjspace(usemodules=('_ffi', '_rawffi',
-                                                'itertools'))
         cls.space.appexec((), "(): import pwd")
 
     def test_getpwuid(self):

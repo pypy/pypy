@@ -1,12 +1,9 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 from pypy.module.cppyy import interp_cppyy, executor
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
-
-space = gettestobjspace(usemodules=['cppyy'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -16,7 +13,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class TestCPPYYImplementation:
-    def test01_class_query(self):
+    def test01_class_query(self, space):
         # NOTE: this test needs to run before test_pythonify.py
         dct = interp_cppyy.load_dictionary(space, test_dct)
         w_cppyyclass = interp_cppyy.scope_byname(space, "example01")
@@ -31,9 +28,9 @@ class TestCPPYYImplementation:
 
 
 class AppTestCPPYY:
+    spaceconfig = dict(usemodules=['cppyy'])
+
     def setup_class(cls):
-        cls.space = space
-        env = os.environ
         cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():
             import cppyy
             cppyy.load_reflection_info(%r)

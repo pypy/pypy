@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestPyPyJIT:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('pypyjit',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('pypyjit',))
 
     def test_setup(self):
         # this just checks that the module is setting up things correctly, and
@@ -51,13 +47,9 @@ class AppTestPyPyJIT:
         assert type(d) is dict
         assert 'threshold' in d
 
-
-def test_interface_residual_call():
-    space = gettestobjspace(usemodules=['pypyjit'])
-    space.appexec([], """():
+    def test_interface_residual_call(self):
         import pypyjit
         def f(*args, **kwds):
             return (args, kwds)
         res = pypyjit.residual_call(f, 4, x=6)
         assert res == ((4,), {'x': 6})
-    """)

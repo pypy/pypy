@@ -2,7 +2,7 @@ import py
 
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
 
@@ -19,12 +19,14 @@ class TestObject(BaseApiTest):
         assert api.PyObject_Not(space.wrap(3.14)) == 0
 
     def test_exception(self, space, api):
-        class C:
-            def __nonzero__(self):
-                raise ValueError
+        w_obj = space.appexec([], """():
+            class C:
+                def __nonzero__(self):
+                    raise ValueError
+            return C()""")
 
-        assert api.PyObject_IsTrue(space.wrap(C())) == -1
-        assert api.PyObject_Not(space.wrap(C())) == -1
+        assert api.PyObject_IsTrue(w_obj) == -1
+        assert api.PyObject_Not(w_obj) == -1
         api.PyErr_Clear()
 
     def test_HasAttr(self, space, api):
@@ -40,20 +42,22 @@ class TestObject(BaseApiTest):
         rffi.free_charp(buf)
 
     def test_SetAttr(self, space, api):
-        class X:
-            pass
-        x = X()
-        api.PyObject_SetAttr(space.wrap(x), space.wrap('test'), space.wrap(5))
+        w_obj = space.appexec([], """():
+            class C:
+                pass
+            return C()""")
+
+        api.PyObject_SetAttr(w_obj, space.wrap('test'), space.wrap(5))
         assert not api.PyErr_Occurred()
-        assert x.test == 5
-        assert api.PyObject_HasAttr(space.wrap(x), space.wrap('test'))
-        api.PyObject_SetAttr(space.wrap(x), space.wrap('test'), space.wrap(10))
-        assert x.test == 10
+        assert space.unwrap(space.getattr(w_obj, space.wrap('test'))) == 5
+        assert api.PyObject_HasAttr(w_obj, space.wrap('test'))
+        api.PyObject_SetAttr(w_obj, space.wrap('test'), space.wrap(10))
+        assert space.unwrap(space.getattr(w_obj, space.wrap('test'))) == 10
 
         buf = rffi.str2charp('test')
-        api.PyObject_SetAttrString(space.wrap(x), buf, space.wrap(20))
+        api.PyObject_SetAttrString(w_obj, buf, space.wrap(20))
         rffi.free_charp(buf)
-        assert x.test == 20
+        assert space.unwrap(space.getattr(w_obj, space.wrap('test'))) == 20
 
     def test_getattr(self, space, api):
         charp1 = rffi.str2charp("__len__")
@@ -90,27 +94,30 @@ class TestObject(BaseApiTest):
 
     def test_size(self, space, api):
         assert api.PyObject_Size(space.newlist([space.w_None])) == 1
-        
-    def test_repr(self, space, api):
+
+    def test_str(self, space, api):
         w_list = space.newlist([space.w_None, space.wrap(42)])
-        assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
-        assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
-        
-        w_list = space.newlist([space.w_None, space.wrap(42)])
+        assert space.str_w(api.PyObject_Str(None)) == "<NULL>"
         assert space.str_w(api.PyObject_Str(w_list)) == "[None, 42]"
         assert space.str_w(api.PyObject_Str(space.wrap("a"))) == "a"
-        
+
+    def test_repr(self, space, api):
+        w_list = space.newlist([space.w_None, space.wrap(42)])
+        assert space.str_w(api.PyObject_Repr(None)) == "<NULL>"
+        assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
+        assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
+
     def test_RichCompare(self, space, api):
         def compare(w_o1, w_o2, opid):
             res = api.PyObject_RichCompareBool(w_o1, w_o2, opid)
             w_res = api.PyObject_RichCompare(w_o1, w_o2, opid)
             assert space.is_true(w_res) == res
             return res
-        
+
         def test_compare(o1, o2):
             w_o1 = space.wrap(o1)
             w_o2 = space.wrap(o2)
-            
+
             for opid, expected in [
                     (Py_LT, o1 <  o2), (Py_LE, o1 <= o2),
                     (Py_NE, o1 != o2), (Py_EQ, o1 == o2),
@@ -186,6 +193,7 @@ class TestObject(BaseApiTest):
             api.PyErr_Clear()
 
     def test_unicode(self, space, api):
+        assert space.unwrap(api.PyObject_Unicode(None)) == u"<NULL>"
         assert space.unwrap(api.PyObject_Unicode(space.wrap([]))) == u"[]"
         assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
         assert api.PyObject_Unicode(space.wrap("\xe9")) is None

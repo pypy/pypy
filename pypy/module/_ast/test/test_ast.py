@@ -1,16 +1,16 @@
 import py
-from pypy.conftest import gettestobjspace
+
 
 class AppTestAST:
+    spaceconfig = {
+        "usemodules": ['struct', 'binascii'],
+    }
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['struct'])
-        cls.w_ast = cls.space.appexec([], """():
-    import _ast
-    return _ast""")
+        cls.w_ast = cls.space.getbuiltinmodule('_ast')
 
     def w_get_ast(self, source, mode="exec"):
-        import _ast as ast
+        ast = self.ast
         mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST)
         assert isinstance(mod, ast.mod)
         return mod
@@ -289,6 +289,12 @@ from __future__ import generators""")
                 [], lineno=1, col_offset=0)
         ])
         exec compile(body, '<string>', 'exec')
+
+    def test_empty_set(self):
+        import ast
+        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))])
+        ast.fix_missing_locations(m)
+        compile(m, "<test>", "exec")
 
     def test_invalid_sum(self):
         import _ast as ast

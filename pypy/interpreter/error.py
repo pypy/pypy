@@ -1,6 +1,6 @@
 import os, sys
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
 from errno import EINTR
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
@@ -223,7 +223,8 @@ class OperationError(Exception):
             raise operationerrfmt(space.w_TypeError, msg, typename)
         return w_type
 
-    def write_unraisable(self, space, where, w_object=None):
+    def write_unraisable(self, space, where, w_object=None,
+                         with_traceback=False, extra_line=''):
         if w_object is None:
             objrepr = ''
         else:
@@ -231,10 +232,28 @@ class OperationError(Exception):
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
                 objrepr = '?'
-        msg = 'Exception %s in %s%s ignored\n' % (
-            self.errorstr(space, use_repr=True), where, objrepr)
+        #
         try:
-            space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
+            if with_traceback:
+                w_t = self.w_type
+                w_v = self.get_w_value(space)
+                w_tb = space.wrap(self.get_traceback())
+                space.appexec([space.wrap(where),
+                               space.wrap(objrepr),
+                               space.wrap(extra_line),
+                               w_t, w_v, w_tb],
+                """(where, objrepr, extra_line, t, v, tb):
+                    import sys, traceback
+                    sys.stderr.write('From %s%s:\\n' % (where, objrepr))
+                    if extra_line:
+                        sys.stderr.write(extra_line)
+                    traceback.print_exception(t, v, tb)
+                """)
+            else:
+                msg = 'Exception %s in %s%s ignored\n' % (
+                    self.errorstr(space, use_repr=True), where, objrepr)
+                space.call_method(space.sys.get('stderr'), 'write',
+                                  space.wrap(msg))
         except OperationError:
             pass   # ignored
 
@@ -305,7 +324,7 @@ def get_operrcls2(valuefmt):
     try:
         OpErrFmt = _fmtcache2[formats]
     except KeyError:
-        from pypy.rlib.unroll import unrolling_iterable
+        from rpython.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
         entries = unrolling_iterable(enumerate(attrs))
         #
@@ -349,7 +368,7 @@ operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
 # ____________________________________________________________
 
 # Utilities
-from pypy.tool.ansi_print import ansi_print
+from rpython.tool.ansi_print import ansi_print
 
 def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
@@ -363,7 +382,7 @@ else:
     _WINDOWS = True
 
     def wrap_windowserror(space, e, w_filename=None):
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
 
         winerror = e.winerror
         try:
@@ -421,7 +440,7 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
 def exception_from_errno(space, w_type):
-    from pypy.rlib.rposix import get_errno
+    from rpython.rlib.rposix import get_errno
 
     errno = get_errno()
     msg = os.strerror(errno)

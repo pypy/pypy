@@ -1,5 +1,4 @@
-from pypy.conftest import gettestobjspace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 import os, sys, py
 
@@ -20,9 +19,7 @@ else:
     canSaveKey = True
 
 class AppTestHKey:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_winreg',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_winreg',))
 
     def test_repr(self):
         import _winreg
@@ -30,10 +27,11 @@ class AppTestHKey:
         assert str(k) == "<PyHKEY:0x123>"
 
 class AppTestFfi:
+    spaceconfig = dict(usemodules=('_winreg',))
+
     def setup_class(cls):
         import _winreg
-        space = gettestobjspace(usemodules=('_winreg',))
-        cls.space = space
+        space = cls.space
         cls.root_key = _winreg.HKEY_CURRENT_USER
         cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
         cls.w_root_key = space.wrap(cls.root_key)

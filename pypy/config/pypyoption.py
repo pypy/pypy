@@ -1,10 +1,11 @@
-import autopath
-import py, os
 import sys
-from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
-from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
-from pypy.config.config import ConflictConfigError
-from pypy.config.translationoption import IS_64_BITS
+
+import py
+
+from rpython.config.config import (OptionDescription, BoolOption, IntOption,
+  ChoiceOption, StrOption, to_optparse, ConflictConfigError)
+from rpython.config.translationoption import IS_64_BITS
+
 
 modulepath = py.path.local(__file__).dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
@@ -92,25 +93,25 @@ module_suggests = {
 }
 
 module_import_dependencies = {
-    # no _rawffi if importing pypy.rlib.clibffi raises ImportError
+    # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
-    "_rawffi"   : ["pypy.rlib.clibffi"],
-    "_ffi"      : ["pypy.rlib.clibffi"],
+    "_rawffi"   : ["rpython.rlib.clibffi"],
+    "_ffi"      : ["rpython.rlib.clibffi"],
 
-    "zlib"      : ["pypy.rlib.rzlib"],
+    "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
-    "_continuation": ["pypy.rlib.rstacklet"],
+    "_continuation": ["rpython.rlib.rstacklet"],
     }
 
 def get_module_validator(modname):
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):
-            from pypy.rpython.tool.rffi_platform import CompilationError
+            from rpython.rtyper.tool.rffi_platform import CompilationError
             try:
                 for name in modlist:
                     __import__(name)
@@ -128,23 +129,10 @@ def get_module_validator(modname):
 
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
-    ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "thunk", "dump"],
-                 "std",
-                 cmdline='--objspace -o'),
-
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
         BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
                    default=False),
         ]),
-
-    BoolOption("nofaking", "disallow faking in the object space",
-               default=False,
-               requires=[
-                   ("objspace.usemodules.posix", True),
-                   ("objspace.usemodules.time", True),
-                   ("objspace.usemodules.errno", True)],
-               cmdline='--nofaking'),
 
     OptionDescription("usemodules", "Which Modules should be used", [
         BoolOption(modname, "use module %s" % (modname, ),
@@ -177,10 +165,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("logbytecodes",
-               "keep track of bytecode usage",
-               default=False),
-
     BoolOption("usepycfiles", "Write and read pyc files when importing",
                default=True),
 
@@ -199,10 +183,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
     BoolOption("disable_call_speedhacks",
                "make sure that all calls go through space.call_args",
-               default=False),
-
-    BoolOption("timing",
-               "timing of various parts of the interpreter (simple profiling)",
                default=False),
 
     OptionDescription("std", "Standard Object Space Options", [
@@ -228,12 +208,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.std.withsmallint", False)]),
                              #  ^^^ because of missing delegate_xx2yy
 
-        BoolOption("withstrjoin", "use strings optimized for addition",
-                   default=False),
-
-        BoolOption("withstrslice", "use strings optimized for slicing",
-                   default=False),
-
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),
 
@@ -253,18 +227,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withspecialisedtuple",
                    "use specialised tuples",
                    default=False),
-
-        BoolOption("withrope", "use ropes as the string implementation",
-                   default=False,
-                   requires=[("objspace.std.withstrslice", False),
-                             ("objspace.std.withstrjoin", False),
-                             ("objspace.std.withstrbuf", False)],
-                   suggests=[("objspace.std.withprebuiltchar", True),
-                             ("objspace.std.sharesmallstr", True)]),
-
-        BoolOption("withropeunicode", "use ropes for the unicode implementation",
-                   default=False,
-                   requires=[("objspace.std.withrope", True)]),
 
         BoolOption("withcelldict",
                    "use dictionaries that are optimized for being used as module dicts",
@@ -330,16 +292,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
 
-        BoolOption("logspaceoptypes",
-                   "a instrumentation option: before exit, print the types seen by "
-                   "certain simpler bytecodes",
-                   default=False),
         ChoiceOption("multimethods", "the multimethod implementation to use",
                      ["doubledispatch", "mrd"],
                      default="mrd"),
-        BoolOption("mutable_builtintypes",
-                   "Allow the changing of builtin types", default=False,
-                   requires=[("objspace.std.builtinshortcut", True)]),
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
                    default=False,
@@ -349,7 +304,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 ])
 
 def get_pypy_config(overrides=None, translating=False):
-    from pypy.config.translationoption import get_combined_translation_config
+    from rpython.config.translationoption import get_combined_translation_config
     return get_combined_translation_config(
             pypy_optiondescription, overrides=overrides,
             translating=translating)
@@ -390,11 +345,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(withmapdict=True)
-        config.objspace.std.suggest(withstrslice=True)
-        config.objspace.std.suggest(withstrjoin=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
-        # xxx other options? ropes maybe?
 
     # some optimizations have different effects depending on the typesystem
     if type_system == 'ootype':

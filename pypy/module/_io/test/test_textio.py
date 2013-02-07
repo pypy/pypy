@@ -1,8 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestTextIO:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io', '_locale'])
+    spaceconfig = dict(usemodules=['_io', '_locale'])
 
     def test_constructor(self):
         import _io

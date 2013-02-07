@@ -5,14 +5,14 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, hlstr
-from pypy.rpython.lltypesystem.rclass import OBJECT
-from pypy.jit.metainterp.resoperation import rop, AbstractResOp
-from pypy.rlib.nonconst import NonConstant
-from pypy.rlib import jit_hooks
-from pypy.rlib.jit import Counters
-from pypy.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
+from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.jit.metainterp.resoperation import rop, AbstractResOp
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import jit_hooks
+from rpython.rlib.jit import Counters
+from rpython.rlib.rarithmetic import r_uint
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
@@ -83,8 +83,8 @@ def set_abort_hook(space, w_hook):
 
     The hook will be called as in: hook(jitdriver_name, greenkey, reason)
 
-    Where reason is the reason for abort, see documentation for set_compile_hook
-    for descriptions of other arguments.
+    Reason is a string, the meaning of other arguments is the same
+    as attributes on JitLoopInfo object
     """
     cache = space.fromcache(Cache)
     cache.w_abort_hook = w_hook
@@ -292,10 +292,17 @@ class W_JitLoopInfo(Wrappable):
         return space.wrap('<JitLoopInfo %s, %d operations, starting at <%s>>' %
                           (self.jd_name, lgt, code_repr))
 
+    def descr_get_bridge_no(self, space):
+        if space.is_none(self.w_green_key):
+            return space.wrap(self.bridge_no)
+        raise OperationError(space.w_TypeError, space.wrap("not a bridge"))
+
+
 @unwrap_spec(loopno=int, asmaddr=int, asmlen=int, loop_no=int,
              type=str, jd_name=str, bridge_no=int)
 def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
-                            asmaddr, asmlen, loop_no, type, jd_name, bridge_no):
+                            asmaddr, asmlen, loop_no, type, jd_name,
+                            bridge_no=-1):
     w_info = space.allocate_instance(W_JitLoopInfo, w_subtype)
     w_info.w_green_key = w_greenkey
     w_info.w_ops = w_ops
@@ -321,6 +328,10 @@ W_JitLoopInfo.typedef = TypeDef(
                                        "List of operations in this loop."),
     loop_no = interp_attrproperty('loop_no', cls=W_JitLoopInfo, doc=
                                   "Loop cardinal number"),
+    bridge_no = GetSetProperty(W_JitLoopInfo.descr_get_bridge_no,
+                               doc="bridge number (if a bridge)"),
+    type = interp_attrproperty('type', cls=W_JitLoopInfo,
+                               doc="Loop type"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
 W_JitLoopInfo.acceptable_as_base_class = False
@@ -352,7 +363,9 @@ def get_stats_snapshot(space):
     ll_times = jit_hooks.stats_get_loop_run_times(None)
     w_times = space.newdict()
     for i in range(len(ll_times)):
-        space.setitem(w_times, space.wrap(ll_times[i].number),
+        w_key = space.newtuple([space.wrap(ll_times[i].type),
+                                space.wrap(ll_times[i].number)])
+        space.setitem(w_times, w_key,
                       space.wrap(ll_times[i].counter))
     w_counters = space.newdict()
     for i, counter_name in enumerate(Counters.counter_names):

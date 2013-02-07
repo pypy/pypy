@@ -1,12 +1,11 @@
 """Regular expression tests specific to _sre.py and accumulated during TDD."""
-import autopath
+import os
 import py
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
-from pypy.conftest import gettestobjspace, option
 
 def init_app_test(cls, space):
-    cls.w_s = space.appexec([space.wrap(autopath.this_dir)], 
+    cls.w_s = space.appexec([space.wrap(os.path.realpath(os.path.dirname(__file__)))], 
                               """(this_dir):
         import sys
         # Uh-oh, ugly hack
@@ -94,8 +93,7 @@ class AppTestSrePattern:
 
 
 class AppTestSreMatch:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', ))
+    spaceconfig = dict(usemodules=('array', ))
         
     def test_copy(self):
         import re
@@ -336,13 +334,10 @@ class AppTestSreScanner:
 
 
 class AppTestGetlower:
+    spaceconfig = dict(usemodules=('_locale',))
 
     def setup_class(cls):
         # This imports support_test_sre as the global "s"
-        try:
-            cls.space = gettestobjspace(usemodules=('_locale',))
-        except py.test.skip.Exception:
-            cls.space = gettestobjspace(usemodules=('_rawffi',))
         init_app_test(cls, cls.space)
 
     def setup_method(self, method):
@@ -600,14 +595,11 @@ class AppTestMarksStack:
         
 
 class AppTestOpcodes:
+    spaceconfig = dict(usemodules=('_locale',))
 
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py: _sre opcodes don't match")
-        try:
-            cls.space = gettestobjspace(usemodules=('_locale',))
-        except py.test.skip.Exception:
-            cls.space = gettestobjspace(usemodules=('_rawffi',))
         # This imports support_test_sre as the global "s"
         init_app_test(cls, cls.space)
 
