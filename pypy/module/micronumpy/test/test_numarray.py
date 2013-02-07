@@ -2374,6 +2374,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], 'i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
+        assert array(0, dtype='i2').tostring() == '\x00\x00'
 
     def test_argsort_dtypes(self):
         from _numpypy import array, arange
