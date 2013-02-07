@@ -16,6 +16,8 @@ def test_unichr():
     py.test.raises(TypeError, runicode.UNICHR, 'abc')
 
 def test_ord():
+    assert runicode.ORD('a') == 97
+    assert runicode.ORD(u'a') == 97
     assert runicode.ORD(u'\uffff') == 0xffff
     if runicode.MAXUNICODE > 0xffff:
         if sys.maxunicode < 0x10000:
