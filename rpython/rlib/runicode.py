@@ -18,7 +18,7 @@ BYTEORDER = sys.byteorder
 # or in unicodedata in pypy
 
 def unichr_returns_surrogate(c):
-    if c <= sys.maxunicode or c > MAXUNICODE:
+    if c <= 0xffff or c > 0x10ffff:
         return unichr(c)
     else:
         c -= 0x10000
