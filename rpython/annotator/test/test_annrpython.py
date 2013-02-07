@@ -1983,13 +1983,9 @@ class TestAnnotateTestCase:
                 return None
         def g(a):
             x = f(a)
-            #assert x is not None
             if x is None:
                 return "abcd"
             return x
-            if isinstance(x, str):
-                return x
-            return "impossible"
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
@@ -2346,6 +2342,41 @@ class TestAnnotateTestCase:
             _mixin_ = True
 
             def m(self, v):
+                return v
+
+        class Base(object):
+            pass
+
+        class A(Base, Mixin):
+            pass
+
+        class B(Base, Mixin):
+            pass
+
+        class C(B):
+            pass
+
+        def f():
+            a = A()
+            v0 = a.m(2)
+            b = B()
+            v1 = b.m('x')
+            c = C()
+            v2 = c.m('y')
+            return v0, v1, v2
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s.items[0], annmodel.SomeInteger)
+        assert isinstance(s.items[1], annmodel.SomeChar)
+        assert isinstance(s.items[2], annmodel.SomeChar)
+
+    def test_mixin_staticmethod(self):
+        class Mixin(object):
+            _mixin_ = True
+
+            @staticmethod
+            def m(v):
                 return v
 
         class Base(object):

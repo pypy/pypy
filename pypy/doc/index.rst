@@ -220,9 +220,8 @@ directory overview of PyPy:
 ================================   =========================================== 
 Directory                          explanation/links
 ================================   =========================================== 
-`pypy/annotation/`_                `type inferencing code`_ for `RPython`_ programs 
 
-`pypy/bin/`_                       command-line scripts, mainly `py.py`_ and `translatorshell.py`_
+`pypy/bin/`_                       command-line scripts, mainly `pyinteractive.py`_
 
 `pypy/config/`_                    handles the numerous options for building and running PyPy
 
@@ -249,19 +248,7 @@ Directory                          explanation/links
 
 `pypy/objspace/`_                  `object space`_ implementations
 
-`pypy/objspace/flow/`_             the FlowObjSpace_ implementing `abstract interpretation`_
-
 `pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's objects and types
-
-`pypy/rlib/`_                      a `"standard library"`_ for RPython_ programs
-
-`pypy/rpython/`_                   the `RPython Typer`_ 
-
-`pypy/rpython/lltypesystem/`_      the `low-level type system`_ for C-like backends
-
-`pypy/rpython/ootypesystem/`_      the `object-oriented type system`_ for OO backends
-
-`pypy/rpython/memory/`_            the `garbage collector`_ construction framework
 
 `pypy/tool/`_                      various utilities and hacks used from various places 
 
@@ -270,20 +257,39 @@ Directory                          explanation/links
 
 `pypy/tool/pytest/`_               support code for our `testing methods`_
 
-`pypy/translator/`_                translation_ backends and support code
 
-`pypy/translator/backendopt/`_     general optimizations that run before a backend generates code
+`rpython/annotator/`_              `type inferencing code`_ for `RPython`_ programs 
 
-`pypy/translator/c/`_              the `GenC backend`_, producing C code from an
+`rpython/config/`_                 handles the numerous options for RPython
+
+
+`rpython/flowspace/`_              the FlowObjSpace_ implementing `abstract interpretation`_
+
+
+`rpython/rlib/`_                   a `"standard library"`_ for RPython_ programs
+
+`rpython/rtyper/`_                 the `RPython Typer`_ 
+
+`rpython/rtyper/lltypesystem/`_    the `low-level type system`_ for C-like backends
+
+`rpython/rtyper/ootypesystem/`_    the `object-oriented type system`_ for OO backends
+
+`rpython/rtyper/memory/`_          the `garbage collector`_ construction framework
+
+`rpython/translator/`_             translation_ backends and support code
+
+`rpython/translator/backendopt/`_  general optimizations that run before a backend generates code
+
+`rpython/translator/c/`_           the `GenC backend`_, producing C code from an
                                    RPython program (generally via the rtyper_)
 
-`pypy/translator/cli/`_            the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
+`rpython/translator/cli/`_         the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
 
-`pypy/translator/goal/`_           our `main PyPy-translation scripts`_ live here
+`pypy/goal/`_                      our `main PyPy-translation scripts`_ live here
 
-`pypy/translator/jvm/`_            the Java backend
+`rpython/translator/jvm/`_         the Java backend
 
-`pypy/translator/tool/`_           helper tools for translation, including the Pygame
+`rpython/translator/tool/`_        helper tools for translation, including the Pygame
                                    `graph viewer`_
 
 ``*/test/``                        many directories have a test subdirectory containing test 

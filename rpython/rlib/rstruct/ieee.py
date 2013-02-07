@@ -184,14 +184,14 @@ def float_pack(x, size):
     sign = r_ulonglong(sign)
     return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
 
-def float_pack80(x):
-    """Convert a Python float x into two 64-bit unsigned integers
+def float_pack80(_x):
+    """Convert a Python float or longfloat x into two 64-bit unsigned integers
     with 80 bit extended representation."""
     MIN_EXP = -16381
     MAX_EXP = 16384
     MANT_DIG = 64 
     BITS = 80
-
+    x = float(_x) #longfloat not really supported
     sign = rfloat.copysign(1.0, x) < 0.0
     if not rfloat.isfinite(x):
         if rfloat.isinf(x):
@@ -239,18 +239,23 @@ def float_pack80(x):
 
 
 @jit.unroll_safe
+def pack_float80(result, x, size, be):
+    l = []
+    unsigned = float_pack80(x)
+    for i in range(8):
+        l.append(chr((unsigned[0] >> (i * 8)) & 0xFF))
+    for i in range(size - 8):
+        l.append(chr((unsigned[1] >> (i * 8)) & 0xFF))
+    if be:
+        l.reverse()
+    result.append("".join(l))
+
+@jit.unroll_safe
 def pack_float(result, x, size, be):
     l = []
-    if size == 12 or size == 16:
-        unsigned = float_pack80(x)
-        for i in range(8):
-            l.append(chr((unsigned[0] >> (i * 8)) & 0xFF))
-        for i in range(size - 8):
-            l.append(chr((unsigned[1] >> (i * 8)) & 0xFF))
-    else:
-        unsigned = float_pack(x, size)
-        for i in range(size):
-            l.append(chr((unsigned >> (i * 8)) & 0xFF))
+    unsigned = float_pack(x, size)
+    for i in range(size):
+        l.append(chr((unsigned >> (i * 8)) & 0xFF))
     if be:
         l.reverse()
     result.append("".join(l))

@@ -21,9 +21,9 @@ struct pypy_cjk_dec_s *pypy_cjk_dec_new(const MultibyteCodec *codec)
 Py_ssize_t pypy_cjk_dec_init(struct pypy_cjk_dec_s *d,
                              char *inbuf, Py_ssize_t inlen)
 {
-  d->inbuf_start = inbuf;
-  d->inbuf = inbuf;
-  d->inbuf_end = inbuf + inlen;
+  d->inbuf_start = (unsigned char *)inbuf;
+  d->inbuf = (unsigned char *)inbuf;
+  d->inbuf_end = (unsigned char *)inbuf + inlen;
   if (d->outbuf_start == NULL)
     {
       d->outbuf_start = (inlen <= (PY_SSIZE_T_MAX / sizeof(Py_UNICODE)) ?
@@ -219,7 +219,7 @@ Py_ssize_t pypy_cjk_enc_reset(struct pypy_cjk_enc_s *d)
 
 char *pypy_cjk_enc_outbuf(struct pypy_cjk_enc_s *d)
 {
-  return d->outbuf_start;
+  return (char *)d->outbuf_start;
 }
 
 Py_ssize_t pypy_cjk_enc_outlen(struct pypy_cjk_enc_s *d)
