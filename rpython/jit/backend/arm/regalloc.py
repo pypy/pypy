@@ -1,5 +1,6 @@
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib import rgc
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempBox, compute_vars_longevity
 from rpython.jit.backend.arm import registers as r
@@ -15,7 +16,7 @@ from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     )
 from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
 from rpython.jit.backend.arm.arch import MY_COPY_OF_REGS
-from rpython.jit.backend.arm.arch import WORD
+from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxPtr,
@@ -23,6 +24,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPt
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport.descr import ArrayDescr
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport import symbolic
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -61,12 +63,12 @@ class TempFloat(TempBox):
 
 class ARMFrameManager(FrameManager):
 
-    def __init__(self):
+    def __init__(self, base_ofs):
         FrameManager.__init__(self)
+        self.base_ofs = base_ofs
 
-    @staticmethod
-    def frame_pos(i, box_type):
-        return locations.StackLocation(i, get_fp_offset(i), box_type)
+    def frame_pos(self, i, box_type):
+        return locations.StackLocation(i, get_fp_offset(self.base_ofs, i), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -282,8 +284,9 @@ class Regalloc(object):
             return self.vfprm.convert_to_imm(value)
 
     def _prepare(self, inputargs, operations, allgcrefs):
-        self.frame_manager = self.fm = ARMFrameManager()
         cpu = self.assembler.cpu
+        self.fm = ARMFrameManager(cpu.get_baseofs_of_frame_field())
+        self.frame_manager = self.fm
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
@@ -350,6 +353,30 @@ class Regalloc(object):
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
 
+    def get_gcmap(self, forbidden_regs=[], noregs=False):
+        frame_depth = self.fm.get_frame_depth()
+        gcmap = allocate_gcmap(self.assembler,
+                        frame_depth, JITFRAME_FIXED_SIZE)
+        debug_start("jit-backend-gcmap")
+        for box, loc in self.rm.reg_bindings.iteritems():
+            if loc in forbidden_regs:
+                continue
+            if box.type == REF:
+                assert not noregs
+                assert isinstance(loc, RegLoc)
+                val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        for box, loc in self.fm.bindings.iteritems():
+            if box.type == REF:
+                assert isinstance(loc, StackLoc)
+                val = loc.value // WORD
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        for i in range(len(gcmap)):
+            debug_print(str(gcmap[i]))
+        debug_stop('jit-backend-gcmap')
+        return gcmap
+
+    # ------------------------------------------------------------
     def perform_llong(self, op, args, fcond):
         return self.assembler.regalloc_emit_llong(op, args, fcond, self)
     
@@ -767,6 +794,7 @@ class Regalloc(object):
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
+        self.assembler.check_frame_before_jump(self.jump_target_descr)
         remap_frame_layout_mixed(self.assembler,
                                  src_locations1, dst_locations1, tmploc,
                                  src_locations2, dst_locations2, vfptmploc)

@@ -2,6 +2,7 @@
 import sys, os
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.history import JitCellToken
@@ -1845,25 +1846,10 @@ class Assembler386(object):
                guard_opnum == rop.GUARD_NOT_FORCED)
         is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
         is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
-        gcmap = self.allocate_gcmap(frame_depth)
+        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
         return GuardToken(gcmap, faildescr, failargs,
                           fail_locs, exc, frame_depth,
                           is_guard_not_invalidated, is_guard_not_forced)
-
-    def allocate_gcmap(self, frame_depth):
-        size = frame_depth + JITFRAME_FIXED_SIZE
-        malloc_size = (size // WORD // 8 + 1) + 1
-        rawgcmap = self.datablockwrapper.malloc_aligned(WORD * malloc_size,
-                                                        WORD)
-        debug_print("gcmap: %x, len %d for %d" % (rawgcmap, malloc_size - 1,
-                                                  self.mc.get_relative_pos()))
-        # set the length field
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), rawgcmap)[0] = malloc_size - 1
-        gcmap = rffi.cast(lltype.Ptr(jitframe.GCMAP), rawgcmap)
-        # zero the area
-        for i in range(malloc_size - 1):
-            gcmap[i] = r_uint(0)
-        return gcmap
 
     def generate_propagate_error_64(self):
         assert WORD == 8

@@ -11,7 +11,8 @@ from rpython.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from rpython.jit.backend.llsupport.descr import (
     get_size_descr, get_field_descr, get_array_descr,
     get_call_descr, get_interiorfield_descr,
-    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr)
+    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
+    FLAG_POINTER, FLAG_FLOAT)
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.annotator import model as annmodel
 
@@ -46,7 +47,24 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_untranslated()
         self.asmmemmgr = AsmMemoryManager()
         self._setup_frame_realloc(translate_support_code)
+        ad = self.gc_ll_descr.getframedescrs(self).arraydescr
+        self.signedarraydescr = ad
+        # the same as normal JITFRAME, however with an array of pointers
+        self.refarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
+                                        FLAG_POINTER)
+        self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
+                                          FLAG_FLOAT)
         self.setup()
+
+    def getarraydescr_for_frame(self, type, index):
+        if type == history.FLOAT:
+            descr = self.floatarraydescr
+        elif type == history.REF:
+            descr = self.refarraydescr
+        else:
+            descr = self.signedarraydescr
+        return JITFRAME_FIXED_SIZE + index, descr
+
 
     def setup(self):
         pass
