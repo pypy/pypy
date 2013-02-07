@@ -56,15 +56,14 @@ class AbstractLLCPU(AbstractCPU):
                                           FLAG_FLOAT)
         self.setup()
 
-    def getarraydescr_for_frame(self, type, index):
+    def getarraydescr_for_frame(self, type):
         if type == history.FLOAT:
             descr = self.floatarraydescr
         elif type == history.REF:
             descr = self.refarraydescr
         else:
             descr = self.signedarraydescr
-        return JITFRAME_FIXED_SIZE + index, descr
-
+        return descr
 
     def setup(self):
         pass

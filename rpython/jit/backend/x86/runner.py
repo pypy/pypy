@@ -55,6 +55,9 @@ class AbstractX86CPU(AbstractLLCPU):
         else:
             return 1000
 
+    def getarryoffset_for_frame(self):
+	return JITFRAME_FIXED_SIZE
+
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
 

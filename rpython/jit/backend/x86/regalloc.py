@@ -22,6 +22,7 @@ from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import FrameManager,\
      RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op
 from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
@@ -897,7 +898,7 @@ class RegAlloc(object):
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
-        gcmap = self.assembler.allocate_gcmap(frame_depth)
+        gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)
         debug_start("jit-backend-gcmap")
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:

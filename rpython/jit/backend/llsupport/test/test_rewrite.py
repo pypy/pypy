@@ -111,10 +111,13 @@ class BaseFakeCPU(object):
         self.signedframedescr = ArrayDescr(3, 8, FieldDescr('len', 0, 0, 0), 0)
         self.floatframedescr = ArrayDescr(5, 8, FieldDescr('len', 0, 0, 0), 0)
 
-    def getarraydescr_for_frame(self, tp, index):
+    def getarraydescr_for_frame(self, tp):
         if tp == FLOAT:
-            return index, self.floatframedescr
-        return index, self.signedframedescr
+            return self.floatframedescr
+        return self.signedframedescr
+
+    def getarryoffset_for_frame(self):
+        return 0
     
     def arraydescrof(self, ARRAY):
         try:

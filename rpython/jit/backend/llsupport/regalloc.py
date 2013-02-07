@@ -2,6 +2,7 @@ import os
 from rpython.jit.metainterp.history import Const, Box, REF, INT
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
+
 try:
     from collections import OrderedDict
 except ImportError:

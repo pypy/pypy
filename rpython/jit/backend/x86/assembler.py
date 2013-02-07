@@ -2310,14 +2310,14 @@ class Assembler386(object):
             # load the return value from the dead frame's value index 0
             kind = op.result.type
             if kind == FLOAT:
-                _, descr = self.cpu.getarraydescr_for_frame(kind, 0)
+                descr = self.cpu.getarraydescr_for_frame(kind)
                 ofs = self.cpu.unpack_arraydescr(descr)
                 self.mc.MOVSD_xm(xmm0.value, (eax.value, ofs))
                 if result_loc is not xmm0:
                     self.mc.MOVSD(result_loc, xmm0)
             else:
                 assert result_loc is eax
-                _, descr = self.cpu.getarraydescr_for_frame(kind, 0)
+                descr = self.cpu.getarraydescr_for_frame(kind)
                 ofs = self.cpu.unpack_arraydescr(descr)
                 self.mc.MOV_rm(eax.value, (eax.value, ofs))
         #
