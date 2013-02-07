@@ -14,7 +14,7 @@ import sys
 import signal
 
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'struct', 'rctime', 'signal', 'select']
+    usemodules = ['binascii', 'posix', 'struct', 'rctime']
     if os.name != 'nt':
         usemodules += ['fcntl']
     else:
@@ -512,6 +512,14 @@ class AppTestPosix:
         with stream as fp:
             res = fp.read()
             assert res == '1\n'
+
+    def test_popen_child_fds(self):
+        os = self.posix
+        from os.path import join
+        with open(join(self.pdir, 'file1'), 'r') as fd:
+            with os.popen('%s -c "import os; print os.read(%d, 10)"' % (self.python, fd.fileno())) as stream:
+                res = stream.read()
+                assert res == 'test1\n'
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
