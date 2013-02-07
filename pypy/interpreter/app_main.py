@@ -719,7 +719,7 @@ if __name__ == '__main__':
         root = dn(dn(dn(thisfile)))
         return [join(root, 'lib-python', '2.7'),
                 join(root, 'lib_pypy')]
-    
+
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
         # interpreter/app_main.py anyway
@@ -758,6 +758,10 @@ if __name__ == '__main__':
         os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
     del os # make sure that os is not available globally, because this is what
            # happens in "real life" outside the tests
+
+    if 'time' not in sys.builtin_module_names:
+        # make some tests happy by loading this before we clobber sys.path
+        import time; del time
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv
