@@ -210,6 +210,7 @@ int winsertln(WINDOW *);
 int winsnstr(WINDOW *, const char *, int);
 int winsstr(WINDOW *, const char *);
 int wmove(WINDOW *, int, int);
+int wresize(WINDOW *, int, int);
 int wnoutrefresh(WINDOW *);
 int wredrawln(WINDOW *, int, int);
 int wrefresh(WINDOW *);
