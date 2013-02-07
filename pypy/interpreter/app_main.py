@@ -436,11 +436,14 @@ def parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if PYTHON26 and not options["ignore_environment"]:
-        if os.getenv('PYTHONNOUSERSITE'):
-            options["no_user_site"] = 1
-        if os.getenv('PYTHONDONTWRITEBYTECODE'):
-            options["dont_write_bytecode"] = 1
+    if not options["ignore_environment"]:
+        if os.getenv('PYTHONUNBUFFERED'):
+            options["unbuffered"] = 1
+        if PYTHON26:
+            if os.getenv('PYTHONNOUSERSITE'):
+                options["no_user_site"] = 1
+            if os.getenv('PYTHONDONTWRITEBYTECODE'):
+                options["dont_write_bytecode"] = 1
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
