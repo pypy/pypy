@@ -339,7 +339,6 @@ class ResOpAssembler(object):
         target_nbargs = target_token._arm_clt._debug_nbargs
         assert my_nbargs == target_nbargs
 
-        self._insert_checks()
         if target_token in self.target_tokens_currently_compiling:
             self.mc.B_offs(target, fcond)
         else:

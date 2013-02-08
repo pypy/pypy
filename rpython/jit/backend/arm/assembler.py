@@ -432,7 +432,6 @@ class AssemblerARM(ResOpAssembler):
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = ARMv7Builder()
         self._push_all_regs_to_jitframe(mc, [], withfloats)
-        self._insert_checks(mc)
 
         if exc:
             # We might have an exception pending.  Load it into r4
@@ -1060,15 +1059,6 @@ class AssemblerARM(ResOpAssembler):
         oopspecindex = effectinfo.oopspecindex
         asm_math_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
         return fcond
-
-
-    def _insert_checks(self, mc=None):
-        if not we_are_translated() and self._debug:
-            if mc is None:
-                mc = self.mc
-            mc.CMP_rr(r.fp.value, r.sp.value)
-            mc.MOV_rr(r.pc.value, r.pc.value, cond=c.GE)
-            mc.BKPT()
 
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 4:
