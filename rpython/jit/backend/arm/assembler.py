@@ -517,7 +517,6 @@ class AssemblerARM(ResOpAssembler):
             mc = self.mc
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_footer_shadowstack(gcrootmap, mc)
-        mc.ADD_ri(r.sp.value, r.sp.value, WORD, cond=cond) # for the force index
         if self.cpu.supports_floats:
             mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers],
                                                                     cond=cond)
@@ -533,7 +532,6 @@ class AssemblerARM(ResOpAssembler):
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
         if self.cpu.supports_floats:
             self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
-        self.mc.SUB_ri(r.sp.value, r.sp.value, WORD) # for the force index
         assert stack_size % 8 == 0 # ensure we keep alignment
 
         # set fp to point to the JITFRAME
