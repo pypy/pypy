@@ -398,7 +398,6 @@ class ResOpAssembler(object):
             assert adr.is_reg()
         if adr.is_reg():
             self.mc.BLX(adr.value)
-        self.mark_gc_roots(force_index)
         self._restore_sp(stack_args, fcond)
 
         # ensure the result is wellformed and stored in the correct location
@@ -1371,23 +1370,6 @@ class ResOpAssembler(object):
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
             self._emit_call(NO_FORCE_INDEX, imm(self.reacqgil_addr), [], fcond)
 
-    def write_new_force_index(self):
-        # for shadowstack only: get a new, unused force_index number and
-        # write it to FORCE_INDEX_OFS.  Used to record the call shape
-        # (i.e. where the GC pointers are in the stack) around a CALL
-        # instruction that doesn't already have a force_index.
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            clt = self.current_clt
-            force_index = clt.reserve_and_record_some_faildescr_index()
-            self._write_fail_index(force_index)
-            return force_index
-        else:
-            return 0
-
-    def _write_fail_index(self, fail_index):
-        self.mc.gen_load_int(r.ip.value, fail_index)
-        self.mc.STR_ri(r.ip.value, r.fp.value)
 
     def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
         self.emit_op_call(op, arglocs, regalloc, fcond)
