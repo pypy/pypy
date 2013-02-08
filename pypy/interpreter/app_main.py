@@ -436,11 +436,14 @@ def parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if PYTHON26 and not options["ignore_environment"]:
-        if os.getenv('PYTHONNOUSERSITE'):
-            options["no_user_site"] = 1
-        if os.getenv('PYTHONDONTWRITEBYTECODE'):
-            options["dont_write_bytecode"] = 1
+    if not options["ignore_environment"]:
+        if os.getenv('PYTHONUNBUFFERED'):
+            options["unbuffered"] = 1
+        if PYTHON26:
+            if os.getenv('PYTHONNOUSERSITE'):
+                options["no_user_site"] = 1
+            if os.getenv('PYTHONDONTWRITEBYTECODE'):
+                options["dont_write_bytecode"] = 1
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
@@ -716,7 +719,7 @@ if __name__ == '__main__':
         root = dn(dn(dn(thisfile)))
         return [join(root, 'lib-python', '2.7'),
                 join(root, 'lib_pypy')]
-    
+
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
         # interpreter/app_main.py anyway
@@ -755,6 +758,10 @@ if __name__ == '__main__':
         os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
     del os # make sure that os is not available globally, because this is what
            # happens in "real life" outside the tests
+
+    if 'time' not in sys.builtin_module_names:
+        # make some tests happy by loading this before we clobber sys.path
+        import time; del time
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv

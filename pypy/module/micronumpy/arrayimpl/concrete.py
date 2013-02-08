@@ -275,6 +275,11 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_buffer(self, space):
         return ArrayBuffer(self)
 
+    def astype(self, space, dtype):
+        new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
+        loop.copy_from_to(self, new_arr.implementation, dtype)
+        return new_arr
+
 class ConcreteArrayNotOwning(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides, storage):
 
@@ -308,11 +313,6 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
     def argsort(self, space, w_axis):
         return argsort_array(self, space, w_axis)
-
-    def astype(self, space, dtype):
-        new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
-        loop.copy_from_to(self, new_arr.implementation, dtype)
-        return new_arr
 
     def base(self):
         return None

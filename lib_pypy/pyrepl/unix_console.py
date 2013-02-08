@@ -398,6 +398,7 @@ class UnixConsole(Console):
 
         if hasattr(self, 'old_sigwinch'):
             signal.signal(signal.SIGWINCH, self.old_sigwinch)
+            del self.old_sigwinch
 
     def __sigwinch(self, signum, frame):
         self.height, self.width = self.getheightwidth()
