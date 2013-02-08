@@ -443,7 +443,10 @@ class W_XMLParserType(Wrappable):
         if XML_ParserFree: # careful with CPython interpreter shutdown
             XML_ParserFree(self.itself)
         if global_storage:
-            global_storage.free_nonmoving_id(self.id)
+            try:
+                global_storage.free_nonmoving_id(self.id)
+            except KeyError:
+                pass    # maybe global_storage.clear() was already called
 
     @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):
