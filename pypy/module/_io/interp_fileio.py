@@ -250,7 +250,7 @@ class W_FileIO(W_RawIOBase):
         if self.fd >= 0 and self.closefd:
             try:
                 r = space.unicode_w(space.repr(w_source))
-                space.warn("unclosed file %s" % r, space.w_ResourceWarning)
+                space.warn(u"unclosed file %s" % r, space.w_ResourceWarning)
             except OperationError as e:
                 # Spurious errors can appear at shutdown
                 if e.match(space, space.w_Warning):
