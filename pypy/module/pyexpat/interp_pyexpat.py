@@ -636,10 +636,13 @@ Parse XML data.  `isfinal' should be true at end of input."""
     def ParseFile(self, space, w_file):
         """ParseFile(file)
 Parse XML data from file-like object."""
-        # XXX not the more efficient method
-        w_data = space.call_method(w_file, 'read')
-        data = space.str_w(w_data)
-        return self.Parse(space, data, isfinal=True)
+        eof = False
+        while not eof:
+            w_data = space.call_method(w_file, 'read', space.wrap(2048))
+            data = space.str_w(w_data)
+            eof = len(data) == 0
+            w_res = self.Parse(space, data, isfinal=eof)
+        return w_res
 
     @unwrap_spec(base=str)
     def SetBase(self, space, base):
