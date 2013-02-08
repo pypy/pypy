@@ -6,7 +6,7 @@ from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
                                     N_REGISTERS_SAVED_BY_MALLOC, \
-                                    JITFRAME_FIXED_SIZE, FRAME_FIXED_SIZE
+                                    JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from rpython.jit.backend.arm.locations import get_fp_offset, imm, StackLocation
 from rpython.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
@@ -520,16 +520,20 @@ class AssemblerARM(ResOpAssembler):
         if self.cpu.supports_floats:
             mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers],
                                                                     cond=cond)
-        mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
+        # push all callee saved registers and IP to keep the alignment
+        mc.POP([reg.value for reg in r.callee_restored_registers] +
+                                                       [r.ip.value], cond=cond)
         mc.BKPT()
 
     def gen_func_prolog(self):
-        stack_size = FRAME_FIXED_SIZE * WORD
+        stack_size = WORD #alignment
         stack_size += len(r.callee_saved_registers) * WORD
         if self.cpu.supports_floats:
             stack_size += len(r.callee_saved_vfp_registers) * 2 * WORD
 
-        self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
+        # push all callee saved registers and IP to keep the alignment
+        self.mc.PUSH([reg.value for reg in r.callee_saved_registers] +
+                                                        [r.ip.value])
         if self.cpu.supports_floats:
             self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
         assert stack_size % 8 == 0 # ensure we keep alignment
