@@ -259,7 +259,7 @@ class AssemblerARM(ResOpAssembler):
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
-        if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
+        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
             return      # no stack check (for tests, or non-translated)
         #
         # make a "function" that is called immediately at the start of
@@ -483,12 +483,13 @@ class AssemblerARM(ResOpAssembler):
         target = self.failure_recovery_code[exc + 2 * withfloats]
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
         positions = [0] * len(guardtok.fail_locs)
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
                 positions[i] = -1
             elif loc.is_stack():
-                positions[i] = loc.value
+                positions[i] = loc.value - base_ofs
             else:
                 if loc.is_reg():
                     assert loc is not r.fp # for now
@@ -629,8 +630,8 @@ class AssemblerARM(ResOpAssembler):
         loop_head = self.mc.get_relative_pos()
         looptoken._arm_loop_code = loop_head
         #
-        frame_depth = self._assemble(regalloc, inputargs, operations)
-        self.update_frame_depth(frame_depth + JITFRAME_FIXED_SIZE)
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
+        self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
 
@@ -720,6 +721,7 @@ class AssemblerARM(ResOpAssembler):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self.fixup_target_tokens(rawstart)
+        self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
         self.update_frame_depth(frame_depth)
         self.teardown()
 
@@ -772,12 +774,11 @@ class AssemblerARM(ResOpAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
         mc.gen_load_int(r.ip.value, ofs)
-        mc.SUB_ri(r.ip.value, r.ip.value, base_ofs)
         stack_check_cmp_ofs = mc.currpos()
         if expected_size == -1:
-            mc.gen_load_int(r.lr.value, 0xffffff)
+            mc.NOP()
+            mc.NOP()
         else:
             mc.gen_load_int(r.lr.value, expected_size)
         mc.CMP_rr(r.ip.value, r.lr.value)
@@ -785,10 +786,11 @@ class AssemblerARM(ResOpAssembler):
         jg_location = mc.currpos()
         mc.BKPT()
 
-        self.push_gcmap(mc, gcmap, push=True)
-
         # the size value is still stored in lr
         mc.PUSH([r.lr.value])
+
+        self.push_gcmap(mc, gcmap, push=True)
+
 
         self.mc.BL(self._stack_check_failure)
 
@@ -818,19 +820,20 @@ class AssemblerARM(ResOpAssembler):
         # store return address and keep the stack aligned
         mc.PUSH([r.ip.value, r.lr.value])
 
-        # store the current gcmap(r1) in the jitframe
+        # store the current gcmap(r0) in the jitframe
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         assert check_imm_arg(abs(gcmap_ofs))
-        mc.STR_ri(r.r1.value, r.fp.value, imm=gcmap_ofs)
+        mc.STR_ri(r.r0.value, r.fp.value, imm=gcmap_ofs)
 
         # set first arg, which is the old jitframe address
         mc.MOV_rr(r.r0.value, r.fp.value)
         # call realloc_frame, it takes two arguments
         # arg0: the old jitframe
         # arg1: the new size
+        #
         mc.BL(self.cpu.realloc_frame)
-        # set fp to the new jitframe plus the baseofs
-        mc.ADD_ri(r.fp.value, r.r0.value)
+        # set fp to the new jitframe
+        mc.MOV_rr(r.fp.value, r.r0.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -857,6 +860,11 @@ class AssemblerARM(ResOpAssembler):
         for targettoken in self.target_tokens_currently_compiling:
             targettoken._arm_loop_code += rawstart
         self.target_tokens_currently_compiling = None
+
+    def _patch_stackadjust(self, adr, allocated_depth):
+        mc = ARMv7Builder()
+        mc.gen_load_int(r.lr.value, allocated_depth)
+        mc.copy_to_raw_memory(adr)
 
     def target_arglocs(self, loop_token):
         return loop_token._arm_arglocs
