@@ -132,7 +132,6 @@ class LazyObjSpaceGetter(object):
             cls.space = space
         return space
 
-@py.test.mark.trylast
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
         appclass = item.getparent(PyPyClassCollector)
