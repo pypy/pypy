@@ -1245,9 +1245,9 @@ class AssemblerARM(ResOpAssembler):
             offset = loc.value
             if not check_imm_arg(offset):
                 self.mc.gen_load_int(r.ip.value, offset, cond=cond)
-                self.mc.SUB_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
+                self.mc.ADD_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
             else:
-                self.mc.SUB_ri(r.ip.value, r.fp.value, offset, cond=cond)
+                self.mc.ADD_ri(r.ip.value, r.fp.value, offset, cond=cond)
             self.mc.VSTR(prev_loc.value, r.ip.value, cond=cond)
             self.mc.POP([r.ip.value], cond=cond)
         else:
