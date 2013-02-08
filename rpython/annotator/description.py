@@ -497,8 +497,8 @@ class ClassDesc(Desc):
             # will do the right thing in s_get_value().
         if isinstance(value, staticmethod) and mixin:
             # make a new copy of staticmethod
-            value =  staticmethod(func_with_new_name(value.__func__,
-                                                     value.__func__.__name__))
+            func = value.__get__(42)
+            value =  staticmethod(func_with_new_name(func, func.__name__))
 
         if type(value) in MemberDescriptorTypes:
             # skip __slots__, showing up in the class as 'member' objects

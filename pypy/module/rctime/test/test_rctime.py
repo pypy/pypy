@@ -237,7 +237,7 @@ class AppTestRCTime:
         # input to [w]strftime is not kosher.
         if os.name == 'nt':
             raises(ValueError, rctime.strftime, '%f')
-        elif sys.platform == 'darwin':
+        elif sys.platform == 'darwin' or 'bsd' in sys.platform:
             # darwin strips % of unknown format codes
             # http://bugs.python.org/issue9811
             assert rctime.strftime('%f') == 'f'

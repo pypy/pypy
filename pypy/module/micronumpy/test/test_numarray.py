@@ -1640,7 +1640,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert _weakref.ref(a)
 
     def test_astype(self):
-        from _numpypy import array
+        from _numpypy import array, arange
         b = array(1).astype(float)
         assert b == 1
         assert b.dtype == float
@@ -1653,7 +1653,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([0, 1, 2], dtype=complex).astype(bool)
         assert (b == [False, True, True]).all()
         assert b.dtype == 'bool'
-
+        
+        a = arange(6, dtype='f4').reshape(2,3)
+        b = a.astype('i4')
 
     def test_base(self):
         from _numpypy import array
@@ -1696,6 +1698,12 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array([1, -1, 10000], dtype='longfloat')
         s1 = map(ord,a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        n = a.dtype.itemsize
+        assert s1[n-1] == s2[0]
+
+        a = array(0., dtype='longfloat')
+        s1 = map(ord, a.tostring())
         s2 = map(ord, a.byteswap().tostring())
         n = a.dtype.itemsize
         assert s1[n-1] == s2[0]
@@ -2368,6 +2376,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], 'i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
+        assert array(0, dtype='i2').tostring() == '\x00\x00'
 
     def test_argsort_dtypes(self):
         from _numpypy import array, arange

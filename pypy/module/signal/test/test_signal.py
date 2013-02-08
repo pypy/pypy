@@ -157,7 +157,7 @@ class AppTestSignal:
         if sys.platform == 'win32':
             raises(ValueError, signal, 42, lambda *args: None)
             raises(ValueError, signal, 7, lambda *args: None)
-        elif sys.platform == 'darwin':
+        elif sys.platform == 'darwin' or 'bsd' in sys.platform:
             raises(ValueError, signal, 42, lambda *args: None)
         else:
             signal(42, lambda *args: None)
