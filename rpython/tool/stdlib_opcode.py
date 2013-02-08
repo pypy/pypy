@@ -71,10 +71,14 @@ class BytecodeSpec(object):
     
     def to_globals(self, globals_dict):
         """NOT_RPYTHON. Add individual opcodes to the module constants."""
-        globals_dict.update(self.opmap)
-        globals_dict['SLICE'] = self.opmap["SLICE+0"]
-        globals_dict['STORE_SLICE'] = self.opmap["STORE_SLICE+0"]
-        globals_dict['DELETE_SLICE'] = self.opmap["DELETE_SLICE+0"]
+        for name, value in self.opmap.iteritems():
+            # Rename 'STORE_SLICE+0' opcodes
+            if name.endswith('+0'):
+                name = name[:-2]
+            # Ignore 'STORE_SLICE+1' opcodes
+            elif name.endswith(('+1', '+2', '+3')):
+                continue
+            globals_dict[name] = value
 
     def __str__(self):
         return "<%s bytecode>" % (self.name,)

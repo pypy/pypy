@@ -960,7 +960,7 @@ def getcallargs(func, *positional, **named):
                 raise TypeError('%s() takes exactly 0 arguments '
                                 '(%d given)' % (f_name, num_total))
         else:
-            raise TypeError('%s() takes no argument (%d given)' %
+            raise TypeError('%s() takes no arguments (%d given)' %
                             (f_name, num_total))
     for arg in args:
         if isinstance(arg, str) and arg in named:

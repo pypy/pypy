@@ -4,7 +4,7 @@ from rpython.annotator.signature import enforce_signature_args, enforce_signatur
 from rpython.flowspace.model import Constant, FunctionGraph
 from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.flowspace.argument import rawshape, ArgErr
-from rpython.tool.sourcetools import valid_identifier
+from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
 
 class CallFamily(object):
@@ -495,6 +495,10 @@ class ClassDesc(Desc):
             # that the py lib has its own AssertionError.__init__ which
             # is of type FunctionType.  But bookkeeper.immutablevalue()
             # will do the right thing in s_get_value().
+        if isinstance(value, staticmethod) and mixin:
+            # make a new copy of staticmethod
+            value =  staticmethod(func_with_new_name(value.__func__,
+                                                     value.__func__.__name__))
 
         if type(value) in MemberDescriptorTypes:
             # skip __slots__, showing up in the class as 'member' objects

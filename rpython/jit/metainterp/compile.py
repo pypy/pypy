@@ -26,6 +26,7 @@ def giveup():
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
+    #XXX: decuple from pytest
     option = py.test.config.option
     if option.view or option.viewloops:
         if error:

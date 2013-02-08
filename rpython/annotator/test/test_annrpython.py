@@ -1982,13 +1982,9 @@ class TestAnnotateTestCase:
                 return None
         def g(a):
             x = f(a)
-            #assert x is not None
             if x is None:
                 return "abcd"
             return x
-            if isinstance(x, str):
-                return x
-            return "impossible"
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
@@ -2067,7 +2063,23 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
-        
+
+    def test_getitem_str0(self):
+        def f(s, n):
+            if n == 1:
+                return s[0]
+            elif n == 2:
+                return s[1]
+            elif n == 3:
+                return s[1:]
+            return s
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True),
+                              annmodel.SomeInteger()])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
@@ -2329,6 +2341,41 @@ class TestAnnotateTestCase:
             _mixin_ = True
 
             def m(self, v):
+                return v
+
+        class Base(object):
+            pass
+
+        class A(Base, Mixin):
+            pass
+
+        class B(Base, Mixin):
+            pass
+
+        class C(B):
+            pass
+
+        def f():
+            a = A()
+            v0 = a.m(2)
+            b = B()
+            v1 = b.m('x')
+            c = C()
+            v2 = c.m('y')
+            return v0, v1, v2
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s.items[0], annmodel.SomeInteger)
+        assert isinstance(s.items[1], annmodel.SomeChar)
+        assert isinstance(s.items[2], annmodel.SomeChar)
+
+    def test_mixin_staticmethod(self):
+        class Mixin(object):
+            _mixin_ = True
+
+            @staticmethod
+            def m(v):
                 return v
 
         class Base(object):
@@ -2685,6 +2732,23 @@ class TestAnnotateTestCase:
     def test_range_nonneg(self):
         def fun(n, k):
             for i in range(n):
+                if k == 17:
+                    return i
+            return 0
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [int, int])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.nonneg
+
+    def test_range_nonneg_variablestep(self):
+        def get_step(n):
+            if n == 1:
+                return 2
+            else:
+                return 3
+        def fun(n, k):
+            step = get_step(n)
+            for i in range(0, n, step):
                 if k == 17:
                     return i
             return 0
@@ -3253,6 +3317,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
         def f(x):
             return u'a'.replace(x, u'b')

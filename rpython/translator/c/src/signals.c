@@ -71,7 +71,7 @@ void pypysig_default(int signum)
 #endif
 }
 
-static void signal_setflag_handler(int signum)
+void pypysig_pushback(int signum)
 {
     if (0 <= signum && signum < NSIG)
       {
@@ -79,6 +79,11 @@ static void signal_setflag_handler(int signum)
         pypysig_occurred = 1;
         pypysig_counter.value = -1;
       }
+}
+
+static void signal_setflag_handler(int signum)
+{
+    pypysig_pushback(signum);
 
     if (wakeup_fd != -1) 
       {

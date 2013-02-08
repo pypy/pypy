@@ -316,7 +316,7 @@ def test_chdir():
         return os.getcwd()
     f1 = compile(does_stuff, [str])
     # different on windows please
-    assert f1('/tmp') == '/tmp'
+    assert f1('/tmp') == os.path.realpath('/tmp')
 
 def test_mkdir_rmdir():
     def does_stuff(path, delete):

@@ -1343,7 +1343,7 @@ class _TestRemoteManager(BaseTestCase):
 
         # Because we are using xmlrpclib for serialization instead of
         # pickle this will cause a serialization error.
-        self.assertRaises(Exception, queue.put, time.sleep)
+        self.assertRaises(Exception, queue.put, object)
 
         # Make queue finalizer run before the server is stopped
         del queue
@@ -1800,9 +1800,9 @@ class _TestHeap(BaseTestCase):
         if not gc.isenabled():
             gc.enable()
             self.addCleanup(gc.disable)
-        thresholds = gc.get_threshold()
-        self.addCleanup(gc.set_threshold, *thresholds)
-        gc.set_threshold(10)
+        #thresholds = gc.get_threshold()
+        #self.addCleanup(gc.set_threshold, *thresholds)
+        #gc.set_threshold(10)
 
         # perform numerous block allocations, with cyclic references to make
         # sure objects are collected asynchronously by the gc
@@ -1865,6 +1865,7 @@ class _TestSharedCTypes(BaseTestCase):
     def test_synchronize(self):
         self.test_sharedctypes(lock=True)
 
+    @unittest.skipUnless(test_support.check_impl_detail(pypy=False), "pypy ctypes differences")
     def test_copy(self):
         foo = _Foo(2, 5.0)
         bar = copy(foo)

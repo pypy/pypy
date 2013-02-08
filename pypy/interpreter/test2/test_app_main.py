@@ -547,7 +547,7 @@ class TestInteraction:
             assert line.rstrip() == 'Not at all. They could be carried.'
             print 'A five ounce bird could not carry a one pound coconut.'
             """)
-        py_py = os.path.join(pypydir, 'bin', 'py.py')
+        py_py = os.path.join(pypydir, 'bin', 'pyinteractive.py')
         child = self._spawn(sys.executable, [py_py, '-S', path])
         child.expect('Are you suggesting coconuts migrate?', timeout=120)
         child.sendline('Not at all. They could be carried.')
@@ -712,6 +712,26 @@ class TestNonInteractive:
         assert data == '\x00(STDOUT)\n\x00'    # from stdout
         child_out_err.close()
 
+    def test_non_interactive_stdout_unbuffered(self, monkeypatch):
+        monkeypatch.setenv('PYTHONUNBUFFERED', '1')
+        path = getscript(r"""
+            import sys, time
+            sys.stdout.write('\x00(STDOUT)\n\x00')
+            time.sleep(1)
+            sys.stderr.write('\x00[STDERR]\n\x00')
+            time.sleep(1)
+            # stdout flushed automatically here
+            """)
+        cmdline = '%s -E "%s" %s' % (sys.executable, app_main, path)
+        print 'POPEN:', cmdline
+        child_in, child_out_err = os.popen4(cmdline)
+        data = child_out_err.read(11)
+        assert data == '\x00(STDOUT)\n\x00'    # from stderr
+        data = child_out_err.read(11)
+        assert data == '\x00[STDERR]\n\x00'    # from stdout
+        child_out_err.close()
+        child_in.close()
+
     def test_proper_sys_path(self, tmpdir):
         data = self.run('-c "import _ctypes"', python_flags='-S')
         if data.startswith('Traceback'):
@@ -774,7 +794,7 @@ class TestNonInteractive:
         assert data == p + os.sep + '\n'
 
     def test_getfilesystemencoding(self):
-        py.test.skip("this has been failing since forever, but it's not tested nightly because buildbot uses python2.6 :-(")
+        py.test.skip("encoding is only set if stdout.isatty(), test is flawed")
         if sys.version_info < (2, 7):
             skip("test requires Python >= 2.7")
         p = getscript_in_dir("""
@@ -881,7 +901,6 @@ class AppTestAppMain:
 
     def test_setup_bootstrap_path(self):
         import sys
-        import os
         old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
         try:
@@ -907,7 +926,7 @@ class AppTestAppMain:
         sys.path.append(self.goal_dir)
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
             app_main.setup_bootstrap_path(pypy_c)
             newpath = sys.path[:]
             # we get at least lib_pypy 
@@ -925,7 +944,7 @@ class AppTestAppMain:
         sys.path.append(self.goal_dir)
         try:
             import app_main
-            pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'goal', 'pypy-c')
             app_main.entry_point(pypy_c, [self.foo_py])
             # assert it did not crash
         finally:

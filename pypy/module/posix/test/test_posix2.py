@@ -513,6 +513,16 @@ class AppTestPosix:
             res = fp.read()
             assert res == '1\n'
 
+    def test_popen_child_fds(self):
+        import os
+        with open(os.path.join(self.pdir, 'file1'), 'r') as fd:
+            with self.posix.popen('%s -c "import os; print os.read(%d, 10)" 2>&1' % (self.python, fd.fileno())) as stream:
+                res = stream.read()
+                if os.name == 'nt':
+                    assert '\nOSError: [Errno 9]' in res
+                else:
+                    assert res == 'test1\n'
+
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
             # nt specific
@@ -823,14 +833,19 @@ class AppTestPosix:
 
     if hasattr(os, 'chmod'):
         def test_chmod(self):
+            import sys
             os = self.posix
             os.unlink(self.path)
             raises(OSError, os.chmod, self.path, 0600)
             f = open(self.path, "w")
             f.write("this is a test")
             f.close()
-            os.chmod(self.path, 0200)
-            assert (os.stat(self.path).st_mode & 0777) == 0200
+            if sys.platform == 'win32':
+                os.chmod(self.path, 0400)
+                assert (os.stat(self.path).st_mode & 0600) == 0400
+            else:
+                os.chmod(self.path, 0200)
+                assert (os.stat(self.path).st_mode & 0777) == 0200
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):

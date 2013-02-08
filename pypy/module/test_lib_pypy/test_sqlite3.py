@@ -2,7 +2,7 @@
 
 def test_list_ddl():
     """From issue996.  Mostly just looking for lack of exceptions."""
-    from sqlite3.dbapi2 import connect
+    from lib_pypy._sqlite3 import connect
     connection = connect(':memory:')
     cursor = connection.cursor()
     cursor.execute('CREATE TABLE foo (bar INTEGER)')

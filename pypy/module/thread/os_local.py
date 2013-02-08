@@ -98,5 +98,5 @@ def thread_is_stopping(ec):
         local = wref()
         if local is not None:
             del local.dicts[ec]
-        local.last_dict = None
-        local.last_ec = None
+            local.last_dict = None
+            local.last_ec = None

@@ -362,13 +362,15 @@ class AppTestSocket:
         assert isinstance(s.fileno(), int)
 
     def test_socket_close(self):
-        import _socket
+        import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         fileno = s.fileno()
         assert s.fileno() >= 0
         s.close()
         assert s.fileno() < 0
         s.close()
+        if os.name != 'nt':
+            raises(OSError, os.close, fileno)
 
     def test_socket_close_error(self):
         import _socket, os
@@ -376,7 +378,7 @@ class AppTestSocket:
             skip("Windows sockets are not files")
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         os.close(s.fileno())
-        raises(_socket.error, s.close)
+        s.close()
 
     def test_socket_connect(self):
         import _socket, os

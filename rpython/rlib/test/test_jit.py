@@ -20,8 +20,6 @@ def test_jitdriver_autoreds():
     assert driver.reds == []
     assert driver.numreds is None
     py.test.raises(TypeError, "driver.can_enter_jit(foo='something')")
-    #
-    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', get_printable_location='something')")
     py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
 
 def test_jitdriver_numreds():
@@ -37,6 +35,7 @@ def test_jitdriver_numreds():
     assert driver.numreds == 2
 
 def test_jitdriver_inline():
+    py.test.skip("@inline off: see skipped failures in test_warmspot.")
     driver = JitDriver(greens=[], reds='auto')
     calls = []
     def foo(a, b):
@@ -56,6 +55,7 @@ def test_jitdriver_inline():
         ]
 
 def test_jitdriver_clone():
+    py.test.skip("@inline off: see skipped failures in test_warmspot.")
     def bar(): pass
     def foo(): pass
     driver = JitDriver(greens=[], reds=[])

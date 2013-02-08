@@ -40,6 +40,7 @@ class ExecutionContext(object):
     def gettopframe(self):
         return self.topframeref()
 
+    @jit.unroll_safe
     def gettopframe_nohidden(self):
         frame = self.topframeref()
         while frame and frame.hide():
@@ -343,9 +344,13 @@ class AbstractActionFlag(object):
         signal, the tick counter is set to -1 by C code in signals.h.
         """
         assert isinstance(action, PeriodicAsyncAction)
-        self._periodic_actions.append(action)
+        # hack to put the release-the-GIL one at the end of the list,
+        # and the report-the-signals one at the start of the list.
         if use_bytecode_counter:
+            self._periodic_actions.append(action)
             self.has_bytecode_counter = True
+        else:
+            self._periodic_actions.insert(0, action)
         self._rebuild_action_dispatcher()
 
     def getcheckinterval(self):
@@ -418,15 +423,6 @@ class AsyncAction(object):
         """Request for the action to be run before the next opcode.
         The action must have been registered at space initalization time."""
         self.space.actionflag.fire(self)
-
-    def fire_after_thread_switch(self):
-        """Bit of a hack: fire() the action but only the next time the GIL
-        is released and re-acquired (i.e. after a potential thread switch).
-        Don't call this if threads are not enabled.  Currently limited to
-        one action (i.e. reserved for CheckSignalAction from module/signal).
-        """
-        from pypy.module.thread.gil import spacestate
-        spacestate.action_after_thread_switch = self
 
     def perform(self, executioncontext, frame):
         """To be overridden."""

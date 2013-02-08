@@ -248,8 +248,7 @@ class MsvcPlatform(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False):
-        cfiles = [py.path.local(f) for f in cfiles]
-        cfiles += [py.path.local(f) for f in eci.separate_module_files]
+        cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
             path = cfiles[0].dirpath()
@@ -261,8 +260,15 @@ class MsvcPlatform(Platform):
         else:
             exe_name = exe_name.new(ext=self.exe_ext)
 
+        if shared:
+            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
+                                   ext=self.so_ext)
+            target_name = so_name.basename
+        else:
+            target_name = exe_name.basename
+
         m = NMakefile(path)
-        m.exe_name = exe_name
+        m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
         linkflags = list(self.link_flags)
@@ -273,13 +279,6 @@ class MsvcPlatform(Platform):
         # Make sure different functions end up at different addresses!
         # This is required for the JIT.
         linkflags.append('/opt:noicf')
-
-        if shared:
-            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
-                                   ext=self.so_ext)
-            target_name = so_name.basename
-        else:
-            target_name = exe_name.basename
 
         def rpyrel(fpath):
             rel = py.path.local(fpath).relto(rpypath)

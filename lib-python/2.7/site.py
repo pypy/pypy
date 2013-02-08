@@ -75,6 +75,7 @@ ENABLE_USER_SITE = None
 USER_SITE = None
 USER_BASE = None
 
+
 def makepath(*paths):
     dir = os.path.join(*paths)
     try:

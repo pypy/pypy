@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
 MANDATORY_LINE_BREAKS = ["BK", "CR", "LF", "NL"] # line break categories
@@ -37,6 +40,7 @@ class Unicodechar:
         self.excluded = False
         self.linebreak = False
         self.decompositionTag = ''
+        self.properties = ()
         if data[5]:
             self.raw_decomposition = data[5]
             if data[5][0] == '<':
@@ -95,7 +99,8 @@ def get_canonical_decomposition(table, code):
     return table[code].canonical_decomp
 
 def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
-                     unihan_file=None, linebreak_file=None):
+                     unihan_file=None, linebreak_file=None,
+                     derived_core_properties_file=None):
     rangeFirst = {}
     rangeLast = {}
     table = [None] * (MAXUNICODE + 1)
@@ -163,6 +168,27 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
                 ranges[(first, last)] = ch
         else:
             table[int(code, 16)].east_asian_width = width
+
+    # Read Derived Core Properties:
+    for line in derived_core_properties_file:
+        line = line.split('#', 1)[0].strip()
+        if not line:
+            continue
+
+        r, p = line.split(";")
+        r = r.strip()
+        p = p.strip()
+        if ".." in r:
+            first, last = [int(c, 16) for c in r.split('..')]
+            chars = list(range(first, last+1))
+        else:
+            chars = [int(r, 16)]
+        for char in chars:
+            if not table[char]:
+                # Some properties (e.g. Default_Ignorable_Code_Point)
+                # apply to unassigned code points; ignore them
+                continue
+            table[char].properties += (p,)
 
     # Expand ranges
     for (first, last), char in ranges.iteritems():
@@ -257,6 +283,10 @@ def writeDbRecord(outfile, table):
     IS_DIGIT = 128
     IS_DECIMAL = 256
     IS_MIRRORED = 512
+    IS_XID_START = 1024
+    IS_XID_CONTINUE = 2048
+    IS_PRINTABLE = 4096 # PEP 3138
+
     # Create the records
     db_records = {}
     for code in range(len(table)):
@@ -282,6 +312,12 @@ def writeDbRecord(outfile, table):
             flags |= IS_LOWER
         if char.mirrored:
             flags |= IS_MIRRORED
+        if code == ord(" ") or char.category[0] not in ("C", "Z"):
+            flags |= IS_PRINTABLE
+        if "XID_Start" in char.properties:
+            flags |= IS_XID_START
+        if "XID_Continue" in char.properties:
+            flags |= IS_XID_CONTINUE
         char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags, char.combining)
         db_records[char.db_record] = 1
     db_records = db_records.keys()
@@ -335,6 +371,9 @@ def _get_record(code):
     print >> outfile, 'def istitle(code): return _get_record(code)[3] & %d != 0'% IS_TITLE
     print >> outfile, 'def islower(code): return _get_record(code)[3] & %d != 0'% IS_LOWER
     print >> outfile, 'def iscased(code): return _get_record(code)[3] & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
+    print >> outfile, 'def isxidstart(code): return _get_record(code)[3] & %d != 0'% (IS_XID_START)
+    print >> outfile, 'def isxidcontinue(code): return _get_record(code)[3] & %d != 0'% (IS_XID_CONTINUE)
+    print >> outfile, 'def isprintable(code): return _get_record(code)[3] & %d != 0'% IS_PRINTABLE
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
     print >> outfile, 'def combining(code): return _get_record(code)[4]'
 
@@ -687,9 +726,11 @@ def main():
     east_asian_width = open('EastAsianWidth-%s.txt' % options.unidata_version)
     unihan = open('UnihanNumeric-%s.txt' % options.unidata_version)
     linebreak = open('LineBreak-%s.txt' % options.unidata_version)
+    derived_core_properties = open('DerivedCoreProperties-%s.txt' %
+                                   options.unidata_version)
 
     table = read_unicodedata(infile, exclusions, east_asian_width, unihan,
-                             linebreak)
+                             linebreak, derived_core_properties)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
