@@ -174,7 +174,9 @@ static struct _testfunc22_s _testfunc22(struct _testfunc22_s s1,
 
 static int _testfunc23(char *p)
 {
-    return 1000 * p[0];
+    if (p)
+        return 1000 * p[0];
+    return -42;
 }
 
 DLLEXPORT void *gettestfunc(int num)

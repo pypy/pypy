@@ -252,7 +252,10 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if (space.isinstance_w(w_init, space.w_list) or
+        if space.is_w(w_init, space.w_None):
+            rffi.cast(rffi.CCHARPP, cdata)[0] = lltype.nullptr(rffi.CCHARP.TO)
+            return 3
+        elif (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
         elif space.isinstance_w(w_init, space.w_basestring):

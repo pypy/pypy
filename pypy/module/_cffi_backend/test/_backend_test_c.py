@@ -998,6 +998,8 @@ def test_call_function_23():
     f = cast(BFunc23, _testfunc(23))
     res = f(b"foo")
     assert res == 1000 * ord(b'f')
+    res = f(None)
+    assert res == -42
 
 def test_call_function_23_bis():
     # declaring the function as int(unsigned char*)
