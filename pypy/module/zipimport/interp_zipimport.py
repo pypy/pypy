@@ -205,7 +205,7 @@ class W_ZipImporter(Wrappable):
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
         importing._prepare_module(space, w_mod, real_name, pkgpath)
         result = importing.load_compiled_module(space, w(modname), w_mod,
-                                                filename, magic, timestamp,
+                                                real_name, magic, timestamp,
                                                 buf)
         return result
 

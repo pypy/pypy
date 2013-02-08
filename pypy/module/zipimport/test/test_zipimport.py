@@ -1,5 +1,3 @@
-
-import marshal
 import py, os
 import time
 import struct
@@ -16,13 +14,15 @@ class AppTestZipimport:
     """
     compression = ZIP_STORED
     spaceconfig = {
-        "usemodules": ['zipimport', 'rctime', 'struct', 'binascii'],
+        "usemodules": ['zipimport', 'rctime', 'struct', 'binascii', 'marshal'],
     }
     pathsep = os.path.sep
 
     @classmethod
-    def make_pyc(cls, space, co, mtime):
-        data = marshal.dumps(co)
+    def make_pyc(cls, space, w_co, mtime):
+        w_data = space.call_method(space.getbuiltinmodule('marshal'),
+                                   'dumps', w_co)
+        data = space.bytes_w(w_data)
         if type(mtime) is type(0.0):
             # Mac mtimes need a bit of special casing
             if mtime < 0x7fffffff:
@@ -40,30 +40,27 @@ class AppTestZipimport:
 
     @classmethod
     def make_class(cls):
-        # XXX: this is (mostly) wrong: .compile() compiles the code object
-        # using the host python compiler, but then in the tests we load it
-        # with py.py. It works (mostly by chance) because the two functions
-        # are very simple and the bytecodes are compatible enough.
-        # XXX with py3k this does not work anymore.
-        co = py.code.Source("""
-        def get_name():
-            return __name__
-        def get_file():
-            return __file__
-        """).compile()
-
+        source = """\
+def get_name():
+    return __name__
+def get_file():
+    return __file__
+        """
         space = cls.space
+        w = space.wrap
+        w_co = space.call_method(space.builtin, 'compile',
+                                 w(source), w('uuu.py'), w('exec'))
 
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
         now = time.time()
-        cls.w_now = space.wrap(now)
-        test_pyc = cls.make_pyc(space, co, now)
+        cls.w_now = w(now)
+        test_pyc = cls.make_pyc(space, w_co, now)
         cls.w_test_pyc = space.wrapbytes(test_pyc)
-        cls.w_compression = space.wrap(cls.compression)
-        cls.w_pathsep = space.wrap(cls.pathsep)
+        cls.w_compression = w(cls.compression)
+        cls.w_pathsep = w(cls.pathsep)
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
         ziptestmodule = tmpdir.join("somezip.zip")
-        cls.w_tmpzip = space.wrap(str(ziptestmodule))
+        cls.w_tmpzip = w(str(ziptestmodule))
         cls.tmpdir = tmpdir
 
     def setup_class(cls):
