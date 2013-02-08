@@ -471,49 +471,6 @@ class AssemblerARM(ResOpAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
-    DESCR_REF       = 0x00
-    DESCR_INT       = 0x01
-    DESCR_FLOAT     = 0x02
-    DESCR_SPECIAL   = 0x03
-    CODE_FROMSTACK  = 64
-    CODE_STOP       = 0  | DESCR_SPECIAL
-    CODE_HOLE       = 4  | DESCR_SPECIAL
-    CODE_INPUTARG   = 8  | DESCR_SPECIAL
-    CODE_FORCED     = 12 | DESCR_SPECIAL #XXX where should this be written?
-
-    def write_failure_recovery_description(self, descr, failargs, locs):
-        assert self.mc is not None
-        for i in range(len(failargs)):
-            arg = failargs[i]
-            if arg is not None:
-                if arg.type == REF:
-                    kind = self.DESCR_REF
-                elif arg.type == INT:
-                    kind = self.DESCR_INT
-                elif arg.type == FLOAT:
-                    kind = self.DESCR_FLOAT
-                else:
-                    raise AssertionError("bogus kind")
-                loc = locs[i]
-                if loc.is_stack():
-                    pos = loc.position
-                    if pos < 0:
-                        self.mc.writechar(chr(self.CODE_INPUTARG))
-                        pos = ~pos
-                    n = self.CODE_FROMSTACK // 4 + pos
-                else:
-                    assert loc.is_reg() or loc.is_vfp_reg()
-                    n = loc.value
-                n = kind + 4 * n
-                while n > 0x7F:
-                    self.mc.writechar(chr((n & 0x7F) | 0x80))
-                    n >>= 7
-            else:
-                n = self.CODE_HOLE
-            self.mc.writechar(chr(n))
-        self.mc.writechar(chr(self.CODE_STOP))
-
-
     def generate_quick_failure(self, guardtok, fcond=c.AL):
         assert isinstance(guardtok.exc, bool)
         startpos = self.mc.currpos()
