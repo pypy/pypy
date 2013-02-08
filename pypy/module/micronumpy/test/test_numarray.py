@@ -1640,7 +1640,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert _weakref.ref(a)
 
     def test_astype(self):
-        from _numpypy import array
+        from _numpypy import array, arange
         b = array(1).astype(float)
         assert b == 1
         assert b.dtype == float
@@ -1653,7 +1653,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([0, 1, 2], dtype=complex).astype(bool)
         assert (b == [False, True, True]).all()
         assert b.dtype == 'bool'
-
+        
+        a = arange(6, dtype='f4').reshape(2,3)
+        b = a.astype('i4')
 
     def test_base(self):
         from _numpypy import array
