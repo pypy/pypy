@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError, wrap_windowserror
+from pypy.interpreter.error import OperationError, wrap_oserror2
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -691,7 +691,10 @@ def ExpandEnvironmentStrings(space, source):
     try:
         return space.wrap(rwinreg.ExpandEnvironmentStrings(source))
     except WindowsError, e:
-        raise wrap_windowserror(space, e)
+        # use it instead of wrap_windowserror
+        # since it delegates directly to it but is importable on all platforms
+        # needed for avoiding test failure on unix
+        raise wrap_oserror2(space, e)
 
 def DisableReflectionKey(space, w_key):
     """Disables registry reflection for 32-bit processes running on a 64-bit

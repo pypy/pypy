@@ -1,22 +1,24 @@
 from rpython.tool.udir import udir
 
 import os, sys, py
+pytestmark = py.test.mark.skipif('sys.platform != "win32"', reason='_winreg is a win32 module')
 
-if sys.platform != 'win32':
-    py.test.skip("_winreg is a win32 module")
+canSaveKey = None
 
-try:
-    # To call SaveKey, the process must have Backup Privileges
-    import win32api
-    import win32security
-    priv_flags = win32security.TOKEN_ADJUST_PRIVILEGES | win32security.TOKEN_QUERY
-    hToken = win32security.OpenProcessToken (win32api.GetCurrentProcess (), priv_flags)
-    privilege_id = win32security.LookupPrivilegeValue (None, "SeBackupPrivilege")
-    win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
-except:
-    canSaveKey = False
-else:
-    canSaveKey = True
+
+def setup_module(mod):
+    try:
+        # To call SaveKey, the process must have Backup Privileges
+        import win32api
+        import win32security
+        priv_flags = win32security.TOKEN_ADJUST_PRIVILEGES | win32security.TOKEN_QUERY
+        hToken = win32security.OpenProcessToken (win32api.GetCurrentProcess (), priv_flags)
+        privilege_id = win32security.LookupPrivilegeValue (None, "SeBackupPrivilege")
+        win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
+    except:
+        mod.canSaveKey = False
+    else:
+        mod.canSaveKey = True
 
 class AppTestHKey:
     spaceconfig = dict(usemodules=('_winreg',))
@@ -36,6 +38,7 @@ class AppTestFfi:
         cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
         cls.w_root_key = space.wrap(cls.root_key)
         cls.w_test_key_name = space.wrap(cls.test_key_name)
+        assert canSaveKey is not None
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
 
