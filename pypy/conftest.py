@@ -145,10 +145,6 @@ def pytest_runtest_setup(item):
             appclass.obj.runappdirect = item.config.option.runappdirect
 
 
-@py.test.mark.trylast
-def pytest_runtest_teardown(item):
-
-
 class PyPyClassCollector(py.test.collect.Class):
     # All pypy Test classes have a "space" member.
     def setup(self):
