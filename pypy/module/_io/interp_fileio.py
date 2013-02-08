@@ -250,7 +250,13 @@ class W_FileIO(W_RawIOBase):
         if self.fd >= 0 and self.closefd:
             try:
                 r = space.unicode_w(space.repr(w_source))
-                space.warn(u"unclosed file %s" % r, space.w_ResourceWarning)
+                # TODO: space.warn is currently typed to str
+                #space.warn(u"unclosed file %s" % r, space.w_ResourceWarning)
+                msg = u"unclosed file %s" % r
+                space.appexec([space.wrap(msg), space.w_ResourceWarning],
+                              """(msg, warningcls):
+                import _warnings
+                _warnings.warn(msg, warningcls, stacklevel=2)""")
             except OperationError as e:
                 # Spurious errors can appear at shutdown
                 if e.match(space, space.w_Warning):
