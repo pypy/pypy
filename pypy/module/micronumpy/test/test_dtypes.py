@@ -529,6 +529,8 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
         assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
         raises (TypeError, numpy.array, [3+4j], dtype=float)
+        a = (0.5+1.5j)
+        assert '{0:g}'.format(a) == '{0:g}'.format(numpy.complex64(a))
 
     def test_complex(self):
         import _numpypy as numpy

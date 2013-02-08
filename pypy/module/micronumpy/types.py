@@ -1030,6 +1030,9 @@ class ComplexFloating(object):
     def for_computation(v):   
         return float(v[0]), float(v[1])
 
+    def to_builtin_type(self, space, box):
+        return space.wrap(complex(*self.for_computation(self.unbox(box))))
+
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
         return bool(v[0]) or bool(v[1])
