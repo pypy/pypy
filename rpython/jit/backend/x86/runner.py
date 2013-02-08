@@ -152,11 +152,6 @@ class AbstractX86CPU(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
-    def force(self, addr_of_force_token):
-        frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)
-        frame.jf_descr = frame.jf_force_descr
-        return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
-
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
