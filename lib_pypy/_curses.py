@@ -244,7 +244,6 @@ mmask_t mousemask(mmask_t, mmask_t *);
 bool wenclose(const WINDOW *, int, int);
 int mouseinterval(int);
 
-void getsyx(int y, int x);
 void setsyx(int y, int x);
 char *unctrl(chtype);
 int use_default_colors(void);
@@ -278,6 +277,8 @@ void *panel_userptr(const PANEL *);
 int move_panel(PANEL *, int, int);
 int replace_panel(PANEL *,WINDOW *);
 int panel_hidden(const PANEL *);
+
+void _m_getsyx(int *yx);
 """)
 
 
@@ -310,6 +311,10 @@ int _m_ispad(WINDOW *win) {
 #else
     return 0;
 #endif
+}
+
+void _m_getsyx(int *yx) {
+    getsyx(yx[0], yx[1]);
 }
 """, libraries=['ncurses', 'panel'])
 
@@ -971,7 +976,7 @@ def erasechar():
 def getsyx():
     _ensure_initialised()
     yx = ffi.new("int[2]")
-    lib.getsyx(yx[0], yx[1])
+    lib._m_getsyx(yx)
     return (yx[0], yx[1])
 
 
@@ -1094,6 +1099,8 @@ def setupterm(term=None, fd=-1):
     if _initialised_setupterm:
         return None
 
+    if term is None:
+        term = ffi.NULL
     err = ffi.new("int *")
     if lib.setupterm(term, fd, err) == lib.ERR:
         if err == 0:
@@ -1321,7 +1328,7 @@ def tigetnum(capname):
 def tigetstr(capname):
     _ensure_initialised_setupterm()
     val = lib.tigetstr(capname)
-    if val == 0 or val == -1:
+    if val in (0, -1, ffi.NULL):
         return None
     return ffi.string(val)
 
