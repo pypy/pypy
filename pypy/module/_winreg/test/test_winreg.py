@@ -1,10 +1,12 @@
 from rpython.tool.udir import udir
 
 import os, sys, py
-pytestmark = py.test.mark.skipif('sys.platform != "win32"', reason='_winreg is a win32 module')
 
 canSaveKey = None
 
+#XXX: mark again
+if sys.platform != "win32":
+    py.test.skip('_winreg is a win32 module')
 
 def setup_module(mod):
     try:
