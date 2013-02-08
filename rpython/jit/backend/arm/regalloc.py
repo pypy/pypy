@@ -1070,6 +1070,7 @@ class Regalloc(object):
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
     def prepare_op_force_token(self, op, fcond):
+        # XXX for now we return a regular reg
         res_loc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [res_loc]
