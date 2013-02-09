@@ -266,6 +266,18 @@ class AppTestTypes(BaseNumpyAppTest):
         assert 'unsignedinteger' in str(exc.value)
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
+        # numpy allows abstract types in array creation
+        a = numpy.array([4,4], numpy.integer)
+        assert a.dtype is numpy.dtype('int64')
+        a = numpy.array([4,4], numpy.number)
+        assert a.dtype is numpy.dtype('float')
+        a = numpy.array([4,4], numpy.signedinteger)
+        assert a.dtype is numpy.dtype('int64')
+        a = numpy.array([4,4], numpy.unsignedinteger)
+        assert a.dtype is numpy.dtype('uint64')
+        # too ambitious for now
+        #a = numpy.array('xxxx', numpy.generic)
+        #assert a.dtype is numpy.dtype('|V4')
 
     def test_new(self):
         import _numpypy as np
@@ -472,7 +484,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64(2.0) == 2.0
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
-        assert "{:g}".format(numpy.complex(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
+        assert "{:g}".format(numpy.complex_(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
     def test_longfloat(self):
         import _numpypy as numpy

@@ -2470,7 +2470,7 @@ class AppTestRepr(BaseNumpyAppTest):
 
 class AppTestRecordDtype(BaseNumpyAppTest):
     def test_zeros(self):
-        from _numpypy import zeros
+        from _numpypy import zeros, integer
         a = zeros(2, dtype=[('x', int), ('y', float)])
         raises(IndexError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0

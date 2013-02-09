@@ -270,13 +270,12 @@ def descr__new__(space, w_subtype, w_dtype):
         return dtype_from_list(space, w_dtype)
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
-    else:
-        for dtype in cache.builtin_dtypes:
-            if w_dtype in dtype.alternate_constructors:
-                return dtype
-            if w_dtype is dtype.w_box_type:
-                return dtype
-    raise OperationError(space.w_TypeError, space.wrap("data type %s not understood"))
+    for dtype in cache.builtin_dtypes:
+        if w_dtype in dtype.alternate_constructors:
+            return dtype
+        if w_dtype is dtype.w_box_type:
+            return dtype
+    raise OperationError(space.w_TypeError, space.wrap("data type %r not understood" % w_dtype))
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",
@@ -400,7 +399,10 @@ class DtypeCache(object):
             name=name,
             char="l",
             w_box_type=space.gettypefor(interp_boxes.W_LongBox),
-            alternate_constructors=[space.w_int],
+            alternate_constructors=[space.w_int,
+                                    space.gettypefor(interp_boxes.W_IntegerBox),
+                                    space.gettypefor(interp_boxes.W_SignedIntegerBox),
+                                   ],
             aliases=['int'],
         )
         self.w_ulongdtype = W_Dtype(
@@ -410,6 +412,8 @@ class DtypeCache(object):
             name="u" + name,
             char="L",
             w_box_type=space.gettypefor(interp_boxes.W_ULongBox),
+            alternate_constructors=[ space.gettypefor(interp_boxes.W_UnsignedIntegerBox),
+                                   ],
         )
         self.w_int64dtype = W_Dtype(
             types.Int64(),
@@ -443,7 +447,9 @@ class DtypeCache(object):
             name="float64",
             char="d",
             w_box_type = space.gettypefor(interp_boxes.W_Float64Box),
-            alternate_constructors=[space.w_float],
+            alternate_constructors=[space.w_float, 
+                                    space.gettypefor(interp_boxes.W_NumberBox),
+                                   ],
             aliases=["float"],
         )
         self.w_complex64dtype = W_ComplexDtype(
@@ -546,6 +552,8 @@ class DtypeCache(object):
             w_box_type = space.gettypefor(interp_boxes.W_VoidBox),
             #alternate_constructors=[space.w_buffer],
             # XXX no buffer in space
+            #alternate_constructors=[space.gettypefor(interp_boxes.W_GenericBox)],
+            # XXX fix, leads to _coerce error
         )
         self.w_float16dtype = W_Dtype(
             types.Float16(),
