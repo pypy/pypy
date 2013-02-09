@@ -505,6 +505,7 @@ class AppTestTypes(BaseNumpyAppTest):
             numpy.inexact, numpy.number, numpy.generic, object)
 
     def test_complex_format(self):
+        import sys
         import _numpypy as numpy
 
         for complex_ in (numpy.complex128, numpy.complex64,):
@@ -540,12 +541,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
         assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
-        try:
-            numpy.array([3+4j], dtype=float)
-        except (ValueError, TypeError):
-            pass
-        else:
-            assert False, 'should have raised'
+        raises((ValueError, TypeError), numpy.array, [3+4j], dtype=float)
         if sys.version_info >= (2, 7):
             assert "{:g}".format(numpy.complex_(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
