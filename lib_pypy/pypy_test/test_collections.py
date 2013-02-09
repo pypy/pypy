@@ -16,6 +16,17 @@ class TestDeque:
         d = collections.deque([MutatingCmp()])
         py.test.raises(IndexError, d.remove, 1)
 
+    def test_remove_failing(self):
+        class FailingCmp(object):
+            def __eq__(self, other):
+                assert False
+
+        f = FailingCmp()
+        d = collections.deque([1, 2, 3, f, 4, 5])
+        d.remove(3)
+        py.test.raises(AssertionError, d.remove, 4)
+        assert d == collections.deque([1, 2, f, 4, 5])
+
     def test_maxlen(self):
         d = collections.deque([], 3)
         d.append(1); d.append(2); d.append(3); d.append(4)
