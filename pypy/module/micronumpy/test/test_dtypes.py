@@ -3,7 +3,7 @@ from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
 
-class AppTestDtypes(BaseNumpyAppTest):
+class BaseAppTestDtypes(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         if option.runappdirect:
@@ -15,6 +15,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             ptr_size = rffi.sizeof(rffi.CCHARP)
         cls.w_ptr_size = cls.space.wrap(ptr_size)
 
+class AppTestDtypes(BaseAppTestDtypes):
     def test_dtype(self):
         from _numpypy import dtype
 
@@ -256,18 +257,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert hash(tp(value)) == hash(value)
 
 
-class AppTestTypes(BaseNumpyAppTest):
-    def setup_class(cls):
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        if option.runappdirect:
-            import platform
-            bits, linkage = platform.architecture()
-            ptr_size = int(bits[:-3]) // 8
-        else:
-            from rpython.rtyper.lltypesystem import rffi
-            ptr_size = rffi.sizeof(rffi.CCHARP)
-        cls.w_ptr_size = cls.space.wrap(ptr_size)
-
+class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
         import _numpypy as numpy
         raises(TypeError, numpy.generic, 0)
