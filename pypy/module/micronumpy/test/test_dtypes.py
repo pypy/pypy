@@ -472,6 +472,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64(2.0) == 2.0
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
+        assert "{:g}".format(numpy.complex(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
     def test_longfloat(self):
         import _numpypy as numpy
