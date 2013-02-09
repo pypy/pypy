@@ -30,14 +30,40 @@ def test_utcfromtimestamp_microsecond():
     dt = datetime.datetime.utcfromtimestamp(0)
     assert isinstance(dt.microsecond, int)
 
+def test_default_args():
+    with py.test.raises(TypeError):
+        datetime.datetime()
+    with py.test.raises(TypeError):
+        datetime.datetime(10)
+    with py.test.raises(TypeError):
+        datetime.datetime(10, 10)
+    datetime.datetime(10, 10, 10)
 
-def test_integer_args():
+def test_check_arg_types():
+    import decimal
+    i10 = 10
+    l10 = 10L
+    d10 = decimal.Decimal(10)
+    d11 = decimal.Decimal(10.9)
+    assert datetime.datetime(i10, i10, i10, i10, i10, i10, i10) == \
+           datetime.datetime(l10, l10, l10, l10, l10, l10, l10) == \
+           datetime.datetime(d10, d10, d10, d10, d10, d10, d10) == \
+           datetime.datetime(d11, d11, d11, d11, d11, d11, d11)
+
+    with py.test.raises(TypeError):
+        datetime.datetime(10., 10, 10)
+    with py.test.raises(TypeError):
+        datetime.datetime(10, 10., 10)
     with py.test.raises(TypeError):
         datetime.datetime(10, 10, 10.)
+    with py.test.raises(TypeError):
+        datetime.datetime(10, 10, 10, 10.)
     with py.test.raises(TypeError):
         datetime.datetime(10, 10, 10, 10, 10.)
     with py.test.raises(TypeError):
         datetime.datetime(10, 10, 10, 10, 10, 10.)
+    with py.test.raises(TypeError):
+        datetime.datetime(10, 10, 10, 10, 10, 10, 10.)
 
 def test_utcnow_microsecond():
     dt = datetime.datetime.utcnow()
