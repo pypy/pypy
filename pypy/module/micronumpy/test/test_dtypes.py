@@ -4,6 +4,17 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
 
 class AppTestDtypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            import platform
+            bits, linkage = platform.architecture()
+            ptr_size = int(bits[:-3]) // 8
+        else:
+            from rpython.rtyper.lltypesystem import rffi
+            ptr_size = rffi.sizeof(rffi.CCHARP)
+        cls.w_ptr_size = cls.space.wrap(ptr_size)
+
     def test_dtype(self):
         from _numpypy import dtype
 
@@ -31,8 +42,12 @@ class AppTestDtypes(BaseNumpyAppTest):
         from _numpypy import dtype
 
         assert dtype(bool).num == 0
-        assert dtype('intp').num == 5
-        assert dtype('uintp').num == 6
+        if self.ptr_size == 4:
+            assert dtype('intp').num == 5
+            assert dtype('uintp').num == 6
+        else:
+            assert dtype('intp').num == 7
+            assert dtype('uintp').num == 8
         assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12

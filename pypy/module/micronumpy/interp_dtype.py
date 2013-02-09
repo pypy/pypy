@@ -567,18 +567,22 @@ class DtypeCache(object):
         if ptr_size == 4:
             intp_box = interp_boxes.W_Int32Box
             intp_type = types.Int32()
+            intp_num = 5
             uintp_box = interp_boxes.W_UInt32Box
             uintp_type = types.UInt32()
+            uintp_num = 6
         elif ptr_size == 8:
             intp_box = interp_boxes.W_Int64Box
             intp_type = types.Int64()
+            intp_num = 7
             uintp_box = interp_boxes.W_UInt64Box
             uintp_type = types.UInt64()
+            uintp_num = 8
         else:
             raise ValueError('unknown point size %d' % ptr_size)
         self.w_intpdtype = W_Dtype(
             intp_type,
-            num=5,
+            num=intp_num,
             kind=INTPLTR,
             name='intp',
             char=INTPLTR,
@@ -586,7 +590,7 @@ class DtypeCache(object):
         )    
         self.w_uintpdtype = W_Dtype(
             uintp_type,
-            num=6,
+            num=uintp_num,
             kind=UINTPLTR,
             name='uintp',
             char=UINTPLTR,
