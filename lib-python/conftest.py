@@ -280,7 +280,7 @@ testmap = [
     RegrTest('test_modulefinder.py'),
     RegrTest('test_msilib.py'),
     RegrTest('test_multibytecodec.py', usemodules='_multibytecodec'),
-    RegrTest('test_multiprocessing.py'),
+    RegrTest('test_multiprocessing.py', skip="XXX: deadlocks the buildbots"),
     RegrTest('test_mutants.py', core="possibly"),
     RegrTest('test_netrc.py'),
     RegrTest('test_nis.py'),
