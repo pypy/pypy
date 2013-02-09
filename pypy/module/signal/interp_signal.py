@@ -115,6 +115,11 @@ class CheckSignalAction(PeriodicAsyncAction):
 class Handlers:
     def __init__(self, space):
         self.handlers_w = {}
+        for signum in range(1, NSIG):
+            if WIN32 and signum not in signal_values:
+                self.handlers_w[signum] = space.w_None
+            else:
+                self.handlers_w[signum] = space.wrap(SIG_DFL)
 
 def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
@@ -144,17 +149,12 @@ def getsignal(space, signum):
     Return the current action for the given signal.  The return value can be:
     SIG_IGN -- if the signal is being ignored
     SIG_DFL -- if the default action for the signal is in effect
-    None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
+    None -- if an unknown handler is in effect
     anything else -- the callable Python object used as a handler
     """
-    if WIN32:
-        check_signum_exists(space, signum)
-    else:
-        check_signum_in_range(space, signum)
+    check_signum_in_range(space, signum)
     handlers_w = _get_handlers(space)
-    if signum in handlers_w:
-        return handlers_w[signum]
-    return space.wrap(SIG_DFL)
+    return handlers_w[signum]
 
 
 def default_int_handler(space, w_signum, w_frame):
@@ -180,13 +180,6 @@ def pause(space):
     return space.w_None
 
 
-def check_signum_exists(space, signum):
-    if signum in signal_values:
-        return
-    raise OperationError(space.w_ValueError,
-                         space.wrap("invalid signal value"))
-
-
 def check_signum_in_range(space, signum):
     if 1 <= signum < NSIG:
         return
@@ -208,11 +201,13 @@ def signal(space, signum, w_handler):
     A signal handler function is called with two arguments:
     the first is the signal number, the second is the interrupted stack frame.
     """
+    if WIN32 and signum not in signal_values:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("invalid signal value"))
     if not space.threadlocals.ismainthread():
         raise OperationError(space.w_ValueError,
-                             space.wrap("signal() must be called from the "
-                                        "main thread"))
-    old_handler = getsignal(space, signum)
+                             space.wrap("signal only works in main thread"))
+    check_signum_in_range(space, signum)
 
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
         pypysig_default(signum)
@@ -224,7 +219,9 @@ def signal(space, signum, w_handler):
                                  space.wrap("'handler' must be a callable "
                                             "or SIG_DFL or SIG_IGN"))
         pypysig_setflag(signum)
+
     handlers_w = _get_handlers(space)
+    old_handler = handlers_w[signum]
     handlers_w[signum] = w_handler
     return old_handler
 
@@ -249,7 +246,7 @@ def set_wakeup_fd(space, fd):
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
-    check_signum_exists(space, signum)
+    check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))

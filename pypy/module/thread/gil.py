@@ -49,6 +49,8 @@ class GILThreadLocals(OSThreadLocals):
         return result
 
     def reinit_threads(self, space):
+        "Called in the child process after a fork()"
+        OSThreadLocals.reinit_threads(self, space)
         if self.gil_ready:     # re-initialize the gil if needed
             self._initialize_gil(space)
 

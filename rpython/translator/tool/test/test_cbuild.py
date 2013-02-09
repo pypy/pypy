@@ -77,6 +77,10 @@ class TestEci:
             int get()
             {
                 return 42;
+            }
+            int shouldnt_export()
+            {
+                return 43;
             }'''],
             export_symbols = ['get']
         )
@@ -87,6 +91,7 @@ class TestEci:
         except ImportError:
             py.test.skip("Need ctypes for that test")
         assert ctypes.CDLL(neweci.libraries[0]).get() == 42
+        assert not hasattr(ctypes.CDLL(neweci.libraries[0]), 'shouldnt_export')
         assert not neweci.separate_module_sources
         assert not neweci.separate_module_files
 

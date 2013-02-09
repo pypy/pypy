@@ -140,8 +140,8 @@ if osname == 'posix':
 
         Open a pipe to/from a command returning a file object."""
 
-        from popen2 import MAXFD
-        import os, gc
+        import os
+        import gc
 
         def try_close(fd):
             try:
@@ -165,7 +165,6 @@ if osname == 'posix':
                         else:
                             os.dup2(read_end, 0)
                             os.close(write_end)
-                        os.closerange(3, MAXFD)
                         cmd = ['/bin/sh', '-c', command]
                         os.execvp(cmd[0], cmd)
                     finally:

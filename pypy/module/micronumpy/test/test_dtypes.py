@@ -494,7 +494,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_complex_format(self):
         import _numpypy as numpy
-        
+
         for complex_ in (numpy.complex128, numpy.complex64,):
             for real, imag, should in [
                 (1, 2, '(1+2j)'),
@@ -505,13 +505,13 @@ class AppTestTypes(BaseNumpyAppTest):
                 #xxx
                 #(numpy.inf, numpy.inf, '(inf+inf*j)'),
                 ]:
-            
+
                 c = complex_(complex(real, imag))
                 assert c == complex(real, imag)
                 assert c.real == real
                 assert c.imag == imag
                 assert repr(c) == should
-            
+
         real, imag, should = (1e100, 3e66, '(1e+100+3e+66j)')
         c128 = numpy.complex128(complex(real, imag))
         assert type(c128.real) is type(c128.imag) is numpy.float64
@@ -547,8 +547,6 @@ class AppTestTypes(BaseNumpyAppTest):
         assert d.kind == 'c'
         assert d.num == 14
         assert d.char == 'F'
-        
-
 
     def test_subclass_type(self):
         import _numpypy as numpy
@@ -579,6 +577,9 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_various_types(self):
         import _numpypy as numpy
+
+        assert numpy.bool is bool
+        assert numpy.int is int
 
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
@@ -721,9 +722,10 @@ class AppTestNotDirect(BaseNumpyAppTest):
             else:
                 assert stor2[1] == '\x01'
                 assert stor2[0] == '\x00'
-        cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
         if option.runappdirect:
-            py.test.skip("not a direct test")
+            cls.w_check_non_native = lambda *args : None
+        else:
+            cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
 
     def test_non_native(self):
         from _numpypy import array
@@ -731,6 +733,21 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'f8')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'f4')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'f2')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'g') # longdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
 
 class AppTestPyPyOnly(BaseNumpyAppTest):
     def setup_class(cls):

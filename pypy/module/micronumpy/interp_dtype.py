@@ -5,10 +5,11 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, interp_attrproperty_w)
-from pypy.module.micronumpy import types, interp_boxes
+from pypy.module.micronumpy import types, interp_boxes, base
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib import jit
 
 
 UNSIGNEDLTR = "u"
@@ -28,6 +29,21 @@ def decode_w_dtype(space, w_dtype):
     return space.interp_w(W_Dtype,
           space.call_function(space.gettypefor(W_Dtype), w_dtype))
 
+@jit.unroll_safe
+def dtype_agreement(space, w_arr_list, shape, out=None):
+    """ agree on dtype from a list of arrays. if out is allocated,
+    use it's dtype, otherwise allocate a new one with agreed dtype
+    """
+    from pypy.module.micronumpy.interp_ufuncs import find_binop_result_dtype
+
+    if not space.is_none(out):
+        return out
+    dtype = w_arr_list[0].get_dtype()
+    for w_arr in w_arr_list[1:]:
+        dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    out = base.W_NDimArray.from_shape(shape, dtype)
+    return out
+
 class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
@@ -45,6 +61,7 @@ class W_Dtype(Wrappable):
         self.fields = fields
         self.fieldnames = fieldnames
         self.native = native
+        self.float_type = None
 
     @specialize.argtype(1)
     def box(self, value):
@@ -138,6 +155,9 @@ class W_Dtype(Wrappable):
     def is_complex_type(self):
         return False
 
+    def is_float_type(self):
+        return (self.kind == FLOATINGLTR or self.float_type is not None)
+
     def is_bool_type(self):
         return self.kind == BOOLLTR
 
@@ -156,7 +176,6 @@ class W_Dtype(Wrappable):
         return self.itemtype.get_element_size()
 
 class W_ComplexDtype(W_Dtype):
-
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
                  fields=None, fieldnames=None, native=True, float_type=None):
@@ -257,7 +276,7 @@ def descr__new__(space, w_subtype, w_dtype):
                 return dtype
             if w_dtype is dtype.w_box_type:
                 return dtype
-    raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
+    raise OperationError(space.w_TypeError, space.wrap("data type %s not understood"))
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",
@@ -382,6 +401,7 @@ class DtypeCache(object):
             char="l",
             w_box_type=space.gettypefor(interp_boxes.W_LongBox),
             alternate_constructors=[space.w_int],
+            aliases=['int'],
         )
         self.w_ulongdtype = W_Dtype(
             types.ULong(),
@@ -596,6 +616,16 @@ class DtypeCache(object):
                 itemtype,
                 dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
                 native=False)
+            if dtype.kind != dtype.char:
+                can_name = dtype.char
+                self.dtypes_by_name[byteorder_prefix + can_name] = dtype
+                self.dtypes_by_name['=' + can_name] = dtype
+                new_name = nonnative_byteorder_prefix + can_name
+                self.dtypes_by_name[new_name] = W_Dtype(
+                    itemtype,
+                    dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
+                    native=False)
+
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
             self.dtypes_by_name[dtype.char] = dtype
