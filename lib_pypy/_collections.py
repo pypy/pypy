@@ -157,9 +157,9 @@ class deque(object):
 
     def rotate(self, n=1):
         length = len(self)
-        if length == 0:
+        if length <= 1:
             return
-        halflen = (length+1) >> 1
+        halflen = length >> 1
         if n > halflen or n < -halflen:
             n %= length
             if n > halflen:
