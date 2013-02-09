@@ -1595,6 +1595,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[a<0] = -a[a<0]
         assert (a == [1, 1]).all()
 
+    def test_int_list_index(slf):
+        from numpypy import array, arange
+        assert (array([10,11,12,13])[[1,2]] == [11, 12]).all()
+        assert (arange(6).reshape((2,3))[[0,1]] == [[0, 1, 2], [3, 4, 5]]).all()
+        assert arange(6).reshape((2,3))[(0,1)] == 1
+
     def test_int_array_index(self):
         from numpypy import array, arange, zeros
         b = arange(10)[array([3, 2, 1, 5])]
