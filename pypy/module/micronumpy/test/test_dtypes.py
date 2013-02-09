@@ -484,7 +484,6 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64(2.0) == 2.0
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
-        assert "{:g}".format(numpy.complex_(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
     def test_longfloat(self):
         import _numpypy as numpy
@@ -541,7 +540,14 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
         assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
-        raises (TypeError, numpy.array, [3+4j], dtype=float)
+        try:
+            numpy.array([3+4j], dtype=float)
+        except (ValueError, TypeError):
+            pass
+        else:
+            assert False, 'should have raised'
+        if sys.version_info >= (2, 7):
+            assert "{:g}".format(numpy.complex_(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
     def test_complex(self):
         import _numpypy as numpy
