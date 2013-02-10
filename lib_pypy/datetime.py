@@ -277,7 +277,7 @@ def _check_int_field(value):
         except AttributeError:
             pass
         else:
-            if isinstance(value, int):
+            if isinstance(value, (int, long)):
                 return value
     raise TypeError('integer argument expected')
 

@@ -41,35 +41,36 @@ def test_default_args():
 
 def test_check_arg_types():
     import decimal
+    class Number:
+        def __init__(self, value):
+            self.value = value
+        def __int__(self):
+            return self.value
     i10 = 10
     l10 = 10L
     d10 = decimal.Decimal(10)
     d11 = decimal.Decimal(10.9)
-    class C10:
-        def __int__(self):
-            return 10
-    c10 = C10()
+    c10 = Number(10)
+    o10 = Number(10L)
     assert datetime.datetime(i10, i10, i10, i10, i10, i10, i10) == \
            datetime.datetime(l10, l10, l10, l10, l10, l10, l10) == \
            datetime.datetime(d10, d10, d10, d10, d10, d10, d10) == \
            datetime.datetime(d11, d11, d11, d11, d11, d11, d11) == \
-           datetime.datetime(c10, c10, c10, c10, c10, c10, c10)
+           datetime.datetime(c10, c10, c10, c10, c10, c10, c10) == \
+           datetime.datetime(o10, o10, o10, o10, o10, o10, o10)
 
     with py.test.raises(TypeError):
-        datetime.datetime(10, '10', 10)
+        datetime.datetime(10, 10, '10')
 
-    class S10(float):
+    f10 = Number(10.9)
+    with py.test.raises(TypeError):
+        datetime.datetime(10, 10, f10)
+
+    class Float(float):
         pass
-    s10 = S10(10.9)
+    s10 = Float(10.9)
     with py.test.raises(TypeError):
-        datetime.datetime(10, s10, 10)
-
-    class F10:
-        def __int__(self):
-            return 10.9
-    f10 = F10()
-    with py.test.raises(TypeError):
-        datetime.datetime(10, f10, 10)
+        datetime.datetime(10, 10, s10)
 
     with py.test.raises(TypeError):
         datetime.datetime(10., 10, 10)
