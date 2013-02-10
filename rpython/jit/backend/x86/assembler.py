@@ -205,12 +205,17 @@ class Assembler386(object):
         mc.MOV_rs(ecx.value, WORD)
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_br(gcmap_ofs, ecx.value)
-        # this is size that we're after, sanity checking only
-        mc.MOV_rs(esi.value, WORD*2)
-        # push first arg
-        mc.MOV_rr(edi.value, ebp.value)
+        if IS_X86_64:
+            # this is size that we're after, sanity checking only
+            mc.MOV_rs(esi.value, WORD*2)
+            # push first arg
+            mc.MOV_rr(edi.value, ebp.value)
+            align = align_stack_words(1)
+        else:
+            mc.PUSH(RawStackLoc(WORD * 2))
+            mc.PUSH_r(ebp.value)
+            align = align_stack_words(3)
         # align
-        align = align_stack_words(1)
         mc.SUB_ri(esp.value, (align - 1) * WORD)
 
         mc.CALL(imm(self.cpu.realloc_frame))
@@ -677,7 +682,6 @@ class Assembler386(object):
         else:
             mc.CMP_bi(ofs, expected_size)
         stack_check_cmp_ofs = mc.get_relative_pos() - 4
-        assert not IS_X86_32
         mc.J_il8(rx86.Conditions['GE'], 0)
         jg_location = mc.get_relative_pos()
         if expected_size == -1:
