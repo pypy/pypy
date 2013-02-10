@@ -124,6 +124,7 @@ class TestParseCommandLine:
                    no_site=1, optimize=1, division_new=1)
         self.check(['-i'], {}, sys_argv=[''], run_stdin=True,
                    interactive=1, inspect=1)
+        self.check(['-?'], {}, output_contains='usage:')
         self.check(['-h'], {}, output_contains='usage:')
         self.check(['-S', '-tO', '-h'], {}, output_contains='usage:')
         self.check(['-S', '-thO'], {}, output_contains='usage:')
@@ -160,9 +161,11 @@ class TestParseCommandLine:
         self.check(['-W', 'ab', '-SWc'], {}, sys_argv=[''], warnoptions=['ab', 'c'],
                    run_stdin=True, no_site=1)
 
-        self.check([], {'PYTHONUNBUFFERED': '1'}, sys_argv=[''], run_stdin=True, unbuffered=1)
-        self.check([], {'PYTHONNOUSERSITE': '1'}, sys_argv=[''], run_stdin=True, no_user_site=1)
+        self.check([], {'PYTHONDEBUG': '1'}, sys_argv=[''], run_stdin=True, debug=1)
         self.check([], {'PYTHONDONTWRITEBYTECODE': '1'}, sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
+        self.check([], {'PYTHONNOUSERSITE': '1'}, sys_argv=[''], run_stdin=True, no_user_site=1)
+        self.check([], {'PYTHONUNBUFFERED': '1'}, sys_argv=[''], run_stdin=True, unbuffered=1)
+        self.check([], {'PYTHONVERBOSE': '1'}, sys_argv=[''], run_stdin=True, verbose=1)
 
     def test_sysflags(self):
         flags = (

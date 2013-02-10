@@ -355,6 +355,7 @@ cmdline_options = {
     '3': (simple_option, 'py3k_warning'),
     # more complex options
     'c':         (c_option,        Ellipsis),
+    '?':         (print_help,      None),
     'h':         (print_help,      None),
     '--help':    (print_help,      None),
     'm':         (m_option,        Ellipsis),
@@ -426,12 +427,16 @@ def parse_command_line(argv):
     sys.argv[:] = argv
 
     if not options["ignore_environment"]:
-        if os.getenv('PYTHONUNBUFFERED'):
-            options["unbuffered"] = 1
-        if os.getenv('PYTHONNOUSERSITE'):
-            options["no_user_site"] = 1
+        if os.getenv('PYTHONDEBUG'):
+            options["debug"] = 1
         if os.getenv('PYTHONDONTWRITEBYTECODE'):
             options["dont_write_bytecode"] = 1
+        if os.getenv('PYTHONNOUSERSITE'):
+            options["no_user_site"] = 1
+        if os.getenv('PYTHONUNBUFFERED'):
+            options["unbuffered"] = 1
+        if os.getenv('PYTHONVERBOSE'):
+            options["verbose"] = 1
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
