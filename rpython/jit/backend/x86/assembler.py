@@ -1124,9 +1124,23 @@ class Assembler386(object):
         if IS_X86_64:
             return self._emit_call_64(x, arglocs, start, argtypes,
                                       can_collect=can_collect)
-        XXX
-        p = 0
+        stack_depth = 0
         n = len(arglocs)
+        for i in range(start, n):
+            loc = arglocs[i]
+            if isinstance(loc, RegLoc):
+                if loc.is_xmm:
+                    stack_depth += 2
+                else:
+                    stack_depth += 1
+            stack_depth += loc.get_width()
+        if stack_depth > PASS_ON_MY_FRAME:
+            stack_depth = align_stack_words(stack_depth)
+            align = (stack_depth - PASS_ON_MY_FRAME)
+            self.mc.SUB_ri(esp.value, align * WORD)
+        else:
+            align = 0
+        p = 0
         for i in range(start, n):
             loc = arglocs[i]
             if isinstance(loc, RegLoc):
@@ -1147,15 +1161,24 @@ class Assembler386(object):
                     self.mc.MOV_sr(p, tmp.value)
             p += loc.get_width()
         # x is a location
+        if can_collect:
+            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            gcmap = self._regalloc.get_gcmap([eax], noregs=noregs)
+            self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(x)
+        if can_collect:
+            self._reload_frame_if_necessary(self.mc)
+        if align:
+            self.mc.ADD_ri(esp.value, align * WORD)
+        if can_collect:
+            self.pop_gcmap(self.mc)
         #
         if callconv != FFI_DEFAULT_ABI:
             self._fix_stdcall(callconv, p)
-        #
-        self._regalloc.needed_extra_stack_locations(p//WORD)
 
     def _fix_stdcall(self, callconv, p):
         from rpython.rlib.clibffi import FFI_STDCALL
+        xxx
         assert callconv == FFI_STDCALL
         # it's a bit stupid, but we're just going to cancel the fact that
         # the called function just added 'p' to ESP, by subtracting it again.
