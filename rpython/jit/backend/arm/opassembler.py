@@ -32,6 +32,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype, llmemory
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 
 NO_FORCE_INDEX = -1
 
@@ -339,7 +340,6 @@ class ResOpAssembler(object):
         target_nbargs = target_token._arm_clt._debug_nbargs
         assert my_nbargs == target_nbargs
 
-        self._insert_checks()
         if target_token in self.target_tokens_currently_compiling:
             self.mc.B_offs(target, fcond)
         else:
@@ -365,27 +365,24 @@ class ResOpAssembler(object):
         self.gen_func_epilog()
         return fcond
 
-    def emit_op_call(self, op, arglocs, regalloc, fcond,
-                                        force_index=NO_FORCE_INDEX):
-        if force_index == NO_FORCE_INDEX:
-            force_index = self.write_new_force_index()
+    def emit_op_call(self, op, arglocs, regalloc, fcond):
         resloc = arglocs[0]
         adr = arglocs[1]
         arglist = arglocs[2:]
         descr = op.getdescr()
         size = descr.get_result_size()
         signed = descr.is_result_signed()
-        cond = self._emit_call(force_index, adr, arglist,
+        cond = self._emit_call(adr, arglist,
                                             fcond, resloc, (size, signed))
         return cond
 
-    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL,
+    def _emit_call(self, adr, arglocs, fcond=c.AL,
                                          resloc=None, result_info=(-1, -1)):
         if self.cpu.use_hf_abi:
-            stack_args, adr = self._setup_call_hf(force_index, adr,
+            stack_args, adr = self._setup_call_hf(adr,
                                         arglocs, fcond, resloc, result_info)
         else:
-            stack_args, adr = self._setup_call_sf(force_index, adr,
+            stack_args, adr = self._setup_call_sf(adr,
                                         arglocs, fcond, resloc, result_info)
 
         #the actual call
@@ -399,7 +396,6 @@ class ResOpAssembler(object):
             assert adr.is_reg()
         if adr.is_reg():
             self.mc.BLX(adr.value)
-        self.mark_gc_roots(force_index)
         self._restore_sp(stack_args, fcond)
 
         # ensure the result is wellformed and stored in the correct location
@@ -454,7 +450,7 @@ class ResOpAssembler(object):
                 else:
                     self.regalloc_push(arg)
 
-    def _setup_call_sf(self, force_index, adr, arglocs, fcond=c.AL,
+    def _setup_call_sf(self, adr, arglocs, fcond=c.AL,
                                          resloc=None, result_info=(-1, -1)):
         reg_args = count_reg_args(arglocs)
         stack_args = self._collect_stack_args_sf(arglocs)
@@ -499,7 +495,7 @@ class ResOpAssembler(object):
             self.mov_from_vfp_loc(loc, reg, r.all_regs[reg.value + 1])
         return stack_args, adr
 
-    def _setup_call_hf(self, force_index, adr, arglocs, fcond=c.AL,
+    def _setup_call_hf(self, adr, arglocs, fcond=c.AL,
                                          resloc=None, result_info=(-1, -1)):
         non_float_locs = []
         non_float_regs = []
@@ -1053,7 +1049,7 @@ class ResOpAssembler(object):
             length_loc = bytes_loc
         # call memcpy()
         regalloc.before_call()
-        self._emit_call(NO_FORCE_INDEX, imm(self.memcpy_addr),
+        self._emit_call(imm(self.memcpy_addr),
                             [dstaddr_loc, srcaddr_loc, length_loc])
 
         regalloc.possibly_free_var(length_box)
@@ -1126,6 +1122,7 @@ class ResOpAssembler(object):
         return fcond
 
     def emit_op_force_token(self, op, arglocs, regalloc, fcond):
+        # XXX kill me
         res_loc = arglocs[0]
         self.mc.MOV_rr(res_loc.value, r.fp.value)
         return fcond
@@ -1138,14 +1135,12 @@ class ResOpAssembler(object):
         resloc = arglocs[2]
         callargs = arglocs[3:]
 
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index)
+        self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         # check value
         assert tmploc is r.r0
-        self._emit_call(fail_index, imm(descr._arm_func_addr),
+        self._emit_call(imm(descr._arm_func_addr),
                                 callargs, fcond, resloc=tmploc)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
@@ -1288,9 +1283,7 @@ class ResOpAssembler(object):
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index)
+        self._store_force_index(guard_op)
         numargs = op.numargs()
         callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
         adr = arglocs[1]
@@ -1300,12 +1293,13 @@ class ResOpAssembler(object):
         size = descr.get_result_size()
         signed = descr.is_result_signed()
         #
-        self._emit_call(fail_index, adr, callargs, fcond,
+        self._emit_call(adr, callargs, fcond,
                                     resloc, (size, signed))
 
-        self.mc.LDR_ri(r.ip.value, r.fp.value)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         self.mc.CMP_ri(r.ip.value, 0)
-        self._emit_guard(guard_op, arglocs[1 + numargs:], c.GE,
+        self._emit_guard(guard_op, arglocs[1 + numargs:], c.EQ,
                                    save_exc=True, is_guard_not_forced=True)
         return fcond
 
@@ -1322,15 +1316,13 @@ class ResOpAssembler(object):
         if gcrootmap:
             self.call_release_gil(gcrootmap, arglocs, fcond)
         # do the call
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index)
+        self._store_force_index(guard_op)
         #
         descr = op.getdescr()
         size = descr.get_result_size()
         signed = descr.is_result_signed()
         #
-        self._emit_call(fail_index, adr, callargs, fcond,
+        self._emit_call(adr, callargs, fcond,
                                     resloc, (size, signed))
         # then reopen the stack
         if gcrootmap:
@@ -1352,8 +1344,7 @@ class ResOpAssembler(object):
                 regs_to_save.append(reg)
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save):
-            self._emit_call(NO_FORCE_INDEX,
-                                imm(self.releasegil_addr), [], fcond)
+            self._emit_call(imm(self.releasegil_addr), [], fcond)
 
     def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
         # save the previous result into the stack temporarily.
@@ -1370,25 +1361,14 @@ class ResOpAssembler(object):
             regs_to_save.append(r.ip)  # for alingment
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
-            self._emit_call(NO_FORCE_INDEX, imm(self.reacqgil_addr), [], fcond)
+            self._emit_call(imm(self.reacqgil_addr), [], fcond)
 
-    def write_new_force_index(self):
-        # for shadowstack only: get a new, unused force_index number and
-        # write it to FORCE_INDEX_OFS.  Used to record the call shape
-        # (i.e. where the GC pointers are in the stack) around a CALL
-        # instruction that doesn't already have a force_index.
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            clt = self.current_clt
-            force_index = clt.reserve_and_record_some_faildescr_index()
-            self._write_fail_index(force_index)
-            return force_index
-        else:
-            return 0
-
-    def _write_fail_index(self, fail_index):
-        self.mc.gen_load_int(r.ip.value, fail_index)
-        self.mc.STR_ri(r.ip.value, r.fp.value)
+    def _store_force_index(self, guard_op):
+        faildescr = guard_op.getdescr()
+        ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
+        value = rffi.cast(lltype.Signed, cast_instance_to_gcref(faildescr))
+        self.mc.gen_load_int(r.ip.value, value)
+        self.store_reg(self.mc, r.ip, r.fp, ofs)
 
     def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
         self.emit_op_call(op, arglocs, regalloc, fcond)

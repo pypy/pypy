@@ -178,6 +178,11 @@ class AbstractLLCPU(AbstractCPU):
                 self.gc_ll_descr.freeing_block(rawstart, rawstop)
                 self.asmmemmgr.free(rawstart, rawstop)
 
+    def force(self, addr_of_force_token):
+        frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)
+        frame.jf_descr = frame.jf_force_descr
+        return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
+
     # ------------------- helpers and descriptions --------------------
 
     @staticmethod

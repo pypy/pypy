@@ -1070,6 +1070,7 @@ class Regalloc(object):
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
     def prepare_op_force_token(self, op, fcond):
+        # XXX for now we return a regular reg
         res_loc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [res_loc]
@@ -1109,9 +1110,9 @@ class Regalloc(object):
         # end of the same loop, i.e. if what we are compiling is a single
         # loop that ends up jumping to this LABEL, then we can now provide
         # the hints about the expected position of the spilled variables.
-        jump_op = self.final_jump_op
-        if jump_op is not None and jump_op.getdescr() is descr:
-            self._compute_hint_frame_locations_from_descr(descr)
+        #jump_op = self.final_jump_op
+        #if jump_op is not None and jump_op.getdescr() is descr:
+        #    self._compute_hint_frame_locations_from_descr(descr)
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         args = self._prepare_call(op, save_all_regs=True)

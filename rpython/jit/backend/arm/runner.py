@@ -117,33 +117,6 @@ class AbstractARMCPU(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
-    all_null_registers = lltype.malloc(rffi.LONGP.TO,
-                        len(all_vfp_regs) * 2 + len(all_regs),
-                        flavor='raw', zero=True, immortal=True)
-
-    def force(self, addr_of_force_index):
-        TP = rffi.CArrayPtr(lltype.Signed)
-        fail_index = rffi.cast(TP, addr_of_force_index)[0]
-        assert fail_index >= 0, "already forced!"
-        faildescr = self.get_fail_descr_from_number(fail_index)
-        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
-        frb = self.assembler._find_failure_recovery_bytecode(faildescr)
-        bytecode = rffi.cast(rffi.UCHARP, frb)
-        addr_all_null_regsiters = rffi.cast(rffi.LONG, self.all_null_registers)
-        #
-        assert (rffi.cast(lltype.Signed, bytecode[0]) ==
-                self.assembler.CODE_FORCED)
-        bytecode = rffi.ptradd(bytecode, 1)
-        deadframe = self.assembler.grab_frame_values(self,
-                        bytecode, addr_of_force_index,
-                        self.all_null_registers,
-                        self.all_null_registers)
-        #
-        assert self.get_latest_descr(deadframe) is faildescr
-        self.assembler.force_token_to_dead_frame[addr_of_force_index] = (
-            deadframe)
-        return deadframe
-
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 

@@ -17,6 +17,4 @@ FORCE_INDEX_OFS = 0
 # A jitframe is a jit.backend.llsupport.llmodel.JITFRAME = GcArray(Signed).
 # Stack frame fixed area
 # Currently only the force_index
-FRAME_FIXED_SIZE = 1
 JITFRAME_FIXED_SIZE = 16 + 16 * 2 # 16 GPR + 16 VFP Regs (64bit)
-
