@@ -33,7 +33,7 @@ if WORD == 4:
     # ebp + ebx + esi + edi + 6 extra words + return address = 9 words
     FRAME_FIXED_SIZE = 11
     PASS_ON_MY_FRAME = 6
-    JITFRAME_FIXED_SIZE = 6 + 8 # 6 GPR + 8 XMM
+    JITFRAME_FIXED_SIZE = 6 + 8 * 2 # 6 GPR + 8 XMM * 2 WORDS/float
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + 12 extra words + return address = 19
     FRAME_FIXED_SIZE = 19

@@ -1958,7 +1958,10 @@ class Assembler386(object):
             elif pos < GPR_REGS * WORD:
                 locs.append(gpr_reg_mgr_cls.all_regs[pos // WORD])
             elif pos < (GPR_REGS + XMM_REGS) * WORD:
-                pos = pos // WORD - GPR_REGS
+                if IS_X86_64:
+                    pos = pos // WORD - GPR_REGS
+                else:
+                    pos = (pos // WORD - GPR_REGS) // 2
                 locs.append(xmm_reg_mgr_cls.all_regs[pos])
             else:
                 i = pos // WORD - JITFRAME_FIXED_SIZE
@@ -1983,10 +1986,14 @@ class Assembler386(object):
             if gpr not in ignored_regs:
                 mc.MOV_br(i * WORD + base_ofs, gpr.value)
         if withfloats:
+            if IS_X86_64:
+                coeff = 1
+            else:
+                coeff = 2
             # Push all XMM regs
             ofs = len(gpr_reg_mgr_cls.all_regs)
             for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_bx((ofs + i) * WORD + base_ofs, i)
+                mc.MOVSD_bx((ofs + i) * coeff * WORD + base_ofs, i)
 
     def _pop_all_regs_from_frame(self, mc, ignored_regs, withfloats,
                                  callee_only=False):
@@ -2001,9 +2008,13 @@ class Assembler386(object):
                 mc.MOV_rb(gpr.value, i * WORD + base_ofs)
         if withfloats:
             # Pop all XMM regs
+            if IS_X86_64:
+                coeff = 1
+            else:
+                coeff = 2
             ofs = len(gpr_reg_mgr_cls.all_regs)
             for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_xb(i, (ofs + i) * WORD + base_ofs)
+                mc.MOVSD_xb(i, (ofs + i) * WORD * coeff + base_ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = codebuf.MachineCodeBlockWrapper()
