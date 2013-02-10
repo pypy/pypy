@@ -45,10 +45,31 @@ def test_check_arg_types():
     l10 = 10L
     d10 = decimal.Decimal(10)
     d11 = decimal.Decimal(10.9)
+    class C10:
+        def __int__(self):
+            return 10
+    c10 = C10()
     assert datetime.datetime(i10, i10, i10, i10, i10, i10, i10) == \
            datetime.datetime(l10, l10, l10, l10, l10, l10, l10) == \
            datetime.datetime(d10, d10, d10, d10, d10, d10, d10) == \
-           datetime.datetime(d11, d11, d11, d11, d11, d11, d11)
+           datetime.datetime(d11, d11, d11, d11, d11, d11, d11) == \
+           datetime.datetime(c10, c10, c10, c10, c10, c10, c10)
+
+    with py.test.raises(TypeError):
+        datetime.datetime(10, '10', 10)
+
+    class S10(float):
+        pass
+    s10 = S10(10.9)
+    with py.test.raises(TypeError):
+        datetime.datetime(10, s10, 10)
+
+    class F10:
+        def __int__(self):
+            return 10.9
+    f10 = F10()
+    with py.test.raises(TypeError):
+        datetime.datetime(10, f10, 10)
 
     with py.test.raises(TypeError):
         datetime.datetime(10., 10, 10)

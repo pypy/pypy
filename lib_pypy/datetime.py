@@ -18,7 +18,6 @@ Thanks to Tim Peters for suggesting using it.
 
 import time as _time
 import math as _math
-import decimal as _decimal
 
 MINYEAR = 1
 MAXYEAR = 9999
@@ -272,9 +271,15 @@ def _check_utc_offset(name, offset):
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
 def _check_int_field(value):
-    if not isinstance(value, (int, long, _decimal.Decimal)):
-        raise TypeError('integer argument expected')
-    return int(value)
+    if not isinstance(value, float):
+        try:
+            value = value.__int__()
+        except AttributeError:
+            pass
+        else:
+            if isinstance(value, int):
+                return value
+    raise TypeError('integer argument expected')
 
 def _check_date_fields(year, month, day):
     year = _check_int_field(year)
