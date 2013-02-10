@@ -27,7 +27,6 @@ def test_find_stdlib_follow_symlink(tmpdir):
     path, prefix = find_stdlib(None, str(pypy_sym))
     assert prefix == pypydir
 
-
 def test_compute_stdlib_path(tmpdir):
     dirs = build_hierarchy(tmpdir)
     path = compute_stdlib_path(None, str(tmpdir))
@@ -39,7 +38,6 @@ def test_include_libtk(tmpdir):
     lib_tk = lib_python.join('lib-tk')
     path = compute_stdlib_path(None, str(tmpdir))
     assert lib_tk in path
-
 
 def test_find_executable(tmpdir, monkeypatch):
     from pypy.module.sys import initpath

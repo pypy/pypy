@@ -907,8 +907,8 @@ class AppTestAppMain:
         try:
             import app_main
             app_main.setup_bootstrap_path('/tmp/pypy-c') # stdlib not found
-            assert sys.path[:-1] == old_sys_path
             assert sys.executable == ''
+            assert sys.path[:-1] == old_sys_path
 
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
