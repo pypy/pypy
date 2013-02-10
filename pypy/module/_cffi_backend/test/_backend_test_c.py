@@ -12,6 +12,7 @@ if sys.version_info < (3,):
             return eval('u'+repr(other).replace(r'\\u', r'\u')
                                        .replace(r'\\U', r'\U'))
     u = U()
+    str2bytes = str
 else:
     type_or_class = "class"
     long = int
@@ -22,6 +23,7 @@ else:
     bytechr = lambda n: bytes([n])
     bitem2bchr = bytechr
     u = ""
+    str2bytes = lambda s: bytes(s, "ascii")
 
 def size_of_int():
     BInt = new_primitive_type("int")
@@ -996,6 +998,8 @@ def test_call_function_23():
     f = cast(BFunc23, _testfunc(23))
     res = f(b"foo")
     assert res == 1000 * ord(b'f')
+    res = f(None)
+    assert res == -42
 
 def test_call_function_23_bis():
     # declaring the function as int(unsigned char*)
@@ -1438,10 +1442,16 @@ def test_weakref():
     import _weakref
     BInt = new_primitive_type("int")
     BPtr = new_pointer_type(BInt)
-    _weakref.ref(BInt)
-    _weakref.ref(newp(BPtr, 42))
-    _weakref.ref(cast(BPtr, 42))
-    _weakref.ref(cast(BInt, 42))
+    rlist = [_weakref.ref(BInt),
+             _weakref.ref(newp(BPtr, 42)),
+             _weakref.ref(cast(BPtr, 42)),
+             _weakref.ref(cast(BInt, 42)),
+             _weakref.ref(buffer(newp(BPtr, 42))),
+             ]
+    for i in range(5):
+        import gc; gc.collect()
+        if [r() for r in rlist] == [None for r in rlist]:
+            break
 
 def test_no_inheritance():
     BInt = new_primitive_type("int")
@@ -2544,3 +2554,15 @@ def test_cannot_convert_unicode_to_charp():
     BCharP = new_pointer_type(new_primitive_type("char"))
     BCharArray = new_array_type(BCharP, None)
     py.test.raises(TypeError, newp, BCharArray, u+'foobar')
+
+def test_buffer_keepalive():
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BCharArray = new_array_type(BCharP, None)
+    buflist = []
+    for i in range(20):
+        c = newp(BCharArray, str2bytes("hi there %d" % i))
+        buflist.append(buffer(c))
+    import gc; gc.collect()
+    for i in range(20):
+        buf = buflist[i]
+        assert buf[:] == str2bytes("hi there %d\x00" % i)

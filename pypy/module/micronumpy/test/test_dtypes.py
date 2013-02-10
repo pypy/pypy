@@ -3,7 +3,19 @@ from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
 
-class AppTestDtypes(BaseNumpyAppTest):
+class BaseAppTestDtypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            import platform
+            bits, linkage = platform.architecture()
+            ptr_size = int(bits[:-3]) // 8
+        else:
+            from rpython.rtyper.lltypesystem import rffi
+            ptr_size = rffi.sizeof(rffi.CCHARP)
+        cls.w_ptr_size = cls.space.wrap(ptr_size)
+
+class AppTestDtypes(BaseAppTestDtypes):
     def test_dtype(self):
         from _numpypy import dtype
 
@@ -31,8 +43,12 @@ class AppTestDtypes(BaseNumpyAppTest):
         from _numpypy import dtype
 
         assert dtype(bool).num == 0
-        assert dtype('intp').num == 5
-        assert dtype('uintp').num == 6
+        if self.ptr_size == 4:
+            assert dtype('intp').num == 5
+            assert dtype('uintp').num == 6
+        else:
+            assert dtype('intp').num == 7
+            assert dtype('uintp').num == 8
         assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
@@ -241,18 +257,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert hash(tp(value)) == hash(value)
 
 
-class AppTestTypes(BaseNumpyAppTest):
-    def setup_class(cls):
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        if option.runappdirect:
-            import platform
-            bits, linkage = platform.architecture()
-            ptr_size = int(bits[:-3]) // 8
-        else:
-            from rpython.rtyper.lltypesystem import rffi
-            ptr_size = rffi.sizeof(rffi.CCHARP)
-        cls.w_ptr_size = cls.space.wrap(ptr_size)
-
+class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
         import _numpypy as numpy
         raises(TypeError, numpy.generic, 0)
@@ -266,6 +271,18 @@ class AppTestTypes(BaseNumpyAppTest):
         assert 'unsignedinteger' in str(exc.value)
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
+        # numpy allows abstract types in array creation
+        a = numpy.array([4,4], numpy.integer)
+        assert a.dtype is numpy.dtype('int64')
+        a = numpy.array([4,4], numpy.number)
+        assert a.dtype is numpy.dtype('float')
+        a = numpy.array([4,4], numpy.signedinteger)
+        assert a.dtype is numpy.dtype('int64')
+        a = numpy.array([4,4], numpy.unsignedinteger)
+        assert a.dtype is numpy.dtype('uint64')
+        # too ambitious for now
+        #a = numpy.array('xxxx', numpy.generic)
+        #assert a.dtype is numpy.dtype('|V4')
 
     def test_new(self):
         import _numpypy as np
@@ -493,8 +510,9 @@ class AppTestTypes(BaseNumpyAppTest):
             numpy.inexact, numpy.number, numpy.generic, object)
 
     def test_complex_format(self):
+        import sys
         import _numpypy as numpy
-        
+
         for complex_ in (numpy.complex128, numpy.complex64,):
             for real, imag, should in [
                 (1, 2, '(1+2j)'),
@@ -505,13 +523,13 @@ class AppTestTypes(BaseNumpyAppTest):
                 #xxx
                 #(numpy.inf, numpy.inf, '(inf+inf*j)'),
                 ]:
-            
+
                 c = complex_(complex(real, imag))
                 assert c == complex(real, imag)
                 assert c.real == real
                 assert c.imag == imag
                 assert repr(c) == should
-            
+
         real, imag, should = (1e100, 3e66, '(1e+100+3e+66j)')
         c128 = numpy.complex128(complex(real, imag))
         assert type(c128.real) is type(c128.imag) is numpy.float64
@@ -528,7 +546,9 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
         assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
-        raises (TypeError, numpy.array, [3+4j], dtype=float)
+        raises((ValueError, TypeError), numpy.array, [3+4j], dtype=float)
+        if sys.version_info >= (2, 7):
+            assert "{:g}".format(numpy.complex_(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
     def test_complex(self):
         import _numpypy as numpy
@@ -547,8 +567,6 @@ class AppTestTypes(BaseNumpyAppTest):
         assert d.kind == 'c'
         assert d.num == 14
         assert d.char == 'F'
-        
-
 
     def test_subclass_type(self):
         import _numpypy as numpy
@@ -579,6 +597,9 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_various_types(self):
         import _numpypy as numpy
+
+        assert numpy.bool is bool
+        assert numpy.int is int
 
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte

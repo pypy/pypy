@@ -2108,8 +2108,11 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
-            assert self.get_procedure_token(greenkey) is None or \
-                   self.get_procedure_token(greenkey).target_tokens is None
+            ptoken = self.get_procedure_token(greenkey)
+            if ptoken is not None and ptoken.target_tokens is not None:
+                # XXX this path not tested, but shown to occur on pypy-c :-(
+                self.staticdata.log('cancelled: we already have a token now')
+                raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
         if self.partial_trace:
             target_token = compile.compile_retrace(self, greenkey, start,
                                                    original_boxes[num_green_args:],

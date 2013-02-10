@@ -57,3 +57,7 @@ class OSThreadLocals:
             thread_is_stopping(self.getvalue())
         finally:
             self.setvalue(None)
+
+    def reinit_threads(self, space):
+        "Called in the child process after a fork()"
+        self._mainthreadident = thread.get_ident()

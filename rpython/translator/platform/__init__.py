@@ -89,8 +89,11 @@ class Platform(object):
 
         # Set LD_LIBRARY_PATH on posix platforms
         if os.name == 'posix' and compilation_info is not None:
-            env['LD_LIBRARY_PATH'] = ':'.join(
-                [str(i) for i in compilation_info.library_dirs])
+            library_path = ':'.join([str(i) for i in compilation_info.library_dirs])
+            if sys.platform == 'darwin':
+                env['DYLD_LIBRARY_PATH'] = library_path
+            else:
+                env['LD_LIBRARY_PATH'] = library_path
 
         returncode, stdout, stderr = _run_subprocess(str(executable), args,
                                                      env)

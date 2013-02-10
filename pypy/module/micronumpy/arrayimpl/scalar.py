@@ -7,18 +7,19 @@ from pypy.interpreter.error import OperationError
 class ScalarIterator(base.BaseArrayIterator):
     def __init__(self, v):
         self.v = v
+        self.called_once = False
 
     def next(self):
-        pass
+        self.called_once = True
 
     def getitem(self):
-        return self.v
+        return self.v.get_scalar_value()
 
     def setitem(self, v):
-        raise Exception("Don't call setitem on scalar iterators")
+        self.v.set_scalar_value(v)
 
     def done(self):
-        raise Exception("should not call done on scalar")
+        return self.called_once
 
     def reset(self):
         pass
@@ -38,7 +39,7 @@ class Scalar(base.BaseArrayImplementation):
         return []
 
     def create_iter(self, shape=None):
-        return ScalarIterator(self.value)
+        return ScalarIterator(self)
 
     def get_scalar_value(self):
         return self.value
