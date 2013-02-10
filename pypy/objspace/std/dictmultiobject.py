@@ -109,6 +109,18 @@ class W_DictMultiObject(W_Object):
     def view_as_kwargs(self):
         return self.strategy.view_as_kwargs(self)
 
+    def convert_to_celldict_strategy(self, space):
+        from pypy.objspace.std.celldict import ModuleDictStrategy
+        
+        if isinstance(self.strategy, ModuleDictStrategy):
+            return
+        items_w = self.items()
+        self.strategy = ModuleDictStrategy(space)
+        self.dstorage = self.strategy.get_empty_storage()
+        for w_tup in items_w:
+            w_key, w_val = space.fixedview(w_tup, 2)
+            self.setitem(w_key, w_val)
+
 def _add_indirections():
     dict_methods = "setitem setitem_str getitem \
                     getitem_str delitem length \
