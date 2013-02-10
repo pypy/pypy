@@ -1912,8 +1912,12 @@ class Assembler386(object):
             else:
                 assert isinstance(loc, RegLoc)
                 assert loc is not ebp # for now
+                if IS_X86_64:
+                    coeff = 1
+                else:
+                    coeff = 2
                 if loc.is_xmm:
-                    v = len(gpr_reg_mgr_cls.all_regs) + loc.value
+                    v = len(gpr_reg_mgr_cls.all_regs) + loc.value * coeff
                 else:
                     v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 positions[i] = v * WORD
@@ -1993,7 +1997,7 @@ class Assembler386(object):
             # Push all XMM regs
             ofs = len(gpr_reg_mgr_cls.all_regs)
             for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_bx((ofs + i) * coeff * WORD + base_ofs, i)
+                mc.MOVSD_bx((ofs + i * coeff) * WORD + base_ofs, i)
 
     def _pop_all_regs_from_frame(self, mc, ignored_regs, withfloats,
                                  callee_only=False):
@@ -2014,7 +2018,7 @@ class Assembler386(object):
                 coeff = 2
             ofs = len(gpr_reg_mgr_cls.all_regs)
             for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_xb(i, (ofs + i) * WORD * coeff + base_ofs)
+                mc.MOVSD_xb(i, (ofs + i * coeff) * WORD + base_ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = codebuf.MachineCodeBlockWrapper()
