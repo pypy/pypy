@@ -906,10 +906,12 @@ class AppTestAppMain:
             import app_main
             app_main.setup_bootstrap_path('/tmp/pypy-c') # stdlib not found
             assert sys.executable == ''
-            assert sys.path[:len(old_sys_path)] == old_sys_path
+            assert sys.path == old_sys_path + [self.goal_dir]
 
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
+            assert self.goal_dir not in sys.path
+
             newpath = sys.path[:]
             if newpath[0].endswith('__extensions__'):
                 newpath = newpath[1:]
