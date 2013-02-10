@@ -70,6 +70,9 @@ class RawStackLoc(AssemblerLocation):
     def is_float(self):
         return self.type == FLOAT
 
+    def add_offset(self, ofs):
+        return RawStackLoc(self.value + ofs)
+
 class RawEspLoc(AssemblerLocation):
     """ Esp-based location
     """
