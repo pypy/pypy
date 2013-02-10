@@ -223,7 +223,6 @@ if 'nt' in sys.builtin_module_names:
 else:
     IS_WINDOWS = False
 
-
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os
     newpath = sys.path[:]
@@ -303,7 +302,6 @@ sys_flags = (
     "hash_randomization",
 )
 
-
 default_options = dict.fromkeys(
     sys_flags +
     ("run_command",
@@ -311,7 +309,6 @@ default_options = dict.fromkeys(
     "run_stdin",
     "warnoptions",
     "unbuffered"), 0)
-
 
 PYTHON26 = True
 
@@ -376,10 +373,9 @@ if PYTHON26:
         'R': (simple_option, 'hash_randomization'),
         })
 
-
 def handle_argument(c, options, iterargv, iterarg=iter(())):
     function, funcarg = cmdline_options[c]
-    #
+
     # If needed, fill in the real argument by taking it from the command line
     if funcarg is Ellipsis:
         remaining = list(iterarg)
@@ -392,15 +388,14 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
                 if len(c) == 1:
                     c = '-' + c
                 raise CommandLineError('Argument expected for the %r option' % c)
-    #
-    return function(options, funcarg, iterargv)
 
+    return function(options, funcarg, iterargv)
 
 def parse_command_line(argv):
     import os
     options = default_options.copy()
     options['warnoptions'] = []
-    #
+
     iterargv = iter(argv)
     argv = None
     for arg in iterargv:

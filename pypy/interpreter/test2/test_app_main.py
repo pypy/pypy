@@ -72,7 +72,6 @@ crashing_demo_script = getscript("""
 
 
 class TestParseCommandLine:
-
     def check_options(self, options, sys_argv, **expected):
         assert sys.argv == sys_argv
         for key, value in expected.items():
@@ -191,14 +190,13 @@ class TestParseCommandLine:
         monkeypatch.setenv('PYTHONNOUSERSITE', '1')
         expected = {"no_user_site": True}
         self.check(['-c', 'pass'], sys_argv=['-c'], run_command='pass', **expected)
-        
+
 
 class TestInteraction:
     """
     These tests require pexpect (UNIX-only).
     http://pexpect.sourceforge.net/
     """
-
     def setup_class(cls):
         # some tests need to be able to import test2, change the cwd
         goal_dir = os.path.abspath(os.path.join(os.path.realpath(os.path.dirname(__file__)), '..'))
@@ -567,8 +565,8 @@ class TestInteraction:
         child = self.spawn(argv)
         child.expect('False')
 
-class TestNonInteractive:
 
+class TestNonInteractive:
     def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
         cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
@@ -896,7 +894,7 @@ class AppTestAppMain:
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(pypydir))
-        #
+
         foo_py = prefix.join('foo.py').write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))
 
@@ -908,7 +906,7 @@ class AppTestAppMain:
             import app_main
             app_main.setup_bootstrap_path('/tmp/pypy-c') # stdlib not found
             assert sys.executable == ''
-            assert sys.path[:-1] == old_sys_path
+            assert sys.path[:len(old_sys_path)] == old_sys_path
 
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
