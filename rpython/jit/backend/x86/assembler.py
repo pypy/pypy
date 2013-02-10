@@ -1956,16 +1956,17 @@ class Assembler386(object):
         XMM_REGS = len(xmm_reg_mgr_cls.all_regs)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         input_i = 0
+        if IS_X86_64:
+            coeff = 1
+        else:
+            coeff = 2
         for pos in descr.rd_locs:
             if pos == -1:
                 continue
             elif pos < GPR_REGS * WORD:
                 locs.append(gpr_reg_mgr_cls.all_regs[pos // WORD])
-            elif pos < (GPR_REGS + XMM_REGS) * WORD:
-                if IS_X86_64:
-                    pos = pos // WORD - GPR_REGS
-                else:
-                    pos = (pos // WORD - GPR_REGS) // 2
+            elif pos < (GPR_REGS + XMM_REGS * coeff) * WORD:
+                pos = (pos // WORD - GPR_REGS) // coeff
                 locs.append(xmm_reg_mgr_cls.all_regs[pos])
             else:
                 i = pos // WORD - JITFRAME_FIXED_SIZE
