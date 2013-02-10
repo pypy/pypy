@@ -411,20 +411,23 @@ class Assembler386(object):
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            mc.MOV_rs(eax.value, WORD)
+            if IS_X86_32:
+                mc.MOV_rs(eax.value, 3*WORD)
+            else:
+                mc.MOV_rs(eax.value, WORD)
             mc.TEST8(addr_add_const(eax, descr.jit_wb_if_flag_byteofs),
                      imm(-0x80))
         #
 
         if not for_frame:
             if IS_X86_32:
-                xxx
+                # ADD touches CPU flags
+                mc.LEA_rs(esp.value, 2 * WORD)
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
             mc.RET16_i(WORD)
         else:
             if IS_X86_32:
-                # ADD touches CPU flags
-                mc.LEA_rs(esp.value, 2 * WORD)
+                XXX
             mc.MOV_rs(eax.value, 3 * WORD)
             mc.RET()
 
