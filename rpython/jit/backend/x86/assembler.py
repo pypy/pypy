@@ -803,7 +803,10 @@ class Assembler386(object):
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
-        self.mc.MOV_rr(ebp.value, edi.value)
+        if IS_X86_64:
+            self.mc.MOV_rr(ebp.value, edi.value)
+        else:
+            self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
 
         for i, loc in enumerate(self.cpu.CALLEE_SAVE_REGISTERS):
             self.mc.MOV_sr((PASS_ON_MY_FRAME + i + 1) * WORD, loc.value)
