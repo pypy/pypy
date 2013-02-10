@@ -287,9 +287,9 @@ class W_Deque(Wrappable):
     def rotate(self, n=1):
         "Rotate the deque n steps to the right (default n=1).  If n is negative, rotates left."
         len = self.len
-        if len == 0:
+        if len <= 1:
             return
-        halflen = (len+1) >> 1
+        halflen = len >> 1
         if n > halflen or n < -halflen:
             n %= len
             if n > halflen:
