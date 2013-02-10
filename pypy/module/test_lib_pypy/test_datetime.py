@@ -103,7 +103,7 @@ def test_check_arg_types():
     i10 = 10
     l10 = 10L
     d10 = decimal.Decimal(10)
-    d11 = decimal.Decimal(10.9)
+    d11 = decimal.Decimal('10.9')
     c10 = Number(10)
     o10 = Number(10L)
     assert datetime.datetime(i10, i10, i10, i10, i10, i10, i10) == \
