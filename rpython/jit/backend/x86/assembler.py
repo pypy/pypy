@@ -389,8 +389,10 @@ class Assembler386(object):
         if not for_frame:
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
             if IS_X86_32:
-                XXX
-                mc.MOV_rs(eax.value, WORD)
+                # we have 2 extra words on stack for retval and we pass 1 extra
+                # arg, so we need to substract 2 words
+                mc.SUB_ri(esp.value, 2 * WORD)
+                mc.MOV_rs(eax.value, 3 * WORD) # 2 + 1
                 mc.MOV_sr(0, eax.value)
             elif IS_X86_64:
                 mc.MOV_rs(edi.value, WORD)
@@ -398,6 +400,8 @@ class Assembler386(object):
             # we're possibly called from the slowpath of malloc, so we have
             # one extra CALL on the stack, but one less PUSH,
             # save to store stuff 2 locations away on the stack.
+            if IS_X86_32:
+                xxx
             mc.MOV_sr(3*WORD, eax.value)
             mc.MOV_rr(edi.value, ebp.value)
 
@@ -413,17 +417,17 @@ class Assembler386(object):
         #
 
         if not for_frame:
+            if IS_X86_32:
+                xxx
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
             mc.RET16_i(WORD)
         else:
+            if IS_X86_32:
+                # ADD touches CPU flags
+                mc.LEA_rs(esp.value, 2 * WORD)
             mc.MOV_rs(eax.value, 3 * WORD)
             mc.RET()
-        #
-        # ADD esp, correct_esp_by --- but cannot use ADD, because
-        # of its effects on the CPU flags
-        
-        #mc.LEA_rs(esp.value, WORD)
-        #
+
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if for_frame:
             self.wb_slowpath[4] = rawstart
