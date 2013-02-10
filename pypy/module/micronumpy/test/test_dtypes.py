@@ -277,13 +277,12 @@ class AppTestTypes(BaseAppTestDtypes):
         a_i = numpy.array([4,4], numpy.integer)
         a_s = numpy.array([4,4], numpy.signedinteger)
         a_u = numpy.array([4,4], numpy.unsignedinteger)
+        assert a_n.dtype is numpy.dtype('float64')
         if self.ptr_size == 4:
-            assert a_n.dtype is numpy.dtype('float32')
             assert a_i.dtype is numpy.dtype('int32')
             assert a_s.dtype is numpy.dtype('int32')
             assert a_u.dtype is numpy.dtype('uint32')
         else:
-            assert a_n.dtype is numpy.dtype('float64')
             assert a_i.dtype is numpy.dtype('int64')
             assert a_s.dtype is numpy.dtype('int64')
             assert a_u.dtype is numpy.dtype('uint64')
