@@ -843,7 +843,6 @@ class TestNonInteractive:
 
 
 class TestAppMain:
-    
     def test_print_info(self):
         from pypy.interpreter import app_main
         import sys, cStringIO
@@ -874,23 +873,25 @@ class TestAppMain:
 
 
 class AppTestAppMain:
-
     def setup_class(self):
         # ----------------------------------------
         # setup code for test_setup_bootstrap_path
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
         cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
-        
+
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
         # lib/pypy1.2/*
         prefix = udir.join('pathtest').ensure(dir=1)
-        fake_exe = prefix.join('bin/pypy-c').ensure(file=1)
+        fake_exe = 'bin/pypy-c'
+        if sys.platform == 'win32':
+            fake_exe += '.exe'
+        fake_exe = prefix.join(fake_exe).ensure(file=1)
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
                                         'lib-python/%s' % cpy_ver)]
-        
+
         self.w_goal_dir = self.space.wrap(goal_dir)
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
@@ -906,9 +907,9 @@ class AppTestAppMain:
         try:
             import app_main
             app_main.setup_bootstrap_path('/tmp/pypy-c') # stdlib not found
-            sys.path == old_sys_path
+            assert sys.path[:-1] == old_sys_path
             assert sys.executable == ''
-            #
+
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
             newpath = sys.path[:]
