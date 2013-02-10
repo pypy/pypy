@@ -477,8 +477,11 @@ class TestRegalloc(object):
         assert l.pop(1, 0).pos == 2
         assert l.pop(1, 0) is None
         l.append(2, Loc(1, 2, 0))
+        # this will not work because the result will be odd
+        assert l.pop(2, 13) is None
+        l.append(1, Loc(3, 1, 0))
         item = l.pop(2, 13)
-        assert item.pos == 1
+        assert item.pos == 2
         assert item.tp == 13
         assert item.size == 2
 
@@ -553,13 +556,14 @@ class TestRegalloc(object):
         #
         f0 = BoxFloat()
         locf0 = fm.loc(f0)
-        assert fm.get_loc_index(locf0) == 3
-        assert fm.get_frame_depth() == 5
+        # can't be odd
+        assert fm.get_loc_index(locf0) == 4
+        assert fm.get_frame_depth() == 6
         #
         f1 = BoxFloat()
         locf1 = fm.loc(f1)
-        assert fm.get_loc_index(locf1) == 5
-        assert fm.get_frame_depth() == 7
+        assert fm.get_loc_index(locf1) == 6
+        assert fm.get_frame_depth() == 8
         fm.mark_as_free(b1)
         assert fm.freelist
         b2 = BoxInt()
@@ -570,11 +574,11 @@ class TestRegalloc(object):
         p0 = BoxPtr()
         ploc = fm.loc(p0)
         assert fm.get_loc_index(ploc) == 0
-        assert fm.get_frame_depth() == 7
+        assert fm.get_frame_depth() == 8
         assert ploc != loc1
         p1 = BoxPtr()
         p1loc = fm.loc(p1)
-        assert fm.get_loc_index(p1loc) == 7
+        assert fm.get_loc_index(p1loc) == 3
         assert fm.get_frame_depth() == 8
         fm.mark_as_free(p0)
         p2 = BoxPtr()

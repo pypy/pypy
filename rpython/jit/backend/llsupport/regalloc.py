@@ -1,5 +1,5 @@
 import os
-from rpython.jit.metainterp.history import Const, Box, REF, INT
+from rpython.jit.metainterp.history import Const, Box, REF
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
 
@@ -77,7 +77,7 @@ class LinkedList(object):
         return self.fm.frame_pos(node.val, tp)
 
     def _candidate(self, node):
-        return node.val + 1 == node.next.val
+        return (node.val & 1 == 0) and (node.val + 1 == node.next.val)
         
     def _pop_two(self, tp):
         node = self.master_node
@@ -165,8 +165,15 @@ class FrameManager(object):
         if newloc is None:
             #
             index = self.get_frame_depth()
-            newloc = self.frame_pos(index, box.type)
-            self.current_frame_depth += size
+            if index & 1 and size == 2:
+                # we can't allocate it at odd position
+                self.freelist._append(index)
+                newloc = self.frame_pos(index + 1, box.type)
+                self.current_frame_depth += 3
+                index += 1 # for test
+            else:
+                newloc = self.frame_pos(index, box.type)
+                self.current_frame_depth += size
             #
             if not we_are_translated():    # extra testing
                 testindex = self.get_loc_index(newloc)
