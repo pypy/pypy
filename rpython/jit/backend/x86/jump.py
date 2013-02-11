@@ -1,6 +1,7 @@
 import sys
 from rpython.tool.pairtype import extendabletype
-from rpython.jit.backend.x86.regloc import ImmediateAssemblerLocation, StackLoc
+from rpython.jit.backend.x86.regloc import ImmediateAssemblerLocation
+from rpython.jit.backend.x86.regloc import RegLoc, StackLoc
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
