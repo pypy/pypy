@@ -164,7 +164,7 @@ class RegAlloc(object):
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
         operations = self._prepare(inputargs, operations, allgcrefs)
-        self._set_initial_bindings(inputargs)
+        self._set_initial_bindings(inputargs, looptoken)
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
@@ -188,10 +188,13 @@ class RegAlloc(object):
     def get_final_frame_depth(self):
         return self.fm.get_frame_depth()
 
-    def _set_initial_bindings(self, inputargs):
+    def _set_initial_bindings(self, inputargs, looptoken):
+        locs = []
         for box in inputargs:
             assert isinstance(box, Box)
-            self.fm.get_new_loc(box)
+            loc = self.fm.get_new_loc(box)
+            locs.append(loc.value)
+        looptoken.compiled_loop_token._x86_initial_locs = locs
 
     def possibly_free_var(self, var):
         if var.type == FLOAT:

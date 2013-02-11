@@ -119,25 +119,24 @@ class AbstractX86CPU(AbstractLLCPU):
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
             frame_info = clt.frame_info
             frame = self.gc_ll_descr.malloc_jitframe(frame_info)
+            base_ofs = self.get_baseofs_of_frame_field()
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
+            locs = executable_token.compiled_loop_token._x86_initial_locs
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                num = JITFRAME_FIXED_SIZE * WORD
                 for i, kind in kinds:
                     arg = args[i]
+                    num = locs[i] - base_ofs
                     if kind == history.INT:
                         self.set_int_value(ll_frame, num, arg)
                     elif kind == history.FLOAT:
                         self.set_float_value(ll_frame, num, arg)
-                        if IS_X86_32:
-                            num += WORD
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
-                    num += WORD
                 ll_frame = func(ll_frame)
             finally:
                 if not self.translate_support_code:
