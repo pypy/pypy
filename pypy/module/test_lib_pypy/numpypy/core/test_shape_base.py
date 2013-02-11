@@ -88,7 +88,7 @@ class AppTestShapeBase(BaseNumpyAppTest):
                           np.ones((a.shape[0] + b.shape[0],
                                    a.shape[1])))
 
-        skip("https://bugs.pypy.org/issue1394")
+        #skip("https://bugs.pypy.org/issue1394")
         for shape1, shape2 in [[(3, 2, 4), (7, 2, 4)],
                                [(0, 2, 7), (10, 2, 7)],
                                [(0, 2, 7), (0, 2, 7)]]:
@@ -119,7 +119,7 @@ class AppTestShapeBase(BaseNumpyAppTest):
                           np.ones((a.shape[0],
                                    a.shape[1] + b.shape[1])))
 
-        skip("https://bugs.pypy.org/issue1394")
+        #skip("https://bugs.pypy.org/issue1394")
         for shape1, shape2 in [[(2, 3, 4), (2, 7, 4)],
                                [(1, 4, 7), (1, 10, 7)],
                                [(1, 4, 7), (1, 0, 7)],
@@ -129,7 +129,7 @@ class AppTestShapeBase(BaseNumpyAppTest):
                           np.ones((a.shape[0],
                                    a.shape[1] + b.shape[1],
                                    a.shape[2])))
-
+        
     def test_dstack(self):
         import numpypy as np
         a = np.array((1, 2, 3))
@@ -142,7 +142,7 @@ class AppTestShapeBase(BaseNumpyAppTest):
         c = np.dstack((a, b))
         assert np.array_equal(c, [[[1, 2]], [[2, 3]], [[3, 4]]])
 
-        skip("https://bugs.pypy.org/issue1394")
+        #skip("https://bugs.pypy.org/issue1394")
         for shape1, shape2 in [[(4, 2, 3), (4, 2, 7)],
                                [(7, 2, 0), (7, 2, 10)],
                                [(7, 2, 0), (7, 2, 0)]]:
