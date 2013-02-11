@@ -60,3 +60,22 @@ class AppTestShapeBase(BaseNumpyAppTest):
         a = np.atleast_3d([[[1, 2]]])
         assert np.array_equal(a, [[[1, 2]]])
         assert a.shape == (1, 1, 2)
+
+    def test_vstack(self):
+        import numpypy as np
+
+        a = np.array([1, 2, 3])
+        b = np.array([2, 3, 4])
+        c = np.vstack((a,b))
+        assert np.array_equal(c, [[1, 2, 3],
+                                  [2, 3, 4]])
+
+        a = np.array([[1], [2], [3]])
+        b = np.array([[2], [3], [4]])
+        c = np.vstack((a,b))
+        assert np.array_equal(c, [[1],
+                                  [2],
+                                  [3],
+                                  [2],
+                                  [3],
+                                  [4]])

@@ -1,3 +1,4 @@
+import _numpypy
 from numeric import array, asanyarray, newaxis
 
 def atleast_1d(*arys):
@@ -170,3 +171,54 @@ def atleast_3d(*arys):
         return res[0]
     else:
         return res
+
+def vstack(tup):
+    """
+    Stack arrays in sequence vertically (row wise).
+
+    Take a sequence of arrays and stack them vertically to make a single
+    array. Rebuild arrays divided by `vsplit`.
+
+    Parameters
+    ----------
+    tup : sequence of ndarrays
+        Tuple containing arrays to be stacked. The arrays must have the same
+        shape along all but the first axis.
+
+    Returns
+    -------
+    stacked : ndarray
+        The array formed by stacking the given arrays.
+
+    See Also
+    --------
+    hstack : Stack arrays in sequence horizontally (column wise).
+    dstack : Stack arrays in sequence depth wise (along third dimension).
+    concatenate : Join a sequence of arrays together.
+    vsplit : Split array into a list of multiple sub-arrays vertically.
+
+    Notes
+    -----
+    Equivalent to ``np.concatenate(tup, axis=0)`` if `tup` contains arrays that
+    are at least 2-dimensional.
+
+    Examples
+    --------
+    >>> a = np.array([1, 2, 3])
+    >>> b = np.array([2, 3, 4])
+    >>> np.vstack((a,b))
+    array([[1, 2, 3],
+           [2, 3, 4]])
+
+    >>> a = np.array([[1], [2], [3]])
+    >>> b = np.array([[2], [3], [4]])
+    >>> np.vstack((a,b))
+    array([[1],
+           [2],
+           [3],
+           [2],
+           [3],
+           [4]])
+
+    """
+    return _numpypy.concatenate(map(atleast_2d,tup),0)
