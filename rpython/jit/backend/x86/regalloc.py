@@ -194,7 +194,9 @@ class RegAlloc(object):
             assert isinstance(box, Box)
             loc = self.fm.get_new_loc(box)
             locs.append(loc.value)
-        looptoken.compiled_loop_token._x86_initial_locs = locs
+        if looptoken.compiled_loop_token is not None:
+            # for tests
+            looptoken.compiled_loop_token._x86_initial_locs = locs
 
     def possibly_free_var(self, var):
         if var.type == FLOAT:
