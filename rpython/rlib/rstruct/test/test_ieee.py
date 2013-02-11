@@ -5,9 +5,7 @@ import struct
 from rpython.rlib.rfloat import isnan
 from rpython.rlib.rstruct.ieee import float_pack, float_unpack, float_pack80, float_unpack80
 
-
 class TestFloatPacking:
-
     def setup_class(cls):
         if sys.version_info < (2, 6):
             py.test.skip("the 'struct' module of this old CPython is broken")
@@ -60,6 +58,13 @@ class TestFloatPacking:
     def test_zeros(self):
         self.check_float(0.0)
         self.check_float(-0.0)
+
+    def test_check_size(self):
+        # these were refactored into separate pack80/unpack80 functions
+        py.test.raises(ValueError, float_pack, 1.0, 12)
+        py.test.raises(ValueError, float_pack, 1.0, 16)
+        py.test.raises(ValueError, float_unpack, 1, 12)
+        py.test.raises(ValueError, float_unpack, 1, 16)
 
     def test_nans(self):
         Q = float_pack80(float('nan'))
@@ -161,4 +166,3 @@ class TestFloatPacking:
                 f_out = math.copysign(float('inf'), f1)
             assert f_out == f2
             assert math.copysign(1., f_out) == math.copysign(1., f2)
-
