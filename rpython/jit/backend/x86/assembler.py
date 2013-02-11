@@ -1140,7 +1140,7 @@ class Assembler386(object):
                     stack_depth += 2
                 else:
                     stack_depth += 1
-            stack_depth += loc.get_width()
+            stack_depth += loc.get_width() // WORD
         if stack_depth > PASS_ON_MY_FRAME:
             stack_depth = align_stack_words(stack_depth)
             align = (stack_depth - PASS_ON_MY_FRAME)

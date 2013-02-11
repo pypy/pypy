@@ -178,12 +178,17 @@ class GcRewriterAssembler(object):
         index = self.cpu.getarryoffset_for_frame()	
         for i, arg in enumerate(arglist):
             descr = self.cpu.getarraydescr_for_frame(arg.type)
-            self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
-                                            [frame, ConstInt(index), arg],
-                                            None, descr))
             if WORD == 4 and type == history.FLOAT:
+                self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
+                                                [frame, ConstInt(index // 2),
+                                                 arg],
+                                                None, descr))
                 index += 2
             else:
+                self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
+                                                [frame, ConstInt(index),
+                                                 arg],
+                                                None, descr))
                 index += 1
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
