@@ -34,3 +34,29 @@ class AppTestShapeBase(BaseNumpyAppTest):
         assert np.array_equal(a[0], [[1]])
         assert np.array_equal(a[1], [[1, 2]])
         assert np.array_equal(a[2], [[1, 2]])
+
+    def test_atleast_3d(self):
+        import numpypy as np
+
+        a = np.atleast_3d(3.0)
+        assert np.array_equal(a, [[[ 3.]]])
+
+        x = np.arange(3.0)
+        assert np.atleast_3d(x).shape == (1, 3, 1)
+
+        x = np.arange(12.0).reshape(4,3)
+        assert np.atleast_3d(x).shape == (4, 3, 1)
+
+        a = np.atleast_3d([1, 2])
+        assert np.array_equal(a, [[[1],
+                                   [2]]])
+        assert a.shape == (1, 2, 1)
+
+        a = np.atleast_3d([[1, 2]])
+        assert np.array_equal(a, [[[1],
+                                   [2]]])
+        assert a.shape == (1, 2, 1)
+
+        a = np.atleast_3d([[[1, 2]]])
+        assert np.array_equal(a, [[[1, 2]]])
+        assert a.shape == (1, 1, 2)
