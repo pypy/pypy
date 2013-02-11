@@ -501,7 +501,7 @@ class AppTestTypes(BaseAppTestDtypes):
         from math import isnan
         assert isnan(numpy.float32(None))
         assert isnan(numpy.float64(None))
-        assert isnan(numpy.float128(None))
+        assert isnan(numpy.longdouble(None))
 
     def test_longfloat(self):
         import _numpypy as numpy
