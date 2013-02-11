@@ -21,13 +21,6 @@
 from pyrepl import commands, reader
 from pyrepl.reader import Reader
 
-def uniqify(l):
-    d = {}
-    for i in l:
-        d[i] = 1
-    r = d.keys()
-    r.sort()
-    return r
 
 def prefix(wordlist, j = 0):
     d = {}
