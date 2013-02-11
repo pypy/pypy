@@ -60,7 +60,7 @@ class AppTestFork(GenericTestThread):
 
     def test_forked_is_main_thread(self):
         "Checks that a forked interpreter is the main thread"
-        import os, thread, signal
+        import os, _thread, signal
 
         if not hasattr(os, 'fork'):
             skip("No fork on this platform")
@@ -68,7 +68,7 @@ class AppTestFork(GenericTestThread):
         def threadfunction():
             pid = os.fork()
             if pid == 0:
-                print 'in child'
+                print('in child')
                 # signal() only works from the 'main' thread
                 signal.signal(signal.SIGUSR1, signal.SIG_IGN)
                 os._exit(42)
@@ -78,7 +78,7 @@ class AppTestFork(GenericTestThread):
                 feedback.append(exitcode)
 
         feedback = []
-        thread.start_new_thread(threadfunction, ())
+        _thread.start_new_thread(threadfunction, ())
         self.waitfor(lambda: feedback)
         # if 0, an (unraisable) exception was raised from the forked thread.
         # if 9, process was killed by timer.
