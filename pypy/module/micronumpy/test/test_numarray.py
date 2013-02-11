@@ -2561,6 +2561,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from _numpypy import array
         a = array('ffff')
         assert a.shape == ()
+        a = array('x', dtype='>S')
+        assert str(a.dtype) == '|S1'
+        a = array('x', dtype='c')
+        assert str(a.dtype) == '|S1'
+        # XXX can sort flexible types, why not comparison?
+        #assert a == 'x'
 
     def test_flexible_repr(self):
         # numpypy overrides _numpypy repr with pure python one

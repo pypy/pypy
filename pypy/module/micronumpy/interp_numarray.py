@@ -891,8 +891,9 @@ W_NDimArray.typedef = TypeDef(
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
-    if not issequence_w(space, w_object):
-        if space.is_none(w_dtype):
+    isstr = space.isinstance_w(w_object, space.w_str)
+    if not issequence_w(space, w_object) or isstr:
+        if space.is_none(w_dtype) or isstr:
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))

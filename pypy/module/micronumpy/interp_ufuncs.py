@@ -324,10 +324,12 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if w_lhs.get_dtype().is_flexible_type() or \
-           w_rhs.get_dtype().is_flexible_type():
-            raise OperationError(space.w_TypeError, 
-                      space.wrap('unsupported operand types'))
+        if (w_lhs.get_dtype().is_flexible_type() or \
+                w_rhs.get_dtype().is_flexible_type()):
+            raise OperationError(space.w_TypeError, space.wrap(
+                 'unsupported operand dtypes %s and %s for "%s"' % \
+                 (w_rhs.get_dtype().get_name(), w_lhs.get_dtype().get_name(),
+                  self.name)))
         calc_dtype = find_binop_result_dtype(space,
             w_lhs.get_dtype(), w_rhs.get_dtype(),
             int_only=self.int_only,

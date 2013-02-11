@@ -224,7 +224,7 @@ def variable_dtype(space, name):
             size = int(name[1:])
         except ValueError:
             raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
-    if char == 'S':
+    if char == 'S' or char == 'c':
         itemtype = types.StringType(size)
         basename = 'string'
         num = 18
@@ -264,8 +264,10 @@ def descr__new__(space, w_subtype, w_dtype):
             return cache.dtypes_by_name[name]
         except KeyError:
             pass
-        if name[0] in 'VSU' or name[0] in '<>=' and name[1] in 'VSU':
+        if name[0] in 'VSUc' or name[0] in '<>=' and name[1] in 'VSUc':
             return variable_dtype(space, name)
+        raise OperationError(space.w_TypeError, space.wrap(
+                       "data type %s not understood" % name))
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
     elif space.isinstance_w(w_dtype, space.w_dict):
