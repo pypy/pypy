@@ -185,16 +185,6 @@ class UnixConsole(Console):
         old_offset = offset = self.__offset
         height = self.height
 
-        if 0:
-            global counter
-            try:
-                counter
-            except NameError:
-                counter = 0
-            self.__write_code(curses.tigetstr("setaf"), counter)
-            counter += 1
-            if counter > 8:
-                counter = 0
 
         # we make sure the cursor is on the screen, and that we're
         # using all of the screen if we can

@@ -2,7 +2,8 @@ import py
 import sys, os
 from rpython.tool.udir import udir
 
-dirpath = py.path.local(__file__).dirpath().dirpath()
+dirpath = py.path.local(__file__).dirpath().dirpath().dirpath().dirpath()
+dirpath = dirpath.join('lib_pypy').join('ctypes_config_cache')
 
 
 def run(filename, outputname):

@@ -178,3 +178,17 @@ class AppTestRepr(BaseNumpyAppTest):
         assert not array_equal(a, array(b))
         assert not array_equal(array(a), b)
         assert not array_equal(array(a), array(b))
+
+class AppTestNumeric(BaseNumpyAppTest):
+
+    def test_outer(self):
+        from _numpypy import array
+        from numpypy import outer
+        a = [1, 2, 3]
+        b = [4, 5, 6]
+        res = outer(a, b)
+        expected = array([[ 4,  5,  6],
+                          [ 8, 10, 12],
+                          [12, 15, 18]])
+        assert (res == expected).all()
+

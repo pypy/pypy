@@ -310,8 +310,6 @@ default_options = dict.fromkeys(
     "warnoptions",
     "unbuffered"), 0)
 
-PYTHON26 = True
-
 def simple_option(options, name, iterargv):
     options[name] += 1
 
@@ -341,37 +339,34 @@ def end_options(options, _, iterargv):
 
 cmdline_options = {
     # simple options just increment the counter of the options listed above
+    'b': (simple_option, 'bytes_warning'),
+    'B': (simple_option, 'dont_write_bytecode'),
     'd': (simple_option, 'debug'),
+    'E': (simple_option, 'ignore_environment'),
     'i': (simple_option, 'interactive'),
     'O': (simple_option, 'optimize'),
+    'R': (simple_option, 'hash_randomization'),
+    's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
-    'E': (simple_option, 'ignore_environment'),
     't': (simple_option, 'tabcheck'),
-    'v': (simple_option, 'verbose'),
     'U': (simple_option, 'unicode'),
     'u': (simple_option, 'unbuffered'),
+    'v': (simple_option, 'verbose'),
+    '3': (simple_option, 'py3k_warning'),
     # more complex options
-    'Q':         (div_option,      Ellipsis),
     'c':         (c_option,        Ellipsis),
+    '?':         (print_help,      None),
+    'h':         (print_help,      None),
+    '--help':    (print_help,      None),
     'm':         (m_option,        Ellipsis),
     'W':         (W_option,        Ellipsis),
     'V':         (print_version,   None),
     '--version': (print_version,   None),
+    'Q':         (div_option,      Ellipsis),
     '--info':    (print_info,      None),
-    'h':         (print_help,      None),
-    '--help':    (print_help,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '--':        (end_options,     None),
     }
-
-if PYTHON26:
-    cmdline_options.update({
-        '3': (simple_option, 'py3k_warning'),
-        'B': (simple_option, 'dont_write_bytecode'),
-        's': (simple_option, 'no_user_site'),
-        'b': (simple_option, 'bytes_warning'),
-        'R': (simple_option, 'hash_randomization'),
-        })
 
 def handle_argument(c, options, iterargv, iterarg=iter(())):
     function, funcarg = cmdline_options[c]
@@ -432,13 +427,16 @@ def parse_command_line(argv):
     sys.argv[:] = argv
 
     if not options["ignore_environment"]:
+        if os.getenv('PYTHONDEBUG'):
+            options["debug"] = 1
+        if os.getenv('PYTHONDONTWRITEBYTECODE'):
+            options["dont_write_bytecode"] = 1
+        if os.getenv('PYTHONNOUSERSITE'):
+            options["no_user_site"] = 1
         if os.getenv('PYTHONUNBUFFERED'):
             options["unbuffered"] = 1
-        if PYTHON26:
-            if os.getenv('PYTHONNOUSERSITE'):
-                options["no_user_site"] = 1
-            if os.getenv('PYTHONDONTWRITEBYTECODE'):
-                options["dont_write_bytecode"] = 1
+        if os.getenv('PYTHONVERBOSE'):
+            options["verbose"] = 1
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
@@ -450,7 +448,7 @@ def parse_command_line(argv):
 ##        print >> sys.stderr, (
 ##            "Warning: pypy does not implement hash randomization")
 
-    if PYTHON26 and we_are_translated():
+    if we_are_translated():
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = bool(sys.flags.py3k_warning)
