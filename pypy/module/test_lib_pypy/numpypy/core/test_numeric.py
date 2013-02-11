@@ -191,5 +191,4 @@ class AppTestNumeric(BaseNumpyAppTest):
                           [ 8, 10, 12],
                           [12, 15, 18]])
         assert (res == expected).all()
-        
 
