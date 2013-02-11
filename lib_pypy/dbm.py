@@ -1,4 +1,4 @@
-from ctypes import Structure, c_char_p, c_int, c_void_p, CDLL
+from ctypes import Structure, c_char_p, c_int, c_void_p, CDLL, POINTER, c_char
 import ctypes.util
 import os, sys
 
@@ -11,7 +11,7 @@ class error(Exception):
 
 class datum(Structure):
     _fields_ = [
-    ('dptr', c_char_p),
+    ('dptr', POINTER(c_char)),
     ('dsize', c_int),
     ]
 
