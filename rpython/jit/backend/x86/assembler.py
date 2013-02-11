@@ -211,12 +211,14 @@ class Assembler386(object):
             # push first arg
             mc.MOV_rr(edi.value, ebp.value)
             align = align_stack_words(1)
+            mc.SUB_ri(esp.value, (align - 1) * WORD)
         else:
-            mc.PUSH(RawStackLoc(WORD * 2))
-            mc.PUSH_r(ebp.value)
             align = align_stack_words(3)
+            mc.MOV_rs(eax.value, WORD * 2)
+            mc.SUB_ri(esp.value, (align - 1) * WORD)
+            mc.MOV_sr(WORD, eax.value)
+            mc.MOV_sr(0, ebp.value)
         # align
-        mc.SUB_ri(esp.value, (align - 1) * WORD)
 
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.ADD_ri(esp.value, (align - 1) * WORD)
