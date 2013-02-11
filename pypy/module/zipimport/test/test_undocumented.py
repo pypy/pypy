@@ -52,7 +52,8 @@ class AppTestZipImport:
             if source:
                 zip_file.write(code_path)
             if bytecode:
-                py_compile.compile(code_path, doraise=True)
+                py_compile.compile(code_path, code_path + bytecode_suffix,
+                                   doraise=True)
                 zip_file.write(code_path + bytecode_suffix)
         zip_file.close()
         return os.path.abspath(zip_path)
