@@ -310,3 +310,12 @@ class AppTestGreenlet:
         assert g.gr_frame.f_code.co_name == 'f2'
         g.switch()
         assert g.gr_frame is None
+
+    def test_override_nonzero(self):
+        from greenlet import greenlet
+        class G(greenlet):
+            def __nonzero__(self):
+                raise ValueError
+        g = G(lambda: 42)
+        x = g.switch()
+        assert x == 42

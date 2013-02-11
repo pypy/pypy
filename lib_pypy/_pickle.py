@@ -1,5 +1,5 @@
 #
-# One-liner implementation of cPickle
+# Reimplementation of cPickle, mostly as a copy of pickle.py
 #
 
 import marshal

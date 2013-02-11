@@ -27,6 +27,9 @@ class Module(MixedModule):
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',
 
+        'bool': 'space.w_bool',
+        'int': 'space.w_int',
+
         'typeinfo': 'interp_dtype.get_dtype_cache(space).w_typeinfo',
 
         'generic': 'interp_boxes.W_GenericBox',

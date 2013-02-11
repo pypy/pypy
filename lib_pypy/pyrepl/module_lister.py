@@ -17,7 +17,6 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from pyrepl.completing_reader import uniqify
 import os, sys
 
 # for the completion support.
@@ -38,9 +37,7 @@ def _make_module_list_dir(dir, suffs, prefix=''):
             l.append( prefix + fname )
             _packages[prefix + fname] = _make_module_list_dir(
                 file, suffs, prefix + fname + '.' )
-    l = uniqify(l)
-    l.sort()
-    return l
+    return sorted(set(l))
 
 def _make_module_list():
     import imp

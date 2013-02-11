@@ -155,7 +155,7 @@ class PythonicReader(CompletingReader, HistoricalReader):
                 return [x[len(mod) + 1:]
                         for x in l if x.startswith(mod + '.' + name)]
         try:
-            l = completing_reader.uniqify(self.completer.complete(stem))
+            l = sorted(set(self.completer.complete(stem)))
             return l
         except (NameError, AttributeError):
             return []

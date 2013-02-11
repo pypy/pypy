@@ -6,12 +6,14 @@ class Module(MixedModule):
     __import__ function.
     """
     interpleveldefs = {
+        'SEARCH_ERROR':    'space.wrap(importing.SEARCH_ERROR)',
         'PY_SOURCE':       'space.wrap(importing.PY_SOURCE)',
         'PY_COMPILED':     'space.wrap(importing.PY_COMPILED)',
         'C_EXTENSION':     'space.wrap(importing.C_EXTENSION)',
         'PKG_DIRECTORY':   'space.wrap(importing.PKG_DIRECTORY)',
         'C_BUILTIN':       'space.wrap(importing.C_BUILTIN)',
         'PY_FROZEN':       'space.wrap(importing.PY_FROZEN)',
+        'IMP_HOOK':        'space.wrap(importing.IMP_HOOK)',
         'get_suffixes':    'interp_imp.get_suffixes',
 
         'get_magic':       'interp_imp.get_magic',

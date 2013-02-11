@@ -183,9 +183,9 @@ class _ReadlineWrapper(object):
     startup_hook = None
     config = ReadlineConfig()
 
-    def __init__(self):
-        self.f_in = os.dup(0)
-        self.f_out = os.dup(1)
+    def __init__(self, f_in=None, f_out=None):
+        self.f_in = f_in if f_in is not None else os.dup(0)
+        self.f_out = f_out if f_out is not None else os.dup(1)
 
     def get_reader(self):
         if self.reader is None:

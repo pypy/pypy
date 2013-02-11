@@ -3,7 +3,7 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
+    package.py root-pypy-dir [--nostrip] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
 
 Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
@@ -44,7 +44,7 @@ def fix_permissions(basedir):
         os.system("chmod -R a+rX %s" % basedir)
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
-            copy_to_dir = None, override_pypy_c = None):
+            copy_to_dir = None, override_pypy_c = None, nostrip=False):
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
@@ -124,13 +124,14 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         os.chdir(str(builddir))
         #
         # 'strip' fun: see issue #587
-        for source, target in binaries:
-            if sys.platform == 'win32':
-                pass
-            elif sys.platform == 'darwin':
-                os.system("strip -x " + str(bindir.join(target)))    # ignore errors
-            else:
-                os.system("strip " + str(bindir.join(target)))    # ignore errors
+        if not nostrip:
+            for source, target in binaries:
+                if sys.platform == 'win32':
+                    pass
+                elif sys.platform == 'darwin':
+                    os.system("strip -x " + str(bindir.join(target)))    # ignore errors
+                else:
+                    os.system("strip " + str(bindir.join(target)))    # ignore errors
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -166,4 +167,9 @@ if __name__ == '__main__':
         print >>sys.stderr, __doc__
         sys.exit(1)
     else:
-        package(*sys.argv[1:])
+        args = sys.argv[1:]
+        kw = {}
+        if args[0] == '--nostrip':
+            kw['nostrip'] = True
+            args = args[1:]
+        package(*args, **kw)

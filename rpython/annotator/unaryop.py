@@ -456,9 +456,13 @@ class __extend__(SomeString,
                  SomeUnicodeString):
 
     def method_startswith(str, frag):
+        if str.is_constant() and frag.is_constant():
+            return immutablevalue(str.const.startswith(frag.const))
         return s_Bool
 
     def method_endswith(str, frag):
+        if str.is_constant() and frag.is_constant():
+            return immutablevalue(str.const.endswith(frag.const))
         return s_Bool
 
     def method_find(str, frag, start=None, end=None):

@@ -142,18 +142,24 @@ class deque(object):
         return c
 
     def remove(self, value):
-        # Need to be defensive for mutating comparisons
-        for i in range(len(self)):
-            if self[i] == value:
-                del self[i]
-                return
-        raise ValueError("deque.remove(x): x not in deque")
+        # Need to defend mutating or failing comparisons
+        i = 0
+        try:
+            for i in range(len(self)):
+                if self[0] == value:
+                    self.popleft()
+                    return
+                self.append(self.popleft())
+            i += 1
+            raise ValueError("deque.remove(x): x not in deque")
+        finally:
+            self.rotate(i)
 
     def rotate(self, n=1):
         length = len(self)
-        if length == 0:
+        if length <= 1:
             return
-        halflen = (length+1) >> 1
+        halflen = length >> 1
         if n > halflen or n < -halflen:
             n %= length
             if n > halflen:

@@ -14,7 +14,7 @@ class BuildersModule(MixedModule):
 class TimeModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {}
-    if sys.platform.startswith("linux"):
+    if sys.platform.startswith("linux") or 'bsd' in sys.platform:
         from pypy.module.__pypy__ import interp_time
         interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
         interpleveldefs["clock_getres"] = "interp_time.clock_getres"

@@ -172,23 +172,23 @@ class W_ZipImporter(Wrappable):
             return mtime
 
     def check_newer_pyfile(self, space, filename, timestamp):
+        # check if the timestamp stored in the .pyc is matching
+        # the actual timestamp of the .py file, if any
         mtime = self._parse_mtime(space, filename)
         if mtime == 0:
             return False
-        return mtime > timestamp
-
-    def check_compatible_mtime(self, space, filename, timestamp):
-        mtime = self._parse_mtime(space, filename)
-        if mtime == 0 or mtime != (timestamp & (~1)):
-            return False
-        return True
+        # Lenient date/time comparison function. The precision of the mtime
+        # in the archive is lower than the mtime stored in a .pyc: we
+        # must allow a difference of at most one second.
+        d = mtime - timestamp
+        if d < 0:
+            d = -d
+        return d > 1    # more than one second => different
 
     def can_use_pyc(self, space, filename, magic, timestamp):
         if magic != importing.get_pyc_magic(space):
             return False
         if self.check_newer_pyfile(space, filename[:-1], timestamp):
-            return False
-        if not self.check_compatible_mtime(space, filename, timestamp):
             return False
         return True
 

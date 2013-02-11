@@ -7,6 +7,7 @@ import random
 import py
 
 from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.module.bz2.test.support import CheckAllocation
 
 
 if os.name == "nt":
@@ -51,10 +52,7 @@ def setup_module(mod):
     mod.RANDOM_DATA = ''.join([s[int(random.random() * len(s))] for i in range(30000)])
 
 
-class AppTestBZ2File: #(CheckAllocation):
-    # XXX for unknown reasons, we cannot do allocation checks, as sth is
-    # keeping those objects alive (BZ2File objects)
-
+class AppTestBZ2File(CheckAllocation):
     spaceconfig = {
         "usemodules": ["bz2", "thread", "binascii", "rctime"]
     }
@@ -82,15 +80,15 @@ class AppTestBZ2File: #(CheckAllocation):
         assert bz2f.closed == False
         bz2f.close()
         assert bz2f.closed == True
-    
+
     def test_creation(self):
         from bz2 import BZ2File
-        
+
         raises(ValueError, BZ2File, self.temppath, mode='w', compresslevel=10)
         raises(ValueError, BZ2File, self.temppath, mode='XYZ')
         # XXX the following is fine, currently:
         #raises(ValueError, BZ2File, self.temppath, mode='ww')
-        
+
         BZ2File(self.temppath, mode='w', buffering=0, compresslevel=8)
         BZ2File(self.temppath, mode='wb')
         # a large buf size
@@ -98,32 +96,32 @@ class AppTestBZ2File: #(CheckAllocation):
 
     def test_close(self):
         from bz2 import BZ2File
-        
+
         # writeonly
         bz2f = BZ2File(self.temppath, mode='w')
         bz2f.close()
-        # since we use fclose() internally you can't close it twice
-        # bz2f.close()
-        
+        bz2f.close()
+
         # readonly
         bz2f = BZ2File(self.temppath, mode='r')
         bz2f.close()
-        
+        bz2f.close()
+
     def test_tell(self):
         from bz2 import BZ2File
-        
+
         bz2f = BZ2File(self.temppath, mode='w')
         bz2f.close()
         raises(ValueError, bz2f.tell)
-        
+
         bz2f = BZ2File(self.temppath, mode='w')
         pos = bz2f.tell()
         bz2f.close()
         assert pos == 0
-    
+
     def test_seek(self):
         from bz2 import BZ2File
-        
+
         # hack to create a foo file
         open(self.temppath, "w").close()
 
@@ -131,12 +129,12 @@ class AppTestBZ2File: #(CheckAllocation):
         bz2f = BZ2File(self.temppath, mode='r')
         bz2f.close()
         raises(ValueError, bz2f.seek, 0)
-        
+
         # cannot seek if 'w'
         bz2f = BZ2File(self.temppath, mode='w')
         raises(IOError, bz2f.seek, 0)
         bz2f.close()
-        
+
         bz2f = BZ2File(self.temppath, mode='r')
         raises(TypeError, bz2f.seek)
         raises(TypeError, bz2f.seek, "foo")
@@ -150,16 +148,16 @@ class AppTestBZ2File: #(CheckAllocation):
     def test_open_close_del(self):
         from bz2 import BZ2File
         self.create_temp_file()
-        
+
         for i in range(10):
             f = BZ2File(self.temppath)
             f.close()
             del f
-    
+
     def test_open_non_existent(self):
         from bz2 import BZ2File
         raises(IOError, BZ2File, "/non/existent/path")
-    
+
     def test_seek_forward(self):
         from bz2 import BZ2File
         self.create_temp_file()
@@ -199,7 +197,7 @@ class AppTestBZ2File: #(CheckAllocation):
         assert bz2f.tell() == len(self.TEXT)
         assert bz2f.read() == b""
         bz2f.close()
-    
+
     def test_seek_post_end_twice(self):
         from bz2 import BZ2File
         self.create_temp_file()
@@ -225,10 +223,9 @@ class AppTestBZ2File: #(CheckAllocation):
         from bz2 import BZ2File
         from io import BytesIO
         self.create_temp_file()
-        
+
         bz2f = BZ2File(self.temppath)
-        # XXX
-        #raises(TypeError, bz2f.readline, None)
+        raises(TypeError, bz2f.readline, None)
         sio = BytesIO(self.TEXT)
         for line in sio.readlines():
             line_read = bz2f.readline()
@@ -238,10 +235,9 @@ class AppTestBZ2File: #(CheckAllocation):
     def test_read(self):
         from bz2 import BZ2File
         self.create_temp_file()
-        
+
         bz2f = BZ2File(self.temppath)
-        # XXX
-        # raises(TypeError, bz2f.read, None)
+        raises(TypeError, bz2f.read, None)
         text_read = bz2f.read()
         assert text_read == self.TEXT
         bz2f.close()
@@ -276,7 +272,7 @@ class AppTestBZ2File: #(CheckAllocation):
     def test_read_chunk9(self):
         from bz2 import BZ2File
         self.create_temp_file()
-        
+
         bz2f = BZ2File(self.temppath)
         text_read = b""
         while True:
@@ -290,7 +286,7 @@ class AppTestBZ2File: #(CheckAllocation):
     def test_read_100_bytes(self):
         from bz2 import BZ2File
         self.create_temp_file()
-        
+
         bz2f = BZ2File(self.temppath)
         assert bz2f.read(100) == self.TEXT[:100]
         bz2f.close()
@@ -299,10 +295,9 @@ class AppTestBZ2File: #(CheckAllocation):
         from bz2 import BZ2File
         from io import BytesIO
         self.create_temp_file()
-        
+
         bz2f = BZ2File(self.temppath)
-        # XXX
-        #raises(TypeError, bz2f.readlines, None)
+        raises(TypeError, bz2f.readlines, None)
         sio = BytesIO(self.TEXT)
         assert bz2f.readlines() == sio.readlines()
         bz2f.close()
@@ -311,12 +306,12 @@ class AppTestBZ2File: #(CheckAllocation):
         from bz2 import BZ2File
         from io import BytesIO
         self.create_temp_file()
-        
+
         bz2f = BZ2File(self.temppath)
         sio = BytesIO(self.TEXT)
         assert list(iter(bz2f)) == sio.readlines()
         bz2f.close()
-        
+
     def test_write(self):
         from bz2 import BZ2File
 
@@ -324,7 +319,7 @@ class AppTestBZ2File: #(CheckAllocation):
         raises(TypeError, bz2f.write)
         bz2f.write(self.TEXT)
         bz2f.close()
-        
+
         f = open(self.temppath, "rb")
         assert self.decompress(f.read()) == self.TEXT
         f.close()
@@ -338,11 +333,11 @@ class AppTestBZ2File: #(CheckAllocation):
             data = self.TEXT[n * 10:(n + 1) * 10]
             if not data:
                 break
-            
+
             bz2f.write(data)
             n += 1
         bz2f.close()
-        
+
         f = open(self.temppath, "rb")
         assert self.decompress(f.read()) == self.TEXT
         f.close()
@@ -359,7 +354,7 @@ class AppTestBZ2File: #(CheckAllocation):
         f = open(self.temppath, "rb")
         assert self.decompress(f.read()) == self.TEXT
         f.close()
-        
+
     def test_write_methods_on_readonly_file(self):
         from bz2 import BZ2File
 
@@ -390,8 +385,8 @@ class AppTestBZ2File: #(CheckAllocation):
             assert data == b"abc"
         assert f.closed
 
-        
-        
+
+
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 
 # if has_cmdline_bunzip2:

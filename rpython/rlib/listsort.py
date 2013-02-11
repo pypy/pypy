@@ -7,10 +7,30 @@ from rpython.rlib.rarithmetic import ovfcheck
 ## ------------------------------------------------------------------------
 ##         Adapted from CPython, original code and algorithms by Tim Peters
 
-def make_timsort_class():
+def make_timsort_class(getitem=None, setitem=None, length=None,
+                       getitem_slice=None, lt=None):
 
-    class TimSort:
+    if getitem is None:
+        def getitem(list, item):
+            return list[item]
 
+    if setitem is None:
+        def setitem(list, item, value):
+            list[item] = value
+
+    if length is None:
+        def length(list):
+            return len(list)
+
+    if getitem_slice is None:
+        def getitem_slice(list, start, stop):
+            return list[start:stop]
+
+    if lt is None:
+        def lt(a, b):
+            return a < b
+
+    class TimSort(object):
         """TimSort(list).sort()
 
         Sorts the list in-place, using the overridable method lt() for comparison.
@@ -19,11 +39,14 @@ def make_timsort_class():
         def __init__(self, list, listlength=None):
             self.list = list
             if listlength is None:
-                listlength = len(list)
+                listlength = length(list)
             self.listlength = listlength
 
+        def setitem(self, item, val):
+            setitem(self.list, item, val)
+
         def lt(self, a, b):
-            return a < b
+            return lt(a, b)
 
         def le(self, a, b):
             return not self.lt(b, a)   # always use self.lt() as the primitive
@@ -42,14 +65,14 @@ def make_timsort_class():
                 # set l to where list[start] belongs
                 l = a.base
                 r = start
-                pivot = a.list[r]
+                pivot = a.getitem(r)
                 # Invariants:
                 # pivot >= all in [base, l).
                 # pivot  < all in [r, start).
                 # The second is vacuously true at the start.
                 while l < r:
                     p = l + ((r - l) >> 1)
-                    if self.lt(pivot, a.list[p]):
+                    if self.lt(pivot, a.getitem(p)):
                         r = p
                     else:
                         l = p+1
@@ -60,8 +83,8 @@ def make_timsort_class():
                 # first slot after them -- that's why this sort is stable.
                 # Slide over to make room.
                 for p in xrange(start, l, -1):
-                    a.list[p] = a.list[p-1]
-                a.list[l] = pivot
+                    a.setitem(p, a.getitem(p-1))
+                a.setitem(l, pivot)
 
         # Compute the length of the run in the slice "a".
         # "A run" is the longest ascending sequence, with
@@ -85,17 +108,17 @@ def make_timsort_class():
                 descending = False
             else:
                 n = 2
-                if self.lt(a.list[a.base + 1], a.list[a.base]):
+                if self.lt(a.getitem(a.base + 1), a.getitem(a.base)):
                     descending = True
                     for p in xrange(a.base + 2, a.base + a.len):
-                        if self.lt(a.list[p], a.list[p-1]):
+                        if self.lt(a.getitem(p), a.getitem(p-1)):
                             n += 1
                         else:
                             break
                 else:
                     descending = False
                     for p in xrange(a.base + 2, a.base + a.len):
-                        if self.lt(a.list[p], a.list[p-1]):
+                        if self.lt(a.getitem(p), a.getitem(p-1)):
                             break
                         else:
                             n += 1
@@ -128,13 +151,13 @@ def make_timsort_class():
             p = a.base + hint
             lastofs = 0
             ofs = 1
-            if lower(a.list[p], key):
+            if lower(a.getitem(p), key):
                 # a[hint] < key -- gallop right, until
                 #     a[hint + lastofs] < key <= a[hint + ofs]
 
                 maxofs = a.len - hint     # a[a.len-1] is highest
                 while ofs < maxofs:
-                    if lower(a.list[p + ofs], key):
+                    if lower(a.getitem(p + ofs), key):
                         lastofs = ofs
                         try:
                             ofs = ovfcheck(ofs << 1)
@@ -156,7 +179,7 @@ def make_timsort_class():
                 #     a[hint - ofs] < key <= a[hint - lastofs]
                 maxofs = hint + 1   # a[0] is lowest
                 while ofs < maxofs:
-                    if lower(a.list[p - ofs], key):
+                    if lower(a.getitem(p - ofs), key):
                         break
                     else:
                         # key <= a[hint - ofs]
@@ -181,7 +204,7 @@ def make_timsort_class():
             lastofs += 1
             while lastofs < ofs:
                 m = lastofs + ((ofs - lastofs) >> 1)
-                if lower(a.list[a.base + m], key):
+                if lower(a.getitem(a.base + m), key):
                     lastofs = m+1   # a[m] < key
                 else:
                     ofs = m         # key <= a[m]
@@ -236,7 +259,7 @@ def make_timsort_class():
             # We use a finally block to ensure that the elements remaining in
             # the copy "a" are reinserted back into self.list in all cases.
             try:
-                self.list[dest] = b.popleft()
+                self.setitem(dest, b.popleft())
                 dest += 1
                 if a.len == 1 or b.len == 0:
                     return
@@ -248,8 +271,8 @@ def make_timsort_class():
                     # Do the straightforward thing until (if ever) one run
                     # appears to win consistently.
                     while True:
-                        if self.lt(b.list[b.base], a.list[a.base]):
-                            self.list[dest] = b.popleft()
+                        if self.lt(b.getitem(b.base), a.getitem(a.base)):
+                            self.setitem(dest, b.popleft())
                             dest += 1
                             if b.len == 0:
                                 return
@@ -258,7 +281,7 @@ def make_timsort_class():
                             if bcount >= min_gallop:
                                 break
                         else:
-                            self.list[dest] = a.popleft()
+                            self.setitem(dest, a.popleft())
                             dest += 1
                             if a.len == 1:
                                 return
@@ -277,10 +300,10 @@ def make_timsort_class():
                         min_gallop -= min_gallop > 1
                         self.min_gallop = min_gallop
 
-                        acount = self.gallop(b.list[b.base], a, hint=0,
+                        acount = self.gallop(b.getitem(b.base), a, hint=0,
                                              rightmost=True)
                         for p in xrange(a.base, a.base + acount):
-                            self.list[dest] = a.list[p]
+                            self.setitem(dest, a.getitem(p))
                             dest += 1
                         a.advance(acount)
                         # a.len==0 is impossible now if the comparison
@@ -289,21 +312,21 @@ def make_timsort_class():
                         if a.len <= 1:
                             return
 
-                        self.list[dest] = b.popleft()
+                        self.setitem(dest, b.popleft())
                         dest += 1
                         if b.len == 0:
                             return
 
-                        bcount = self.gallop(a.list[a.base], b, hint=0,
+                        bcount = self.gallop(a.getitem(a.base), b, hint=0,
                                              rightmost=False)
                         for p in xrange(b.base, b.base + bcount):
-                            self.list[dest] = b.list[p]
+                            self.setitem(dest, b.getitem(p))
                             dest += 1
                         b.advance(bcount)
                         if b.len == 0:
                             return
 
-                        self.list[dest] = a.popleft()
+                        self.setitem(dest, a.popleft())
                         dest += 1
                         if a.len == 1:
                             return
@@ -319,10 +342,10 @@ def make_timsort_class():
                 # the remaining elements of b before the remaining elements of a.
                 assert a.len >= 0 and b.len >= 0
                 for p in xrange(b.base, b.base + b.len):
-                    self.list[dest] = b.list[p]
+                    self.setitem(dest, b.getitem(p))
                     dest += 1
                 for p in xrange(a.base, a.base + a.len):
-                    self.list[dest] = a.list[p]
+                    self.setitem(dest, a.getitem(p))
                     dest += 1
 
         # Same as merge_lo(), but should have a.len >= b.len.
@@ -340,7 +363,7 @@ def make_timsort_class():
             # the copy "b" are reinserted back into self.list in all cases.
             try:
                 dest -= 1
-                self.list[dest] = a.popright()
+                self.setitem(dest, a.popright())
                 if a.len == 0 or b.len == 1:
                     return
 
@@ -351,11 +374,11 @@ def make_timsort_class():
                     # Do the straightforward thing until (if ever) one run
                     # appears to win consistently.
                     while True:
-                        nexta = a.list[a.base + a.len - 1]
-                        nextb = b.list[b.base + b.len - 1]
+                        nexta = a.getitem(a.base + a.len - 1)
+                        nextb = b.getitem(b.base + b.len - 1)
                         if self.lt(nextb, nexta):
                             dest -= 1
-                            self.list[dest] = nexta
+                            self.setitem(dest, nexta)
                             a.len -= 1
                             if a.len == 0:
                                 return
@@ -365,7 +388,7 @@ def make_timsort_class():
                                 break
                         else:
                             dest -= 1
-                            self.list[dest] = nextb
+                            self.setitem(dest, nextb)
                             b.len -= 1
                             if b.len == 1:
                                 return
@@ -384,27 +407,27 @@ def make_timsort_class():
                         min_gallop -= min_gallop > 1
                         self.min_gallop = min_gallop
 
-                        nextb = b.list[b.base + b.len - 1]
+                        nextb = b.getitem(b.base + b.len - 1)
                         k = self.gallop(nextb, a, hint=a.len-1, rightmost=True)
                         acount = a.len - k
                         for p in xrange(a.base + a.len - 1, a.base + k - 1, -1):
                             dest -= 1
-                            self.list[dest] = a.list[p]
+                            self.setitem(dest, a.getitem(p))
                         a.len -= acount
                         if a.len == 0:
                             return
 
                         dest -= 1
-                        self.list[dest] = b.popright()
+                        self.setitem(dest, b.popright())
                         if b.len == 1:
                             return
 
-                        nexta = a.list[a.base + a.len - 1]
+                        nexta = a.getitem(a.base + a.len - 1)
                         k = self.gallop(nexta, b, hint=b.len-1, rightmost=False)
                         bcount = b.len - k
                         for p in xrange(b.base + b.len - 1, b.base + k - 1, -1):
                             dest -= 1
-                            self.list[dest] = b.list[p]
+                            self.setitem(dest, b.getitem(p))
                         b.len -= bcount
                         # b.len==0 is impossible now if the comparison
                         # function is consistent, but we can't assume
@@ -413,7 +436,7 @@ def make_timsort_class():
                             return
 
                         dest -= 1
-                        self.list[dest] = a.popright()
+                        self.setitem(dest, a.popright())
                         if a.len == 0:
                             return
 
@@ -429,10 +452,10 @@ def make_timsort_class():
                 assert a.len >= 0 and b.len >= 0
                 for p in xrange(a.base + a.len - 1, a.base - 1, -1):
                     dest -= 1
-                    self.list[dest] = a.list[p]
+                    self.setitem(dest, a.getitem(p))
                 for p in xrange(b.base + b.len - 1, b.base - 1, -1):
                     dest -= 1
-                    self.list[dest] = b.list[p]
+                    self.setitem(dest, b.getitem(p))
 
         # Merge the two runs at stack indices i and i+1.
 
@@ -448,14 +471,14 @@ def make_timsort_class():
 
             # Where does b start in a?  Elements in a before that can be
             # ignored (already in place).
-            k = self.gallop(b.list[b.base], a, hint=0, rightmost=True)
+            k = self.gallop(b.getitem(b.base), a, hint=0, rightmost=True)
             a.advance(k)
             if a.len == 0:
                 return
 
             # Where does a end in b?  Elements in b after that can be
             # ignored (already in place).
-            b.len = self.gallop(a.list[a.base+a.len-1], b, hint=b.len-1,
+            b.len = self.gallop(a.getitem(a.base+a.len-1), b, hint=b.len-1,
                                 rightmost=False)
             if b.len == 0:
                 return
@@ -565,21 +588,27 @@ def make_timsort_class():
             start = self.base
             stop  = self.base + self.len
             assert 0 <= start <= stop     # annotator hint
-            return ListSlice(self.list[start:stop], 0, self.len)
+            return ListSlice(getitem_slice(self.list, start, stop), 0, self.len)
 
         def advance(self, n):
             self.base += n
             self.len -= n
 
+        def getitem(self, item):
+            return getitem(self.list, item)
+
+        def setitem(self, item, value):
+            setitem(self.list, item, value)
+
         def popleft(self):
-            result = self.list[self.base]
+            result = getitem(self.list, self.base)
             self.base += 1
             self.len -= 1
             return result
 
         def popright(self):
             self.len -= 1
-            return self.list[self.base + self.len]
+            return getitem(self.list, self.base + self.len)
 
         def reverse(self):
             "Reverse the slice in-place."
@@ -587,7 +616,10 @@ def make_timsort_class():
             lo = self.base
             hi = lo + self.len - 1
             while lo < hi:
-                list[lo], list[hi] = list[hi], list[lo]
+                list_hi = getitem(list, hi)
+                list_lo = getitem(list, lo)
+                setitem(list, lo, list_hi)
+                setitem(list, hi, list_lo)
                 lo += 1
                 hi -= 1
     return TimSort
