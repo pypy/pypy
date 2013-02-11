@@ -94,3 +94,14 @@ class AppTestShapeBase(BaseNumpyAppTest):
                                   [2, 3],
                                   [3, 4]])
 
+    def test_dstack(self):
+        import numpypy as np
+        a = np.array((1,2,3))
+        b = np.array((2,3,4))
+        c = np.dstack((a,b))
+        assert np.array_equal(c, [[[1, 2], [2, 3], [3, 4]]])
+
+        a = np.array([[1],[2],[3]])
+        b = np.array([[2],[3],[4]])
+        c = np.dstack((a,b))
+        assert np.array_equal(c, [[[1, 2]], [[2, 3]], [[3, 4]]])
