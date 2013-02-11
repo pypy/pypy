@@ -1177,17 +1177,16 @@ class Assembler386(object):
         self.mc.CALL(x)
         if can_collect:
             self._reload_frame_if_necessary(self.mc)
-        if align:
-            self.mc.ADD_ri(esp.value, align * WORD)
         if can_collect:
             self.pop_gcmap(self.mc)
         #
         if callconv != FFI_DEFAULT_ABI:
-            self._fix_stdcall(callconv, p)
+            self._fix_stdcall(callconv, p - align * WORD)
+        elif align:
+            self.mc.ADD_ri(esp.value, align * WORD)
 
     def _fix_stdcall(self, callconv, p):
         from rpython.rlib.clibffi import FFI_STDCALL
-        xxx
         assert callconv == FFI_STDCALL
         # it's a bit stupid, but we're just going to cancel the fact that
         # the called function just added 'p' to ESP, by subtracting it again.
