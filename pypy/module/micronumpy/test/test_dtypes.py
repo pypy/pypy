@@ -496,6 +496,13 @@ class AppTestTypes(BaseAppTestDtypes):
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
 
+    def test_float_None(self):
+        import _numpypy as numpy
+        from math import isnan
+        assert isnan(numpy.float32(None))
+        assert isnan(numpy.float64(None))
+        assert isnan(numpy.float128(None))
+
     def test_longfloat(self):
         import _numpypy as numpy
         # it can be float96 or float128
