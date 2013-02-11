@@ -52,8 +52,12 @@ class AbstractLLCPU(AbstractCPU):
         # the same as normal JITFRAME, however with an array of pointers
         self.refarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
                                         FLAG_POINTER)
-        self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize, ad.lendescr,
-                                          FLAG_FLOAT)
+        if WORD == 4:
+            self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize * 2,
+                                              ad.lendescr, FLAG_FLOAT)
+        else:
+            self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize,
+                                              ad.lendescr, FLAG_FLOAT)
         self.setup()
 
     def getarraydescr_for_frame(self, type):

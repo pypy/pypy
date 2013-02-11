@@ -211,12 +211,14 @@ class Assembler386(object):
             # push first arg
             mc.MOV_rr(edi.value, ebp.value)
             align = align_stack_words(1)
+            mc.SUB_ri(esp.value, (align - 1) * WORD)
         else:
-            mc.PUSH(RawStackLoc(WORD * 2))
-            mc.PUSH_r(ebp.value)
             align = align_stack_words(3)
+            mc.MOV_rs(eax.value, WORD * 2)
+            mc.SUB_ri(esp.value, (align - 1) * WORD)
+            mc.MOV_sr(WORD, eax.value)
+            mc.MOV_sr(0, ebp.value)
         # align
-        mc.SUB_ri(esp.value, (align - 1) * WORD)
 
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.ADD_ri(esp.value, (align - 1) * WORD)
@@ -1140,7 +1142,7 @@ class Assembler386(object):
                     stack_depth += 2
                 else:
                     stack_depth += 1
-            stack_depth += loc.get_width()
+            stack_depth += loc.get_width() // WORD
         if stack_depth > PASS_ON_MY_FRAME:
             stack_depth = align_stack_words(stack_depth)
             align = (stack_depth - PASS_ON_MY_FRAME)
@@ -1175,17 +1177,16 @@ class Assembler386(object):
         self.mc.CALL(x)
         if can_collect:
             self._reload_frame_if_necessary(self.mc)
-        if align:
-            self.mc.ADD_ri(esp.value, align * WORD)
         if can_collect:
             self.pop_gcmap(self.mc)
         #
         if callconv != FFI_DEFAULT_ABI:
-            self._fix_stdcall(callconv, p)
+            self._fix_stdcall(callconv, p - align * WORD)
+        elif align:
+            self.mc.ADD_ri(esp.value, align * WORD)
 
     def _fix_stdcall(self, callconv, p):
         from rpython.rlib.clibffi import FFI_STDCALL
-        xxx
         assert callconv == FFI_STDCALL
         # it's a bit stupid, but we're just going to cancel the fact that
         # the called function just added 'p' to ESP, by subtracting it again.

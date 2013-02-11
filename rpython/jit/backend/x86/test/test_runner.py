@@ -31,8 +31,11 @@ class TestX86(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
-    bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'mov', 'mov',
-                                'call', 'mov', 'jmp']
+    if WORD == 4:
+        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp']
+    else:
+        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'mov', 'mov',
+                                    'call', 'mov', 'jmp']
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
@@ -497,7 +500,7 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.GUARD_FALSE, [i3], None,
                          descr=BasicFailDescr(0)),
             ResOperation(rop.FINISH, [], None,
-                         descr=BasicFailDescr(1))
+                         descr=BasicFinalDescr(1))
             ]
             ops[-2].setfailargs([i3, i4, i5, i6])
             ops[1].setfailargs([])
