@@ -18,7 +18,7 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 from pyrepl.historical_reader import HistoricalReader
-from .infrastructure import EA, TestReader, read_spec
+from .infrastructure import EA, BaseTestReader, read_spec
 
 # this test case should contain as-verbatim-as-possible versions of
 # (applicable) bug reports
@@ -26,7 +26,7 @@ from .infrastructure import EA, TestReader, read_spec
 import pytest
 
 
-class HistoricalTestReader(HistoricalReader, TestReader):
+class HistoricalTestReader(HistoricalReader, BaseTestReader):
     pass
 
 

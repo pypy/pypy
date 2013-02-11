@@ -56,7 +56,7 @@ class TestConsole(Console):
         return Event(*ev)
 
 
-class TestReader(Reader):
+class BaseTestReader(Reader):
 
     def get_prompt(self, lineno, cursor_on_line):
         return ''
@@ -66,7 +66,7 @@ class TestReader(Reader):
         self.dirty = True
 
 
-def read_spec(test_spec, reader_class=TestReader):
+def read_spec(test_spec, reader_class=BaseTestReader):
     # remember to finish your test_spec with 'accept' or similar!
     con = TestConsole(test_spec, verbose=True)
     reader = reader_class(con)
