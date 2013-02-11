@@ -126,8 +126,8 @@ if sys.platform != 'darwin':
     libpath = ctypes.util.find_library('db')
     if not libpath:
         # XXX this is hopeless...
-        for c in '56789':
-            libpath = ctypes.util.find_library('db-4.%s' % c)
+        for c in ['5.3', '5.2', '5.1', '5.0', '4.9', '4.8', '4.7', '4.6', '4.5']:
+            libpath = ctypes.util.find_library('db-%s' % c)
             if libpath:
                 break
         else:
