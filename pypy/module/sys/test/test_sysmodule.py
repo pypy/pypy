@@ -96,6 +96,7 @@ class AppTestAppSysTests:
         assert isinstance(sys.__stdout__, io.IOBase)
         assert isinstance(sys.__stderr__, io.IOBase)
         assert isinstance(sys.__stdin__, io.IOBase)
+        assert sys.__stderr__.errors == 'backslashreplace'
 
         if self.appdirect and not isinstance(sys.stdin, io.IOBase):
             return
@@ -103,6 +104,7 @@ class AppTestAppSysTests:
         assert isinstance(sys.stdout, io.IOBase)
         assert isinstance(sys.stderr, io.IOBase)
         assert isinstance(sys.stdin, io.IOBase)
+        assert sys.stderr.errors == 'backslashreplace'
 
     def test_getfilesystemencoding(self):
         import sys

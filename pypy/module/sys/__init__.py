@@ -121,6 +121,7 @@ class Module(MixedModule):
                                                       closefd=False)
                 sys.stdout.buffer.raw.name = "<stdout>"
                 sys.stderr = sys.__stderr__ = io.open(2, "w", encoding="ascii",
+                                                      errors="backslashreplace",
                                                       closefd=False)
                 sys.stderr.buffer.raw.name = "<stderr>"
                """)

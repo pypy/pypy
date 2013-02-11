@@ -880,6 +880,19 @@ class TestNonInteractive:
         assert status == 1
         assert data.startswith("15\xe2\x82\xac")
 
+    def test_stderr_backslashreplace(self):
+        if sys.version_info < (2, 7):
+            skip("test required Python >= 2.7")
+        p = getscript_in_dir("""
+        import sys
+        sys.exit('15\u20ac {}'.format((sys.stdout.errors, sys.stderr.errors)))
+        """)
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = 'ascii'
+        data, status = self.run_with_status_code(p, env=env)
+        assert status == 1
+        assert data.startswith("15\\u20ac ('strict', 'backslashreplace')")
+
 
 class TestAppMain:
     def test_print_info(self):

@@ -251,7 +251,7 @@ def initstdio(encoding=None, unbuffered=False):
     sys.stdout = sys.__stdout__ = create_stdio(
         1, True, "<stdout>", encoding, errors, unbuffered)
     sys.stderr = sys.__stderr__ = create_stdio(
-        2, True, "<stderr>", encoding, errors, unbuffered)
+        2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
 
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
