@@ -53,9 +53,6 @@ class RawStackLoc(AssemblerLocation):
         self.value = value
         self.type = type
 
-    def _getregkey(self):
-        return -(self.value * 2 + 2)
-
     def get_width(self):
         if self.type == FLOAT:
             return 8
@@ -80,11 +77,12 @@ class RawEspLoc(AssemblerLocation):
     _location_code = 's'
 
     def __init__(self, value, type):
+        assert value >= 0
         self.value = value
         self.type = type
 
     def _getregkey(self):
-        return -(self.value * 2 + 1)
+        return ~self.value
 
     def get_width(self):
         if self.type == FLOAT:
@@ -107,8 +105,7 @@ class StackLoc(RawStackLoc):
         # _getregkey() returns self.value; the value returned must not
         # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
         # so let it fail the following assert if it no longer does.
-        assert ebp_offset >= 0
-        #assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
+        assert ebp_offset >= 8 + 8 * IS_X86_64
         self.position = position
         #if position != 9999:
         #    assert (position + JITFRAME_FIXED_SIZE) * WORD == ebp_offset
