@@ -49,6 +49,9 @@ class TestNumArrayDirect(object):
         a = create_array([10, 5, 3], MockDtype(), order='C')
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
+        a = create_array([1, 0, 7], MockDtype(), order='C')
+        assert a.strides == [7, 7, 1]
+        assert a.backstrides == [-7, -7, 6]
 
     def test_create_slice_f(self):
         a = create_array([10, 5, 3], MockDtype(), order='F')
