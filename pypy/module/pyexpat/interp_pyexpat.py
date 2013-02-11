@@ -616,15 +616,10 @@ getting the advantage of providing document type information to the parser.
 
     # Parse methods
 
-    @unwrap_spec(isfinal=bool)
-    def Parse(self, space, w_data, isfinal=False):
+    @unwrap_spec(data='bufferstr_or_u', isfinal=bool)
+    def Parse(self, space, data, isfinal=False):
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
-
-        if space.isinstance_w(w_data, space.w_bytes):
-            data = space.bytes_w(w_data)
-        else:
-            data = space.str_w(w_data)
         res = XML_Parse(self.itself, data, len(data), isfinal)
         if self._exc_info:
             e = self._exc_info

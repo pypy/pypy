@@ -162,12 +162,12 @@ class AppTestPyexpat:
         assert e.value.code == errors.codes[errors.XML_ERROR_UNCLOSED_TOKEN]
 
     def test_read_chunks(self):
+        import io
         import pyexpat
-        import StringIO
         from contextlib import closing
 
-        xml = '<xml>' + (' ' * 4096) + '</xml>'
-        with closing(StringIO.StringIO(xml)) as sio:
+        xml = b'<xml>' + (b' ' * 4096) + b'</xml>'
+        with closing(io.BytesIO(xml)) as sio:
             class FakeReader():
                 def __init__(self):
                     self.read_count = 0
