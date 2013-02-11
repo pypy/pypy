@@ -1733,6 +1733,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0xff
         assert len(a.data) == 16
 
+
+    def test_explicit_dtype_conversion(self):
+        from _numpypy import array
+        a = array([1.0, 2.0])
+        b = array(a, dtype='d')
+        assert a.dtype is b.dtype
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
