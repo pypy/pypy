@@ -17,22 +17,15 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from pyrepl.console import Event
-from pyrepl.tests.infrastructure import ReaderTestCase, EA, run_testcase
+from .infrastructure import read_spec
 
 # this test case should contain as-verbatim-as-possible versions of
 # (applicable) feature requests
 
-class WishesTestCase(ReaderTestCase):
 
-    def test_quoted_insert_repeat(self):
-        self.run_test([(('digit-arg', '3'),      ['']),
-                       ( 'quoted-insert',        ['']),
-                       (('self-insert', '\033'), ['^[^[^[']),
-                       ( 'accept',               None)])
-
-def test():
-    run_testcase(WishesTestCase)
-
-if __name__ == '__main__':
-    test()
+def test_quoted_insert_repeat():
+    read_spec([
+        (('digit-arg', '3'),      ['']),
+        (('quoted-insert', None), ['']),
+        (('self-insert', '\033'), ['^[^[^[']),
+        (('accept', None),        None)])
