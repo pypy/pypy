@@ -3,9 +3,10 @@
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
+from rpython.rlib.objectmodel import newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.tool.pairtype import pair, pairtype
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.tool.pairtype import pairtype
 
 
 # -------------- public API for string functions -----------------------
@@ -14,7 +15,10 @@ def split(value, by, maxsplit=-1):
     if bylen == 0:
         raise ValueError("empty separator")
 
-    res = []
+    if maxsplit > 0:
+        res = newlist_hint(maxsplit)
+    else:
+        res = []
     start = 0
     while maxsplit != 0:
         next = value.find(by, start)
@@ -27,8 +31,12 @@ def split(value, by, maxsplit=-1):
     res.append(value[start:len(value)])
     return res
 
+
 def rsplit(value, by, maxsplit=-1):
-    res = []
+    if maxsplit > 0:
+        res = newlist_hint(maxsplit)
+    else:
+        res = []
     end = len(value)
     bylen = len(by)
     if bylen == 0:
@@ -38,7 +46,7 @@ def rsplit(value, by, maxsplit=-1):
         next = value.rfind(by, 0, end)
         if next < 0:
             break
-        res.append(value[next+bylen:end])
+        res.append(value[next + bylen:end])
         end = next
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
@@ -49,6 +57,7 @@ def rsplit(value, by, maxsplit=-1):
 # -------------- public API ---------------------------------
 
 INIT_SIZE = 100 # XXX tweak
+
 
 class AbstractStringBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
@@ -91,8 +100,10 @@ class AbstractStringBuilder(object):
     def getlength(self):
         return len(self.build())
 
+
 class StringBuilder(AbstractStringBuilder):
     tp = str
+
 
 class UnicodeBuilder(AbstractStringBuilder):
     tp = unicode
@@ -260,4 +271,3 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-
