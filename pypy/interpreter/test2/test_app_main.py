@@ -98,8 +98,7 @@ def setpythonpath():
 
 
 class TestParseCommandLine:
-    def check_options(self, options, sys_argv, **expected):
-        assert sys.argv == sys_argv
+    def check_options(self, options, **expected):
         for key, value in expected.items():
             assert options[key] == value
         for key, value in options.items():
@@ -122,7 +121,7 @@ class TestParseCommandLine:
             app_options = eval(p.stdout.readline())
             sys_argv = eval(p.stdout.readline())
             app_options['sys_argv'] = sys_argv
-            self.check_options(app_options, sys_argv, expected)
+            self.check_options(app_options, **expected)
 
     def test_all_combinations_I_can_think_of(self):
         self.check([], {}, sys_argv=[''], run_stdin=True)
