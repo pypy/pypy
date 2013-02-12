@@ -4,7 +4,7 @@ memory layout. It assumes you are familiar with the terms, see
 http://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html
 for a more gentle introduction.
 
-Given an array x: x.shape == [5,6],
+Given an array x: x.shape == [5,6], where each element occupies one byte
 
 At which byte in x.data does the item x[3,4] begin?
 if x.strides==[1,5]:

@@ -648,6 +648,8 @@ class Float(Primitive):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
+        if space.is_none(w_item):
+            return self.box(rfloat.NAN)
         return self.box(space.float_w(space.call_function(space.w_float, w_item)))
 
     def str_format(self, box):
@@ -1017,17 +1019,17 @@ class ComplexFloating(object):
     def str_format(self, box):
         real, imag = self.for_computation(self.unbox(box))
         imag_str = str_format(imag) + 'j'
-        
+
         # (0+2j) => 2j
         if real == 0:
-            return imag_str        
+            return imag_str
 
         real_str = str_format(real)
         op = '+' if imag >= 0 else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     @staticmethod
-    def for_computation(v):   
+    def for_computation(v):
         return float(v[0]), float(v[1])
 
     @raw_unary_op
@@ -1099,7 +1101,7 @@ class ComplexFloating(object):
     @complex_binary_op
     def mul(self, v1, v2):
         return rcomplex.c_mul(v1, v2)
-    
+
     @complex_binary_op
     def div(self, v1, v2):
         try:

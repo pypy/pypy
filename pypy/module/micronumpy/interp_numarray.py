@@ -891,8 +891,9 @@ W_NDimArray.typedef = TypeDef(
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
-    if not issequence_w(space, w_object):
-        if space.is_none(w_dtype):
+    isstr = space.isinstance_w(w_object, space.w_str)
+    if not issequence_w(space, w_object) or isstr:
+        if space.is_none(w_dtype) or isstr:
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
@@ -904,15 +905,17 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         if order != 'C':  # or order != 'F':
             raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
                                   order)
+
+    dtype = interp_dtype.decode_w_dtype(space, w_dtype)
     if isinstance(w_object, W_NDimArray):
         if (not space.is_none(w_dtype) and
-            w_object.get_dtype() is not w_dtype):
+            w_object.get_dtype() is not dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                                   "copying over different dtypes unsupported"))
         if copy:
             return w_object.descr_copy(space)
         return w_object
-    dtype = interp_dtype.decode_w_dtype(space, w_dtype)
+
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None:
         for w_elem in elems_w:

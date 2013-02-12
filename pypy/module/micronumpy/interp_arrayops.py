@@ -123,6 +123,8 @@ def concatenate(space, w_args, axis=0):
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
+        if arr.get_shape()[axis] == 0:
+            continue
         chunks[axis] = Chunk(axis_start, axis_start + arr.get_shape()[axis], 1,
                              arr.get_shape()[axis])
         Chunks(chunks).apply(res).implementation.setslice(space, arr)

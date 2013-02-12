@@ -17,20 +17,30 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from pyrepl.console import Event
-from pyrepl.tests.infrastructure import ReaderTestCase, EA, run_testcase
+from pyrepl.historical_reader import HistoricalReader
+from .infrastructure import EA, BaseTestReader, read_spec
 
 # this test case should contain as-verbatim-as-possible versions of
 # (applicable) bug reports
 
-class BugsTestCase(ReaderTestCase):
+import pytest
 
-    def test_transpose_at_start(self):
-        self.run_test([( 'transpose', [EA, '']),
-                       ( 'accept',    [''])])
 
-def test():
-    run_testcase(BugsTestCase)
+class HistoricalTestReader(HistoricalReader, BaseTestReader):
+    pass
 
-if __name__ == '__main__':
-    test()
+
+@pytest.mark.xfail(reason='event missing', run=False)
+def test_transpose_at_start():
+    read_spec([
+        ('transpose', [EA, '']),
+        ('accept',    [''])])
+
+
+def test_cmd_instantiation_crash():
+    spec = [
+        ('reverse-history-isearch', ["(r-search `') "]),
+        (('key', 'left'), ['']),
+        ('accept', [''])
+    ]
+    read_spec(spec, HistoricalTestReader)
