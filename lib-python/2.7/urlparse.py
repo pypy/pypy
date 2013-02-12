@@ -322,7 +322,8 @@ def unquote(s):
     if len(res) == 1:
         return s
     res_list = [res[0]]
-    for item in res[1:]:
+    for j in xrange(1, len(res)):
+        item = res[j]
         try:
             x = _hextochr[item[:2]] + item[2:]
         except KeyError:
