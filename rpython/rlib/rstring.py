@@ -16,7 +16,7 @@ def split(value, by, maxsplit=-1):
         raise ValueError("empty separator")
 
     if maxsplit > 0:
-        res = newlist_hint(min(maxsplit, len(value)))
+        res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
     start = 0
@@ -34,7 +34,7 @@ def split(value, by, maxsplit=-1):
 
 def rsplit(value, by, maxsplit=-1):
     if maxsplit > 0:
-        res = newlist_hint(min(maxsplit, len(value)))
+        res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
         res = []
     end = len(value)
