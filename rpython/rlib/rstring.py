@@ -3,7 +3,6 @@
 
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
-from rpython.rlib.objectmodel import newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
@@ -15,10 +14,7 @@ def split(value, by, maxsplit=-1):
     if bylen == 0:
         raise ValueError("empty separator")
 
-    if maxsplit > 0:
-        res = newlist_hint(maxsplit)
-    else:
-        res = []
+    res = []
     start = 0
     while maxsplit != 0:
         next = value.find(by, start)
@@ -31,12 +27,8 @@ def split(value, by, maxsplit=-1):
     res.append(value[start:len(value)])
     return res
 
-
 def rsplit(value, by, maxsplit=-1):
-    if maxsplit > 0:
-        res = newlist_hint(maxsplit)
-    else:
-        res = []
+    res = []
     end = len(value)
     bylen = len(by)
     if bylen == 0:
