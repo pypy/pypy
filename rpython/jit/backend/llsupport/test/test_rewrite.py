@@ -72,7 +72,7 @@ class RewriteTests(object):
 
         casmdescr = JitCellToken()
         clt = FakeLoopToken()
-        clt._ll_initial_locs = [0, WORD]
+        clt._ll_initial_locs = [0, 8]
         frame_info = lltype.malloc(jitframe.JITFRAMEINFO, flavor='raw')
         clt.frame_info = frame_info
         frame_info.jfi_frame_depth = 13
