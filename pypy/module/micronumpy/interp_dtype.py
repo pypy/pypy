@@ -614,10 +614,12 @@ class DtypeCache(object):
             for dtype in [self.w_float16dtype, self.w_float32dtype,
                           self.w_float64dtype, self.w_longdouble]
         )
+        self.dtypes_by_num = {}
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with
         # higher numbers
         for dtype in reversed(self.builtin_dtypes):
+            self.dtypes_by_num[dtype.num] = dtype
             self.dtypes_by_name[dtype.name] = dtype
             can_name = dtype.kind + str(dtype.itemtype.get_element_size())
             self.dtypes_by_name[can_name] = dtype
@@ -708,9 +710,7 @@ class DtypeCache(object):
                     w_minobj = space.wrap(0)
                 items_w = items_w + [w_maxobj, w_minobj]
             items_w = items_w + [dtype.w_box_type]
-                       
-            w_tuple = space.newtuple(items_w)
-            space.setitem(w_typeinfo, space.wrap(k), w_tuple)
+            space.setitem(w_typeinfo, space.wrap(k), space.newtuple(items_w))
         self.w_typeinfo = w_typeinfo
 
 def get_dtype_cache(space):
