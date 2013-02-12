@@ -248,12 +248,15 @@ class Assembler386(object):
         # XXX investigate if we need to save callee-saved registers
         #     on the frame
         mc.SUB_rr(edi.value, eax.value)       # compute the size we want
-        assert not IS_X86_32
         # the arg is already in edi
-        if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+        mc.SUB_ri(esp.value, 16 - WORD)
+        if IS_X86_32:
+            mc.MOV_sr(0, edi.value)
+            if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                mc.MOV_sr(WORD, ebp.value)
+        elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
             # for tests only
             mc.MOV_rr(esi.value, ebp.value)
-        mc.SUB_ri(esp.value, 16 - WORD)
         mc.CALL(imm(addr))
         mc.ADD_ri(esp.value, 16 - WORD)
         mc.TEST_rr(eax.value, eax.value)
