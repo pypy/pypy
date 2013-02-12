@@ -1603,7 +1603,7 @@ class StringType(BaseType, BaseStringType):
         arr = interp_boxes.VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
-        return interp_boxes.W_StringBox(arr,  0, None)
+        return interp_boxes.W_StringBox(arr,  0, arg.dtype)
 
     @jit.unroll_safe
     def store(self, arr, i, offset, box):

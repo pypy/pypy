@@ -1666,6 +1666,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(6, dtype='f4').reshape(2,3)
         b = a.astype('i4')
 
+        a = array('x').astype('S3').dtype
+        assert a.itemsize == 3
+        
     def test_base(self):
         from _numpypy import array
         assert array(1).base is None
