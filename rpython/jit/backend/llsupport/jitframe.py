@@ -5,7 +5,7 @@ from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import enforceargs
 
 SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
-IS_32BIT = (SIZEOFSIGNED == 2 ** 31 - 1)
+IS_32BIT = (SIZEOFSIGNED == 4)
 
 # this is an info that only depends on the assembler executed, copied from
 # compiled loop token (in fact we could use this as a compiled loop token
