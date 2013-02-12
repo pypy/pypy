@@ -449,7 +449,7 @@ class DtypeCache(object):
             name="float64",
             char="d",
             w_box_type = space.gettypefor(interp_boxes.W_Float64Box),
-            alternate_constructors=[space.w_float, 
+            alternate_constructors=[space.w_float,
                                     space.gettypefor(interp_boxes.W_NumberBox),
                                    ],
             aliases=["float"],
