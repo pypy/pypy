@@ -1,7 +1,7 @@
 
 import weakref
 from rpython.rlib.jit import JitDriver, dont_look_inside
-from rpython.jit.backend.x86.test.test_zrpy_gc import run, get_entry
+from rpython.jit.backend.x86.test.test_zrpy_gc import run, get_entry, compile
 
 class X(object):
     def __init__(self, x=0):
