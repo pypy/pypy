@@ -2195,6 +2195,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a + a).item(1) == 4
         raises(IndexError, "array(5).item(1)")
         assert array([1]).item() == 1
+        a = array('x')
+        assert a.item() == 'x'
 
     def test_int_array_index(self):
         from _numpypy import array
