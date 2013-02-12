@@ -527,7 +527,10 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             frames.append(frame)
             new_frame = JITFRAME.allocate(frame.jf_frame_info)
             gcmap = unpack_gcmap(frame)
-            assert gcmap == [28, 29, 30]
+            if IS_X86_64:
+                assert gcmap == [28, 29, 30]
+            else:
+                assert gcmap == [22, 23, 24]
             for item, s in zip(gcmap, new_items):
                 new_frame.jf_frame[item] = rffi.cast(lltype.Signed, s)
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
