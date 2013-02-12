@@ -741,7 +741,7 @@ def make_array(mytype):
             return space.wrap("array('%s')" % self.typecode)
         elif self.typecode == "u":
             r = space.repr(array_tounicode__Array(space, self))
-            s = "array('%s', %s)" % (self.typecode, space.str_w(r))
+            s = u"array('%s', %s)" % (self.typecode, space.unicode_w(r))
             return space.wrap(s)
         else:
             r = space.repr(array_tolist__Array(space, self))
