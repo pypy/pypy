@@ -46,9 +46,17 @@ class AppTestDtypes(BaseAppTestDtypes):
         if self.ptr_size == 4:
             assert dtype('intp').num == 5
             assert dtype('uintp').num == 6
+            assert dtype('int32').num == 7
+            assert dtype('uint32').num == 8
+            assert dtype('int64').num == 9
+            assert dtype('uint64').num == 10
         else:
             assert dtype('intp').num == 7
             assert dtype('uintp').num == 8
+            assert dtype('int32').num == 5
+            assert dtype('uint32').num == 6
+            assert dtype('int64').num == 7
+            assert dtype('uint64').num == 8
         assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
@@ -260,6 +268,7 @@ class AppTestDtypes(BaseAppTestDtypes):
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
         import _numpypy as numpy
+
         raises(TypeError, numpy.generic, 0)
         raises(TypeError, numpy.number, 0)
         raises(TypeError, numpy.integer, 0)
@@ -277,6 +286,12 @@ class AppTestTypes(BaseAppTestDtypes):
         a_i = numpy.array([4,4], numpy.integer)
         a_s = numpy.array([4,4], numpy.signedinteger)
         a_u = numpy.array([4,4], numpy.unsignedinteger)
+
+        assert a_n.dtype.num == 12
+        assert a_i.dtype.num == 7
+        assert a_s.dtype.num == 7
+        assert a_u.dtype.num == 8
+
         assert a_n.dtype is numpy.dtype('float64')
         if self.ptr_size == 4:
             assert a_i.dtype is numpy.dtype('int32')
@@ -286,6 +301,7 @@ class AppTestTypes(BaseAppTestDtypes):
             assert a_i.dtype is numpy.dtype('int64')
             assert a_s.dtype is numpy.dtype('int64')
             assert a_u.dtype is numpy.dtype('uint64')
+
         # too ambitious for now
         #a = numpy.array('xxxx', numpy.generic)
         #assert a.dtype is numpy.dtype('|V4')
