@@ -570,6 +570,7 @@ class BytesTest(BaseBytesTest):
         self.assertRaises(TypeError, bytes, A())
 
     # Test PyBytes_FromFormat()
+    @test.support.impl_detail("don't test cpyext here")
     def test_from_format(self):
         test.support.import_module('ctypes')
         from ctypes import pythonapi, py_object, c_int, c_char_p
