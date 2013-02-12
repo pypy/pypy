@@ -1593,9 +1593,6 @@ class BaseStringType(object):
     def get_size(self):
         return self.size
 
-    def to_builtin_type(self, space, box):
-        return space.wrap(self.to_str(box))
-
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
