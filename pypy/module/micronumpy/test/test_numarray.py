@@ -2575,6 +2575,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0] == 'abc'
         assert a[1] == 'defg'
         assert a[2] == 'ab'
+        a = array(['abc', 'defg', 'ab'], 'S3')
+        assert str(a.dtype) == '|S3'
+        assert a[0] == 'abc'
+        assert a[1] == 'def'
+        assert a[2] == 'ab'
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
 
