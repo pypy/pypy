@@ -383,7 +383,10 @@ class BaseTest(unittest.TestCase):
             if a.itemsize>1:
                 self.assertRaises(ValueError, b.fromstring, "x")
                 nb_warnings += 1
-        self.assertEqual(len(r), nb_warnings)
+        if support.check_impl_detail():
+            # PyPy's multimethod dispatch is different from CPython's
+            # on CPython the warning is emitted before checking the arguments
+            self.assertEqual(len(r), nb_warnings)
 
     def test_tofrombytes(self):
         a = array.array(self.typecode, 2*self.example)
