@@ -299,9 +299,12 @@ def test_custom_tracer():
     assert all_addrs[6] == indexof(3)
     assert all_addrs[7] == indexof(5)
     assert all_addrs[8] == indexof(7)
-    assert all_addrs[9] == indexof(63)
-    # XXX 32bit
-    assert all_addrs[10] == indexof(65)
+    if sys.maxint == 2**31 - 1:
+        assert all_addrs[9] == indexof(31)
+        assert all_addrs[10] == indexof(33)
+    else:
+        assert all_addrs[9] == indexof(63)
+        assert all_addrs[10] == indexof(65)
 
     assert len(all_addrs) == 4 + 6 + 4
     # 4 static fields, 4 addresses from gcmap, 2 from gcpattern
