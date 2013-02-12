@@ -589,7 +589,7 @@ class DtypeCache(object):
             name='intp',
             char=INTPLTR,
             w_box_type = space.gettypefor(intp_box),
-        )    
+        )
         self.w_uintpdtype = W_Dtype(
             uintp_type,
             num=uintp_num,
@@ -597,17 +597,19 @@ class DtypeCache(object):
             name='uintp',
             char=UINTPLTR,
             w_box_type = space.gettypefor(uintp_box),
-        )    
+        )
         self.builtin_dtypes = [
-            self.w_booldtype, self.w_int8dtype, self.w_uint8dtype,
-            self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
-            self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
+            self.w_booldtype,
+            self.w_int8dtype, self.w_uint8dtype,
+            self.w_int16dtype, self.w_uint16dtype,
+            self.w_longdtype, self.w_ulongdtype,
+            self.w_int32dtype, self.w_uint32dtype,
             self.w_int64dtype, self.w_uint64dtype,
-            self.w_float16dtype, self.w_float32dtype, self.w_float64dtype,
-            self.w_longdouble,
+            self.w_float32dtype, self.w_float64dtype, self.w_longdouble,
             self.w_complex64dtype, self.w_complex128dtype, self.w_clongdouble,
-            self.w_stringdtype, self.w_unicodedtype,
-            self.w_voiddtype, self.w_intpdtype, self.w_uintpdtype,
+            self.w_stringdtype, self.w_unicodedtype, self.w_voiddtype,
+            self.w_intpdtype, self.w_uintpdtype,
+            self.w_float16dtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
