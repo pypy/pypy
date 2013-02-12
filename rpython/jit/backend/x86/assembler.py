@@ -322,14 +322,11 @@ class Assembler386(object):
             # have been used to pass arguments. Note that we pass only
             # one argument, that is the frame
             mc.PUSH_r(edi.value)
+            mc.MOV_rr(edi.value, esp.value)
         #
         if IS_X86_32:
-            xxx
-            stack_size += 2*WORD
-            mc.PUSH_r(eax.value)        # alignment
+            mc.SUB_ri(esp.value, 2*WORD) # alignment
             mc.PUSH_r(esp.value)
-        elif IS_X86_64:
-            mc.MOV_rr(edi.value, esp.value)
         #
         # esp is now aligned to a multiple of 16 again
         mc.CALL(imm(slowpathaddr))
@@ -340,9 +337,8 @@ class Assembler386(object):
         jnz_location = mc.get_relative_pos()
         #
         if IS_X86_32:
-            xxxx
-            mc.ADD_ri(esp.value, 2*WORD)    # cancel the two PUSHes above
-        elif IS_X86_64:
+            mc.ADD_ri(esp.value, 3*WORD)    # alignment
+        else:
             # restore the edi
             mc.POP_r(edi.value)
         #
@@ -396,16 +392,18 @@ class Assembler386(object):
                 mc.SUB_ri(esp.value, 2 * WORD)
                 mc.MOV_rs(eax.value, 3 * WORD) # 2 + 1
                 mc.MOV_sr(0, eax.value)
-            elif IS_X86_64:
+            else:
                 mc.MOV_rs(edi.value, WORD)
         else:
             # we're possibly called from the slowpath of malloc, so we have
             # one extra CALL on the stack, but one less PUSH,
             # save to store stuff 2 locations away on the stack.
+            mc.MOV_sr(3 * WORD, eax.value) # save for later
             if IS_X86_32:
-                xxx
-            mc.MOV_sr(3*WORD, eax.value)
-            mc.MOV_rr(edi.value, ebp.value)
+                mc.SUB_ri(esp.value, 2 * WORD) # align
+                mc.MOV_sr(0, ebp.value)
+            else:
+                mc.MOV_rr(edi.value, ebp.value)
 
         mc.CALL(imm(func))
         #
@@ -429,8 +427,8 @@ class Assembler386(object):
             mc.RET16_i(WORD)
         else:
             if IS_X86_32:
-                XXX
-            mc.MOV_rs(eax.value, 3 * WORD)
+                mc.LEA_rs(esp.value, 2 * WORD)
+            mc.MOV_rs(eax.value, 3 * WORD) # restore
             mc.RET()
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])

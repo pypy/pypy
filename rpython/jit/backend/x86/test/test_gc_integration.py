@@ -7,7 +7,7 @@ from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
      GcLLDescr_framework, GcCache, JitFrameDescrs
 from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
+from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE, IS_X86_64
 from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper, llhelper_args
@@ -71,10 +71,15 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         # the gcmap should contain three things, p0, p1 and p3
         # p3 stays in a register
         # while p0 and p1 are on the frame
-        assert frame.jf_gcmap[0] == (1 << 11) | (1 << 12) | (1 << 31)
-        assert frame.jf_frame[11]
-        assert frame.jf_frame[12]
-        assert frame.jf_frame[31]
+        if IS_X86_64:
+            nos = [11, 12, 31]
+        else:
+            nos = [4, 5, 25]
+        assert frame.jf_gcmap[0] == ((1 << nos[0]) | (1 << nos[1]) |
+                                     (1 << nos[2]))
+        assert frame.jf_frame[nos[0]]
+        assert frame.jf_frame[nos[1]]
+        assert frame.jf_frame[nos[2]]
 
     def test_rewrite_constptr(self):
         ops = '''
