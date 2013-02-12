@@ -22,12 +22,16 @@ class AppTestDtypes(BaseAppTestDtypes):
         d = dtype('?')
         assert d.num == 0
         assert d.kind == 'b'
-        assert dtype('int8').num == 1
         assert dtype(d) is d
-        assert dtype(None) is dtype(float)
+        assert dtype('bool') is d
+
+        assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'
         assert dtype(int).fields is None
         assert dtype(int).names is None
+
+        assert dtype(None) is dtype(float)
+
         raises(TypeError, dtype, 1042)
         raises(KeyError, 'dtype(int)["asdasd"]')
 
@@ -178,7 +182,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         for d1, d2, dout in tests:
             # make a failed test print helpful info
             d3 = (array([1], d1) + array([1], d2)).dtype
-            assert (d1, d2, repr(d3)) == (d1, d2, repr(dtype(dout)))
+            assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
 
     def test_add_int8(self):
         from _numpypy import array, dtype
@@ -534,7 +538,7 @@ class AppTestTypes(BaseAppTestDtypes):
                                        numpy.inexact, numpy.number, 
                                        numpy.generic, object]
         a = numpy.array([1, 2, 3], numpy.longdouble)
-        assert repr(type(a[1])) == repr(numpy.longdouble)
+        assert type(a[1]) is numpy.longdouble
         assert numpy.float64(12) == numpy.longdouble(12)
         assert numpy.float64(12) == numpy.longfloat(12)
         raises(ValueError, numpy.longfloat, '23.2df')
@@ -574,7 +578,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert repr(c128) == should
 
         c64 = numpy.complex64(complex(real, imag))
-        assert repr(c64.real) == 'inf'  
+        assert repr(c64.real) == 'inf'
         assert type(c64.real) is type(c64.imag) is numpy.float32
         assert repr(c64.imag).startswith('inf')
         assert repr(c64) in ('(inf+inf*j)', '(inf+infj)')
