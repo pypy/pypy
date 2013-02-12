@@ -44,3 +44,24 @@ def test_cmd_instantiation_crash():
         ('accept', [''])
     ]
     read_spec(spec, HistoricalTestReader)
+
+def test_signal_failure(monkeypatch):
+    import os
+    import pty
+    import signal
+    from pyrepl.unix_console import UnixConsole
+
+    def failing_signal(a, b):
+        raise ValueError
+
+    mfd, sfd = pty.openpty()
+    try:
+        c = UnixConsole(sfd, sfd)
+        c.prepare()
+        c.restore()
+        monkeypatch.setattr(signal, 'signal', failing_signal)
+        c.prepare()
+        c.restore()
+    finally:
+        os.close(mfd)
+        os.close(sfd)
