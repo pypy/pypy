@@ -54,6 +54,9 @@ def test_signal_failure(monkeypatch):
     def failing_signal(a, b):
         raise ValueError
 
+    def really_failing_signal(a, b):
+        raise AssertionError
+
     mfd, sfd = pty.openpty()
     try:
         c = UnixConsole(sfd, sfd)
@@ -61,6 +64,7 @@ def test_signal_failure(monkeypatch):
         c.restore()
         monkeypatch.setattr(signal, 'signal', failing_signal)
         c.prepare()
+        monkeypatch.setattr(signal, 'signal', really_failing_signal)
         c.restore()
     finally:
         os.close(mfd)
