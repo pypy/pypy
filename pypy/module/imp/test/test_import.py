@@ -1094,12 +1094,6 @@ class AppTestImportHooks(object):
             (mydir):
                 import sys
                 sys.path.append(mydir)
-
-                # Obscure: manually bootstrap the utf-8 codec for
-                # TextIOs opened by imp.find_module. It's not otherwise
-                # loaded by the test infrastructure but would have been
-                # in any other situation
-                import encodings.utf_8
         """)
 
     def teardown_class(cls):
