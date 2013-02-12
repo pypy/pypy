@@ -57,7 +57,7 @@ class TestARM(LLtypeBackendTest):
             ResOperation(rop.GUARD_FALSE, [inp[1]], None, descr=BasicFailDescr(1)),
             ResOperation(rop.FINISH, [inp[1]], None, descr=BasicFinalDescr(1)),
             ]
-        operations[-1].setfailargs(out)
+        operations[-2].setfailargs(out)
         cpu.compile_loop(inp, operations, looptoken)
         args = [i for i in range(1, 15)]
         deadframe = self.cpu.execute_token(looptoken, *args)
