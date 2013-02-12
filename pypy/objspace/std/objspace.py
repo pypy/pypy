@@ -684,10 +684,3 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if not hasattr(self, "_interplevel_classes"):
             return None # before running initialize
         return self._interplevel_classes.get(w_type, None)
-
-    def possibly_convert_to_celldict(self, w_dict):
-        """ Converts the dict to celldict, if it's a dict, otherwise
-        leaves it alone
-        """
-        if isinstance(w_dict, W_DictMultiObject):
-            w_dict.convert_to_celldict_strategy(self)
