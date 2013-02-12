@@ -39,6 +39,13 @@ class AppTestDtypes(BaseAppTestDtypes):
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
 
+    def test_dtype_aliases(self):
+        from _numpypy import dtype
+        assert dtype('longfloat').num in (12, 13)
+        assert dtype('longdouble').num in (12, 13)
+        assert dtype('clongfloat').num in (15, 16)
+        assert dtype('clongdouble').num in (15, 16)
+
     def test_dtype_with_types(self):
         from _numpypy import dtype
 
