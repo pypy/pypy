@@ -387,27 +387,13 @@ class AppTest_DictObject:
         bool = d1 != d3
         assert bool == True
 
-    def test_lt(self):
+    def test_richcompare(self):
+        import operator
         d1 = {1: 2, 3: 4}
-        d2 = {1: 2, 3: 4}
-        d3 = {1: 2, 3: 5}
-        d4 = {1: 2}
-        bool = d1 < d2
-        assert bool == False
-        bool = d1 < d3
-        assert bool == True
-        bool = d1 < d4
-        assert bool == False
-
-    def test_lt2(self):
-        assert {'a': 1 } < { 'a': 2 }
-        assert not {'a': 1 } > { 'a': 2 }
-        assert not {'a': 1, 'b': 0 } > { 'a': 2, 'b': 0 }
-        assert {'a': 1, 'b': 0 } < { 'a': 2, 'b': 0 }
-        assert {'a': 1, 'b': 0 } < { 'a': 1, 'b': 2 }
-        assert not {'a': 1, 'b': 0 } < { 'a': 1, 'b': -2 }
-        assert {'a': 1 } < { 'b': 1}
-        assert {'a': 1, 'x': 2 } < { 'b': 1, 'x': 2}
+        d2 = {1: 2, 3: 5}
+        for op in 'lt', 'le', 'gt', 'ge':
+            f = getattr(operator, op)
+            raises(TypeError, f, d1, d2)
 
     def test_str_repr(self):
         assert '{}' == str({})
