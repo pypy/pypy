@@ -931,19 +931,19 @@ class ByteArrayTest(BaseBytesTest):
         # bytearrays just because there are buffers around.  Instead,
         # we get (on PyPy) a buffer that follows the changes and resizes.
         b = bytearray(range(10))
-        for v in [memoryview(b), buffer(b)]:
-            b[5] = 99
-            self.assertIn(v[5], (99, chr(99)))
-            b[5] = 100
-            b += b
-            b += b
-            b += b
-            self.assertEquals(len(v), 80)
-            self.assertIn(v[5], (100, chr(100)))
-            self.assertIn(v[79], (9, chr(9)))
-            del b[10:]
-            self.assertRaises(IndexError, lambda: v[10])
-            self.assertEquals(len(v), 10)
+        v = memoryview(b)
+        b[5] = 99
+        self.assertIn(v[5], (99, bytes([99])))
+        b[5] = 100
+        b += b
+        b += b
+        b += b
+        self.assertEquals(len(v), 80)
+        self.assertIn(v[5], (100, bytes([100])))
+        self.assertIn(v[79], (9, bytes([9])))
+        del b[10:]
+        self.assertRaises(IndexError, lambda: v[10])
+        self.assertEquals(len(v), 10)
 
 
 class AssortedBytesTest(unittest.TestCase):
