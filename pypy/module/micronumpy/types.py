@@ -1637,6 +1637,10 @@ class StringType(BaseType, BaseStringType):
         builder.append("'")
         return builder.build()
 
+    # XXX move to base class when UnicodeType is supported
+    def to_builtin_type(self, space, box):
+        return space.wrap(self.to_str(box))
+
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
