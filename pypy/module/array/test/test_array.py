@@ -848,6 +848,13 @@ class BaseArrayTests:
         assert l
         assert l[0] is None or len(l[0]) == 0
 
+    def test_bytearray(self):
+        a = self.array('u', 'hi')
+        b = self.array('u')
+        b.frombytes(bytearray(a.tobytes()))
+        assert a == b
+        assert self.array('u', bytearray(a.tobytes())) == a
+
 
 class DontTestCPythonsOwnArray(BaseArrayTests):
 

@@ -38,8 +38,11 @@ def w_array(space, w_cls, typecode, __args__):
 
             if len(__args__.arguments_w) > 0:
                 w_initializer = __args__.arguments_w[0]
-                if space.type(w_initializer) is space.w_bytes:
-                    a.fromstring(space.bytes_w(w_initializer))
+                if space.lookup(w_initializer, '__buffer__') is not None:
+                    if isinstance(w_initializer, W_ArrayBase):
+                        a.extend(w_initializer, True)
+                    else:
+                        a.fromstring(space.bufferstr_w(w_initializer))
                 elif space.type(w_initializer) is space.w_list:
                     a.fromlist(w_initializer)
                 else:
@@ -569,7 +572,7 @@ def make_array(mytype):
         self.fromlist(w_lst)
 
     def array_frombytes__Array_ANY(space, self, w_s):
-        self.fromstring(space.bytes_w(w_s))
+        self.fromstring(space.bufferstr_w(w_s))
 
     def array_fromstring__Array_ANY(space, self, w_s):
         space.warn("fromstring() is deprecated. Use frombytes() instead.",
