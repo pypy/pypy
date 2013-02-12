@@ -548,7 +548,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
         loop = self.parse("""
         [p0, p1, p2]
-        pf = force_token() # this is a bit below the frame
+        pf = force_token() # this is the frame
         call(ConstClass(check_adr), pf, descr=checkdescr) # this can collect
         p3 = getfield_gc(p0, descr=fielddescr)
         pf2 = force_token()

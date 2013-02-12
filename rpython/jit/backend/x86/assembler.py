@@ -877,7 +877,7 @@ class Assembler386(object):
         # to provide a place where we can read the frame from, in case
         # we need to reload it after a collection
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
-        self.mc.MOV_mr((ebx.value, 0), edi.value)      # MOV [ebx], edi
+        self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
