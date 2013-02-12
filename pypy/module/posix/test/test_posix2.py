@@ -92,6 +92,15 @@ class AppTestPosix:
     def test_posix_is_pypy_s(self):
         assert self.posix.__file__
 
+    def test_expected_functions(self):
+        import sys
+        if sys.platform.startswith('linux'):
+            for name in '''fork wait wait3 wait4 fchown fchmod'''.split():
+                assert name in dir(self.posix)
+        if sys.platform.startswith('win32'):
+            for name in '''_getfullpathname O_TEXT O_BINARY'''.split():
+                assert name in dir(self.posix)
+
     def test_some_posix_basic_operation(self):
         path = self.path
         posix = self.posix
