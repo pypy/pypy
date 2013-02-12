@@ -1,12 +1,9 @@
 import py
 from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.backend.arm.arch import WORD
-from rpython.jit.backend.test.runner_test import LLtypeBackendTest, \
-                                                boxfloat, \
-                                                constfloat
-from rpython.jit.metainterp.history import (BasicFailDescr,
-                                         BoxInt,
-                                         ConstInt)
+from rpython.jit.backend.test.runner_test import LLtypeBackendTest,\
+     boxfloat, constfloat
+from rpython.jit.metainterp.history import (BasicFailDescr, BasicFinalDescr,
+                                            BoxInt)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
@@ -57,8 +54,10 @@ class TestARM(LLtypeBackendTest):
             ResOperation(rop.INT_ADD, [inp[8], inp[9]], out[11]),
             ResOperation(rop.INT_ADD, [inp[10], inp[11]], out[12]),
             ResOperation(rop.INT_ADD, [inp[12], inp[13]], out[13]),
-            ResOperation(rop.FINISH, out, None, descr=BasicFailDescr(1)),
+            ResOperation(rop.GUARD_FALSE, [inp[1]], None, descr=BasicFailDescr(1)),
+            ResOperation(rop.FINISH, [inp[1]], None, descr=BasicFinalDescr(1)),
             ]
+        operations[-1].setfailargs(out)
         cpu.compile_loop(inp, operations, looptoken)
         args = [i for i in range(1, 15)]
         deadframe = self.cpu.execute_token(looptoken, *args)
