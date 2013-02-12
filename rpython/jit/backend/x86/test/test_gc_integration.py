@@ -233,7 +233,10 @@ class TestMallocFastpath(BaseTestRegalloc):
     def test_malloc_slowpath(self):
         def check(frame):
             assert len(frame.jf_gcmap) == 1
-            assert frame.jf_gcmap[0] == (1<<29) | (1 << 30)
+            if IS_X86_64:
+                assert frame.jf_gcmap[0] == (1<<29) | (1 << 30)
+            else:
+                assert frame.jf_gcmap[0] == (1<<24) | (1 << 23)
         
         self.cpu = self.getcpu(check)
         ops = '''
@@ -260,9 +263,14 @@ class TestMallocFastpath(BaseTestRegalloc):
     def test_save_regs_around_malloc(self):
         def check(frame):
             x = frame.jf_gcmap
-            assert len(x) == 1
-            assert (bin(x[0]).count('1') ==
-                    '0b1111100000000000000001111111011110'.count('1'))
+            if IS_X86_64:
+                assert len(x) == 1
+                assert (bin(x[0]).count('1') ==
+                        '0b1111100000000000000001111111011110'.count('1'))
+            else:
+                assert len(x) == 2
+                s = bin(x[0]).count('1') + bin(x[1]).count('1')
+                assert s == 16
             # all but two registers + some stuff on stack
         
         self.cpu = self.getcpu(check)
