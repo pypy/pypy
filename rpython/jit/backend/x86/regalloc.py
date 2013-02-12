@@ -190,13 +190,14 @@ class RegAlloc(object):
 
     def _set_initial_bindings(self, inputargs, looptoken):
         locs = []
+        base_ofs = self.assembler.cpu.get_baseofs_of_frame_field()
         for box in inputargs:
             assert isinstance(box, Box)
             loc = self.fm.get_new_loc(box)
-            locs.append(loc.value)
+            locs.append(loc.value - base_ofs)
         if looptoken.compiled_loop_token is not None:
             # for tests
-            looptoken.compiled_loop_token._x86_initial_locs = locs
+            looptoken.compiled_loop_token._ll_initial_locs = locs
 
     def possibly_free_var(self, var):
         if var.type == FLOAT:

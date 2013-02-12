@@ -72,6 +72,7 @@ class RewriteTests(object):
 
         casmdescr = JitCellToken()
         clt = FakeLoopToken()
+        clt._ll_initial_locs = [0, WORD]
         frame_info = lltype.malloc(jitframe.JITFRAMEINFO, flavor='raw')
         clt.frame_info = frame_info
         frame_info.jfi_frame_depth = 13
@@ -116,8 +117,8 @@ class BaseFakeCPU(object):
             return self.floatframedescr
         return self.signedframedescr
 
-    def getarryoffset_for_frame(self):
-        return 0
+    def unpack_arraydescr_size(self, d):
+        return 0, d.itemsize, 0
     
     def arraydescrof(self, ARRAY):
         try:

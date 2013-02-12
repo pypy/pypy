@@ -55,9 +55,6 @@ class AbstractX86CPU(AbstractLLCPU):
         else:
             return 1000
 
-    def getarryoffset_for_frame(self):
-        return JITFRAME_FIXED_SIZE
-
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
 
@@ -119,9 +116,8 @@ class AbstractX86CPU(AbstractLLCPU):
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
             frame_info = clt.frame_info
             frame = self.gc_ll_descr.malloc_jitframe(frame_info)
-            base_ofs = self.get_baseofs_of_frame_field()
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
-            locs = executable_token.compiled_loop_token._x86_initial_locs
+            locs = executable_token.compiled_loop_token._ll_initial_locs
             prev_interpreter = None   # help flow space
             if not self.translate_support_code:
                 prev_interpreter = LLInterpreter.current_interpreter
@@ -129,7 +125,7 @@ class AbstractX86CPU(AbstractLLCPU):
             try:
                 for i, kind in kinds:
                     arg = args[i]
-                    num = locs[i] - base_ofs
+                    num = locs[i]
                     if kind == history.INT:
                         self.set_int_value(ll_frame, num, arg)
                     elif kind == history.FLOAT:

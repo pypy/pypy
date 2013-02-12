@@ -175,21 +175,15 @@ class GcRewriterAssembler(object):
                            None, descr=descrs.jf_frame_info)
         self.newops.append(op2)
         arglist = op.getarglist()
-        index = self.cpu.getarryoffset_for_frame()
+        index_list = loop_token.compiled_loop_token._ll_initial_locs
         for i, arg in enumerate(arglist):
             descr = self.cpu.getarraydescr_for_frame(arg.type)
-            if WORD == 4 and arg.type == history.FLOAT:
-                self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
-                                                [frame, ConstInt(index // 2),
-                                                 arg],
-                                                None, descr))
-                index += 2 
-            else:
-                self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
-                                                [frame, ConstInt(index),
-                                                 arg],
-                                                None, descr))
-                index += 1
+            _, itemsize, _ = self.cpu.unpack_arraydescr_size(descr)
+            index = index_list[i] // itemsize # index is in bytes
+            self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
+                                            [frame, ConstInt(index),
+                                             arg],
+                                            None, descr))
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
