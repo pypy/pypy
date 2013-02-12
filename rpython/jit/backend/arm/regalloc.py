@@ -1,8 +1,8 @@
-from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib import rgc
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempBox, compute_vars_longevity
+        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
@@ -16,7 +16,7 @@ from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     )
 from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
 from rpython.jit.backend.arm.arch import MY_COPY_OF_REGS
-from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
+from rpython.jit.backend.arm.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxPtr,
@@ -32,7 +32,6 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
-from rpython.rlib.objectmodel import we_are_translated
 
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
@@ -179,7 +178,7 @@ class CoreRegisterManager(ARMRegisterManager):
         return reg
 
 
-class Regalloc(object):
+class Regalloc(BaseRegalloc):
 
     def __init__(self, assembler=None):
         self.cpu = assembler.cpu
@@ -315,12 +314,6 @@ class Regalloc(object):
 
     def get_final_frame_depth(self):
         return self.frame_manager.get_frame_depth()
-
-    def _set_initial_bindings(self, inputargs):
-        # the input args are passed in the jitframe
-        for box in inputargs:
-            assert isinstance(box, Box)
-            self.fm.get_new_loc(box)
 
     def _update_bindings(self, locs, inputargs):
         used = {}

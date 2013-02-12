@@ -23,7 +23,7 @@ from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.backend.llsupport.regalloc import FrameManager,\
+from rpython.jit.backend.llsupport.regalloc import FrameManager, BaseRegalloc,\
      RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op
 from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
@@ -133,7 +133,7 @@ gpr_reg_mgr_cls.all_reg_indexes = [-1] * WORD * 2 # eh, happens to be true
 for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
 
-class RegAlloc(object):
+class RegAlloc(BaseRegalloc):
 
     def __init__(self, assembler, translate_support_code=False):
         assert isinstance(translate_support_code, bool)
@@ -187,17 +187,6 @@ class RegAlloc(object):
 
     def get_final_frame_depth(self):
         return self.fm.get_frame_depth()
-
-    def _set_initial_bindings(self, inputargs, looptoken):
-        locs = []
-        base_ofs = self.assembler.cpu.get_baseofs_of_frame_field()
-        for box in inputargs:
-            assert isinstance(box, Box)
-            loc = self.fm.get_new_loc(box)
-            locs.append(loc.value - base_ofs)
-        if looptoken.compiled_loop_token is not None:
-            # for tests
-            looptoken.compiled_loop_token._ll_initial_locs = locs
 
     def possibly_free_var(self, var):
         if var.type == FLOAT:

@@ -627,6 +627,22 @@ class RegisterManager(object):
         """ Platform specific - Allocates a temporary register """
         raise NotImplementedError("Abstract")
 
+class BaseRegalloc(object):
+    """ Base class on which all the backend regallocs should be based
+    """
+    def _set_initial_bindings(self, inputargs, looptoken):
+        """ Set the bindings at the start of the loop
+        """
+        locs = []
+        base_ofs = self.assembler.cpu.get_baseofs_of_frame_field()
+        for box in inputargs:
+            assert isinstance(box, Box)
+            loc = self.fm.get_new_loc(box)
+            locs.append(loc.value - base_ofs)
+        if looptoken.compiled_loop_token is not None:
+            # for tests
+            looptoken.compiled_loop_token._ll_initial_locs = locs
+
 
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in
