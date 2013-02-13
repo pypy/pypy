@@ -42,9 +42,10 @@ class ArmGuardToken(GuardToken):
                  offset, exc, frame_depth, is_guard_not_invalidated=False,
                  is_guard_not_forced=False, fcond=c.AL):
         GuardToken.__init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                            offset, exc, frame_depth, is_guard_not_invalidated,
+                            exc, frame_depth, is_guard_not_invalidated,
                             is_guard_not_forced)
         self.fcond = fcond
+        self.offset = offset
 
 
 class ResOpAssembler(object):
