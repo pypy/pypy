@@ -8,10 +8,10 @@ sys.argv[:] = sys.argv[1:]
 modname = sys.argv[0]
 impname = 'test.' + modname
 try:
+    regrtest.replace_stdout()
     mod = __import__(impname, globals(), locals(), [modname])
     indirect_test = getattr(mod, 'test_main', None)
     if indirect_test is not None:
-        regrtest.replace_stdout()
         indirect_test()
 except unittest.SkipTest:
     sys.stderr.write("="*26 + "skipped" + "="*26 + "\n")

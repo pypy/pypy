@@ -862,49 +862,6 @@ def eq__DictMulti_DictMulti(space, w_left, w_right):
             return space.w_False
     return space.w_True
 
-def characterize(space, w_a, w_b):
-    """ (similar to CPython)
-    returns the smallest key in acontent for which b's value is different or absent and this value """
-    w_smallest_diff_a_key = None
-    w_its_value = None
-    iteratorimplementation = w_a.iteritems()
-    while 1:
-        w_key, w_val = iteratorimplementation.next_item()
-        if w_key is None:
-            break
-        if w_smallest_diff_a_key is None or space.is_true(space.lt(w_key, w_smallest_diff_a_key)):
-            w_bvalue = w_b.getitem(w_key)
-            if w_bvalue is None:
-                w_its_value = w_val
-                w_smallest_diff_a_key = w_key
-            else:
-                if not space.eq_w(w_val, w_bvalue):
-                    w_its_value = w_val
-                    w_smallest_diff_a_key = w_key
-    return w_smallest_diff_a_key, w_its_value
-
-def lt__DictMulti_DictMulti(space, w_left, w_right):
-    # Different sizes, no problem
-    if w_left.length() < w_right.length():
-        return space.w_True
-    if w_left.length() > w_right.length():
-        return space.w_False
-
-    # Same size
-    w_leftdiff, w_leftval = characterize(space, w_left, w_right)
-    if w_leftdiff is None:
-        return space.w_False
-    w_rightdiff, w_rightval = characterize(space, w_right, w_left)
-    if w_rightdiff is None:
-        # w_leftdiff is not None, w_rightdiff is None
-        return space.w_True
-    w_res = space.lt(w_leftdiff, w_rightdiff)
-    if (not space.is_true(w_res) and
-        space.eq_w(w_leftdiff, w_rightdiff) and
-        w_rightval is not None):
-        w_res = space.lt(w_leftval, w_rightval)
-    return w_res
-
 def dict_copy__DictMulti(space, w_self):
     w_new = W_DictMultiObject.allocate_and_init_instance(space)
     update1_dict_dict(space, w_new, w_self)
