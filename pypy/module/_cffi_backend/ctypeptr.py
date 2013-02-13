@@ -175,7 +175,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 class W_CTypePointer(W_CTypePtrBase):
     _attrs_ = ['is_file', 'cache_array_type']
-    _immutable_fields_ = ['is_file']
+    _immutable_fields_ = ['is_file', 'cache_array_type?']
     kind = "pointer"
     cache_array_type = None
 
