@@ -4,7 +4,7 @@ Software Transactional Memory emulation of the GIL.
 
 from pypy.module.thread.threadlocals import OSThreadLocals
 from pypy.module.thread.error import wrap_thread_error
-from pypy.module.thread import ll_thread
+from rpython.rlib import rthread as thread
 from rpython.rlib import rstm
 from rpython.rlib.objectmodel import invoke_around_extcall
 
@@ -44,21 +44,21 @@ class STMThreadLocals(OSThreadLocals):
             rstm.set_transaction_length(interval)
 
 
-class STMLock(ll_thread.Lock):
+class STMLock(thread.Lock):
     def __init__(self, space, ll_lock):
-        ll_thread.Lock.__init__(self, ll_lock)
+        thread.Lock.__init__(self, ll_lock)
         self.space = space
 
     def acquire(self, flag):
         if rstm.is_atomic():
-            acquired = ll_thread.Lock.acquire(self, False)
+            acquired = thread.Lock.acquire(self, False)
             if flag and not acquired:
                 raise wrap_thread_error(self.space,
                     "deadlock: an atomic transaction tries to acquire "
                     "a lock that is already acquired.  See pypy/doc/stm.rst.")
         else:
-            acquired = ll_thread.Lock.acquire(self, flag)
+            acquired = thread.Lock.acquire(self, flag)
         return acquired
 
 def allocate_stm_lock(space):
-    return STMLock(space, ll_thread.allocate_ll_lock())
+    return STMLock(space, thread.allocate_ll_lock())
