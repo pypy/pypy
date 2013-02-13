@@ -1897,7 +1897,7 @@ to test.
 ...     gc_collect()
 ...     err = sys.stderr.getvalue().strip()
 ...     err.startswith(
-...         "Exception RuntimeError: RuntimeError() in <"
+...         "Exception RuntimeError: RuntimeError() in "
 ...     )
 ...     err.endswith("> ignored")
 ...     len(err.splitlines())
