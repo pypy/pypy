@@ -357,6 +357,14 @@ def test_most_neg_value_of():
     assert most_neg_value_of_same_type(r_longlong(123)) == llmin
     assert most_neg_value_of_same_type(r_ulonglong(123)) == 0
 
+def test_most_pos_value_of():
+    assert most_pos_value_of_same_type(123) == sys.maxint
+    assert most_pos_value_of_same_type(r_uint(123)) == 2 * sys.maxint + 1
+    llmax_sign = (2**(r_longlong.BITS-1))-1
+    llmax_unsign = (2**r_longlong.BITS)-1
+    assert most_pos_value_of_same_type(r_longlong(123)) == llmax_sign
+    assert most_pos_value_of_same_type(r_ulonglong(123)) == llmax_unsign
+
 def test_is_signed_integer_type():
     from rpython.rtyper.lltypesystem import lltype, rffi
     assert is_signed_integer_type(lltype.Signed)

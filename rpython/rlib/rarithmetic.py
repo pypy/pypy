@@ -246,6 +246,23 @@ def most_neg_value_of(tp):
         return r_class(0)
 most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
+def most_pos_value_of_same_type(x):
+    from rpython.rtyper.lltypesystem import lltype
+    return most_pos_value_of(lltype.typeOf(x))
+most_pos_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
+
+def most_pos_value_of(tp):
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return sys.maxint
+    r_class = rffi.platform.numbertype_to_rclass[tp]
+    assert issubclass(r_class, base_int)
+    if r_class.SIGNED:
+        return r_class(r_class.MASK >> 1)
+    else:
+        return r_class(r_class.MASK)
+most_pos_value_of._annspecialcase_ = 'specialize:memo'
+
 def is_signed_integer_type(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
