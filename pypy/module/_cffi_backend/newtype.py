@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import ovfcheck, r_uint
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib.rarithmetic import most_neg_value_of, most_pos_value_of
 from rpython.rlib.objectmodel import specialize
 
@@ -299,7 +299,7 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues):
                               name, enumerators[i])
     #
     if smallest_value < 0:
-        if (smallest_value >= most_neg_value_of(rffi.INT) and
+        if (smallest_value >= intmask(most_neg_value_of(rffi.INT)) and
              largest_value <= r_uint(most_pos_value_of(rffi.INT))):
             size = rffi.sizeof(rffi.INT)
             align = alignment(rffi.INT)
