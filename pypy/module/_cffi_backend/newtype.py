@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, r_uint
+from rpython.rlib.rarithmetic import most_neg_value_of, most_pos_value_of
 from rpython.rlib.objectmodel import specialize
 
 from pypy.module._cffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
@@ -271,18 +272,57 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues):
         raise OperationError(space.w_ValueError,
                              space.wrap("tuple args must have the same size"))
     enumerators = [space.str_w(w) for w in enumerators_w]
-    enumvalues = []
+    #
+    smallest_value = 0
+    largest_value = r_uint(0)
+    i = 0
     try:
         for w in enumvalues_w:
-            enumvalues.append(space.c_int_w(w))
+            try:
+                ulvalue = space.uint_w(w)
+            except OperationError, e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                lvalue = space.int_w(w)
+                if lvalue < smallest_value:
+                    smallest_value = lvalue
+            else:
+                if ulvalue > largest_value:
+                    largest_value = ulvalue
+            i += 1    # 'i' is here for the exception case, see below
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
-        i = len(enumvalues)
         raise operationerrfmt(space.w_OverflowError,
-            "enum '%s' declaration for '%s' does not fit an int",
+                              "enum '%s' declaration for '%s' does not fit "
+                              "a long or unsigned long",
                               name, enumerators[i])
-    ctype = ctypeenum.W_CTypeEnum(space, name, enumerators, enumvalues)
+    #
+    if smallest_value < 0:
+        if (smallest_value >= most_neg_value_of(rffi.INT) and
+             largest_value <= r_uint(most_pos_value_of(rffi.INT))):
+            size = rffi.sizeof(rffi.INT)
+            align = alignment(rffi.INT)
+        elif largest_value <= r_uint(most_pos_value_of(rffi.LONG)):
+            size = rffi.sizeof(rffi.LONG)
+            align = alignment(rffi.LONG)
+        else:
+            raise operationerrfmt(space.w_OverflowError,
+                         "enum '%s' values don't all fit into either 'long' "
+                         "or 'unsigned long'", name)
+        enumvalues = [space.int_w(w) for w in enumvalues_w]
+        ctype = ctypeenum.W_CTypeEnumSigned(space, name, size, align,
+                                            enumerators, enumvalues)
+    else:
+        if largest_value <= r_uint(most_pos_value_of(rffi.UINT)):
+            size = rffi.sizeof(rffi.UINT)
+            align = alignment(rffi.UINT)
+        else:
+            size = rffi.sizeof(rffi.ULONG)
+            align = alignment(rffi.ULONG)
+        enumvalues = [space.uint_w(w) for w in enumvalues_w]
+        ctype = ctypeenum.W_CTypeEnumUnsigned(space, name, size, align,
+                                              enumerators, enumvalues)
     return ctype
 
 # ____________________________________________________________
