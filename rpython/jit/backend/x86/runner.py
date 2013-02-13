@@ -1,9 +1,6 @@
 import py
-from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
-from rpython.jit.metainterp import history
 from rpython.jit.backend.x86.assembler import Assembler386
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
@@ -96,47 +93,6 @@ class AbstractX86CPU(AbstractLLCPU):
         null = lltype.nullptr(llmemory.GCREF.TO)
         for index in range(count):
             setitem(index, null)
-
-    def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
-                                             llmemory.GCREF))
-
-        lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
-        kinds = unrolling_iterable(lst)
-
-        def execute_token(executable_token, *args):
-            clt = executable_token.compiled_loop_token
-            assert len(args) == clt._debug_nbargs
-            #
-            addr = executable_token._x86_function_addr
-            func = rffi.cast(FUNCPTR, addr)
-            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-            frame_info = clt.frame_info
-            frame = self.gc_ll_descr.malloc_jitframe(frame_info)
-            ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
-            locs = executable_token.compiled_loop_token._ll_initial_locs
-            prev_interpreter = None   # help flow space
-            if not self.translate_support_code:
-                prev_interpreter = LLInterpreter.current_interpreter
-                LLInterpreter.current_interpreter = self.debug_ll_interpreter
-            try:
-                for i, kind in kinds:
-                    arg = args[i]
-                    num = locs[i]
-                    if kind == history.INT:
-                        self.set_int_value(ll_frame, num, arg)
-                    elif kind == history.FLOAT:
-                        self.set_float_value(ll_frame, num, arg)
-                    else:
-                        assert kind == history.REF
-                        self.set_ref_value(ll_frame, num, arg)
-                ll_frame = func(ll_frame)
-            finally:
-                if not self.translate_support_code:
-                    LLInterpreter.current_interpreter = prev_interpreter
-            #llop.debug_print(lltype.Void, "<<<< Back")
-            return ll_frame
-        return execute_token
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)

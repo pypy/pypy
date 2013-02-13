@@ -1112,7 +1112,7 @@ class ResOpAssembler(object):
         assert isinstance(descr, JitCellToken)
         # check value
         assert tmploc is r.r0
-        self._emit_call(imm(descr._arm_func_addr),
+        self._emit_call(imm(descr._ll_function_addr),
                                 callargs, fcond, resloc=tmploc)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
@@ -1243,12 +1243,12 @@ class ResOpAssembler(object):
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
         assert old_nbargs == new_nbargs
         # we overwrite the instructions at the old _arm_func_adddr
-        # to start with a JMP to the new _arm_func_addr.
+        # to start with a JMP to the new _ll_function_addr.
         # Ideally we should rather patch all existing CALLs, but well.
         XXX # this is wrong, copy the logic from x86, but also, shouldn't
         # it live on a base class instead?
-        oldadr = oldlooptoken._arm_func_addr
-        target = newlooptoken._arm_func_addr
+        oldadr = oldlooptoken._ll_function_addr
+        target = newlooptoken._ll_function_addr
         mc = ARMv7Builder()
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)

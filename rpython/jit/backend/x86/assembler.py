@@ -472,7 +472,7 @@ class Assembler386(BaseAssembler):
 
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
-               _x86_function_addr   (address of the generated func, as an int)
+               _ll_function_addr    (address of the generated func, as an int)
                _x86_loop_code       (debug: addr of the start of the ResOps)
                _x86_fullsize        (debug: full size including failure)
                _x86_debug_checksum
@@ -531,7 +531,7 @@ class Assembler386(BaseAssembler):
             looptoken._x86_rawstart = rawstart
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
-        looptoken._x86_function_addr = rawstart
+        looptoken._ll_function_addr = rawstart
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -865,11 +865,11 @@ class Assembler386(BaseAssembler):
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
         assert old_nbargs == new_nbargs
-        # we overwrite the instructions at the old _x86_function_addr
-        # to start with a JMP to the new _x86_function_addr.
+        # we overwrite the instructions at the old _ll_function_addr
+        # to start with a JMP to the new _ll_function_addr.
         # Ideally we should rather patch all existing CALLs, but well.
-        oldadr = oldlooptoken._x86_function_addr
-        target = newlooptoken._x86_function_addr
+        oldadr = oldlooptoken._ll_function_addr
+        target = newlooptoken._ll_function_addr
         # copy frame-info data
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
@@ -2274,7 +2274,7 @@ class Assembler386(BaseAssembler):
         # execute_token
         jd = descr.outermost_jitdriver_sd
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        self._emit_call(imm(descr._x86_function_addr),
+        self._emit_call(imm(descr._ll_function_addr),
                         [argloc], 0, tmp=eax)
         if op.result is None:
             assert result_loc is None

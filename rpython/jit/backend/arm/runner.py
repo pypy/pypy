@@ -65,52 +65,6 @@ class AbstractARMCPU(AbstractLLCPU):
         for index in range(count):
             setitem(index, null)
 
-    def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
-                                             llmemory.GCREF))
-
-        lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
-        kinds = unrolling_iterable(lst)
-
-        def execute_token(executable_token, *args):
-            clt = executable_token.compiled_loop_token
-            assert len(args) == clt._debug_nbargs
-            #
-            addr = executable_token._arm_func_addr
-            assert addr % 8 == 0
-            func = rffi.cast(FUNCPTR, addr)
-            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-            frame_info = clt.frame_info
-            frame = self.gc_ll_descr.malloc_jitframe(frame_info)
-            ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
-            prev_interpreter = None   # help flow space
-            if not self.translate_support_code:
-                prev_interpreter = LLInterpreter.current_interpreter
-                LLInterpreter.current_interpreter = self.debug_ll_interpreter
-            try:
-                num = JITFRAME_FIXED_SIZE * WORD
-                for i, kind in kinds:
-                    arg = args[i]
-                    if kind == history.INT:
-                        self.set_int_value(ll_frame, num, arg)
-                    elif kind == history.FLOAT:
-                        self.set_float_value(ll_frame, num, arg)
-                        num += WORD # on ARM(32 bit) a FLOAT needs two words
-                    else:
-                        assert kind == history.REF
-                        self.set_ref_value(ll_frame, num, arg)
-                    num += WORD
-                # no GC operation between gc_assume_young_pointers and
-                # the actual call to assembler!
-                llop.gc_assume_young_pointers(lltype.Void, frame)
-                ll_frame = func(ll_frame)
-            finally:
-                if not self.translate_support_code:
-                    LLInterpreter.current_interpreter = prev_interpreter
-            #llop.debug_print(lltype.Void, "<<<< Back")
-            return ll_frame
-        return execute_token
-
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return ArmCPU.cast_adr_to_int(adr)

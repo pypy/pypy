@@ -641,7 +641,7 @@ class AssemblerARM(ResOpAssembler):
         self.write_pending_failure_recoveries()
 
         rawstart = self.materialize_loop(looptoken)
-        looptoken._function_addr = looptoken._arm_func_addr = rawstart
+        looptoken._function_addr = looptoken._ll_function_addr = rawstart
 
         self.process_pending_guards(rawstart)
         self.fixup_target_tokens(rawstart)

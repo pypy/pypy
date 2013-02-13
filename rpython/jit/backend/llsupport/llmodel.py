@@ -15,6 +15,7 @@ from rpython.jit.backend.llsupport.descr import (
     FLAG_POINTER, FLAG_FLOAT)
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.annotator import model as annmodel
+from rpython.rlib.unroll import unrolling_iterable
 
 
 class AbstractLLCPU(AbstractCPU):
@@ -186,6 +187,47 @@ class AbstractLLCPU(AbstractCPU):
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)
         frame.jf_descr = frame.jf_force_descr
         return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
+
+    def make_execute_token(self, *ARGS):
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+                                             llmemory.GCREF))
+
+        lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
+        kinds = unrolling_iterable(lst)
+
+        def execute_token(executable_token, *args):
+            clt = executable_token.compiled_loop_token
+            assert len(args) == clt._debug_nbargs
+            #
+            addr = executable_token._ll_function_addr
+            func = rffi.cast(FUNCPTR, addr)
+            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
+            frame_info = clt.frame_info
+            frame = self.gc_ll_descr.malloc_jitframe(frame_info)
+            ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
+            locs = executable_token.compiled_loop_token._ll_initial_locs
+            prev_interpreter = None   # help flow space
+            if not self.translate_support_code:
+                prev_interpreter = LLInterpreter.current_interpreter
+                LLInterpreter.current_interpreter = self.debug_ll_interpreter
+            try:
+                for i, kind in kinds:
+                    arg = args[i]
+                    num = locs[i]
+                    if kind == history.INT:
+                        self.set_int_value(ll_frame, num, arg)
+                    elif kind == history.FLOAT:
+                        self.set_float_value(ll_frame, num, arg)
+                    else:
+                        assert kind == history.REF
+                        self.set_ref_value(ll_frame, num, arg)
+                ll_frame = func(ll_frame)
+            finally:
+                if not self.translate_support_code:
+                    LLInterpreter.current_interpreter = prev_interpreter
+            #llop.debug_print(lltype.Void, "<<<< Back")
+            return ll_frame
+        return execute_token
 
     # ------------------- helpers and descriptions --------------------
 
