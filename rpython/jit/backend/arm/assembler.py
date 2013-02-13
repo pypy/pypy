@@ -707,7 +707,8 @@ class AssemblerARM(ResOpAssembler):
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def new_stack_loc(self, i, pos, tp):
-        return StackLocation(i, pos, tp)
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        return StackLocation(i, pos + base_ofs, tp)
 
     def check_frame_before_jump(self, target_token):
         if target_token in self.target_tokens_currently_compiling:
