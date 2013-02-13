@@ -174,9 +174,10 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = ['is_file']
-    _immutable_fields_ = ['is_file']
+    _attrs_ = ['is_file', 'cache_array_type']
+    _immutable_fields_ = ['is_file', 'cache_array_type?']
     kind = "pointer"
+    cache_array_type = None
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -185,7 +186,8 @@ class W_CTypePointer(W_CTypePtrBase):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
-        self.is_file = (ctitem.name == "struct _IO_FILE")
+        self.is_file = (ctitem.name == "struct _IO_FILE" or
+                        ctitem.name == "struct $FILE")
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):
@@ -224,6 +226,9 @@ class W_CTypePointer(W_CTypePtrBase):
                                       self.name)
         return self
 
+    def _check_slice_index(self, w_cdata, start, stop):
+        return self
+
     def add(self, cdata, i):
         space = self.space
         ctitem = self.ctitem
@@ -252,7 +257,10 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if (space.isinstance_w(w_init, space.w_list) or
+        if space.is_w(w_init, space.w_None):
+            rffi.cast(rffi.CCHARPP, cdata)[0] = lltype.nullptr(rffi.CCHARP.TO)
+            return 3
+        elif (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
         elif space.isinstance_w(w_init, space.w_basestring):

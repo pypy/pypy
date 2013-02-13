@@ -552,6 +552,8 @@ feeling more loquacious than I am now."""
             if not event: # can only happen if we're not blocking
                 return None
 
+            translate = True
+
             if event.evt == 'key':
                 self.input_trans.push(event)
             elif event.evt == 'scroll':
@@ -559,9 +561,12 @@ feeling more loquacious than I am now."""
             elif event.evt == 'resize':
                 self.refresh()
             else:
-                pass
+                translate = False
 
-            cmd = self.input_trans.get()
+            if translate:
+                cmd = self.input_trans.get()
+            else:
+                cmd = event.evt, event.data
 
             if cmd is None:
                 if block:

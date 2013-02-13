@@ -73,7 +73,11 @@ class AbstractTestAsmGCRoot:
             else:
                 redirect = ''
             if config.translation.shared and os.name == 'posix':
-                env = 'LD_LIBRARY_PATH="%s" ' % (exe_name.dirpath(),)
+                library_path = exe_name.dirpath()
+                if sys.platform == 'darwin':
+                    env = 'DYLD_LIBRARY_PATH="%s" ' % library_path
+                else:
+                    env = 'LD_LIBRARY_PATH="%s" ' % library_path
             else:
                 env = ''
             cwd = os.getcwd()

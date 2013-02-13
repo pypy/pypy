@@ -43,6 +43,6 @@ class TestHybridGC(InspectorTest):
 
 class TestMiniMarkGCSimple(InspectorTest):
     from rpython.rtyper.memory.gc.minimark import MiniMarkGC as GCClass
-    from rpython.rtyper.memory.gc.minimark import SimpleArenaCollection
+    from rpython.rtyper.memory.gc.minimarktest import SimpleArenaCollection
     GC_PARAMS = {'ArenaCollectionClass': SimpleArenaCollection,
                  "card_page_indices": 4}

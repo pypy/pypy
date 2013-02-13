@@ -4,7 +4,7 @@ import py
 import sys
 
 class AppTestKqueue(object):
-    spaceconfig = dict(usemodules=["select", "_socket", "posix"])
+    spaceconfig = dict(usemodules=["select", "_socket", "posix", "rctime"])
 
     def setup_class(cls):
         if not 'bsd' in sys.platform and \
@@ -90,6 +90,7 @@ class AppTestKqueue(object):
         import select
         import socket
         import sys
+        import time
 
         server_socket = socket.socket()
         server_socket.bind(("127.0.0.1", 0))

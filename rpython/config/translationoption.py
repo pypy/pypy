@@ -183,6 +183,9 @@ translation_optiondescription = OptionDescription(
                "When true, enable the use of tagged pointers. "
                "If false, use normal boxing",
                default=False),
+    BoolOption("lldebug",
+               "If true, makes an lldebug build", default=False,
+               cmdline="--lldebug"),
 
     # options for ootype
     OptionDescription("ootype", "Object Oriented Typesystem options", [

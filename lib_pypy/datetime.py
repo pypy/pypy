@@ -270,10 +270,21 @@ def _check_utc_offset(name, offset):
         return offset
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
+def _check_int_field(value):
+    if not isinstance(value, float):
+        try:
+            value = value.__int__()
+        except AttributeError:
+            pass
+        else:
+            if isinstance(value, (int, long)):
+                return value
+    raise TypeError('integer argument expected')
+
 def _check_date_fields(year, month, day):
-    for value in [year, day]:
-        if not isinstance(value, (int, long)):
-            raise TypeError('int expected')
+    year = _check_int_field(year)
+    month = _check_int_field(month)
+    day = _check_int_field(day)
     if not MINYEAR <= year <= MAXYEAR:
         raise ValueError('year must be in %d..%d' % (MINYEAR, MAXYEAR), year)
     if not 1 <= month <= 12:
@@ -281,11 +292,13 @@ def _check_date_fields(year, month, day):
     dim = _days_in_month(year, month)
     if not 1 <= day <= dim:
         raise ValueError('day must be in 1..%d' % dim, day)
+    return year, month, day
 
 def _check_time_fields(hour, minute, second, microsecond):
-    for value in [hour, minute, second, microsecond]:
-        if not isinstance(value, (int, long)):
-            raise TypeError('int expected')
+    hour = _check_int_field(hour)
+    minute = _check_int_field(minute)
+    second = _check_int_field(second)
+    microsecond = _check_int_field(microsecond)
     if not 0 <= hour <= 23:
         raise ValueError('hour must be in 0..23', hour)
     if not 0 <= minute <= 59:
@@ -294,6 +307,7 @@ def _check_time_fields(hour, minute, second, microsecond):
         raise ValueError('second must be in 0..59', second)
     if not 0 <= microsecond <= 999999:
         raise ValueError('microsecond must be in 0..999999', microsecond)
+    return hour, minute, second, microsecond
 
 def _check_tzinfo_arg(tz):
     if tz is not None and not isinstance(tz, tzinfo):
@@ -768,7 +782,7 @@ class date(object):
             self = object.__new__(cls)
             self.__setstate(year)
             return self
-        _check_date_fields(year, month, day)
+        year, month, day = _check_date_fields(year, month, day)
         self = object.__new__(cls)
         self._year = year
         self._month = month
@@ -889,7 +903,7 @@ class date(object):
             month = self._month
         if day is None:
             day = self._day
-        _check_date_fields(year, month, day)
+        year, month, day = _check_date_fields(year, month, day)
         return date(year, month, day)
 
     # Comparisons of date objects with other.
@@ -1150,13 +1164,14 @@ class time(object):
         second, microsecond (default to zero)
         tzinfo (default to None)
         """
-        self = object.__new__(cls)
         if isinstance(hour, str):
             # Pickle support
+            self = object.__new__(cls)
             self.__setstate(hour, minute or None)
             return self
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        _check_time_fields(hour, minute, second, microsecond)
+        self = object.__new__(cls)
         self._hour = hour
         self._minute = minute
         self._second = second
@@ -1387,7 +1402,7 @@ class time(object):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         return time(hour, minute, second, microsecond, tzinfo)
 
@@ -1449,10 +1464,10 @@ class datetime(date):
             self = date.__new__(cls, year[:4])
             self.__setstate(year, month)
             return self
+        year, month, day = _check_date_fields(year, month, day)
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        _check_time_fields(hour, minute, second, microsecond)
-        self = date.__new__(cls, year, month, day)
-        # XXX This duplicates __year, __month, __day for convenience :-(
+        self = object.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
@@ -1617,8 +1632,8 @@ class datetime(date):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        _check_date_fields(year, month, day)
-        _check_time_fields(hour, minute, second, microsecond)
+        year, month, day = _check_date_fields(year, month, day)
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         return datetime(year, month, day, hour, minute, second,
                           microsecond, tzinfo)

@@ -6,6 +6,10 @@ try:
 except ImportError, e:
     py.test.skip(e)
 
+import sys
+if '__pypy__' not in sys.builtin_module_names:
+    skip("lib_pypy.dbm requires PyPy's ctypes")
+
 def test_get():
     path = str(udir.join('test_dbm_extra.test_get'))
     d = dbm.open(path, 'c')
@@ -48,3 +52,12 @@ def test_multiple_sets():
 def test_extra():
     py.test.raises(TypeError, dbm.datum, 123)
     py.test.raises(TypeError, dbm.datum, False)
+
+def test_null():
+    db = dbm.open('test', 'c')
+    db['1'] = 'a\x00b'
+    db.close()
+
+    db = dbm.open('test', 'r')
+    assert db['1'] == 'a\x00b'
+    db.close()

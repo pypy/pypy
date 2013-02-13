@@ -76,6 +76,17 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 self.name, i, w_cdata.get_array_length())
         return self
 
+    def _check_slice_index(self, w_cdata, start, stop):
+        space = self.space
+        if start < 0:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("negative index not supported"))
+        if stop > w_cdata.get_array_length():
+            raise operationerrfmt(space.w_IndexError,
+                "index too large (expected %d <= %d)",
+                stop, w_cdata.get_array_length())
+        return self.ctptr
+
     def convert_from_object(self, cdata, w_ob):
         self.convert_array_from_object(cdata, w_ob)
 

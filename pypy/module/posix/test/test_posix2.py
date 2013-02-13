@@ -513,6 +513,16 @@ class AppTestPosix:
             res = fp.read()
             assert res == '1\n'
 
+    def test_popen_child_fds(self):
+        import os
+        with open(os.path.join(self.pdir, 'file1'), 'r') as fd:
+            with self.posix.popen('%s -c "import os; print os.read(%d, 10)" 2>&1' % (self.python, fd.fileno())) as stream:
+                res = stream.read()
+                if os.name == 'nt':
+                    assert '\nOSError: [Errno 9]' in res
+                else:
+                    assert res == 'test1\n'
+
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
             # nt specific

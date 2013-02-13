@@ -24,7 +24,7 @@ To start the interactive translator shell do::
     python bin/translatorshell.py
 
 Test snippets of translatable code are provided in the file
-``pypy/translator/test/snippet.py``, which is imported under the name
+``rpython/translator/test/snippet.py``, which is imported under the name
 ``snippet``.  For example::
 
     >>> t = Translation(snippet.is_perfect_number, [int])
@@ -52,16 +52,18 @@ Translating the flow graph to C code
 The graph can be turned into C code::
 
    >>> t.rtype()
-   >>> f = t.compile_c()
+   >>> lib = t.compile_c()
 
 The first command replaces the operations with other low level versions that
-only use low level types that are available in C (e.g. int). To try out the
-compiled version::
+only use low level types that are available in C (e.g. int). The compiled
+version is now in a ``.so`` library. You can run it say using ctypes:
 
+   >>> from ctypes import CDLL
+   >>> f = CDLL(lib)
    >>> f(5)
-   False
+   0
    >>> f(6)
-   True
+   1
 
 Translating the flow graph to CLI or JVM code
 +++++++++++++++++++++++++++++++++++++++++++++
@@ -108,7 +110,7 @@ A slightly larger example
 There is a small-to-medium demo showing the translator and the annotator::
 
     cd demo
-    ../pypy/translator/goal/translate.py --view --annotate bpnn.py
+    ../rpython/translator/goal/translate.py --view --annotate bpnn.py
 
 This causes ``bpnn.py`` to display itself as a call graph and class
 hierarchy.  Clicking on functions shows the flow graph of the particular
@@ -119,17 +121,17 @@ instances) is computed by the annotator.
 To turn this example to C code (compiled to the executable ``bpnn-c``),
 type simply::
 
-    ../pypy/translator/goal/translate.py bpnn.py
+    ../rpython/translator/goal/translate.py bpnn.py
 
 
 Translating Full Programs
 +++++++++++++++++++++++++
 
 To translate full RPython programs, there is the script ``translate.py`` in
-``translator/goal``. Examples for this are a slightly changed version of
+``rpython/translator/goal``. Examples for this are a slightly changed version of
 Pystone::
 
-    cd pypy/translator/goal
+    cd rpython/translator/goal
     python translate.py targetrpystonedalone
 
 This will produce the executable "targetrpystonedalone-c".

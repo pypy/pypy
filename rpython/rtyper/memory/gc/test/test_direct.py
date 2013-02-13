@@ -481,7 +481,7 @@ class TestHybridGC(TestGenerationGC):
 
 class TestMiniMarkGCSimple(DirectGCTest):
     from rpython.rtyper.memory.gc.minimark import MiniMarkGC as GCClass
-    from rpython.rtyper.memory.gc.minimark import SimpleArenaCollection
+    from rpython.rtyper.memory.gc.minimarktest import SimpleArenaCollection
     # test the GC itself, providing a simple class for ArenaCollection
     GC_PARAMS = {'ArenaCollectionClass': SimpleArenaCollection}
 
