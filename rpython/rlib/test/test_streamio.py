@@ -12,18 +12,24 @@ from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class TSource(streamio.Stream):
 
-    def __init__(self, packets):
+    def __init__(self, packets, tell=True, seek=True):
         for x in packets:
             assert x
         self.orig_packets = packets[:]
         self.packets = packets[:]
         self.pos = 0
         self.chunks = []
+        self._tell = tell
+        self._seek = seek
 
     def tell(self):
+        if not self._tell:
+            raise streamio.MyNotImplementedError
         return self.pos
 
     def seek(self, offset, whence=0):
+        if not self._seek:
+            raise streamio.MyNotImplementedError
         if whence == 1:
             offset += self.pos
         elif whence == 2:
@@ -391,7 +397,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
             cases = cases[:7]      # pick some cases at random - too slow!
         def f():
             for readto, seekto, whence in cases:
-                base = TSource(self.packets)
+                base = TSource(self.packets, seek=False)
                 file = streamio.BufferingInputStream(base)
                 head = file.read(readto)
                 assert head == all[:readto]
