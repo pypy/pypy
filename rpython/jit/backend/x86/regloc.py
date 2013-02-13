@@ -42,6 +42,15 @@ class AssemblerLocation(object):
 
     def find_unused_reg(self): return eax
 
+    def is_stack(self):
+        return False
+
+    def is_reg(self):
+        return False
+
+    def get_position(self):
+        raise NotImplementedError # only for stack
+
 class RawStackLoc(AssemblerLocation):
     """ The same as stack location, but does not know it's position.
     Mostly usable for raw frame access
@@ -69,6 +78,9 @@ class RawStackLoc(AssemblerLocation):
 
     def add_offset(self, ofs):
         return RawStackLoc(self.value + ofs)
+
+    def is_stack(self):
+        return True
 
 class RawEspLoc(AssemblerLocation):
     """ Esp-based location
@@ -113,6 +125,9 @@ class StackLoc(RawStackLoc):
         # One of INT, REF, FLOAT
         self.type = type
 
+    def get_position(self):
+        return self.position
+
 class RegLoc(AssemblerLocation):
     _immutable_ = True
     def __init__(self, regnum, is_xmm):
@@ -153,6 +168,9 @@ class RegLoc(AssemblerLocation):
 
     def is_float(self):
         return self.is_xmm
+
+    def is_reg(self):
+        return True
 
 class ImmediateAssemblerLocation(AssemblerLocation):
     _immutable_ = True

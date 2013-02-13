@@ -21,58 +21,30 @@ from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempInt, TempPtr
 from rpython.jit.backend.arm.locations import imm
-from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
+from rpython.jit.backend.llsupport.assembler import GuardToken
 from rpython.jit.metainterp.history import (Box, AbstractFailDescr,
                                             INT, FLOAT, REF)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rgc
-from rpython.rtyper.lltypesystem import rstr, rffi, lltype, llmemory
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 
 NO_FORCE_INDEX = -1
 
 
-class GuardToken(object):
-    def __init__(self, gcmap, faildescr, failargs, fail_locs, offset, exc,
-                       frame_depth, fcond=c.AL, is_guard_not_invalidated=False,
-                       is_guard_not_forced=False):
-        assert isinstance(exc, bool)
-        self.faildescr = faildescr
-        self.failargs = failargs
-        self.fail_locs = fail_locs
-        self.offset = offset
-        self.gcmap = self.compute_gcmap(gcmap, failargs,
-                                        fail_locs, frame_depth)
-        self.exc = exc
-        self.is_guard_not_invalidated = is_guard_not_invalidated
-        self.is_guard_not_forced = is_guard_not_forced
+class ArmGuardToken(GuardToken):
+    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
+                 offset, exc, frame_depth, is_guard_not_invalidated=False,
+                 is_guard_not_forced=False, fcond=c.AL):
+        GuardToken.__init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
+                            offset, exc, frame_depth, is_guard_not_invalidated,
+                            is_guard_not_forced)
         self.fcond = fcond
-
-    def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
-        # note that regalloc has a very similar compute, but
-        # one that does iteration over all bindings, so slightly different,
-        # eh
-        input_i = 0
-        for i in range(len(failargs)):
-            arg = failargs[i]
-            if arg is None:
-                continue
-            loc = fail_locs[input_i]
-            input_i += 1
-            if arg.type == REF:
-                loc = fail_locs[i]
-                if loc.is_reg():
-                    val = loc.value
-                else:
-                    assert loc.is_stack()
-                    val = JITFRAME_FIXED_SIZE + loc.value
-                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        return gcmap
 
 
 class ResOpAssembler(object):
@@ -237,7 +209,7 @@ class ResOpAssembler(object):
         else:
             self.mc.BKPT()
         gcmap = allocate_gcmap(self, arglocs[0].value, JITFRAME_FIXED_SIZE)
-        self.pending_guards.append(GuardToken(gcmap,
+        self.pending_guards.append(ArmGuardToken(self.cpu, gcmap,
                                     descr,
                                     failargs=op.getfailargs(),
                                     fail_locs=arglocs[1:],

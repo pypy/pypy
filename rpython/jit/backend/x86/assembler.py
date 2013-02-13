@@ -1,6 +1,7 @@
 
 import sys, os
 from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import Const, Box, BoxInt, ConstInt
@@ -42,46 +43,12 @@ CALL_ALIGN = 16 // WORD
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
-
-class GuardToken(object):
-    def __init__(self, gcmap, faildescr, failargs, fail_locs, exc,
-                 frame_depth, is_guard_not_invalidated, is_guard_not_forced):
-        self.faildescr = faildescr
-        self.failargs = failargs
-        self.fail_locs = fail_locs
-        self.gcmap = self.compute_gcmap(gcmap, failargs,
-                                        fail_locs, frame_depth)
-        self.exc = exc
-        self.is_guard_not_invalidated = is_guard_not_invalidated
-        self.is_guard_not_forced = is_guard_not_forced
-
-    def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
-        # note that regalloc has a very similar compute, but
-        # one that does iteration over all bindings, so slightly different,
-        # eh
-        input_i = 0
-        for i in range(len(failargs)):
-            arg = failargs[i]
-            if arg is None:
-                continue
-            loc = fail_locs[input_i]
-            input_i += 1
-            if arg.type == REF:
-                loc = fail_locs[i]
-                if isinstance(loc, RegLoc):
-                    val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
-                else:
-                    assert isinstance(loc, StackLoc)
-                    val = loc.position + JITFRAME_FIXED_SIZE
-                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        return gcmap
-
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
                               ('type', lltype.Char), # 'b'ridge, 'l'abel or
                                                      # 'e'ntry point
                               ('number', lltype.Signed))
 
-class Assembler386(object):
+class Assembler386(BaseAssembler):
     _regalloc = None
     _output_loop_log = None
 
@@ -1886,7 +1853,7 @@ class Assembler386(object):
         is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
         is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
-        return GuardToken(gcmap, faildescr, failargs,
+        return GuardToken(self.cpu, gcmap, faildescr, failargs,
                           fail_locs, exc, frame_depth,
                           is_guard_not_invalidated, is_guard_not_forced)
 

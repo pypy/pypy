@@ -1,18 +1,13 @@
 import py
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rlib.objectmodel import specialize
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.jit.metainterp import history
 from rpython.jit.backend.x86.assembler import Assembler386
-from rpython.jit.backend.x86.arch import IS_X86_32, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.x86 import regloc
-from rpython.jit.backend.llsupport.symbolic import WORD
 
 import sys
 
@@ -28,6 +23,8 @@ class AbstractX86CPU(AbstractLLCPU):
 
     dont_keepalive_stuff = False # for tests
     with_threads = False
+
+    from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):

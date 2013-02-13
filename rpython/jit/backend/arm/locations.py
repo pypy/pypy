@@ -24,6 +24,8 @@ class AssemblerLocation(object):
     def as_key(self):
         raise NotImplementedError
 
+    def get_position(self):
+        raise NotImplementedError # only for stack
 
 class RegisterLocation(AssemblerLocation):
     _immutable_ = True
@@ -121,6 +123,9 @@ class StackLocation(AssemblerLocation):
 
     def location_code(self):
         return 'b'
+
+    def get_position(self):
+        return self.position
 
     def assembler(self):
         return repr(self)
