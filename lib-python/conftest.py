@@ -248,7 +248,7 @@ testmap = [
     RegrTest('test_inspect.py'),
     RegrTest('test_int.py', core=True),
     RegrTest('test_int_literal.py', core=True),
-    RegrTest('test_io.py', core=True),
+    RegrTest('test_io.py', core=True, usemodules='array binascii'),
     RegrTest('test_ioctl.py'),
     RegrTest('test_isinstance.py', core=True),
     RegrTest('test_iter.py', core=True),

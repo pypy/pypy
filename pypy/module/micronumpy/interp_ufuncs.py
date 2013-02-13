@@ -324,10 +324,12 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if w_lhs.get_dtype().is_flexible_type() or \
-           w_rhs.get_dtype().is_flexible_type():
-            raise OperationError(space.w_TypeError, 
-                      space.wrap('unsupported operand types'))
+        if (w_lhs.get_dtype().is_flexible_type() or \
+                w_rhs.get_dtype().is_flexible_type()):
+            raise OperationError(space.w_TypeError, space.wrap(
+                 'unsupported operand dtypes %s and %s for "%s"' % \
+                 (w_rhs.get_dtype().get_name(), w_lhs.get_dtype().get_name(),
+                  self.name)))
         calc_dtype = find_binop_result_dtype(space,
             w_lhs.get_dtype(), w_rhs.get_dtype(),
             int_only=self.int_only,
@@ -403,7 +405,6 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
 
-    
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
@@ -424,13 +425,13 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             return dt2
         # we need to promote both dtypes
         dtypenum = dt2.num + 2
-    else:
-        # increase to the next signed type (or to float)
-        dtypenum = dt2.num + 1
+    elif dt2.num == 10 or (LONG_BIT == 64 and dt2.num == 8):
         # UInt64 + signed = Float64
-        if dt2.num == 10:
-            dtypenum += 2
-    newdtype = interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
+        dtypenum = 12
+    else:
+        # increase to the next signed type
+        dtypenum = dt2.num + 1
+    newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
         newdtype.kind == interp_dtype.FLOATINGLTR):
@@ -438,11 +439,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
         # this is really for dealing with the Long and Ulong dtypes
-        if LONG_BIT == 32:
-            dtypenum += 2
-        else:
-            dtypenum += 4
-        return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
+        dtypenum += 2
+        return interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
 
 @jit.unroll_safe

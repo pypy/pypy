@@ -28,7 +28,6 @@ class Code(Wrappable):
     def exec_code(self, space, w_globals, w_locals):
         "Implements the 'exec' statement."
         # this should be on PyCode?
-        space.possibly_convert_to_celldict(w_globals)
         frame = space.createframe(self, w_globals, None)
         frame.setdictscope(w_locals)
         return frame.run()

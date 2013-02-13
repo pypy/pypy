@@ -552,30 +552,26 @@ class BufferingInputStream(Stream):
         # This may fail on the do_seek() or do_tell() call.
         # But it won't call either on a relative forward seek.
         # Nor on a seek to the very end.
-        if whence == 0:
-            self.do_seek(offset, 0)
-            self.buf = ""
-            self.pos = 0
-            return
-        if whence == 1:
+        if whence == 0 or whence == 1:
             currentsize = len(self.buf) - self.pos
-            if offset < 0:
-                if self.pos + offset >= 0:
-                    self.pos += offset
-                else:
-                    self.do_seek(self.tell() + offset, 0)
-                    self.pos = 0
-                    self.buf = ""
-                return
-            elif offset <= currentsize:
-                self.pos += offset
+            if whence == 0:
+                difpos = offset - self.tell()
+            else:
+                difpos = offset
+            if -self.pos <= difpos <= currentsize:
+                self.pos += difpos
                 return
             self.buf = ""
             self.pos = 0
-            offset -= currentsize
+            if whence == 1:
+                offset -= currentsize
             try:
-                self.do_seek(offset, 1)
+                self.do_seek(offset, whence)
             except MyNotImplementedError:
+                if difpos < 0:
+                    raise
+                if whence == 0:
+                    offset = difpos - currentsize
                 intoffset = offset2int(offset)
                 self.read(intoffset)
             return
