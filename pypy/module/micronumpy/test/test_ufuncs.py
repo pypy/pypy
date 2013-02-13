@@ -114,6 +114,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 'rad2deg', 'invert', 'spacing', 'radians',  'frexp', 'signbit',
                 'modf', 'trunc'])
 
+    def test_int_only(self):
+        from _numpypy import bitwise_and, array
+        a = array(1.0)
+        raises(TypeError, bitwise_and, a, a)
+
     def test_negative(self):
         from _numpypy import array, negative
 
