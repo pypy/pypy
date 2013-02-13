@@ -142,18 +142,6 @@ class CoreRegisterManager(ARMRegisterManager):
     no_lower_byte_regs = all_regs
     save_around_call_regs = r.caller_resp
 
-    REGLOC_TO_COPY_AREA_OFS = {
-        r.r2: MY_COPY_OF_REGS + 0 * WORD,
-        r.r3: MY_COPY_OF_REGS + 1 * WORD,
-        r.r4: MY_COPY_OF_REGS + 2 * WORD,
-        r.r5: MY_COPY_OF_REGS + 3 * WORD,
-        r.r6: MY_COPY_OF_REGS + 4 * WORD,
-        r.r7: MY_COPY_OF_REGS + 5 * WORD,
-        r.r8: MY_COPY_OF_REGS + 6 * WORD,
-        r.r9: MY_COPY_OF_REGS + 7 * WORD,
-        r.r10: MY_COPY_OF_REGS + 8 * WORD,
-    }
-
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
