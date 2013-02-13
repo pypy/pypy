@@ -194,8 +194,8 @@ class StructureTestCase(unittest.TestCase):
         self.assertEqual(X.b.offset, min(8, longlong_align))
 
 
-        d = {"_fields_": [("a", "b"),
-                          ("b", "q")],
+        d = {"_fields_": [("a", c_byte),
+                          ("b", c_longlong)],
              "_pack_": -1}
         self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
 

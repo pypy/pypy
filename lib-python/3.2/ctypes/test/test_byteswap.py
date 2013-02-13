@@ -2,6 +2,7 @@ import sys, unittest, struct, math, ctypes
 from binascii import hexlify
 
 from ctypes import *
+from ctypes.test import xfail
 
 def bin(s):
     return hexlify(memoryview(s)).decode().upper()
@@ -21,6 +22,7 @@ class Test(unittest.TestCase):
             setattr(bits, "i%s" % i, 1)
             dump(bits)
 
+    @xfail
     def test_endian_short(self):
         if sys.byteorder == "little":
             self.assertTrue(c_short.__ctype_le__ is c_short)
@@ -48,6 +50,7 @@ class Test(unittest.TestCase):
         self.assertEqual(bin(s), "3412")
         self.assertEqual(s.value, 0x1234)
 
+    @xfail
     def test_endian_int(self):
         if sys.byteorder == "little":
             self.assertTrue(c_int.__ctype_le__ is c_int)
@@ -76,6 +79,7 @@ class Test(unittest.TestCase):
         self.assertEqual(bin(s), "78563412")
         self.assertEqual(s.value, 0x12345678)
 
+    @xfail
     def test_endian_longlong(self):
         if sys.byteorder == "little":
             self.assertTrue(c_longlong.__ctype_le__ is c_longlong)
@@ -104,6 +108,7 @@ class Test(unittest.TestCase):
         self.assertEqual(bin(s), "EFCDAB9078563412")
         self.assertEqual(s.value, 0x1234567890ABCDEF)
 
+    @xfail
     def test_endian_float(self):
         if sys.byteorder == "little":
             self.assertTrue(c_float.__ctype_le__ is c_float)
@@ -122,6 +127,7 @@ class Test(unittest.TestCase):
         self.assertAlmostEqual(s.value, math.pi, places=6)
         self.assertEqual(bin(struct.pack(">f", math.pi)), bin(s))
 
+    @xfail
     def test_endian_double(self):
         if sys.byteorder == "little":
             self.assertTrue(c_double.__ctype_le__ is c_double)
@@ -149,6 +155,7 @@ class Test(unittest.TestCase):
         self.assertTrue(c_char.__ctype_le__ is c_char)
         self.assertTrue(c_char.__ctype_be__ is c_char)
 
+    @xfail
     def test_struct_fields_1(self):
         if sys.byteorder == "little":
             base = BigEndianStructure
@@ -184,6 +191,7 @@ class Test(unittest.TestCase):
                 pass
             self.assertRaises(TypeError, setattr, T, "_fields_", [("x", typ)])
 
+    @xfail
     def test_struct_struct(self):
         # nested structures with different byteorders
 
@@ -212,6 +220,7 @@ class Test(unittest.TestCase):
                 self.assertEqual(s.point.x, 1)
                 self.assertEqual(s.point.y, 2)
 
+    @xfail
     def test_struct_fields_2(self):
         # standard packing in struct uses no alignment.
         # So, we have to align using pad bytes.
@@ -235,6 +244,7 @@ class Test(unittest.TestCase):
         s2 = struct.pack(fmt, 0x12, 0x1234, 0x12345678, 3.14)
         self.assertEqual(bin(s1), bin(s2))
 
+    @xfail
     def test_unaligned_nonnative_struct_fields(self):
         if sys.byteorder == "little":
             base = BigEndianStructure

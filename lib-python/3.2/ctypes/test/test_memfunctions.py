@@ -53,7 +53,8 @@ class MemFunctionsTest(unittest.TestCase):
         s = string_at(b"foo bar")
         # XXX The following may be wrong, depending on how Python
         # manages string instances
-        self.assertEqual(2, sys.getrefcount(s))
+        if hasattr(sys, 'getrefcount'):
+            self.assertEqual(2, sys.getrefcount(s))
         self.assertTrue(s, "foo bar")
 
         self.assertEqual(string_at(b"foo bar", 7), b"foo bar")
