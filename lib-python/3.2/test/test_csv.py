@@ -214,7 +214,8 @@ class Test_Csv(unittest.TestCase):
                           ['ab\0c'], None, strict = 1)
         self._read_test(['"ab"c'], [['abc']], doublequote = 0)
 
-        self.assertRaises(csv.Error, self._read_test,
+        # PyPy gets a TypeError instead of a csv.Error for bytes input
+        self.assertRaises((csv.Error, TypeError), self._read_test,
                           [b'ab\0c'], None)
 
 
