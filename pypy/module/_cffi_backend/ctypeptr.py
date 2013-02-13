@@ -174,9 +174,10 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = ['is_file']
+    _attrs_ = ['is_file', 'cache_array_type']
     _immutable_fields_ = ['is_file']
     kind = "pointer"
+    cache_array_type = None
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -222,6 +223,9 @@ class W_CTypePointer(W_CTypePtrBase):
                 raise operationerrfmt(space.w_IndexError,
                                       "cdata '%s' can only be indexed by 0",
                                       self.name)
+        return self
+
+    def _check_slice_index(self, w_cdata, start, stop):
         return self
 
     def add(self, cdata, i):
