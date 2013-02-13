@@ -21,7 +21,7 @@ class AbstractARMCPU(AbstractLLCPU):
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = all_regs
-    gen_regs = CoreRegisterManager.all_regs
+    gen_regs = all_regs
     float_regs = VFPRegisterManager.all_regs
     frame_reg = fp
 
