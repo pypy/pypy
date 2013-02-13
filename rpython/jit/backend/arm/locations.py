@@ -21,6 +21,9 @@ class AssemblerLocation(object):
     def is_imm_float(self):
         return False
 
+    def is_float(self):
+        return False
+
     def as_key(self):
         raise NotImplementedError
 
@@ -65,6 +68,9 @@ class VFPRegisterLocation(RegisterLocation):
     def as_key(self):
         return self.value + 20
 
+    def is_float(self):
+        return True
+
 
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
@@ -105,6 +111,8 @@ class ConstFloatLoc(AssemblerLocation):
     def as_key(self):
         return self.value
 
+    def is_float(self):
+        return True
 
 class StackLocation(AssemblerLocation):
     _immutable_ = True
@@ -135,6 +143,9 @@ class StackLocation(AssemblerLocation):
 
     def as_key(self):
         return self.position + 10000
+
+    def is_float(self):
+        return type == FLOAT
 
 
 def imm(i):
