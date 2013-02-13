@@ -734,26 +734,8 @@ class AssemblerARM(ResOpAssembler):
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
-    def rebuild_faillocs_from_descr(self, descr, inputargs):
-        locs = []
-        GPR_REGS = len(CoreRegisterManager.all_regs)
-        VFP_REGS = len(VFPRegisterManager.all_regs)
-        input_i = 0
-        for pos in descr.rd_locs:
-            if pos == -1:
-                continue
-            elif pos < GPR_REGS * WORD:
-                locs.append(CoreRegisterManager.all_regs[pos // WORD])
-            elif pos < (GPR_REGS * WORD + VFP_REGS * DOUBLE_WORD):
-                pos = pos // DOUBLE_WORD - GPR_REGS * WORD // DOUBLE_WORD
-                locs.append(VFPRegisterManager.all_regs[pos])
-            else:
-                i = pos // WORD - JITFRAME_FIXED_SIZE
-                assert i >= 0
-                tp = inputargs[input_i].type
-                locs.append(StackLocation(i, pos, tp))
-            input_i += 1
-        return locs
+    def new_stack_loc(self, i, pos, tp):
+        return StackLocation(i, pos, tp)
 
     def check_frame_before_jump(self, target_token):
         if target_token in self.target_tokens_currently_compiling:

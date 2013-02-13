@@ -1,19 +1,17 @@
 from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.assembler import AssemblerARM
-from rpython.jit.backend.arm.registers import all_regs
+from rpython.jit.backend.arm.regalloc import CoreRegisterManager,\
+     VFPRegisterManager
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-from rpython.jit.metainterp import history
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
-
+from rpython.rtyper.lltypesystem import lltype, llmemory
 
 jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
 
 class AbstractARMCPU(AbstractLLCPU):
+
+    IS_64_BIT = False
 
     supports_floats = True
     supports_longlong = False # XXX requires an implementation of
@@ -22,6 +20,8 @@ class AbstractARMCPU(AbstractLLCPU):
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = range(16)
+    gen_regs = CoreRegisterManager.all_regs
+    float_regs = VFPRegisterManager.all_regs
 
     use_hf_abi = False        # use hard float abi flag
 

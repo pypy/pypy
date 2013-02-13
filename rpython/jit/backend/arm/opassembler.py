@@ -24,7 +24,7 @@ from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
-from rpython.jit.backend.llsupport.assembler import GuardToken
+from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.metainterp.history import (Box, AbstractFailDescr,
                                             INT, FLOAT, REF)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
@@ -48,7 +48,7 @@ class ArmGuardToken(GuardToken):
         self.offset = offset
 
 
-class ResOpAssembler(object):
+class ResOpAssembler(BaseAssembler):
 
     def emit_op_int_add(self, op, arglocs, regalloc, fcond):
         return self.int_add_impl(op, arglocs, regalloc, fcond)

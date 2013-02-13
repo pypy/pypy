@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.jit.backend.x86.assembler import Assembler386
-from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
+from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
@@ -24,6 +24,8 @@ class AbstractX86CPU(AbstractLLCPU):
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
+    gen_regs = gpr_reg_mgr_cls.all_regs
+    float_regs = xmm_reg_mgr_cls.all_regs
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -128,11 +130,12 @@ class AbstractX86CPU(AbstractLLCPU):
 
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'
-    WORD = 4
     NUM_REGS = 8
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi]
 
     supports_longlong = True
+
+    IS_64_BIT = False
 
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**31 - 1)
@@ -144,8 +147,9 @@ class CPU386_NO_SSE2(CPU386):
 
 class CPU_X86_64(AbstractX86CPU):
     backend_name = 'x86_64'
-    WORD = 8
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
+
+    IS_64_BIT = True
 
 CPU = CPU386

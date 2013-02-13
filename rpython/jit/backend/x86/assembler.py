@@ -1926,31 +1926,9 @@ class Assembler386(BaseAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_bi(ofs, 0)
 
-    def rebuild_faillocs_from_descr(self, descr, inputargs):
-        locs = []
-        GPR_REGS = len(gpr_reg_mgr_cls.all_regs)
-        XMM_REGS = len(xmm_reg_mgr_cls.all_regs)
+    def new_stack_loc(self, i, pos, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        input_i = 0
-        if IS_X86_64:
-            coeff = 1
-        else:
-            coeff = 2
-        for pos in descr.rd_locs:
-            if pos == -1:
-                continue
-            elif pos < GPR_REGS * WORD:
-                locs.append(gpr_reg_mgr_cls.all_regs[pos // WORD])
-            elif pos < (GPR_REGS + XMM_REGS * coeff) * WORD:
-                pos = (pos // WORD - GPR_REGS) // coeff
-                locs.append(xmm_reg_mgr_cls.all_regs[pos])
-            else:
-                i = pos // WORD - JITFRAME_FIXED_SIZE
-                assert i >= 0
-                tp = inputargs[input_i].type
-                locs.append(StackLoc(i, get_ebp_ofs(base_ofs, i), tp))
-            input_i += 1
-        return locs
+        return StackLoc(i, get_ebp_ofs(base_ofs, i), tp)
 
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
