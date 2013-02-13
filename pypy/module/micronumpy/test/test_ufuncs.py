@@ -84,16 +84,35 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_scalar(self):
         import _numpypy as np
+        def missing_ufuncs(v):
+            missing = []
+            i = 0
+            for s in dir(np):
+                u = getattr(np, s)
+                if isinstance(u, np.ufunc) and u.nin < 2:
+                    try:
+                        u(a)
+                    except TypeError, e:
+                        #assert e.message.startswith('ufunc')
+                        missing.append(s)
+                    i+= 1
+            assert i == 47 #numpy 1.7.0
+            return missing
         a = np.array(0,'int64')
-        missing = []
-        for s in dir(np):
-            u = getattr(np, s)
-            if isinstance(u, np.ufunc) and u.nin < 2:
-                try:
-                    u(a)
-                except:
-                    missing.append(s)
+        missing = missing_ufuncs(a) 
         assert len(missing) == 0
+        a = np.array(True,'bool')
+        missing = missing_ufuncs(a) 
+        assert len(missing) == 0 or missing == ['sign'] # numpy 1.7.0
+        a = np.array(1.0,'float')
+        missing = missing_ufuncs(a) 
+        assert len(missing) == 2 and set(missing) == set(['bitwise_not', 'invert']) 
+        a = np.array(1.0,'complex')
+        missing = missing_ufuncs(a) 
+        assert len(missing) == 14 and set(missing) == \
+            set(['bitwise_not', 'ceil', 'deg2rad', 'degrees', 'fabs', 'floor',
+                'rad2deg', 'invert', 'spacing', 'radians',  'frexp', 'signbit',
+                'modf', 'trunc'])
 
     def test_negative(self):
         from _numpypy import array, negative
