@@ -260,7 +260,7 @@ class BufferedMixin:
             raise operationerrfmt(space.w_ValueError,
                 "whence must be between 0 and 2, not %d", whence)
         self._check_closed(space, "seek of closed file")
-        if whence != 2 and self.readable and self.read_end != -1:
+        if whence != 2 and self.readable:
             # Check if seeking leaves us inside the current buffer, so as to
             # return quickly if possible. Also, we needn't take the lock in
             # this fast path.
@@ -268,15 +268,16 @@ class BufferedMixin:
                 self._raw_tell(space)
             current = self.abs_pos
             available = self._readahead()
-            if whence == 0:
-                offset = pos - (current - self._raw_offset())
-            else:
-                offset = pos
-            if -self.pos <= offset <= available:
-                newpos = self.pos + offset
-                assert newpos >= 0
-                self.pos = newpos
-                return space.wrap(current - available + offset)
+            if available > 0:
+                if whence == 0:
+                    offset = pos - (current - self._raw_offset())
+                else:
+                    offset = pos
+                if -self.pos <= offset <= available:
+                    newpos = self.pos + offset
+                    assert newpos >= 0
+                    self.pos = newpos
+                    return space.wrap(current - available + offset)
 
         # Fallback: invoke raw seek() method and clear buffer
         with self.lock:

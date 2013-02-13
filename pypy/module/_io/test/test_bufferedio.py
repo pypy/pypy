@@ -153,19 +153,6 @@ class AppTestBufferedReader:
         assert f.read() == "\nc"
         f.close()
 
-    def test_seek_nocall(self):
-        # test that when we're at the end of the buffer,
-        # an in-buffer back seek doesn't produce a raw seek
-        import _io
-        raw = _io.FileIO(self.tmpfile)
-        f = _io.BufferedReader(raw, buffer_size=3)
-        f.read(1)
-        f.seek(3, 0)
-        def failing_seek(*args):
-            assert False
-        raw.seek = failing_seek
-        f.seek(-1, 1)
-
     def test_readlines(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
@@ -604,7 +591,7 @@ class AppTestBufferedRandom:
                 expected[j] = 2
                 expected[i] = 1
                 assert raw.getvalue() == str(expected)
-        
+
     def test_interleaved_read_write(self):
         import _io as io
         # Test for issue #12213
