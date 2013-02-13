@@ -4,7 +4,7 @@
 
 import os
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-                                            BoxPtr, ConstFloat, BoxInt,
+                                            ConstFloat, BoxInt,
                                             BoxFloat, INT, REF, FLOAT,
                                             TargetToken, JitCellToken)
 from rpython.jit.backend.x86.regloc import *

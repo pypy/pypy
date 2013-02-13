@@ -301,7 +301,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
         operations = self._prepare(inputargs, operations, allgcrefs)
-        self._set_initial_bindings(inputargs)
+        self._set_initial_bindings(inputargs, looptoken)
         self.possibly_free_vars(list(inputargs))
         return operations
 
@@ -310,7 +310,6 @@ class Regalloc(BaseRegalloc):
         operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
         return operations
-
 
     def get_final_frame_depth(self):
         return self.frame_manager.get_frame_depth()
@@ -749,15 +748,16 @@ class Regalloc(BaseRegalloc):
         #   we would like the boxes to be after the jump.
 
     def _compute_hint_frame_locations_from_descr(self, descr):
-        arglocs = self.assembler.target_arglocs(descr)
-        jump_op = self.final_jump_op
-        assert len(arglocs) == jump_op.numargs()
-        for i in range(jump_op.numargs()):
-            box = jump_op.getarg(i)
-            if isinstance(box, Box):
-                loc = arglocs[i]
-                if loc is not None and loc.is_stack():
-                    self.frame_manager.hint_frame_locations[box] = loc
+        return
+        #arglocs = self.assembler.target_arglocs(descr)
+        #jump_op = self.final_jump_op
+        #assert len(arglocs) == jump_op.numargs()
+        #for i in range(jump_op.numargs()):
+        #    box = jump_op.getarg(i)
+        #    if isinstance(box, Box):
+        #        loc = arglocs[i]
+        #        if loc is not None and loc.is_stack():
+        #            self.frame_manager.hint_frame_locations[box] = loc
 
     def prepare_op_jump(self, op, fcond):
         descr = op.getdescr()
