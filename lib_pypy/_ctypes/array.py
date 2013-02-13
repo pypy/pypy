@@ -23,7 +23,7 @@ class ArrayMeta(_CDataMeta):
                     for i in range(len(val)):
                         self[i] = val[i]
                     if len(val) < self._length_:
-                        self[len(val)] = '\x00'
+                        self[len(val)] = b'\x00'
                 res.value = property(getvalue, setvalue)
 
                 def getraw(self):
@@ -89,12 +89,13 @@ class ArrayMeta(_CDataMeta):
         # or function argument...
         from ctypes import c_char, c_wchar
         if issubclass(self._type_, (c_char, c_wchar)):
-            if isinstance(value, basestring):
+             # XXX: this should maybe be stricer for py3 (c_char disallowing str?)
+            if isinstance(value, (bytes, str)):
                 if len(value) > self._length_:
                     raise ValueError("Invalid length")
                 value = self(*value)
             elif not isinstance(value, self):
-                raise TypeError("expected string or Unicode object, %s found"
+                raise TypeError("expected string, %s found"
                                 % (value.__class__.__name__,))
         else:
             if isinstance(value, tuple):

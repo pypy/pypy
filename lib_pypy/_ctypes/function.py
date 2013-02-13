@@ -307,7 +307,8 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
-                print >>sys.stderr, "%s: %s" % (exc_info[0].__name__, exc_info[1])
+                print("%s: %s" % (exc_info[0].__name__, exc_info[1]),
+                      file=sys.stderr)
                 return 0
             if self._restype_ is not None:
                 return res

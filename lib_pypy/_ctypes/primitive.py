@@ -184,7 +184,7 @@ class SimpleType(_CDataMeta):
 
         elif tp == 'u':
             def _setvalue(self, val):
-                if isinstance(val, str):
+                if isinstance(val, bytes):
                     val = val.decode(ConvMode.encoding, ConvMode.errors)
                 # possible if we use 'ignore'
                 if val:
@@ -195,7 +195,7 @@ class SimpleType(_CDataMeta):
 
         elif tp == 'c':
             def _setvalue(self, val):
-                if isinstance(val, unicode):
+                if isinstance(val, str):
                     val = val.encode(ConvMode.encoding, ConvMode.errors)
                 if val:
                     self._buffer[0] = val

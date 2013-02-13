@@ -137,7 +137,7 @@ class _CData(object, metaclass=_CDataMeta):
             return self.value
 
     def __buffer__(self):
-        return buffer(self._buffer)
+        return self._buffer.__buffer__()
 
     def _get_b_base(self):
         try:
