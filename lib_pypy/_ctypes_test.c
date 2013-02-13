@@ -1,18 +1,5 @@
-/* This is a Verbatim copy of _ctypes_test.c from CPython 2.7    */
-/*****************************************************************
-  This file should be kept compatible with Python 2.3, see PEP 291.
- *****************************************************************/
-
-
+/* This is a Verbatim copy of _ctypes_test.c from CPython 3.2    */
 #include <Python.h>
-
-/*
-  Backwards compatibility:
-  Python2.2 used LONG_LONG instead of PY_LONG_LONG
-*/
-#if defined(HAVE_LONG_LONG) && !defined(PY_LONG_LONG)
-#define PY_LONG_LONG LONG_LONG
-#endif
 
 #ifdef MS_WIN32
 #include <windows.h>
@@ -388,7 +375,7 @@ struct BITS {
     short M: 1, N: 2, O: 3, P: 4, Q: 5, R: 6, S: 7;
 };
 
-DL_EXPORT(void) set_bitfields(struct BITS *bits, char name, int value)
+EXPORT(void) set_bitfields(struct BITS *bits, char name, int value)
 {
     switch (name) {
     case 'A': bits->A = value; break;
@@ -411,7 +398,7 @@ DL_EXPORT(void) set_bitfields(struct BITS *bits, char name, int value)
     }
 }
 
-DL_EXPORT(int) unpack_bitfields(struct BITS *bits, char name)
+EXPORT(int) unpack_bitfields(struct BITS *bits, char name)
 {
     switch (name) {
     case 'A': return bits->A;
@@ -610,8 +597,21 @@ EXPORT (HRESULT) KeepObject(IUnknown *punk)
 
 #endif
 
-DL_EXPORT(void)
-init_ctypes_test(void)
+
+static struct PyModuleDef _ctypes_testmodule = {
+    PyModuleDef_HEAD_INIT,
+    "_ctypes_test",
+    NULL,
+    -1,
+    module_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+};
+
+PyMODINIT_FUNC
+PyInit__ctypes_test(void)
 {
-    Py_InitModule("_ctypes_test", module_methods);
+    return PyModule_Create(&_ctypes_testmodule);
 }
