@@ -186,7 +186,8 @@ class W_CTypePointer(W_CTypePtrBase):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
-        self.is_file = (ctitem.name == "struct _IO_FILE")
+        self.is_file = (ctitem.name == "struct _IO_FILE" or
+                        ctitem.name == "struct $FILE")
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):
