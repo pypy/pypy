@@ -30,7 +30,7 @@ class GuardToken(object):
             if arg.type == REF:
                 loc = fail_locs[i]
                 if loc.is_reg():
-                    val = self.cpu.gpr_reg_mgr_cls.all_reg_indexes[loc.value]
+                    val = self.cpu.all_reg_indexes[loc.value]
                 else:
                     val = loc.get_position() + self.cpu.JITFRAME_FIXED_SIZE
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))

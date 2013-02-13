@@ -2,6 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.jit.backend.x86.assembler import Assembler386
+from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
@@ -22,6 +23,7 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
+    all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):

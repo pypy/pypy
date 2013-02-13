@@ -1,6 +1,6 @@
 from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.assembler import AssemblerARM
-from rpython.jit.backend.arm.registers import all_regs, all_vfp_regs
+from rpython.jit.backend.arm.registers import all_regs
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
@@ -9,7 +9,6 @@ from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
-from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
@@ -20,7 +19,10 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
     supports_singlefloats = True
-    
+
+    from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
+    all_reg_indexes = range(16)
+
     use_hf_abi = False        # use hard float abi flag
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
