@@ -342,8 +342,13 @@ def new_function_type(space, w_fargs, fresult, ellipsis=0):
     #
     if ((fresult.size < 0 and not isinstance(fresult, ctypevoid.W_CTypeVoid))
             or isinstance(fresult, ctypearray.W_CTypeArray)):
-        raise operationerrfmt(space.w_TypeError,
-                              "invalid result type: '%s'", fresult.name)
+        if (isinstance(fresult, ctypestruct.W_CTypeStructOrUnion) and
+                fresult.size < 0):
+            raise operationerrfmt(space.w_TypeError,
+                                  "result type '%s' is opaque", fresult.name)
+        else:
+            raise operationerrfmt(space.w_TypeError,
+                                  "invalid result type: '%s'", fresult.name)
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis)
     return fct
