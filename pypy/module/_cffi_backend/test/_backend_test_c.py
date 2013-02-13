@@ -2728,3 +2728,7 @@ def test_setslice_array():
     d = newp(BShortArray, [40, 50])
     c[1:3] = d
     assert list(c) == [0, 40, 50, 30, 0]
+
+def test_version():
+    # this test is here mostly for PyPy
+    assert __version__ == "0.6"
