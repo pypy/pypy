@@ -58,3 +58,6 @@ Some missing attributes from ndarrays
 .. branch: cleanup-tests
 Consolidated the lib_pypy/pypy_test and pypy/module/test_lib_pypy tests into
 +one directory for reduced confusion and so they all run nightly.
+
+.. branch: unquote-faster
+.. branch: urlparse-unquote-faster
