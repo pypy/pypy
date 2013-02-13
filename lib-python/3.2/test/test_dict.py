@@ -319,7 +319,8 @@ class DictTest(unittest.TestCase):
                     self.assertEqual(va, int(ka))
                     kb, vb = tb = b.popitem()
                     self.assertEqual(vb, int(kb))
-                    self.assertFalse(copymode < 0 and ta != tb)
+                    if test_support.check_impl_detail():
+                        self.assertFalse(copymode < 0 and ta != tb)
                 self.assertFalse(a)
                 self.assertFalse(b)
 

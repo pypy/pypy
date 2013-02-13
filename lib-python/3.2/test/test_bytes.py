@@ -570,6 +570,7 @@ class BytesTest(BaseBytesTest):
         self.assertRaises(TypeError, bytes, A())
 
     # Test PyBytes_FromFormat()
+    @test.support.impl_detail("don't test cpyext here")
     def test_from_format(self):
         test.support.import_module('ctypes')
         from ctypes import pythonapi, py_object, c_int, c_char_p
@@ -764,6 +765,7 @@ class ByteArrayTest(BaseBytesTest):
         self.assertEqual(b, b1)
         self.assertTrue(b is b1)
 
+    @test.support.impl_detail("undocumented bytes.__alloc__()")
     def test_alloc(self):
         b = bytearray()
         alloc = b.__alloc__()
@@ -890,6 +892,8 @@ class ByteArrayTest(BaseBytesTest):
         self.assertEqual(b, b"")
         self.assertEqual(c, b"")
 
+    @test.support.impl_detail(
+        "resizing semantics of CPython rely on refcounting")
     def test_resize_forbidden(self):
         # #4509: can't resize a bytearray when there are buffer exports, even
         # if it wouldn't reallocate the underlying buffer.
@@ -921,6 +925,26 @@ class ByteArrayTest(BaseBytesTest):
             b[1:-1:2] = b""
         self.assertRaises(BufferError, delslice)
         self.assertEqual(b, orig)
+
+    @test.support.impl_detail("resizing semantics", cpython=False)
+    def test_resize_forbidden_non_cpython(self):
+        # on non-CPython implementations, we cannot prevent changes to
+        # bytearrays just because there are buffers around.  Instead,
+        # we get (on PyPy) a buffer that follows the changes and resizes.
+        b = bytearray(range(10))
+        v = memoryview(b)
+        b[5] = 99
+        self.assertIn(v[5], (99, bytes([99])))
+        b[5] = 100
+        b += b
+        b += b
+        b += b
+        self.assertEquals(len(v), 80)
+        self.assertIn(v[5], (100, bytes([100])))
+        self.assertIn(v[79], (9, bytes([9])))
+        del b[10:]
+        self.assertRaises(IndexError, lambda: v[10])
+        self.assertEquals(len(v), 10)
 
 
 class AssortedBytesTest(unittest.TestCase):

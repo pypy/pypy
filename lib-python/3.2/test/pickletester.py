@@ -8,7 +8,7 @@ from http.cookies import SimpleCookie
 
 from test.support import (
     TestFailed, TESTFN, run_with_locale,
-    _2G, _4G, bigmemtest,
+    _2G, _4G, bigmemtest, impl_detail
     )
 
 from pickle import bytes_types
@@ -1080,6 +1080,7 @@ class AbstractPickleTests(unittest.TestCase):
                              "Failed protocol %d: %r != %r"
                              % (proto, obj, loaded))
 
+    @impl_detail("pypy does not store attribute names", pypy=False)
     def test_attribute_name_interning(self):
         # Test that attribute names of pickled objects are interned when
         # unpickling.

@@ -1496,6 +1496,10 @@ True
 """
 
 coroutine_tests = """\
+A helper function to call gc.collect() without printing
+>>> import gc
+>>> def gc_collect(): gc.collect()
+
 Sending a value into a started generator:
 
 >>> def f():
@@ -1729,7 +1733,7 @@ And finalization:
 
 >>> g = f()
 >>> next(g)
->>> del g
+>>> del g; gc_collect()
 exiting
 
 
@@ -1744,7 +1748,7 @@ GeneratorExit is not caught by except Exception:
 
 >>> g = f()
 >>> next(g)
->>> del g
+>>> del g; gc_collect()
 finally
 
 
@@ -1770,6 +1774,7 @@ Our ill-behaved code should be invoked during GC:
 >>> g = f()
 >>> next(g)
 >>> del g
+>>> gc_collect()
 >>> sys.stderr.getvalue().startswith(
 ...     "Exception RuntimeError: 'generator ignored GeneratorExit' in "
 ... )
@@ -1835,6 +1840,9 @@ Prior to adding cycle-GC support to itertools.tee, this code would leak
 references. We add it to the standard suite so the routine refleak-tests
 would trigger if it starts being uncleanable again.
 
+>>> import gc
+>>> def gc_collect(): gc.collect()
+
 >>> import itertools
 >>> def leak():
 ...     class gen:
@@ -1886,9 +1894,10 @@ to test.
 ...
 ...     l = Leaker()
 ...     del l
+...     gc_collect()
 ...     err = sys.stderr.getvalue().strip()
 ...     err.startswith(
-...         "Exception RuntimeError: RuntimeError() in <"
+...         "Exception RuntimeError: RuntimeError() in "
 ...     )
 ...     err.endswith("> ignored")
 ...     len(err.splitlines())

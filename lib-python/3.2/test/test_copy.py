@@ -311,8 +311,14 @@ class TestCopy(unittest.TestCase):
         x = {}
         x['foo'] = x
         y = copy.deepcopy(x)
-        for op in order_comparisons:
-            self.assertRaises(TypeError, op, y, x)
+        if support.check_impl_detail():
+            for op in order_comparisons:
+                self.assertRaises(TypeError, op, y, x)
+        else:
+            # this is an implementation detail
+            # equality comparisons raise RuntimeError on CPython, too
+            for op in order_comparisons:
+                self.assertRaises(RuntimeError, op, y, x)
         for op in equality_comparisons:
             self.assertRaises(RuntimeError, op, y, x)
         self.assertTrue(y is not x)
