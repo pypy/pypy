@@ -471,37 +471,9 @@ class AssemblerARM(ResOpAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
-    def generate_quick_failure(self, guardtok, fcond=c.AL):
-        assert isinstance(guardtok.exc, bool)
+    def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
-        withfloats = False
-        for box in guardtok.failargs:
-            if box is not None and box.type == FLOAT:
-                withfloats = True
-                break
-        exc = guardtok.exc
-        target = self.failure_recovery_code[exc + 2 * withfloats]
-        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [0] * len(guardtok.fail_locs)
-        for i, loc in enumerate(guardtok.fail_locs):
-            if loc is None:
-                positions[i] = -1
-            elif loc.is_stack():
-                positions[i] = loc.value - base_ofs
-            else:
-                if loc.is_reg():
-                    assert loc is not r.fp # for now
-                    v = loc.value
-                else:
-                    assert loc.is_vfp_reg()
-                    v = len(CoreRegisterManager.all_regs) + loc.value * 2
-                positions[i] = v * WORD
-        # write down the positions of locs
-        guardtok.faildescr.rd_locs = positions
-        # we want the descr to keep alive
-        guardtok.faildescr.rd_loop_token = self.current_clt
+        fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.regalloc_push(imm(fail_descr))
         self.push_gcmap(self.mc, gcmap=guardtok.gcmap, push=True)
         self.mc.BL(target)

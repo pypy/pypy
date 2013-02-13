@@ -1864,51 +1864,13 @@ class Assembler386(BaseAssembler):
         return startpos
 
     def generate_quick_failure(self, guardtok):
-        """Generate the initial code for handling a failure.  We try to
-        keep it as compact as possible.
+        """ Gather information about failure
         """
-        mc = self.mc
-        startpos = mc.get_relative_pos()
-        withfloats = False
-        for box in guardtok.failargs:
-            if box is not None and box.type == FLOAT:
-                withfloats = True
-                break
-        exc = guardtok.exc
-        target = self.failure_recovery_code[exc + 2 * withfloats]
-        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [0] * len(guardtok.fail_locs)
-        for i, loc in enumerate(guardtok.fail_locs):
-            if loc is None:
-                positions[i] = -1
-            elif isinstance(loc, StackLoc):
-                positions[i] = loc.value - base_ofs
-            else:
-                assert isinstance(loc, RegLoc)
-                assert loc is not ebp # for now
-                if IS_X86_64:
-                    coeff = 1
-                else:
-                    coeff = 2
-                if loc.is_xmm:
-                    v = len(gpr_reg_mgr_cls.all_regs) + loc.value * coeff
-                else:
-                    v = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
-                positions[i] = v * WORD
-        # write down the positions of locs
-        guardtok.faildescr.rd_locs = positions
-        # we want the descr to keep alive
-        guardtok.faildescr.rd_loop_token = self.current_clt
-        #if WORD == 4:
-        #    mc.PUSH(imm(fail_descr))
-        #    mc.PUSH(imm(gcpattern))
-        #    mc.JMP(imm(target))
-        #else:
-        mc.PUSH(imm(fail_descr))
-        self.push_gcmap(mc, guardtok.gcmap, push=True)
-        mc.JMP(imm(target))
+        startpos = self.mc.get_relative_pos()
+        fail_descr, target = self.store_info_on_descr(startpos, guardtok)
+        self.mc.PUSH(imm(fail_descr))
+        self.push_gcmap(self.mc, guardtok.gcmap, push=True)
+        self.mc.JMP(imm(target))
         return startpos
 
     def push_gcmap(self, mc, gcmap, push=False, mov=False, store=False):

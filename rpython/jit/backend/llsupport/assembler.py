@@ -1,7 +1,9 @@
 
 from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.metainterp.history import REF
+from rpython.jit.metainterp.history import REF, FLOAT
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
@@ -64,3 +66,37 @@ class BaseAssembler(object):
                 locs.append(self.new_stack_loc(i, pos, tp))
             input_i += 1
         return locs
+
+    def store_info_on_descr(self, startspos, guardtok):
+        withfloats = False
+        for box in guardtok.failargs:
+            if box is not None and box.type == FLOAT:
+                withfloats = True
+                break
+        exc = guardtok.exc
+        target = self.failure_recovery_code[exc + 2 * withfloats]
+        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        positions = [0] * len(guardtok.fail_locs)
+        for i, loc in enumerate(guardtok.fail_locs):
+            if loc is None:
+                positions[i] = -1
+            elif loc.is_stack():
+                positions[i] = loc.value - base_ofs
+            else:
+                assert loc is not self.cpu.frame_reg # for now
+                if self.cpu.IS_64_BIT:
+                    coeff = 1
+                else:
+                    coeff = 2
+                if loc.is_float():
+                    v = len(self.cpu.gen_regs) + loc.value * coeff
+                else:
+                    v = self.cpu.all_reg_indexes[loc.value]
+                positions[i] = v * WORD
+        # write down the positions of locs
+        guardtok.faildescr.rd_locs = positions
+        # we want the descr to keep alive
+        guardtok.faildescr.rd_loop_token = self.current_clt
+        return fail_descr, target

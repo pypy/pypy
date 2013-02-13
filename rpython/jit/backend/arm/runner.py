@@ -2,6 +2,7 @@ from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.assembler import AssemblerARM
 from rpython.jit.backend.arm.regalloc import CoreRegisterManager,\
      VFPRegisterManager
+from rpython.jit.backend.arm.registers import fp, all_regs
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
@@ -19,9 +20,10 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_singlefloats = True
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
-    all_reg_indexes = range(16)
+    all_reg_indexes = all_regs
     gen_regs = CoreRegisterManager.all_regs
     float_regs = VFPRegisterManager.all_regs
+    frame_reg = fp
 
     use_hf_abi = False        # use hard float abi flag
 

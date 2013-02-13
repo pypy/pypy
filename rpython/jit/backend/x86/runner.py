@@ -21,6 +21,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
     dont_keepalive_stuff = False # for tests
     with_threads = False
+    frame_reg = regloc.ebp
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
