@@ -376,6 +376,20 @@ class Bool(BaseType, Primitive):
     def invert(self, v):
         return ~v
 
+    @raw_unary_op
+    def isfinite(self, v):
+        return True
+
+    @raw_unary_op
+    def signbit(self, v):
+        return False
+
+    @simple_unary_op
+    def reciprocal(self, v):
+        if v:
+            return 1
+        return 0
+
 NonNativeBool = Bool
 
 class Integer(Primitive):
