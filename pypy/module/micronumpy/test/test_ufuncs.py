@@ -249,12 +249,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a == ref).all()
 
     def test_signbit(self):
-        from _numpypy import signbit
+        from _numpypy import signbit, add
 
         assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
             [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
             [False,  True,  True,  True,  True]).all()
+
+        a = add.identity
+        assert signbit(a) == False
 
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
