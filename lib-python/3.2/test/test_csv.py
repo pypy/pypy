@@ -19,7 +19,8 @@ class Test_Csv(unittest.TestCase):
     """
     def _test_arg_valid(self, ctor, arg):
         self.assertRaises(TypeError, ctor)
-        self.assertRaises(TypeError, ctor, None)
+        # PyPy gets an AttributeError instead of a TypeError
+        self.assertRaises((TypeError, AttributeError), ctor, None)
         self.assertRaises(TypeError, ctor, arg, bad_attr = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 'XX')
@@ -125,7 +126,8 @@ class Test_Csv(unittest.TestCase):
                              expect + writer.dialect.lineterminator)
 
     def test_write_arg_valid(self):
-        self.assertRaises(csv.Error, self._write_test, None, '')
+        # PyPy gets a TypeError instead of a csv.Error for "not a sequence"
+        self.assertRaises((csv.Error, TypeError), self._write_test, None, '')
         self._write_test((), '')
         self._write_test([None], '""')
         self.assertRaises(csv.Error, self._write_test,
