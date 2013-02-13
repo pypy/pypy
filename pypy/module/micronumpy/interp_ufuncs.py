@@ -260,7 +260,7 @@ class W_Ufunc1(W_Ufunc):
                       space.wrap('Not implemented for this type'))
         if self.int_only and not w_obj.get_dtype().is_int_type():
             raise OperationError(space.w_TypeError, space.wrap(
-                "ufunc %s not supported for the input type", self.name))
+                "ufunc %s not supported for the input type" % self.name))
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
@@ -342,7 +342,7 @@ class W_Ufunc2(W_Ufunc):
             )
         if self.int_only and not calc_dtype.is_int_type():
             raise OperationError(space.w_TypeError, space.wrap(
-                "ufunc '%s' not supported for the input types", self.name))
+                "ufunc '%s' not supported for the input types" % self.name))
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):

@@ -109,7 +109,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert len(missing) == 2 and set(missing) == set(['bitwise_not', 'invert']) 
         a = np.array(1.0,'complex')
         missing = missing_ufuncs(a) 
-        assert len(missing) == 14 and set(missing) == \
+        assert len(missing) == 14
+        assert set(missing) == \
             set(['bitwise_not', 'ceil', 'deg2rad', 'degrees', 'fabs', 'floor',
                 'rad2deg', 'invert', 'spacing', 'radians',  'frexp', 'signbit',
                 'modf', 'trunc'])
