@@ -668,8 +668,8 @@ class TestCompiler:
                 #cmp
                 self.assert_(p == p)
                 self.assert_(d == d)
-                self.assert_(p < d)
-                self.assert_(d > p)
+                self.failUnlessRaises(TypeError, lambda: p < d)
+                self.failUnlessRaises(TypeError, lambda: d > p)
                 #__non__zero__
                 if p: self.fail("Empty mapping must compare to False")
                 if not d: self.fail("Full mapping must compare to True")
