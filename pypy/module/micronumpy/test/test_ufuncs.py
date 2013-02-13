@@ -82,6 +82,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert min_c_b[i] == min(b[i], c)
 
+    def test_scalar(self):
+        import _numpypy as np
+        a = np.array(0,'int64')
+        missing = []
+        for s in dir(np):
+            u = getattr(np, s)
+            if isinstance(u, np.ufunc) and u.nin < 2:
+                try:
+                    u(a)
+                except:
+                    missing.append(s)
+        assert len(missing) == 0
+
     def test_negative(self):
         from _numpypy import array, negative
 
