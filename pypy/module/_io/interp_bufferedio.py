@@ -260,7 +260,7 @@ class BufferedMixin:
             raise operationerrfmt(space.w_ValueError,
                 "whence must be between 0 and 2, not %d", whence)
         self._check_closed(space, "seek of closed file")
-        if whence != 2 and self.readable:
+        if whence != 2 and self.readable and self.read_end != -1:
             # Check if seeking leaves us inside the current buffer, so as to
             # return quickly if possible. Also, we needn't take the lock in
             # this fast path.
