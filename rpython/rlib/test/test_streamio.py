@@ -390,7 +390,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
         all = file.readall()
         end = len(all)
         cases = [(readto, seekto, whence) for readto in range(0, end+1)
-                                          for seekto in range(readto, end+1)
+                                          for seekto in range(0, end+1)
                                           for whence in [1, 2]]
         random.shuffle(cases)
         if isinstance(self, (LLRtypeMixin, OORtypeMixin)):
@@ -406,9 +406,19 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
                     offset = seekto - readto
                 elif whence == 2:
                     offset = seekto - end
-                file.seek(offset, whence)
-                rest = file.readall()
-                assert rest == all[seekto:]
+                if whence == 2 and seekto < file.tell() or seekto < file.tell() - file.pos:
+                    try:
+                        file.seek(offset, whence)
+                    except streamio.MyNotImplementedError:
+                        assert whence == 1
+                    except streamio.StreamError:
+                        assert whence == 2
+                    else:
+                        assert False
+                else:
+                    file.seek(offset, whence)
+                    rest = file.readall()
+                    assert rest == all[seekto:]
             return True
         res = self.interpret(f, [])
         assert res
