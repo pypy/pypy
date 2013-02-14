@@ -7,7 +7,6 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from rpython.rlib.debug import debug_print
-from pypy.module.thread import ll_thread
 
 
 WORD = LONG_BIT // 8

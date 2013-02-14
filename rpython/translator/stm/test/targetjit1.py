@@ -1,5 +1,4 @@
-from pypy.module.thread import ll_thread
-from rpython.rlib import jit, rstm
+from rpython.rlib import jit, rstm, rthread
 from rpython.rlib.objectmodel import invoke_around_extcall
 
 
@@ -48,7 +47,7 @@ class ThreadRunner(object):
     def __init__(self, i):
         self.index = i
         self.value = 0
-        self.finished_lock = ll_thread.allocate_lock()
+        self.finished_lock = rthread.allocate_lock()
         self.finished_lock.acquire(True)
 
     def run(self):
@@ -78,7 +77,7 @@ class Bootstrapper(object):
     @staticmethod
     def setup():
         if bootstrapper.lock is None:
-            bootstrapper.lock = ll_thread.allocate_lock()
+            bootstrapper.lock = rthread.allocate_lock()
 
     @staticmethod
     def reinit():
@@ -94,14 +93,14 @@ class Bootstrapper(object):
         # Note that when this runs, we already hold the GIL.  This is ensured
         # by rffi's callback mecanism: we are a callback for the
         # c_thread_start() external function.
-        ll_thread.gc_thread_start()
+        rthread.gc_thread_start()
         args = bootstrapper.args
         bootstrapper.release()
         # run!
         try:
             args.run()
         finally:
-            ll_thread.gc_thread_die()
+            rthread.gc_thread_die()
 
     @staticmethod
     def acquire(args):
@@ -130,8 +129,8 @@ def setup_threads():
 def start_thread(args):
     bootstrapper.acquire(args)
     try:
-        ll_thread.gc_thread_prepare()     # (this has no effect any more)
-        ident = ll_thread.start_new_thread(bootstrapper.bootstrap, ())
+        rthread.gc_thread_prepare()     # (this has no effect any more)
+        ident = rthread.start_new_thread(bootstrapper.bootstrap, ())
     except Exception, e:
         bootstrapper.release()     # normally called by the new thread
         raise
