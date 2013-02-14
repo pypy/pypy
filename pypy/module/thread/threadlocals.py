@@ -1,4 +1,4 @@
-from rpython.rlib import rthread as thread
+from rpython.rlib import rthread
 
 
 class OSThreadLocals:
@@ -18,7 +18,7 @@ class OSThreadLocals:
         self._mostrecentvalue = None   # fast minicaching for the common case
 
     def getvalue(self):
-        ident = thread.get_ident()
+        ident = rthread.get_ident()
         if ident == self._mostrecentkey:
             result = self._mostrecentvalue
         else:
@@ -30,7 +30,7 @@ class OSThreadLocals:
         return result
 
     def setvalue(self, value):
-        ident = thread.get_ident()
+        ident = rthread.get_ident()
         if value is not None:
             if len(self._valuedict) == 0:
                 self._mainthreadident = ident
@@ -45,7 +45,7 @@ class OSThreadLocals:
         self._mostrecentvalue = value
 
     def ismainthread(self):
-        return thread.get_ident() == self._mainthreadident
+        return rthread.get_ident() == self._mainthreadident
 
     def getallvalues(self):
         return self._valuedict
@@ -60,4 +60,4 @@ class OSThreadLocals:
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"
-        self._mainthreadident = thread.get_ident()
+        self._mainthreadident = rthread.get_ident()
