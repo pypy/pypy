@@ -795,8 +795,10 @@ class LineBufferingOutputStream(BufferingOutputStream):
                 self.buflen += len(data)
             else:
                 if self.buflen:
+                    self.buf.append(data[:p])
                     self.do_write(''.join(self.buf))
-                self.do_write(data[:p])
+                else:
+                    self.do_write(data[:p])
                 self.buf = [data[p:]]
                 self.buflen = len(self.buf[0])
         else:
