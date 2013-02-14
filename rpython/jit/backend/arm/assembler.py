@@ -919,7 +919,7 @@ class AssemblerARM(ResOpAssembler):
             opnum = op.getopnum()
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
-            elif self.can_merge_with_next_guard(op, i, operations):
+            elif self._regalloc.can_merge_with_next_guard(op, i, operations):
                 guard = operations[i + 1]
                 assert guard.is_guard()
                 arglocs = regalloc_operations_with_guard[opnum](regalloc, op,
@@ -944,31 +944,6 @@ class AssemblerARM(ResOpAssembler):
             regalloc.free_temp_vars()
             regalloc._check_invariants()
         self.mc.mark_op(None)  # end of the loop
-
-    # from ../x86/regalloc.py
-    def can_merge_with_next_guard(self, op, i, operations):
-        if (op.getopnum() == rop.CALL_MAY_FORCE or
-            op.getopnum() == rop.CALL_ASSEMBLER or
-            op.getopnum() == rop.CALL_RELEASE_GIL):
-            assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
-            return True
-        if not op.is_comparison():
-            if op.is_ovf():
-                if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
-                    operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    not_implemented("int_xxx_ovf not followed by "
-                                    "guard_(no)_overflow")
-                return True
-            return False
-        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
-            operations[i + 1].getopnum() != rop.GUARD_FALSE):
-            return False
-        if operations[i + 1].getarg(0) is not op.result:
-            return False
-        if (self._regalloc.longevity[op.result][1] > i + 1 or
-            op.result in operations[i + 1].getfailargs()):
-            return False
-        return True
 
     def regalloc_emit_llong(self, op, arglocs, fcond, regalloc):
         effectinfo = op.getdescr().get_extra_info()
