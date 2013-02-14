@@ -43,13 +43,6 @@ class AppTestDtypes(BaseAppTestDtypes):
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
 
-    def test_dtype_aliases(self):
-        from _numpypy import dtype
-        assert dtype('longfloat').num in (12, 13)
-        assert dtype('longdouble').num in (12, 13)
-        assert dtype('clongfloat').num in (15, 16)
-        assert dtype('clongdouble').num in (15, 16)
-
     def test_dtype_with_types(self):
         from _numpypy import dtype
 
@@ -154,8 +147,6 @@ class AppTestDtypes(BaseAppTestDtypes):
             '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 
             'e'
         ]
-        if array([0], dtype='longdouble').itemsize > 8:
-            types += ['g', 'G']
         a = array([True], '?')
         for t in types:
             assert (a + array([0], t)).dtype is dtype(t)
@@ -271,7 +262,6 @@ class AppTestDtypes(BaseAppTestDtypes):
             (numpy.float16, 10.),
             (numpy.float32, 2.0),
             (numpy.float64, 4.32),
-            (numpy.longdouble, 4.32),
         ]:
             assert hash(tp(value)) == hash(value)
 
@@ -528,7 +518,6 @@ class AppTestTypes(BaseAppTestDtypes):
         from math import isnan
         assert isnan(numpy.float32(None))
         assert isnan(numpy.float64(None))
-        assert isnan(numpy.longdouble(None))
 
     def test_complex_floating(self):
         import _numpypy as numpy
@@ -789,12 +778,6 @@ class AppTestNotDirect(BaseNumpyAppTest):
         a = array([1, 2, 3], dtype=self.non_native_prefix + 'f2')
         assert a[0] == 1
         assert (a + a)[1] == 4
-        a = array([1, 2, 3], dtype=self.non_native_prefix + 'g') # longdouble
-        assert a[0] == 1
-        assert (a + a)[1] == 4
-        a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
-        assert a[0] == 1
-        assert (a + a)[1] == 4
 
 class AppTestPyPyOnly(BaseNumpyAppTest):
     def setup_class(cls):
@@ -852,4 +835,37 @@ class AppTestLongDoubleDtypes(BaseNumpyAppTest):
         assert numpy.float64(12) == numpy.longfloat(12)
         raises(ValueError, numpy.longfloat, '23.2df')
 
+    def test_dtype_aliases(self):
+        from _numpypy import dtype
+        assert dtype('longfloat').num in (12, 13)
+        assert dtype('longdouble').num in (12, 13)
+        assert dtype('clongfloat').num in (15, 16)
+        assert dtype('clongdouble').num in (15, 16)
 
+    def test_bool_binop_types(self):
+        from _numpypy import array, dtype
+        types = ['g', 'G']
+        a = array([True], '?')
+        for t in types:
+            assert (a + array([0], t)).dtype is dtype(t)
+
+    def test_hash(self):
+        import _numpypy as numpy
+        for tp, value in [
+            (numpy.longdouble, 4.32),
+        ]:
+            assert hash(tp(value)) == hash(value)
+
+    def test_float_None(self):
+        import _numpypy as numpy
+        from math import isnan
+        assert isnan(numpy.longdouble(None))
+
+    def test_non_native(self):
+        from _numpypy import array
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'g') # longdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
