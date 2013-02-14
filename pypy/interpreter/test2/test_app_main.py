@@ -208,11 +208,6 @@ class TestInteraction:
     These tests require pexpect (UNIX-only).
     http://pexpect.sourceforge.net/
     """
-    def setup_class(cls):
-        # some tests need to be able to import test2, change the cwd
-        goal_dir = os.path.abspath(os.path.join(os.path.realpath(os.path.dirname(__file__)), '..'))
-        os.chdir(goal_dir)
-
     def _spawn(self, *args, **kwds):
         try:
             import pexpect
@@ -456,13 +451,14 @@ class TestInteraction:
         child.expect('789')    # expect to see it before the timeout hits
         child.sendline('X')
 
-    def test_options_i_m(self):
+    def test_options_i_m(self, monkeypatch):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
         p = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'mymodule.py')
         p = os.path.abspath(p)
+        monkeypatch.chdir(os.path.dirname(app_main))
         child = self.spawn(['-i',
                             '-m', 'test2.mymodule',
                             'extra'])
@@ -562,12 +558,13 @@ class TestInteraction:
         child.sendline('Not at all. They could be carried.')
         child.expect('A five ounce bird could not carry a one pound coconut.')
 
-    def test_no_space_before_argument(self):
+    def test_no_space_before_argument(self, monkeypatch):
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
         child = self.spawn(['-cprint "hel" + "lo"'])
         child.expect('hello')
 
+        monkeypatch.chdir(os.path.dirname(app_main))
         child = self.spawn(['-mtest2.mymodule'])
         child.expect('mymodule running')
 
@@ -667,11 +664,12 @@ class TestNonInteractive:
                         '-c "import sys; print sys.warnoptions"')
         assert "['ignore', 'default', 'once', 'error']" in data
 
-    def test_option_m(self):
+    def test_option_m(self, monkeypatch):
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
         p = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'mymodule.py')
         p = os.path.abspath(p)
+        monkeypatch.chdir(os.path.dirname(app_main))
         data = self.run('-m test2.mymodule extra')
         assert 'mymodule running' in data
         assert 'Name: __main__' in data
