@@ -1268,10 +1268,10 @@ class ResOpAssembler(BaseAssembler):
         #
         self._emit_call(adr, callargs, fcond,
                                     resloc, (size, signed))
-        self.emit_guard_may_force(guard_op, arglocs, numargs)
+        self._emit_guard_may_force(guard_op, arglocs, numargs)
         return fcond
 
-    def emit_guard_may_force(self, guard_op, arglocs, numargs):
+    def _emit_guard_may_force(self, guard_op, arglocs, numargs):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         self.mc.CMP_ri(r.ip.value, 0)
@@ -1303,7 +1303,7 @@ class ResOpAssembler(BaseAssembler):
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, resloc, fcond)
 
-        self.emit_guard_may_force(guard_op, arglocs, numargs)
+        self._emit_guard_may_force(guard_op, arglocs, numargs)
         return fcond
 
     def call_release_gil(self, gcrootmap, save_registers, fcond):
