@@ -1104,52 +1104,59 @@ class ResOpAssembler(BaseAssembler):
     # XXX Split into some helper methods
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
+        tmploc = arglocs[1]
+        resloc = arglocs[2]
+        callargs = arglocs[3:]
+
         self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        if len(arglocs) == 4:
-            [frame_loc, vloc, result_loc, argloc] = arglocs
-        else:
-            [frame_loc, result_loc, argloc] = arglocs
-            vloc = imm(0)
-
-        #
-        # Write a call to the target assembler
-        # we need to allocate the frame, keep in sync with runner's
-        # execute_token
-        jd = descr.outermost_jitdriver_sd
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        self._emit_call(imm(descr._ll_function_addr), [argloc], fcond)
+        # check value
+        assert tmploc is r.r0
+        self._emit_call(imm(descr._ll_function_addr),
+                                callargs, fcond, resloc=tmploc)
         if op.result is None:
-            assert result_loc is None
-            value = self.cpu.done_with_this_frame_descr_void
+            value = self.cpu.done_with_this_frame_void_v
         else:
             kind = op.result.type
             if kind == INT:
-                assert result_loc is r.r0
-                value = self.cpu.done_with_this_frame_descr_int
+                value = self.cpu.done_with_this_frame_int_v
             elif kind == REF:
-                assert result_loc is r.r0
-                value = self.cpu.done_with_this_frame_descr_ref
+                value = self.cpu.done_with_this_frame_ref_v
             elif kind == FLOAT:
-                value = self.cpu.done_with_this_frame_descr_float
+                value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
+        from rpython.jit.backend.llsupport.descr import unpack_fielddescr
+        from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
+        fail_descr = self.cpu.get_fail_descr_from_number(value)
+        value = fail_descr.hide(self.cpu)
+        rgc._make_sure_does_not_move(value)
+        value = rffi.cast(lltype.Signed, value)
 
-
-        gcref = cast_instance_to_gcref(value)
-        rgc._make_sure_does_not_move(gcref)
-        value = rffi.cast(lltype.Signed, gcref)
-        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        assert check_imm_arg(ofs)
-        self.mc.LDR_ri(r.ip.value, r.r0.value, imm=ofs)
-
+        if check_imm_arg(_offset):
+            self.mc.LDR_ri(r.ip.value, tmploc.value, imm=_offset)
+        else:
+            self.mc.gen_load_int(r.ip.value, _offset)
+            self.mc.LDR_rr(r.ip.value, tmploc.value, r.ip.value)
         if check_imm_arg(value):
             self.mc.CMP_ri(r.ip.value, imm=value)
         else:
             self.mc.gen_load_int(r.lr.value, value)
             self.mc.CMP_rr(r.lr.value, r.ip.value)
-        # Path 1: Fast Path
+
+
+        #if values are equal we take the fast path
+        # Slow path, calling helper
+        # jump to merge point
+
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None
+
+        # Path A: load return value and reset token
+        # Fast Path using result boxes
 
         fast_path_cond = c.EQ
         # Reset the vable token --- XXX really too much special logic here:-(
@@ -1157,40 +1164,45 @@ class ResOpAssembler(BaseAssembler):
             from rpython.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
-            assert isinstance(fielddescr, FieldDescr)
-            vtoken_ofs = fielddescr.offset
-            assert check_imm_arg(vtoken_ofs)
-            self.mov_loc_loc(vloc, r.ip, cond=fast_path_cond)
-            self.mc.MOV_ri(r.lr.value, 0, cond=fast_path_cond)
-            self.mc.STR_ri(tmploc.value, r.ip.value, vtoken_ofs, cond=fast_path_cond)
-            # in the line above, TOKEN_NONE = 0
+            ofs = fielddescr.offset
+            tmploc = regalloc.get_scratch_reg(INT)
+            self.mov_loc_loc(arglocs[0], r.ip, cond=fast_path_cond)
+            self.mc.MOV_ri(tmploc.value, 0, cond=fast_path_cond)
+            self.mc.STR_ri(tmploc.value, r.ip.value, ofs, cond=fast_path_cond)
 
         if op.result is not None:
-            # load the return value from the dead frame's value index 0
+            # load the return value from fail_boxes_xxx[0]
             kind = op.result.type
             if kind == FLOAT:
-                descr = self.cpu.getarraydescr_for_frame(kind)
-                ofs = self.cpu.unpack_arraydescr(descr)
-                if not check_imm_arg(ofs):
-                    self.mc.gen_load_int(r.ip.value, ofs, cond=fast_path_cond)
+                t = unpack_interiorfielddescr(descrs.as_float)[0]
+                if not check_imm_arg(t):
+                    self.mc.gen_load_int(r.ip.value, t, cond=fast_path_cond)
                     self.mc.ADD_rr(r.ip.value, r.r0.value, r.ip.value,
                                           cond=fast_path_cond)
-                    ofs = 0
+                    t = 0
                     base = r.ip
                 else:
                     base = r.r0
-                self.mc.VLDR(result_loc.value, base.value, imm=ofs,
-                                                     cond=fast_path_cond)
+                self.mc.VLDR(resloc.value, base.value, imm=t,
+                                          cond=fast_path_cond)
             else:
-                assert result_loc is r.r0
-                descr = self.cpu.getarraydescr_for_frame(kind)
-                ofs = self.cpu.unpack_arraydescr(descr)
-                self.load_reg(self.mc, r.r0, r.r0, ofs, cond=fast_path_cond)
+                assert resloc is r.r0
+                if kind == INT:
+                    t = unpack_interiorfielddescr(descrs.as_int)[0]
+                else:
+                    t = unpack_interiorfielddescr(descrs.as_ref)[0]
+                if not check_imm_arg(t):
+                    self.mc.gen_load_int(r.ip.value, t, cond=fast_path_cond)
+                    self.mc.LDR_rr(resloc.value, resloc.value, r.ip.value,
+                                          cond=fast_path_cond)
+                else:
+                    self.mc.LDR_ri(resloc.value, resloc.value, imm=t,
+                                          cond=fast_path_cond)
         # jump to merge point
         jmp_pos = self.mc.currpos()
         self.mc.BKPT()
 
-        # Path 2: use assembler helper
+        # Path B: use assembler helper
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
         if self.cpu.supports_floats:
             floats = r.caller_vfp_resp
@@ -1201,24 +1213,28 @@ class ResOpAssembler(BaseAssembler):
         # the result
         core = r.caller_resp
         if op.result:
-            if result_loc.is_vfp_reg():
+            if resloc.is_vfp_reg():
                 floats = r.caller_vfp_resp[1:]
             else:
                 core = r.caller_resp[1:] + [r.ip]  # keep alignment
         with saved_registers(self.mc, core, floats):
             # result of previous call is in r0
-            self.mov_loc_loc(vloc, r.r1)
+            self.mov_loc_loc(arglocs[0], r.r1)
             self.mc.BL(asm_helper_adr)
-            if not self.cpu.use_hf_abi and op.result and result_loc.is_vfp_reg():
+            if not self.cpu.use_hf_abi and op.result and resloc.is_vfp_reg():
                 # move result to the allocated register
-                self.mov_to_vfp_loc(r.r0, r.r1, result_loc)
+                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
         # merge point
         currpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
         pmc.B_offs(currpos, fast_path_cond)
 
-        self._emit_guard_may_force(guard_op, arglocs, op.numargs())
+        self.mc.LDR_ri(r.ip.value, r.fp.value)
+        self.mc.CMP_ri(r.ip.value, 0)
+
+        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op),
+                                                    c.GE, save_exc=True)
         return fcond
 
     # ../x86/assembler.py:668
