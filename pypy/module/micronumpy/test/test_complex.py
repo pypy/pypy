@@ -496,15 +496,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_basic(self):
         from _numpypy import (complex128, complex64, add, array, dtype,
             subtract as sub, multiply, divide, negative, abs, floor_divide,
-            real, imag, sign, clongfloat)
+            real, imag, sign)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
+        complex_dtypes = [complex64, complex128]
+        try:
+            from _numpypy import clongfloat
+            complex_dtypes.append(clongfloat)
+        except:
+            pass
         assert real(4.0) == 4.0
         assert imag(0.0) == 0.0
         a = array([complex(3.0, 4.0)])
         b = a.real
         assert b.dtype == dtype(float)
-        for complex_ in complex64, complex128, clongfloat:
+        for complex_ in complex_dtypes:
 
             O = complex(0, 0)
             c0 = complex_(complex(2.5, 0))
