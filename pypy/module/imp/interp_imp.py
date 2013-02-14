@@ -78,6 +78,7 @@ def find_module(space, w_name, w_path=None):
             top = stream.readline()
             top += stream.readline()
             stream.seek(0, 0) # reset position
+            stream.flush()
             encoding = pyparse._check_for_encoding(top)
             if encoding is None:
                 encoding = unicodetype.getdefaultencoding(space)

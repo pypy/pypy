@@ -674,6 +674,7 @@ class AppTestImport:
         import encoded
         fd = imp.find_module('line2', encoded.__path__)[0]
         assert fd.encoding == 'iso-8859-1'
+        assert fd.tell() == 0
 
     def test_bad_source_encoding(self):
         import imp
