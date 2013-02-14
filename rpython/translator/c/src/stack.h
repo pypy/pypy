@@ -2,6 +2,10 @@
 /************************************************************/
  /***  C header subsection: stack operations               ***/
 
+#ifndef _RPY_STACK_H_
+#define _RPY_STACK_H_
+
+
 #ifndef MAX_STACK_SIZE
 #    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
 #endif
@@ -35,3 +39,4 @@ void LL_stack_set_length_fraction(double);
 #endif
 
 
+#endif  /* _RPY_STACK_H_ */
