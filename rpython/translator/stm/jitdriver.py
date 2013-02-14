@@ -17,7 +17,13 @@ def find_jit_merge_point(graph):
             op = block.operations[i]
             if (op.opname == 'jit_marker' and
                     op.args[0].value == 'jit_merge_point'):
-                found.append((block, i))
+                jitdriver = op.args[1].value
+                if not jitdriver.autoreds:
+                    found.append((block, i))
+                else:
+                    from rpython.translator.c.support import log
+                    log.WARNING("ignoring jitdriver with autoreds in %r" % (
+                        graph,))        # XXX XXX!
     if found:
         assert len(found) == 1, "several jit_merge_point's in %r" % (graph,)
         return found[0]
@@ -83,7 +89,7 @@ class JitDriverSplitter(object):
         assert op_jitmarker.opname == 'jit_marker'
         assert op_jitmarker.args[0].value == 'jit_merge_point'
         jitdriver = op_jitmarker.args[1].value
-        assert not jitdriver.autoreds    # XXX
+        assert not jitdriver.autoreds    # fix me
 
     def split_after_jit_merge_point(self, (portalblock, portalopindex)):
         link = split_block(None, portalblock, portalopindex + 1)
