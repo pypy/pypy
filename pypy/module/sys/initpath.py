@@ -32,15 +32,14 @@ def find_executable(executable):
                     executable = fn
                     break
     executable = rpath.rabspath(executable)
-    #
+
     # 'sys.executable' should not end up being an non-existing file;
     # just use '' in this case. (CPython issue #7774)
     if not os.path.isfile(executable):
         executable = ''
     return executable
 
-
-def readlink_maybe(filename):
+def _readlink_maybe(filename):
     if not IS_WINDOWS:
         return os.readlink(filename)
     raise NotImplementedError
@@ -53,7 +52,7 @@ def resolvedirof(filename):
     dirname = rpath.rabspath(os.path.join(filename, '..'))
     if os.path.islink(filename):
         try:
-            link = readlink_maybe(filename)
+            link = _readlink_maybe(filename)
         except OSError:
             pass
         else:
@@ -68,6 +67,8 @@ def find_stdlib(state, executable):
     stdlib.
     If it cannot be found, return (None, None).
     """
+    if executable == '':
+        return None, None
     search = executable
     while True:
         dirname = resolvedirof(search)
@@ -78,9 +79,7 @@ def find_stdlib(state, executable):
             return newpath, dirname
         search = dirname    # walk to the parent directory
 
-
-
-def checkdir(path):
+def _checkdir(path):
     st = os.stat(path)
     if not stat.S_ISDIR(st[0]):
         raise OSError(errno.ENOTDIR, path)
@@ -96,24 +95,24 @@ def compute_stdlib_path(state, prefix):
                          CPYTHON_VERSION[1])
     lib_python = os.path.join(prefix, 'lib-python')
     python_std_lib = os.path.join(lib_python, dirname)
-    checkdir(python_std_lib)
-    
+    _checkdir(python_std_lib)
+
     lib_pypy = os.path.join(prefix, 'lib_pypy')
-    checkdir(lib_pypy)
+    _checkdir(lib_pypy)
 
     importlist = []
-    #
+
     if state is not None:    # 'None' for testing only
         lib_extensions = os.path.join(lib_pypy, '__extensions__')
         state.w_lib_extensions = state.space.wrap(lib_extensions)
         importlist.append(lib_extensions)
-    #
+
     importlist.append(lib_pypy)
     importlist.append(python_std_lib)
-    #
+
     lib_tk = os.path.join(python_std_lib, 'lib-tk')
     importlist.append(lib_tk)
-    #
+
     # List here the extra platform-specific paths.
     if platform != 'win32':
         importlist.append(os.path.join(python_std_lib, 'plat-'+platform))
@@ -121,7 +120,7 @@ def compute_stdlib_path(state, prefix):
         platmac = os.path.join(python_std_lib, 'plat-mac')
         importlist.append(platmac)
         importlist.append(os.path.join(platmac, 'lib-scriptpackages'))
-    #
+
     return importlist
 
 def compute_stdlib_path_maybe(state, prefix):

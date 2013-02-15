@@ -26,7 +26,7 @@ def giveup():
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
-    if option.view or option.viewloops:
+    if option and (option.view or option.viewloops):
         if error:
             errmsg = error.__class__.__name__
             if str(error):

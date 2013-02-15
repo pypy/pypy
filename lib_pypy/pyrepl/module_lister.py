@@ -17,7 +17,6 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from pyrepl.completing_reader import uniqify
 import os, sys
 
 # for the completion support.
@@ -38,20 +37,12 @@ def _make_module_list_dir(dir, suffs, prefix=''):
             l.append( prefix + fname )
             _packages[prefix + fname] = _make_module_list_dir(
                 file, suffs, prefix + fname + '.' )
-    l = uniqify(l)
-    l.sort()
-    return l
+    return sorted(set(l))
 
 def _make_module_list():
     import imp
     suffs = [x[0] for x in imp.get_suffixes() if x[0] != '.pyc']
-    def compare(x, y):
-        c = -cmp(len(x), len(y))
-        if c:
-            return c
-        else:
-            return -cmp(x, y)
-    suffs.sort(compare)
+    suffs.sort(reverse=True)
     _packages[''] = list(sys.builtin_module_names)
     for dir in sys.path:
         if dir == '':

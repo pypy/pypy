@@ -95,6 +95,9 @@ class AppTestZipimport:
         """)
         self.w_modules = []
 
+    def w_now_in_the_future(self, delta):
+        self.now += delta
+
     def w_writefile(self, filename, data):
         import sys
         import time
@@ -264,10 +267,12 @@ class AppTestZipimport:
         import os
         import zipimport
         data = "saddsadsa"
+        pyc_data = self.test_pyc
+        self.now_in_the_future(+5)   # write the zipfile 5 secs after the .pyc
         self.writefile("xxx", data)
         self.writefile("xx/__init__.py", "5")
         self.writefile("yy.py", "3")
-        self.writefile('uu.pyc', self.test_pyc)
+        self.writefile('uu.pyc', pyc_data)
         z = zipimport.zipimporter(self.zipfile)
         assert z.get_data(self.zipfile + os.sep + "xxx") == data
         assert z.is_package("xx")
@@ -277,6 +282,7 @@ class AppTestZipimport:
         raises(ImportError, "z.get_source('zz')")
         #assert z.get_code('yy') == py.code.Source('3').compile()
         #assert z.get_code('uu') == self.co
+        assert z.get_code('uu')
         assert z.get_code('xx')
         assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile

@@ -43,3 +43,10 @@ class TestByteArray(BaseRtypingTest, LLRtypeMixin):
 
         ll_res = self.interpret(f, [llstr("abc"), 1, ord('d')])
         assert ll_res == ord('d') + ord('c') * 255
+
+    def test_str_of_bytearray(self):
+        def f(x):
+            return str(bytearray(str(x)))
+
+        ll_res = self.interpret(f, [123])
+        assert hlstr(ll_res) == "123"

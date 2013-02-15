@@ -1,4 +1,3 @@
-
 """
 Tests for the PyPy cStringIO implementation.
 """
@@ -7,7 +6,6 @@ class AppTestcStringIO:
     def setup_class(cls):
         cls.w_io = cls.space.appexec([], "(): import cStringIO; return cStringIO")
         cls.w_bytes = cls.space.wrap('some bytes')
-
 
     def test_reset(self):
         """

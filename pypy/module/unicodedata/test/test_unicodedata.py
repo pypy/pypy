@@ -102,3 +102,7 @@ class AppTestUnicodeData:
         import unicodedata
         # For no reason, unicodedata.mirrored() returns an int, not a bool
         assert repr(unicodedata.mirrored(u' ')) == '0'
+
+    def test_bidirectional(self):
+        import unicodedata
+        raises(TypeError, unicodedata.bidirectional, u'xx')
