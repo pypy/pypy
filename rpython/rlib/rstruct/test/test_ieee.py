@@ -171,24 +171,24 @@ class TestFloatPacking:
 
 class TestCompiled:
     def test_pack_float(self):
-        def pack(x):
+        def pack(x, size):
             result = []
-            ieee.pack_float(result, x, 8, False)
+            ieee.pack_float(result, x, size, False)
             l = []
             for x in result:
                 for c in x:
                     l.append(str(ord(c)))
             return ','.join(l)
-        c_pack = compile(pack, [float])
+        c_pack = compile(pack, [float, int])
         def unpack(s):
             l = s.split(',')
             s = ''.join([chr(int(x)) for x in l])
             return ieee.unpack_float(s, False)
         c_unpack = compile(unpack, [str])
 
-        def check_roundtrip(x):
-            s = c_pack(x)
-            assert s == pack(x)
+        def check_roundtrip(x, size):
+            s = c_pack(x, size)
+            assert s == pack(x, size)
             if not isnan(x):
                 assert unpack(s) == x
                 assert c_unpack(s) == x
@@ -196,7 +196,8 @@ class TestCompiled:
                 assert isnan(unpack(s))
                 assert isnan(c_unpack(s))
 
-        check_roundtrip(123.456)
-        check_roundtrip(-123.456)
-        check_roundtrip(INFINITY)
-        check_roundtrip(NAN)
+        for size in [2, 4, 8]:
+            check_roundtrip(123.4375, size)
+            check_roundtrip(-123.4375, size)
+            check_roundtrip(INFINITY, size)
+            check_roundtrip(NAN, size)
