@@ -2,9 +2,13 @@
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.metainterp.history import INT, REF, FLOAT, JitCellToken
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn
+from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
+                                have_debug_prints)
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
@@ -43,6 +47,47 @@ class GuardToken(object):
 class BaseAssembler(object):
     """ Base class for Assembler generator in real backends
     """
+
+    def __init__(self, cpu, translate_support_code=False):
+        self.cpu = cpu
+        self.memcpy_addr = 0
+        self.rtyper = cpu.rtyper
+
+    def setup_once(self):
+        # the address of the function called by 'new'
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gc_ll_descr.initialize()
+        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self._build_failure_recovery(False, withfloats=False)
+        self._build_failure_recovery(True, withfloats=False)
+        self._build_wb_slowpath(False)
+        self._build_wb_slowpath(True)
+        self._build_wb_slowpath(False, for_frame=True)
+        # only one of those
+        self._build_stack_check_failure()
+        if self.cpu.supports_floats:
+            self._build_failure_recovery(False, withfloats=True)
+            self._build_failure_recovery(True, withfloats=True)
+            self._build_wb_slowpath(False, withfloats=True)
+            self._build_wb_slowpath(True, withfloats=True)
+        self._build_propagate_exception_path()
+        if gc_ll_descr.get_malloc_slowpath_addr is not None:
+            self._build_malloc_slowpath()
+        self._build_stack_check_slowpath()
+        if gc_ll_descr.gcrootmap:
+            self._build_release_gil(gc_ll_descr.gcrootmap)
+        if not self._debug:
+            # if self._debug is already set it means that someone called
+            # set_debug by hand before initializing the assembler. Leave it
+            # as it is
+            debug_start('jit-backend-counts')
+            self.set_debug(have_debug_prints())
+            debug_stop('jit-backend-counts')
+        # when finishing, we only have one value at [0], the rest dies
+        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
+                                              flavor='raw', immortal=True)
+        self.gcmap_for_finish[0] = r_uint(1)
+
     def rebuild_faillocs_from_descr(self, descr, inputargs):
         locs = []
         GPR_REGS = len(self.cpu.gen_regs)

@@ -33,7 +33,6 @@ from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import intmask, r_uint
 
-from rpython.jit.backend.arm.support import memcpy_fn
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
                               ('type', lltype.Char),  # 'b'ridge, 'l'abel or
@@ -46,10 +45,9 @@ class AssemblerARM(ResOpAssembler):
     debug = True
 
     def __init__(self, cpu, translate_support_code=False):
-        self.cpu = cpu
+        ResOpAssembler.__init__(self, cpu, translate_support_code)
         self.setup_failure_recovery()
         self.mc = None
-        self.memcpy_addr = 0
         self.pending_guards = None
         self._exit_code_addr = 0
         self.current_clt = None
@@ -86,40 +84,6 @@ class AssemblerARM(ResOpAssembler):
         self.mc = None
         self.pending_guards = None
         assert self.datablockwrapper is None
-
-    def setup_once(self):
-        # Addresses of functions called by new_xxx operations
-        gc_ll_descr = self.cpu.gc_ll_descr
-        gc_ll_descr.initialize()
-        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self._build_failure_recovery(exc=True, withfloats=False)
-        self._build_failure_recovery(exc=False, withfloats=False)
-        self._build_wb_slowpath(False)
-        self._build_wb_slowpath(True)
-        self._build_stack_check_failure()
-        if self.cpu.supports_floats:
-            self._build_wb_slowpath(False, withfloats=True)
-            self._build_wb_slowpath(True, withfloats=True)
-            self._build_failure_recovery(exc=True, withfloats=True)
-            self._build_failure_recovery(exc=False, withfloats=True)
-        self._build_propagate_exception_path()
-        if gc_ll_descr.get_malloc_slowpath_addr is not None:
-            self._build_malloc_slowpath()
-        self._build_stack_check_slowpath()
-        if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
-            self._build_release_gil(gc_ll_descr.gcrootmap)
-
-        if not self._debug:
-            # if self._debug is already set it means that someone called
-            # set_debug by hand before initializing the assembler. Leave it
-            # as it is
-            debug_start('jit-backend-counts')
-            self.set_debug(have_debug_prints())
-            debug_stop('jit-backend-counts')
-        # when finishing, we only have one value at [0], the rest dies
-        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
-                                              flavor='raw', immortal=True)
-        self.gcmap_for_finish[0] = r_uint(1)
 
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
@@ -302,7 +266,7 @@ class AssemblerARM(ResOpAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-    def _build_wb_slowpath(self, withcards, withfloats=False):
+    def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         if descr is None:
             return

@@ -52,10 +52,3 @@ arm_int_mod = rffi.llexternal(
                         _callable=arm_int_mod_emulator,
                         compilation_info=eci,
                         _nowrapper=True, elidable_function=True)
-# ____________________________________________________________
-
-memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
-                                       rffi.SIZE_T], lltype.Void,
-                            sandboxsafe=True, _nowrapper=True)
-
-# ____________________________________________________________

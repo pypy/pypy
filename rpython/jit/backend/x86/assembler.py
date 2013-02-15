@@ -54,15 +54,13 @@ class Assembler386(BaseAssembler):
     _second_tmp_reg = ecx
 
     def __init__(self, cpu, translate_support_code=False):
-        self.cpu = cpu
+        BaseAssembler.__init__(self, cpu, translate_support_code)
         self.verbose = False
-        self.rtyper = cpu.rtyper
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
         self.malloc_slowpath = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
-        self.memcpy_addr = 0
         self.setup_failure_recovery()
         self._debug = False
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
@@ -78,41 +76,10 @@ class Assembler386(BaseAssembler):
         return r
 
     def setup_once(self):
-        # the address of the function called by 'new'
-        gc_ll_descr = self.cpu.gc_ll_descr
-        gc_ll_descr.initialize()
-        self.memcpy_addr = self.cpu.cast_ptr_to_int(support.memcpy_fn)
-        self._build_failure_recovery(False)
-        self._build_failure_recovery(True)
-        self._build_wb_slowpath(False)
-        self._build_wb_slowpath(True)
-        self._build_wb_slowpath(False, for_frame=True)
-        # only one of those
-        self._build_stack_check_failure()
+        BaseAssembler.setup_once(self)
         if self.cpu.supports_floats:
-            self._build_failure_recovery(False, withfloats=True)
-            self._build_failure_recovery(True, withfloats=True)
-            self._build_wb_slowpath(False, withfloats=True)
-            self._build_wb_slowpath(True, withfloats=True)
             support.ensure_sse2_floats()
             self._build_float_constants()
-        self._build_propagate_exception_path()
-        if gc_ll_descr.get_malloc_slowpath_addr is not None:
-            self._build_malloc_slowpath()
-        self._build_stack_check_slowpath()
-        if gc_ll_descr.gcrootmap:
-            self._build_release_gil(gc_ll_descr.gcrootmap)
-        if not self._debug:
-            # if self._debug is already set it means that someone called
-            # set_debug by hand before initializing the assembler. Leave it
-            # as it is
-            debug_start('jit-backend-counts')
-            self.set_debug(have_debug_prints())
-            debug_stop('jit-backend-counts')
-        # when finishing, we only have one value at [0], the rest dies
-        self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
-                                              flavor='raw', immortal=True)
-        self.gcmap_for_finish[0] = r_uint(1)
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
