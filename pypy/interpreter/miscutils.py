@@ -17,7 +17,7 @@ class ThreadLocals:
     def setvalue(self, value):
         self._value = value
 
-    def ismainthread(self):
+    def signals_enabled(self):
         return True
 
     def getallvalues(self):
