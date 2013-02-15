@@ -121,8 +121,8 @@ class BaseTestRegalloc(object):
     fdescr3 = BasicFailDescr(3)
 
     def setup_method(self, meth):
-        self.targettoken._arm_loop_code = 0
-        self.targettoken2._arm_loop_code = 0
+        self.targettoken._ll_loop_code = 0
+        self.targettoken2._ll_loop_code = 0
 
     def f1(x):
         return x + 1

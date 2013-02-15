@@ -380,7 +380,7 @@ class TestX86(LLtypeBackendTest):
         self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
         assert name == "Loop # 17: hello (loop counter 0)"
-        assert loopaddress <= looptoken._x86_loop_code
+        assert loopaddress <= looptoken._ll_loop_code
         assert loopsize >= 40 # randomish number
 
         i1b = BoxInt()

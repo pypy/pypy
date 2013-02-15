@@ -602,7 +602,7 @@ class AssemblerARM(ResOpAssembler):
                                            clt.allgcrefs)
 
         loop_head = self.mc.get_relative_pos()
-        looptoken._arm_loop_code = loop_head
+        looptoken._ll_loop_code = loop_head
         #
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -815,7 +815,7 @@ class AssemblerARM(ResOpAssembler):
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
-            targettoken._arm_loop_code += rawstart
+            targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
     def _patch_stackadjust(self, adr, allocated_depth):
