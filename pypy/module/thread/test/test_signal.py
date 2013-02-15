@@ -1,7 +1,17 @@
 import sys
 
 
-class AppTest:
+class AppTestMinimal:
+    spaceconfig = dict(usemodules=['thread'])
+
+    def test_signal(self):
+        import thread
+        with thread.signals_enabled:
+            pass
+        # assert did not crash
+
+
+class AppTestThreadSignal:
     spaceconfig = dict(usemodules=['thread', 'signal'])
 
     def setup_class(cls):
