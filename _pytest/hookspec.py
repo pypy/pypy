@@ -23,8 +23,28 @@ def pytest_cmdline_preparse(config, args):
     """modify command line arguments before option parsing. """
 
 def pytest_addoption(parser):
-    """add optparse-style options and ini-style config values via calls
-    to ``parser.addoption`` and ``parser.addini(...)``.
+    """register optparse-style options and ini-style config values.
+
+    This function must be implemented in a :ref:`plugin <pluginorder>` and is
+    called once at the beginning of a test run.
+
+    :arg parser: To add command line options, call
+        :py:func:`parser.addoption(...) <_pytest.config.Parser.addoption>`.
+        To add ini-file values call :py:func:`parser.addini(...)
+        <_pytest.config.Parser.addini>`.
+
+    Options can later be accessed through the
+    :py:class:`config <_pytest.config.Config>` object, respectively:
+
+    - :py:func:`config.getoption(name) <_pytest.config.Config.getoption>` to
+      retrieve the value of a command line option.
+
+    - :py:func:`config.getini(name) <_pytest.config.Config.getini>` to retrieve
+      a value read from an ini-style file.
+
+    The config object is passed around on many internal objects via the ``.config``
+    attribute or can be retrieved as the ``pytestconfig`` fixture or accessed
+    via (deprecated) ``pytest.config``.
     """
 
 def pytest_cmdline_main(config):
@@ -33,7 +53,7 @@ def pytest_cmdline_main(config):
 pytest_cmdline_main.firstresult = True
 
 def pytest_configure(config):
-    """ called after command line options have been parsed.
+    """ called after command line options have been parsed
         and all plugins and initial conftest files been loaded.
     """
 
@@ -193,7 +213,7 @@ def pytest_assertrepr_compare(config, op, left, right):
 # hooks for influencing reporting (invoked from _pytest_terminal)
 # -------------------------------------------------------------------------
 
-def pytest_report_header(config):
+def pytest_report_header(config, startdir):
     """ return a string to be displayed as header info for terminal reporting."""
 
 def pytest_report_teststatus(report):

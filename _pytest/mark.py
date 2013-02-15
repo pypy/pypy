@@ -8,11 +8,12 @@ def pytest_addoption(parser):
     group = parser.getgroup("general")
     group._addoption('-k',
         action="store", dest="keyword", default='', metavar="KEYWORDEXPR",
-        help="only run tests which match given keyword expression.  "
-             "An expression consists of space-separated terms. "
-             "Each term must match. Precede a term with '-' to negate. "
-             "Terminate expression with ':' to make the first match match "
-             "all subsequent tests (usually file-order). ")
+        help="only run tests which match the given expression. "
+             "An expression is a python evaluatable expression "
+             "where all names are substring-matched against test names "
+             "and keywords.  Example: -k 'test_method or test_other' "
+             "matches all test functions whose name contains "
+             "'test_method' or 'test_other'.")
 
     group._addoption("-m",
         action="store", dest="markexpr", default="", metavar="MARKEXPR",
@@ -51,7 +52,7 @@ def pytest_collection_modifyitems(items, config):
     remaining = []
     deselected = []
     for colitem in items:
-        if keywordexpr and skipbykeyword(colitem, keywordexpr):
+        if keywordexpr and not matchkeyword(colitem, keywordexpr):
             deselected.append(colitem)
         else:
             if selectuntil:
@@ -72,44 +73,25 @@ class BoolDict:
     def __getitem__(self, name):
         return name in self._mydict
 
+class SubstringDict:
+    def __init__(self, mydict):
+        self._mydict = mydict
+    def __getitem__(self, name):
+        for key in self._mydict:
+            if name in key:
+                return True
+        return False
+
 def matchmark(colitem, matchexpr):
-    return eval(matchexpr, {}, BoolDict(colitem.obj.__dict__))
+    return eval(matchexpr, {}, BoolDict(colitem.keywords))
+
+def matchkeyword(colitem, keywordexpr):
+    keywordexpr = keywordexpr.replace("-", "not ")
+    return eval(keywordexpr, {}, SubstringDict(colitem.keywords))
 
 def pytest_configure(config):
     if config.option.strict:
         pytest.mark._config = config
-
-def skipbykeyword(colitem, keywordexpr):
-    """ return True if they given keyword expression means to
-        skip this collector/item.
-    """
-    if not keywordexpr:
-        return
-
-    itemkeywords = getkeywords(colitem)
-    for key in filter(None, keywordexpr.split()):
-        eor = key[:1] == '-'
-        if eor:
-            key = key[1:]
-        if not (eor ^ matchonekeyword(key, itemkeywords)):
-            return True
-
-def getkeywords(node):
-    keywords = {}
-    while node is not None:
-        keywords.update(node.keywords)
-        node = node.parent
-    return keywords
-
-
-def matchonekeyword(key, itemkeywords):
-    for elem in key.split("."):
-        for kw in itemkeywords:
-            if elem in kw:
-                break
-        else:
-            return False
-    return True
 
 class MarkGenerator:
     """ Factory for :class:`MarkDecorator` objects - exposed as

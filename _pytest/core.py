@@ -24,12 +24,28 @@ class TagTracer:
     def get(self, name):
         return TagTracerSub(self, (name,))
 
+    def format_message(self, tags, args):
+        if isinstance(args[-1], dict):
+            extra = args[-1]
+            args = args[:-1]
+        else:
+            extra = {}
+
+        content = " ".join(map(str, args))
+        indent = "  " * self.indent
+
+        lines = [
+            "%s%s [%s]\n" %(indent, content, ":".join(tags))
+        ]
+
+        for name, value in extra.items():
+            lines.append("%s    %s: %s\n" % (indent, name, value))
+        return lines
+
     def processmessage(self, tags, args):
-        if self.writer is not None:
-            if args:
-                indent = "  " * self.indent
-                content = " ".join(map(str, args))
-                self.writer("%s%s [%s]\n" %(indent, content, ":".join(tags)))
+        if self.writer is not None and args:
+            lines = self.format_message(tags, args)
+            self.writer(''.join(lines))
         try:
             self._tag2proc[tags](tags, args)
         except KeyError:
@@ -79,10 +95,11 @@ class PluginManager(object):
                 self.import_plugin(spec)
 
     def register(self, plugin, name=None, prepend=False):
-        assert not self.isregistered(plugin), plugin
+        if self._name2plugin.get(name, None) == -1:
+            return
         name = name or getattr(plugin, '__name__', str(id(plugin)))
-        if name in self._name2plugin:
-            return False
+        if self.isregistered(plugin, name):
+            raise ValueError("Plugin already registered: %s=%s" %(name, plugin))
         #self.trace("registering", name, plugin)
         self._name2plugin[name] = plugin
         self.call_plugin(plugin, "pytest_addhooks", {'pluginmanager': self})
@@ -321,13 +338,18 @@ def importplugin(importspec):
     name = importspec
     try:
         mod = "_pytest." + name
-        return __import__(mod, None, None, '__doc__')
+        __import__(mod)
+        return sys.modules[mod]
     except ImportError:
         #e = py.std.sys.exc_info()[1]
         #if str(e).find(name) == -1:
         #    raise
         pass #
-    return __import__(importspec, None, None, '__doc__')
+    try:
+        __import__(importspec)
+    except ImportError:
+        raise ImportError(importspec)
+    return sys.modules[importspec]
 
 class MultiCall:
     """ execute a call into multiple python functions/methods. """
@@ -460,16 +482,15 @@ def _prepareconfig(args=None, plugins=None):
             pluginmanager=_pluginmanager, args=args)
 
 def main(args=None, plugins=None):
-    """ returned exit code integer, after an in-process testing run
-    with the given command line arguments, preloading an optional list
-    of passed in plugin objects. """
-    try:
-        config = _prepareconfig(args, plugins)
-        exitstatus = config.hook.pytest_cmdline_main(config=config)
-    except UsageError:
-        e = sys.exc_info()[1]
-        sys.stderr.write("ERROR: %s\n" %(e.args[0],))
-        exitstatus = 3
+    """ return exit code, after performing an in-process test run.
+
+    :arg args: list of command line arguments.
+
+    :arg plugins: list of plugin objects to be auto-registered during
+                  initialization.
+    """
+    config = _prepareconfig(args, plugins)
+    exitstatus = config.hook.pytest_cmdline_main(config=config)
     return exitstatus
 
 class UsageError(Exception):

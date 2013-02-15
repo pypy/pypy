@@ -15,14 +15,15 @@ class Stat(object):
         self.path = path
         self._osstatresult = osstatresult
 
+    @property
     def owner(self):
         if iswin32:
             raise NotImplementedError("XXX win32")
         import pwd
         entry = py.error.checked_call(pwd.getpwuid, self.uid)
         return entry[0]
-    owner = property(owner, None, None, "owner of path")
 
+    @property
     def group(self):
         """ return group name of file. """
         if iswin32:
@@ -30,7 +31,16 @@ class Stat(object):
         import grp
         entry = py.error.checked_call(grp.getgrgid, self.gid)
         return entry[0]
-    group = property(group)
+
+    def isdir(self):
+        return stat.S_ISDIR(self.mode)
+
+    def isfile(self):
+        return stat.S_ISREG(self.mode)
+
+    def islink(self):
+        st = self.path.lstat()
+        return stat.S_ISLNK(st.mode)
 
 class PosixPath(common.PathBase):
     def chown(self, user, group, rec=0):
@@ -114,7 +124,7 @@ class LocalPath(FSBase):
             st = self.path.lstat()
             return stat.S_ISLNK(st.mode)
 
-    def __new__(cls, path=None):
+    def __init__(self, path=None):
         """ Initialize and return a local Path instance.
 
         Path can be relative to the current directory.
@@ -123,21 +133,16 @@ class LocalPath(FSBase):
         Note also that passing in a local path object will simply return
         the exact same path object. Use new() to get a new copy.
         """
-        if isinstance(path, common.PathBase):
-            if path.__class__ == cls:
-                return path
-            path = path.strpath
-        # initialize the path
-        self = object.__new__(cls)
-        if not path:
+        if path is None:
             self.strpath = os.getcwd()
+        elif isinstance(path, common.PathBase):
+            self.strpath = path.strpath
         elif isinstance(path, py.builtin._basestring):
             self.strpath = os.path.abspath(os.path.normpath(str(path)))
         else:
             raise ValueError("can only pass None, Path instances "
                              "or non-empty strings to LocalPath")
         assert isinstance(self.strpath, str)
-        return self
 
     def __hash__(self):
         return hash(self.strpath)
@@ -332,14 +337,15 @@ class LocalPath(FSBase):
         """ return last modification time of the path. """
         return self.stat().mtime
 
-    def copy(self, target, archive=False):
+    def copy(self, target, mode=False):
         """ copy path to target."""
-        assert not archive, "XXX archive-mode not supported"
         if self.check(file=1):
             if target.check(dir=1):
                 target = target.join(self.basename)
             assert self!=target
             copychunked(self, target)
+            if mode:
+                copymode(self, target)
         else:
             def rec(p):
                 return p.check(link=0)
@@ -349,10 +355,13 @@ class LocalPath(FSBase):
                 newx.dirpath().ensure(dir=1)
                 if x.check(link=1):
                     newx.mksymlinkto(x.readlink())
+                    continue
                 elif x.check(file=1):
                     copychunked(x, newx)
                 elif x.check(dir=1):
                     newx.ensure(dir=1)
+                if mode:
+                    copymode(x, newx)
 
     def rename(self, target):
         """ rename this path to target. """
@@ -419,9 +428,16 @@ class LocalPath(FSBase):
                 p.open('w').close()
             return p
 
-    def stat(self):
+    def stat(self, raising=True):
         """ Return an os.stat() tuple. """
-        return Stat(self, py.error.checked_call(os.stat, self.strpath))
+        if raising == True:
+            return Stat(self, py.error.checked_call(os.stat, self.strpath))
+        try:
+            return Stat(self, os.stat(self.strpath))
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            return None
 
     def lstat(self):
         """ Return an os.lstat() tuple. """
@@ -517,7 +533,8 @@ class LocalPath(FSBase):
             if pkgpath is not None:
                 if ensuresyspath:
                     self._prependsyspath(pkgpath.dirpath())
-                pkg = __import__(pkgpath.basename, None, None, [])
+                __import__(pkgpath.basename)
+                pkg = sys.modules[pkgpath.basename]
                 names = self.new(ext='').relto(pkgpath.dirpath())
                 names = names.split(self.sep)
                 if names and names[-1] == "__init__":
@@ -528,7 +545,8 @@ class LocalPath(FSBase):
                 if ensuresyspath:
                     self._prependsyspath(self.dirpath())
                 modname = self.purebasename
-            mod = __import__(modname, None, None, ['__doc__'])
+            __import__(modname)
+            mod = sys.modules[modname]
             if self.basename == "__init__.py":
                 return mod # we don't check anything as we might
                        # we in a namespace package ... too icky to check
@@ -583,7 +601,7 @@ class LocalPath(FSBase):
                                            stdout, stderr,)
         return stdout
 
-    def sysfind(cls, name, checker=None):
+    def sysfind(cls, name, checker=None, paths=None):
         """ return a path object found by looking at the systems
             underlying PATH specification. If the checker is not None
             it will be invoked to filter matching paths.  If a binary
@@ -596,21 +614,23 @@ class LocalPath(FSBase):
             if p.check(file=1):
                 return p
         else:
-            if iswin32:
-                paths = py.std.os.environ['Path'].split(';')
-                if '' not in paths and '.' not in paths:
-                    paths.append('.')
-                try:
-                    systemroot = os.environ['SYSTEMROOT']
-                except KeyError:
-                    pass
+            if paths is None:
+                if iswin32:
+                    paths = py.std.os.environ['Path'].split(';')
+                    if '' not in paths and '.' not in paths:
+                        paths.append('.')
+                    try:
+                        systemroot = os.environ['SYSTEMROOT']
+                    except KeyError:
+                        pass
+                    else:
+                        paths = [re.sub('%SystemRoot%', systemroot, path)
+                                 for path in paths]
                 else:
-                    paths = [re.sub('%SystemRoot%', systemroot, path)
-                             for path in paths]
-                tryadd = [''] + os.environ['PATHEXT'].split(os.pathsep)
-            else:
-                paths = py.std.os.environ['PATH'].split(':')
-                tryadd = ('',)
+                    paths = py.std.os.environ['PATH'].split(':')
+            tryadd = ['']
+            if iswin32:
+                tryadd += os.environ['PATHEXT'].split(os.pathsep)
 
             for x in paths:
                 for addext in tryadd:
@@ -760,6 +780,9 @@ class LocalPath(FSBase):
 
         return udir
     make_numbered_dir = classmethod(make_numbered_dir)
+
+def copymode(src, dest):
+    py.std.shutil.copymode(str(src), str(dest))
 
 def copychunked(src, dest):
     chunksize = 524288 # half a meg of bytes

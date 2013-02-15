@@ -1,6 +1,7 @@
 """ basic collect and runtest protocol implementations """
 
-import py, sys, time
+import py, sys
+from time import time
 from py._code.code import TerminalRepr
 
 def pytest_namespace():
@@ -114,7 +115,7 @@ class CallInfo:
         #: context of invocation: one of "setup", "call",
         #: "teardown", "memocollect"
         self.when = when
-        self.start = time.time()
+        self.start = time()
         try:
             try:
                 self.result = func()
@@ -123,7 +124,7 @@ class CallInfo:
             except:
                 self.excinfo = py.code.ExceptionInfo()
         finally:
-            self.stop = time.time()
+            self.stop = time()
 
     def __repr__(self):
         if self.excinfo:
@@ -154,7 +155,10 @@ class BaseReport(object):
         if hasattr(longrepr, 'toterminal'):
             longrepr.toterminal(out)
         else:
-            out.line(str(longrepr))
+            try:
+                out.line(longrepr)
+            except UnicodeEncodeError:
+                out.line("<unprintable longrepr>")
 
     passed = property(lambda x: x.outcome == "passed")
     failed = property(lambda x: x.outcome == "failed")
@@ -279,7 +283,7 @@ class CollectErrorRepr(TerminalRepr):
     def __init__(self, msg):
         self.longrepr = msg
     def toterminal(self, out):
-        out.line(str(self.longrepr), red=True)
+        out.line(self.longrepr, red=True)
 
 class SetupState(object):
     """ shared state for setting up/tearing down test items or collectors. """
@@ -291,6 +295,8 @@ class SetupState(object):
         """ attach a finalizer to the given colitem.
         if colitem is None, this will add a finalizer that
         is called at the end of teardown_all().
+        if colitem is a tuple, it will be used as a key
+        and needs an explicit call to _callfinalizers(key) later on.
         """
         assert hasattr(finalizer, '__call__')
         #assert colitem in self.stack
@@ -308,15 +314,17 @@ class SetupState(object):
 
     def _teardown_with_finalization(self, colitem):
         self._callfinalizers(colitem)
-        if colitem:
+        if hasattr(colitem, "teardown"):
             colitem.teardown()
         for colitem in self._finalizers:
-            assert colitem is None or colitem in self.stack
+            assert colitem is None or colitem in self.stack \
+             or isinstance(colitem, tuple)
 
     def teardown_all(self):
         while self.stack:
             self._pop_and_teardown()
-        self._teardown_with_finalization(None)
+        for key in list(self._finalizers):
+            self._teardown_with_finalization(key)
         assert not self._finalizers
 
     def teardown_exact(self, item, nextitem):
@@ -356,6 +364,7 @@ class OutcomeException(Exception):
         contain info about test and collection outcomes.
     """
     def __init__(self, msg=None, pytrace=True):
+        super(OutcomeException, self).__init__(msg)
         self.msg = msg
         self.pytrace = pytrace
 
@@ -401,7 +410,9 @@ skip.Exception = Skipped
 
 def fail(msg="", pytrace=True):
     """ explicitely fail an currently-executing test with the given Message.
-    if @pytrace is not True the msg represents the full failure information.
+
+    :arg pytrace: if false the msg represents the full failure information
+                  and no python traceback will be reported.
     """
     __tracebackhide__ = True
     raise Failed(msg=msg, pytrace=pytrace)
@@ -416,9 +427,10 @@ def importorskip(modname, minversion=None):
     __tracebackhide__ = True
     compile(modname, '', 'eval') # to catch syntaxerrors
     try:
-        mod = __import__(modname, None, None, ['__doc__'])
+        __import__(modname)
     except ImportError:
         py.test.skip("could not import %r" %(modname,))
+    mod = sys.modules[modname]
     if minversion is None:
         return mod
     verattr = getattr(mod, '__version__', None)

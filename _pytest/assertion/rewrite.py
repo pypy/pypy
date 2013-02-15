@@ -34,13 +34,13 @@ else:
     PYTEST_TAG = "%s-%s%s-PYTEST" % (impl, ver[0], ver[1])
     del ver, impl
 
-PYC_EXT = ".py" + "c" if __debug__ else "o"
+PYC_EXT = ".py" + (__debug__ and "c" or "o")
 PYC_TAIL = "." + PYTEST_TAG + PYC_EXT
 
 REWRITE_NEWLINES = sys.version_info[:2] != (2, 7) and sys.version_info < (3, 2)
 
 class AssertionRewritingHook(object):
-    """Import hook which rewrites asserts."""
+    """PEP302 Import hook which rewrites asserts."""
 
     def __init__(self):
         self.session = None
@@ -95,7 +95,8 @@ class AssertionRewritingHook(object):
             finally:
                 self.session = sess
         else:
-            state.trace("matched test file (was specified on cmdline): %r" % (fn,))
+            state.trace("matched test file (was specified on cmdline): %r" %
+                        (fn,))
         # The requested module looks like a test file, so rewrite it. This is
         # the most magical part of the process: load the source, rewrite the
         # asserts, and load the rewritten source. We also cache the rewritten
@@ -121,14 +122,14 @@ class AssertionRewritingHook(object):
                     # because we're in a zip file.
                     write = False
                 elif e == errno.EACCES:
-                    state.trace("read only directory: %r" % (fn_pypath.dirname,))
+                    state.trace("read only directory: %r" % fn_pypath.dirname)
                     write = False
                 else:
                     raise
         cache_name = fn_pypath.basename[:-3] + PYC_TAIL
         pyc = os.path.join(cache_dir, cache_name)
-        # Notice that even if we're in a read-only directory, I'm going to check
-        # for a cached pyc. This may not be optimal...
+        # Notice that even if we're in a read-only directory, I'm going
+        # to check for a cached pyc. This may not be optimal...
         co = _read_pyc(fn_pypath, pyc)
         if co is None:
             state.trace("rewriting %r" % (fn,))
@@ -160,10 +161,11 @@ class AssertionRewritingHook(object):
         return sys.modules[name]
 
 def _write_pyc(co, source_path, pyc):
-    # Technically, we don't have to have the same pyc format as (C)Python, since
-    # these "pycs" should never be seen by builtin import. However, there's
-    # little reason deviate, and I hope sometime to be able to use
-    # imp.load_compiled to load them. (See the comment in load_module above.)
+    # Technically, we don't have to have the same pyc format as
+    # (C)Python, since these "pycs" should never be seen by builtin
+    # import. However, there's little reason deviate, and I hope
+    # sometime to be able to use imp.load_compiled to load them. (See
+    # the comment in load_module above.)
     mtime = int(source_path.mtime())
     try:
         fp = open(pyc, "wb")
@@ -240,9 +242,8 @@ def _read_pyc(source, pyc):
         except EnvironmentError:
             return None
         # Check for invalid or out of date pyc file.
-        if (len(data) != 8 or
-            data[:4] != imp.get_magic() or
-            struct.unpack("<l", data[4:])[0] != mtime):
+        if (len(data) != 8 or data[:4] != imp.get_magic() or
+                struct.unpack("<l", data[4:])[0] != mtime):
             return None
         co = marshal.load(fp)
         if not isinstance(co, types.CodeType):
@@ -260,6 +261,9 @@ def rewrite_asserts(mod):
 
 _saferepr = py.io.saferepr
 from _pytest.assertion.util import format_explanation as _format_explanation
+
+def _should_repr_global_name(obj):
+    return not hasattr(obj, "__name__") and not py.builtin.callable(obj)
 
 def _format_boolop(explanations, is_or):
     return "(" + (is_or and " or " or " and ").join(explanations) + ")"
@@ -280,35 +284,35 @@ def _call_reprcompare(ops, results, expls, each_obj):
 
 
 unary_map = {
-    ast.Not : "not %s",
-    ast.Invert : "~%s",
-    ast.USub : "-%s",
-    ast.UAdd : "+%s"
+    ast.Not: "not %s",
+    ast.Invert: "~%s",
+    ast.USub: "-%s",
+    ast.UAdd: "+%s"
 }
 
 binop_map = {
-    ast.BitOr : "|",
-    ast.BitXor : "^",
-    ast.BitAnd : "&",
-    ast.LShift : "<<",
-    ast.RShift : ">>",
-    ast.Add : "+",
-    ast.Sub : "-",
-    ast.Mult : "*",
-    ast.Div : "/",
-    ast.FloorDiv : "//",
-    ast.Mod : "%",
-    ast.Eq : "==",
-    ast.NotEq : "!=",
-    ast.Lt : "<",
-    ast.LtE : "<=",
-    ast.Gt : ">",
-    ast.GtE : ">=",
-    ast.Pow : "**",
-    ast.Is : "is",
-    ast.IsNot : "is not",
-    ast.In : "in",
-    ast.NotIn : "not in"
+    ast.BitOr: "|",
+    ast.BitXor: "^",
+    ast.BitAnd: "&",
+    ast.LShift: "<<",
+    ast.RShift: ">>",
+    ast.Add: "+",
+    ast.Sub: "-",
+    ast.Mult: "*",
+    ast.Div: "/",
+    ast.FloorDiv: "//",
+    ast.Mod: "%%", # escaped for string formatting
+    ast.Eq: "==",
+    ast.NotEq: "!=",
+    ast.Lt: "<",
+    ast.LtE: "<=",
+    ast.Gt: ">",
+    ast.GtE: ">=",
+    ast.Pow: "**",
+    ast.Is: "is",
+    ast.IsNot: "is not",
+    ast.In: "in",
+    ast.NotIn: "not in"
 }
 
 
@@ -341,7 +345,7 @@ class AssertionRewriter(ast.NodeVisitor):
         lineno = 0
         for item in mod.body:
             if (expect_docstring and isinstance(item, ast.Expr) and
-                isinstance(item.value, ast.Str)):
+                    isinstance(item.value, ast.Str)):
                 doc = item.value.s
                 if "PYTEST_DONT_REWRITE" in doc:
                     # The module has disabled assertion rewriting.
@@ -462,7 +466,8 @@ class AssertionRewriter(ast.NodeVisitor):
         body.append(raise_)
         # Clear temporary variables by setting them to None.
         if self.variables:
-            variables = [ast.Name(name, ast.Store()) for name in self.variables]
+            variables = [ast.Name(name, ast.Store())
+                         for name in self.variables]
             clear = ast.Assign(variables, ast.Name("None", ast.Load()))
             self.statements.append(clear)
         # Fix line numbers.
@@ -471,11 +476,12 @@ class AssertionRewriter(ast.NodeVisitor):
         return self.statements
 
     def visit_Name(self, name):
-        # Check if the name is local or not.
+        # Display the repr of the name if it's a local variable or
+        # _should_repr_global_name() thinks it's acceptable.
         locs = ast.Call(self.builtin("locals"), [], [], None, None)
-        globs = ast.Call(self.builtin("globals"), [], [], None, None)
-        ops = [ast.In(), ast.IsNot()]
-        test = ast.Compare(ast.Str(name.id), ops, [locs, globs])
+        inlocs = ast.Compare(ast.Str(name.id), [ast.In()], [locs])
+        dorepr = self.helper("should_repr_global_name", name)
+        test = ast.BoolOp(ast.Or(), [inlocs, dorepr])
         expr = ast.IfExp(test, self.display(name), ast.Str(name.id))
         return name, self.explanation_param(expr)
 
@@ -548,7 +554,8 @@ class AssertionRewriter(ast.NodeVisitor):
             new_kwarg, expl = self.visit(call.kwargs)
             arg_expls.append("**" + expl)
         expl = "%s(%s)" % (func_expl, ', '.join(arg_expls))
-        new_call = ast.Call(new_func, new_args, new_kwargs, new_star, new_kwarg)
+        new_call = ast.Call(new_func, new_args, new_kwargs,
+                            new_star, new_kwarg)
         res = self.assign(new_call)
         res_expl = self.explanation_param(self.display(res))
         outer_expl = "%s\n{%s = %s\n}" % (res_expl, res_expl, expl)

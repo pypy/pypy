@@ -26,7 +26,7 @@ class SafeRepr(reprlib.Repr):
             exc_name = getattr(cls, '__name__', 'unknown')
             try:
                 exc_info = str(e)
-            except sysex:
+            except py.builtin._sysex:
                 raise
             except:
                 exc_info = 'unknown'

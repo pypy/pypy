@@ -19,7 +19,7 @@ def pytest_unconfigure(config):
         fin()
 
 class Parser:
-    """ Parser for command line arguments. """
+    """ Parser for command line arguments and ini-file values.  """
 
     def __init__(self, usage=None, processopt=None):
         self._anonymous = OptionGroup("custom options", parser=self)
@@ -35,15 +35,17 @@ class Parser:
             if option.dest:
                 self._processopt(option)
 
-    def addnote(self, note):
-        self._notes.append(note)
-
     def getgroup(self, name, description="", after=None):
         """ get (or create) a named option Group.
 
-        :name: unique name of the option group.
+        :name: name of the option group.
         :description: long description for --help output.
         :after: name of other group, used for ordering --help output.
+
+        The returned group object has an ``addoption`` method with the same
+        signature as :py:func:`parser.addoption
+        <_pytest.config.Parser.addoption>` but will be shown in the
+        respective group in the output of ``pytest. --help``.
         """
         for group in self._groups:
             if group.name == name:
@@ -57,7 +59,19 @@ class Parser:
         return group
 
     def addoption(self, *opts, **attrs):
-        """ add an optparse-style option. """
+        """ register a command line option.
+
+        :opts: option names, can be short or long options.
+        :attrs: same attributes which the ``add_option()`` function of the
+           `optparse library
+           <http://docs.python.org/library/optparse.html#module-optparse>`_
+           accepts.
+
+        After command line parsing options are available on the pytest config
+        object via ``config.option.NAME`` where ``NAME`` is usually set
+        by passing a ``dest`` attribute, for example
+        ``addoption("--long", dest="NAME", ...)``.
+        """
         self._anonymous.addoption(*opts, **attrs)
 
     def parse(self, args):
@@ -78,7 +92,15 @@ class Parser:
         return args
 
     def addini(self, name, help, type=None, default=None):
-        """ add an ini-file option with the given name and description. """
+        """ register an ini-file option.
+
+        :name: name of the ini-variable
+        :type: type of the variable, can be ``pathlist``, ``args`` or ``linelist``.
+        :default: default value if no ini-file option exists but is queried.
+
+        The value of ini-variables can be retrieved via a call to
+        :py:func:`config.getini(name) <_pytest.config.Config.getini>`.
+        """
         assert type in (None, "pathlist", "args", "linelist")
         self._inidict[name] = (help, type, default)
         self._ininames.append(name)
@@ -154,20 +176,24 @@ class Conftest(object):
                     p = current.join(opt1[len(opt)+1:], abs=1)
                 self._confcutdir = p
                 break
-        for arg in args + [current]:
+        foundanchor = False
+        for arg in args:
             if hasattr(arg, 'startswith') and arg.startswith("--"):
                 continue
             anchor = current.join(arg, abs=1)
-            if anchor.check(): # we found some file object
-                self._path2confmods[None] = self.getconftestmodules(anchor)
-                # let's also consider test* dirs
-                if anchor.check(dir=1):
-                    for x in anchor.listdir("test*"):
-                        if x.check(dir=1):
-                            self.getconftestmodules(x)
-                break
-        else:
-            assert 0, "no root of filesystem?"
+            if exists(anchor): # we found some file object
+                self._try_load_conftest(anchor)
+                foundanchor = True
+        if not foundanchor:
+            self._try_load_conftest(current)
+
+    def _try_load_conftest(self, anchor):
+        self._path2confmods[None] = self.getconftestmodules(anchor)
+        # let's also consider test* subdirs
+        if anchor.check(dir=1):
+            for x in anchor.listdir("test*"):
+                if x.check(dir=1):
+                    self.getconftestmodules(x)
 
     def getconftestmodules(self, path):
         """ return a list of imported conftest modules for the given path.  """
@@ -245,8 +271,8 @@ class CmdOptions(object):
 class Config(object):
     """ access to configuration values, pluginmanager and plugin hooks.  """
     def __init__(self, pluginmanager=None):
-        #: command line option values, usually added via parser.addoption(...)
-        #: or parser.getgroup(...).addoption(...) calls
+        #: access to command line option as attributes.
+        #: (deprecated), use :py:func:`getoption() <_pytest.config.Config.getoption>` instead
         self.option = CmdOptions()
         self._parser = Parser(
             usage="usage: %prog [options] [file_or_dir] [file_or_dir] [...]",
@@ -258,6 +284,7 @@ class Config(object):
         self._conftest = Conftest(onimport=self._onimportconftest)
         self.hook = self.pluginmanager.hook
         self._inicache = {}
+        self._opt2dest = {}
         self._cleanup = []
 
     @classmethod
@@ -278,6 +305,9 @@ class Config(object):
         self.pluginmanager.consider_conftest(conftestmodule)
 
     def _processopt(self, opt):
+        for name in opt._short_opts + opt._long_opts:
+            self._opt2dest[name] = opt.dest
+
         if hasattr(opt, 'default') and opt.dest:
             if not hasattr(self.option, opt.dest):
                 setattr(self.option, opt.dest, opt.default)
@@ -356,8 +386,9 @@ class Config(object):
         x.append(line) # modifies the cached list inline
 
     def getini(self, name):
-        """ return configuration value from an ini file. If the
-        specified name hasn't been registered through a prior ``parse.addini``
+        """ return configuration value from an :ref:`ini file <inifiles>`. If the
+        specified name hasn't been registered through a prior
+        :py:func:`parser.addini <pytest.config.Parser.addini>`
         call (usually from a plugin), a ValueError is raised. """
         try:
             return self._inicache[name]
@@ -411,8 +442,22 @@ class Config(object):
             self._checkconftest(name)
         return self._conftest.rget(name, path)
 
+    def getoption(self, name):
+        """ return command line option value.
+
+        :arg name: name of the option.  You may also specify
+            the literal ``--OPT`` option instead of the "dest" option name.
+        """
+        name = self._opt2dest.get(name, name)
+        try:
+            return getattr(self.option, name)
+        except AttributeError:
+            raise ValueError("no option named %r" % (name,))
+
     def getvalue(self, name, path=None):
-        """ return ``name`` value looked set from command line options.
+        """ return command line option value.
+
+        :arg name: name of the command line option
 
         (deprecated) if we can't find the option also lookup
         the name in a matching conftest file.
@@ -434,6 +479,11 @@ class Config(object):
         except KeyError:
             py.test.skip("no %r value found" %(name,))
 
+def exists(path, ignore=EnvironmentError):
+    try:
+        return path.check()
+    except ignore:
+        return False
 
 def getcfg(args, inibasenames):
     args = [x for x in args if not str(x).startswith("-")]
@@ -444,20 +494,9 @@ def getcfg(args, inibasenames):
         for base in arg.parts(reverse=True):
             for inibasename in inibasenames:
                 p = base.join(inibasename)
-                if p.check():
+                if exists(p):
                     iniconfig = py.iniconfig.IniConfig(p)
                     if 'pytest' in iniconfig.sections:
                         return iniconfig['pytest']
     return {}
-
-def findupwards(current, basename):
-    current = py.path.local(current)
-    while 1:
-        p = current.join(basename)
-        if p.check():
-            return p
-        p = current.dirpath()
-        if p == current:
-            return
-        current = p
 

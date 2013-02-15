@@ -2,7 +2,7 @@
 import py, sys
 
 class url:
-    base = "http://paste.pocoo.org"
+    base = "http://bpaste.net"
     xmlrpc = base + "/xmlrpc/"
     show = base + "/show/"
 
@@ -11,7 +11,7 @@ def pytest_addoption(parser):
     group._addoption('--pastebin', metavar="mode",
         action='store', dest="pastebin", default=None,
         type="choice", choices=['failed', 'all'],
-        help="send failed|all info to Pocoo pastebin service.")
+        help="send failed|all info to bpaste.net pastebin service.")
 
 def pytest_configure(__multicall__, config):
     import tempfile

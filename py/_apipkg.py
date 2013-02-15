@@ -9,7 +9,7 @@ import os
 import sys
 from types import ModuleType
 
-__version__ = '1.2.dev6'
+__version__ = '1.2'
 
 def initpkg(pkgname, exportdefs, attr=dict()):
     """ initialize given package from the export definitions. """

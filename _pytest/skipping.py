@@ -11,17 +11,18 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     config.addinivalue_line("markers",
-        "skipif(*conditions): skip the given test function if evaluation "
-        "of all conditions has a True value.  Evaluation happens within the "
+        "skipif(condition): skip the given test function if eval(condition) "
+        "results in a True value.  Evaluation happens within the "
         "module global context. Example: skipif('sys.platform == \"win32\"') "
-        "skips the test if we are on the win32 platform. "
+        "skips the test if we are on the win32 platform. see "
+        "http://pytest.org/latest/skipping.html"
     )
     config.addinivalue_line("markers",
-        "xfail(*conditions, reason=None, run=True): mark the the test function "
-        "as an expected failure. Optionally specify a reason and run=False "
-        "if you don't even want to execute the test function. Any positional "
-        "condition strings will be evaluated (like with skipif) and if one is "
-        "False the marker will not be applied."
+        "xfail(condition, reason=None, run=True): mark the the test function "
+        "as an expected failure if eval(condition) has a True value. "
+        "Optionally specify a reason for better reporting and run=False if "
+        "you don't even want to execute the test function. See "
+        "http://pytest.org/latest/skipping.html"
     )
 
 def pytest_namespace():
@@ -110,6 +111,7 @@ class MarkEvaluator:
         return expl
 
 
+@pytest.mark.tryfirst
 def pytest_runtest_setup(item):
     if not isinstance(item, pytest.Function):
         return
@@ -137,7 +139,7 @@ def pytest_runtest_makereport(__multicall__, item, call):
         rep = __multicall__.execute()
         if rep.when == "call":
             # we need to translate into how py.test encodes xpass
-            rep.keywords['xfail'] = "reason: " + item._unexpectedsuccess
+            rep.wasxfail = "reason: " + repr(item._unexpectedsuccess)
             rep.outcome = "failed"
         return rep
     if not (call.excinfo and
@@ -148,27 +150,27 @@ def pytest_runtest_makereport(__multicall__, item, call):
     if call.excinfo and call.excinfo.errisinstance(py.test.xfail.Exception):
         if not item.config.getvalue("runxfail"):
             rep = __multicall__.execute()
-            rep.keywords['xfail'] = "reason: " + call.excinfo.value.msg
+            rep.wasxfail = "reason: " + call.excinfo.value.msg
             rep.outcome = "skipped"
             return rep
     rep = __multicall__.execute()
     evalxfail = item._evalxfail
-    if not item.config.option.runxfail:
-        if evalxfail.wasvalid() and evalxfail.istrue():
-            if call.excinfo:
-                rep.outcome = "skipped"
-                rep.keywords['xfail'] = evalxfail.getexplanation()
-            elif call.when == "call":
-                rep.outcome = "failed"
-                rep.keywords['xfail'] = evalxfail.getexplanation()
-            return rep
-    if 'xfail' in rep.keywords:
-        del rep.keywords['xfail']
+    if not rep.skipped:
+        if not item.config.option.runxfail:
+            if evalxfail.wasvalid() and evalxfail.istrue():
+                if call.excinfo:
+                    rep.outcome = "skipped"
+                elif call.when == "call":
+                    rep.outcome = "failed"
+                else:
+                    return rep
+                rep.wasxfail = evalxfail.getexplanation()
+                return rep
     return rep
 
 # called by terminalreporter progress reporting
 def pytest_report_teststatus(report):
-    if 'xfail' in report.keywords:
+    if hasattr(report, "wasxfail"):
         if report.skipped:
             return "xfailed", "x", "xfail"
         elif report.failed:
@@ -215,7 +217,7 @@ def show_xfailed(terminalreporter, lines):
     if xfailed:
         for rep in xfailed:
             pos = rep.nodeid
-            reason = rep.keywords['xfail']
+            reason = rep.wasxfail
             lines.append("XFAIL %s" % (pos,))
             if reason:
                 lines.append("  " + str(reason))
@@ -225,7 +227,7 @@ def show_xpassed(terminalreporter, lines):
     if xpassed:
         for rep in xpassed:
             pos = rep.nodeid
-            reason = rep.keywords['xfail']
+            reason = rep.wasxfail
             lines.append("XPASS %s %s" %(pos, reason))
 
 def cached_eval(config, expr, d):

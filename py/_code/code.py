@@ -1,5 +1,6 @@
 import py
 import sys, os.path
+from inspect import CO_VARARGS, CO_VARKEYWORDS
 
 builtin_repr = repr
 
@@ -49,12 +50,19 @@ class Code(object):
         # return source only for that part of code
         return py.code.Source(self.raw)
 
-    def getargs(self):
+    def getargs(self, var=False):
         """ return a tuple with the argument names for the code object
+
+            if 'var' is set True also return the names of the variable and
+            keyword arguments when present
         """
         # handfull shortcut for getting args
         raw = self.raw
-        return raw.co_varnames[:raw.co_argcount]
+        argcount = raw.co_argcount
+        if var:
+            argcount += raw.co_flags & CO_VARARGS
+            argcount += raw.co_flags & CO_VARKEYWORDS
+        return raw.co_varnames[:argcount]
 
 class Frame(object):
     """Wrapper around a Python frame holding f_locals and f_globals
@@ -102,11 +110,14 @@ class Frame(object):
     def is_true(self, object):
         return object
 
-    def getargs(self):
+    def getargs(self, var=False):
         """ return a list of tuples (name, value) for all arguments
+
+            if 'var' is set True also include the variable and keyword
+            arguments when present
         """
         retval = []
-        for arg in self.code.getargs():
+        for arg in self.code.getargs(var):
             try:
                 retval.append((arg, self.f_locals[arg]))
             except KeyError:
@@ -160,26 +171,30 @@ class TracebackEntry(object):
         # on Jython this firstlineno can be -1 apparently
         return max(self.frame.code.firstlineno, 0)
 
-    def getsource(self):
+    def getsource(self, astcache=None):
         """ return failing source code. """
+        # we use the passed in astcache to not reparse asttrees
+        # within exception info printing
+        from py._code.source import getstatementrange_ast
         source = self.frame.code.fullsource
         if source is None:
             return None
+        key = astnode = None
+        if astcache is not None:
+            key = self.frame.code.path
+            if key is not None:
+                astnode = astcache.get(key, None)
         start = self.getfirstlinesource()
-        end = self.lineno
         try:
-            _, end = source.getstatementrange(end)
-        except (IndexError, ValueError):
+            astnode, _, end = getstatementrange_ast(self.lineno, source,
+                                                    astnode=astnode)
+        except SyntaxError:
             end = self.lineno + 1
-        # heuristic to stop displaying source on e.g.
-        #   if something:  # assume this causes a NameError
-        #      # _this_ lines and the one
-               #        below we don't want from entry.getsource()
-        for i in range(self.lineno, end):
-            if source[i].rstrip().endswith(':'):
-                end = i + 1
-                break
+        else:
+            if key is not None:
+                astcache[key] = astnode
         return source[start:end]
+
     source = property(getsource)
 
     def ishidden(self):
@@ -399,6 +414,7 @@ class FormattedExcinfo(object):
         self.tbfilter = tbfilter
         self.funcargs = funcargs
         self.abspath = abspath
+        self.astcache = {}
 
     def _getindent(self, source):
         # figure out indent for given source
@@ -416,7 +432,7 @@ class FormattedExcinfo(object):
         return 4 + (len(s) - len(s.lstrip()))
 
     def _getentrysource(self, entry):
-        source = entry.getsource()
+        source = entry.getsource(self.astcache)
         if source is not None:
             source = source.deindent()
         return source
@@ -427,7 +443,7 @@ class FormattedExcinfo(object):
     def repr_args(self, entry):
         if self.funcargs:
             args = []
-            for argname, argvalue in entry.frame.getargs():
+            for argname, argvalue in entry.frame.getargs(var=True):
                 args.append((argname, self._saferepr(argvalue)))
             return ReprFuncArgs(args)
 

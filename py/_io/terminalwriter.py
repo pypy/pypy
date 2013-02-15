@@ -7,6 +7,8 @@ Helper functions for writing to terminals and files.
 
 import sys, os
 import py
+py3k = sys.version_info[0] >= 3
+from py.builtin import text, bytes
 
 win32_and_ctypes = False
 if sys.platform == "win32":
@@ -105,8 +107,6 @@ class TerminalWriter(object):
                      Blue=44, Purple=45, Cyan=46, White=47,
                      bold=1, light=2, blink=5, invert=7)
 
-    _newline = None   # the last line printed
-
     # XXX deprecate stringio argument
     def __init__(self, file=None, stringio=False, encoding=None):
         if file is None:
@@ -114,12 +114,14 @@ class TerminalWriter(object):
                 self.stringio = file = py.io.TextIO()
             else:
                 file = py.std.sys.stdout
-        elif hasattr(file, '__call__'):
+        elif py.builtin.callable(file) and not (
+             hasattr(file, "write") and hasattr(file, "flush")):
             file = WriteFile(file, encoding=encoding)
         self.encoding = encoding or getattr(file, 'encoding', "utf-8")
         self._file = file
         self.fullwidth = get_terminal_width()
         self.hasmarkup = should_do_markup(file)
+        self._lastlen = 0
 
     def _escaped(self, text, esc):
         if esc and self.hasmarkup:
@@ -161,56 +163,44 @@ class TerminalWriter(object):
 
         self.line(line, **kw)
 
-    def write(self, s, **kw):
-        if s:
-            if not isinstance(self._file, WriteFile):
-                s = self._getbytestring(s)
-                if self.hasmarkup and kw:
-                    s = self.markup(s, **kw)
-            self._file.write(s)
+    def write(self, msg, **kw):
+        if msg:
+            if not isinstance(msg, (bytes, text)):
+                msg = text(msg)
+            if self.hasmarkup and kw:
+                markupmsg = self.markup(msg, **kw)
+            else:
+                markupmsg = msg
+            try:
+                self._file.write(markupmsg)
+            except UnicodeEncodeError:
+                msg = msg.encode("unicode-escape").decode("ascii")
+                self._file.write(msg)
             self._file.flush()
 
-    def _getbytestring(self, s):
-        # XXX review this and the whole logic
-        if self.encoding and sys.version_info[0] < 3 and isinstance(s, unicode):
-            return s.encode(self.encoding)
-        elif not isinstance(s, str):
-            try:
-                return str(s)
-            except UnicodeEncodeError:
-                return "<print-error '%s' object>" % type(s).__name__
-        return s
-
     def line(self, s='', **kw):
-        if self._newline == False:
-            self.write("\n")
         self.write(s, **kw)
+        self._checkfill(s)
         self.write('\n')
-        self._newline = True
 
-    def reline(self, line, **opts):
+    def reline(self, line, **kw):
         if not self.hasmarkup:
             raise ValueError("cannot use rewrite-line without terminal")
-        if not self._newline:
-            self.write("\r")
-        self.write(line, **opts)
-        # see if we need to fill up some spaces at the end
-        # xxx have a more exact lastlinelen working from self.write?
-        lenline = len(line)
-        try:
-            lastlen = self._lastlinelen
-        except AttributeError:
-            pass
-        else:
-            if lenline < lastlen:
-                self.write(" " * (lastlen - lenline + 1))
-        self._lastlinelen = lenline
-        self._newline = False
+        self.write(line, **kw)
+        self._checkfill(line)
+        self.write('\r')
+        self._lastlen = len(line)
 
+    def _checkfill(self, line):
+        diff2last = self._lastlen - len(line)
+        if diff2last > 0:
+            self.write(" " * diff2last)
 
 class Win32ConsoleWriter(TerminalWriter):
-    def write(self, s, **kw):
-        if s:
+    def write(self, msg, **kw):
+        if msg:
+            if not isinstance(msg, (bytes, text)):
+                msg = text(msg)
             oldcolors = None
             if self.hasmarkup and kw:
                 handle = GetStdHandle(STD_OUTPUT_HANDLE)
@@ -232,16 +222,14 @@ class Win32ConsoleWriter(TerminalWriter):
                     attr |= oldcolors & 0x0007
 
                 SetConsoleTextAttribute(handle, attr)
-            if not isinstance(self._file, WriteFile):
-                s = self._getbytestring(s)
-            self._file.write(s)
+            try:
+                self._file.write(msg)
+            except UnicodeEncodeError:
+                msg = msg.encode("unicode-escape").decode("ascii")
+                self._file.write(msg)
             self._file.flush()
             if oldcolors:
                 SetConsoleTextAttribute(handle, oldcolors)
-
-    def line(self, s="", **kw):
-        self.write(s, **kw) # works better for resetting colors
-        self.write("\n")
 
 class WriteFile(object):
     def __init__(self, writemethod, encoding=None):
@@ -250,7 +238,7 @@ class WriteFile(object):
 
     def write(self, data):
         if self.encoding:
-            data = data.encode(self.encoding)
+            data = data.encode(self.encoding, "replace")
         self._writemethod(data)
 
     def flush(self):

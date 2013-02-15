@@ -67,7 +67,7 @@ class Checkers:
             except (py.error.ENOENT, py.error.ENOTDIR, py.error.EBUSY):
                 # EBUSY feels not entirely correct,
                 # but its kind of necessary since ENOMEDIUM
-                # is not accessible in python     
+                # is not accessible in python
                 for name in self._depend_on_existence:
                     if name in kw:
                         if kw.get(name):
@@ -177,7 +177,7 @@ newline will be removed from the end of each line. """
                 exists=1  # exists
 
             You can specify multiple checker definitions, for example::
-                
+
                 path.check(file=1, link=1)  # a link pointing to a file
         """
         if not kw:
@@ -254,15 +254,14 @@ newline will be removed from the end of each line. """
         """ return a root-first list of all ancestor directories
             plus the path itself.
         """
+        last = None
         current = self
-        l = [self]
-        while 1:
+        l = []
+        while current != last:
+            l.append(current)
             last = current
             current = current.dirpath()
-            if last == current:
-                break
-            l.insert(0, current)
-        if reverse:
+        if not reverse:
             l.reverse()
         return l
 
@@ -331,7 +330,7 @@ class Visitor:
         if isinstance(fil, str):
             fil = FNMatcher(fil)
         if isinstance(rec, str):
-            self.rec = fnmatch(fil)
+            self.rec = FNMatcher(rec)
         elif not hasattr(rec, '__call__') and rec:
             self.rec = lambda path: True
         else:

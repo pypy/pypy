@@ -119,22 +119,20 @@ class CaptureManager:
         return "", ""
 
     def activate_funcargs(self, pyfuncitem):
-        if not hasattr(pyfuncitem, 'funcargs'):
-            return
-        assert not hasattr(self, '_capturing_funcargs')
-        self._capturing_funcargs = capturing_funcargs = []
-        for name, capfuncarg in pyfuncitem.funcargs.items():
-            if name in ('capsys', 'capfd'):
-                capturing_funcargs.append(capfuncarg)
-                capfuncarg._start()
+        funcargs = getattr(pyfuncitem, "funcargs", None)
+        if funcargs is not None:
+            for name, capfuncarg in funcargs.items():
+                if name in ('capsys', 'capfd'):
+                    assert not hasattr(self, '_capturing_funcarg')
+                    self._capturing_funcarg = capfuncarg
+                    capfuncarg._start()
 
     def deactivate_funcargs(self):
-        capturing_funcargs = getattr(self, '_capturing_funcargs', None)
-        if capturing_funcargs is not None:
-            while capturing_funcargs:
-                capfuncarg = capturing_funcargs.pop()
-                capfuncarg._finalize()
-            del self._capturing_funcargs
+        capturing_funcarg = getattr(self, '_capturing_funcarg', None)
+        if capturing_funcarg:
+            outerr = capturing_funcarg._finalize()
+            del self._capturing_funcarg
+            return outerr
 
     def pytest_make_collect_report(self, __multicall__, collector):
         method = self._getmethod(collector.config, collector.fspath)
@@ -169,9 +167,12 @@ class CaptureManager:
 
     @pytest.mark.tryfirst
     def pytest_runtest_makereport(self, __multicall__, item, call):
-        self.deactivate_funcargs()
+        funcarg_outerr = self.deactivate_funcargs()
         rep = __multicall__.execute()
         outerr = self.suspendcapture(item)
+        if funcarg_outerr is not None:
+            outerr = (outerr[0] + funcarg_outerr[0],
+                      outerr[1] + funcarg_outerr[1])
         if not rep.passed:
             addouterr(rep, outerr)
         if not rep.passed or rep.when == "teardown":
@@ -179,23 +180,29 @@ class CaptureManager:
         item.outerr = outerr
         return rep
 
+error_capsysfderror = "cannot use capsys and capfd at the same time"
+
 def pytest_funcarg__capsys(request):
     """enables capturing of writes to sys.stdout/sys.stderr and makes
     captured output available via ``capsys.readouterr()`` method calls
     which return a ``(out, err)`` tuple.
     """
-    return CaptureFuncarg(py.io.StdCapture)
+    if "capfd" in request._funcargs:
+        raise request.raiseerror(error_capsysfderror)
+    return CaptureFixture(py.io.StdCapture)
 
 def pytest_funcarg__capfd(request):
     """enables capturing of writes to file descriptors 1 and 2 and makes
     captured output available via ``capsys.readouterr()`` method calls
     which return a ``(out, err)`` tuple.
     """
+    if "capsys" in request._funcargs:
+        request.raiseerror(error_capsysfderror)
     if not hasattr(os, 'dup'):
-        py.test.skip("capfd funcarg needs os.dup")
-    return CaptureFuncarg(py.io.StdCaptureFD)
+        pytest.skip("capfd funcarg needs os.dup")
+    return CaptureFixture(py.io.StdCaptureFD)
 
-class CaptureFuncarg:
+class CaptureFixture:
     def __init__(self, captureclass):
         self.capture = captureclass(now=False)
 
@@ -204,11 +211,15 @@ class CaptureFuncarg:
 
     def _finalize(self):
         if hasattr(self, 'capture'):
-            self.capture.reset()
+            outerr = self._outerr = self.capture.reset()
             del self.capture
+            return outerr
 
     def readouterr(self):
-        return self.capture.readouterr()
+        try:
+            return self.capture.readouterr()
+        except AttributeError:
+            return self._outerr
 
     def close(self):
         self._finalize()

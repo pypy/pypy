@@ -57,7 +57,7 @@ def bin_xml_escape(arg):
             return unicode('#x%02X') % i
         else:
             return unicode('#x%04X') % i
-    return illegal_xml_re.sub(repl, py.xml.escape(arg))
+    return py.xml.raw(illegal_xml_re.sub(repl, py.xml.escape(arg)))
 
 def pytest_addoption(parser):
     group = parser.getgroup("terminal reporting")
@@ -81,19 +81,22 @@ def pytest_unconfigure(config):
         config.pluginmanager.unregister(xml)
 
 
+def mangle_testnames(names):
+    names = [x.replace(".py", "") for x in names if x != '()']
+    names[0] = names[0].replace("/", '.')
+    return names
+
 class LogXML(object):
     def __init__(self, logfile, prefix):
         logfile = os.path.expanduser(os.path.expandvars(logfile))
-        self.logfile = os.path.normpath(logfile)
+        self.logfile = os.path.normpath(os.path.abspath(logfile))
         self.prefix = prefix
         self.tests = []
         self.passed = self.skipped = 0
         self.failed = self.errors = 0
 
     def _opentestcase(self, report):
-        names = report.nodeid.split("::")
-        names[0] = names[0].replace("/", '.')
-        names = [x.replace(".py", "") for x in names if x != "()"]
+        names = mangle_testnames(report.nodeid.split("::"))
         classnames = names[:-1]
         if self.prefix:
             classnames.insert(0, self.prefix)
@@ -111,7 +114,7 @@ class LogXML(object):
 
     def append_failure(self, report):
         #msg = str(report.longrepr.reprtraceback.extraline)
-        if "xfail" in report.keywords:
+        if hasattr(report, "wasxfail"):
             self.append(
                 Junit.skipped(message="xfail-marked test passes unexpectedly"))
             self.skipped += 1
@@ -145,8 +148,8 @@ class LogXML(object):
         self.errors += 1
 
     def append_skipped(self, report):
-        if "xfail" in report.keywords:
-            self.append(Junit.skipped(str(report.keywords['xfail']),
+        if hasattr(report, "wasxfail"):
+            self.append(Junit.skipped(str(report.wasxfail),
                                       message="expected test failure"))
         else:
             filename, lineno, skipreason = report.longrepr

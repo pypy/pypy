@@ -2,7 +2,8 @@
 
 This is a good source for looking at the various reporting hooks.
 """
-import pytest, py
+import pytest
+import py
 import sys
 import os
 
@@ -11,7 +12,7 @@ def pytest_addoption(parser):
     group._addoption('-v', '--verbose', action="count",
                dest="verbose", default=0, help="increase verbosity."),
     group._addoption('-q', '--quiet', action="count",
-               dest="quiet", default=0, help="decreate verbosity."),
+               dest="quiet", default=0, help="decrease verbosity."),
     group._addoption('-r',
          action="store", dest="reportchars", default=None, metavar="chars",
          help="show extra test summary info as specified by chars (f)ailed, "
@@ -37,13 +38,14 @@ def pytest_configure(config):
     stdout = py.std.sys.stdout
     if hasattr(os, 'dup') and hasattr(stdout, 'fileno'):
         try:
-            newfd = os.dup(stdout.fileno())
-            #print "got newfd", newfd
+            newstdout = py.io.dupfile(stdout, buffering=1,
+                                      encoding=stdout.encoding)
         except ValueError:
             pass
         else:
-            stdout = os.fdopen(newfd, stdout.mode, 1)
-            config._cleanup.append(lambda: stdout.close())
+            config._cleanup.append(lambda: newstdout.close())
+            assert stdout.encoding  == newstdout.encoding
+            stdout = newstdout
 
     reporter = TerminalReporter(config, stdout)
     config.pluginmanager.register(reporter, 'terminalreporter')
@@ -94,7 +96,7 @@ class TerminalReporter:
         self._numcollected = 0
 
         self.stats = {}
-        self.curdir = py.path.local()
+        self.startdir = self.curdir = py.path.local()
         if file is None:
             file = py.std.sys.stdout
         self._tw = py.io.TerminalWriter(file)
@@ -109,9 +111,9 @@ class TerminalReporter:
     def write_fspath_result(self, fspath, res):
         if fspath != self.currentfspath:
             self.currentfspath = fspath
-            #fspath = self.curdir.bestrelpath(fspath)
+            #fspath = self.startdir.bestrelpath(fspath)
             self._tw.line()
-            #relpath = self.curdir.bestrelpath(fspath)
+            #relpath = self.startdir.bestrelpath(fspath)
             self._tw.write(fspath + " ")
         self._tw.write(res)
 
@@ -207,7 +209,7 @@ class TerminalReporter:
                 self.currentfspath = -2
 
     def pytest_collection(self):
-        if not self.hasmarkup:
+        if not self.hasmarkup and self.config.option.verbose >=1:
             self.write("collecting ... ", bold=True)
 
     def pytest_collectreport(self, report):
@@ -222,6 +224,9 @@ class TerminalReporter:
             self.report_collect()
 
     def report_collect(self, final=False):
+        if self.config.option.verbose < 0:
+            return
+
         errors = len(self.stats.get('error', []))
         skipped = len(self.stats.get('skipped', []))
         if final:
@@ -243,6 +248,7 @@ class TerminalReporter:
     def pytest_collection_modifyitems(self):
         self.report_collect(True)
 
+    @pytest.mark.trylast
     def pytest_sessionstart(self, session):
         self._sessionstarttime = py.std.time.time()
         if not self.showheader:
@@ -258,10 +264,22 @@ class TerminalReporter:
            getattr(self.config.option, 'pastebin', None):
             msg += " -- " + str(sys.executable)
         self.write_line(msg)
-        lines = self.config.hook.pytest_report_header(config=self.config)
+        lines = self.config.hook.pytest_report_header(
+            config=self.config, startdir=self.startdir)
         lines.reverse()
         for line in flatten(lines):
             self.write_line(line)
+
+    def pytest_report_header(self, config):
+        plugininfo = config.pluginmanager._plugin_distinfo
+        if plugininfo:
+            l = []
+            for dist, plugin in plugininfo:
+                name = dist.project_name
+                if name.startswith("pytest-"):
+                    name = name[7:]
+                l.append(name)
+            return "plugins: %s" % ", ".join(l)
 
     def pytest_collection_finish(self, session):
         if self.config.option.collectonly:
@@ -313,7 +331,7 @@ class TerminalReporter:
     def pytest_sessionfinish(self, exitstatus, __multicall__):
         __multicall__.execute()
         self._tw.line("")
-        if exitstatus in (0, 1, 2):
+        if exitstatus in (0, 1, 2, 4):
             self.summary_errors()
             self.summary_failures()
             self.config.hook.pytest_terminal_summary(terminalreporter=self)
@@ -425,7 +443,7 @@ class TerminalReporter:
     def summary_stats(self):
         session_duration = py.std.time.time() - self._sessionstarttime
 
-        keys = "failed passed skipped deselected".split()
+        keys = "failed passed skipped deselected xfailed xpassed".split()
         for key in self.stats.keys():
             if key not in keys:
                 keys.append(key)
@@ -440,8 +458,8 @@ class TerminalReporter:
         msg = "%s in %.2f seconds" %(line, session_duration)
         if self.verbosity >= 0:
             self.write_sep("=", msg, bold=True)
-        else:
-            self.write_line(msg, bold=True)
+        #else:
+        #    self.write_line(msg, bold=True)
 
     def summary_deselected(self):
         if 'deselected' in self.stats:
@@ -452,8 +470,9 @@ class TerminalReporter:
             m = self.config.option.markexpr
             if m:
                 l.append("-m %r" % m)
-            self.write_sep("=", "%d tests deselected by %r" %(
-                len(self.stats['deselected']), " ".join(l)), bold=True)
+            if l:
+                self.write_sep("=", "%d tests deselected by %r" %(
+                    len(self.stats['deselected']), " ".join(l)), bold=True)
 
 def repr_pythonversion(v=None):
     if v is None:

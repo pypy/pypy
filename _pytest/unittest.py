@@ -20,10 +20,15 @@ def pytest_pycollect_makeitem(collector, name, obj):
             return UnitTestCase(name, parent=collector)
 
 class UnitTestCase(pytest.Class):
+    nofuncargs = True  # marker for fixturemanger.getfixtureinfo()
+                       # to declare that our children do not support funcargs
+
     def collect(self):
+        self.session._fixturemanager.parsefactories(self, unittest=True)
         loader = py.std.unittest.TestLoader()
         module = self.getparent(pytest.Module).obj
         cls = self.obj
+        foundsomething = False
         for name in loader.getTestCaseNames(self.obj):
             x = getattr(self.obj, name)
             funcobj = getattr(x, 'im_func', x)
@@ -31,14 +36,26 @@ class UnitTestCase(pytest.Class):
             if hasattr(funcobj, 'todo'):
                 pytest.mark.xfail(reason=str(funcobj.todo))(funcobj)
             yield TestCaseFunction(name, parent=self)
+            foundsomething = True
+
+        if not foundsomething:
+            runtest = getattr(self.obj, 'runTest', None)
+            if runtest is not None:
+                ut = sys.modules.get("twisted.trial.unittest", None)
+                if ut is None or runtest != ut.TestCase.runTest:
+                    yield TestCaseFunction('runTest', parent=self)
 
     def setup(self):
+        if getattr(self.obj, '__unittest_skip__', False):
+            return
         meth = getattr(self.obj, 'setUpClass', None)
         if meth is not None:
             meth()
         super(UnitTestCase, self).setup()
 
     def teardown(self):
+        if getattr(self.obj, '__unittest_skip__', False):
+            return
         meth = getattr(self.obj, 'tearDownClass', None)
         if meth is not None:
             meth()
@@ -56,6 +73,8 @@ class TestCaseFunction(pytest.Function):
             pytest.skip(self._obj.skip)
         if hasattr(self._testcase, 'setup_method'):
             self._testcase.setup_method(self._obj)
+        if hasattr(self, "_request"):
+            self._request._fillfixtures()
 
     def teardown(self):
         if hasattr(self._testcase, 'teardown_method'):
