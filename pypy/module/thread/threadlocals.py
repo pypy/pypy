@@ -77,5 +77,13 @@ class OSThreadLocals:
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"
+        # clear the _signalsenabled dictionary for all other threads
+        # (which are now dead); and for the current thread, force an
+        # enable_signals() if necessary.  That's a hack but I cannot
+        # figure out a non-hackish way to handle thread+signal+fork :-(
+        ident = rthread.get_ident()
+        old = self._signalsenabled.get(ident, 0)
         self._signalsenabled.clear()
-        self.enable_signals()
+        if old == 0:
+            old = 1
+        self._signalsenabled[ident] = old
