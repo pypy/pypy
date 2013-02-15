@@ -670,12 +670,11 @@ class BaseRegalloc(object):
     def locs_for_call_assembler(self, op, guard_op):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        arglist = op.getarglist()
-        if len(arglist) == 2:
-            self.rm._sync_var(arglist[1])
-            return [self.loc(arglist[0]), self.fm.loc(arglist[1])]
+        if op.numargs() == 2:
+            self.rm._sync_var(op.getarg(1))
+            return [self.loc(op.getarg(0)), self.fm.loc(op.getarg(1))]
         else:
-            return [self.loc(arglist[0])]
+            return [self.loc(op.getarg(0))]
 
 
 def compute_vars_longevity(inputargs, operations):

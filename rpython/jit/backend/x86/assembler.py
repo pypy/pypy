@@ -2181,6 +2181,12 @@ class Assembler386(BaseAssembler):
         self.call_assembler(op, guard_op, argloc, vloc, result_loc, eax)
         self._emit_guard_not_forced(guard_token)
 
+    def _call_assembler_emit_call(self, addr, argloc, tmploc):
+        self._emit_call(addr, [argloc], 0, tmp=tmploc)
+
+    def _call_assembler_emit_helper_call(self, addr, arglocs, _):
+         self._emit_call(addr, arglocs, 0, tmp=self._second_tmp_reg)
+
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.CMP_mi((eax.value, ofs), value)
@@ -2213,15 +2219,14 @@ class Assembler386(BaseAssembler):
         if op.result is not None:
             # load the return value from the dead frame's value index 0
             kind = op.result.type
+            descr = self.cpu.getarraydescr_for_frame(kind)
             if kind == FLOAT:
-                descr = self.cpu.getarraydescr_for_frame(kind)
                 ofs = self.cpu.unpack_arraydescr(descr)
                 self.mc.MOVSD_xm(xmm0.value, (eax.value, ofs))
                 if result_loc is not xmm0:
                     self.mc.MOVSD(result_loc, xmm0)
             else:
                 assert result_loc is eax
-                descr = self.cpu.getarraydescr_for_frame(kind)
                 ofs = self.cpu.unpack_arraydescr(descr)
                 self.mc.MOV_rm(eax.value, (eax.value, ofs))
 

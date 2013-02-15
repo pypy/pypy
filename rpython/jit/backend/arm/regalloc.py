@@ -1101,11 +1101,11 @@ class Regalloc(BaseRegalloc):
     prepare_guard_call_release_gil = prepare_guard_call_may_force
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
-        self._prepare_call(op, save_all_regs=True)
-        tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
         locs = self.locs_for_call_assembler(op, guard_op)
+        tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
+        call_locs = self._prepare_call(op, save_all_regs=True)
         self.possibly_free_vars(guard_op.getfailargs())
-        return locs + [tmploc]
+        return locs + [call_locs[0], tmploc]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr

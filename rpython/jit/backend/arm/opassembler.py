@@ -349,8 +349,8 @@ class ResOpAssembler(BaseAssembler):
                                             fcond, resloc, (size, signed))
         return cond
 
-    def _emit_call(self, adr, arglocs, fcond=c.AL,
-                                         resloc=None, result_info=(-1, -1)):
+    def _emit_call(self, adr, arglocs, fcond=c.AL, resloc=None,
+                                            result_info=(-1, -1)):
         if self.cpu.use_hf_abi:
             stack_args, adr = self._setup_call_hf(adr,
                                         arglocs, fcond, resloc, result_info)
@@ -1102,28 +1102,37 @@ class ResOpAssembler(BaseAssembler):
 
     def imm(self, v):
         return imm(v)
-    
+
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc,
                                   fcond):
         if len(arglocs) == 4:
-            [frame_loc, argloc, vloc, tmploc] = arglocs
+            [argloc, vloc, result_loc, tmploc] = arglocs
         else:
-            [frame_loc, argloc, tmploc] = arglocs
+            [argloc, result_loc, tmploc] = arglocs
             vloc = imm(0)
-        self.call_assembler(op, guard_op, frame_loc, argloc, vloc, tmploc)
-        xxx
+        self.call_assembler(op, guard_op, argloc, vloc, result_loc, tmploc, None)
+        self._emit_guard_may_force(guard_op,
+                        regalloc._prepare_guard(guard_op), guard_op.numargs())
+        return fcond
+
+    def _call_assembler_emit_call(self, addr, argloc, resloc):
+        self._emit_call(addr, [argloc], resloc=resloc)
+
+    def _call_assembler_emit_helper_call(self, addr, arglocs, resloc):
+        self._emit_call(addr, arglocs, resloc=resloc)
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.LDR_ri(r.ip.value, tmploc.value, imm=ofs)
         self.mc.CMP_ri(r.ip.value, imm=value)
         pos = self.mc.currpos()
-        self.mc.BPKT()
+        self.mc.BKPT()
         return pos
 
     def _call_assembler_patch_je(self, result_loc, jmp_location):
         pos = self.mc.currpos()
-        self.mc.BPKT()
+        self.mc.BKPT()
+        #
         pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
         pmc.B_offs(self.mc.currpos(), c.EQ)
         return pos
@@ -1146,71 +1155,31 @@ class ResOpAssembler(BaseAssembler):
             if kind == FLOAT:
                 ofs = self.cpu.unpack_arraydescr(descr)
                 assert check_imm_arg(ofs)
-                assert result_loc.is_reg()
+                assert result_loc.is_vfp_reg()
                 # we always have a register here, since we have to sync them
                 # before call_assembler
-                self.mc.VLDR(result_loc.value, xxx)
-                if not check_imm_arg(t):
-                    self.mc.gen_load_int(r.ip.value, t, cond=fast_path_cond)
-                    self.mc.ADD_rr(r.ip.value, r.r0.value, r.ip.value,
-                                          cond=fast_path_cond)
-                    t = 0
+                if not check_imm_arg(ofs):
+                    self.mc.gen_load_int(r.ip.value, ofs)
+                    self.mc.ADD_rr(r.ip.value, r.r0.value, r.ip.value)
+                    ofs = 0
                     base = r.ip
                 else:
                     base = r.r0
-                self.mc.VLDR(resloc.value, base.value, imm=t,
-                                          cond=fast_path_cond)
+                self.mc.VLDR(result_loc.value, base.value, imm=ofs)
             else:
-                assert resloc is r.r0
-                if kind == INT:
-                    t = unpack_interiorfielddescr(descrs.as_int)[0]
+                assert result_loc is r.r0
+                ofs = self.cpu.unpack_arraydescr(descr)
+                if not check_imm_arg(ofs):
+                    self.mc.gen_load_int(r.ip.value, ofs)
+                    self.mc.LDR_rr(result_loc.value, result_loc.value, r.ip.value)
                 else:
-                    t = unpack_interiorfielddescr(descrs.as_ref)[0]
-                if not check_imm_arg(t):
-                    self.mc.gen_load_int(r.ip.value, t, cond=fast_path_cond)
-                    self.mc.LDR_rr(resloc.value, resloc.value, r.ip.value,
-                                          cond=fast_path_cond)
-                else:
-                    self.mc.LDR_ri(resloc.value, resloc.value, imm=t,
-                                          cond=fast_path_cond)
-        # jump to merge point
-        jmp_pos = self.mc.currpos()
-        self.mc.BKPT()
+                    self.mc.LDR_ri(result_loc.value, result_loc.value, imm=ofs)
 
-        # Path B: use assembler helper
-        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        if self.cpu.supports_floats:
-            floats = r.caller_vfp_resp
-        else:
-            floats = []
-        # in case the call has a result we do not need to save the
-        # corresponding result register because it was already allocated for
-        # the result
-        core = r.caller_resp
-        if op.result:
-            if resloc.is_vfp_reg():
-                floats = r.caller_vfp_resp[1:]
-            else:
-                core = r.caller_resp[1:] + [r.ip]  # keep alignment
-        with saved_registers(self.mc, core, floats):
-            # result of previous call is in r0
-            self.mov_loc_loc(arglocs[0], r.r1)
-            self.mc.BL(asm_helper_adr)
-            if not self.cpu.use_hf_abi and op.result and resloc.is_vfp_reg():
-                # move result to the allocated register
-                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
-
+    def _call_assembler_patch_jmp(self, jmp_location):
         # merge point
         currpos = self.mc.currpos()
-        pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
-        pmc.B_offs(currpos, fast_path_cond)
-
-        self.mc.LDR_ri(r.ip.value, r.fp.value)
-        self.mc.CMP_ri(r.ip.value, 0)
-
-        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op),
-                                                    c.GE, save_exc=True)
-        return fcond
+        pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
+        pmc.B_offs(currpos)
 
     # ../x86/assembler.py:668
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
@@ -1243,14 +1212,14 @@ class ResOpAssembler(BaseAssembler):
         #
         self._emit_call(adr, callargs, fcond,
                                     resloc, (size, signed))
-        self._emit_guard_may_force(guard_op, arglocs, numargs)
+        self._emit_guard_may_force(guard_op, arglocs[1 + numargs:], numargs)
         return fcond
 
     def _emit_guard_may_force(self, guard_op, arglocs, numargs):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         self.mc.CMP_ri(r.ip.value, 0)
-        self._emit_guard(guard_op, arglocs[1 + numargs:], c.EQ,
+        self._emit_guard(guard_op, arglocs, c.EQ,
                                    save_exc=True, is_guard_not_forced=True)
 
     def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc,
