@@ -20,5 +20,11 @@ class ThreadLocals:
     def signals_enabled(self):
         return True
 
+    def enable_signals(self):
+        pass
+
+    def disable_signals(self):
+        pass
+
     def getallvalues(self):
         return {0: self._value}

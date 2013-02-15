@@ -9,7 +9,7 @@ class OSThreadLocals:
 
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
-        self._signalsenabled = {}   # {thread_ident: None}
+        self._signalsenabled = {}   # {thread_ident: number-of-times}
         self._cleanup_()
 
     def _cleanup_(self):
@@ -34,7 +34,7 @@ class OSThreadLocals:
         ident = rthread.get_ident()
         if value is not None:
             if len(self._valuedict) == 0:
-                self._signalsenabled[ident] = None
+                self._signalsenabled[ident] = 1    # the main thread is enabled
             self._valuedict[ident] = value
         else:
             try:
@@ -49,10 +49,20 @@ class OSThreadLocals:
         return rthread.get_ident() in self._signalsenabled
 
     def enable_signals(self):
-        self._signalsenabled[rthread.get_ident()] = None
+        ident = rthread.get_ident()
+        old = self._signalsenabled.get(ident, 0)
+        self._signalsenabled[ident] = old + 1
 
     def disable_signals(self):
-        del self._signalsenabled[rthread.get_ident()]
+        ident = rthread.get_ident()
+        try:
+            new = self._signalsenabled[ident] - 1
+        except KeyError:
+            return
+        if new > 0:
+            self._signalsenabled[ident] = new
+        else:
+            del self._signalsenabled[ident]
 
     def getallvalues(self):
         return self._valuedict
