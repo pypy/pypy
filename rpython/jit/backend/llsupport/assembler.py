@@ -1,7 +1,8 @@
 
+from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.metainterp.history import REF, FLOAT
+from rpython.jit.metainterp.history import INT, REF, FLOAT, JitCellToken
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype
 
@@ -100,3 +101,59 @@ class BaseAssembler(object):
         # we want the descr to keep alive
         guardtok.faildescr.rd_loop_token = self.current_clt
         return fail_descr, target
+
+    def call_assembler(self, op, guard_op, frame_loc, argloc,
+                       vloc, result_loc, tmploc):
+        self._store_force_index(guard_op)
+        descr = op.getdescr()
+        assert isinstance(descr, JitCellToken)
+        #
+        # Write a call to the target assembler
+        # we need to allocate the frame, keep in sync with runner's
+        # execute_token
+        jd = descr.outermost_jitdriver_sd
+        self._emit_call(self.imm(descr._ll_function_addr),
+                        [argloc], 0, tmp=tmploc)
+        if op.result is None:
+            assert result_loc is None
+            value = self.cpu.done_with_this_frame_descr_void
+        else:
+            kind = op.result.type
+            if kind == INT:
+                assert result_loc is tmploc
+                value = self.cpu.done_with_this_frame_descr_int
+            elif kind == REF:
+                assert result_loc is tmploc
+                value = self.cpu.done_with_this_frame_descr_ref
+            elif kind == FLOAT:
+                value = self.cpu.done_with_this_frame_descr_float
+            else:
+                raise AssertionError(kind)
+
+        gcref = cast_instance_to_gcref(value)
+        rgc._make_sure_does_not_move(gcref)
+        value = rffi.cast(lltype.Signed, gcref)
+        je_location = self._call_assembler_check_descr(value, tmploc)
+        #
+        # Path A: use assembler_helper_adr
+        assert jd is not None
+        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
+
+        self._emit_call(self.imm(asm_helper_adr),
+                        [tmploc, vloc], 0, tmp=self._second_tmp_reg)
+
+        jmp_location = self._call_assembler_patch_je(result_loc, je_location)
+
+        # Path B: fast path.  Must load the return value, and reset the token
+
+        # Reset the vable token --- XXX really too much special logic here:-(
+        if jd.index_of_virtualizable >= 0:
+            self._call_assembler_reset_vtoken(jd, vloc)
+        #
+        self._call_assembler_load_result(op, result_loc)
+        #
+        # Here we join Path A and Path B again
+        self._call_assembler_patch_jmp(jmp_location)
+        # XXX here should be emitted guard_not_forced, but due
+        #     to incompatibilities in how it's done, we leave it for the
+        #     caller to deal with

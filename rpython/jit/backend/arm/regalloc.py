@@ -1101,20 +1101,10 @@ class Regalloc(BaseRegalloc):
     prepare_guard_call_release_gil = prepare_guard_call_may_force
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
-        jd = descr.outermost_jitdriver_sd
-        assert jd is not None
-        vable_index = jd.index_of_virtualizable
-        if vable_index >= 0:
-            self._sync_var(op.getarg(vable_index))
-            vable = self.frame_manager.loc(op.getarg(vable_index))
-        else:
-            vable = imm(0)
-        # make sure the call result location is free
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
+        locs = self.locs_for_call_assembler(op, guard_op)
         self.possibly_free_vars(guard_op.getfailargs())
-        return [vable, tmploc] + self._prepare_call(op, save_all_regs=True)
+        return locs + [tmploc]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr

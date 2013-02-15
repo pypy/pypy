@@ -6,7 +6,7 @@ import os
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                             ConstFloat, BoxInt,
                                             BoxFloat, INT, REF, FLOAT,
-                                            TargetToken, JitCellToken)
+                                            TargetToken)
 from rpython.jit.backend.x86.regloc import *
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -802,16 +802,7 @@ class RegAlloc(BaseRegalloc):
         self._consider_call(op)
 
     def consider_call_assembler(self, op, guard_op):
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
-        arglist = op.getarglist()
-        self.rm._sync_var(arglist[0])
-        frame_loc = self.fm.loc(op.getarg(0))
-        if len(arglist) == 2:
-            self.rm._sync_var(arglist[1])
-            locs = [frame_loc, self.loc(arglist[0]), self.fm.loc(arglist[1])]
-        else:
-            locs = [frame_loc, self.loc(arglist[0])]
+        locs = self.locs_for_call_assembler(op, guard_op)
         self._call(op, locs, guard_not_forced_op=guard_op)
 
     def consider_cond_call_gc_wb(self, op):

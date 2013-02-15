@@ -1,5 +1,5 @@
 import os
-from rpython.jit.metainterp.history import Const, Box, REF
+from rpython.jit.metainterp.history import Const, Box, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
 
@@ -666,6 +666,18 @@ class BaseRegalloc(object):
             op.result in operations[i + 1].getfailargs()):
             return False
         return True
+
+    def locs_for_call_assembler(self, op, guard_op):
+        descr = op.getdescr()
+        assert isinstance(descr, JitCellToken)
+        arglist = op.getarglist()
+        self.rm._sync_var(arglist[0])
+        frame_loc = self.fm.loc(op.getarg(0))
+        if len(arglist) == 2:
+            self.rm._sync_var(arglist[1])
+            return [frame_loc, self.loc(arglist[0]), self.fm.loc(arglist[1])]
+        else:
+            return [frame_loc, self.loc(arglist[0])]
 
 
 def compute_vars_longevity(inputargs, operations):

@@ -1100,78 +1100,48 @@ class ResOpAssembler(BaseAssembler):
         self.mc.MOV_rr(res_loc.value, r.fp.value)
         return fcond
 
-    # from: ../x86/assembler.py:1668
-    # XXX Split into some helper methods
+    def imm(self, v):
+        return imm(v)
+    
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc,
-                                                                    fcond):
-        tmploc = arglocs[1]
-        resloc = arglocs[2]
-        callargs = arglocs[3:]
-
-        self._store_force_index(guard_op)
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
-        # check value
-        assert tmploc is r.r0
-        self._emit_call(imm(descr._ll_function_addr),
-                                callargs, fcond, resloc=tmploc)
-        if op.result is None:
-            value = self.cpu.done_with_this_frame_void_v
+                                  fcond):
+        if len(arglocs) == 4:
+            [frame_loc, argloc, vloc, tmploc] = arglocs
         else:
-            kind = op.result.type
-            if kind == INT:
-                value = self.cpu.done_with_this_frame_int_v
-            elif kind == REF:
-                value = self.cpu.done_with_this_frame_ref_v
-            elif kind == FLOAT:
-                value = self.cpu.done_with_this_frame_float_v
-            else:
-                raise AssertionError(kind)
-        from rpython.jit.backend.llsupport.descr import unpack_fielddescr
-        from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
-        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
-        _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
-        fail_descr = self.cpu.get_fail_descr_from_number(value)
-        value = fail_descr.hide(self.cpu)
-        rgc._make_sure_does_not_move(value)
-        value = rffi.cast(lltype.Signed, value)
+            [frame_loc, argloc, tmploc] = arglocs
+            vloc = imm(0)
+        self.call_assembler(op, guard_op, frame_loc, argloc, vloc, tmploc)
+        xxx
 
-        if check_imm_arg(_offset):
-            self.mc.LDR_ri(r.ip.value, tmploc.value, imm=_offset)
-        else:
-            self.mc.gen_load_int(r.ip.value, _offset)
-            self.mc.LDR_rr(r.ip.value, tmploc.value, r.ip.value)
-        if check_imm_arg(value):
-            self.mc.CMP_ri(r.ip.value, imm=value)
-        else:
-            self.mc.gen_load_int(r.lr.value, value)
-            self.mc.CMP_rr(r.lr.value, r.ip.value)
+    def _call_assembler_check_descr(self, value, tmploc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.LDR_ri(r.ip.value, tmploc.value, imm=ofs)
+        self.mc.CMP_ri(r.ip.value, imm=value)
+        pos = self.mc.currpos()
+        self.mc.BPKT()
+        return pos
 
+    def _call_assembler_patch_je(self, result_loc, jmp_location):
+        pos = self.mc.currpos()
+        self.mc.BPKT()
+        pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
+        pmc.B_offs(self.mc.currpos(), c.EQ)
+        return pos
 
-        #if values are equal we take the fast path
-        # Slow path, calling helper
-        # jump to merge point
+    def _call_assembler_reset_vtoken(self, jd, vloc):
+        from rpython.jit.backend.llsupport.descr import FieldDescr
+        fielddescr = jd.vable_token_descr
+        assert isinstance(fielddescr, FieldDescr)
+        ofs = fielddescr.offset
+        tmploc = self._regalloc.get_scratch_reg(INT)
+        self.mov_loc_loc(vloc, r.ip)
+        self.mc.MOV_ri(tmploc.value, 0)
+        self.mc.STR_ri(tmploc.value, r.ip.value, ofs)
 
-        jd = descr.outermost_jitdriver_sd
-        assert jd is not None
-
-        # Path A: load return value and reset token
-        # Fast Path using result boxes
-
-        fast_path_cond = c.EQ
-        # Reset the vable token --- XXX really too much special logic here:-(
-        if jd.index_of_virtualizable >= 0:
-            from rpython.jit.backend.llsupport.descr import FieldDescr
-            fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, FieldDescr)
-            ofs = fielddescr.offset
-            tmploc = regalloc.get_scratch_reg(INT)
-            self.mov_loc_loc(arglocs[0], r.ip, cond=fast_path_cond)
-            self.mc.MOV_ri(tmploc.value, 0, cond=fast_path_cond)
-            self.mc.STR_ri(tmploc.value, r.ip.value, ofs, cond=fast_path_cond)
-
+    def _call_assembler_load_result(self, op, result_loc):
+        XXX
         if op.result is not None:
-            # load the return value from fail_boxes_xxx[0]
+            # load the return value from (tmploc, 0)
             kind = op.result.type
             if kind == FLOAT:
                 t = unpack_interiorfielddescr(descrs.as_float)[0]

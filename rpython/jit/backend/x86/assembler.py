@@ -51,6 +51,7 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
 class Assembler386(BaseAssembler):
     _regalloc = None
     _output_loop_log = None
+    _second_tmp_reg = ecx
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
@@ -2198,76 +2199,51 @@ class Assembler386(BaseAssembler):
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)
 
+    def imm(self, v):
+        return imm(v)
+
+    # ------------------- CALL ASSEMBLER --------------------------
+
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
-        self._store_force_index(guard_op)
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
         if len(arglocs) == 3:
             [frame_loc, argloc, vloc] = arglocs
         else:
             [frame_loc, argloc] = arglocs
-            vloc = imm(0)
-        #
-        # Write a call to the target assembler
-        # we need to allocate the frame, keep in sync with runner's
-        # execute_token
-        jd = descr.outermost_jitdriver_sd
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        self._emit_call(imm(descr._ll_function_addr),
-                        [argloc], 0, tmp=eax)
-        if op.result is None:
-            assert result_loc is None
-            value = self.cpu.done_with_this_frame_descr_void
-        else:
-            kind = op.result.type
-            if kind == INT:
-                assert result_loc is eax
-                value = self.cpu.done_with_this_frame_descr_int
-            elif kind == REF:
-                assert result_loc is eax
-                value = self.cpu.done_with_this_frame_descr_ref
-            elif kind == FLOAT:
-                value = self.cpu.done_with_this_frame_descr_float
-            else:
-                raise AssertionError(kind)
+            vloc = self.imm(0)
+        self.call_assembler(op, guard_op, frame_loc, argloc, vloc,
+                            result_loc, eax)
+        self._emit_guard_not_forced(guard_token)
 
-        gcref = cast_instance_to_gcref(value)
-        rgc._make_sure_does_not_move(gcref)
-        value = rffi.cast(lltype.Signed, gcref)
+    def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.CMP_mi((eax.value, ofs), value)
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
-        je_location = self.mc.get_relative_pos()
-        #
-        # Path A: use assembler_helper_adr
-        assert jd is not None
-        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
+        return self.mc.get_relative_pos()
 
-        self._emit_call(imm(asm_helper_adr),
-                        [eax, vloc], 0, tmp=ecx)
+    def _call_assembler_patch_je(self, result_loc, je_location):
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
             self.mc.FSTPL_b(result_loc.value)
-        #else: result_loc is already either eax or None, checked below
         self.mc.JMP_l8(0) # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
         #
-        # Path B: fast path.  Must load the return value, and reset the token
         offset = jmp_location - je_location
         assert 0 < offset <= 127
         self.mc.overwrite(je_location - 1, chr(offset))
         #
-        # Reset the vable token --- XXX really too much special logic here:-(
-        if jd.index_of_virtualizable >= 0:
-            from rpython.jit.backend.llsupport.descr import FieldDescr
-            fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, FieldDescr)
-            vtoken_ofs = fielddescr.offset
-            self.mc.MOV(edx, vloc) # we know vloc is on the current frame
-            self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
-            # in the line above, TOKEN_NONE = 0
-        #
+        return jmp_location
+
+    def _call_assembler_reset_vtoken(self, jd, vloc):
+        from rpython.jit.backend.llsupport.descr import FieldDescr
+        fielddescr = jd.vable_token_descr
+        assert isinstance(fielddescr, FieldDescr)
+        vtoken_ofs = fielddescr.offset
+        self.mc.MOV(edx, vloc) # we know vloc is on the current frame
+        self.mc.MOV_mi((edx.value, vtoken_ofs), 0)
+        # in the line above, TOKEN_NONE = 0
+
+    def _call_assembler_load_result(self, op, result_loc):
         if op.result is not None:
             # load the return value from the dead frame's value index 0
             kind = op.result.type
@@ -2282,12 +2258,13 @@ class Assembler386(BaseAssembler):
                 descr = self.cpu.getarraydescr_for_frame(kind)
                 ofs = self.cpu.unpack_arraydescr(descr)
                 self.mc.MOV_rm(eax.value, (eax.value, ofs))
-        #
-        # Here we join Path A and Path B again
+
+    def _call_assembler_patch_jmp(self, jmp_location):
         offset = self.mc.get_relative_pos() - jmp_location
         assert 0 <= offset <= 127
         self.mc.overwrite(jmp_location - 1, chr(offset))
-        self._emit_guard_not_forced(guard_token)
+
+    # ------------------- END CALL ASSEMBLER -----------------------
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False,
                                 is_frame=False):
