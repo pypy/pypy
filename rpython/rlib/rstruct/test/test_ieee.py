@@ -1,9 +1,11 @@
-import py, sys
+import py
+import sys
 import random
 import struct
 
-from rpython.rlib.rfloat import isnan
-from rpython.rlib.rstruct.ieee import float_pack, float_unpack, float_pack80, float_unpack80
+from rpython.rlib.rstruct import ieee
+from rpython.rlib.rfloat import isnan, NAN, INFINITY
+from rpython.translator.c.test.test_genc import compile
 
 class TestFloatPacking:
     def setup_class(cls):
@@ -12,17 +14,17 @@ class TestFloatPacking:
 
     def check_float(self, x):
         # check roundtrip
-        Q = float_pack(x, 8)
-        y = float_unpack(Q, 8)
+        Q = ieee.float_pack(x, 8)
+        y = ieee.float_unpack(Q, 8)
         assert repr(x) == repr(y)
 
-        Q = float_pack80(x)
-        y = float_unpack80(Q)
+        Q = ieee.float_pack80(x)
+        y = ieee.float_unpack80(Q)
         assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
 
         # check that packing agrees with the struct module
         struct_pack8 = struct.unpack('<Q', struct.pack('<d', x))[0]
-        float_pack8 = float_pack(x, 8)
+        float_pack8 = ieee.float_pack(x, 8)
         assert struct_pack8 == float_pack8
 
         # check that packing agrees with the struct module
@@ -31,7 +33,7 @@ class TestFloatPacking:
         except OverflowError:
             struct_pack4 = "overflow"
         try:
-            float_pack4 = float_pack(x, 4)
+            float_pack4 = ieee.float_pack(x, 4)
         except OverflowError:
             float_pack4 = "overflow"
         assert struct_pack4 == float_pack4
@@ -40,15 +42,15 @@ class TestFloatPacking:
             return
 
         # if we didn't overflow, try round-tripping the binary32 value
-        roundtrip = float_pack(float_unpack(float_pack4, 4), 4)
+        roundtrip = ieee.float_pack(ieee.float_unpack(float_pack4, 4), 4)
         assert float_pack4 == roundtrip
 
         try:
-            float_pack2 = float_pack(x, 2)
+            float_pack2 = ieee.float_pack(x, 2)
         except OverflowError:
             return
 
-        roundtrip = float_pack(float_unpack(float_pack2, 2), 2)
+        roundtrip = ieee.float_pack(ieee.float_unpack(float_pack2, 2), 2)
         assert (float_pack2,x) == (roundtrip,x)
 
     def test_infinities(self):
@@ -61,23 +63,23 @@ class TestFloatPacking:
 
     def test_check_size(self):
         # these were refactored into separate pack80/unpack80 functions
-        py.test.raises(ValueError, float_pack, 1.0, 12)
-        py.test.raises(ValueError, float_pack, 1.0, 16)
-        py.test.raises(ValueError, float_unpack, 1, 12)
-        py.test.raises(ValueError, float_unpack, 1, 16)
+        py.test.raises(ValueError, ieee.float_pack, 1.0, 12)
+        py.test.raises(ValueError, ieee.float_pack, 1.0, 16)
+        py.test.raises(ValueError, ieee.float_unpack, 1, 12)
+        py.test.raises(ValueError, ieee.float_unpack, 1, 16)
 
     def test_nans(self):
-        Q = float_pack80(float('nan'))
-        y = float_unpack80(Q)
+        Q = ieee.float_pack80(float('nan'))
+        y = ieee.float_unpack80(Q)
         assert repr(y) == 'nan'
-        Q = float_pack(float('nan'), 8)
-        y = float_unpack(Q, 8)
+        Q = ieee.float_pack(float('nan'), 8)
+        y = ieee.float_unpack(Q, 8)
         assert repr(y) == 'nan'
-        L = float_pack(float('nan'), 4)
-        z = float_unpack(L, 4)
+        L = ieee.float_pack(float('nan'), 4)
+        z = ieee.float_unpack(L, 4)
         assert repr(z) == 'nan'
-        L = float_pack(float('nan'), 2)
-        z = float_unpack(L, 2)
+        L = ieee.float_pack(float('nan'), 2)
+        z = ieee.float_unpack(L, 2)
         assert repr(z) == 'nan'
 
     def test_simple(self):
@@ -141,9 +143,9 @@ class TestFloatPacking:
         cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898], 
                  [float('inf'), 31744], [-float('inf'), 64512]]
         for c,h in cases:
-            hbit = float_pack(c, 2)
+            hbit = ieee.float_pack(c, 2)
             assert hbit == h
-            assert c == float_unpack(h, 2)
+            assert c == ieee.float_unpack(h, 2)
 
     def test_halffloat_inexact(self):
         #testcases generated from numpy.float16(x).view('uint16')
@@ -151,9 +153,9 @@ class TestFloatPacking:
                  [0.027588, 10000, 0.027587890625],
                  [22001, 30047, 22000]]
         for c,h,f in cases:
-            hbit = float_pack(c, 2)
+            hbit = ieee.float_pack(c, 2)
             assert hbit == h
-            assert f == float_unpack(h, 2)
+            assert f == ieee.float_unpack(h, 2)
 
     def test_halffloat_overunderflow(self):
         import math
@@ -161,8 +163,40 @@ class TestFloatPacking:
                  [1e-08, 0], [-1e-8, -0.]]
         for f1, f2 in cases:
             try:
-                f_out = float_unpack(float_pack(f1, 2), 2)
+                f_out = ieee.float_unpack(ieee.float_pack(f1, 2), 2)
             except OverflowError:
                 f_out = math.copysign(float('inf'), f1)
             assert f_out == f2
             assert math.copysign(1., f_out) == math.copysign(1., f2)
+
+class TestCompiled:
+    def test_pack_float(self):
+        def pack(x):
+            result = []
+            ieee.pack_float(result, x, 8, False)
+            l = []
+            for x in result:
+                for c in x:
+                    l.append(str(ord(c)))
+            return ','.join(l)
+        c_pack = compile(pack, [float])
+        def unpack(s):
+            l = s.split(',')
+            s = ''.join([chr(int(x)) for x in l])
+            return ieee.unpack_float(s, False)
+        c_unpack = compile(unpack, [str])
+
+        def check_roundtrip(x):
+            s = c_pack(x)
+            assert s == pack(x)
+            if not isnan(x):
+                assert unpack(s) == x
+                assert c_unpack(s) == x
+            else:
+                assert isnan(unpack(s))
+                assert isnan(c_unpack(s))
+
+        check_roundtrip(123.456)
+        check_roundtrip(-123.456)
+        check_roundtrip(INFINITY)
+        check_roundtrip(NAN)
