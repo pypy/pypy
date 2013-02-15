@@ -7,6 +7,7 @@ from rpython.rlib.rstruct import ieee
 from rpython.rlib.rfloat import isnan, NAN, INFINITY
 from rpython.translator.c.test.test_genc import compile
 
+
 class TestFloatPacking:
     def setup_class(cls):
         if sys.version_info < (2, 6):
@@ -16,11 +17,11 @@ class TestFloatPacking:
         # check roundtrip
         Q = ieee.float_pack(x, 8)
         y = ieee.float_unpack(Q, 8)
-        assert repr(x) == repr(y)
+        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
         Q = ieee.float_pack80(x)
         y = ieee.float_unpack80(Q)
-        assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
+        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
         # check that packing agrees with the struct module
         struct_pack8 = struct.unpack('<Q', struct.pack('<d', x))[0]
@@ -51,7 +52,7 @@ class TestFloatPacking:
             return
 
         roundtrip = ieee.float_pack(ieee.float_unpack(float_pack2, 2), 2)
-        assert (float_pack2,x) == (roundtrip,x)
+        assert (float_pack2, x) == (roundtrip, x)
 
     def test_infinities(self):
         self.check_float(float('inf'))
@@ -140,9 +141,9 @@ class TestFloatPacking:
 
     def test_halffloat_exact(self):
         #testcases generated from numpy.float16(x).view('uint16')
-        cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898], 
+        cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898],
                  [float('inf'), 31744], [-float('inf'), 64512]]
-        for c,h in cases:
+        for c, h in cases:
             hbit = ieee.float_pack(c, 2)
             assert hbit == h
             assert c == ieee.float_unpack(h, 2)
@@ -152,7 +153,7 @@ class TestFloatPacking:
         cases = [[10.001, 18688, 10.], [-10.001, 51456, -10],
                  [0.027588, 10000, 0.027587890625],
                  [22001, 30047, 22000]]
-        for c,h,f in cases:
+        for c, h, f in cases:
             hbit = ieee.float_pack(c, 2)
             assert hbit == h
             assert f == ieee.float_unpack(h, 2)
@@ -169,6 +170,7 @@ class TestFloatPacking:
             assert f_out == f2
             assert math.copysign(1., f_out) == math.copysign(1., f2)
 
+
 class TestCompiled:
     def test_pack_float(self):
         def pack(x, size):
@@ -180,6 +182,7 @@ class TestCompiled:
                     l.append(str(ord(c)))
             return ','.join(l)
         c_pack = compile(pack, [float, int])
+
         def unpack(s):
             l = s.split(',')
             s = ''.join([chr(int(x)) for x in l])

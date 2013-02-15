@@ -958,7 +958,6 @@ class NonNativeFloat(NonNativePrimitive, Float):
         swapped_value = byteswap(rffi.cast(self.T, value))
         raw_storage_setitem(storage, i + offset, swapped_value)
 
-
 class Float32(BaseType, Float):
     _attrs_ = ()
 
@@ -1505,7 +1504,6 @@ class Complex64(ComplexFloating, BaseType):
     BoxType = interp_boxes.W_Complex64Box
     ComponentBoxType = interp_boxes.W_Float32Box
 
-
 NonNativeComplex64 = Complex64
 
 class Complex128(ComplexFloating, BaseType):
@@ -1514,7 +1512,6 @@ class Complex128(ComplexFloating, BaseType):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
     ComponentBoxType = interp_boxes.W_Float64Box
-
 
 NonNativeComplex128 = Complex128
 
@@ -1537,8 +1534,7 @@ if interp_boxes.long_double_size == 12:
             pack_float80(result, value, 12, not native_is_bigendian)
             return self.box(unpack_float128(result.build(), native_is_bigendian))
 
-    class NonNativeFloat96(Float96):
-        pass
+    NonNativeFloat96 = Float96
 
     class Complex192(ComplexFloating, BaseType):
         _attrs_ = ()
@@ -1548,7 +1544,6 @@ if interp_boxes.long_double_size == 12:
         ComponentBoxType = interp_boxes.W_Float96Box
 
     NonNativeComplex192 = Complex192
-
 
 elif interp_boxes.long_double_size == 16:
     class Float128(BaseType, Float):
@@ -1577,7 +1572,6 @@ elif interp_boxes.long_double_size == 16:
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_Complex256Box
         ComponentBoxType = interp_boxes.W_Float128Box
-
 
     NonNativeComplex256 = Complex256
 
