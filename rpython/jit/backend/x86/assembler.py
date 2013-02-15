@@ -2174,12 +2174,11 @@ class Assembler386(BaseAssembler):
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         if len(arglocs) == 3:
-            [frame_loc, argloc, vloc] = arglocs
+            [argloc, vloc] = arglocs
         else:
-            [frame_loc, argloc] = arglocs
+            [argloc] = arglocs
             vloc = self.imm(0)
-        self.call_assembler(op, guard_op, frame_loc, argloc, vloc,
-                            result_loc, eax)
+        self.call_assembler(op, guard_op, argloc, vloc, result_loc, eax)
         self._emit_guard_not_forced(guard_token)
 
     def _call_assembler_check_descr(self, value, tmploc):
