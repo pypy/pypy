@@ -1,4 +1,3 @@
-
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct import ieee
@@ -17,11 +16,9 @@ class BaseTestRStruct(BaseRtypingTest):
 
     def test_unpack_2(self):
         data = struct.pack('iiii', 0, 1, 2, 4)
-        
         def fn():
             a, b, c, d = runpack('iiii', data)
             return a * 1000 + b * 100 + c * 10 + d
-
         assert fn() == 124
         assert self.interpret(fn, []) == 124
 
@@ -69,4 +66,3 @@ class TestCompiled:
         check_roundtrip(-123.456)
         check_roundtrip(INFINITY)
         check_roundtrip(NAN)
-
