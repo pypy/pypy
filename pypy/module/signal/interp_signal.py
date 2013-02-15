@@ -103,6 +103,7 @@ class CheckSignalAction(PeriodicAsyncAction):
             # ^^^ may override another signal, but it's just for testing
         else:
             pypysig_pushback(cpy_signal.SIGINT)
+        self.fire_in_another_thread = True
 
 # ____________________________________________________________
 
