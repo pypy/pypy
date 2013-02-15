@@ -1110,7 +1110,7 @@ class ResOpAssembler(BaseAssembler):
         else:
             [argloc, result_loc, tmploc] = arglocs
             vloc = imm(0)
-        self.call_assembler(op, guard_op, argloc, vloc, result_loc, tmploc, None)
+        self.call_assembler(op, guard_op, argloc, vloc, result_loc, tmploc)
         self._emit_guard_may_force(guard_op,
                         regalloc._prepare_guard(guard_op), guard_op.numargs())
         return fcond

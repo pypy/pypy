@@ -147,8 +147,7 @@ class BaseAssembler(object):
         guardtok.faildescr.rd_loop_token = self.current_clt
         return fail_descr, target
 
-    def call_assembler(self, op, guard_op, argloc,
-                       vloc, result_loc, tmploc, tmploc2):
+    def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
