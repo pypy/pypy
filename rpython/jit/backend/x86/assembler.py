@@ -2173,7 +2173,7 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
-        if len(arglocs) == 3:
+        if len(arglocs) == 2:
             [argloc, vloc] = arglocs
         else:
             [argloc] = arglocs
