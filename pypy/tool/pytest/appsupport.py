@@ -35,7 +35,8 @@ class AppCode(object):
             return None
     fullsource = property(fullsource, None, None, "Full source of AppCode")
 
-    def getargs(self):
+    def getargs(self, **kw):
+        #XXX: todo: test&support the pytest argument addition
         return self.raw.co_varnames[:self.raw.co_argcount]
 
 class AppFrame(py.code.Frame):
