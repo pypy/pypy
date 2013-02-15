@@ -28,7 +28,6 @@ class TimeModule(MixedModule):
 
 class Module(MixedModule):
     appleveldefs = {
-        'signals_enabled'           : 'app_signal.signals_enabled',
     }
 
     interpleveldefs = {
@@ -48,8 +47,6 @@ class Module(MixedModule):
         'newlist_hint'              : 'interp_magic.newlist_hint',
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
-        '_signals_enter'            : 'interp_signal.signals_enter',
-        '_signals_exit'             : 'interp_signal.signals_exit',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
