@@ -1662,13 +1662,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([0, 1, 2], dtype=complex).astype(bool)
         assert (b == [False, True, True]).all()
         assert b.dtype == 'bool'
-        
+
         a = arange(6, dtype='f4').reshape(2,3)
         b = a.astype('i4')
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
-        
+
     def test_base(self):
         from _numpypy import array
         assert array(1).base is None
@@ -1679,6 +1679,11 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_byteswap(self):
         from _numpypy import array
+
+        s1 = array(1.).byteswap().tostring()
+        s2 = array([1.]).byteswap().tostring()
+        assert s1 == s2
+
         a = array([1, 256 + 2, 3], dtype='i2')
         assert (a.byteswap() == [0x0100, 0x0201, 0x0300]).all()
         assert (a == [1, 256 + 2, 3]).all()
@@ -1686,39 +1691,40 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0x0100, 0x0201, 0x0300]).all()
 
         a = array([1, -1, 1e300], dtype=float)
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        assert s1[7::-1] == s2[:8]
-        assert s1[15:7:-1] == s2[8:16]
-        assert s1[:15:-1] == s2[16:]
-
-        a = array([1+1e30j, -1, 1e10], dtype=complex)
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        assert s1[7::-1] == s2[:8]
-        assert s1[15:7:-1] == s2[8:16]
-        assert s1[23:15:-1] == s2[16:24]
-        assert s1[31:23:-1] == s2[24:32]
-        assert s1[39:31:-1] == s2[32:40]
-        assert s1[:39:-1] == s2[40:]
-
-        a = array([3.14, -1.5, 10000], dtype='float16')
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        s3 = [s1[1], s1[0],s1[3], s1[2], s1[5], s1[4]]
-        assert s3 == s2
-
-        a = array([1, -1, 10000], dtype='longfloat')
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        n = a.dtype.itemsize
-        assert s1[n-1] == s2[0]
-
-        a = array(0., dtype='longfloat')
         s1 = map(ord, a.tostring())
         s2 = map(ord, a.byteswap().tostring())
-        n = a.dtype.itemsize
-        assert s1[n-1] == s2[0]
+        assert a.dtype.itemsize == 8
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+        a = array([1+1e30j, -1, 1e10], dtype=complex)
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize == 16
+        for i in range(a.size*2):
+            i1 = i * a.dtype.itemsize/2
+            i2 = (i+1) * a.dtype.itemsize/2
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+        a = array([3.14, -1.5, 10000], dtype='float16')
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize == 2
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+        a = array([1, -1, 10000], dtype='longfloat')
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize >= 8
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
 
     def test_clip(self):
         from _numpypy import array

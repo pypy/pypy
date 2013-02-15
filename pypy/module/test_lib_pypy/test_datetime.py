@@ -66,9 +66,12 @@ def test_utcfromtimestamp():
     """
     import os
     import time
+    if os.name == 'nt':
+        skip("setting os.environ['TZ'] ineffective on windows")
     try:
         prev_tz = os.environ.get("TZ")
         os.environ["TZ"] = "GMT"
+        time.tzset()
         for unused in xrange(100):
             now = time.time()
             delta = (datetime.datetime.utcfromtimestamp(now) -
@@ -79,6 +82,7 @@ def test_utcfromtimestamp():
             del os.environ["TZ"]
         else:
             os.environ["TZ"] = prev_tz
+        time.tzset()
 
 def test_utcfromtimestamp_microsecond():
     dt = datetime.datetime.utcfromtimestamp(0)
