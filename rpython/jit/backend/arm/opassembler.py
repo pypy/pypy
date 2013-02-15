@@ -1139,12 +1139,17 @@ class ResOpAssembler(BaseAssembler):
         self.mc.STR_ri(tmploc.value, r.ip.value, ofs)
 
     def _call_assembler_load_result(self, op, result_loc):
-        XXX
         if op.result is not None:
             # load the return value from (tmploc, 0)
             kind = op.result.type
+            descr = self.cpu.getarraydescr_for_frame(kind)
             if kind == FLOAT:
-                t = unpack_interiorfielddescr(descrs.as_float)[0]
+                ofs = self.cpu.unpack_arraydescr(descr)
+                assert check_imm_arg(ofs)
+                assert result_loc.is_reg()
+                # we always have a register here, since we have to sync them
+                # before call_assembler
+                self.mc.VLDR(result_loc.value, xxx)
                 if not check_imm_arg(t):
                     self.mc.gen_load_int(r.ip.value, t, cond=fast_path_cond)
                     self.mc.ADD_rr(r.ip.value, r.r0.value, r.ip.value,
