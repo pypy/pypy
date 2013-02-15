@@ -101,9 +101,9 @@ class CheckSignalAction(PeriodicAsyncAction):
         if not we_are_translated():
             self.pending_signal = cpy_signal.SIGINT
             # ^^^ may override another signal, but it's just for testing
+            self.fire_in_another_thread = True
         else:
             pypysig_pushback(cpy_signal.SIGINT)
-        self.fire_in_another_thread = True
 
 # ____________________________________________________________
 
