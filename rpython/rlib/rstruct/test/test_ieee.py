@@ -23,6 +23,18 @@ class TestFloatPacking:
         y = ieee.float_unpack80(Q)
         assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
+        Q = []
+        ieee.pack_float(Q, x, 8, False)
+        Q = Q[0]
+        y = ieee.unpack_float(Q, False)
+        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
+
+        Q = []
+        ieee.pack_float80(Q, x, False)
+        Q = Q[0]
+        y = ieee.unpack_float80(Q, False)
+        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
+
         # check that packing agrees with the struct module
         struct_pack8 = struct.unpack('<Q', struct.pack('<d', x))[0]
         float_pack8 = ieee.float_pack(x, 8)

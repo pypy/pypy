@@ -14,8 +14,8 @@ from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
-from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, pack_float80,
-                                    unpack_float, unpack_float128)
+from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, unpack_float,
+                                       pack_float80, unpack_float80)
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -1525,14 +1525,14 @@ if interp_boxes.long_double_size == 12:
 
         def runpack_str(self, s):
             assert len(s) == 12
-            fval = unpack_float128(s, native_is_bigendian)
+            fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)
 
         def byteswap(self, w_v):
             value = self.unbox(w_v)
             result = StringBuilder(12)
-            pack_float80(result, value, 12, not native_is_bigendian)
-            return self.box(unpack_float128(result.build(), native_is_bigendian))
+            pack_float80(result, value, not native_is_bigendian)
+            return self.box(unpack_float80(result.build(), native_is_bigendian))
 
     NonNativeFloat96 = Float96
 
@@ -1555,14 +1555,14 @@ elif interp_boxes.long_double_size == 16:
 
         def runpack_str(self, s):
             assert len(s) == 16
-            fval = unpack_float128(s, native_is_bigendian)
+            fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)
 
         def byteswap(self, w_v):
             value = self.unbox(w_v)
             result = StringBuilder(16)
-            pack_float80(result, value, 16, not native_is_bigendian)
-            return self.box(unpack_float128(result.build(), native_is_bigendian))
+            pack_float80(result, value, not native_is_bigendian)
+            return self.box(unpack_float80(result.build(), native_is_bigendian))
 
     NonNativeFloat128 = Float128
 

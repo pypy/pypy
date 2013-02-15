@@ -235,12 +235,12 @@ def pack_float(result, x, size, be):
     result.append("".join(l))
 
 @jit.unroll_safe
-def pack_float80(result, x, size, be):
+def pack_float80(result, x, be):
     l = []
     unsigned = float_pack80(x)
     for i in range(8):
         l.append(chr((unsigned[0] >> (i * 8)) & 0xFF))
-    for i in range(size - 8):
+    for i in range(2):
         l.append(chr((unsigned[1] >> (i * 8)) & 0xFF))
     if be:
         l.reverse()
@@ -253,12 +253,14 @@ def unpack_float(s, be):
         unsigned |= r_ulonglong(c) << (i * 8)
     return float_unpack(unsigned, len(s))
 
-def unpack_float128(s, be):
+def unpack_float80(s, be):
+    if len(s) != 10:
+        raise ValueError
     QQ = [r_ulonglong(0), r_ulonglong(0)]
     for i in range(8):
-        c = ord(s[len(s) - 1 - i if be else i])
+        c = ord(s[9 - i if be else i])
         QQ[0] |= r_ulonglong(c) << (i * 8)
-    for i in range(8, len(s)):
-        c = ord(s[len(s) - 1 - i if be else i])
+    for i in range(8, 10):
+        c = ord(s[9 - i if be else i])
         QQ[1] |= r_ulonglong(c) << ((i - 8) * 8)
     return float_unpack80(QQ)
