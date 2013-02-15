@@ -9,11 +9,12 @@ class OSThreadLocals:
 
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
+        self._signalsenabled = {}   # {thread_ident: number-of-times}
         self._cleanup_()
 
     def _cleanup_(self):
         self._valuedict.clear()
-        self._mainthreadident = 0
+        self._signalsenabled.clear()
         self._mostrecentkey = 0        # fast minicaching for the common case
         self._mostrecentvalue = None   # fast minicaching for the common case
 
@@ -33,7 +34,7 @@ class OSThreadLocals:
         ident = rthread.get_ident()
         if value is not None:
             if len(self._valuedict) == 0:
-                self._mainthreadident = ident
+                self._signalsenabled[ident] = 1    # the main thread is enabled
             self._valuedict[ident] = value
         else:
             try:
@@ -44,8 +45,24 @@ class OSThreadLocals:
         self._mostrecentkey = ident
         self._mostrecentvalue = value
 
-    def ismainthread(self):
-        return rthread.get_ident() == self._mainthreadident
+    def signals_enabled(self):
+        return rthread.get_ident() in self._signalsenabled
+
+    def enable_signals(self):
+        ident = rthread.get_ident()
+        old = self._signalsenabled.get(ident, 0)
+        self._signalsenabled[ident] = old + 1
+
+    def disable_signals(self):
+        ident = rthread.get_ident()
+        try:
+            new = self._signalsenabled[ident] - 1
+        except KeyError:
+            return
+        if new > 0:
+            self._signalsenabled[ident] = new
+        else:
+            del self._signalsenabled[ident]
 
     def getallvalues(self):
         return self._valuedict
@@ -60,4 +77,5 @@ class OSThreadLocals:
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"
-        self._mainthreadident = rthread.get_ident()
+        self._signalsenabled.clear()
+        self.enable_signals()
