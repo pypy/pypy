@@ -4,7 +4,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
-        'signals_enabled':        'app_signal.signals_enabled',
     }
 
     interpleveldefs = {
@@ -21,8 +20,6 @@ class Module(MixedModule):
         'LockType':               'os_lock.Lock',
         '_local':                 'os_local.Local',
         'error':                  'space.fromcache(error.Cache).w_error',
-        '_signals_enter':         'interp_signal.signals_enter',
-        '_signals_exit':          'interp_signal.signals_exit',
     }
 
     def __init__(self, space, *args):

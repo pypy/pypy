@@ -2,17 +2,17 @@ import sys
 
 
 class AppTestMinimal:
-    spaceconfig = dict(usemodules=['thread'])
+    spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_signal(self):
-        import thread
+        from __pypy__ import thread
         with thread.signals_enabled:
             pass
         # assert did not crash
 
 
 class AppTestThreadSignal:
-    spaceconfig = dict(usemodules=['thread', 'signal'])
+    spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal'])
 
     def setup_class(cls):
         if (not cls.runappdirect or
@@ -21,7 +21,7 @@ class AppTestThreadSignal:
             py.test.skip("this is only a test for -A runs on top of pypy")
 
     def test_enable_signals(self):
-        import thread, signal, time
+        import __pypy__, thread, signal, time
         #
         interrupted = []
         lock = thread.allocate_lock()
@@ -30,7 +30,7 @@ class AppTestThreadSignal:
         def subthread():
             try:
                 time.sleep(0.25)
-                with thread.signals_enabled:
+                with __pypy__.thread.signals_enabled:
                     thread.interrupt_main()
             except BaseException, e:
                 interrupted.append(e)

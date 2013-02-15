@@ -202,7 +202,7 @@ def signal(space, signum, w_handler):
     if not space.threadlocals.signals_enabled():
         raise OperationError(space.w_ValueError,
                              space.wrap("signal only works in main thread "
-                                 "or with thread.enable_signals()"))
+                                 "or with __pypy__.thread.enable_signals()"))
     check_signum_in_range(space, signum)
 
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
@@ -235,7 +235,7 @@ def set_wakeup_fd(space, fd):
         raise OperationError(
             space.w_ValueError,
             space.wrap("set_wakeup_fd only works in main thread "
-                       "or with thread.enable_signals()"))
+                       "or with __pypy__.thread.enable_signals()"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 
