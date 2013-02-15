@@ -306,7 +306,7 @@ class ResOpAssembler(BaseAssembler):
         # stack locations both before and after the jump.
         #
         target_token = op.getdescr()
-        target = target_token._arm_loop_code
+        target = target_token._ll_loop_code
         assert isinstance(target_token, TargetToken)
         assert fcond == c.AL
         my_nbargs = self.current_clt._debug_nbargs

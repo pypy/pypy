@@ -1177,7 +1177,7 @@ class RegAlloc(BaseRegalloc):
         self.final_jump_op = op
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
-        if descr._x86_loop_code != 0:
+        if descr._ll_loop_code != 0:
             # if the target LABEL was already compiled, i.e. if it belongs
             # to some already-compiled piece of code
             self._compute_hint_frame_locations_from_descr(descr)
@@ -1289,7 +1289,7 @@ class RegAlloc(BaseRegalloc):
         self.flush_loop()
         #
         descr._x86_arglocs = arglocs
-        descr._x86_loop_code = self.assembler.mc.get_relative_pos()
+        descr._ll_loop_code = self.assembler.mc.get_relative_pos()
         descr._x86_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
         self.possibly_free_vars_for_op(op)
@@ -1355,6 +1355,6 @@ def not_implemented(msg):
     os.write(2, '[x86/regalloc] %s\n' % msg)
     raise NotImplementedError(msg)
 
-# xxx hack: set a default value for TargetToken._x86_loop_code.
+# xxx hack: set a default value for TargetToken._ll_loop_code.
 # If 0, we know that it is a LABEL that was not compiled yet.
-TargetToken._x86_loop_code = 0
+TargetToken._ll_loop_code = 0

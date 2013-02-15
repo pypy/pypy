@@ -34,9 +34,9 @@ from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 
 
-# xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
+# xxx hack: set a default value for TargetToken._ll_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
-TargetToken._arm_loop_code = 0
+TargetToken._ll_loop_code = 0
 
 class TempInt(TempBox):
     type = INT
@@ -725,7 +725,7 @@ class Regalloc(BaseRegalloc):
         self.final_jump_op = op
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
-        if descr._arm_loop_code != 0:
+        if descr._ll_loop_code != 0:
             # if the target LABEL was already compiled, i.e. if it belongs
             # to some already-compiled piece of code
             self._compute_hint_frame_locations_from_descr(descr)
@@ -1082,7 +1082,7 @@ class Regalloc(BaseRegalloc):
                 self.frame_manager.mark_as_free(arg)
         #
         descr._arm_arglocs = arglocs
-        descr._arm_loop_code = self.assembler.mc.currpos()
+        descr._ll_loop_code = self.assembler.mc.currpos()
         descr._arm_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
         self.possibly_free_vars_for_op(op)

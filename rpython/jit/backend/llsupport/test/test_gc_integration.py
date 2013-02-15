@@ -7,12 +7,12 @@ from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
      GcLLDescr_framework, GcCache, JitFrameDescrs
 from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.backend.x86.arch import WORD, JITFRAME_FIXED_SIZE, IS_X86_64
+from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 
-from rpython.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
+from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.objectmodel import invoke_around_extcall
 
@@ -71,7 +71,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         # the gcmap should contain three things, p0, p1 and p3
         # p3 stays in a register
         # while p0 and p1 are on the frame
-        if IS_X86_64:
+        if self.cpu.IS_64_BIT:
             nos = [11, 12, 31]
         else:
             nos = [4, 5, 25]
@@ -233,7 +233,7 @@ class TestMallocFastpath(BaseTestRegalloc):
     def test_malloc_slowpath(self):
         def check(frame):
             assert len(frame.jf_gcmap) == 1
-            if IS_X86_64:
+            if self.cpu.IS_64_BIT:
                 assert frame.jf_gcmap[0] == (1<<29) | (1 << 30)
             else:
                 assert frame.jf_gcmap[0] == (1<<24) | (1 << 23)
@@ -263,7 +263,7 @@ class TestMallocFastpath(BaseTestRegalloc):
     def test_save_regs_around_malloc(self):
         def check(frame):
             x = frame.jf_gcmap
-            if IS_X86_64:
+            if self.cpu.IS_64_BIT:
                 assert len(x) == 1
                 assert (bin(x[0]).count('1') ==
                         '0b1111100000000000000001111111011110'.count('1'))
@@ -522,12 +522,12 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         def check(i):
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
             frame = rffi.cast(JITFRAMEPTR, i)
-            assert len(frame.jf_frame) == JITFRAME_FIXED_SIZE + 4
+            assert len(frame.jf_frame) == self.cpu.JITFRAME_FIXED_SIZE + 4
             # we "collect"
             frames.append(frame)
             new_frame = JITFRAME.allocate(frame.jf_frame_info)
             gcmap = unpack_gcmap(frame)
-            if IS_X86_64:
+            if self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             else:
                 assert gcmap == [22, 23, 24]
@@ -575,7 +575,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR, frame)
         gcmap = unpack_gcmap(lltype.cast_opaque_ptr(JITFRAMEPTR, frame))
         assert len(gcmap) == 1
-        assert gcmap[0] < JITFRAME_FIXED_SIZE
+        assert gcmap[0] < self.cpu.JITFRAME_FIXED_SIZE
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
 

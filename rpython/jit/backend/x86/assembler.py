@@ -474,7 +474,7 @@ class Assembler386(BaseAssembler):
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
-               _x86_loop_code       (debug: addr of the start of the ResOps)
+               _ll_loop_code       (debug: addr of the start of the ResOps)
                _x86_fullsize        (debug: full size including failure)
                _x86_debug_checksum
         '''
@@ -516,7 +516,7 @@ class Assembler386(BaseAssembler):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
-        looptoken._x86_loop_code = looppos + rawstart
+        looptoken._ll_loop_code = looppos + rawstart
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
@@ -734,7 +734,7 @@ class Assembler386(BaseAssembler):
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
-            targettoken._x86_loop_code += rawstart
+            targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
     def _append_debugging_code(self, operations, tp, number, token):
@@ -2411,7 +2411,7 @@ class Assembler386(BaseAssembler):
                                 expected_size=expected_size)
 
     def closing_jump(self, target_token):
-        target = target_token._x86_loop_code
+        target = target_token._ll_loop_code
         if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
             self.mc.JMP_l(target - curpos)
