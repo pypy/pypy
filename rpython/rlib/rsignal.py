@@ -45,7 +45,8 @@ eci = ExternalCompilationInfo(
                       'pypysig_ignore', 'pypysig_setflag',
                       'pypysig_reinstall',
                       'pypysig_set_wakeup_fd',
-                      'pypysig_getaddr_occurred'],
+                      'pypysig_getaddr_occurred',
+                      'pypysig_get_occurred', 'pypysig_set_occurred'],
 )
 
 class CConfig:
@@ -93,6 +94,12 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
                                     transactionsafe=True,
                                     elidable_function=True)
+pypysig_get_occurred = external('pypysig_get_occurred', [], lltype.Signed,
+                                _nowrapper=True,
+                                transactionsafe=True)
+pypysig_set_occurred = external('pypysig_set_occurred', [lltype.Signed],
+                                lltype.Void, _nowrapper=True,
+                                transactionsafe=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, threadsafe=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)

@@ -26,4 +26,7 @@ extern struct pypysig_long_struct pypysig_counter;
 void *pypysig_getaddr_occurred(void);
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
 
+static long pypysig_get_occurred(void) { return pypysig_counter.value; }
+static void pypysig_set_occurred(long value) { pypysig_counter.value = value; }
+
 #endif
