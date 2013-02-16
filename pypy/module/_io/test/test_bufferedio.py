@@ -563,9 +563,9 @@ class AppTestBufferedRandom:
         import _io
         raw = _io.FileIO(self.tmpfile, 'wb+')
         f = _io.BufferedRandom(raw)
-        f.write('abc')
+        f.write(b'abc')
         f.seek(0)
-        assert f.read() == 'abc'
+        assert f.read() == b'abc'
 
     def test_write_rewind_write(self):
         # Various combinations of reading / writing / seeking
