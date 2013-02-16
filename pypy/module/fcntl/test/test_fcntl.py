@@ -32,13 +32,13 @@ class AppTestFcntl:
 
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
-        fcntl.fcntl(F(long(f.fileno())), 1)
+        fcntl.fcntl(F(int(f.fileno())), 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
         raises(TypeError, fcntl.fcntl, F("foo"), 1)
         raises(ValueError, fcntl.fcntl, -1, 1, 0)
         raises(ValueError, fcntl.fcntl, F(-1), 1, 0)
-        raises(ValueError, fcntl.fcntl, F(long(-1)), 1, 0)
+        raises(ValueError, fcntl.fcntl, F(int(-1)), 1, 0)
         assert fcntl.fcntl(f, 1, 0) == 0
         assert fcntl.fcntl(f, 2, "foo") == b"foo"
         assert fcntl.fcntl(f, 2, memoryview(b"foo")) == b"foo"
