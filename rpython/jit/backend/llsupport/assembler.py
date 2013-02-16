@@ -147,8 +147,7 @@ class BaseAssembler(object):
         guardtok.faildescr.rd_loop_token = self.current_clt
         return fail_descr, target
 
-    def call_assembler(self, op, guard_op, argloc,
-                       vloc, result_loc, tmploc):
+    def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
@@ -157,8 +156,9 @@ class BaseAssembler(object):
         # we need to allocate the frame, keep in sync with runner's
         # execute_token
         jd = descr.outermost_jitdriver_sd
-        self._emit_call(self.imm(descr._ll_function_addr),
-                        [argloc], 0, tmp=tmploc)
+        self._call_assembler_emit_call(self.imm(descr._ll_function_addr),
+                                        argloc, tmploc)
+
         if op.result is None:
             assert result_loc is None
             value = self.cpu.done_with_this_frame_descr_void
@@ -184,8 +184,8 @@ class BaseAssembler(object):
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
 
-        self._emit_call(self.imm(asm_helper_adr),
-                        [tmploc, vloc], 0, tmp=self._second_tmp_reg)
+        self._call_assembler_emit_helper_call(self.imm(asm_helper_adr),
+                                                [tmploc, vloc], result_loc)
 
         jmp_location = self._call_assembler_patch_je(result_loc, je_location)
 
