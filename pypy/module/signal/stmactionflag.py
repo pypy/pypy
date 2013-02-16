@@ -1,5 +1,6 @@
 from pypy.interpreter.executioncontext import AbstractActionFlag
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rsignal import pypysig_get_occurred, pypysig_set_occurred
 
 
@@ -9,20 +10,28 @@ class SignalActionFlag(AbstractActionFlag):
     # friendly yet.
 
     def get_ticker(self):
-        return pypysig_get_occurred()
+        if we_are_translated():
+            return pypysig_get_occurred()
+        else:
+            return 42
 
     def reset_ticker(self, value):
-        pypysig_set_occurred(value)
+        if we_are_translated():
+            pypysig_set_occurred(value)
 
     def rearm_ticker(self):
-        pypysig_set_occurred(-1)
+        if we_are_translated():
+            pypysig_set_occurred(-1)
 
     def decrement_ticker(self, by):
-        value = pypysig_get_occurred()
-        if self.has_bytecode_counter:    # this 'if' is constant-folded
-            if jit.isconstant(by) and by == 0:
-                pass     # normally constant-folded too
-            else:
-                value -= by
-                pypysig_set_occurred(value)
-        return value
+        if we_are_translated():
+            value = pypysig_get_occurred()
+            if self.has_bytecode_counter:    # this 'if' is constant-folded
+                if jit.isconstant(by) and by == 0:
+                    pass     # normally constant-folded too
+                else:
+                    value -= by
+                    pypysig_set_occurred(value)
+            return value
+        else:
+            return 42
