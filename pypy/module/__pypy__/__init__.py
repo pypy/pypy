@@ -29,10 +29,16 @@ class TimeModule(MixedModule):
 class ThreadModule(MixedModule):
     appleveldefs = {
         'signals_enabled': 'app_signal.signals_enabled',
+        'atomic':                  'app_atomic.atomic',
+        'exclusive_atomic':        'app_atomic.exclusive_atomic',
+        'error':                   'app_atomic.error',
     }
     interpleveldefs = {
         '_signals_enter':  'interp_signal.signals_enter',
         '_signals_exit':   'interp_signal.signals_exit',
+        '_atomic_enter':           'interp_atomic.atomic_enter',
+        '_exclusive_atomic_enter': 'interp_atomic.exclusive_atomic_enter',
+        '_atomic_exit':            'interp_atomic.atomic_exit',
     }
 
 

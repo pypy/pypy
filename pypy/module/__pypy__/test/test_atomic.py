@@ -5,7 +5,7 @@ from pypy.module.thread.test.support import GenericTestThread
 class AppTestAtomic(GenericTestThread):
 
     def test_simple(self):
-        import thread
+        from __pypy__ import thread
         for atomic in thread.atomic, thread.exclusive_atomic:
             with atomic:
                 pass
@@ -16,20 +16,20 @@ class AppTestAtomic(GenericTestThread):
                 pass
 
     def test_nest_composable_atomic(self):
-        import thread
+        from __pypy__ import thread
         with thread.atomic:
             with thread.atomic:
                 pass
 
     def test_nest_composable_below_exclusive(self):
-        import thread
+        from __pypy__ import thread
         with thread.exclusive_atomic:
             with thread.atomic:
                 with thread.atomic:
                     pass
 
     def test_nest_exclusive_fails(self):
-        import thread
+        from __pypy__ import thread
         try:
             with thread.exclusive_atomic:
                 with thread.exclusive_atomic:
@@ -38,7 +38,7 @@ class AppTestAtomic(GenericTestThread):
             assert e.message == "exclusive_atomic block can't be entered inside another atomic block"
 
     def test_nest_exclusive_fails2(self):
-        import thread
+        from __pypy__ import thread
         try:
             with thread.atomic:
                 with thread.exclusive_atomic:

@@ -1,4 +1,5 @@
-import thread
+from thread import error     # re-exported
+from __pypy__ import thread
 
 class Atomic(object):
     __enter__ = thread._atomic_enter
