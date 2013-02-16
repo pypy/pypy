@@ -3,7 +3,7 @@ from __future__ import with_statement
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.module.math.test import test_direct
-
+from rpython.rlib.rfloat import INFINITY, NAN
 
 class AppTestMath:
     spaceconfig = {
@@ -18,6 +18,12 @@ class AppTestMath:
             # test_direct, but this is a ValueError on 3.x
             if (a, b, expected) == ('log1p', (-1.0,), OverflowError):
                 expected = ValueError
+            # 3.x ceil/floor differ from 2.x
+            if a in ('ceil', 'floor'):
+                if b[0] in (INFINITY, -INFINITY):
+                    expected = OverflowError
+                elif b[0] in (NAN, -NAN):
+                    expected = ValueError
 
             if type(expected) is type and issubclass(expected, Exception):
                 expected = getattr(space, "w_%s" % expected.__name__)
@@ -320,3 +326,91 @@ class AppTestMath:
             assert type(func(0.5)) is int
             raises(OverflowError, func, float('inf'))
             raises(ValueError, func, float('nan'))
+
+    def test_ceil(self):
+        # adapted from the cpython test case
+        import math
+        raises(TypeError, math.ceil)
+        assert type(math.ceil(0.4)) is int
+        assert math.ceil(0.5) == 1
+        assert math.ceil(1.0) == 1
+        assert math.ceil(1.5) == 2
+        assert math.ceil(-0.5) == 0
+        assert math.ceil(-1.0) == -1
+        assert math.ceil(-1.5) == -1
+
+        class TestCeil:
+            def __ceil__(self):
+                return 42
+        class TestNoCeil:
+            pass
+        assert math.ceil(TestCeil()) == 42
+        raises(TypeError, math.ceil, TestNoCeil())
+
+        t = TestNoCeil()
+        t.__ceil__ = lambda *args: args
+        raises(TypeError, math.ceil, t)
+        raises(TypeError, math.ceil, t, 0)
+
+        # observed in a cpython interactive shell
+        raises(OverflowError, math.ceil, float("inf"))
+        raises(OverflowError, math.ceil, float("-inf"))
+        raises(ValueError, math.ceil, float("nan"))
+
+        class StrangeCeil:
+            def __ceil__(self):
+                return "this is a string"
+
+        assert math.ceil(StrangeCeil()) == "this is a string"
+
+        class CustomFloat:
+            def __float__(self):
+                return 99.9
+
+        assert math.ceil(CustomFloat()) == 100
+
+    def test_floor(self):
+        # adapted from the cpython test case
+        import math
+        raises(TypeError, math.floor)
+        assert type(math.floor(0.4)) is int
+        assert math.floor(0.5) == 0
+        assert math.floor(1.0) == 1
+        assert math.floor(1.5) == 1
+        assert math.floor(-0.5) == -1
+        assert math.floor(-1.0) == -1
+        assert math.floor(-1.5) == -2
+        assert math.floor(1.23e167) == int(1.23e167)
+        assert math.floor(-1.23e167) == int(-1.23e167)
+
+        class TestFloor:
+            def __floor__(self):
+                return 42
+        class TestNoFloor:
+            pass
+        assert math.floor(TestFloor()) == 42
+        raises(TypeError, math.floor, TestNoFloor())
+
+        t = TestNoFloor()
+        t.__floor__ = lambda *args: args
+        raises(TypeError, math.floor, t)
+        raises(TypeError, math.floor, t, 0)
+
+        # observed in a cpython interactive shell
+        raises(OverflowError, math.floor, float("inf"))
+        raises(OverflowError, math.floor, float("-inf"))
+        raises(ValueError, math.floor, float("nan"))
+
+        class StrangeCeil:
+            def __floor__(self):
+                return "this is a string"
+
+        assert math.floor(StrangeCeil()) == "this is a string"
+
+        assert math.floor(1.23e167) - 1.23e167 == 0.0
+
+        class CustomFloat:
+            def __float__(self):
+                return 99.9
+
+        assert math.floor(CustomFloat()) == 99
