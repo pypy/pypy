@@ -676,22 +676,95 @@ void BeginInevitableTransaction(void)
 
 /************************************************************/
 
-inline static gcptr GlobalizeForComparison(struct tx_descriptor *d, gcptr P)
+inline static _Bool _PtrEq_Globals(gcptr G1, gcptr G2)
 {
-  if (P != NULL && (P->h_tid & (GCFLAG_GLOBAL | GCFLAG_LOCAL_COPY)))
+  /* This is a bit lengthy, but (probably) efficient: the idea is to
+     check if G1 and G2 are pointers in the same chained list of globals
+     or not.  Assumes no partial sharing in the chained lists.  Works by
+     trying to search forward with S1, starting from G1, if it reaches
+     G2; and conversely with S2, starting from G2, if it reaches G1. */
+  gcptr S1 = G1, S2 = G2;
+  volatile revision_t *vp;
+  revision_t v;
+
+  while (1)
     {
-      if (P->h_tid & GCFLAG_GLOBAL)
-        P = LatestGlobalRevision(d, P, NULL, 0);
-      else
-        P = (gcptr)P->h_revision; // LOCAL_COPY: return the original global obj
+      if (S2 == G1)
+        return 1;
+
+      /* move forward S1 */
+      vp = (volatile revision_t *)&S1->h_revision;
+      v = *vp;
+      if (v & 1)  // "is not a pointer", i.e.
+        goto s1_end;   // "doesn't have a more recent revision"
+      S1 = (gcptr)v;
+
+      if (S1 == G2)
+        return 1;
+
+      /* move forward S2 */
+      vp = (volatile revision_t *)&S2->h_revision;
+      v = *vp;
+      if (v & 1)  // "is not a pointer", i.e.
+        goto s2_end;   // "doesn't have a more recent revision"
+      S2 = (gcptr)v;
     }
-  return P;
+
+ s1_end:
+  while (1)
+    {
+      /* move forward S2 */
+      vp = (volatile revision_t *)&S2->h_revision;
+      v = *vp;
+      if (v & 1)  // "is not a pointer", i.e.
+        return 0;      // "doesn't have a more recent revision"
+      S2 = (gcptr)v;
+
+      if (S2 == G1)
+        return 1;
+    }
+
+ s2_end:
+  while (1)
+    {
+      /* move forward S1 */
+      vp = (volatile revision_t *)&S1->h_revision;
+      v = *vp;
+      if (v & 1)  // "is not a pointer", i.e.
+        return 0;      // "doesn't have a more recent revision"
+      S1 = (gcptr)v;
+
+      if (S1 == G2)
+        return 1;
+    }
 }
 
 _Bool stm_PtrEq(gcptr P1, gcptr P2)
 {
-  struct tx_descriptor *d = thread_descriptor;
-  return GlobalizeForComparison(d, P1) == GlobalizeForComparison(d, P2);
+  if (P1 == P2)
+    return 1;
+  else if (P1 == NULL || P2 == NULL)   /* and not P1 == P2 == NULL */
+    return 0;
+
+  if (P1->h_tid & GCFLAG_GLOBAL)
+    {
+      if (P2->h_tid & GCFLAG_GLOBAL)
+        return _PtrEq_Globals(P1, P2);
+      else if (P2->h_tid & GCFLAG_LOCAL_COPY)
+        return _PtrEq_Globals(P1, (gcptr)P2->h_revision);
+      else
+        return 0;   /* P1 is global, P2 is new */
+    }
+  /* P1 is local, i.e. either new or a local copy */
+  if (P2->h_tid & GCFLAG_GLOBAL)
+    {
+      if (P1->h_tid & GCFLAG_LOCAL_COPY)
+        return _PtrEq_Globals((gcptr)P1->h_revision, P2);
+      else
+        return 0;   /* P1 is new, P2 is global */
+    }
+  /* P1 and P2 are both locals (and P1 != P2) */
+  return 0;
 }
 
 /************************************************************/
