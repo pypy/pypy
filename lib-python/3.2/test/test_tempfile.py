@@ -1016,6 +1016,7 @@ class test_TemporaryDirectory(TC):
                          "TemporaryDirectory %s exists after cleanup" % d1.name)
         self.assertTrue(os.path.exists(d2.name),
                         "Directory pointed to by a symlink was deleted")
+        support.gc_collect()
         self.assertEqual(os.listdir(d2.name), ['test.txt'],
                          "Contents of the directory pointed to by a symlink "
                          "were deleted")
