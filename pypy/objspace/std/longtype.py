@@ -48,7 +48,12 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
             bigint = space.bigint_w(w_obj)
             return newbigint(space, w_longtype, bigint)
     else:
-        base = space.int_w(w_base)
+        try:
+            base = space.int_w(w_base)
+        except OperationError, e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+            base = 37 # this raises the right error in string_to_bigint()
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w

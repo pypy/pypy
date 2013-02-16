@@ -340,3 +340,6 @@ class AppTestLong:
             assert 'hello àèìò' in e.message
         else:
             assert False, 'did not raise'
+
+    def test_base_overflow(self):
+        raises(ValueError, int, '42', 2**63)
