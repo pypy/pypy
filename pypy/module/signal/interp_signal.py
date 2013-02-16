@@ -32,8 +32,7 @@ class SignalActionFlag(AbstractActionFlag):
         p = pypysig_getaddr_occurred()
         p.c_value = value
 
-    @staticmethod
-    def rearm_ticker():
+    def rearm_ticker(self):
         p = pypysig_getaddr_occurred()
         p.c_value = -1
 
@@ -71,7 +70,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         if self.fire_in_another_thread:
             if self.space.threadlocals.signals_enabled():
                 self.fire_in_another_thread = False
-                SignalActionFlag.rearm_ticker()
+                self.space.actionflag.rearm_ticker()
                 # this occurs when we just switched to the main thread
                 # and there is a signal pending: we force the ticker to
                 # -1, which should ensure perform() is called quickly.
