@@ -43,6 +43,10 @@ class OSThreadLocals:
                 del self._valuedict[ident]
             except KeyError:
                 pass
+            try:
+                del self._signalsenabled[ident]
+            except KeyError:
+                pass
         # update the minicache to prevent it from containing an outdated value
         self._mostrecentkey = ident
         self._mostrecentvalue = value
