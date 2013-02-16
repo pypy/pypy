@@ -142,8 +142,8 @@ class W_RLock(Wrappable):
         self.rlock_count = 0
         self.rlock_owner = 0
         try:
-            self.lock = thread.allocate_lock()
-        except thread.error:
+            self.lock = rthread.allocate_lock()
+        except rthread.error:
             raise wrap_thread_error(space, "cannot allocate lock")
 
     def descr__new__(space, w_subtype):
@@ -171,7 +171,7 @@ class W_RLock(Wrappable):
         internal counter is simply incremented. If nobody holds the lock,
         the lock is taken and its internal counter initialized to 1."""
         microseconds = parse_acquire_args(space, blocking, timeout)
-        tid = thread.get_ident()
+        tid = rthread.get_ident()
         if self.rlock_count > 0 and tid == self.rlock_owner:
             try:
                 self.rlock_count = ovfcheck(self.rlock_count + 1)
@@ -203,7 +203,7 @@ class W_RLock(Wrappable):
         Do note that if the lock was acquire()d several times in a row by the
         current thread, release() needs to be called as many times for the lock
         to be available for other threads."""
-        tid = thread.get_ident()
+        tid = rthread.get_ident()
         if self.rlock_count == 0 or self.rlock_owner != tid:
             raise OperationError(space.w_RuntimeError, space.wrap(
                     "cannot release un-acquired lock"))
@@ -214,7 +214,7 @@ class W_RLock(Wrappable):
 
     def is_owned_w(self, space):
         """For internal use by `threading.Condition`."""
-        tid = thread.get_ident()
+        tid = rthread.get_ident()
         if self.rlock_count > 0 and self.rlock_owner == tid:
             return space.w_True
         else:
