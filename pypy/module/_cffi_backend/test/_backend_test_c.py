@@ -1404,7 +1404,6 @@ def test_callback_returning_enum_unsigned():
     BInt = new_primitive_type("int")
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, 20))
     def cb(n):
-        print n
         if n & 1:
             return cast(BEnum, n)
         else:

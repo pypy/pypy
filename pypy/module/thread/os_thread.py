@@ -3,7 +3,7 @@ Thread support based on OS-level threads.
 """
 
 import os
-from rpython.rlib import rthread as thread
+from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, Arguments
@@ -65,8 +65,8 @@ class Bootstrapper(object):
     def setup(space):
         if bootstrapper.lock is None:
             try:
-                bootstrapper.lock = thread.allocate_lock()
-            except thread.error:
+                bootstrapper.lock = rthread.allocate_lock()
+            except rthread.error:
                 raise wrap_thread_error(space, "can't allocate bootstrap lock")
 
     @staticmethod
@@ -83,7 +83,7 @@ class Bootstrapper(object):
         # Note that when this runs, we already hold the GIL.  This is ensured
         # by rffi's callback mecanism: we are a callback for the
         # c_thread_start() external function.
-        thread.gc_thread_start()
+        rthread.gc_thread_start()
         space = bootstrapper.space
         w_callable = bootstrapper.w_callable
         args = bootstrapper.args
@@ -103,7 +103,7 @@ class Bootstrapper(object):
             except OSError:
                 pass
         bootstrapper.nbthreads -= 1
-        thread.gc_thread_die()
+        rthread.gc_thread_die()
     bootstrap = staticmethod(bootstrap)
 
     def acquire(space, w_callable, args):
@@ -130,7 +130,7 @@ class Bootstrapper(object):
             space.call_args(w_callable, args)
         except OperationError, e:
             if not e.match(space, space.w_SystemExit):
-                ident = thread.get_ident()
+                ident = rthread.get_ident()
                 where = 'thread %d started by ' % ident
                 e.write_unraisable(space, where, w_callable)
             e.clear(space)
@@ -150,7 +150,7 @@ def reinit_threads(space):
     "Called in the child process after a fork()"
     space.threadlocals.reinit_threads(space)
     bootstrapper.reinit()
-    thread.thread_after_fork()
+    rthread.thread_after_fork()
 
     # Clean the threading module after a fork()
     w_modules = space.sys.get('modules')
@@ -181,12 +181,12 @@ printed unless the exception is SystemExit."""
     bootstrapper.acquire(space, w_callable, args)
     try:
         try:
-            thread.gc_thread_prepare()     # (this has no effect any more)
-            ident = thread.start_new_thread(bootstrapper.bootstrap, ())
+            rthread.gc_thread_prepare()     # (this has no effect any more)
+            ident = rthread.start_new_thread(bootstrapper.bootstrap, ())
         except Exception, e:
             bootstrapper.release()     # normally called by the new thread
             raise
-    except thread.error:
+    except rthread.error:
         raise wrap_thread_error(space, "can't start new thread")
     return space.wrap(ident)
 
@@ -199,7 +199,7 @@ Even though on some platforms threads identities may appear to be
 allocated consecutive numbers starting at 1, this behavior should not
 be relied upon, and the number should be seen purely as a magic cookie.
 A thread's identity may be reused for another thread after it exits."""
-    ident = thread.get_ident()
+    ident = rthread.get_ident()
     return space.wrap(ident)
 
 @unwrap_spec(size=int)
@@ -225,8 +225,8 @@ the suggested approach in the absence of more specific information)."""
     if size < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("size must be 0 or a positive value"))
-    old_size = thread.get_stacksize()
-    error = thread.set_stacksize(size)
+    old_size = rthread.get_stacksize()
+    error = rthread.set_stacksize(size)
     if error == -1:
         raise operationerrfmt(space.w_ValueError,
                               "size not valid: %d bytes", size)

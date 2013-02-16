@@ -2,7 +2,7 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
-from rpython.rlib import rthread as thread
+from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -27,7 +27,7 @@ TIMEOUT_MAX = LONGLONG_MAX
 ##    except:
 ##        pass
 ##    tb = ' '.join(tb)
-##    msg = '| %6d | %d %s | %s\n' % (thread.get_ident(), n, msg, tb)
+##    msg = '| %6d | %d %s | %s\n' % (rthread.get_ident(), n, msg, tb)
 ##    sys.stderr.write(msg)
 
 
@@ -57,8 +57,8 @@ class Lock(Wrappable):
     def __init__(self, space):
         self.space = space
         try:
-            self.lock = thread.allocate_lock()
-        except thread.error:
+            self.lock = rthread.allocate_lock()
+        except rthread.error:
             raise wrap_thread_error(space, "out of resources")
 
     @unwrap_spec(blocking=int, timeout=float)
@@ -81,7 +81,7 @@ the lock to acquire the lock.  The lock must be in the locked state,
 but it needn't be locked by the same thread that unlocks it."""
         try:
             self.lock.release()
-        except thread.error:
+        except rthread.error:
             raise wrap_thread_error(space, "release unlocked lock")
 
     def descr_lock_locked(self, space):

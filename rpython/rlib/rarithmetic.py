@@ -630,21 +630,16 @@ def byteswap(arg):
          uint2singlefloat, singlefloat2uint
 
     T = lltype.typeOf(arg)
-    is_float = False
-    is_single_float = False
     if T == lltype.SingleFloat:
-        T = rffi.UINT
-        is_single_float = True
         arg = singlefloat2uint(arg)
     elif T == lltype.Float:
-        is_float = True
-        T = rffi.LONGLONG
         arg = float2longlong(arg)
     elif T == lltype.LongFloat:
         assert False
     else:
         # we cannot do arithmetics on small ints
         arg = widen(arg)
+
     if rffi.sizeof(T) == 1:
         res = arg
     elif rffi.sizeof(T) == 2:
@@ -667,9 +662,9 @@ def byteswap(arg):
                (f >> 24) | (g >> 40) | (h >> 56))
     else:
         assert False # unreachable code
-    if is_single_float:
+
+    if T == lltype.SingleFloat:
         return uint2singlefloat(rffi.cast(rffi.UINT, res))
-    if is_float:
-        res = rffi.cast(rffi.LONGLONG, res)
-        return longlong2float(res)
+    if T == lltype.Float:
+        return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
