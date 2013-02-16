@@ -85,9 +85,11 @@ class OSThreadLocals:
         # enable_signals() if necessary.  That's a hack but I cannot
         # figure out a non-hackish way to handle thread+signal+fork :-(
         ident = rthread.get_ident()
-        old = self._signalsenabled.get(ident, 0)
-        if ident is not self._mainthreadident:
-            self._mainthreadident = ident
-            old += 1
-        self._signalsenabled.clear()
-        self._signalsenabled[ident] = old
+        val = self.getvalue()
+        sig = self._signalsenabled.get(ident, 0)
+        if ident != self._mainthreadident:
+            sig += 1
+        self._cleanup_()
+        self.setvalue(val)
+        self._signalsenabled[ident] = sig
+        self._mainthreadident = ident
