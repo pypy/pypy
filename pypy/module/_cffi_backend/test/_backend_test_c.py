@@ -1148,7 +1148,7 @@ def test_callback_exception():
     orig_getline = linecache.getline
     try:
         linecache.getline = lambda *args: 'LINE'    # hack: speed up PyPy tests
-        sys.stderr = io.StringIO()
+        sys.stderr = cStringIO.StringIO()
         assert f(100) == 300
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
@@ -1161,7 +1161,7 @@ Traceback (most recent call last):
     $
 ValueError: 42
 """)
-        sys.stderr = io.StringIO()
+        sys.stderr = cStringIO.StringIO()
         bigvalue = 20000
         assert f(bigvalue) == -42
         assert matches(sys.stderr.getvalue(), """\
