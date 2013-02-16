@@ -17,12 +17,12 @@ class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
 
     def test_exit_twice(self):
-        from __pypy__ import thread
-        thread._signals_exit()
+        import __pypy__, thread
+        __pypy__.thread._signals_exit()
         try:
-            raises(KeyError, thread._signals_exit)
+            raises(thread.error, __pypy__.thread._signals_exit)
         finally:
-            thread._signals_enter()
+            __pypy__.thread._signals_enter()
 
     def test_enable_signals(self):
         import __pypy__, thread, signal, time
