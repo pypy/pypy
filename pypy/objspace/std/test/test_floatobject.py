@@ -837,3 +837,6 @@ class AppTestFloatHex:
         check(mod(0.0, -1.0), -0.0)
         check(mod(1e-100, -1.0), -1.0)
         check(mod(1.0, -1.0), -0.0)
+
+    def test_repr_str_eq(self):
+        assert repr(19 * 0.1) == str(19 * 0.1)
