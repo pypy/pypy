@@ -8,6 +8,55 @@ from rpython.rlib.rfloat import isnan, NAN, INFINITY
 from rpython.translator.c.test.test_genc import compile
 
 
+class TestFloatSpecific:
+    def test_halffloat_exact(self):
+        #testcases generated from numpy.float16(x).view('uint16')
+        cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898],
+                 [float('inf'), 31744], [-float('inf'), 64512]]
+        for c, h in cases:
+            hbit = ieee.float_pack(c, 2)
+            assert hbit == h
+            assert c == ieee.float_unpack(h, 2)
+
+    def test_halffloat_inexact(self):
+        #testcases generated from numpy.float16(x).view('uint16')
+        cases = [[10.001, 18688, 10.], [-10.001, 51456, -10],
+                 [0.027588, 10000, 0.027587890625],
+                 [22001, 30047, 22000]]
+        for c, h, f in cases:
+            hbit = ieee.float_pack(c, 2)
+            assert hbit == h
+            assert f == ieee.float_unpack(h, 2)
+
+    def test_halffloat_overunderflow(self):
+        import math
+        cases = [[670000, float('inf')], [-67000, -float('inf')],
+                 [1e-08, 0], [-1e-8, -0.]]
+        for f1, f2 in cases:
+            try:
+                f_out = ieee.float_unpack(ieee.float_pack(f1, 2), 2)
+            except OverflowError:
+                f_out = math.copysign(float('inf'), f1)
+            assert f_out == f2
+            assert math.copysign(1., f_out) == math.copysign(1., f2)
+
+    def test_float80_exact(self):
+        s = []
+        ieee.pack_float80(s, -1., 16, False)
+        assert repr(s[-1]) == repr('\x00\x00\x00\x00\x00\x00\x00\x80\xff\xbf\x00\x00\x00\x00\x00\x00')
+        ieee.pack_float80(s, -1., 16, True)
+        assert repr(s[-1]) == repr('\x00\x00\x00\x00\x00\x00\xbf\xff\x80\x00\x00\x00\x00\x00\x00\x00')
+        ieee.pack_float80(s, -123.456, 16, False)
+        assert repr(s[-1]) == repr('\x00\xb8\xf3\xfd\xd4x\xe9\xf6\x05\xc0\x00\x00\x00\x00\x00\x00')
+        ieee.pack_float80(s, -123.456, 16, True)
+        assert repr(s[-1]) == repr('\x00\x00\x00\x00\x00\x00\xc0\x05\xf6\xe9x\xd4\xfd\xf3\xb8\x00')
+
+        x = ieee.unpack_float80('\x00\x00\x00\x00\x00\x00\x00\x80\xff?\xc8\x01\x00\x00\x00\x00', False)
+        assert x == 1.0
+        x = ieee.unpack_float80('\x00\x00\x7f\x83\xe1\x91?\xff\x80\x00\x00\x00\x00\x00\x00\x00', True)
+        assert x == 1.0
+
+
 class TestFloatPacking:
     def setup_class(cls):
         if sys.version_info < (2, 6):
@@ -15,25 +64,20 @@ class TestFloatPacking:
 
     def check_float(self, x):
         # check roundtrip
-        Q = ieee.float_pack(x, 8)
-        y = ieee.float_unpack(Q, 8)
-        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
+        for size in [10, 12, 16]:
+            for be in [False, True]:
+                Q = []
+                ieee.pack_float80(Q, x, size, be)
+                Q = Q[0]
+                y = ieee.unpack_float80(Q, be)
+                assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
-        Q = ieee.float_pack80(x)
-        y = ieee.float_unpack80(Q)
-        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
-
-        Q = []
-        ieee.pack_float(Q, x, 8, False)
-        Q = Q[0]
-        y = ieee.unpack_float(Q, False)
-        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
-
-        Q = []
-        ieee.pack_float80(Q, x, False)
-        Q = Q[0]
-        y = ieee.unpack_float80(Q, False)
-        assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
+        for be in [False, True]:
+            Q = []
+            ieee.pack_float(Q, x, 8, be)
+            Q = Q[0]
+            y = ieee.unpack_float(Q, be)
+            assert repr(x) == repr(y), '%r != %r, Q=%r' % (x, y, Q)
 
         # check that packing agrees with the struct module
         struct_pack8 = struct.unpack('<Q', struct.pack('<d', x))[0]
@@ -74,26 +118,8 @@ class TestFloatPacking:
         self.check_float(0.0)
         self.check_float(-0.0)
 
-    def test_check_size(self):
-        # these were refactored into separate pack80/unpack80 functions
-        py.test.raises(ValueError, ieee.float_pack, 1.0, 12)
-        py.test.raises(ValueError, ieee.float_pack, 1.0, 16)
-        py.test.raises(ValueError, ieee.float_unpack, 1, 12)
-        py.test.raises(ValueError, ieee.float_unpack, 1, 16)
-
     def test_nans(self):
-        Q = ieee.float_pack80(float('nan'))
-        y = ieee.float_unpack80(Q)
-        assert repr(y) == 'nan'
-        Q = ieee.float_pack(float('nan'), 8)
-        y = ieee.float_unpack(Q, 8)
-        assert repr(y) == 'nan'
-        L = ieee.float_pack(float('nan'), 4)
-        z = ieee.float_unpack(L, 4)
-        assert repr(z) == 'nan'
-        L = ieee.float_pack(float('nan'), 2)
-        z = ieee.float_unpack(L, 2)
-        assert repr(z) == 'nan'
+        self.check_float(float('nan'))
 
     def test_simple(self):
         test_values = [1e-10, 0.00123, 0.5, 0.7, 1.0, 123.456, 1e10]
@@ -142,7 +168,7 @@ class TestFloatPacking:
 
     def test_random(self):
         # construct a Python float from random integer, using struct
-        for _ in xrange(100000):
+        for _ in xrange(10000):
             Q = random.randrange(2**64)
             x = struct.unpack('<d', struct.pack('<Q', Q))[0]
             # nans are tricky:  we can't hope to reproduce the bit
@@ -150,37 +176,6 @@ class TestFloatPacking:
             if isnan(x):
                 continue
             self.check_float(x)
-
-    def test_halffloat_exact(self):
-        #testcases generated from numpy.float16(x).view('uint16')
-        cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898],
-                 [float('inf'), 31744], [-float('inf'), 64512]]
-        for c, h in cases:
-            hbit = ieee.float_pack(c, 2)
-            assert hbit == h
-            assert c == ieee.float_unpack(h, 2)
-
-    def test_halffloat_inexact(self):
-        #testcases generated from numpy.float16(x).view('uint16')
-        cases = [[10.001, 18688, 10.], [-10.001, 51456, -10],
-                 [0.027588, 10000, 0.027587890625],
-                 [22001, 30047, 22000]]
-        for c, h, f in cases:
-            hbit = ieee.float_pack(c, 2)
-            assert hbit == h
-            assert f == ieee.float_unpack(h, 2)
-
-    def test_halffloat_overunderflow(self):
-        import math
-        cases = [[670000, float('inf')], [-67000, -float('inf')],
-                 [1e-08, 0], [-1e-8, -0.]]
-        for f1, f2 in cases:
-            try:
-                f_out = ieee.float_unpack(ieee.float_pack(f1, 2), 2)
-            except OverflowError:
-                f_out = math.copysign(float('inf'), f1)
-            assert f_out == f2
-            assert math.copysign(1., f_out) == math.copysign(1., f2)
 
 
 class TestCompiled:

@@ -17,6 +17,7 @@ class OSThreadLocals:
     def _cleanup_(self):
         self._valuedict.clear()
         self._signalsenabled.clear()
+        self._mainthreadident = 0
         if self.can_cache:
             self._mostrecentkey = 0        # fast minicaching for the common case
             self._mostrecentvalue = None   # fast minicaching for the common case
@@ -39,10 +40,15 @@ class OSThreadLocals:
         if value is not None:
             if len(self._valuedict) == 0:
                 self._signalsenabled[ident] = 1    # the main thread is enabled
+                self._mainthreadident = ident
             self._valuedict[ident] = value
         else:
             try:
                 del self._valuedict[ident]
+            except KeyError:
+                pass
+            try:
+                del self._signalsenabled[ident]
             except KeyError:
                 pass
         if self.can_cache:
@@ -60,10 +66,7 @@ class OSThreadLocals:
 
     def disable_signals(self):
         ident = rthread.get_ident()
-        try:
-            new = self._signalsenabled[ident] - 1
-        except KeyError:
-            return
+        new = self._signalsenabled[ident] - 1
         if new > 0:
             self._signalsenabled[ident] = new
         else:
@@ -88,7 +91,8 @@ class OSThreadLocals:
         # figure out a non-hackish way to handle thread+signal+fork :-(
         ident = rthread.get_ident()
         old = self._signalsenabled.get(ident, 0)
+        if ident is not self._mainthreadident:
+            self._mainthreadident = ident
+            old += 1
         self._signalsenabled.clear()
-        if old == 0:
-            old = 1
         self._signalsenabled[ident] = old

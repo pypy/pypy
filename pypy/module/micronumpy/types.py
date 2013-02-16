@@ -1530,8 +1530,8 @@ if interp_boxes.long_double_size == 12:
 
         def byteswap(self, w_v):
             value = self.unbox(w_v)
-            result = StringBuilder(12)
-            pack_float80(result, value, not native_is_bigendian)
+            result = StringBuilder(10)
+            pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
 
     NonNativeFloat96 = Float96
@@ -1560,8 +1560,8 @@ elif interp_boxes.long_double_size == 16:
 
         def byteswap(self, w_v):
             value = self.unbox(w_v)
-            result = StringBuilder(16)
-            pack_float80(result, value, not native_is_bigendian)
+            result = StringBuilder(10)
+            pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
 
     NonNativeFloat128 = Float128
