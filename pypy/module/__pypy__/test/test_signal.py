@@ -1,5 +1,7 @@
 import sys
 
+from pypy.module.thread.test.support import GenericTestThread
+
 
 class AppTestMinimal:
     spaceconfig = dict(usemodules=['__pypy__'])
@@ -11,7 +13,7 @@ class AppTestMinimal:
         # assert did not crash
 
 
-class AppTestThreadSignal:
+class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
 
     def test_enable_signals(self):
@@ -47,6 +49,37 @@ class AppTestThreadSignal:
                 assert 'KeyboardInterrupt' in interrupted[0].__class__.__name__
             finally:
                 __pypy__.thread._signals_enter()
+
+    def test_thread_fork_signals(self):
+        import __pypy__
+        import os, thread, signal
+
+        if not hasattr(os, 'fork'):
+            skip("No fork on this platform")
+
+        def fork():
+            with __pypy__.thread.signals_enabled:
+                return os.fork()
+
+        def threadfunction():
+            pid = fork()
+            if pid == 0:
+                print 'in child'
+                # signal() only works from the 'main' thread
+                signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+                os._exit(42)
+            else:
+                self.timeout_killer(pid, 5)
+                exitcode = os.waitpid(pid, 0)[1]
+                feedback.append(exitcode)
+
+        feedback = []
+        thread.start_new_thread(threadfunction, ())
+        self.waitfor(lambda: feedback)
+        # if 0, an (unraisable) exception was raised from the forked thread.
+        # if 9, process was killed by timer.
+        # if 42<<8, os._exit(42) was correctly reached.
+        assert feedback == [42<<8]
 
 
 class AppTestThreadSignalLock:

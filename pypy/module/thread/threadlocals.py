@@ -81,6 +81,16 @@ class OSThreadLocals:
         # (which are now dead); and for the current thread, force an
         # enable_signals() if necessary.  That's a hack but I cannot
         # figure out a non-hackish way to handle thread+signal+fork :-(
+        """
+        TODO: this logic is currently flawed as we need to differentiate
+        between: 1) fork while in a main thread, in which case old should
+                    not be incremented
+                 2) fork while in a subthread that has an enable_threads
+                    context but is not main (in which case old should be
+                    incremented, as the thread should get a point for becoming
+                    the new 'main', so it remains in the dict when all its
+                    contexts exit)
+        """
         ident = rthread.get_ident()
         old = self._signalsenabled.get(ident, 0)
         self._signalsenabled.clear()
