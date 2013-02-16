@@ -255,6 +255,7 @@ def pack_float80(result, x, size, be):
         l.reverse()
     result.append("".join(l))
 
+@jit.unroll_safe
 def unpack_float(s, be):
     unsigned = r_ulonglong(0)
     for i in range(min(len(s), 8)):
@@ -262,6 +263,7 @@ def unpack_float(s, be):
         unsigned |= r_ulonglong(c) << (i * 8)
     return float_unpack(unsigned, len(s))
 
+@jit.unroll_safe
 def unpack_float80(s, be):
     QQ = [r_ulonglong(0), r_ulonglong(0)]
     for i in range(8):
