@@ -1,4 +1,5 @@
 from rpython.rlib import rthread
+from pypy.interpreter.error import OperationError
 
 
 class OSThreadLocals:
@@ -54,14 +55,18 @@ class OSThreadLocals:
     def signals_enabled(self):
         return rthread.get_ident() in self._signalsenabled
 
-    def enable_signals(self):
+    def enable_signals(self, space):
         ident = rthread.get_ident()
         old = self._signalsenabled.get(ident, 0)
         self._signalsenabled[ident] = old + 1
 
-    def disable_signals(self):
+    def disable_signals(self, space):
         ident = rthread.get_ident()
-        new = self._signalsenabled[ident] - 1
+        try:
+            new = self._signalsenabled[ident] - 1
+        except KeyError:
+            raise OperationError(space.w_KeyError, space.wrap(
+                "cannot disable signals in thread not enabled for signals"))
         if new > 0:
             self._signalsenabled[ident] = new
         else:
