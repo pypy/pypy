@@ -3,6 +3,18 @@ import sys
 from pypy.module.thread.test.support import GenericTestThread
 
 
+class TestThreadSignal:
+    spaceconfig = dict(usemodules=['__pypy__', 'thread'])
+
+    def test_exit_twice(self, space):
+        from pypy.module.__pypy__.interp_signal import signals_exit, signals_enter
+        signals_exit(space)
+        try:
+            raises(KeyError, signals_exit, space)
+        finally:
+            signals_enter(space)
+
+
 class AppTestMinimal:
     spaceconfig = dict(usemodules=['__pypy__'])
 

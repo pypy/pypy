@@ -57,10 +57,7 @@ class OSThreadLocals:
 
     def disable_signals(self):
         ident = rthread.get_ident()
-        try:
-            new = self._signalsenabled[ident] - 1
-        except KeyError:
-            return
+        new = self._signalsenabled[ident] - 1
         if new > 0:
             self._signalsenabled[ident] = new
         else:
