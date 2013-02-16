@@ -187,7 +187,6 @@ class TestParseCommandLine:
     def test_sysflags(self):
         flags = (
             ("debug", "-d", "1"),
-            ("py3k_warning", "-3", "1"),
             ("division_warning", "-Qwarn", "1"),
             ("division_warning", "-Qwarnall", "2"),
             ("division_new", "-Qnew", "1"),
@@ -215,9 +214,9 @@ class TestParseCommandLine:
                        run_command='pass', **expected)
 
     def test_sysflags_envvar(self, monkeypatch):
-        monkeypatch.setenv('PYTHONNOUSERSITE', '1')
         expected = {"no_user_site": True}
-        self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass', **expected)
+        self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
+                   run_command='pass', **expected)
 
 
 class TestInteraction:
@@ -251,10 +250,10 @@ class TestInteraction:
         child.logfile = sys.stdout
         return child
 
-    def spawn(self, argv):
+    def spawn(self, argv, env=None):
         # make sure that when we do 'import pypy' we get the correct package
         with setpythonpath():
-            return self._spawn(python3, [app_main] + argv)
+            return self._spawn(python3, [app_main] + argv, env=env)
 
     def test_interactive(self):
         child = self.spawn([])
@@ -362,6 +361,7 @@ class TestInteraction:
         child.expect(re.escape(repr('NameError')))
 
     def test_atexit(self):
+        skip("Python3 atexit is a builtin module")
         child = self.spawn([])
         child.expect('>>> ')
         child.sendline('def f(): print("foobye")')
@@ -399,7 +399,7 @@ class TestInteraction:
         child.expect('Traceback')
         child.expect('NameError')
 
-    def test_pythonstartup_file1(self, monkeypatch):
+    def test_pythonstartup_file1(self, monkeypatch, demo_script):
         monkeypatch.setenv('PYTHONPATH', None)
         monkeypatch.setenv('PYTHONSTARTUP', demo_script)
         child = self.spawn([])
@@ -413,7 +413,7 @@ class TestInteraction:
         child.expect('Traceback')
         child.expect('NameError')
 
-    def test_pythonstartup_file2(self, monkeypatch):
+    def test_pythonstartup_file2(self, monkeypatch, crashing_demo_script):
         monkeypatch.setenv('PYTHONPATH', None)
         monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
         child = self.spawn([])
@@ -447,8 +447,8 @@ class TestInteraction:
     def test_python_path_keeps_duplicates(self):
         old = os.environ.get('PYTHONPATH', '')
         try:
-            os.environ['PYTHONPATH'] = 'foobarbaz:foobarbaz'
-            child = self.spawn(['-c', 'import sys; print sys.path'])
+            child = self.spawn(['-c', 'import sys; print(sys.path)'],
+                               env={'PYTHONPATH': 'foobarbaz:foobarbaz'})
             child.expect(r"\['', 'foobarbaz', 'foobarbaz', ")
         finally:
             os.environ['PYTHONPATH'] = old
@@ -457,7 +457,7 @@ class TestInteraction:
         old = os.environ.get('PYTHONPATH', '')
         try:
             os.environ['PYTHONPATH'] = 'foobarbaz'
-            child = self.spawn(['-E', '-c', 'import sys; print sys.path'])
+            child = self.spawn(['-E', '-c', 'import sys; print(sys.path)'])
             from pexpect import EOF
             index = child.expect(['foobarbaz', EOF])
             assert index == 1      # no foobarbaz
@@ -742,10 +742,11 @@ class TestNonInteractive:
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
         data = child_out_err.read(11)
-        assert data == '\x00[STDERR]\n\x00'    # from stderr
+        # Py3 is always at least line buffered
+        assert data == '\x00(STDOUT)\n\x00'    # from stdout
         child_in.close()
         data = child_out_err.read(11)
-        assert data == '\x00(STDOUT)\n\x00'    # from stdout
+        assert data == '\x00[STDERR]\n\x00'    # from stderr
         child_out_err.close()
 
     def test_non_interactive_stdout_unbuffered(self, monkeypatch):
@@ -758,7 +759,7 @@ class TestNonInteractive:
             time.sleep(1)
             # stdout flushed automatically here
             """)
-        cmdline = '%s -E "%s" %s' % (sys.executable, app_main, path)
+        cmdline = '%s -E "%s" %s' % (python3, app_main, path)
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
         data = child_out_err.read(11)

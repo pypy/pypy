@@ -689,7 +689,7 @@ def setup_bootstrap_path(executable):
     executable = sys.pypy_find_executable(executable)
     stdlib_path = sys.pypy_find_stdlib(executable)
     if stdlib_path is None:
-        print >> sys.stderr, STDLIB_WARNING
+        print(STDLIB_WARNING, file=sys.stderr)
     else:
         sys.path[:] = stdlib_path
     # from this point on, we are free to use all the unicode stuff we want,
