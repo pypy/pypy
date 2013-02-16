@@ -29,6 +29,17 @@ except ImportError:
             _atomic_global_lock.release()
     atomic = _Atomic()
 
+try:
+    from __pypy__.thread import signals_enabled
+except ImportError:
+    # Not a PyPy at all.
+    class _SignalsEnabled(object):
+        def __enter__(self):
+            pass
+        def __exit__(self, *args):
+            pass
+    signals_enabled = _SignalsEnabled()
+
 
 def set_num_threads(num):
     """Set the number of threads to use."""
@@ -114,11 +125,7 @@ class _ThreadPool(object):
             thread.start_new_thread(self._run_thread, ())
         # now wait.  When we manage to acquire the following lock, then
         # we are finished.
-        try:
-            acquire = self.lock_if_released_then_finished.acquire_interruptible
-        except AttributeError:     # not on pypy-stm
-            acquire = self.lock_if_released_then_finished.acquire
-        acquire()
+        self.lock_if_released_then_finished.acquire()
 
     def teardown(self):
         self.in_transaction = False
@@ -203,13 +210,14 @@ class _ThreadPool(object):
     def _do_it((f, args, kwds), got_exception):
         # this is a staticmethod in order to make sure that we don't
         # accidentally use 'self' in the atomic block.
-        with atomic:
-            if got_exception:
-                return    # return early if already an exception to reraise
-            try:
-                f(*args, **kwds)
-            except:
-                got_exception[:] = sys.exc_info()
+        try:
+            with signals_enabled:
+                with atomic:
+                    if got_exception:
+                        return    # return early if already an exc. to reraise
+                    f(*args, **kwds)
+        except:
+            got_exception[:] = sys.exc_info()
 
 _thread_pool = _ThreadPool()
 
