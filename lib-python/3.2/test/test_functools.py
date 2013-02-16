@@ -205,7 +205,7 @@ class TestUpdateWrapper(unittest.TestCase):
                       updated=functools.WRAPPER_UPDATES):
         # Check attributes were assigned
         for name in assigned:
-            self.assertTrue(getattr(wrapper, name) is getattr(wrapped, name))
+            self.assertTrue(getattr(wrapper, name) == getattr(wrapped, name))
         # Check attributes were updated
         for name in updated:
             wrapper_attr = getattr(wrapper, name)
