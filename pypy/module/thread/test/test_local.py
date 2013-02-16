@@ -128,6 +128,7 @@ def test_local_caching():
         class config:
             class translation:
                 rweakref = True
+                stm = False
 
     class FakeEC:
         def __init__(self, space):
@@ -158,4 +159,3 @@ def test_local_caching():
     l.dicts = "nope"
     assert l.getdict(space) is d1
     l.dicts = dicts
-
