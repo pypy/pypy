@@ -1158,22 +1158,12 @@ class ResOpAssembler(BaseAssembler):
                 assert result_loc.is_vfp_reg()
                 # we always have a register here, since we have to sync them
                 # before call_assembler
-                if not check_imm_arg(ofs):
-                    self.mc.gen_load_int(r.ip.value, ofs)
-                    self.mc.ADD_rr(r.ip.value, r.r0.value, r.ip.value)
-                    ofs = 0
-                    base = r.ip
-                else:
-                    base = r.r0
-                self.mc.VLDR(result_loc.value, base.value, imm=ofs)
+                self.mc.VLDR(result_loc.value, r.r0.value, imm=ofs)
             else:
                 assert result_loc is r.r0
                 ofs = self.cpu.unpack_arraydescr(descr)
-                if not check_imm_arg(ofs):
-                    self.mc.gen_load_int(r.ip.value, ofs)
-                    self.mc.LDR_rr(result_loc.value, result_loc.value, r.ip.value)
-                else:
-                    self.mc.LDR_ri(result_loc.value, result_loc.value, imm=ofs)
+                assert check_imm_arg(ofs)
+                self.mc.LDR_ri(result_loc.value, result_loc.value, imm=ofs)
 
     def _call_assembler_patch_jmp(self, jmp_location):
         # merge point
