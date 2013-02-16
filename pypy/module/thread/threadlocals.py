@@ -15,6 +15,7 @@ class OSThreadLocals:
     def _cleanup_(self):
         self._valuedict.clear()
         self._signalsenabled.clear()
+        self._mainthreadident = 0
         self._mostrecentkey = 0        # fast minicaching for the common case
         self._mostrecentvalue = None   # fast minicaching for the common case
 
@@ -35,6 +36,7 @@ class OSThreadLocals:
         if value is not None:
             if len(self._valuedict) == 0:
                 self._signalsenabled[ident] = 1    # the main thread is enabled
+                self._mainthreadident = ident
             self._valuedict[ident] = value
         else:
             try:
@@ -81,19 +83,10 @@ class OSThreadLocals:
         # (which are now dead); and for the current thread, force an
         # enable_signals() if necessary.  That's a hack but I cannot
         # figure out a non-hackish way to handle thread+signal+fork :-(
-        """
-        TODO: this logic is currently flawed as we need to differentiate
-        between: 1) fork while in a main thread, in which case old should
-                    not be incremented
-                 2) fork while in a subthread that has an enable_threads
-                    context but is not main (in which case old should be
-                    incremented, as the thread should get a point for becoming
-                    the new 'main', so it remains in the dict when all its
-                    contexts exit)
-        """
         ident = rthread.get_ident()
         old = self._signalsenabled.get(ident, 0)
+        if ident is not self._mainthreadident:
+            self._mainthreadident = ident
+            old += 1
         self._signalsenabled.clear()
-        if old == 0:
-            old = 1
         self._signalsenabled[ident] = old
