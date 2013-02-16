@@ -129,26 +129,18 @@ class TestParseCommandLine:
         self.check(['-S'], {}, sys_argv=[''], run_stdin=True, no_site=1)
         self.check(['-OO'], {}, sys_argv=[''], run_stdin=True, optimize=2)
         self.check(['-O', '-O'], {}, sys_argv=[''], run_stdin=True, optimize=2)
-        self.check(['-Qnew'], {}, sys_argv=[''], run_stdin=True, division_new=1)
-        self.check(['-Qold'], {}, sys_argv=[''], run_stdin=True, division_new=0)
-        self.check(['-Qwarn'], {}, sys_argv=[''], run_stdin=True, division_warning=1)
-        self.check(['-Qwarnall'], {}, sys_argv=[''], run_stdin=True,
-                   division_warning=2)
-        self.check(['-Q', 'new'], {}, sys_argv=[''], run_stdin=True, division_new=1)
-        self.check(['-SOQnew'], {}, sys_argv=[''], run_stdin=True,
-                   no_site=1, optimize=1, division_new=1)
-        self.check(['-SOQ', 'new'], {}, sys_argv=[''], run_stdin=True,
-                   no_site=1, optimize=1, division_new=1)
+        self.check(['-SO'], {}, sys_argv=[''], run_stdin=True,
+                   no_site=1, optimize=1)
         self.check(['-i'], {}, sys_argv=[''], run_stdin=True,
                    interactive=1, inspect=1)
         self.check(['-?'], {}, output_contains='usage:')
         self.check(['-h'], {}, output_contains='usage:')
-        self.check(['-S', '-tO', '-h'], {}, output_contains='usage:')
-        self.check(['-S', '-thO'], {}, output_contains='usage:')
-        self.check(['-S', '-tO', '--help'], {}, output_contains='usage:')
-        self.check(['-S', '-tO', '--info'], {}, output_contains='translation')
-        self.check(['-S', '-tO', '--version'], {}, output_contains='Python')
-        self.check(['-S', '-tOV'], {}, output_contains='Python')
+        self.check(['-S', '-O', '-h'], {}, output_contains='usage:')
+        self.check(['-S', '-hO'], {}, output_contains='usage:')
+        self.check(['-S', '-O', '--help'], {}, output_contains='usage:')
+        self.check(['-S', '-O', '--info'], {}, output_contains='translation')
+        self.check(['-S', '-O', '--version'], {}, output_contains='Python')
+        self.check(['-S', '-OV'], {}, output_contains='Python')
         self.check(['--jit', 'foobar', '-S'], {}, sys_argv=[''],
                    run_stdin=True, no_site=1)
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
@@ -187,9 +179,6 @@ class TestParseCommandLine:
     def test_sysflags(self):
         flags = (
             ("debug", "-d", "1"),
-            ("division_warning", "-Qwarn", "1"),
-            ("division_warning", "-Qwarnall", "2"),
-            ("division_new", "-Qnew", "1"),
             (["inspect", "interactive"], "-i", "1"),
             ("optimize", "-O", "1"),
             ("optimize", "-OO", "2"),
@@ -197,10 +186,7 @@ class TestParseCommandLine:
             ("no_user_site", "-s", "1"),
             ("no_site", "-S", "1"),
             ("ignore_environment", "-E", "1"),
-            ("tabcheck", "-t", "1"),
-            ("tabcheck", "-tt", "2"),
             ("verbose", "-v", "1"),
-            ("unicode", "-U", "1"),
             ("bytes_warning", "-b", "1"),
         )
         for flag, opt, value in flags:
@@ -727,6 +713,11 @@ class TestNonInteractive:
         data = self.run(cmdline, senddata='6*7\nraise SystemExit\n',
                                  expect_prompt=True, expect_banner=False)
         assert 'hello world\n' in data
+        assert '42\n' in data
+
+    def test_q_flag(self):
+        data = self.run('-iq', senddata='6*7\nraise SystemExit\n',
+                        expect_prompt=True, expect_banner=False)
         assert '42\n' in data
 
     def test_non_interactive_stdout_fully_buffered(self):

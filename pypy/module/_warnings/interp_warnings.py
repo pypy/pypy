@@ -15,11 +15,8 @@ class State:
     def init_filters(self, space):
         filters_w = []
 
-        if (not space.sys.get_flag('py3k_warning') and
-            not space.sys.get_flag('division_warning')):
-            filters_w.append(create_filter(
-                space, space.w_DeprecationWarning, "ignore"))
-
+        filters_w.append(create_filter(
+            space, space.w_DeprecationWarning, "ignore"))
         filters_w.append(create_filter(
             space, space.w_PendingDeprecationWarning, "ignore"))
         filters_w.append(create_filter(

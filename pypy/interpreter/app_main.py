@@ -299,9 +299,7 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
 # Order is significant!
 sys_flags = (
     "debug",
-    "py3k_warning",
     "division_warning",
-    "division_new",
     "inspect",
     "interactive",
     "optimize",
@@ -309,10 +307,9 @@ sys_flags = (
     "no_user_site",
     "no_site",
     "ignore_environment",
-    "tabcheck",
     "verbose",
-    "unicode",
     "bytes_warning",
+    "quiet",
     "hash_randomization",
 )
 
@@ -326,16 +323,6 @@ default_options = dict.fromkeys(
 
 def simple_option(options, name, iterargv):
     options[name] += 1
-
-def div_option(options, div, iterargv):
-    if div == "warn":
-        options["division_warning"] = 1
-    elif div == "warnall":
-        options["division_warning"] = 2
-    elif div == "new":
-        options["division_new"] = 1
-    elif div != "old":
-        raise CommandLineError("invalid division option: %r" % (div,))
 
 def c_option(options, runcmd, iterargv):
     options["run_command"] = runcmd
@@ -362,11 +349,10 @@ cmdline_options = {
     'R': (simple_option, 'hash_randomization'),
     's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
-    't': (simple_option, 'tabcheck'),
-    'U': (simple_option, 'unicode'),
     'u': (simple_option, 'unbuffered'),
     'b': (simple_option, 'bytes_warning'),
     'v': (simple_option, 'verbose'),
+    'q': (simple_option, 'quiet'),
     # more complex options
     'c':         (c_option,        Ellipsis),
     '?':         (print_help,      None),
@@ -376,7 +362,6 @@ cmdline_options = {
     'W':         (W_option,        Ellipsis),
     'V':         (print_version,   None),
     '--version': (print_version,   None),
-    'Q':         (div_option,      Ellipsis),
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '--':        (end_options,     None),
@@ -465,12 +450,7 @@ def parse_command_line(argv):
     if we_are_translated():
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
-        sys.py3kwarning = bool(sys.flags.py3k_warning)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
-
-        if sys.py3kwarning:
-            print("Warning: pypy does not implement py3k warnings",
-                  file=sys.stderr)
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):
@@ -493,6 +473,7 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
+                     quiet,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -577,9 +558,11 @@ def run_command_line(interactive,
             sys.path.insert(0, '')
 
             if interactive or sys.stdin.isatty():
-                # If stdin is a tty or if "-i" is specified, we print
-                # a banner and run $PYTHONSTARTUP.
-                print_banner()
+                # If stdin is a tty or if "-i" is specified, we print a
+                # banner (unless "-q" was specified) and run
+                # $PYTHONSTARTUP.
+                if not quiet:
+                    print_banner()
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
@@ -655,7 +638,7 @@ def run_command_line(interactive,
         inteactive = False
         try:
             from _pypy_interact import interactive_console
-            success = run_toplevel(interactive_console, mainmodule)
+            success = run_toplevel(interactive_console, mainmodule, quiet)
         except SystemExit as e:
             status = e.code
         else:
