@@ -69,6 +69,8 @@ class AssemblerARM(ResOpAssembler):
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
+        if we_are_translated():
+            self.debug = False
         self.current_clt = looptoken.compiled_loop_token
         self.mc = ARMv7Builder()
         self.pending_guards = []
