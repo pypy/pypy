@@ -1,5 +1,9 @@
 from rpython.rlib import rthread
-from pypy.interpreter.error import OperationError
+from pypy.module.thread.error import wrap_thread_error
+from pypy.interpreter.executioncontext import ExecutionContext
+
+
+ExecutionContext._signals_enabled = 0     # default value
 
 
 class OSThreadLocals:
@@ -10,12 +14,10 @@ class OSThreadLocals:
 
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
-        self._signalsenabled = {}   # {thread_ident: number-of-times}
         self._cleanup_()
 
     def _cleanup_(self):
         self._valuedict.clear()
-        self._signalsenabled.clear()
         self._mainthreadident = 0
         self._mostrecentkey = 0        # fast minicaching for the common case
         self._mostrecentvalue = None   # fast minicaching for the common case
@@ -36,7 +38,7 @@ class OSThreadLocals:
         ident = rthread.get_ident()
         if value is not None:
             if len(self._valuedict) == 0:
-                self._signalsenabled[ident] = 1    # the main thread is enabled
+                value._signals_enabled = 1    # the main thread is enabled
                 self._mainthreadident = ident
             self._valuedict[ident] = value
         else:
@@ -44,33 +46,25 @@ class OSThreadLocals:
                 del self._valuedict[ident]
             except KeyError:
                 pass
-            try:
-                del self._signalsenabled[ident]
-            except KeyError:
-                pass
         # update the minicache to prevent it from containing an outdated value
         self._mostrecentkey = ident
         self._mostrecentvalue = value
 
     def signals_enabled(self):
-        return rthread.get_ident() in self._signalsenabled
+        ec = self.getvalue()
+        return ec._signals_enabled
 
     def enable_signals(self, space):
-        ident = rthread.get_ident()
-        old = self._signalsenabled.get(ident, 0)
-        self._signalsenabled[ident] = old + 1
+        ec = self.getvalue()
+        ec._signals_enabled += 1
 
     def disable_signals(self, space):
-        ident = rthread.get_ident()
-        try:
-            new = self._signalsenabled[ident] - 1
-        except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(
-                "cannot disable signals in thread not enabled for signals"))
-        if new > 0:
-            self._signalsenabled[ident] = new
-        else:
-            del self._signalsenabled[ident]
+        ec = self.getvalue()
+        new = ec._signals_enabled - 1
+        if new < 0:
+            raise wrap_thread_error(space,
+                "cannot disable signals in thread not enabled for signals")
+        ec._signals_enabled = new
 
     def getallvalues(self):
         return self._valuedict
@@ -85,16 +79,10 @@ class OSThreadLocals:
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"
-        # clear the _signalsenabled dictionary for all other threads
-        # (which are now dead); and for the current thread, force an
-        # enable_signals() if necessary.  That's a hack but I cannot
-        # figure out a non-hackish way to handle thread+signal+fork :-(
         ident = rthread.get_ident()
-        val = self.getvalue()
-        sig = self._signalsenabled.get(ident, 0)
+        ec = self.getvalue()
         if ident != self._mainthreadident:
-            sig += 1
+            ec._signals_enabled += 1
         self._cleanup_()
-        self.setvalue(val)
-        self._signalsenabled[ident] = sig
+        self.setvalue(ec)
         self._mainthreadident = ident
