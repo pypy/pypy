@@ -8,6 +8,7 @@ import sys
 import subprocess
 import tempfile
 from test.script_helper import spawn_python, kill_python, assert_python_ok, assert_python_failure
+from test.support import check_impl_detail
 
 
 # XXX (ncoghlan): Move to script_helper and make consistent with run_python
@@ -339,7 +340,8 @@ class CmdLineTest(unittest.TestCase):
             rc, out, err = assert_python_ok('-R', '-c', code)
             self.assertEqual(rc, 0)
             hashes.append(out)
-        self.assertNotEqual(hashes[0], hashes[1])
+        if check_impl_detail(pypy=False):  # PyPy does not really implement it!
+            self.assertNotEqual(hashes[0], hashes[1])
 
         # Verify that sys.flags contains hash_randomization
         code = 'import sys; print("random is", sys.flags.hash_randomization)'
