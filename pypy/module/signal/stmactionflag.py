@@ -1,5 +1,5 @@
 from pypy.interpreter.executioncontext import AbstractActionFlag
-from rpython.rlib import jit
+from rpython.rlib import jit, rstm
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rsignal import pypysig_get_occurred, pypysig_set_occurred
 
@@ -17,6 +17,12 @@ class SignalActionFlag(AbstractActionFlag):
 
     def reset_ticker(self, value):
         if we_are_translated():
+            # explicit manipulation of the counter needs to turn the
+            # transaction inevitable.  We don't turn it inevitable in
+            # decrement_ticker() or if a real signal is received, but
+            # we turn it inevitable when this condition is detected
+            # and we reset a value >= 0.
+            rstm.become_inevitable()
             pypysig_set_occurred(value)
 
     def rearm_ticker(self):
