@@ -15,7 +15,7 @@ from __future__ import with_statement
 import sys, thread, collections
 
 try:
-    from thread import atomic
+    from __pypy__.thread import atomic
 except ImportError:
     # Not a STM-enabled PyPy.  We can still provide a version of 'atomic'
     # that is good enough for our purposes.  With this limited version,
