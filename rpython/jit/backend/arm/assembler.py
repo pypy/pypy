@@ -42,7 +42,7 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
 
 class AssemblerARM(ResOpAssembler):
 
-    debug = True
+    debug = False
 
     def __init__(self, cpu, translate_support_code=False):
         ResOpAssembler.__init__(self, cpu, translate_support_code)
