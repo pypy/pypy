@@ -53,9 +53,10 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'x86_32': 'i386',
         'x86_64': 'x86-64',
         'i386': 'i386',
+        'arm': 'arm',
     }
     cmd = find_objdump()
-    objdump = ('%(command)s -M %(backend)s -b binary -m i386 '
+    objdump = ('%(command)s -M %(backend)s -b binary -m %(machine)s '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
@@ -67,6 +68,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'file': tmpfile,
         'origin': originaddr,
         'backend': objdump_backend_option[backend_name],
+        'machine': 'i386' if backend_name != 'arm' else 'arm',
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
