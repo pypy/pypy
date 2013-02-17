@@ -185,7 +185,7 @@ class ArrayTestCase(unittest.TestCase):
             class T(Array):
                 _type_ = c_int
                 _length_ = sys.maxsize * 2
-        with self.assertRaises(AttributeError):
+        with self.assertRaises((AttributeError, TypeError)):
             class T(Array):
                 _type_ = c_int
                 _length_ = 1.87
