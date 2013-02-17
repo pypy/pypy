@@ -556,7 +556,6 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
                 except (UnicodeError, TypeError, ValueError) as e:
-                    raise
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
