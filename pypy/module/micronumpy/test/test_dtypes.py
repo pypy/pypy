@@ -3,19 +3,35 @@ from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
 
-class AppTestDtypes(BaseNumpyAppTest):
+class BaseAppTestDtypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            import platform
+            bits, linkage = platform.architecture()
+            ptr_size = int(bits[:-3]) // 8
+        else:
+            from rpython.rtyper.lltypesystem import rffi
+            ptr_size = rffi.sizeof(rffi.CCHARP)
+        cls.w_ptr_size = cls.space.wrap(ptr_size)
+
+class AppTestDtypes(BaseAppTestDtypes):
     def test_dtype(self):
         from _numpypy import dtype
 
         d = dtype('?')
         assert d.num == 0
         assert d.kind == 'b'
-        assert dtype('int8').num == 1
         assert dtype(d) is d
-        assert dtype(None) is dtype(float)
+        assert dtype('bool') is d
+
+        assert dtype('int8').num == 1
         assert dtype('int8').name == 'int8'
         assert dtype(int).fields is None
         assert dtype(int).names is None
+
+        assert dtype(None) is dtype(float)
+
         raises(TypeError, dtype, 1042)
         raises(KeyError, 'dtype(int)["asdasd"]')
 
@@ -27,12 +43,31 @@ class AppTestDtypes(BaseNumpyAppTest):
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
 
+    def test_dtype_aliases(self):
+        from _numpypy import dtype
+        assert dtype('longfloat').num in (12, 13)
+        assert dtype('longdouble').num in (12, 13)
+        assert dtype('clongfloat').num in (15, 16)
+        assert dtype('clongdouble').num in (15, 16)
+
     def test_dtype_with_types(self):
         from _numpypy import dtype
 
         assert dtype(bool).num == 0
-        assert dtype('intp').num == 5
-        assert dtype('uintp').num == 6
+        if self.ptr_size == 4:
+            assert dtype('intp').num == 5
+            assert dtype('uintp').num == 6
+            assert dtype('int32').num == 7
+            assert dtype('uint32').num == 8
+            assert dtype('int64').num == 9
+            assert dtype('uint64').num == 10
+        else:
+            assert dtype('intp').num == 7
+            assert dtype('uintp').num == 8
+            assert dtype('int32').num == 5
+            assert dtype('uint32').num == 6
+            assert dtype('int64').num == 7
+            assert dtype('uint64').num == 8
         assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
@@ -147,7 +182,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         for d1, d2, dout in tests:
             # make a failed test print helpful info
             d3 = (array([1], d1) + array([1], d2)).dtype
-            assert (d1, d2, repr(d3)) == (d1, d2, repr(dtype(dout)))
+            assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
 
     def test_add_int8(self):
         from _numpypy import array, dtype
@@ -241,20 +276,10 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert hash(tp(value)) == hash(value)
 
 
-class AppTestTypes(BaseNumpyAppTest):
-    def setup_class(cls):
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        if option.runappdirect:
-            import platform
-            bits, linkage = platform.architecture()
-            ptr_size = int(bits[:-3]) // 8
-        else:
-            from rpython.rtyper.lltypesystem import rffi
-            ptr_size = rffi.sizeof(rffi.CCHARP)
-        cls.w_ptr_size = cls.space.wrap(ptr_size)
-
+class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
         import _numpypy as numpy
+
         raises(TypeError, numpy.generic, 0)
         raises(TypeError, numpy.number, 0)
         raises(TypeError, numpy.integer, 0)
@@ -266,6 +291,31 @@ class AppTestTypes(BaseNumpyAppTest):
         assert 'unsignedinteger' in str(exc.value)
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
+
+        # numpy allows abstract types in array creation
+        a_n = numpy.array([4,4], numpy.number)
+        a_i = numpy.array([4,4], numpy.integer)
+        a_s = numpy.array([4,4], numpy.signedinteger)
+        a_u = numpy.array([4,4], numpy.unsignedinteger)
+
+        assert a_n.dtype.num == 12
+        assert a_i.dtype.num == 7
+        assert a_s.dtype.num == 7
+        assert a_u.dtype.num == 8
+
+        assert a_n.dtype is numpy.dtype('float64')
+        if self.ptr_size == 4:
+            assert a_i.dtype is numpy.dtype('int32')
+            assert a_s.dtype is numpy.dtype('int32')
+            assert a_u.dtype is numpy.dtype('uint32')
+        else:
+            assert a_i.dtype is numpy.dtype('int64')
+            assert a_s.dtype is numpy.dtype('int64')
+            assert a_u.dtype is numpy.dtype('uint64')
+
+        # too ambitious for now
+        #a = numpy.array('xxxx', numpy.generic)
+        #assert a.dtype is numpy.dtype('|V4')
 
     def test_new(self):
         import _numpypy as np
@@ -473,6 +523,13 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
 
+    def test_float_None(self):
+        import _numpypy as numpy
+        from math import isnan
+        assert isnan(numpy.float32(None))
+        assert isnan(numpy.float64(None))
+        assert isnan(numpy.longdouble(None))
+
     def test_longfloat(self):
         import _numpypy as numpy
         # it can be float96 or float128
@@ -481,7 +538,7 @@ class AppTestTypes(BaseNumpyAppTest):
                                        numpy.inexact, numpy.number, 
                                        numpy.generic, object]
         a = numpy.array([1, 2, 3], numpy.longdouble)
-        assert repr(type(a[1])) == repr(numpy.longdouble)
+        assert type(a[1]) is numpy.longdouble
         assert numpy.float64(12) == numpy.longdouble(12)
         assert numpy.float64(12) == numpy.longfloat(12)
         raises(ValueError, numpy.longfloat, '23.2df')
@@ -493,8 +550,9 @@ class AppTestTypes(BaseNumpyAppTest):
             numpy.inexact, numpy.number, numpy.generic, object)
 
     def test_complex_format(self):
+        import sys
         import _numpypy as numpy
-        
+
         for complex_ in (numpy.complex128, numpy.complex64,):
             for real, imag, should in [
                 (1, 2, '(1+2j)'),
@@ -505,13 +563,13 @@ class AppTestTypes(BaseNumpyAppTest):
                 #xxx
                 #(numpy.inf, numpy.inf, '(inf+inf*j)'),
                 ]:
-            
+
                 c = complex_(complex(real, imag))
                 assert c == complex(real, imag)
                 assert c.real == real
                 assert c.imag == imag
                 assert repr(c) == should
-            
+
         real, imag, should = (1e100, 3e66, '(1e+100+3e+66j)')
         c128 = numpy.complex128(complex(real, imag))
         assert type(c128.real) is type(c128.imag) is numpy.float64
@@ -520,7 +578,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert repr(c128) == should
 
         c64 = numpy.complex64(complex(real, imag))
-        assert repr(c64.real) == 'inf'  
+        assert repr(c64.real) == 'inf'
         assert type(c64.real) is type(c64.imag) is numpy.float32
         assert repr(c64.imag).startswith('inf')
         assert repr(c64) in ('(inf+inf*j)', '(inf+infj)')
@@ -528,7 +586,9 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
         assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
-        raises (TypeError, numpy.array, [3+4j], dtype=float)
+        raises((ValueError, TypeError), numpy.array, [3+4j], dtype=float)
+        if sys.version_info >= (2, 7):
+            assert "{:g}".format(numpy.complex_(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
     def test_complex(self):
         import _numpypy as numpy
@@ -547,8 +607,6 @@ class AppTestTypes(BaseNumpyAppTest):
         assert d.kind == 'c'
         assert d.num == 14
         assert d.char == 'F'
-        
-
 
     def test_subclass_type(self):
         import _numpypy as numpy
@@ -579,6 +637,9 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_various_types(self):
         import _numpypy as numpy
+
+        assert numpy.bool is bool
+        assert numpy.int is int
 
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte

@@ -1,17 +1,20 @@
-from rpython.flowspace.model import FunctionGraph, Constant, Variable, c_last_exception
-from rpython.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_longlonglong
-from rpython.rlib.rarithmetic import r_ulonglong, is_valid_int
-from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
-from rpython.rtyper.lltypesystem import rclass
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rlib.objectmodel import ComputedIntSymbolic, CDefinedIntSymbolic
-from rpython.rlib.objectmodel import Symbolic
-from rpython.rlib import rstackovf
+import cStringIO
+import os
+import sys
+import traceback
 
-import sys, os
-import math
 import py
-import traceback, cStringIO
+
+from rpython.flowspace.model import (FunctionGraph, Constant, Variable,
+    c_last_exception)
+from rpython.rlib import rstackovf
+from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
+    Symbolic)
+# intmask is used in an exec'd code block
+from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, intmask
+from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap, rclass
+from rpython.rtyper.ootypesystem import ootype
+
 
 log = py.log.Producer('llinterp')
 
@@ -19,6 +22,7 @@ class LLException(Exception):
     def __init__(self, *args):
         "NOT_RPYTHON"
         Exception.__init__(self, *args)
+
     def __str__(self):
         etype = self.args[0]
         #evalue = self.args[1]
@@ -42,7 +46,7 @@ def type_name(etype):
         return ''.join(etype.name).rstrip('\x00')
     else:
         # ootype!
-        return etype._INSTANCE._name.split(".")[-1] 
+        return etype._INSTANCE._name.split(".")[-1]
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -336,7 +340,7 @@ class LLFrame(object):
                     evalue = exc_data.exc_value
                     if tracer:
                         tracer.dump('raise')
-                    exc_data.exc_type  = lltype.typeOf(etype )._defl()
+                    exc_data.exc_type = lltype.typeOf(etype)._defl()
                     exc_data.exc_value = lltype.typeOf(evalue)._defl()
                     from rpython.translator import exceptiontransform
                     T = resultvar.concretetype
@@ -641,7 +645,6 @@ class LLFrame(object):
         if ITEMTYPE is not lltype.Void:
             array[index] = item
 
-
     def perform_call(self, f, ARGS, args):
         fobj = self.llinterpreter.typer.type_system.deref(f)
         has_callable = getattr(fobj, '_callable', None) is not None
@@ -652,11 +655,11 @@ class LLFrame(object):
             return self.invoke_callable_with_pyexceptions(f, *args)
         args_v = graph.getargs()
         if len(ARGS) != len(args_v):
-            raise TypeError("graph with %d args called with wrong func ptr type: %r" %(len(args_v), ARGS)) 
+            raise TypeError("graph with %d args called with wrong func ptr type: %r" %(len(args_v), ARGS))
         for T, v in zip(ARGS, args_v):
             if not lltype.isCompatibleType(T, v.concretetype):
                 raise TypeError("graph with %r args called with wrong func ptr type: %r" %
-                                (tuple([v.concretetype for v in args_v]), ARGS)) 
+                                (tuple([v.concretetype for v in args_v]), ARGS))
         frame = self.newsubframe(graph, args)
         return frame.eval()
 
@@ -670,7 +673,7 @@ class LLFrame(object):
         if graphs is not None:
             obj = self.llinterpreter.typer.type_system.deref(f)
             if hasattr(obj, 'graph'):
-                assert obj.graph in graphs 
+                assert obj.graph in graphs
         else:
             pass
             #log.warn("op_indirect_call with graphs=None:", f)
@@ -1052,7 +1055,7 @@ class LLFrame(object):
                 if x^y < 0 and x%%y != 0:
                     r += 1
                 return r
-                '''%locals()
+                ''' % locals()
         elif operator == '%':
             ## overflow check on % does not work with emulated int
             code = '''%(checkfn)s(x // y)
@@ -1060,9 +1063,9 @@ class LLFrame(object):
                 if x^y < 0 and x%%y != 0:
                     r -= y
                 return r
-                '''%locals()
+                ''' % locals()
         else:
-            code = 'return %(checkfn)s(x %(operator)s y)'%locals()
+            code = 'return %(checkfn)s(x %(operator)s y)' % locals()
         exec py.code.Source("""
         def %(fn)s(self, x, y):
             assert isinstance(x, %(xtype)s)
@@ -1094,7 +1097,7 @@ class LLFrame(object):
 
     _makefunc2('op_lllong_floordiv_zer',   '//', 'r_longlonglong')
     _makefunc2('op_lllong_mod_zer',        '%',  'r_longlonglong')
-    
+
     def op_int_add_nonneg_ovf(self, x, y):
         if isinstance(y, int):
             assert y >= 0
@@ -1114,9 +1117,9 @@ class LLFrame(object):
     def op_check_and_clear_exc(self):
         exc_data = self.llinterpreter.get_transformed_exc_data(self.graph)
         assert exc_data
-        etype  = exc_data.exc_type
+        etype = exc_data.exc_type
         evalue = exc_data.exc_value
-        exc_data.exc_type  = lltype.typeOf(etype )._defl()
+        exc_data.exc_type = lltype.typeOf(etype)._defl()
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
 
@@ -1125,7 +1128,7 @@ class LLFrame(object):
     def op_new(self, INST):
         assert isinstance(INST, (ootype.Instance, ootype.BuiltinType))
         return ootype.new(INST)
-        
+
     def op_oonewarray(self, ARRAY, length):
         assert isinstance(ARRAY, ootype.Array)
         assert is_valid_int(length)
@@ -1139,7 +1142,7 @@ class LLFrame(object):
         eq_name, interp_eq = \
                  wrap_callable(self.llinterpreter, eq_func, eq_obj, eq_method_name)
         EQ_FUNC = ootype.StaticMethod([DICT._KEYTYPE, DICT._KEYTYPE], ootype.Bool)
-        sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)        
+        sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)
 
         hash_name, interp_hash = \
                    wrap_callable(self.llinterpreter, hash_func, hash_obj, hash_method_name)

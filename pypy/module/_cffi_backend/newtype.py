@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
+from rpython.rlib.rarithmetic import most_neg_value_of, most_pos_value_of
 from rpython.rlib.objectmodel import specialize
 
 from pypy.module._cffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
@@ -263,26 +264,38 @@ def new_void_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str)
-def new_enum_type(space, name, w_enumerators, w_enumvalues):
+@unwrap_spec(name=str, basectype=ctypeobj.W_CType)
+def new_enum_type(space, name, w_enumerators, w_enumvalues, basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
         raise OperationError(space.w_ValueError,
                              space.wrap("tuple args must have the same size"))
     enumerators = [space.str_w(w) for w in enumerators_w]
-    enumvalues = []
+    #
+    if (not isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned) and
+        not isinstance(basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
+        raise OperationError(space.w_TypeError,
+              space.wrap("expected a primitive signed or unsigned base type"))
+    #
+    lvalue = lltype.malloc(rffi.CCHARP.TO, basectype.size, flavor='raw')
     try:
         for w in enumvalues_w:
-            enumvalues.append(space.c_int_w(w))
-    except OperationError, e:
-        if not e.match(space, space.w_OverflowError):
-            raise
-        i = len(enumvalues)
-        raise operationerrfmt(space.w_OverflowError,
-            "enum '%s' declaration for '%s' does not fit an int",
-                              name, enumerators[i])
-    ctype = ctypeenum.W_CTypeEnum(space, name, enumerators, enumvalues)
+            # detects out-of-range or badly typed values
+            basectype.convert_from_object(lvalue, w)
+    finally:
+        lltype.free(lvalue, flavor='raw')
+    #
+    size = basectype.size
+    align = basectype.align
+    if isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned):
+        enumvalues = [space.int_w(w) for w in enumvalues_w]
+        ctype = ctypeenum.W_CTypeEnumSigned(space, name, size, align,
+                                            enumerators, enumvalues)
+    else:
+        enumvalues = [space.uint_w(w) for w in enumvalues_w]
+        ctype = ctypeenum.W_CTypeEnumUnsigned(space, name, size, align,
+                                              enumerators, enumvalues)
     return ctype
 
 # ____________________________________________________________
@@ -302,8 +315,13 @@ def new_function_type(space, w_fargs, fresult, ellipsis=0):
     #
     if ((fresult.size < 0 and not isinstance(fresult, ctypevoid.W_CTypeVoid))
             or isinstance(fresult, ctypearray.W_CTypeArray)):
-        raise operationerrfmt(space.w_TypeError,
-                              "invalid result type: '%s'", fresult.name)
+        if (isinstance(fresult, ctypestruct.W_CTypeStructOrUnion) and
+                fresult.size < 0):
+            raise operationerrfmt(space.w_TypeError,
+                                  "result type '%s' is opaque", fresult.name)
+        else:
+            raise operationerrfmt(space.w_TypeError,
+                                  "invalid result type: '%s'", fresult.name)
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis)
     return fct

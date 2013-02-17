@@ -1,5 +1,9 @@
 """Tests for _sqlite3.py"""
 
+import sys
+if sys.version_info < (2, 7):
+    skip("lib_pypy._sqlite3 doesn't work with python < 2.7")
+
 def test_list_ddl():
     """From issue996.  Mostly just looking for lack of exceptions."""
     from lib_pypy._sqlite3 import connect

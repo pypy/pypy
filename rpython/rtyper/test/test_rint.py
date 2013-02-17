@@ -115,6 +115,22 @@ class BaseTestRint(BaseRtypingTest):
         res = self.interpret(f, [r_int64(413974738222117)])
         assert self.ll_to_string(res) == '413974738222117'
 
+    def test_str_of_uint(self):
+        def f(i):
+            return str(i)
+
+        res = self.interpret(f, [r_uint(0)])
+        assert self.ll_to_string(res) == '0'
+
+        res = self.interpret(f, [r_uint(sys.maxint)])
+        assert self.ll_to_string(res) == str(sys.maxint)
+
+        res = self.interpret(f, [r_uint(sys.maxint+1)])
+        assert self.ll_to_string(res) == str(sys.maxint+1)
+
+        res = self.interpret(f, [r_uint(-1)])
+        assert self.ll_to_string(res) == str(2*sys.maxint+1)
+
     def test_unsigned(self):
         bigvalue = r_uint(sys.maxint + 17)
         def dummy(i):

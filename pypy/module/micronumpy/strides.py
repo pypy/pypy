@@ -28,7 +28,7 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
     for i, chunk in enumerate_chunks(chunks):
         if chunk.step != 0:
             rstrides[j] = strides[i] * chunk.step
-            rbackstrides[j] = strides[i] * (chunk.lgt - 1) * chunk.step
+            rbackstrides[j] = strides[i] * max(0, chunk.lgt - 1) * chunk.step
             rshape[j] = chunk.lgt
             j += 1
         rstart += strides[i] * chunk.start

@@ -127,7 +127,7 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         assert reshape(a, (1, -1)).shape == (1, 105)
         assert reshape(a, (1, 1, -1)).shape == (1, 1, 105)
         assert reshape(a, (-1, 1, 1)).shape == (105, 1, 1)
-    
+
     def test_transpose(self):   
         from numpypy import arange, array, transpose, ones
         x = arange(4).reshape((2,2))
@@ -136,7 +136,7 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         raises(NotImplementedError, "transpose(x, axes=(1, 0, 2))")
         # x = ones((1, 2, 3))
         # assert transpose(x, (1, 0, 2)).shape == (2, 1, 3)
-    
+
     def test_fromnumeric(self):
         from numpypy import array, swapaxes
         x = array([[1,2,3]])

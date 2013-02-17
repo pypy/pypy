@@ -998,6 +998,8 @@ def test_call_function_23():
     f = cast(BFunc23, _testfunc(23))
     res = f(b"foo")
     assert res == 1000 * ord(b'f')
+    res = f(None)
+    assert res == -42
 
 def test_call_function_23_bis():
     # declaring the function as int(unsigned char*)
@@ -1262,80 +1264,130 @@ def test_callback_returning_void():
     py.test.raises(TypeError, callback, BFunc, cb, -42)
 
 def test_enum_type():
-    BEnum = new_enum_type("foo", (), ())
+    BUInt = new_primitive_type("unsigned int")
+    BEnum = new_enum_type("foo", (), (), BUInt)
     assert repr(BEnum) == "<ctype 'enum foo'>"
     assert BEnum.kind == "enum"
     assert BEnum.cname == "enum foo"
     assert BEnum.elements == {}
     #
-    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
+    BInt = new_primitive_type("int")
+    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
     assert BEnum.kind == "enum"
     assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
     # 'elements' is not the real dict, but merely a copy
     BEnum.elements[2] = '??'
     assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
     #
-    BEnum = new_enum_type("bar", ('ab', 'cd'), (5, 5))
+    BEnum = new_enum_type("bar", ('ab', 'cd'), (5, 5), BUInt)
     assert BEnum.elements == {5: 'ab'}
     assert BEnum.relements == {'ab': 5, 'cd': 5}
 
 def test_cast_to_enum():
-    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
+    BInt = new_primitive_type("int")
+    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
+    assert sizeof(BEnum) == sizeof(BInt)
     e = cast(BEnum, 0)
-    assert repr(e) == "<cdata 'enum foo' 'def'>"
+    assert repr(e) == "<cdata 'enum foo' 0: def>"
+    assert repr(cast(BEnum, -42)) == "<cdata 'enum foo' -42>"
+    assert repr(cast(BEnum, -20)) == "<cdata 'enum foo' -20: ab>"
     assert string(e) == 'def'
     assert string(cast(BEnum, -20)) == 'ab'
-    assert string(cast(BEnum, 'c')) == 'c'
-    assert int(cast(BEnum, 'c')) == 1
-    assert int(cast(BEnum, 'def')) == 0
+    assert int(cast(BEnum, 1)) == 1
+    assert int(cast(BEnum, 0)) == 0
     assert int(cast(BEnum, -242 + 2**128)) == -242
-    assert string(cast(BEnum, -242 + 2**128)) == '#-242'
-    assert string(cast(BEnum, '#-20')) == 'ab'
-    assert repr(cast(BEnum, '#-20')) == "<cdata 'enum foo' 'ab'>"
-    assert repr(cast(BEnum, '#-21')) == "<cdata 'enum foo' '#-21'>"
+    assert string(cast(BEnum, -242 + 2**128)) == '-242'
+    #
+    BUInt = new_primitive_type("unsigned int")
+    BEnum = new_enum_type("bar", ('def', 'c', 'ab'), (0, 1, 20), BUInt)
+    e = cast(BEnum, -1)
+    assert repr(e) == "<cdata 'enum bar' 4294967295>"     # unsigned int
+    #
+    BLong = new_primitive_type("long")
+    BEnum = new_enum_type("baz", (), (), BLong)
+    assert sizeof(BEnum) == sizeof(BLong)
+    e = cast(BEnum, -1)
+    assert repr(e) == "<cdata 'enum baz' -1>"
 
 def test_enum_with_non_injective_mapping():
-    BEnum = new_enum_type("foo", ('ab', 'cd'), (7, 7))
+    BInt = new_primitive_type("int")
+    BEnum = new_enum_type("foo", ('ab', 'cd'), (7, 7), BInt)
     e = cast(BEnum, 7)
-    assert repr(e) == "<cdata 'enum foo' 'ab'>"
+    assert repr(e) == "<cdata 'enum foo' 7: ab>"
     assert string(e) == 'ab'
 
 def test_enum_in_struct():
-    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
+    BInt = new_primitive_type("int")
+    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
     BStruct = new_struct_type("bar")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BEnum, -1)])
     p = newp(BStructPtr, [-20])
-    assert p.a1 == "ab"
-    p = newp(BStructPtr, ["c"])
-    assert p.a1 == "c"
+    assert p.a1 == -20
+    p = newp(BStructPtr, [12])
+    assert p.a1 == 12
     e = py.test.raises(TypeError, newp, BStructPtr, [None])
-    assert "must be a str or int, not NoneType" in str(e.value)
+    assert ("an integer is required" in str(e.value) or
+        "unsupported operand type for int(): 'NoneType'" in str(e.value)) #PyPy
+    py.test.raises(TypeError, 'p.a1 = "def"')
     if sys.version_info < (3,):
-        p.a1 = unicode("def")
-        assert p.a1 == "def" and type(p.a1) is str
-        py.test.raises(UnicodeEncodeError, "p.a1 = unichr(1234)")
-        BEnum2 = new_enum_type(unicode("foo"), (unicode('abc'),), (5,))
-        assert string(cast(BEnum2, unicode('abc'))) == 'abc'
+        BEnum2 = new_enum_type(unicode("foo"), (unicode('abc'),), (5,), BInt)
+        assert string(cast(BEnum2, 5)) == 'abc'
+        assert type(string(cast(BEnum2, 5))) is str
 
 def test_enum_overflow():
-    for ovf in (2**63, -2**63-1, 2**31, -2**31-1):
-        e = py.test.raises(OverflowError, new_enum_type, "foo", ('a', 'b'),
-                           (5, ovf))
-        assert str(e.value) == (
-            "enum 'foo' declaration for 'b' does not fit an int")
+    max_uint = 2 ** (size_of_int()*8) - 1
+    max_int = max_uint // 2
+    max_ulong = 2 ** (size_of_long()*8) - 1
+    max_long = max_ulong // 2
+    for BPrimitive in [new_primitive_type("int"),
+                       new_primitive_type("unsigned int"),
+                       new_primitive_type("long"),
+                       new_primitive_type("unsigned long")]:
+        for x in [max_uint, max_int, max_ulong, max_long]:
+            for testcase in [x, x+1, -x-1, -x-2]:
+                if int(cast(BPrimitive, testcase)) == testcase:
+                    # fits
+                    BEnum = new_enum_type("foo", ("AA",), (testcase,),
+                                          BPrimitive)
+                    assert int(cast(BEnum, testcase)) == testcase
+                else:
+                    # overflows
+                    py.test.raises(OverflowError, new_enum_type,
+                                   "foo", ("AA",), (testcase,), BPrimitive)
 
 def test_callback_returning_enum():
     BInt = new_primitive_type("int")
-    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
+    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20), BInt)
     def cb(n):
-        return '#%d' % n
+        if n & 1:
+            return cast(BEnum, n)
+        else:
+            return n
     BFunc = new_function_type((BInt,), BEnum)
     f = callback(BFunc, cb)
-    assert f(0) == 'def'
-    assert f(1) == 'c'
-    assert f(-20) == 'ab'
-    assert f(20) == '#20'
+    assert f(0) == 0
+    assert f(1) == 1
+    assert f(-20) == -20
+    assert f(20) == 20
+    assert f(21) == 21
+
+def test_callback_returning_enum_unsigned():
+    BInt = new_primitive_type("int")
+    BUInt = new_primitive_type("unsigned int")
+    BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, 20), BUInt)
+    def cb(n):
+        if n & 1:
+            return cast(BEnum, n)
+        else:
+            return n
+    BFunc = new_function_type((BInt,), BEnum)
+    f = callback(BFunc, cb)
+    assert f(0) == 0
+    assert f(1) == 1
+    assert f(-21) == 2**32 - 21
+    assert f(20) == 20
+    assert f(21) == 21
 
 def test_callback_returning_char():
     BInt = new_primitive_type("int")
@@ -2495,7 +2547,7 @@ def test_FILE_object():
     if sys.platform == "win32":
         py.test.skip("testing FILE not implemented")
     #
-    BFILE = new_struct_type("_IO_FILE")
+    BFILE = new_struct_type("$FILE")
     BFILEP = new_pointer_type(BFILE)
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
@@ -2564,3 +2616,91 @@ def test_buffer_keepalive():
     for i in range(20):
         buf = buflist[i]
         assert buf[:] == str2bytes("hi there %d\x00" % i)
+
+def test_slice():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BIntArray = new_array_type(BIntP, None)
+    c = newp(BIntArray, 5)
+    assert len(c) == 5
+    assert repr(c) == "<cdata 'int[]' owning 20 bytes>"
+    d = c[1:4]
+    assert len(d) == 3
+    assert repr(d) == "<cdata 'int[]' sliced length 3>"
+    d[0] = 123
+    d[2] = 456
+    assert c[1] == 123
+    assert c[3] == 456
+    assert d[2] == 456
+    py.test.raises(IndexError, "d[3]")
+    py.test.raises(IndexError, "d[-1]")
+
+def test_slice_ptr():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BIntArray = new_array_type(BIntP, None)
+    c = newp(BIntArray, 5)
+    d = (c+1)[0:2]
+    assert len(d) == 2
+    assert repr(d) == "<cdata 'int[]' sliced length 2>"
+    d[1] += 50
+    assert c[2] == 50
+
+def test_slice_array_checkbounds():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BIntArray = new_array_type(BIntP, None)
+    c = newp(BIntArray, 5)
+    c[0:5]
+    assert len(c[5:5]) == 0
+    py.test.raises(IndexError, "c[-1:1]")
+    cp = c + 0
+    cp[-1:1]
+
+def test_nonstandard_slice():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BIntArray = new_array_type(BIntP, None)
+    c = newp(BIntArray, 5)
+    e = py.test.raises(IndexError, "c[:5]")
+    assert str(e.value) == "slice start must be specified"
+    e = py.test.raises(IndexError, "c[4:]")
+    assert str(e.value) == "slice stop must be specified"
+    e = py.test.raises(IndexError, "c[1:2:3]")
+    assert str(e.value) == "slice with step not supported"
+    e = py.test.raises(IndexError, "c[1:2:1]")
+    assert str(e.value) == "slice with step not supported"
+    e = py.test.raises(IndexError, "c[4:2]")
+    assert str(e.value) == "slice start > stop"
+    e = py.test.raises(IndexError, "c[6:6]")
+    assert str(e.value) == "index too large (expected 6 <= 5)"
+
+def test_setslice():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BIntArray = new_array_type(BIntP, None)
+    c = newp(BIntArray, 5)
+    c[1:3] = [100, 200]
+    assert list(c) == [0, 100, 200, 0, 0]
+    cp = c + 3
+    cp[-1:1] = [300, 400]
+    assert list(c) == [0, 100, 300, 400, 0]
+    cp[-1:1] = iter([500, 600])
+    assert list(c) == [0, 100, 500, 600, 0]
+    py.test.raises(ValueError, "cp[-1:1] = [1000]")
+    assert list(c) == [0, 100, 1000, 600, 0]
+    py.test.raises(ValueError, "cp[-1:1] = (700, 800, 900)")
+    assert list(c) == [0, 100, 700, 800, 0]
+
+def test_setslice_array():
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BIntArray = new_array_type(BIntP, None)
+    c = newp(BIntArray, 5)
+    d = newp(BIntArray, [10, 20, 30])
+    c[1:4] = d
+    assert list(c) == [0, 10, 20, 30, 0]
+    #
+    BShortP = new_pointer_type(new_primitive_type("short"))
+    BShortArray = new_array_type(BShortP, None)
+    d = newp(BShortArray, [40, 50])
+    c[1:3] = d
+    assert list(c) == [0, 40, 50, 30, 0]
+
+def test_version():
+    # this test is here mostly for PyPy
+    assert __version__ == "0.6"

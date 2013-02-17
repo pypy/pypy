@@ -17,4 +17,15 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# moo
+from .infrastructure import read_spec
+
+# this test case should contain as-verbatim-as-possible versions of
+# (applicable) feature requests
+
+
+def test_quoted_insert_repeat():
+    read_spec([
+        (('digit-arg', '3'),      ['']),
+        (('quoted-insert', None), ['']),
+        (('self-insert', '\033'), ['^[^[^[']),
+        (('accept', None),        None)])

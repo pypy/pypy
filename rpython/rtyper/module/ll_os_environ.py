@@ -109,19 +109,11 @@ def r_unsetenv(name):
     r_putenv(name, '')
 
 if hasattr(__import__(os.name), 'unsetenv'):
-
-    if sys.platform.startswith('darwin'):
-        RETTYPE = lltype.Void
-        os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], RETTYPE)
-    else:
-        RETTYPE = rffi.INT
-        _os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], RETTYPE)
-        def os_unsetenv(l_name):
-            return rffi.cast(lltype.Signed, _os_unsetenv(l_name))
+    os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], rffi.INT)
 
     def unsetenv_llimpl(name):
         l_name = rffi.str2charp(name)
-        error = os_unsetenv(l_name)     # 'error' is None on OS/X
+        error = rffi.cast(lltype.Signed, os_unsetenv(l_name))
         rffi.free_charp(l_name)
         if error:
             raise OSError(rposix.get_errno(), "os_unsetenv failed")
