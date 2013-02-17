@@ -282,10 +282,10 @@ class AppTestFfi:
         import _rawffi
         A = _rawffi.Array('c')
         buf = A(10, autofree=True)
-        buf[0] = ord('*')
+        buf[0] = b'*'
         assert buf[1:5] == b'\x00' * 4
         buf[7:] = b'abc'
-        assert buf[9] == ord('c')
+        assert buf[9] == b'c'
         assert buf[:8] == b'*' + b'\x00'*6 + b'a'
 
     def test_returning_str(self):
@@ -450,13 +450,13 @@ class AppTestFfi:
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
         next = X()
         next.next = 0
-        next.x3 = ord('x')
+        next.x3 = b'x'
         x = X()
         x.next = next
         x.x1 = 1
         x.x2 = 2
-        x.x3 = ord('x')
-        assert X.fromaddress(x.next).x3 == ord('x')
+        x.x3 = b'x'
+        assert X.fromaddress(x.next).x3 == b'x'
         x.free()
         next.free()
         create_double_struct = lib.ptr("create_double_struct", [], 'P')
@@ -997,15 +997,15 @@ class AppTestFfi:
 
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
-        a[3] = ord('x')
+        a[3] = b'x'
         b = memoryview(a)
         assert len(b) == 10
         assert b[3] == b'x'
         b[6] = b'y'
-        assert a[6] == ord('y')
+        assert a[6] == b'y'
         b[3:5] = b'zt'
-        assert a[3] == ord('z')
-        assert a[4] == ord('t')
+        assert a[3] == b'z'
+        assert a[4] == b't'
 
     def test_union(self):
         import _rawffi
