@@ -22,7 +22,7 @@ class AppTestThreadSignal:
                 with __pypy__.thread.signals_enabled:
                     thread.interrupt_main()
                     for i in range(10):
-                        print 'x'
+                        print('x')
                         time.sleep(0.1)
             except BaseException, e:
                 interrupted.append(e)
@@ -40,7 +40,7 @@ class AppTestThreadSignal:
                 thread.start_new_thread(subthread, ())
                 for i in range(10):
                     if len(done): break
-                    print '.'
+                    print('.')
                     time.sleep(0.1)
                 assert len(done) == 1
                 assert len(interrupted) == 1
