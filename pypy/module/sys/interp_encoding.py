@@ -44,7 +44,8 @@ def _getfilesystemencoding(space):
                     w_res = space.call_method(codecmod, 'lookup',
                                               space.wrap(loc_codeset))
                     if space.is_true(w_res):
-                        encoding = loc_codeset
+                        w_name = space.getattr(w_res, space.wrap('name'))
+                        encoding = space.str_w(w_name)
             finally:
                 rlocale.setlocale(rlocale.LC_CTYPE, oldlocale)
         except rlocale.LocaleError:
