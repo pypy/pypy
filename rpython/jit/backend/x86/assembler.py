@@ -6,7 +6,6 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
-from rpython.jit.metainterp.history import JitCellToken
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
@@ -26,14 +25,13 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.backend.x86 import rx86, codebuf
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.x86 import support
-from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
-                                have_debug_prints)
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib import rgc
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_unique_id
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
@@ -286,18 +284,7 @@ class Assembler386(BaseAssembler):
         offset = mc.get_relative_pos() - jnz_location
         assert 0 < offset <= 127
         mc.overwrite(jnz_location-1, chr(offset))
-        #
-        # Call the helper, which will return a dead frame object with
-        # the correct exception set, or MemoryError by default
-        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
-        mc.CALL(imm(addr))
-        #
-        # footer -- note the ADD, which skips the return address of this
-        # function, and will instead return to the caller's caller.  Note
-        # also that we completely ignore the saved arguments, because we
-        # are interrupting the function.
-        mc.ADD_ri(esp.value, 2*WORD)
-        mc.RET()
+        mc.JMP(self.propagate_exception_path)
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
