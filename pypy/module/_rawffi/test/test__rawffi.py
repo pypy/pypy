@@ -260,7 +260,6 @@ class AppTestFfi:
         assert lib.ptr(1, [], 'i')()[0] == 42
 
     def test_getchar(self):
-        py3k_skip('bytes vs unicode')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         get_char = lib.ptr('get_char', ['P', 'H'], 'c')
@@ -272,7 +271,8 @@ class AppTestFfi:
             intptr = B(1)
             intptr[0] = i
             res = get_char(dupaptr, intptr)
-            assert res[0] == 'dupa'[i:i+1]
+            char = b'dupa'[i:i+1]
+            assert res[0] == char
             intptr.free()
         dupaptr.free()
         dupa.free()
@@ -282,14 +282,13 @@ class AppTestFfi:
         import _rawffi
         A = _rawffi.Array('c')
         buf = A(10, autofree=True)
-        buf[0] = ord('*')
+        buf[0] = b'*'
         assert buf[1:5] == b'\x00' * 4
         buf[7:] = b'abc'
-        assert buf[9] == ord('c')
+        assert buf[9] == b'c'
         assert buf[:8] == b'*' + b'\x00'*6 + b'a'
 
     def test_returning_str(self):
-        py3k_skip('bytes vs unicode')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         char_check = lib.ptr('char_check', ['c', 'c'], 's')
@@ -450,13 +449,13 @@ class AppTestFfi:
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
         next = X()
         next.next = 0
-        next.x3 = ord('x')
+        next.x3 = b'x'
         x = X()
         x.next = next
         x.x1 = 1
         x.x2 = 2
-        x.x3 = ord('x')
-        assert X.fromaddress(x.next).x3 == ord('x')
+        x.x3 = b'x'
+        assert X.fromaddress(x.next).x3 == b'x'
         x.free()
         next.free()
         create_double_struct = lib.ptr("create_double_struct", [], 'P')
@@ -997,15 +996,15 @@ class AppTestFfi:
 
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
-        a[3] = ord('x')
+        a[3] = b'x'
         b = memoryview(a)
         assert len(b) == 10
         assert b[3] == b'x'
         b[6] = b'y'
-        assert a[6] == ord('y')
+        assert a[6] == b'y'
         b[3:5] = b'zt'
-        assert a[3] == ord('z')
-        assert a[4] == ord('t')
+        assert a[3] == b'z'
+        assert a[4] == b't'
 
     def test_union(self):
         import _rawffi
@@ -1024,6 +1023,18 @@ class AppTestFfi:
         EMPTY = _rawffi.Structure([])
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang
+
+    def test_char_array_int(self):
+        import _rawffi
+        A = _rawffi.Array('c')
+        a = A(1)
+        a[0] = b'a'
+        assert a[0] == b'a'
+        # also accept int but return bytestring
+        a[0] = 100
+        assert a[0] == b'd'
+        a.free()
+
 
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])

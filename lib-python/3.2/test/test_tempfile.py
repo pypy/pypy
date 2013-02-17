@@ -285,6 +285,7 @@ class test__mkstemp_inner(TC):
         dir = tempfile.mkdtemp()
         try:
             self.do_create(dir=dir).write(b"blat")
+            support.gc_collect()
         finally:
             os.rmdir(dir)
 
@@ -575,12 +576,15 @@ class test_mktemp(TC):
         self.do_create(suf="b")
         self.do_create(pre="a", suf="b")
         self.do_create(pre="aa", suf=".txt")
+        support.gc_collect()
 
     def test_many(self):
         # mktemp can choose many usable file names (stochastic)
         extant = list(range(TEST_FILES))
         for i in extant:
             extant[i] = self.do_create(pre="aa")
+        del extant
+        support.gc_collect()
 
 ##     def test_warning(self):
 ##         # mktemp issues a warning when used
@@ -1012,6 +1016,7 @@ class test_TemporaryDirectory(TC):
                          "TemporaryDirectory %s exists after cleanup" % d1.name)
         self.assertTrue(os.path.exists(d2.name),
                         "Directory pointed to by a symlink was deleted")
+        support.gc_collect()
         self.assertEqual(os.listdir(d2.name), ['test.txt'],
                          "Contents of the directory pointed to by a symlink "
                          "were deleted")
