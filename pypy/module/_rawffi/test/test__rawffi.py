@@ -260,7 +260,6 @@ class AppTestFfi:
         assert lib.ptr(1, [], 'i')()[0] == 42
 
     def test_getchar(self):
-        py3k_skip('bytes vs unicode')
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         get_char = lib.ptr('get_char', ['P', 'H'], 'c')
@@ -272,7 +271,7 @@ class AppTestFfi:
             intptr = B(1)
             intptr[0] = i
             res = get_char(dupaptr, intptr)
-            assert res[0] == 'dupa'[i:i+1]
+            assert res[0] == b'dupa'[i:i+1]
             intptr.free()
         dupaptr.free()
         dupa.free()
