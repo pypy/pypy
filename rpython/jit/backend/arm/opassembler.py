@@ -1177,13 +1177,15 @@ class ResOpAssembler(BaseAssembler):
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
         assert old_nbargs == new_nbargs
-        # we overwrite the instructions at the old _arm_func_adddr
+        # we overwrite the instructions at the old _ll_function_addr
         # to start with a JMP to the new _ll_function_addr.
         # Ideally we should rather patch all existing CALLs, but well.
-        XXX # this is wrong, copy the logic from x86, but also, shouldn't
-        # it live on a base class instead?
         oldadr = oldlooptoken._ll_function_addr
         target = newlooptoken._ll_function_addr
+        # copy frame-info data
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        newlooptoken.compiled_loop_token.update_frame_info(
+            oldlooptoken.compiled_loop_token, baseofs)
         mc = ARMv7Builder()
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
