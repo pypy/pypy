@@ -949,47 +949,8 @@ class AssemblerARM(ResOpAssembler):
         faildescr._arm_failure_recovery_block = 0
 
     # regalloc support
-    def load_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
-        if target.is_vfp_reg():
-            return self._load_vfp_reg(mc, target, base, ofs, cond)
-        elif target.is_reg():
-            return self._load_core_reg(mc, target, base, ofs, cond)
-
-    def _load_vfp_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
-        if check_imm_arg(ofs):
-            mc.VLDR(target.value, base.value, imm=ofs, cond=cond)
-        else:
-            mc.gen_load_int(helper.value, ofs)
-            mc.VLDR(target.value, base.value, helper.value, cond=cond)
-
-    def _load_core_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
-        if check_imm_arg(ofs):
-            mc.LDR_ri(target.value, base.value, imm=ofs, cond=cond)
-        else:
-            mc.gen_load_int(helper.value, ofs)
-            mc.LDR_rr(target.value, base.value, helper.value, cond=cond)
-
-    def store_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
-        if source.is_vfp_reg():
-            return self._store_vfp_reg(mc, source, base, ofs, cond)
-        else:
-            return self._store_core_reg(mc, source, base, ofs, cond)
-
-    def _store_vfp_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
-        if check_imm_arg(ofs):
-            mc.VSTR(source.value, base.value, imm=ofs, cond=cond)
-        else:
-            mc.gen_load_int(helper.value, ofs)
-            mc.VSTR(source.value, base.value, helper.value, cond=cond)
-
-    def _store_core_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
-        if check_imm_arg(ofs):
-            mc.STR_ri(source.value, base.value, imm=ofs, cond=cond)
-        else:
-            gen_load_int(helper.value, ofs)
-            mc.STR_rr(source.value, base.value, helper.value, cond=cond)
-
     def load(self, loc, value):
+        """load an immediate value into a register"""
         assert (loc.is_reg() and value.is_imm()
                     or loc.is_vfp_reg() and value.is_imm_float())
         if value.is_imm():
@@ -997,6 +958,48 @@ class AssemblerARM(ResOpAssembler):
         elif value.is_imm_float():
             self.mc.gen_load_int(r.ip.value, value.getint())
             self.mc.VLDR(loc.value, r.ip.value)
+
+    def load_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
+        if target.is_vfp_reg():
+            return self._load_vfp_reg(mc, target, base, ofs, cond, helper)
+        elif target.is_reg():
+            return self._load_core_reg(mc, target, base, ofs, cond, helper)
+
+    def _load_vfp_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.VLDR(target.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs, cond=cond)
+            mc.ADD_rr(helper.value, base.value, helper.value, cond=cond)
+            mc.VLDR(target.value, helper.value, cond=cond)
+
+    def _load_core_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.LDR_ri(target.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs, cond=cond)
+            mc.LDR_rr(target.value, base.value, helper.value, cond=cond)
+
+    def store_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
+        if source.is_vfp_reg():
+            return self._store_vfp_reg(mc, source, base, ofs, cond, helper)
+        else:
+            return self._store_core_reg(mc, source, base, ofs, cond, helper)
+
+    def _store_vfp_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.VSTR(source.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs, cond=cond)
+            mc.ADD_rr(helper.value, base.value, helper.value, cond=cond)
+            mc.VSTR(source.value, helper.value, cond=cond)
+
+    def _store_core_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
+        if check_imm_arg(ofs):
+            mc.STR_ri(source.value, base.value, imm=ofs, cond=cond)
+        else:
+            mc.gen_load_int(helper.value, ofs, cond=cond)
+            mc.STR_rr(source.value, base.value, helper.value, cond=cond)
 
     def _mov_imm_to_loc(self, prev_loc, loc, cond=c.AL):
         if not loc.is_reg() and not (loc.is_stack() and loc.type != FLOAT):
@@ -1025,15 +1028,12 @@ class AssemblerARM(ResOpAssembler):
             else:
                 temp = r.ip
             offset = loc.value
-            if not check_imm_arg(offset, size=0xFFF):
+            is_imm = check_imm_arg(offset, size=0xFFF)
+            if not is_imm:
                 self.mc.PUSH([temp.value], cond=cond)
-                self.mc.gen_load_int(temp.value, offset, cond=cond)
-                self.mc.STR_rr(prev_loc.value, r.fp.value,
-                                            temp.value, cond=cond)
+            self.store_reg(self.mc, prev_loc, r.fp, offset, helper=temp, cond=cond)
+            if not is_imm:
                 self.mc.POP([temp.value], cond=cond)
-            else:
-                self.mc.STR_ri(prev_loc.value, r.fp.value,
-                                            imm=offset, cond=cond)
         else:
             assert 0, 'unsupported case'
 
@@ -1046,29 +1046,22 @@ class AssemblerARM(ResOpAssembler):
                 when moving from the stack'
             # unspill a core register
             offset = prev_loc.value
-            if not check_imm_arg(offset, size=0xFFF):
+            is_imm = check_imm_arg(offset, size=0xFFF)
+            if not is_imm:
                 self.mc.PUSH([r.lr.value], cond=cond)
-                pushed = True
-                self.mc.gen_load_int(r.lr.value, offset, cond=cond)
-                self.mc.LDR_rr(loc.value, r.fp.value, r.lr.value, cond=cond)
-            else:
-                self.mc.LDR_ri(loc.value, r.fp.value, imm=offset, cond=cond)
-            if pushed:
+            self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=r.lr)
+            if not is_imm:
                 self.mc.POP([r.lr.value], cond=cond)
         elif loc.is_vfp_reg():
             assert prev_loc.type == FLOAT, 'trying to load from an \
                 incompatible location into a float register'
             # load spilled value into vfp reg
             offset = prev_loc.value
-            self.mc.PUSH([r.ip.value], cond=cond)
-            pushed = True
-            if not check_imm_arg(offset):
-                self.mc.gen_load_int(r.ip.value, offset, cond=cond)
-                self.mc.ADD_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
-            else:
-                self.mc.ADD_ri(r.ip.value, r.fp.value, offset, cond=cond)
-            self.mc.VLDR(loc.value, r.ip.value, cond=cond)
-            if pushed:
+            is_imm = check_imm_arg(offset)
+            if not is_imm:
+                self.mc.PUSH([r.ip.value], cond=cond)
+            self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=r.ip)
+            if not is_imm:
                 self.mc.POP([r.ip.value], cond=cond)
         else:
             assert 0, 'unsupported case'
@@ -1077,7 +1070,7 @@ class AssemblerARM(ResOpAssembler):
         if loc.is_vfp_reg():
             self.mc.PUSH([r.ip.value], cond=cond)
             self.mc.gen_load_int(r.ip.value, prev_loc.getint(), cond=cond)
-            self.mc.VLDR(loc.value, r.ip.value, cond=cond)
+            self.load_reg(self.mc, loc, r.ip, 0, cond=cond)
             self.mc.POP([r.ip.value], cond=cond)
         elif loc.is_stack():
             self.regalloc_push(r.vfp_ip)
@@ -1094,15 +1087,13 @@ class AssemblerARM(ResOpAssembler):
             assert loc.type == FLOAT, 'trying to store to an \
                 incompatible location from a float register'
             # spill vfp register
-            self.mc.PUSH([r.ip.value], cond=cond)
             offset = loc.value
-            if not check_imm_arg(offset):
-                self.mc.gen_load_int(r.ip.value, offset, cond=cond)
-                self.mc.ADD_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
-            else:
-                self.mc.ADD_ri(r.ip.value, r.fp.value, offset, cond=cond)
-            self.mc.VSTR(prev_loc.value, r.ip.value, cond=cond)
-            self.mc.POP([r.ip.value], cond=cond)
+            is_imm = check_imm_arg(offset)
+            if not is_imm:
+                self.mc.PUSH([r.ip.value], cond=cond)
+            self.store_reg(self.mc, prev_loc, r.fp, offset, cond=cond)
+            if not is_imm:
+                self.mc.POP([r.ip.value], cond=cond)
         else:
             assert 0, 'unsupported case'
 
@@ -1162,7 +1153,7 @@ class AssemblerARM(ResOpAssembler):
         elif vfp_loc.is_stack():
             # move from two core registers to a float stack location
             offset = vfp_loc.value
-            if not check_imm_arg(offset, size=0xFFF):
+            if not check_imm_arg(offset + WORD, size=0xFFF):
                 self.mc.PUSH([r.ip.value], cond=cond)
                 self.mc.gen_load_int(r.ip.value, offset, cond=cond)
                 self.mc.STR_rr(reg1.value, r.fp.value, r.ip.value, cond=cond)
@@ -1170,7 +1161,6 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.STR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.POP([r.ip.value], cond=cond)
             else:
-                assert 0, 'verify this code'
                 self.mc.STR_ri(reg1.value, r.fp.value, imm=offset, cond=cond)
                 self.mc.STR_ri(reg2.value, r.fp.value,
                                                 imm=offset + WORD, cond=cond)
