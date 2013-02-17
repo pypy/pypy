@@ -144,7 +144,7 @@ def array_slice_getitem(self, index):
     l = [self[i] for i in range(start, stop, step)]
     letter = getattr(self._type_, '_type_', None)
     if letter == 'c':
-        return b"".join(l)
+        return bytes(l)
     if letter == 'u':
         return "".join(l)
     return l
