@@ -271,6 +271,8 @@ def _check_utc_offset(name, offset):
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
 def _check_int_field(value):
+    if isinstance(value, int):
+        return value
     if not isinstance(value, float):
         try:
             value = value.__int__()
