@@ -166,7 +166,7 @@ def repr__Float(space, w_float):
     return space.wrap(float2string(w_float.floatval, 'r', 0))
 
 def str__Float(space, w_float):
-    return space.wrap(float2string(w_float.floatval, 'g', DTSF_STR_PRECISION))
+    return space.wrap(float2string(w_float.floatval, 'r', 0))
 
 def format__Float_ANY(space, w_float, w_spec):
     return newformat.run_formatter(space, w_spec, "format_float", w_float)
