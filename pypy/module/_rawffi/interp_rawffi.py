@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.stringtype import getbytevalue
 
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -333,11 +334,14 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         push_func(add_arg, argdesc, rffi.cast(rffi.LONGDOUBLE,
                                               space.float_w(w_arg)))
     elif letter == "c":
-        s = space.str_w(w_arg)
-        if len(s) != 1:
-            raise OperationError(space.w_TypeError, w(
-                "Expected string of length one as character"))
-        val = s[0]
+        if space.isinstance_w(w_arg, space.w_int):
+            val = getbytevalue(space, w_arg)
+        else:
+            s = space.str_w(w_arg)
+            if len(s) != 1:
+                raise OperationError(space.w_TypeError, w(
+                    "Expected string of length one as character"))
+            val = s[0]
         push_func(add_arg, argdesc, val)
     elif letter == 'u':
         s = space.unicode_w(w_arg)

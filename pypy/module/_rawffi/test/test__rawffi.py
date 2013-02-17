@@ -260,14 +260,12 @@ class AppTestFfi:
         assert lib.ptr(1, [], 'i')()[0] == 42
 
     def test_getchar(self):
-        def _bytestring_to_list(bytestring):
-            return [bytestring[i:i+1] for i in range(len(bytestring))]
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         get_char = lib.ptr('get_char', ['P', 'H'], 'c')
         A = _rawffi.Array('c')
         B = _rawffi.Array('H')
-        dupa = A(5, _bytestring_to_list(b'dupa'))
+        dupa = A(5, b'dupa')
         dupaptr = dupa.byptr()
         for i in range(4):
             intptr = B(1)
@@ -291,8 +289,6 @@ class AppTestFfi:
         assert buf[:8] == b'*' + b'\x00'*6 + b'a'
 
     def test_returning_str(self):
-        def _bytestring_to_list(bytestring):
-            return [bytestring[i:i+1] for i in range(len(bytestring))]
         import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         char_check = lib.ptr('char_check', ['c', 'c'], 's')
@@ -305,7 +301,7 @@ class AppTestFfi:
         assert _rawffi.charp2string(res[0]) == b'xxxxxx'
         assert _rawffi.charp2rawstring(res[0]) == b'xxxxxx'
         assert _rawffi.charp2rawstring(res[0], 3) == b'xxx'
-        a = A(6, _bytestring_to_list(b'xx\x00\x00xx'))
+        a = A(6, b'xx\x00\x00xx')
         assert _rawffi.charp2string(a.buffer) == b'xx'
         assert _rawffi.charp2rawstring(a.buffer, 4) == b'xx\x00\x00'
         arg1[0] = b'x'
@@ -1028,6 +1024,18 @@ class AppTestFfi:
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang
 
+    def test_char_array_int(self):
+        import _rawffi
+        A = _rawffi.Array('c')
+        a = A(1)
+        a[0] = b'a'
+        assert a[0] == b'a'
+        # also accept int but return bytestring
+        a[0] = 100
+        assert a[0] == b'd'
+        a.free()
+
+
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
     
@@ -1049,14 +1057,12 @@ class AppTestAutoFree:
         assert oldnum == _rawffi._num_of_allocated_objects()
 
     def test_array_autofree(self):
-        def _bytestring_to_list(bytestring):
-            return [bytestring[i:i+1] for i in range(len(bytestring))]
         import gc, _rawffi
         gc.collect()
         oldnum = _rawffi._num_of_allocated_objects()
 
         A = _rawffi.Array('c')
-        a = A(6, _bytestring_to_list(b'xxyxx\x00'), autofree=True)
+        a = A(6, b'xxyxx\x00', autofree=True)
         assert _rawffi.charp2string(a.buffer) == b'xxyxx'
         a = None
         gc.collect()
