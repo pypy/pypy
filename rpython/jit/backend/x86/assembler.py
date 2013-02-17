@@ -284,7 +284,7 @@ class Assembler386(BaseAssembler):
         offset = mc.get_relative_pos() - jnz_location
         assert 0 < offset <= 127
         mc.overwrite(jnz_location-1, chr(offset))
-        mc.JMP_i(self.propagate_exception_path)
+        mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
