@@ -2220,14 +2220,13 @@ class Assembler386(BaseAssembler):
             # load the return value from the dead frame's value index 0
             kind = op.result.type
             descr = self.cpu.getarraydescr_for_frame(kind)
+            ofs = self.cpu.unpack_arraydescr(descr)
             if kind == FLOAT:
-                ofs = self.cpu.unpack_arraydescr(descr)
                 self.mc.MOVSD_xm(xmm0.value, (eax.value, ofs))
                 if result_loc is not xmm0:
                     self.mc.MOVSD(result_loc, xmm0)
             else:
                 assert result_loc is eax
-                ofs = self.cpu.unpack_arraydescr(descr)
                 self.mc.MOV_rm(eax.value, (eax.value, ofs))
 
     def _call_assembler_patch_jmp(self, jmp_location):

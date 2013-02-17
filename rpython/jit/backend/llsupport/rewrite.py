@@ -178,10 +178,8 @@ class GcRewriterAssembler(object):
         index_list = loop_token.compiled_loop_token._ll_initial_locs
         for i, arg in enumerate(arglist):
             descr = self.cpu.getarraydescr_for_frame(arg.type)
+            assert self.cpu.JITFRAME_FIXED_SIZE & 1 == 0
             _, itemsize, _ = self.cpu.unpack_arraydescr_size(descr)
-            # XXX
-            # this calculation breaks for floats on 32 bit if
-            # base_ofs of JITFRAME + index * 8 is not double-word aligned
             index = index_list[i] // itemsize # index is in bytes
             self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
                                             [frame, ConstInt(index),

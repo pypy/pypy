@@ -17,4 +17,5 @@ FORCE_INDEX_OFS = 0
 # A jitframe is a jit.backend.llsupport.llmodel.jitframe.JITFRAME
 # Stack frame fixed area
 # Currently only the force_index
-JITFRAME_FIXED_SIZE = 12 + 16 * 2 # 11 GPR + one word to keep alignment + 16 VFP Regs (64bit)
+JITFRAME_FIXED_SIZE = 11 + 16 * 2 + 1
+# 11 GPR + 16 VFP Regs (64bit) + 1 word for alignment
