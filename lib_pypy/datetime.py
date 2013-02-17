@@ -457,6 +457,8 @@ class timedelta(object):
     felt like it.
     """
 
+    __slots__ = '_days', '_seconds', '_microseconds'
+
     def __new__(cls, days=0, seconds=0, microseconds=0,
                 # XXX The following should only be used as keyword args:
                 milliseconds=0, minutes=0, hours=0, weeks=0):
@@ -770,6 +772,8 @@ class date(object):
     year, month, day
     """
 
+    __slots__ = '_year', '_month', '_day'
+
     def __new__(cls, year, month=None, day=None):
         """Constructor.
 
@@ -1063,6 +1067,8 @@ class tzinfo(object):
     Subclasses must override the name(), utcoffset() and dst() methods.
     """
 
+    __slots__ = ()
+
     def tzname(self, dt):
         "datetime -> string name of time zone."
         raise NotImplementedError("tzinfo subclass must override tzname()")
@@ -1154,6 +1160,8 @@ class time(object):
     Properties (readonly):
     hour, minute, second, microsecond, tzinfo
     """
+
+    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo'
 
     def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None):
         """Constructor.
@@ -1456,6 +1464,8 @@ class datetime(date):
     The year, month and day arguments are required. tzinfo may be None, or an
     instance of a tzinfo subclass. The remaining arguments may be ints or longs.
     """
+
+    __slots__ = date.__slots__ + time.__slots__
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
