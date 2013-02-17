@@ -179,6 +179,7 @@ class W_IncrementalNewlineDecoder(Wrappable):
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
     'IncrementalNewlineDecoder',
+    __module__ = "_io",
     __new__ = generic_new_descr(W_IncrementalNewlineDecoder),
     __init__  = interp2app(W_IncrementalNewlineDecoder.descr_init),
 
@@ -256,6 +257,7 @@ class W_TextIOBase(W_IOBase):
 
 W_TextIOBase.typedef = TypeDef(
     '_TextIOBase', W_IOBase.typedef,
+    __module__ = "_io",
     __new__ = generic_new_descr(W_TextIOBase),
 
     read = interp2app(W_TextIOBase.read_w),

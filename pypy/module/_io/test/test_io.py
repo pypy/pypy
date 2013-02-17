@@ -370,3 +370,8 @@ class AppTestOpen:
             for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
                 with _io.open(self.tmpfile, **kwargs) as f:
                     raises(TypeError, pickle.dumps, f, protocol)
+
+    def test_mod(self):
+        import _io
+        assert all(t.__module__ == '_io' for t in dir(_io)
+                   if isinstance(t, type))

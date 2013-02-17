@@ -204,6 +204,7 @@ class W_BytesIO(W_BufferedIOBase):
 
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
+    __module__ = "_io",
     __new__ = generic_new_descr(W_BytesIO),
     __init__  = interp2app(W_BytesIO.descr_init),
 

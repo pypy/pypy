@@ -108,7 +108,8 @@ class W_BufferedIOBase(W_IOBase):
         space.warn("max_buffer_size is deprecated", space.w_DeprecationWarning)
 
 W_BufferedIOBase.typedef = TypeDef(
-    '_io._BufferedIOBase', W_IOBase.typedef,
+    '_BufferedIOBase', W_IOBase.typedef,
+    __module__ = "_io",
     __new__ = generic_new_descr(W_BufferedIOBase),
     read = interp2app(W_BufferedIOBase.read_w),
     read1 = interp2app(W_BufferedIOBase.read1_w),
@@ -938,7 +939,8 @@ methods = dict((method, interp2app(getattr(W_BufferedRWPair, method + '_w')))
                               'isatty'])
 
 W_BufferedRWPair.typedef = TypeDef(
-    '_io.BufferedRWPair', W_BufferedIOBase.typedef,
+    'BufferedRWPair', W_BufferedIOBase.typedef,
+    __module__ = "_io",
     __new__ = generic_new_descr(W_BufferedRWPair),
     __init__  = interp2app(W_BufferedRWPair.descr_init),
     __getstate__ = interp2app(W_BufferedRWPair.getstate_w),
