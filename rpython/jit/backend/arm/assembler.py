@@ -180,39 +180,35 @@ class AssemblerARM(ResOpAssembler):
         if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
         #
+        #
         mc = ARMv7Builder()
-        #
-        # read and reset the current exception
-        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
-        mc.BL(addr)
-        self.gen_func_epilog(mc=mc)
-        self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
-        #
-        self._store_and_reset_exception(r.r0)
+        self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        self.mc.STR_ri(r.r0.value, r.fp.value, imm=ofs)
+        mc.STR_ri(r.r0.value, r.fp.value, imm=ofs)
         propagate_exception_descr = rffi.cast(lltype.Signed,
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        # put propagate_exception_descr into frame
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        self.mc.MOV_rr(r.r0.value, r.fp.value)
-        self.mc.BKPT()
-        #base_ofs = self.cpu.get_baseofs_of_frame_field()
-        #self.mc.MOV_bi(ofs, propagate_exception_descr)
-        #self.mc.LEA_rb(eax.value, -base_ofs)
-        #
-        self._call_footer()
-        rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
+        mc.gen_load_int(r.r0.value, propagate_exception_descr)
+        mc.STR_ri(r.r0.value, r.fp.value, imm=ofs)
+        mc.MOV_rr(r.r0.value, r.fp.value)
+        self.gen_func_epilog(mc)
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.propagate_exception_path = rawstart
-        self.mc = None
 
-    def _store_and_reset_exception(self, resloc=None):
-        assert resloc is not r.ip
-        if resloc is not None:
-            self.mc.gen_load_int(resloc.value, self.cpu.pos_exc_value())
+    def _store_and_reset_exception(self, mc, resloc):
+        assert resloc is r.r0
+
+        self.mc.gen_load_int(resloc.value, self.cpu.pos_exc_value())
+        self.mc.gen_load_int(r.r0.value, self.cpu.pos_exc_value())
+            self.mc.gen_load_int(r.ip.value, 0)
+            self.mc.STR_ri(r.ip.value, r.r0.value)
+        
+        
             self.mc.LDR_ri(resloc.value, resloc.value)
             self.mc.MOV(resloc, heap(self.cpu.pos_exc_value()))
 
