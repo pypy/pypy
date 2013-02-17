@@ -5,7 +5,12 @@ class AppTestWarnings:
         import _warnings
         assert _warnings._onceregistry == {}
         assert _warnings._defaultaction == 'default'
-        assert "PendingDeprecationWarning" in str(_warnings.filters)
+        expected = [('ignore', None, DeprecationWarning, None, 0),
+                    ('ignore', None, PendingDeprecationWarning, None, 0),
+                    ('ignore', None, ImportWarning, None, 0),
+                    ('ignore', None, BytesWarning, None, 0),
+                    ('ignore', None, ResourceWarning, None, 0)]
+        assert expected == _warnings.filters
 
     def test_warn(self):
         import _warnings

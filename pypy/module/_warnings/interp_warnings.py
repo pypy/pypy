@@ -32,6 +32,9 @@ class State:
         filters_w.append(create_filter(
             space, space.w_BytesWarning, action))
 
+        filters_w.append(create_filter(
+            space, space.w_ResourceWarning, "ignore"))
+
         self.w_filters = space.newlist(filters_w)
 
 def get_warnings_attr(space, name):
