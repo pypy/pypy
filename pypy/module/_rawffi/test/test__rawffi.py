@@ -271,7 +271,8 @@ class AppTestFfi:
             intptr = B(1)
             intptr[0] = i
             res = get_char(dupaptr, intptr)
-            assert res[0] == b'dupa'[i:i+1]
+            char = b'dupa'[i:i+1]
+            assert res[0] == char
             intptr.free()
         dupaptr.free()
         dupa.free()
