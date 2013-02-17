@@ -15,7 +15,6 @@ while i == l and type(i) is int:
 #print machbits
 
 
-
 class Test_r_int:
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
@@ -57,7 +56,7 @@ class Test_r_int:
             res = f(arg)
             cmp = f(r_int(arg))
             assert res == cmp
-        
+
     def binary_test(self, f, rargs = None):
         if not rargs:
             rargs = (-10, -1, 3, 55)
@@ -118,7 +117,7 @@ class Test_r_uint:
             res = f(arg) & maxint_mask 
             cmp = f(r_uint(arg))
             assert res == cmp
-        
+
     def binary_test(self, f, rargs = None, translated=False):
         mask = maxint_mask 
         if not rargs:
@@ -243,7 +242,7 @@ def test_ovfcheck():
     except OverflowError:
         pass
     else:
-        assert False        
+        assert False
     try:
         ovfcheck(x+x)
     except OverflowError:
@@ -261,7 +260,7 @@ def test_ovfcheck():
     except OverflowError:
         pass
     else:
-        assert False    
+        assert False
 
 def test_ovfcheck_float_to_int():
     assert ovfcheck_float_to_int(1.0) == 1
@@ -395,18 +394,17 @@ def test_int_between():
     assert not int_between(1, 2, 2)
     assert not int_between(1, 1, 1)
 
-U1 = r_ulonglong(0x0102030405060708L)
-U2 = r_ulonglong(0x0807060504030201L)
-S1 = r_longlong(0x0102030405060708L)
-S2 = r_longlong(0x0807060504030201L)
+# these can't be prebuilt on 32bit
+L1 = 0x0102030405060708L
+L2 = 0x0807060504030201L
 
 def test_byteswap():
     from rpython.rtyper.lltypesystem import rffi, lltype
-    
+
     assert rffi.cast(lltype.Signed, byteswap(rffi.cast(rffi.USHORT, 0x0102))) == 0x0201
     assert rffi.cast(lltype.Signed, byteswap(rffi.cast(rffi.INT, 0x01020304))) == 0x04030201
-    assert byteswap(U1) == U2
-    assert byteswap(S1) == S2
+    assert byteswap(rffi.cast(rffi.LONGLONG, L1)) == L2
+    assert byteswap(rffi.cast(rffi.ULONGLONG, L1)) == L2
     assert ((byteswap(2.3) - 1.903598566252326e+185) / 1e185) < 0.000001
     assert (rffi.cast(lltype.Float, byteswap(rffi.cast(lltype.SingleFloat, 2.3))) - 4.173496037651603e-08) < 1e-16
 
