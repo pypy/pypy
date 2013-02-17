@@ -2,18 +2,18 @@
 The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
-import types
-from rpython.tool.sourcetools import valid_identifier
 from rpython.annotator import model as annmodel
 from rpython.annotator.policy import AnnotatorPolicy, Sig
 from rpython.annotator.specialize import flatten_star_args
+from rpython.flowspace.model import Constant
+from rpython.rlib.objectmodel import specialize
+from rpython.rtyper import extregistry
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper import extregistry
-from rpython.flowspace.model import Constant
-from rpython.translator.simplify import get_functype
 from rpython.rtyper.rmodel import warning
-from rpython.rlib.objectmodel import specialize
+from rpython.tool.sourcetools import valid_identifier
+from rpython.translator.simplify import get_functype
+
 
 class KeyComp(object):
     def __init__(self, val):
@@ -34,7 +34,7 @@ class KeyComp(object):
             if compact is None:
                 s = repr(val)
             else:
-                s = compact()        
+                s = compact()
         return s + 'Const'
     __repr__ = __str__
 
@@ -90,7 +90,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         args_s[:] = [l2a(a2l(s)) for s in args_s]
         return LowLevelAnnotatorPolicy.default_specialize(funcdesc, args_s)
     specialize__semierased = staticmethod(specialize__semierased)
-    
+
     specialize__ll = default_specialize
 
     def specialize__ll_and_arg(funcdesc, args_s, *argindices):
@@ -103,7 +103,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
     if policy is None:
-        policy= LowLevelAnnotatorPolicy()
+        policy = LowLevelAnnotatorPolicy()
     return annotator.annotate_helper(ll_function, args_s, policy)
 
 # ___________________________________________________________________
@@ -380,7 +380,7 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
         else:
             FUNC = F.TO
             resultcls = annmodel.SomePtr
-        
+
         args_s = [annmodel.lltype_to_annotation(T) for T in FUNC.ARGS]
         key = (llhelper, s_callable.const)
         s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
@@ -603,7 +603,7 @@ def placeholder_sigarg(s):
         assert s.islower()
         def expand(s_self, *args_s):
             assert isinstance(s_self, annmodel.SomePtr)
-            return getattr(s_self.ll_ptrtype.TO, s.upper()) 
+            return getattr(s_self.ll_ptrtype.TO, s.upper())
     return expand
 
 def typemeth_placeholder_sigarg(s):
@@ -622,10 +622,10 @@ def typemeth_placeholder_sigarg(s):
         def expand(s_TYPE, *args_s):
             assert isinstance(s_TYPE, annmodel.SomePBC)
             assert s_TYPE.is_constant()
-            return getattr(s_TYPE.const, s.upper()) 
+            return getattr(s_TYPE.const, s.upper())
     return expand
 
-            
+
 class ADTInterface(object):
 
     def __init__(self, base, sigtemplates):

@@ -1,21 +1,18 @@
-from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, SignedLongLong,
-    UnsignedLongLong, Bool, Float)
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import FloatRepr
-from rpython.rtyper.rmodel import IntegerRepr, BoolRepr
-from rpython.rtyper.rstr import AbstractStringRepr
-from rpython.rtyper.rmodel import log
-
-from rpython.rlib.rarithmetic import base_int
 from rpython.rlib.objectmodel import _hash_float
+from rpython.rlib.rarithmetic import base_int
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned,
+    SignedLongLong, UnsignedLongLong, Bool, Float)
+from rpython.rtyper.rmodel import FloatRepr, IntegerRepr, BoolRepr, log
+from rpython.rtyper.rstr import AbstractStringRepr
+from rpython.tool.pairtype import pairtype
 
-import math
 
 class __extend__(annmodel.SomeFloat):
     def rtyper_makerepr(self, rtyper):
         return float_repr
+
     def rtyper_makekey(self):
         return self.__class__,
 
