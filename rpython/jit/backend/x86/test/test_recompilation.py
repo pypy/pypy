@@ -1,4 +1,4 @@
-from rpython.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
+from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 
 class TestRecompilation(BaseTestRegalloc):
