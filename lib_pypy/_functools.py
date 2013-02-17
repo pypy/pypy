@@ -1,7 +1,10 @@
 """ Supplies the internal functions for functools.py in the standard library """
+from __pypy__ import builtinify
+
 
 sentinel = object()
 
+@builtinify
 def reduce(func, sequence, initial=sentinel):
     """reduce(function, sequence[, initial]) -> value
 
