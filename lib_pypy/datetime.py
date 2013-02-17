@@ -279,7 +279,7 @@ def _check_int_field(value):
         else:
             if isinstance(value, (int, long)):
                 return value
-    raise TypeError('integer argument expected')
+    raise TypeError('an integer is required')
 
 def _check_date_fields(year, month, day):
     year = _check_int_field(year)
@@ -781,7 +781,7 @@ class date(object):
 
         year, month, day (required, base 1)
         """
-        if isinstance(year, str):
+        if isinstance(year, str) and len(year) == 4:
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(year)
@@ -1469,7 +1469,7 @@ class datetime(date):
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
-        if isinstance(year, str):
+        if isinstance(year, str) and len(year) == 10:
             # Pickle support
             self = date.__new__(cls, year[:4])
             self.__setstate(year, month)
