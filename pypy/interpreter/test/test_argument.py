@@ -698,11 +698,3 @@ class AppTestArgument:
         assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
         """
 
-    def test_error_positional(self):
-        """
-        def f(a, b=None, *, c=None):
-            pass
-        exc = raises(TypeError, f, 1, 2, 3)
-        expected = "f() takes at most 2 positional arguments (3 given)"
-        assert str(exc.value) == expected
-        """

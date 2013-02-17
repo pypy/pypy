@@ -508,8 +508,6 @@ class ArgErrCount(ArgErr):
                 plural = "s"
             if has_kwarg or num_kwds > 0:
                 msg2 = " non-keyword"
-            elif defcount != -1: # XXX not sure about this
-                msg2 = " positional"
             else:
                 msg2 = ""
             msg = "takes %s %d%s argument%s (%d given)" % (
