@@ -1477,7 +1477,7 @@ class MetaInterpStaticData(object):
             jd.portal_finishtoken = tokens[0].finishdescr
             jd.propagate_exc_descr = exc_descr
         #
-        self.cpu.propagate_exc_descr = exc_descr
+        self.cpu.propagate_exception_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
 
