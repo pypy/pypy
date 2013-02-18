@@ -274,7 +274,7 @@ def test_custom_tracer():
     frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
     frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
     frame.jf_frame_info = frame_info
-    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 3, flavor='raw')
+    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4, flavor='raw')
     if sys.maxint == 2**31 - 1:
         max = r_uint(2 ** 31)
     else:
@@ -282,6 +282,7 @@ def test_custom_tracer():
     frame.jf_gcmap[0] = r_uint(1 | 2 | 8 | 32 | 128) | max
     frame.jf_gcmap[1] = r_uint(0)
     frame.jf_gcmap[2] = r_uint(2 | 16 | 32 | 128)
+    frame.jf_gcmap[3] = r_uint(0)
     frame_adr = llmemory.cast_ptr_to_adr(frame)
     all_addrs = []
     next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
@@ -311,3 +312,19 @@ def test_custom_tracer():
     # 4 static fields, 4 addresses from gcmap, 2 from gcpattern
     lltype.free(frame_info, flavor='raw')
     lltype.free(frame.jf_gcmap, flavor='raw')
+
+def test_custom_tracer_2():    
+    frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
+    frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
+    frame.jf_frame_info = frame_info
+    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 3, flavor='raw')
+    frame.jf_gcmap[0] = r_uint(18446744073441116160)
+    frame.jf_gcmap[1] = r_uint(18446740775107559407)
+    frame.jf_gcmap[2] = r_uint(3)
+    all_addrs = []
+    frame_adr = llmemory.cast_ptr_to_adr(frame)
+    next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
+    while next:
+        all_addrs.append(next)
+        next = jitframe.jitframe_trace(frame_adr, next)
+    # assert did not hang
