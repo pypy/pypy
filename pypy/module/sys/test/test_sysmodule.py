@@ -1,4 +1,5 @@
 # -*- coding: iso-8859-1 -*-
+import codecs
 import sys
 
 def test_stdin_exists(space):
@@ -13,7 +14,8 @@ class AppTestAppSysTests:
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
-        cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
+        filesystemenc = codecs.lookup(sys.getfilesystemencoding()).name
+        cls.w_filesystemenc = cls.space.wrap(filesystemenc)
 
     def test_sys_in_modules(self):
         import sys
