@@ -538,12 +538,7 @@ class ResOpAssembler(BaseAssembler):
 
         self.mc.CMP_rr(r.ip.value, loc.value)
         self._emit_guard(op, failargs, c.EQ, save_exc=True)
-        self.mc.gen_load_int(loc.value, pos_exc_value.value)
-        if resloc:
-            self.mc.LDR_ri(resloc.value, loc.value)
-        self.mc.MOV_ri(r.ip.value, 0)
-        self.mc.STR_ri(r.ip.value, loc.value)
-        self.mc.STR_ri(r.ip.value, loc1.value)
+        self._store_and_reset_exception(self.mc, resloc)
         return fcond
 
     def emit_op_debug_merge_point(self, op, arglocs, regalloc, fcond):

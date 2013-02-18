@@ -201,23 +201,19 @@ class AssemblerARM(ResOpAssembler):
         self.propagate_exception_path = rawstart
 
     def _store_and_reset_exception(self, mc, resloc):
-        assert resloc is r.r0
+        assert resloc is not r.ip
+        tmpreg = r.lr # use lr as a second temporary reg
+        mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
+        if resloc is not None: # store
+            self.load_reg(mc, resloc, r.ip, 0)
 
-        self.mc.gen_load_int(resloc.value, self.cpu.pos_exc_value())
-        self.mc.gen_load_int(r.r0.value, self.cpu.pos_exc_value())
-            self.mc.gen_load_int(r.ip.value, 0)
-            self.mc.STR_ri(r.ip.value, r.r0.value)
-        
-        
-            self.mc.LDR_ri(resloc.value, resloc.value)
-            self.mc.MOV(resloc, heap(self.cpu.pos_exc_value()))
+        # reset exception
+        mc.gen_load_int(tmpreg.value, 0)
 
-        with saved_registers(self.mc, [r.r0]):
-            self.mc.gen_load_int(r.r0.value, self.cpu.pos_exc_value())
-            self.mc.gen_load_int(r.ip.value, 0)
-            self.mc.STR_ri(r.ip.value, r.r0.value)
-            self.mc.gen_load_int(r.r0.value, self.cpu.pos_exception())
-            self.mc.STR_ri(r.ip.value, r.r0.value)
+        self.store_reg(mc, tmpreg, r.ip, 0)
+
+        mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
+        self.store_reg(mc, tmpreg, r.ip, 0)
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
