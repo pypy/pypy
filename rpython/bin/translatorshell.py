@@ -15,9 +15,10 @@ Example:
     t.view()                           # graph + annotations under the mouse
 
     t.rtype()                          # use low level operations 
-    f = t.compile_c()                  # C compilation
+    lib = t.compile_c()                # C compilation as a library
+    f = get_c_function(lib, f)         # get the function out of the library
     assert f(arg) == func(arg)         # sanity check (for C)
-    
+
 
 Some functions are provided for the benefit of interactive testing.
 Try dir(snippet) for list of current snippets.
@@ -30,6 +31,13 @@ from rpython.rtyper.rtyper import *
 from rpython.rlib.rarithmetic import *
 
 import py
+
+
+def get_c_function(lib, f):
+    from ctypes import CDLL
+    name = f.__name__
+    return getattr(CDLL(lib.strpath), 'pypy_g_' + name)
+
 
 def setup_readline():
     import readline
