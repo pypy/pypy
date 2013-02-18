@@ -1,13 +1,15 @@
-import threading
+import thread
 from rpython.translator.stm import stmgcintf
 from rpython.rlib.debug import ll_assert, fatalerror
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rposix import get_errno, set_errno
+from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
-                                      llhelper)
+from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr, llhelper
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+
 
 def is_inevitable():
     return we_are_translated() and stmgcintf.StmOperations.is_inevitable()
@@ -102,3 +104,35 @@ def make_perform_transaction(func, CONTAINERP):
     perform_transaction._transaction_break_ = True
     #
     return perform_transaction
+
+# ____________________________________________________________
+
+class ThreadLocalReference(object):
+
+    def __init__(self, Cls):
+        "NOT_RPYTHON: must be prebuilt"
+        self.Cls = Cls
+        self.unique_id = intmask(id(self))
+        self.local = thread._local()
+
+    def _freeze_(self):
+        return True
+
+    @specialize.arg(0)
+    def get(self):
+        if we_are_translated():
+            ptr = llop.stm_localref_get(llmemory.Address, self.unique_id)
+            ptr = rffi.cast(rclass.OBJECTPTR, ptr)
+            return cast_base_ptr_to_instance(self.Cls, ptr)
+        else:
+            return getattr(self.local, 'value', None)
+
+    @specialize.arg(0)
+    def set(self, value):
+        assert isinstance(value, self.Cls) or value is None
+        if we_are_translated():
+            ptr = cast_instance_to_base_ptr(value)
+            ptr = rffi.cast(llmemory.Address, ptr)
+            llop.stm_localref_set(lltype.Void, self.unique_id, ptr)
+        else:
+            self.local.value = value
