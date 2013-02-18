@@ -2,6 +2,7 @@ from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
@@ -13,6 +14,20 @@ def buffer2string(buffer, start, end):
     for i in range(start, end):
         builder.append(buffer[i])
     return builder.build()
+
+class BytesIOBuffer(RWBuffer):
+    def __init__(self, w_bytesio):
+        self.w_bytesio = w_bytesio
+
+    def getlength(self):
+        return int(self.w_bytesio.string_size)
+
+    def getitem(self, index):
+        return self.w_bytesio.buf[index]
+
+    def setitem(self, index, char):
+        self.w_bytesio.buf[index] = char
+
 
 class W_BytesIO(W_BufferedIOBase):
     def __init__(self, space):
@@ -123,6 +138,9 @@ class W_BytesIO(W_BufferedIOBase):
 
         return space.wrap(size)
 
+    def getbuffer_w(self, space):
+        return space.wrap(BytesIOBuffer(self))
+
     def getvalue_w(self, space):
         self._check_closed(space)
         return space.wrapbytes(buffer2string(self.buf, 0, self.string_size))
@@ -213,6 +231,7 @@ W_BytesIO.typedef = TypeDef(
     readinto = interp2app(W_BytesIO.readinto_w),
     write = interp2app(W_BytesIO.write_w),
     truncate = interp2app(W_BytesIO.truncate_w),
+    getbuffer = interp2app(W_BytesIO.getbuffer_w),
     getvalue = interp2app(W_BytesIO.getvalue_w),
     seek = interp2app(W_BytesIO.seek_w),
     tell = interp2app(W_BytesIO.tell_w),

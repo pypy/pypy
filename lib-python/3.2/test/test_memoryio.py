@@ -395,8 +395,11 @@ class BytesIOMixin:
         self.assertEqual(bytes(buf), b"1234567890")
         # Trying to change the size of the BytesIO while a buffer is exported
         # raises a BufferError.
-        self.assertRaises(BufferError, memio.write, b'x' * 100)
-        self.assertRaises(BufferError, memio.truncate)
+        if support.check_impl_detail(pypy=False):
+            # PyPy export buffers differently, and allows reallocation
+            # of the underlying object.
+            self.assertRaises(BufferError, memio.write, b'x' * 100)
+            self.assertRaises(BufferError, memio.truncate)
         # Mutating the buffer updates the BytesIO
         buf[3:6] = b"abc"
         self.assertEqual(bytes(buf), b"123abc7890")

@@ -75,3 +75,20 @@ class AppTestBytesIO:
         b = _io.BytesIO(b"hello")
         b.close()
         raises(ValueError, b.readinto, bytearray(b"hello"))
+
+    def test_getbuffer(self):
+        import _io
+        memio = _io.BytesIO(b"1234567890")
+        buf = memio.getbuffer()
+        assert bytes(buf) == b"1234567890"
+        memio.seek(5)
+        buf = memio.getbuffer()
+        assert bytes(buf) == b"1234567890"
+        # Mutating the buffer updates the BytesIO
+        buf[3:6] = b"abc"
+        assert bytes(buf) == b"123abc7890"
+        assert memio.getvalue() == b"123abc7890"
+        # After the buffer gets released, we can resize the BytesIO again
+        del buf
+        memio.truncate()
+
