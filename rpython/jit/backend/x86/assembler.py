@@ -206,11 +206,11 @@ class Assembler386(BaseAssembler):
         #
         # If the slowpath malloc failed, we raise a MemoryError that
         # always interrupts the current loop, as a "good enough"
-        # approximation.  Also note that we didn't RET from this helper;
-        # but the code we jump to will actually restore the stack
-        # position based on EBP, which will get us out of here for free.
+        # approximation.  We have to adjust the esp a little, to point to
+        # the correct "ret" arg
         offset = mc.get_relative_pos() - jz_location
         mc.overwrite32(jz_location-4, offset)
+        mc.ADD(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -257,7 +257,6 @@ class Assembler386(BaseAssembler):
             # on the x86_64, we have to save all the registers that may
             # have been used to pass arguments. Note that we pass only
             # one argument, that is the frame
-            mc.PUSH_r(edi.value)
             mc.MOV_rr(edi.value, esp.value)
         #
         if IS_X86_32:
@@ -274,9 +273,6 @@ class Assembler386(BaseAssembler):
         #
         if IS_X86_32:
             mc.ADD_ri(esp.value, 3*WORD)    # alignment
-        else:
-            # restore the edi
-            mc.POP_r(edi.value)
         #
         mc.RET()
         #
@@ -284,6 +280,8 @@ class Assembler386(BaseAssembler):
         offset = mc.get_relative_pos() - jnz_location
         assert 0 < offset <= 127
         mc.overwrite(jnz_location-1, chr(offset))
+        # adjust the esp to point back to the previous return
+        mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -752,6 +750,7 @@ class Assembler386(BaseAssembler):
             self._call_header_shadowstack(gcrootmap)
 
     def _call_header_with_stack_check(self):
+        self._call_header()
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
@@ -767,7 +766,6 @@ class Assembler386(BaseAssembler):
             assert 0 < offset <= 127
             self.mc.overwrite(jb_location-1, chr(offset))
             #
-        self._call_header()
 
     def _call_footer(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
