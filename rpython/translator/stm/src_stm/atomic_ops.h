@@ -1,6 +1,8 @@
 #ifndef _SRCSTM_ATOMIC_OPS_
 #define _SRCSTM_ATOMIC_OPS_
 
+#include <assert.h>
+
 
 /* "compiler fence" for preventing reordering of loads/stores to
    non-volatiles */

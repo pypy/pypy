@@ -104,3 +104,20 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert '42\n' in data, "got: %r" % (data,)
+
+    def test_threadlocalref(self):
+        class FooBar(object):
+            pass
+        t = rstm.ThreadLocalReference(FooBar)
+        def main(argv):
+            x = FooBar()
+            assert t.get() is None
+            t.set(x)
+            assert t.get() is x
+            rstm.ThreadLocalReference.flush_all_in_this_thread()
+            assert t.get() is None
+            print "ok"
+            return 0
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok\n' in data

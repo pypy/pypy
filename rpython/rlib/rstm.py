@@ -1,10 +1,9 @@
-import thread
+import thread, weakref
 from rpython.translator.stm import stmgcintf
 from rpython.rlib.debug import ll_assert, fatalerror
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rposix import get_errno, set_errno
-from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr, llhelper
@@ -108,12 +107,16 @@ def make_perform_transaction(func, CONTAINERP):
 # ____________________________________________________________
 
 class ThreadLocalReference(object):
+    _ALL = weakref.WeakKeyDictionary()
+    _COUNT = 0
 
     def __init__(self, Cls):
         "NOT_RPYTHON: must be prebuilt"
         self.Cls = Cls
-        self.unique_id = intmask(id(self))
         self.local = thread._local()
+        self.unique_id = ThreadLocalReference._COUNT
+        ThreadLocalReference._COUNT += 1
+        ThreadLocalReference._ALL[self] = True
 
     def _freeze_(self):
         return True
@@ -121,7 +124,7 @@ class ThreadLocalReference(object):
     @specialize.arg(0)
     def get(self):
         if we_are_translated():
-            ptr = llop.stm_localref_get(llmemory.Address, self.unique_id)
+            ptr = llop.stm_threadlocalref_get(llmemory.Address, self.unique_id)
             ptr = rffi.cast(rclass.OBJECTPTR, ptr)
             return cast_base_ptr_to_instance(self.Cls, ptr)
         else:
@@ -133,6 +136,14 @@ class ThreadLocalReference(object):
         if we_are_translated():
             ptr = cast_instance_to_base_ptr(value)
             ptr = rffi.cast(llmemory.Address, ptr)
-            llop.stm_localref_set(lltype.Void, self.unique_id, ptr)
+            llop.stm_threadlocalref_set(lltype.Void, self.unique_id, ptr)
         else:
             self.local.value = value
+
+    @staticmethod
+    def flush_all_in_this_thread():
+        if we_are_translated():
+            llop.stm_threadlocalref_flush(lltype.Void)
+        else:
+            for tlref in ThreadLocalReference._ALL.keys():
+                tlref.local.value = None

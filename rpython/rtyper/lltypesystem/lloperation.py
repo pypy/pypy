@@ -429,6 +429,9 @@ LL_OPERATIONS = {
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
     'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),
     #'stm_jit_invoke_code':    LLOp(canmallocgc=True),
+    'stm_threadlocalref_get': LLOp(sideeffects=False),
+    'stm_threadlocalref_set': LLOp(),
+    'stm_threadlocalref_flush': LLOp(),
 
     # __________ address operations __________
 
