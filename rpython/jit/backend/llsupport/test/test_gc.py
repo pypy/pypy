@@ -272,15 +272,16 @@ def test_custom_tracer():
                 jitframe.BASEITEMOFS + jitframe.SIGN_SIZE * no)
     
     frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
-    frame = lltype.malloc(jitframe.JITFRAME, 100, zero=True)
+    frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
     frame.jf_frame_info = frame_info
-    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 2, flavor='raw')
+    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 3, flavor='raw')
     if sys.maxint == 2**31 - 1:
         max = r_uint(2 ** 31)
     else:
         max = r_uint(2 ** 63)
     frame.jf_gcmap[0] = r_uint(1 | 2 | 8 | 32 | 128) | max
-    frame.jf_gcmap[1] = r_uint(2 | 16 | 32 | 128)
+    frame.jf_gcmap[1] = r_uint(0)
+    frame.jf_gcmap[2] = r_uint(2 | 16 | 32 | 128)
     frame_adr = llmemory.cast_ptr_to_adr(frame)
     all_addrs = []
     next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
@@ -301,10 +302,10 @@ def test_custom_tracer():
     assert all_addrs[8] == indexof(7)
     if sys.maxint == 2**31 - 1:
         assert all_addrs[9] == indexof(31)
-        assert all_addrs[10] == indexof(33)
+        assert all_addrs[10] == indexof(33 + 32)
     else:
         assert all_addrs[9] == indexof(63)
-        assert all_addrs[10] == indexof(65)
+        assert all_addrs[10] == indexof(65 + 64)
 
     assert len(all_addrs) == 4 + 6 + 4
     # 4 static fields, 4 addresses from gcmap, 2 from gcpattern
