@@ -12,8 +12,6 @@ class OSThreadLocals:
     a thread finishes.  This works as long as the thread was started by
     os_thread.bootstrap()."""
 
-    can_cache = True
-
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
         self._cleanup_()
@@ -21,20 +19,24 @@ class OSThreadLocals:
     def _cleanup_(self):
         self._valuedict.clear()
         self._mainthreadident = 0
-        if self.can_cache:
-            self._mostrecentkey = 0        # fast minicaching for the common case
-            self._mostrecentvalue = None   # fast minicaching for the common case
+        self.clear_cache()
+
+    def clear_cache(self):
+        # Cache function: fast minicaching for the common case.  Relies
+        # on the GIL; overridden in stm.py.
+        self._mostrecentkey = 0
+        self._mostrecentvalue = None
 
     def getvalue(self):
+        # Overridden in stm.py.
         ident = rthread.get_ident()
-        if self.can_cache and ident == self._mostrecentkey:
+        if ident == self._mostrecentkey:
             result = self._mostrecentvalue
         else:
             value = self._valuedict.get(ident, None)
-            if self.can_cache:
-                # slow path: update the minicache
-                self._mostrecentkey = ident
-                self._mostrecentvalue = value
+            # slow path: update the minicache
+            self._mostrecentkey = ident
+            self._mostrecentvalue = value
             result = value
         return result
 
@@ -50,10 +52,8 @@ class OSThreadLocals:
                 del self._valuedict[ident]
             except KeyError:
                 pass
-        if self.can_cache:
-            # update the minicache to prevent it from containing an outdated value
-            self._mostrecentkey = ident
-            self._mostrecentvalue = value
+        # clear the minicache to prevent it from containing an outdated value
+        self.clear_cache()
 
     def signals_enabled(self):
         ec = self.getvalue()

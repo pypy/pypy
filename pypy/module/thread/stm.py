@@ -4,13 +4,16 @@ Software Transactional Memory emulation of the GIL.
 
 from pypy.module.thread.threadlocals import OSThreadLocals
 from pypy.module.thread.error import wrap_thread_error
+from pypy.interpreter.executioncontext import ExecutionContext
 from rpython.rlib import rthread
 from rpython.rlib import rstm
 from rpython.rlib.objectmodel import invoke_around_extcall
 
 
+ec_cache = rstm.ThreadLocalReference(ExecutionContext)
+
+
 class STMThreadLocals(OSThreadLocals):
-    can_cache = False
 
     def initialize(self, space):
         """NOT_RPYTHON: set up a mechanism to send to the C code the value
@@ -26,6 +29,17 @@ class STMThreadLocals(OSThreadLocals):
         assert space.actionflag.setcheckinterval_callback is None
         space.actionflag.setcheckinterval_callback = setcheckinterval_callback
         self.threads_running = False
+
+    def clear_cache(self):
+        ec_cache.set(None)
+
+    def getvalue(self):
+        value = ec_cache.get()
+        if value is None:
+            ident = rthread.get_ident()
+            value = self._valuedict.get(ident, None)
+            ec_cache.set(value)
+        return value
 
     def setup_threads(self, space):
         self.threads_running = True
