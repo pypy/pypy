@@ -179,6 +179,10 @@ class StmGCTLS(object):
         #
         debug_start("gc-local")
         #
+        # First clear all thread-local caches, because they might
+        # contain pointers to objects that are about to move.
+        llop.stm_threadlocalref_flush(lltype.Void)
+        #
         if end_of_transaction:
             self.detect_flag_combination = GCFLAG_LOCAL_COPY | GCFLAG_VISITED
         else:

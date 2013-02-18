@@ -143,6 +143,7 @@ class ThreadLocalReference(object):
     @staticmethod
     def flush_all_in_this_thread():
         if we_are_translated():
+            # NB. this line is repeated in stmtls.py
             llop.stm_threadlocalref_flush(lltype.Void)
         else:
             for tlref in ThreadLocalReference._ALL.keys():
