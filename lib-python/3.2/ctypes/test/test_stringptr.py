@@ -29,7 +29,6 @@ class StringPtrTestCase(unittest.TestCase):
 
         self.assertRaises(TypeError, setattr, x, "str", "Hello, World")
 
-    @xfail
     def test__c_char_p(self):
         class X(Structure):
             _fields_ = [("str", c_char_p)]
