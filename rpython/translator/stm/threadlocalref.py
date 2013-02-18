@@ -18,8 +18,6 @@ def transform_tlref(graphs):
                 if (op.opname == 'stm_threadlocalref_set' or
                     op.opname == 'stm_threadlocalref_get'):
                     ids.add(op.args[0].value)
-    if len(ids) == 0:
-        return
     #
     ids = sorted(ids)
     fields = [('ptr%d' % id1, llmemory.Address) for id1 in ids]

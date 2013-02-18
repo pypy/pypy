@@ -143,8 +143,8 @@ class CBuilder(object):
             self.getentrypointptr()    # build the wrapper first
             # ^^ this is needed to make sure we see the no-GC wrapper function
             # calling the GC entrypoint function.
-            transformer = transform2.STMTransformer(self.translator)
-            transformer.transform()
+            stmtransformer = transform2.STMTransformer(self.translator)
+            stmtransformer.transform()
 
         gcpolicyclass = self.get_gcpolicyclass()
 
@@ -157,7 +157,10 @@ class CBuilder(object):
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
-        
+
+        if self.config.translation.stm:
+            stmtransformer.transform_after_gc()
+
         # give the gc a chance to register interest in the start-up functions it
         # need (we call this for its side-effects of db.get())
         list(db.gcpolicy.gc_startup_code())

@@ -7,12 +7,15 @@ class STMTransformer(object):
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
-        self.transform_threadlocalref()
         self.transform_jit_driver()
         self.transform_write_barrier()
         self.transform_turn_inevitable()
         self.print_logs()
         self.translator.stm_transformation_applied = True
+
+    def transform_after_gc(self):
+        self.transform_threadlocalref()
+        self.print_logs_after_gc()
 
     def transform_write_barrier(self):
         from rpython.translator.backendopt.writeanalyze import WriteAnalyzer
@@ -46,3 +49,7 @@ class STMTransformer(object):
     def print_logs(self):
         from rpython.translator.c.support import log
         log.info("Software Transactional Memory transformation applied")
+
+    def print_logs_after_gc(self):
+        from rpython.translator.c.support import log
+        log.info("Software Transactional Memory transformation-after-gc done")
