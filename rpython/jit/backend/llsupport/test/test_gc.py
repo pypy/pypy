@@ -328,3 +328,6 @@ def test_custom_tracer_2():
         all_addrs.append(next)
         next = jitframe.jitframe_trace(frame_adr, next)
     # assert did not hang
+
+    lltype.free(frame_info, flavor='raw')
+    lltype.free(frame.jf_gcmap, flavor='raw')
