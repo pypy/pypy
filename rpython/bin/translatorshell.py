@@ -16,7 +16,7 @@ Example:
 
     t.rtype()                          # use low level operations 
     lib = t.compile_c()                # C compilation as a library
-    f = get_c_function(lib, f)         # get the function out of the library
+    f = get_c_function(lib, func)      # get the function out of the library
     assert f(arg) == func(arg)         # sanity check (for C)
 
 
