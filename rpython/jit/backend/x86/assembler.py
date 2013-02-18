@@ -210,7 +210,7 @@ class Assembler386(BaseAssembler):
         # the correct "ret" arg
         offset = mc.get_relative_pos() - jz_location
         mc.overwrite32(jz_location-4, offset)
-        mc.ADD(esp.value, WORD)
+        mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
