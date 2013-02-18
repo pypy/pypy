@@ -87,56 +87,64 @@ UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
 
 def jitframe_trace(obj_addr, prev):
     if prev == llmemory.NULL:
-        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 0
+        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -1
         return obj_addr + getofs('jf_descr')
     fld = (obj_addr + getofs('jf_gc_trace_state')).signed[0]
-    state = fld & 0x7 # 3bits of possible states
-    if state == 0:
-        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 1
-        return obj_addr + getofs('jf_force_descr')
-    elif state == 1:
-        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 2
-        return obj_addr + getofs('jf_savedata')
-    elif state == 2:
-        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = 3
-        return obj_addr + getofs('jf_guard_exc')
-    ll_assert(state == 3, "invalid state")
+    if fld < 0:
+        if fld == -1:
+            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -2
+            return obj_addr + getofs('jf_force_descr')
+        elif fld == -2:
+            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -3
+            return obj_addr + getofs('jf_savedata')
+        elif fld == -3:
+            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -4
+            return obj_addr + getofs('jf_guard_exc')
+        else:
+            if not (obj_addr + getofs('jf_gcmap')).address[0]:
+                return llmemory.NULL    # done
+            else:
+                fld = 0    # fall-through
     # bit pattern
     # decode the pattern
     if IS_32BIT:
         # 32 possible bits
-        state = (fld >> 3) & 0x1f
-        no = fld >> (3 + 5)
+        state = fld & 0x1f
+        no = fld >> 5
         MAX = 32
     else:
         # 64 possible bits
-        state = (fld >> 3) & 0x3f
-        no = fld >> (3 + 6)
+        state = fld & 0x3f
+        no = fld >> 6
         MAX = 64
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
-    if not gcmap:
-        return llmemory.NULL
     gcmap_lgt = (gcmap + GCMAPLENGTHOFS).signed[0]
     while no < gcmap_lgt:
         cur = (gcmap + GCMAPBASEOFS + UNSIGN_SIZE * no).unsigned[0]
-        while state < MAX and not (cur & (1 << state)):
+        while not (cur & (1 << state)):
             state += 1
-        if state < MAX:
+            if state == MAX:
+                no += 1
+                state = 0
+                break      # next iteration of the outermost loop
+        else:
             # found it
-            # save new state
-            if IS_32BIT:
-                new_state = 3 | ((state + 1) << 3) | (no << 8)
-            else:
-                new_state = 3 | ((state + 1) << 3) | (no << 9)
-            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = new_state
             index = no * SIZEOFSIGNED * 8 + state
+            # save new state
+            state += 1
+            if state == MAX:
+                no += 1
+                state = 0
+            if IS_32BIT:
+                new_state = state | (no << 5)
+            else:
+                new_state = state | (no << 6)
+            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = new_state
             # sanity check
             frame_lgt = (obj_addr + getofs('jf_frame') + LENGTHOFS).signed[0]
             ll_assert(index < frame_lgt, "bogus frame field get")
             return (obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE *
                     (index))
-        no += 1
-        state = 0
     return llmemory.NULL
 
 CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
