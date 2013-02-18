@@ -16,11 +16,11 @@ import re
 import sys
 import subprocess
 from bisect import bisect_left
+
 # don't use rpython.tool.udir here to avoid removing old usessions which
 # might still contain interesting executables
 udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
 tmpfile = str(udir.join('dump.tmp'))
-
 
 # hack hack
 import rpython.tool
@@ -54,6 +54,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'x86_64': 'x86-64',
         'i386': 'i386',
         'arm': 'arm',
+        'arm_32': 'arm',
     }
     cmd = find_objdump()
     objdump = ('%(command)s -M %(backend)s -b binary -m %(machine)s '
