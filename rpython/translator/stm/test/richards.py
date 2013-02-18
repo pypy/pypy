@@ -7,7 +7,10 @@
 #  Translation from C++, Mario Wolczko
 #  Outer loop added by Alex Jacoby
 
-import transaction
+try:
+    import transaction
+except ImportError:
+    import transaction_emulator as transaction
 
 
 # Task IDs
@@ -345,6 +348,8 @@ class WorkTask(Task):
 
 import time
 
+
+
 def prepare_schedule(taskWorkArea):
     t = taskWorkArea.taskList
     transaction.add(schedule_one, taskWorkArea, t)
@@ -428,8 +433,15 @@ def main(entry_point = entry_point, iterations = 10):
 
 if __name__ == '__main__':
     import sys
-    transaction.set_num_threads(4)
-    if len(sys.argv) >= 2:
-        main(iterations = int(sys.argv[1]))
+    max_num_threads = 5
+    if len(sys.argv) > 1:
+        iterations = int(sys.argv[1])
+        if len(sys.argv) > 2:
+            max_num_threads = int(sys.argv[2])
+            assert max_num_threads <= iterations
     else:
-        main()
+        iterations = 10
+    num_threads = min(iterations, max_num_threads)
+    print "Running %d iterations on %d threads" % (iterations, num_threads)
+    transaction.set_num_threads(num_threads)
+    main(iterations = iterations)
