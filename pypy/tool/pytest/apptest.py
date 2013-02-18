@@ -64,7 +64,15 @@ if 1:
         if isinstance(value, tuple) and isinstance(value[0], py.code.Source):
             code, args = value
             defs.append(str(code))
-            args = ','.join(repr(arg) for arg in args)
+            arg_repr = []
+            for arg in args:
+                if isinstance(arg, str):
+                    arg_repr.append("b%r" % arg)
+                elif isinstance(arg, unicode):
+                    arg_repr.append(repr(arg)[1:])
+                else:
+                    arg_repr.append(repr(arg))
+            args = ','.join(arg_repr)
             defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
         elif isinstance(value, types.MethodType):
             # "def w_method(self)"
