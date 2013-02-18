@@ -70,7 +70,7 @@ if 1:
             # "def w_method(self)"
             code = py.code.Code(value)
             defs.append(str(code.source()))
-            defs.append("type(self).%s = w_%s\n" % (symbol, symbol))
+            defs.append("type(self).%s = %s\n" % (symbol, value.__name__))
         elif isinstance(value, types.ModuleType):
             name = value.__name__
             defs.append("import %s; self.%s = %s\n" % (name, symbol, name))
