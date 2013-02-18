@@ -274,7 +274,10 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
         newline = None
     else:
         newline = '\n'
-    buf = io.open(fd, mode, buffering, closefd=False)
+    try:
+        buf = io.open(fd, mode, buffering, closefd=False)
+    except OSError:
+        return None
 
     if buffering:
         raw = buf.raw

@@ -760,6 +760,49 @@ class TestNonInteractive:
         child_out_err.close()
         child_in.close()
 
+    # these tests are ported from the stdlib test suite
+
+    def _test_no_stdio(self, streams):
+        code = """if 1:
+            import os, sys
+            for i, s in enumerate({streams}):
+                if getattr(sys, s) is not None:
+                    os._exit(i + 1)
+            os._exit(42)""".format(streams=streams)
+        def preexec():
+            if 'stdin' in streams:
+                os.close(0)
+            if 'stdout' in streams:
+                os.close(1)
+            if 'stderr' in streams:
+                os.close(2)
+        p = subprocess.Popen(
+            [python3, app_main, "-E", "-c", code],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            preexec_fn=preexec)
+        out, err = p.communicate()
+        err = re.sub(br"\[\d+ refs\]\r?\n?$", b"", err).strip()
+        assert err == b''
+        assert p.returncode == 42
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_no_stdin(self):
+        self._test_no_stdio(['stdin'])
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_no_stdout(self):
+        self._test_no_stdio(['stdout'])
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_no_stderr(self):
+        self._test_no_stdio(['stderr'])
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_no_std_streams(self):
+        self._test_no_stdio(['stdin', 'stdout', 'stderr'])
+
     def test_proper_sys_path(self, tmpdir):
         data = self.run('-c "import _ctypes"', python_flags='-S')
         if data.startswith('Traceback'):
