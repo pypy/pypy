@@ -21,7 +21,7 @@ class AppTestFork(GenericTestThread):
             run = True
             done = []
             try:
-                thread.start_new(busy_thread, ())
+                _thread.start_new(busy_thread, ())
                 print('sleep')
 
                 pid = os.fork()

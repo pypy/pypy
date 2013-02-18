@@ -224,8 +224,8 @@ class AppTestThread(GenericTestThread):
                 if waiting:
                     _thread.interrupt_main()
                     return
-                print 'tock...', x  # <-force the GIL to be released, as
-                time.sleep(0.01)    #   time.sleep doesn't do non-translated
+                print('tock...', x)  # <-force the GIL to be released, as
+                time.sleep(0.01)     #   time.sleep doesn't do non-translated
 
         def busy_wait():
             waiting.append(None)
