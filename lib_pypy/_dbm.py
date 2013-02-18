@@ -1,8 +1,9 @@
-from ctypes import Structure, c_char_p, c_int, c_void_p, CDLL, POINTER, c_char
+import os
+import sys
 import ctypes.util
-import os, sys
+from ctypes import Structure, c_char, c_char_p, c_int, c_void_p, CDLL, POINTER
 
-class error(Exception):
+class error(IOError):
     def __init__(self, msg):
         self.msg = msg  
 
@@ -16,8 +17,11 @@ class datum(Structure):
     ]
 
     def __init__(self, text):
-        if not isinstance(text, str):
-            raise TypeError("datum: expected string, not %s" % type(text))
+        if isinstance(text, str):
+            text = text.encode(sys.getdefaultencoding())
+        elif not isinstance(text, bytes):
+            msg = "dbm mapping keys must be a string or bytes object, not {!r}"
+            raise TypeError(msg.format(type(text).__name__))
         Structure.__init__(self, text, len(text))
 
 class dbm(object):
@@ -157,9 +161,9 @@ def open(filename, flag='r', mode=0o666):
     "open a DBM database"
     if not isinstance(filename, str):
         raise TypeError("expected string")
+    filename = filename.encode(sys.getdefaultencoding())
 
     openflag = 0
-
     try:
         openflag = {
             'r': os.O_RDONLY,
@@ -177,4 +181,3 @@ def open(filename, flag='r', mode=0o666):
     return dbm(a_db)
 
 __all__ = ('datum', 'dbm', 'error', 'funcs', 'open', 'library')
-
