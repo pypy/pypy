@@ -15,16 +15,16 @@ class AppTestThreadSignal:
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
 
     def test_enable_signals(self):
-        import __pypy__, thread, signal, time
+        import __pypy__, _thread, signal, time
 
         def subthread():
             try:
                 with __pypy__.thread.signals_enabled:
-                    thread.interrupt_main()
+                    _thread.interrupt_main()
                     for i in range(10):
                         print('x')
                         time.sleep(0.1)
-            except BaseException, e:
+            except BaseException as e:
                 interrupted.append(e)
             finally:
                 done.append(None)
@@ -37,7 +37,7 @@ class AppTestThreadSignal:
             try:
                 done = []
                 interrupted = []
-                thread.start_new_thread(subthread, ())
+                _thread.start_new_thread(subthread, ())
                 for i in range(10):
                     if len(done): break
                     print('.')
@@ -59,23 +59,23 @@ class AppTestThreadSignalLock:
             py.test.skip("this is only a test for -A runs on top of pypy")
 
     def test_enable_signals(self):
-        import __pypy__, thread, signal, time
+        import __pypy__, _thread, signal, time
 
         interrupted = []
-        lock = thread.allocate_lock()
+        lock = _thread.allocate_lock()
         lock.acquire()
 
         def subthread():
             try:
                 time.sleep(0.25)
                 with __pypy__.thread.signals_enabled:
-                    thread.interrupt_main()
-            except BaseException, e:
+                    _thread.interrupt_main()
+            except BaseException as e:
                 interrupted.append(e)
             finally:
                 lock.release()
 
-        thread.start_new_thread(subthread, ())
+        _thread.start_new_thread(subthread, ())
         lock.acquire()
         assert len(interrupted) == 1
         assert 'KeyboardInterrupt' in interrupted[0].__class__.__name__
