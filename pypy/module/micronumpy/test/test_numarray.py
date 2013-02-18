@@ -1769,6 +1769,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array(a, dtype='d')
         assert a.dtype is b.dtype
 
+    def test_notequal_different_shapes(self):
+        from _numpypy import array
+        a = array([1, 2])
+        b = array([1, 2, 3, 4])
+        assert (a == b) == False
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
