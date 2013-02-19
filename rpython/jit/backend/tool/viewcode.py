@@ -69,7 +69,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'file': tmpfile,
         'origin': originaddr,
         'backend': objdump_backend_option[backend_name],
-        'machine': 'i386' if backend_name != 'arm' else 'arm',
+        'machine': 'i386' if not backend_name.startswith('arm') else 'arm',
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
