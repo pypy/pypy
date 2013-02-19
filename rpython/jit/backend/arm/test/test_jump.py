@@ -6,7 +6,8 @@ from rpython.jit.backend.arm.regalloc import ARMFrameManager
 from rpython.jit.backend.arm.jump import remap_frame_layout, remap_frame_layout_mixed
 from rpython.jit.metainterp.history import INT
 
-frame_pos = ARMFrameManager.frame_pos
+fm = ARMFrameManager(0)
+frame_pos = fm.frame_pos
 
 class MockAssembler:
     def __init__(self):
