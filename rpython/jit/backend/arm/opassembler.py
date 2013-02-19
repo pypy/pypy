@@ -1234,7 +1234,7 @@ class ResOpAssembler(BaseAssembler):
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, resloc, fcond)
 
-        self._emit_guard_may_force(guard_op, arglocs, numargs)
+        self._emit_guard_may_force(guard_op, arglocs[numargs+1:], numargs)
         return fcond
 
     def call_release_gil(self, gcrootmap, save_registers, fcond):
