@@ -323,11 +323,11 @@ class Assembler386(BaseAssembler):
             # save to store stuff 2 locations away on the stack.
             # we have to save all the things that can potentially
             # be returned from a call
-            mc.MOV_sr(3 * WORD, eax.value) # save for later
-            mc.MOVSD_sx(6 * WORD, xmm0.value)
+            mc.SUB_ri(esp.value, 6 * WORD) # align and reserve some space
+            mc.MOV_sr(WORD, eax.value) # save for later
+            mc.MOVSD_sx(3 * WORD, xmm0.value)
             if IS_X86_32:
                 mc.MOV_sr(4 * WORD, edx.value)
-                mc.SUB_ri(esp.value, 2 * WORD) # align
                 mc.MOV_sr(0, ebp.value)
             else:
                 mc.MOV_rr(edi.value, ebp.value)
@@ -354,10 +354,10 @@ class Assembler386(BaseAssembler):
             mc.RET16_i(WORD)
         else:
             if IS_X86_32:
-                mc.LEA_rs(esp.value, 2 * WORD)
                 mc.MOV_rs(edx.value, 4 * WORD)
-            mc.MOVSD_xs(xmm0.value, 6 * WORD)
-            mc.MOV_rs(eax.value, 3 * WORD) # restore
+            mc.MOVSD_xs(xmm0.value, 3 * WORD)
+            mc.MOV_rs(eax.value, WORD) # restore
+            mc.LEA_rs(esp.value, 6 * WORD)
             mc.RET()
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
