@@ -15,6 +15,8 @@ ec_cache = rstm.ThreadLocalReference(ExecutionContext)
 
 class STMThreadLocals(OSThreadLocals):
 
+    use_dict = False
+
     def initialize(self, space):
         """NOT_RPYTHON: set up a mechanism to send to the C code the value
         set by space.actionflag.setcheckinterval()."""
@@ -30,16 +32,14 @@ class STMThreadLocals(OSThreadLocals):
         space.actionflag.setcheckinterval_callback = setcheckinterval_callback
         self.threads_running = False
 
-    def clear_cache(self):
-        ec_cache.set(None)
-
     def getvalue(self):
-        value = ec_cache.get()
-        if value is None:
-            ident = rthread.get_ident()
-            value = self._valuedict.get(ident, None)
-            ec_cache.set(value)
-        return value
+        return ec_cache.get()
+
+    def setvalue(self, value):
+        ec_cache.set(value)
+
+    def getallvalues(self):
+        raise ValueError
 
     def setup_threads(self, space):
         self.threads_running = True

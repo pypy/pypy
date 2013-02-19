@@ -12,14 +12,18 @@ class OSThreadLocals:
     a thread finishes.  This works as long as the thread was started by
     os_thread.bootstrap()."""
 
+    use_dict = True
+
     def __init__(self):
-        self._valuedict = {}   # {thread_ident: ExecutionContext()}
+        if self.use_dict:
+            self._valuedict = {}   # {thread_ident: ExecutionContext()}
         self._cleanup_()
 
     def _cleanup_(self):
-        self._valuedict.clear()
+        if self.use_dict:
+            self._valuedict.clear()
+            self.clear_cache()
         self._mainthreadident = 0
-        self.clear_cache()
 
     def clear_cache(self):
         # Cache function: fast minicaching for the common case.  Relies
@@ -41,6 +45,7 @@ class OSThreadLocals:
         return result
 
     def setvalue(self, value):
+        # Overridden in stm.py.
         ident = rthread.get_ident()
         if value is not None:
             if len(self._valuedict) == 0:
@@ -72,6 +77,7 @@ class OSThreadLocals:
         ec._signals_enabled = new
 
     def getallvalues(self):
+        # Overridden in stm.py.
         return self._valuedict
 
     def leave_thread(self, space):

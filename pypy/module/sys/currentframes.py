@@ -49,7 +49,12 @@ def _current_frames(space):
     w_result = space.newdict()
     w_fake_frame = app.wget(space, "fake_frame")
     w_fake_code  = app.wget(space, "fake_code")
-    ecs = space.threadlocals.getallvalues()
+    try:
+        ecs = space.threadlocals.getallvalues()
+    except ValueError:
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("sys._current_frames() not supported"
+                                        " on this configuration"))
     for thread_ident, ec in ecs.items():
         vref = ec.topframeref
         frames = []
