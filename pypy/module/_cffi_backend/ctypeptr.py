@@ -2,6 +2,8 @@
 Pointers.
 """
 
+import os
+
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.error import wrap_oserror
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -247,11 +249,10 @@ class W_CTypePointer(W_CTypePtrBase):
         return W_CTypePtrBase.cast(self, w_ob)
 
     def prepare_file(self, w_ob):
-        from pypy.module._file.interp_file import W_File
-        from pypy.module._cffi_backend import ctypefunc
+        from pypy.module._io.interp_iobase import W_IOBase
         ob = self.space.interpclass_w(w_ob)
-        if isinstance(ob, W_File):
-            return prepare_file_argument(self.space, ob)
+        if isinstance(ob, W_IOBase):
+            return prepare_iofile_argument(self.space, w_ob)
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
@@ -350,15 +351,21 @@ class CffiFileObj(object):
     def close(self):
         rffi_fclose(self.llf)
 
-def prepare_file_argument(space, fileobj):
-    fileobj.direct_flush()
+def prepare_iofile_argument(space, w_fileobj):
+    fileobj = space.interpclass_w(w_fileobj)
+    from pypy.module._io.interp_iobase import W_IOBase
+    assert isinstance(fileobj, W_IOBase)
+    space.call_method(w_fileobj, "flush")
     if fileobj.cffi_fileobj is None:
-        fd = fileobj.direct_fileno()
+        fd = space.int_w(space.call_method(w_fileobj, "fileno"))
         if fd < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("file has no OS file descriptor"))
+        fd = os.dup(fd)
+        mode = space.str_w(space.getattr(w_fileobj, space.wrap("mode")))
         try:
-            fileobj.cffi_fileobj = CffiFileObj(fd, fileobj.mode)
+            fileobj.cffi_fileobj = CffiFileObj(fd, mode)
         except OSError, e:
             raise wrap_oserror(space, e)
     return fileobj.cffi_fileobj.llf
+
