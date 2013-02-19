@@ -261,20 +261,24 @@ static void gcptrlist_insert2(struct GcPtrList *gcptrlist, gcptr newitem1,
    of collisions, old items are discarded.  The eviction logic is a bit
    too simple for now. */
 
-#define FX_ENTRIES   8192
+#define FX_ENTRIES    8192
+#define FX_ASSOC      1
+#define FX_SIZE       (FX_ENTRIES * FX_ASSOC * sizeof(revision_t))
 
 struct FXCache {
   char *cache_start;
+#if FX_ASSOC > 1
   revision_t nextadd;
+#endif
   revision_t shift;
-  revision_t cache[FX_ENTRIES * 2 * 2];
+  revision_t cache[FX_ENTRIES * FX_ASSOC * 2];
 };
 
 static void fxcache_clear(struct FXCache *fxcache)
 {
-  fxcache->shift += 2;
-  if (fxcache->shift > FX_ENTRIES - 2) {
-    memset(fxcache->cache, 0, sizeof(fxcache->cache));
+  fxcache->shift += FX_ASSOC;
+  if (fxcache->shift > (FX_ENTRIES - 1) * FX_ASSOC) {
+    memset(fxcache->cache, 0, 2 * FX_SIZE);
     fxcache->shift = 0;
   }
   fxcache->cache_start = (char *)(fxcache->cache + fxcache->shift);
@@ -287,27 +291,37 @@ static inline int fxcache_add(struct FXCache *fxcache, gcptr item)
      */
   revision_t uitem = (revision_t)item;
   revision_t *entry = (revision_t *)
-    (fxcache->cache_start + (uitem & ((FX_ENTRIES-1) * sizeof(revision_t))));
-  revision_t current, *entry2;
+    (fxcache->cache_start + (uitem & (FX_SIZE-sizeof(revision_t))));
 
-  current = entry[0];
-  if (current == uitem)
+  if (entry[0] == uitem
+#if FX_ASSOC >= 2
+      || entry[1] == uitem
+#if FX_ASSOC >= 4
+      || entry[2] == uitem || entry[3] == uitem
+#if FX_ASSOC >= 8
+      || entry[4] == uitem || entry[5] == uitem
+      || entry[6] == uitem || entry[7] == uitem
+#if FX_ASSOC >= 16
+      || entry[8] == uitem || entry[9] == uitem
+      || entry[10]== uitem || entry[11]== uitem
+      || entry[12]== uitem || entry[13]== uitem
+      || entry[14]== uitem || entry[15]== uitem
+#if FX_ASSOC >= 32
+#error "FX_ASSOC is too large"
+#endif /* 32 */
+#endif /* 16 */
+#endif /* 8 */
+#endif /* 4 */
+#endif /* 2 */
+      )
     return 1;
 
-  entry2 = entry + FX_ENTRIES;
-  if (entry2[0] == uitem) {
-    entry2[0] = current;
-    entry[0] = uitem;
-    return 1;
-  }
-  if (entry2[1] == uitem) {
-    entry2[1] = current;
-    entry[0] = uitem;
-    return 1;
-  }
-
-  entry2[fxcache->nextadd] = uitem;
-  fxcache->nextadd = (fxcache->nextadd + 1) & 1;
+#if FX_ASSOC > 1
+  entry[fxcache->nextadd] = uitem;
+  fxcache->nextadd = (fxcache->nextadd + 1) & (FX_ASSOC-1);
+#else
+  entry[0] = uitem;
+#endif
   return 0;
 }
 
