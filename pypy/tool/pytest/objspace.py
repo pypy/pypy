@@ -71,7 +71,7 @@ class TinyObjSpace(object):
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
                     "while pypy-c was built with %s" % (key, value, has))
 
-        for name in ('int', 'long', 'str', 'unicode', 'None', 'ValueError',
+        for name in ('int', 'long', 'str', 'unicode', 'list', 'None', 'ValueError',
                 'OverflowError'):
             setattr(self, 'w_' + name, eval(name))
         import __builtin__ as __builtin__
@@ -99,6 +99,9 @@ class TinyObjSpace(object):
 
     def str_w(self, w_str):
         return w_str
+
+    def bytes_w(self, w_bytes):
+        return w_bytes
 
     def newdict(self, module=None):
         return {}

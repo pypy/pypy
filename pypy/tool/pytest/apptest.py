@@ -88,7 +88,7 @@ if 1:
         elif isinstance(value, unicode):
             # python2 unicode -> python3 string
             defs.append("self.%s = %s\n" % (symbol, repr(value)[1:]))
-        elif isinstance(value, (int, float, list)):
+        elif isinstance(value, (int, float, list, dict)):
             defs.append("self.%s = %r\n" % (symbol, value))
     source = py.code.Source(target_)[1:]
     pyfile = udir.join('src.py')

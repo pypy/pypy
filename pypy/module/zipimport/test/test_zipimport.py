@@ -74,9 +74,10 @@ def get_file():
         w_cache = space.getattr(space.getbuiltinmodule('zipimport'),
                                 space.wrap('_zip_directory_cache'))
         space.call_function(space.getattr(w_cache, space.wrap('clear')))
-        self.w_modules = space.call_method(
+        self.w_modules = space.call_function(
+            space.w_list,
             space.getattr(space.getbuiltinmodule('sys'),
-                          space.wrap('modules')), 'copy')
+                          space.wrap('modules')))
 
     def teardown_method(self, meth):
         space = self.space
