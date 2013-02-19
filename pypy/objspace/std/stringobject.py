@@ -972,7 +972,8 @@ def len__String(space, w_str):
 
 def str__String(space, w_str):
     if space.sys.get_flag('bytes_warning'):
-        space.warn("str() on a bytes instance", space.w_BytesWarning)
+        space.warn(space.wrap("str() on a bytes instance"),
+                   space.w_BytesWarning)
     return repr__String(space, w_str)
 
 def ord__String(space, w_str):

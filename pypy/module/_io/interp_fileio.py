@@ -249,14 +249,9 @@ class W_FileIO(W_RawIOBase):
     def _dealloc_warn_w(self, space, w_source):
         if self.fd >= 0 and self.closefd:
             try:
-                r = space.unicode_w(space.repr(w_source))
-                # TODO: space.warn is currently typed to str
-                #space.warn(u"unclosed file %s" % r, space.w_ResourceWarning)
-                msg = u"unclosed file %s" % r
-                space.appexec([space.wrap(msg), space.w_ResourceWarning],
-                              """(msg, warningcls):
-                import _warnings
-                _warnings.warn(msg, warningcls, stacklevel=2)""")
+                msg = (u"unclosed file %s" %
+                       space.unicode_w(space.repr(w_source)))
+                space.warn(space.wrap(msg), space.w_ResourceWarning)
             except OperationError as e:
                 # Spurious errors can appear at shutdown
                 if e.match(space, space.w_Warning):

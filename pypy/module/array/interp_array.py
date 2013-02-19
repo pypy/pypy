@@ -575,8 +575,8 @@ def make_array(mytype):
         self.fromstring(space.bufferstr_w(w_s))
 
     def array_fromstring__Array_ANY(space, self, w_s):
-        space.warn("fromstring() is deprecated. Use frombytes() instead.",
-                   self.space.w_DeprecationWarning)
+        msg = "fromstring() is deprecated. Use frombytes() instead."
+        space.warn(space.wrap(msg), self.space.w_DeprecationWarning)
         self.fromstring(space.str_w(w_s))
 
     def array_tobytes__Array(space, self):
@@ -586,8 +586,8 @@ def make_array(mytype):
         return self.space.wrapbytes(s)
 
     def array_tostring__Array(space, self):
-        space.warn("tostring() is deprecated. Use tobytes() instead.",
-                   space.w_DeprecationWarning)
+        msg = "tostring() is deprecated. Use tobytes() instead."
+        space.warn(space.wrap(msg), space.w_DeprecationWarning)
         return array_tobytes__Array(space, self)
 
     def array_fromfile__Array_ANY_ANY(space, self, w_f, w_n):

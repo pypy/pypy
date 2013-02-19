@@ -105,7 +105,8 @@ class W_BufferedIOBase(W_IOBase):
         return space.wrap(len(data))
 
     def _complain_about_max_buffer_size(self, space):
-        space.warn("max_buffer_size is deprecated", space.w_DeprecationWarning)
+        space.warn(space.wrap("max_buffer_size is deprecated"),
+                   space.w_DeprecationWarning)
 
 W_BufferedIOBase.typedef = TypeDef(
     '_BufferedIOBase', W_IOBase.typedef,

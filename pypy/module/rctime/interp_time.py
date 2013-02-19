@@ -444,7 +444,7 @@ def _gettmarg(space, w_tup, allowNone=True):
             else:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("year out of range"))
-            space.warn("Century info guessed for a 2-digit year.",
+            space.warn(space.wrap("Century info guessed for a 2-digit year."),
                        space.w_DeprecationWarning)
 
     # tm_wday does not need checking of its upper-bound since taking "%
