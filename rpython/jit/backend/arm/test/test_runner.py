@@ -67,7 +67,7 @@ class TestARM(LLtypeBackendTest):
 
     def test_redirect_call_assembler2(self):
         def assembler_helper(deadframe, virtualizable):
-            x = self.cpu.get_latest_value_int(deadframe, 0)
+            x = self.cpu.get_int_value(deadframe, 0)
             assert x == 11
             return 7
 
@@ -104,11 +104,11 @@ class TestARM(LLtypeBackendTest):
         self.cpu.compile_loop(loop3.inputargs, loop3.operations, lt3)
         self.cpu.compile_loop(loop1.inputargs, loop1.operations, lt1)
         df = self.cpu.execute_token(lt1, 10)
-        assert self.cpu.get_latest_value_int(df, 0) == 7
+        assert self.cpu.get_int_value(df, 0) == 7
 
         self.cpu.redirect_call_assembler(lt2, lt3)
         df = self.cpu.execute_token(lt1, 12)
-        assert self.cpu.get_latest_value_int(df, 0) == 7
+        assert self.cpu.get_int_value(df, 0) == 7
 
     SFloat = lltype.GcForwardReference()
     SFloat.become(lltype.GcStruct('SFloat', ('parent', rclass.OBJECT),
@@ -205,7 +205,7 @@ class TestARM(LLtypeBackendTest):
             RES = lltype.Signed
             args = [i+1 for i in range(numargs)]
             deadframe = self.cpu.execute_token(looptoken, *args)
-            assert self.cpu.get_latest_value_int(deadframe, 0) == sum(args)
+            assert self.cpu.get_int_value(deadframe, 0) == sum(args)
 
     def test_debugger_on(self):
         from rpython.rlib import debug
