@@ -554,6 +554,20 @@ class AppTestSocket:
                 socket.socket.__init__(self, family=socket.AF_INET6)
         assert Socket_IPV6().family == socket.AF_INET6
 
+    def test_dealloc_warn(self):
+        import _socket
+        import gc
+        import warnings
+
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        r = repr(s)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            s = None
+            gc.collect()
+        assert len(w) == 1
+        assert r in str(w[0])
+
 
 class AppTestSocketTCP:
     def setup_class(cls):

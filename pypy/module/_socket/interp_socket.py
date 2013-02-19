@@ -136,6 +136,10 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_RSocket(Wrappable, RSocket):
+
+    # for _dealloc_warn
+    space = None
+
     def descr_new(space, w_subtype, __args__):
         sock = space.allocate_instance(W_RSocket, w_subtype)
         return space.wrap(sock)
@@ -150,8 +154,22 @@ class W_RSocket(Wrappable, RSocket):
                                    fd=space.c_filedescriptor_w(w_fileno))
             else:
                 W_RSocket.__init__(self, family, type, proto)
+            self.space = space
         except SocketError, e:
             raise converted_error(space, e)
+
+    def _dealloc_warn(self):
+        space = self.space
+        if not space:
+            return
+        try:
+            msg = (u"unclosed %s" %
+                   space.unicode_w(space.repr(space.wrap(self))))
+            space.warn(space.wrap(msg), space.w_ResourceWarning)
+        except OperationError as e:
+            # Spurious errors can appear at shutdown
+            if e.match(space, space.w_Warning):
+                e.write_unraisable(space, '', space.wrap(self))
 
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
