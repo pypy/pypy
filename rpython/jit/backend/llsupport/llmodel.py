@@ -79,6 +79,8 @@ class AbstractLLCPU(AbstractCPU):
         base_ofs = self.get_baseofs_of_frame_field()
 
         def realloc_frame(frame, size):
+            if not we_are_translated():
+                assert not self._exception_emulator[0]
             frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
             if size > frame.jf_frame_info.jfi_frame_depth:
                 # update the frame_info size, which is for whatever reason

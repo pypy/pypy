@@ -3796,3 +3796,62 @@ class LLtypeBackendTest(BaseBackendTest):
             
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
         assert len(frame.jf_frame) == frame.jf_frame_info.jfi_frame_depth
+
+    def test_compile_bridge_while_running_guard_no_exc(self):
+        xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        xtp.subclassrange_min = 1
+        xtp.subclassrange_max = 3
+        X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
+                            hints={'vtable':  xtp._obj})
+        xptr = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(X))
+        def raising():
+            bridge = parse("""
+            [i1, i2]
+            guard_exception(ConstClass(xtp), descr=faildescr2) [i1, i2]
+            i3 = int_add(i1, i2)
+            i4 = int_add(i1, i3)
+            i5 = int_add(i1, i4)
+            i6 = int_add(i4, i5)
+            i7 = int_add(i6, i5)
+            i8 = int_add(i5, 1)
+            i9 = int_add(i8, 1)
+            force_spill(i1)
+            force_spill(i2)
+            force_spill(i3)
+            force_spill(i4)
+            force_spill(i5)
+            force_spill(i6)
+            force_spill(i7)
+            force_spill(i8)
+            force_spill(i9)
+            guard_true(i9) [i3, i4, i5, i6, i7, i8, i9]
+            finish(i9, descr=finaldescr)
+            """, namespace={'finaldescr': BasicFinalDescr(42),
+                            'faildescr2': BasicFailDescr(1),
+                            'xtp': xtp
+            })
+            self.cpu.compile_bridge(faildescr, bridge.inputargs,
+                                    bridge.operations, looptoken)
+            raise LLException(xtp, xptr)
+
+        faildescr = BasicFailDescr(0)
+        FUNC = self.FuncType([], lltype.Void)
+        raising_ptr = llhelper(lltype.Ptr(FUNC), raising)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
+
+        looptoken = JitCellToken()
+        loop = parse("""
+        [i0, i1, i2]
+        call(ConstClass(raising_ptr), descr=calldescr)
+        guard_no_exception(descr=faildescr) [i1, i2]
+        finish(i2, descr=finaldescr2)
+        """, namespace={'raising_ptr': raising_ptr,
+                        'calldescr': calldescr,
+                        'faildescr': faildescr,
+                        'finaldescr2': BasicFinalDescr(1)})
+        
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        frame = self.cpu.execute_token(looptoken, 1, 2, 3)
+        descr = self.cpu.get_latest_descr(frame)
+        assert descr.identifier == 42
