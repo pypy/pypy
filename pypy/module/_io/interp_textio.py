@@ -716,7 +716,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_closed(space)
 
         if not self.w_encoder:
-            raise OperationError(space.w_IOError, space.wrap("not writable"))
+            self._unsupportedoperation(space, "not writable")
 
         text = space.unicode_w(w_text)
         textlen = len(text)
@@ -817,8 +817,8 @@ class W_TextIOWrapper(W_TextIOBase):
         if whence == 1:
             # seek relative to current position
             if not space.is_true(space.eq(w_pos, space.wrap(0))):
-                raise OperationError(space.w_IOError, space.wrap(
-                    "can't do nonzero cur-relative seeks"))
+                self._unsupportedoperation(
+                    space, "can't do nonzero cur-relative seeks")
             # Seeking to the current position should attempt to sync the
             # underlying buffer with the current position.
             w_pos = space.call_method(self, "tell")
@@ -826,8 +826,8 @@ class W_TextIOWrapper(W_TextIOBase):
         elif whence == 2:
             # seek relative to end of file
             if not space.is_true(space.eq(w_pos, space.wrap(0))):
-                raise OperationError(space.w_IOError, space.wrap(
-                    "can't do nonzero end-relative seeks"))
+                self._unsupportedoperation(
+                    space, "can't do nonzero end-relative seeks")
             space.call_method(self, "flush")
             self._set_decoded_chars(None)
             self.snapshot = None

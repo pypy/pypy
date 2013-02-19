@@ -42,6 +42,21 @@ class AppTestTextIO:
         txt = _io.TextIOWrapper(UnReadable())
         raises(IOError, txt.read)
 
+    def test_unwritable(self):
+        import _io
+        class UnWritable(_io.BytesIO):
+            def writable(self):
+                return False
+        txt = _io.TextIOWrapper(UnWritable())
+        raises(_io.UnsupportedOperation, txt.write, "blah")
+        raises(_io.UnsupportedOperation, txt.writelines, ["blah\n"])
+
+    def test_invalid_seek(self):
+        import _io
+        t = _io.TextIOWrapper(_io.BytesIO(b"\xc3\xa9\n\n"))
+        raises(_io.UnsupportedOperation, t.seek, 1, 1)
+        raises(_io.UnsupportedOperation, t.seek, 1, 2)
+
     def test_unseekable(self):
         import _io
         class Unseekable(_io.BytesIO):
