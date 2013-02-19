@@ -91,7 +91,7 @@ long stm_should_break_transaction(void)
        reads_size_limit_nonatomic to 0 in that case.
 
      - finally, the default case: return True if
-       d->list_of_read_objects.size is
+       d->count_reads is
        greater than reads_size_limit == reads_size_limit_nonatomic.
   */
 #ifdef RPY_STM_ASSERT
@@ -105,7 +105,7 @@ long stm_should_break_transaction(void)
     assert(d->reads_size_limit_nonatomic == 0);
 #endif
 
-  return d->list_of_read_objects.size >= d->reads_size_limit;
+  return d->count_reads >= d->reads_size_limit;
 }
 
 void stm_set_transaction_length(long length_max)

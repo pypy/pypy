@@ -43,6 +43,7 @@ struct tx_descriptor {
   revision_t start_time;
   revision_t my_lock;
   long atomic;   /* 0 = not atomic, > 0 atomic */
+  long count_reads;
   long reads_size_limit, reads_size_limit_nonatomic; /* see should_break_tr. */
   int active;    /* 0 = inactive, 1 = regular, 2 = inevitable */
   int readonly_updates;
@@ -134,6 +135,7 @@ static gcptr LatestGlobalRevision(struct tx_descriptor *d, gcptr G,
 
 static inline gcptr AddInReadSet(struct tx_descriptor *d, gcptr R)
 {
+  d->count_reads++;
   if (!fxcache_add(&d->recent_reads_cache, R)) {
       /* not in the cache: it may be the first time we see it,
        * so insert it into the list */
@@ -245,6 +247,7 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
   assert(L->h_tid & GCFLAG_NOT_WRITTEN); /* must not be set in the 1st place */
   L->h_revision = (revision_t)R;     /* back-reference to the original */
   g2l_insert(&d->global_to_local, R, L);
+  d->count_reads++;
   gcptrlist_insert(&d->list_of_read_objects, R);
   return L;
 }
@@ -377,7 +380,7 @@ static void AbortTransaction(int num)
   /* upon abort, set the reads size limit to 94% of how much was read
      so far.  This should ensure that, assuming the retry does the same
      thing, it will commit just before it reaches the conflicting point. */
-  limit = d->list_of_read_objects.size;
+  limit = d->count_reads;
   if (limit > 0) {
       limit -= (limit >> 4);
       d->reads_size_limit_nonatomic = limit;
@@ -417,6 +420,7 @@ static void init_transaction(struct tx_descriptor *d)
   assert(d->list_of_read_objects.size == 0);
   assert(d->gcroots.size == 0);
   assert(!g2l_any_entry(&d->global_to_local));
+  d->count_reads = 0;
   fxcache_clear(&d->recent_reads_cache);
 }
 
