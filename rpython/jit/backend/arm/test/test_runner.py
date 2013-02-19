@@ -23,8 +23,7 @@ class TestARM(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['nop', # this is the same as mov r0, r0
-                             'adds', 'cmp', 'beq', 'b']
+    add_loop_instructions = ['ldr', 'mov', 'adds', 'cmp', 'beq', 'b']
     bridge_loop_instructions = ['movw', 'movt', 'bx']
 
     def get_cpu(self):
