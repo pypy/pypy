@@ -2,6 +2,7 @@
 Implementation of the 'sys._current_frames()' routine.
 """
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
 
 app = gateway.applevel('''
 "NOT_RPYTHON"

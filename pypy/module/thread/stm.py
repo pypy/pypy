@@ -37,7 +37,7 @@ class STMThreadLocals(OSThreadLocals):
         return ec_cache.get()
 
     def setvalue(self, value):
-        if not self.seen_main_ec:
+        if not self.seen_main_ec and value is not None:
             value._signals_enabled = 1    # the main thread is enabled
             self._mainthreadident = rthread.get_ident()
             self.seen_main_ec = True
