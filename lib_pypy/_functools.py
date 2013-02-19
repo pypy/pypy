@@ -1,5 +1,6 @@
 """ Supplies the internal functions for functools.py in the standard library """
-from __pypy__ import builtinify
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
 
 
 sentinel = object()
