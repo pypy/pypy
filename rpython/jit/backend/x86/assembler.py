@@ -145,20 +145,18 @@ class Assembler386(BaseAssembler):
             mc.MOV_rr(edi.value, ebp.value)
             align = align_stack_words(1)
             mc.SUB_ri(esp.value, (align - 1) * WORD)
-            exc0, exc1 = ebx, r12 # callee saved regs for storing exc
         else:
             align = align_stack_words(3)
             mc.MOV_rs(eax.value, WORD * 2)
             mc.SUB_ri(esp.value, (align - 1) * WORD)
             mc.MOV_sr(WORD, eax.value)
             mc.MOV_sr(0, ebp.value)
-            exc0, exc1 = esi, edi # callee saved regs for storing exc
         # align
 
-        self._store_and_reset_exception(mc, exc0, exc1)
+        self._store_and_reset_exception(mc, None, ebx, ecx)
 
         mc.CALL(imm(self.cpu.realloc_frame))
-        self._restore_exception(mc, exc0, exc1)
+        self._restore_exception(mc, None, ebx, ecx)
         mc.ADD_ri(esp.value, (align - 1) * WORD)
         mc.MOV_rr(ebp.value, eax.value)
 
@@ -342,6 +340,10 @@ class Assembler386(BaseAssembler):
                 exc0, exc1 = ebx, r12
             mc.MOV(RawStackLoc(WORD * 5), exc0)
             mc.MOV(RawStackLoc(WORD * 6), exc1)
+            # note that it's save to store the exception in register,
+            # since the call to write barrier can't collect
+            # (and this is assumed a bit left and right here, like lack
+            # of _reload_frame_if_necessary)
             self._store_and_reset_exception(mc, exc0, exc1)
 
         mc.CALL(imm(func))
@@ -1726,19 +1728,34 @@ class Assembler386(BaseAssembler):
         self.implement_guard(guard_token, 'NE')
         self._store_and_reset_exception(self.mc, resloc)
 
-    def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None):
+    def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None,
+                                   tmploc=None):
+        """ Resest the exception. If excvalloc is None, then store it on the
+        frame in jf_guard_exc
+        """
         if excvalloc is not None:
             assert excvalloc.is_reg()
             mc.MOV(excvalloc, heap(self.cpu.pos_exc_value()))
-            if exctploc is not None:
-                assert exctploc.is_reg()
-                mc.MOV(exctploc, heap(self.cpu.pos_exception()))
+        elif tmploc is not None: # if both are None, just ignore
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.MOV(tmploc, heap(self.cpu.pos_exc_value()))
+            mc.MOV(RawStackLoc(ofs), tmploc)
+        if exctploc is not None:
+            assert exctploc.is_reg()
+            mc.MOV(exctploc, heap(self.cpu.pos_exception()))
                 
         mc.MOV(heap(self.cpu.pos_exception()), imm0)
         mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
 
-    def _restore_exception(self, mc, excvalloc, exctploc):
-        mc.MOV(heap(self.cpu.pos_exc_value()), excvalloc)
+    def _restore_exception(self, mc, excvalloc, exctploc, tmploc=None):
+        if excvalloc is not None:
+            mc.MOV(heap(self.cpu.pos_exc_value()), excvalloc)
+        else:
+            assert tmploc is not None
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.MOV(tmploc, RawStackLoc(ofs))
+            mc.MOV_bi(ofs, 0)
+            mc.MOV(heap(self.cpu.pos_exc_value()), tmploc)
         mc.MOV(heap(self.cpu.pos_exception()), exctploc)
 
     def _gen_guard_overflow(self, guard_op, guard_token):
