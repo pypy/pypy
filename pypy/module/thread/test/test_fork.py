@@ -1,6 +1,8 @@
 from pypy.module.thread.test.support import GenericTestThread
 
 class AppTestFork(GenericTestThread):
+    spaceconfig = dict(usemodules=GenericTestThread.spaceconfig['usemodules'] + ('imp',))
+
     def test_fork_with_thread(self):
         # XXX This test depends on a multicore machine, as busy_thread must
         # aquire the GIL the instant that the main thread releases it.
@@ -84,3 +86,45 @@ class AppTestFork(GenericTestThread):
         # if 9, process was killed by timer.
         # if 42<<8, os._exit(42) was correctly reached.
         assert feedback == [42<<8]
+
+    def test_nested_import_lock_fork(self):
+        """Check fork() in main thread works while the main thread is doing an import"""
+        # Issue 9573: this used to trigger RuntimeError in the child process
+        import imp
+        import os
+        import time
+
+        def fork_with_import_lock(level):
+            release = 0
+            in_child = False
+            try:
+                try:
+                    for i in range(level):
+                        imp.acquire_lock()
+                        release += 1
+                    pid = os.fork()
+                    in_child = not pid
+                finally:
+                    for i in range(release):
+                        imp.release_lock()
+            except RuntimeError:
+                if in_child:
+                    if verbose > 1:
+                        print("RuntimeError in child")
+                    os._exit(1)
+                raise
+            if in_child:
+                os._exit(0)
+
+            for i in range(10):
+                spid, status = os.waitpid(pid, os.WNOHANG)
+                if spid == pid:
+                    break
+                time.sleep(1.0)
+            assert spid == pid
+            assert status == 0
+
+        # Check this works with various levels of nested
+        # import in the main thread
+        for level in range(5):
+            fork_with_import_lock(level)

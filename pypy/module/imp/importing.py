@@ -786,9 +786,18 @@ class ImportRLock:
     def reinit_lock(self):
         # Called after fork() to ensure that newly created child
         # processes do not share locks with the parent
-        self.lock = None
-        self.lockowner = None
-        self.lockcounter = 0
+        if self.lockcounter > 1:
+            # Forked as a side effect of import
+            self.lock = self.space.allocate_lock()
+            me = self.space.getexecutioncontext()
+            self.lock.acquire(True)
+            # XXX: can the previous line fail?
+            self.lockowner = me
+            self.lockcounter -= 1
+        else:
+            self.lock = None
+            self.lockowner = None
+            self.lockcounter = 0
 
 def getimportlock(space):
     return space.fromcache(ImportRLock)
