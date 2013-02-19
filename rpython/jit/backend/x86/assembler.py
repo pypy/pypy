@@ -138,24 +138,30 @@ class Assembler386(BaseAssembler):
         mc.MOV_rs(ecx.value, WORD)
         gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_br(gcmap_ofs, ecx.value)
+
         if IS_X86_64:
-            # this is size that we're after, sanity checking only
             mc.MOV_rs(esi.value, WORD*2)
             # push first arg
             mc.MOV_rr(edi.value, ebp.value)
             align = align_stack_words(1)
             mc.SUB_ri(esp.value, (align - 1) * WORD)
+            exc0, exc1 = ebx, r12 # callee saved regs for storing exc
         else:
             align = align_stack_words(3)
             mc.MOV_rs(eax.value, WORD * 2)
             mc.SUB_ri(esp.value, (align - 1) * WORD)
             mc.MOV_sr(WORD, eax.value)
             mc.MOV_sr(0, ebp.value)
+            exc0, exc1 = esi, edi # callee saved regs for storing exc
         # align
 
+        self._store_and_reset_exception(mc, exc0, exc1)
+
         mc.CALL(imm(self.cpu.realloc_frame))
+        self._restore_exception(mc, exc0, exc1)
         mc.ADD_ri(esp.value, (align - 1) * WORD)
         mc.MOV_rr(ebp.value, eax.value)
+
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -224,7 +230,7 @@ class Assembler386(BaseAssembler):
         #
         # read and reset the current exception
 
-        self._store_and_reset_exception(eax)
+        self._store_and_reset_exception(self.mc, eax)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         self.mc.MOV_br(ofs, eax.value)
         propagate_exception_descr = rffi.cast(lltype.Signed,
@@ -289,6 +295,7 @@ class Assembler386(BaseAssembler):
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
+        exc0, exc1 = None, None
         if descr is None:
             return
         if not withcards:
@@ -329,8 +336,11 @@ class Assembler386(BaseAssembler):
             if IS_X86_32:
                 mc.MOV_sr(4 * WORD, edx.value)
                 mc.MOV_sr(0, ebp.value)
+                exc0, exc1 = esi, edi
             else:
                 mc.MOV_rr(edi.value, ebp.value)
+                exc0, exc1 = ebx, r12
+            self._store_and_reset_exception(mc, exc0, exc1)
 
         mc.CALL(imm(func))
         #
@@ -357,6 +367,7 @@ class Assembler386(BaseAssembler):
                 mc.MOV_rs(edx.value, 4 * WORD)
             mc.MOVSD_xs(xmm0.value, 3 * WORD)
             mc.MOV_rs(eax.value, WORD) # restore
+            self._restore_exception(mc, exc0, exc1)
             mc.LEA_rs(esp.value, 6 * WORD)
             mc.RET()
 
@@ -1709,13 +1720,22 @@ class Assembler386(BaseAssembler):
         self.mc.MOV(loc1, heap(self.cpu.pos_exception()))
         self.mc.CMP(loc1, loc)
         self.implement_guard(guard_token, 'NE')
-        self._store_and_reset_exception(resloc)
+        self._store_and_reset_exception(self.mc, resloc)
 
-    def _store_and_reset_exception(self, resloc=None):
-        if resloc is not None:
-            self.mc.MOV(resloc, heap(self.cpu.pos_exc_value()))
-        self.mc.MOV(heap(self.cpu.pos_exception()), imm0)
-        self.mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+    def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None):
+        if excvalloc is not None:
+            assert excvalloc.is_reg()
+            mc.MOV(excvalloc, heap(self.cpu.pos_exc_value()))
+            if exctploc is not None:
+                assert exctploc.is_reg()
+                mc.MOV(exctploc, heap(self.cpu.pos_exception()))
+                
+        mc.MOV(heap(self.cpu.pos_exception()), imm0)
+        mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+
+    def _restore_exception(self, mc, excvalloc, exctploc):
+        mc.MOV(heap(self.cpu.pos_exc_value()), excvalloc)
+        mc.MOV(heap(self.cpu.pos_exception()), exctploc)
 
     def _gen_guard_overflow(self, guard_op, guard_token):
         guard_opnum = guard_op.getopnum()
