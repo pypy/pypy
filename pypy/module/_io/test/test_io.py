@@ -373,5 +373,5 @@ class AppTestOpen:
 
     def test_mod(self):
         import _io
-        assert all(t.__module__ == '_io' for t in dir(_io)
+        assert all(t.__module__ in ('io', '_io') for t in vars(_io).values()
                    if isinstance(t, type))
