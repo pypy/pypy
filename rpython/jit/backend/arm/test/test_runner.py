@@ -179,8 +179,6 @@ class TestARM(LLtypeBackendTest):
 
     def test_compile_loop_many_int_args(self):
         for numargs in range(2, 30):
-            for _ in range(numargs):
-                self.cpu.reserve_some_free_fail_descr_number()
             ops = []
             arglist = "[%s]\n" % ", ".join(["i%d" % i for i in range(numargs)])
             ops.append(arglist)
@@ -199,7 +197,6 @@ class TestARM(LLtypeBackendTest):
             ops = "".join(ops)
             loop = parse(ops)
             looptoken = JitCellToken()
-            done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             ARGS = [lltype.Signed] * numargs
             RES = lltype.Signed
