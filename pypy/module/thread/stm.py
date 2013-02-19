@@ -31,11 +31,16 @@ class STMThreadLocals(OSThreadLocals):
         assert space.actionflag.setcheckinterval_callback is None
         space.actionflag.setcheckinterval_callback = setcheckinterval_callback
         self.threads_running = False
+        self.seen_main_ec = False
 
     def getvalue(self):
         return ec_cache.get()
 
     def setvalue(self, value):
+        if not self.seen_main_ec:
+            value._signals_enabled = 1    # the main thread is enabled
+            self._mainthreadident = rthread.get_ident()
+            self.seen_main_ec = True
         ec_cache.set(value)
 
     def getallvalues(self):
@@ -51,6 +56,11 @@ class STMThreadLocals(OSThreadLocals):
 
     def reinit_threads(self, space):
         self.setup_threads(space)
+        ident = rthread.get_ident()
+        if ident != self._mainthreadident:
+            ec = self.getvalue()
+            ec._signals_enabled += 1
+            self._mainthreadident = ident
 
     def configure_transaction_length(self, space):
         if self.threads_running:
