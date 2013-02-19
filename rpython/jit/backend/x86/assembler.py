@@ -340,8 +340,8 @@ class Assembler386(BaseAssembler):
             else:
                 mc.MOV_rr(edi.value, ebp.value)
                 exc0, exc1 = ebx, r12
-            mc.MOV_sr(WORD * 5, exc0.value)
-            mc.MOV_sr(WORD * 6, exc1.value)
+            mc.MOV(RawStackLoc(WORD * 5), exc0)
+            mc.MOV(RawStackLoc(WORD * 6), exc1)
             self._store_and_reset_exception(mc, exc0, exc1)
 
         mc.CALL(imm(func))
@@ -370,8 +370,8 @@ class Assembler386(BaseAssembler):
             mc.MOVSD_xs(xmm0.value, 3 * WORD)
             mc.MOV_rs(eax.value, WORD) # restore
             self._restore_exception(mc, exc0, exc1)
-            mc.MOV_rs(exc0.value, WORD * 5)
-            mc.MOV_rs(exc1.value, WORD * 6)
+            mc.MOV(exc0, RawStackLoc(WORD * 5))
+            mc.MOV(exc1, RawStackLoc(WORD * 6))
             mc.LEA_rs(esp.value, 10 * WORD)
             mc.RET()
 
