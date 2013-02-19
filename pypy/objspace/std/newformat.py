@@ -935,8 +935,8 @@ def make_formatting_class():
             tp = self._type
             self._get_locale(tp)
             if tp == "\0":
-                tp = "g"
-                default_precision = 12
+                tp = "r"
+                default_precision = 0
                 flags |= rfloat.DTSF_ADD_DOT_0
             elif tp == "n":
                 tp = "g"
@@ -949,6 +949,8 @@ def make_formatting_class():
                 add_pct = False
             if self._precision == -1:
                 self._precision = default_precision
+            if tp == "r":
+                type = "g"
             result, special = rfloat.double_to_string(value, tp,
                                                       self._precision, flags)
             if add_pct:
