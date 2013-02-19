@@ -216,6 +216,13 @@ static void gcptrlist_clear(struct GcPtrList *gcptrlist)
 static void _gcptrlist_grow(struct GcPtrList *gcptrlist)
 {
   long newalloc = gcptrlist->alloc + (gcptrlist->alloc >> 1) + 16;
+
+  PYPY_DEBUG_START("stm-growth");
+  if (PYPY_HAVE_DEBUG_PRINTS)
+    {
+      fprintf(PYPY_DEBUG_FILE, "%ld KB\n", newalloc * sizeof(gcptr) / 1024);
+    }
+
   gcptr *newitems = malloc(newalloc * sizeof(gcptr));
   long i;
   for (i=0; i<gcptrlist->size; i++)
@@ -223,6 +230,8 @@ static void _gcptrlist_grow(struct GcPtrList *gcptrlist)
   free(gcptrlist->items);
   gcptrlist->items = newitems;
   gcptrlist->alloc = newalloc;
+
+  PYPY_DEBUG_STOP("stm-growth");
 }
 
 static inline void gcptrlist_insert(struct GcPtrList *gcptrlist, gcptr newitem)
@@ -252,61 +261,68 @@ static void gcptrlist_insert2(struct GcPtrList *gcptrlist, gcptr newitem1,
    of collisions, old items are discarded.  The eviction logic is a bit
    too simple for now. */
 
-#define FX_ENTRIES    32
-#define FX_SIZE       (FX_ENTRIES * sizeof(revision_t))
-#define FX_THRESHOLD  5
-
-#if FX_THRESHOLD >= FX_ENTRIES * 4   /* == lower bound on FX_SIZE */
-#  error "if you increase FX_THRESHOLD, you must also increase FX_ENTRIES"
-#endif
+#define FX_ENTRIES    8192
+#define FX_ASSOC      1
+#define FX_SIZE       (FX_ENTRIES * FX_ASSOC * sizeof(revision_t))
 
 struct FXCache {
-  revision_t cache[FX_ENTRIES];
+  char *cache_start;
+#if FX_ASSOC > 1
+  revision_t nextadd;
+#endif
+  revision_t shift;
+  revision_t cache[FX_ENTRIES * FX_ASSOC * 2];
 };
-
-static int fxcache_is_clear(struct FXCache *fxcache)
-{
-  int i;
-  for (i=0; i<FX_ENTRIES; i++)
-    if (fxcache->cache[i])
-      return 0;
-  return 1;
-}
 
 static void fxcache_clear(struct FXCache *fxcache)
 {
-  memset(fxcache, 0, sizeof(struct FXCache));
+  fxcache->shift += FX_ASSOC;
+  if (fxcache->shift > (FX_ENTRIES - 1) * FX_ASSOC) {
+    memset(fxcache->cache, 0, 2 * FX_SIZE);
+    fxcache->shift = 0;
+  }
+  fxcache->cache_start = (char *)(fxcache->cache + fxcache->shift);
 }
 
 static inline int fxcache_add(struct FXCache *fxcache, gcptr item)
 {
-  /* If 'item' is not in the cache, add it with the value 0 and returns 0.
-     If it is already, increment its value and returns 1.
-     If it we reach FX_THRESHOLD, returns 2.
+  /* If 'item' is not in the cache, add it and returns 0.
+     If it is already, return 1.
      */
   revision_t uitem = (revision_t)item;
   revision_t *entry = (revision_t *)
-    (((char *)fxcache->cache) + (uitem & (FX_SIZE-sizeof(revision_t))));
-  revision_t stored_key = uitem & -FX_SIZE;
-  revision_t value = stored_key ^ *entry;
-  if (value >= FX_SIZE)
-    {
-      /* not in the cache: evict the colliding item (no associativity) */
-      *entry = stored_key;
-      return 0;
-    }
-  else
-    {
-      /* already in the cache */
-      if (value < FX_THRESHOLD)
-        {
-          ++value;
-          ++*entry;
-          return 1;
-        }
-      else
-        return 2;
-    }
+    (fxcache->cache_start + (uitem & (FX_SIZE-sizeof(revision_t))));
+
+  if (entry[0] == uitem
+#if FX_ASSOC >= 2
+      || entry[1] == uitem
+#if FX_ASSOC >= 4
+      || entry[2] == uitem || entry[3] == uitem
+#if FX_ASSOC >= 8
+      || entry[4] == uitem || entry[5] == uitem
+      || entry[6] == uitem || entry[7] == uitem
+#if FX_ASSOC >= 16
+      || entry[8] == uitem || entry[9] == uitem
+      || entry[10]== uitem || entry[11]== uitem
+      || entry[12]== uitem || entry[13]== uitem
+      || entry[14]== uitem || entry[15]== uitem
+#if FX_ASSOC >= 32
+#error "FX_ASSOC is too large"
+#endif /* 32 */
+#endif /* 16 */
+#endif /* 8 */
+#endif /* 4 */
+#endif /* 2 */
+      )
+    return 1;
+
+#if FX_ASSOC > 1
+  entry[fxcache->nextadd] = uitem;
+  fxcache->nextadd = (fxcache->nextadd + 1) & (FX_ASSOC-1);
+#else
+  entry[0] = uitem;
+#endif
+  return 0;
 }
 
 /************************************************************/

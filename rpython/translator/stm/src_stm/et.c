@@ -134,18 +134,17 @@ static gcptr LatestGlobalRevision(struct tx_descriptor *d, gcptr G,
 
 static inline gcptr AddInReadSet(struct tx_descriptor *d, gcptr R)
 {
-  switch (fxcache_add(&d->recent_reads_cache, R)) {
-
-  case 0:
+  if (!fxcache_add(&d->recent_reads_cache, R)) {
       /* not in the cache: it may be the first time we see it,
        * so insert it into the list */
       gcptrlist_insert(&d->list_of_read_objects, R);
-      break;
-
-  case 2:
-      /* already in the cache, and FX_THRESHOLD reached */
-      return Localize(d, R);
   }
+      //      break;
+
+      //  case 2:
+      /* already in the cache, and FX_THRESHOLD reached */
+      //      return Localize(d, R);
+      //  }
   return R;
 }
 
@@ -387,7 +386,6 @@ static void AbortTransaction(int num)
   gcptrlist_clear(&d->list_of_read_objects);
   gcptrlist_clear(&d->gcroots);
   g2l_clear(&d->global_to_local);
-  fxcache_clear(&d->recent_reads_cache);
 
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-abort");
@@ -419,7 +417,7 @@ static void init_transaction(struct tx_descriptor *d)
   assert(d->list_of_read_objects.size == 0);
   assert(d->gcroots.size == 0);
   assert(!g2l_any_entry(&d->global_to_local));
-  assert(fxcache_is_clear(&d->recent_reads_cache));
+  fxcache_clear(&d->recent_reads_cache);
 }
 
 void BeginTransaction(jmp_buf* buf)
@@ -600,7 +598,6 @@ void CommitTransaction(void)
   /* we cannot abort any more from here */
   d->setjmp_buf = NULL;
   gcptrlist_clear(&d->list_of_read_objects);
-  fxcache_clear(&d->recent_reads_cache);
 
   UpdateChainHeads(d, cur_time);
 
