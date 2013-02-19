@@ -62,7 +62,7 @@ long stm_is_inevitable(void)
   return is_inevitable(d);
 }
 
-static long stm_regular_length_limit = LONG_MAX;
+static unsigned long stm_regular_length_limit = ULONG_MAX;
 
 void stm_add_atomic(long delta)
 {
@@ -84,7 +84,7 @@ long stm_should_break_transaction(void)
   /* a single comparison to handle all cases:
 
      - if d->atomic, then we should return False.  This is done by
-       forcing reads_size_limit to LONG_MAX as soon as atomic > 0.
+       forcing reads_size_limit to ULONG_MAX as soon as atomic > 0.
 
      - otherwise, if is_inevitable(), then we should return True.
        This is done by forcing both reads_size_limit and
@@ -95,9 +95,9 @@ long stm_should_break_transaction(void)
        greater than reads_size_limit == reads_size_limit_nonatomic.
   */
 #ifdef RPY_STM_ASSERT
-  /* reads_size_limit is LONG_MAX if d->atomic, or else it is equal to
+  /* reads_size_limit is ULONG_MAX if d->atomic, or else it is equal to
      reads_size_limit_nonatomic. */
-  assert(d->reads_size_limit == (d->atomic ? LONG_MAX :
+  assert(d->reads_size_limit == (d->atomic ? ULONG_MAX :
                                      d->reads_size_limit_nonatomic));
   /* if is_inevitable(), reads_size_limit_nonatomic should be 0
      (and thus reads_size_limit too, if !d->atomic.) */
@@ -105,13 +105,15 @@ long stm_should_break_transaction(void)
     assert(d->reads_size_limit_nonatomic == 0);
 #endif
 
-  return d->count_reads >= d->reads_size_limit;
+  return d->count_reads > d->reads_size_limit;
 }
 
 void stm_set_transaction_length(long length_max)
 {
   struct tx_descriptor *d = thread_descriptor;
   BecomeInevitable("set_transaction_length");
+  if (length_max <= 0)
+    length_max = 1;
   stm_regular_length_limit = length_max;
 }
 
@@ -160,7 +162,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
          When such a shortened transaction succeeds, the next one will
          see its length limit doubled, up to the maximum. */
       if (counter == 0) {
-          long limit = d->reads_size_limit_nonatomic;
+          unsigned long limit = d->reads_size_limit_nonatomic;
           if (limit != 0 && limit < (stm_regular_length_limit >> 1))
               limit = (limit << 1) | 1;
           else

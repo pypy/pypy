@@ -439,9 +439,12 @@ if __name__ == '__main__':
         if len(sys.argv) > 2:
             max_num_threads = int(sys.argv[2])
             assert max_num_threads <= iterations
+            if len(sys.argv) > 3:
+                sys.setcheckinterval(int(sys.argv[3]))
     else:
         iterations = 10
     num_threads = min(iterations, max_num_threads)
-    print "Running %d iterations on %d threads" % (iterations, num_threads)
+    print "Running %d iterations on %d threads; checkinterval=%d" % (
+        iterations, num_threads, sys.getcheckinterval())
     transaction.set_num_threads(num_threads)
     main(iterations = iterations)

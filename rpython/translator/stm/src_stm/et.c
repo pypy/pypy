@@ -43,8 +43,9 @@ struct tx_descriptor {
   revision_t start_time;
   revision_t my_lock;
   long atomic;   /* 0 = not atomic, > 0 atomic */
-  long count_reads;
-  long reads_size_limit, reads_size_limit_nonatomic; /* see should_break_tr. */
+  unsigned long count_reads;
+  unsigned long reads_size_limit;        /* see should_break_tr. */
+  unsigned long reads_size_limit_nonatomic;
   int active;    /* 0 = inactive, 1 = regular, 2 = inevitable */
   int readonly_updates;
   unsigned int num_commits;
@@ -369,7 +370,7 @@ static void SpinLoop(int num)
 static void AbortTransaction(int num)
 {
   struct tx_descriptor *d = thread_descriptor;
-  long limit;
+  unsigned long limit;
   assert(d->active);
   assert(!is_inevitable(d));
   assert(num < ABORT_REASONS);
@@ -409,9 +410,9 @@ static void AbortTransaction(int num)
 
 static void update_reads_size_limit(struct tx_descriptor *d)
 {
-  /* 'reads_size_limit' is set to LONG_MAX if we are atomic; else
+  /* 'reads_size_limit' is set to ULONG_MAX if we are atomic; else
      we copy the value from reads_size_limit_nonatomic. */
-  d->reads_size_limit = d->atomic ? LONG_MAX : d->reads_size_limit_nonatomic;
+  d->reads_size_limit = d->atomic ? ULONG_MAX : d->reads_size_limit_nonatomic;
 }
 
 static void init_transaction(struct tx_descriptor *d)
