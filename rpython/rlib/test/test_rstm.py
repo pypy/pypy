@@ -10,10 +10,9 @@ def test_tlref_untranslated():
         x = FooBar()
         results.append(t.get() is None)
         t.set(x)
+        results.append(t.get() is x)
         time.sleep(0.2)
         results.append(t.get() is x)
-        ThreadLocalReference.flush_all_in_this_thread()
-        results.append(t.get() is None)
     for i in range(5):
         thread.start_new_thread(subthread, ())
     time.sleep(0.5)

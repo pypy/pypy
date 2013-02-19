@@ -107,16 +107,14 @@ def make_perform_transaction(func, CONTAINERP):
 # ____________________________________________________________
 
 class ThreadLocalReference(object):
-    _ALL = weakref.WeakKeyDictionary()
     _COUNT = 0
 
     def __init__(self, Cls):
         "NOT_RPYTHON: must be prebuilt"
         self.Cls = Cls
-        self.local = thread._local()
+        self.local = thread._local()      # <- NOT_RPYTHON
         self.unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
-        ThreadLocalReference._ALL[self] = True
 
     def _freeze_(self):
         return True
@@ -124,8 +122,7 @@ class ThreadLocalReference(object):
     @specialize.arg(0)
     def get(self):
         if we_are_translated():
-            ptr = llop.stm_threadlocalref_get(llmemory.Address, self.unique_id)
-            ptr = rffi.cast(rclass.OBJECTPTR, ptr)
+            ptr = llop.stm_threadlocalref_get(rclass.OBJECTPTR, self.unique_id)
             return cast_base_ptr_to_instance(self.Cls, ptr)
         else:
             return getattr(self.local, 'value', None)
@@ -135,16 +132,6 @@ class ThreadLocalReference(object):
         assert isinstance(value, self.Cls) or value is None
         if we_are_translated():
             ptr = cast_instance_to_base_ptr(value)
-            ptr = rffi.cast(llmemory.Address, ptr)
             llop.stm_threadlocalref_set(lltype.Void, self.unique_id, ptr)
         else:
             self.local.value = value
-
-    @staticmethod
-    def flush_all_in_this_thread():
-        if we_are_translated():
-            # NB. this line is repeated in stmtls.py
-            llop.stm_threadlocalref_flush(lltype.Void)
-        else:
-            for tlref in ThreadLocalReference._ALL.keys():
-                tlref.local.value = None

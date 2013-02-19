@@ -20,15 +20,12 @@ def transform_tlref(graphs):
                     ids.add(op.args[0].value)
     #
     ids = sorted(ids)
-    fields = [('ptr%d' % id1, llmemory.Address) for id1 in ids]
-    kwds = {'hints': {'stm_thread_local': True}}
-    S = lltype.Struct('THREADLOCALREF', *fields, **kwds)
+    ARRAY = lltype.FixedSizeArray(llmemory.Address, len(ids))
+    S = lltype.Struct('THREADLOCALREF', ('ptr', ARRAY),
+                      hints={'stm_thread_local': True})
     ll_threadlocalref = lltype.malloc(S, immortal=True)
     c_threadlocalref = Constant(ll_threadlocalref, lltype.Ptr(S))
-    c_fieldnames = {}
-    for id1 in ids:
-        fieldname = 'ptr%d' % id1
-        c_fieldnames[id1] = Constant(fieldname, lltype.Void)
+    c_fieldname = Constant('ptr', lltype.Void)
     c_null = Constant(llmemory.NULL, llmemory.Address)
     #
     for graph in graphs:
@@ -36,24 +33,37 @@ def transform_tlref(graphs):
             for i in range(len(block.operations)-1, -1, -1):
                 op = block.operations[i]
                 if op.opname == 'stm_threadlocalref_set':
-                    id1 = op.args[0].value
-                    op = SpaceOperation('setfield', [c_threadlocalref,
-                                                     c_fieldnames[id1],
-                                                     op.args[1]],
-                                        op.result)
-                    block.operations[i] = op
+                    v_array = varoftype(lltype.Ptr(ARRAY))
+                    ops = [
+                        SpaceOperation('getfield', [c_threadlocalref,
+                                                    c_fieldname],
+                                       v_array),
+                        SpaceOperation('setarrayitem', [v_array,
+                                                        op.args[0],
+                                                        op.args[1]],
+                                       op.result)]
+                    block.operations[i:i+1] = ops
                 elif op.opname == 'stm_threadlocalref_get':
-                    id1 = op.args[0].value
-                    op = SpaceOperation('getfield', [c_threadlocalref,
-                                                     c_fieldnames[id1]],
-                                        op.result)
+                    v_array = varoftype(lltype.Ptr(ARRAY))
+                    ops = [
+                        SpaceOperation('getfield', [c_threadlocalref,
+                                                    c_fieldname],
+                                       v_array),
+                        SpaceOperation('getarrayitem', [v_array,
+                                                        op.args[0]],
+                                       op.result)]
+                    block.operations[i:i+1] = ops
+                elif op.opname == 'stm_threadlocalref_addr':
+                    v_array = varoftype(lltype.Ptr(ARRAY))
+                    ops = [
+                        SpaceOperation('getfield', [c_threadlocalref,
+                                                    c_fieldname],
+                                       v_array),
+                        SpaceOperation('direct_ptradd', [v_array,
+                                                         op.args[0]],
+                                       op.result)]
+                    block.operations[i:i+1] = ops
+                elif op.opname == 'stm_threadlocalref_count':
+                    c_count = Constant(len(ids), lltype.Signed)
+                    op = SpaceOperation('same_as', [c_count], op.result)
                     block.operations[i] = op
-                elif op.opname == 'stm_threadlocalref_flush':
-                    extra = []
-                    for id1 in ids:
-                        op = SpaceOperation('setfield', [c_threadlocalref,
-                                                         c_fieldnames[id1],
-                                                         c_null],
-                                            varoftype(lltype.Void))
-                        extra.append(op)
-                    block.operations[i:i+1] = extra

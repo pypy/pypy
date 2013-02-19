@@ -179,10 +179,6 @@ class StmGCTLS(object):
         #
         debug_start("gc-local")
         #
-        # First clear all thread-local caches, because they might
-        # contain pointers to objects that are about to move.
-        llop.stm_threadlocalref_flush(lltype.Void)
-        #
         if end_of_transaction:
             self.detect_flag_combination = GCFLAG_LOCAL_COPY | GCFLAG_VISITED
         else:
@@ -206,6 +202,9 @@ class StmGCTLS(object):
         #
         # Find the roots that are living in raw structures.
         self.collect_from_raw_structures()
+        #
+        # Find the roots in the THREADLOCALREF structure.
+        self.collect_from_threadlocalref()
         #
         # Also find the roots that are the local copy of global objects.
         self.collect_roots_from_tldict()
@@ -358,6 +357,15 @@ class StmGCTLS(object):
     def collect_from_raw_structures(self):
         self.gc.root_walker.walk_current_nongc_roots(
             StmGCTLS._trace_drag_out1, self)
+
+    def collect_from_threadlocalref(self):
+        if not we_are_translated():
+            return
+        i = llop.stm_threadlocalref_count(lltype.Signed)
+        while i > 0:
+            i -= 1
+            root = llop.stm_threadlocalref_addr(llmemory.Address, i)
+            self._trace_drag_out(root, None)
 
     def trace_and_drag_out_of_nursery(self, obj):
         # This is called to fix the references inside 'obj', to ensure that

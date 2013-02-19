@@ -1,5 +1,8 @@
 import py
 from rpython.rlib import rstm, rgc
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.translator.stm.test.support import NoGcCompiledSTMTests
 from rpython.translator.stm.test.support import CompiledSTMTests
 from rpython.translator.stm.test import targetdemo2
@@ -114,8 +117,12 @@ class TestSTMTranslated(CompiledSTMTests):
             assert t.get() is None
             t.set(x)
             assert t.get() is x
-            rstm.ThreadLocalReference.flush_all_in_this_thread()
-            assert t.get() is None
+            assert llop.stm_threadlocalref_count(lltype.Signed) == 1
+            p = llop.stm_threadlocalref_addr(llmemory.Address, 0)
+            adr = p.address[0]
+            adr2 = cast_instance_to_base_ptr(x)
+            adr2 = llmemory.cast_ptr_to_adr(adr2)
+            assert adr == adr2
             print "ok"
             return 0
         t, cbuilder = self.compile(main)
