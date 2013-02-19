@@ -10,13 +10,13 @@ MALLOCS = set([
     ])
 
 MORE_PRECISE_CATEGORIES = {
-    'P': 'PGORLWN',
-    'G': 'GN',
-    'O': 'ORLWN',
-    'R': 'RLWN',
-    'L': 'LWN',
-    'W': 'WN',
-    'N': 'N'}
+    'P': 'PGORLWN',     # Pointer: the most general category
+    'G': 'GN',          # Global: known to be a non-local pointer
+    'O': 'ORLWN',       # Old: used to be read-ready, but maybe someone wrote
+    'R': 'RLWN',        # Read-ready: direct reads from there are ok
+    'L': 'LWN',         # Local: a local pointer
+    'W': 'WN',          # Write-ready: direct writes here are ok
+    'N': 'N'}           # NULL (the other categories also all contain NULL)
 
 def unwraplist(list_v):
     for v in list_v: 
