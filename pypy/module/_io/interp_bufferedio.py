@@ -76,7 +76,7 @@ class W_BufferedIOBase(W_IOBase):
         raise NotImplementedError
 
     def _deprecated_max_buffer_size(self, space):
-        space.warn("max_buffer_size is deprecated",
+        space.warn(space.wrap("max_buffer_size is deprecated"),
                    space.w_DeprecationWarning)
 
     def read_w(self, space, w_size=None):
