@@ -17,10 +17,10 @@ class AppTestThreadSignal(GenericTestThread):
     spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
 
     def test_exit_twice(self):
-        import __pypy__, thread
+        import __pypy__, _thread
         __pypy__.thread._signals_exit()
         try:
-            raises(thread.error, __pypy__.thread._signals_exit)
+            raises(_thread.error, __pypy__.thread._signals_exit)
         finally:
             __pypy__.thread._signals_enter()
 
@@ -60,7 +60,7 @@ class AppTestThreadSignal(GenericTestThread):
 
     def test_thread_fork_signals(self):
         import __pypy__
-        import os, thread, signal
+        import os, _thread, signal
 
         if not hasattr(os, 'fork'):
             skip("No fork on this platform")
@@ -72,7 +72,7 @@ class AppTestThreadSignal(GenericTestThread):
         def threadfunction():
             pid = fork()
             if pid == 0:
-                print 'in child'
+                print('in child')
                 # signal() only works from the 'main' thread
                 signal.signal(signal.SIGUSR1, signal.SIG_IGN)
                 os._exit(42)
@@ -82,7 +82,7 @@ class AppTestThreadSignal(GenericTestThread):
                 feedback.append(exitcode)
 
         feedback = []
-        thread.start_new_thread(threadfunction, ())
+        _thread.start_new_thread(threadfunction, ())
         self.waitfor(lambda: feedback)
         # if 0, an (unraisable) exception was raised from the forked thread.
         # if 9, process was killed by timer.
