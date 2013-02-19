@@ -321,8 +321,12 @@ class Assembler386(BaseAssembler):
             # we're possibly called from the slowpath of malloc, so we have
             # one extra CALL on the stack, but one less PUSH,
             # save to store stuff 2 locations away on the stack.
+            # we have to save all the things that can potentially
+            # be returned from a call
             mc.MOV_sr(3 * WORD, eax.value) # save for later
+            mc.MOVSD_sx(6 * WORD, xmm0.value)
             if IS_X86_32:
+                mc.MOV_sr(4 * WORD, edx.value)
                 mc.SUB_ri(esp.value, 2 * WORD) # align
                 mc.MOV_sr(0, ebp.value)
             else:
@@ -351,6 +355,8 @@ class Assembler386(BaseAssembler):
         else:
             if IS_X86_32:
                 mc.LEA_rs(esp.value, 2 * WORD)
+                mc.MOV_rs(edx.value, 4 * WORD)
+            mc.MOVSD_xs(xmm0.value, 6 * WORD)
             mc.MOV_rs(eax.value, 3 * WORD) # restore
             mc.RET()
 

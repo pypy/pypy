@@ -579,6 +579,10 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         item = rffi.cast(lltype.Ptr(S), frame.jf_frame[gcmap[0]])
         assert item == new_items[2]
 
+    def test_shadowstack_collecting_call_float(self):
+        cpu = self.cpu
+        xxx
+
     def test_malloc_1(self):
         cpu = self.cpu
         sizeof = cpu.sizeof(self.S)
