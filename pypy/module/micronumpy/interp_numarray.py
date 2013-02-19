@@ -627,7 +627,16 @@ class __extend__(W_NDimArray):
         w_remainder = self.descr_mod(space, w_other)
         return space.newtuple([w_quotient, w_remainder])
 
-    descr_eq = _binop_impl("equal")
+    _descr_eq = _binop_impl("equal")
+
+    def descr_eq(self, space, w_other):
+        try:
+            return self._descr_eq(space, w_other)
+        except OperationError, e:
+            if e.match(space, space.w_ValueError):
+                return space.w_False
+            raise e
+
     descr_ne = _binop_impl("not_equal")
     descr_lt = _binop_impl("less")
     descr_le = _binop_impl("less_equal")

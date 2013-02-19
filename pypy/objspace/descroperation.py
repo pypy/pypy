@@ -6,6 +6,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
@@ -119,6 +120,9 @@ class Object(object):
 
     def descr__init__(space, w_obj, __args__):
         pass
+
+contains_jitdriver = jit.JitDriver(name='contains',
+        greens=['w_type'], reds='auto')
 
 class DescrOperation(object):
     _mixin_ = True
@@ -410,7 +414,9 @@ class DescrOperation(object):
 
     def sequence_contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
+        w_type = space.type(w_iter)
         while 1:
+            contains_jitdriver.jit_merge_point(w_type=w_type)
             try:
                 w_next = space.next(w_iter)
             except OperationError, e:

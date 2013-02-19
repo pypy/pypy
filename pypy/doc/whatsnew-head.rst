@@ -19,7 +19,7 @@ Implement __lenght_hint__ according to PEP 424
 .. branch: numpypy-longdouble
 Long double support for numpypy
 .. branch: numpypy-real-as-view
-Convert real, imag from ufuncs to views. This involves the beginning of 
+Convert real, imag from ufuncs to views. This involves the beginning of
 view() functionality
 
 .. branch: signatures
@@ -57,7 +57,11 @@ Some missing attributes from ndarrays
 
 .. branch: cleanup-tests
 Consolidated the lib_pypy/pypy_test and pypy/module/test_lib_pypy tests into
-+one directory for reduced confusion and so they all run nightly.
+one directory for reduced confusion and so they all run nightly.
 
 .. branch: unquote-faster
 .. branch: urlparse-unquote-faster
+
+.. branch: signal-and-thread
+Add "__pypy__.thread.signals_enabled", a context manager. Can be used in a
+non-main thread to enable the processing of signal handlers in that thread.

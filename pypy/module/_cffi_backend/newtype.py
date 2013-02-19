@@ -264,8 +264,8 @@ def new_void_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str)
-def new_enum_type(space, name, w_enumerators, w_enumvalues):
+@unwrap_spec(name=str, basectype=ctypeobj.W_CType)
+def new_enum_type(space, name, w_enumerators, w_enumvalues, basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
@@ -273,53 +273,26 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues):
                              space.wrap("tuple args must have the same size"))
     enumerators = [space.str_w(w) for w in enumerators_w]
     #
-    smallest_value = 0
-    largest_value = r_uint(0)
-    i = 0
+    if (not isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned) and
+        not isinstance(basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
+        raise OperationError(space.w_TypeError,
+              space.wrap("expected a primitive signed or unsigned base type"))
+    #
+    lvalue = lltype.malloc(rffi.CCHARP.TO, basectype.size, flavor='raw')
     try:
         for w in enumvalues_w:
-            try:
-                ulvalue = space.uint_w(w)
-            except OperationError, e:
-                if not e.match(space, space.w_ValueError):
-                    raise
-                lvalue = space.int_w(w)
-                if lvalue < smallest_value:
-                    smallest_value = lvalue
-            else:
-                if ulvalue > largest_value:
-                    largest_value = ulvalue
-            i += 1    # 'i' is here for the exception case, see below
-    except OperationError, e:
-        if not e.match(space, space.w_OverflowError):
-            raise
-        raise operationerrfmt(space.w_OverflowError,
-                              "enum '%s' declaration for '%s' does not fit "
-                              "a long or unsigned long",
-                              name, enumerators[i])
+            # detects out-of-range or badly typed values
+            basectype.convert_from_object(lvalue, w)
+    finally:
+        lltype.free(lvalue, flavor='raw')
     #
-    if smallest_value < 0:
-        if (smallest_value >= intmask(most_neg_value_of(rffi.INT)) and
-             largest_value <= r_uint(most_pos_value_of(rffi.INT))):
-            size = rffi.sizeof(rffi.INT)
-            align = alignment(rffi.INT)
-        elif largest_value <= r_uint(most_pos_value_of(rffi.LONG)):
-            size = rffi.sizeof(rffi.LONG)
-            align = alignment(rffi.LONG)
-        else:
-            raise operationerrfmt(space.w_OverflowError,
-                         "enum '%s' values don't all fit into either 'long' "
-                         "or 'unsigned long'", name)
+    size = basectype.size
+    align = basectype.align
+    if isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned):
         enumvalues = [space.int_w(w) for w in enumvalues_w]
         ctype = ctypeenum.W_CTypeEnumSigned(space, name, size, align,
                                             enumerators, enumvalues)
     else:
-        if largest_value <= r_uint(most_pos_value_of(rffi.UINT)):
-            size = rffi.sizeof(rffi.UINT)
-            align = alignment(rffi.UINT)
-        else:
-            size = rffi.sizeof(rffi.ULONG)
-            align = alignment(rffi.ULONG)
         enumvalues = [space.uint_w(w) for w in enumvalues_w]
         ctype = ctypeenum.W_CTypeEnumUnsigned(space, name, size, align,
                                               enumerators, enumvalues)

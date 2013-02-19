@@ -1,6 +1,6 @@
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper import rmodel
+from rpython.rtyper.lltypesystem import lltype
 
 
 class __extend__(annmodel.SomeDict):
@@ -83,4 +83,3 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
             return self.r_dict.recast_value(hop.llops, v)
         else:
             return v
-    

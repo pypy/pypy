@@ -58,8 +58,7 @@ The first command replaces the operations with other low level versions that
 only use low level types that are available in C (e.g. int). The compiled
 version is now in a ``.so`` library. You can run it say using ctypes:
 
-   >>> from ctypes import CDLL
-   >>> f = CDLL(lib)
+   >>> f = get_c_function(lib, snippet.is_perfect_number)
    >>> f(5)
    0
    >>> f(6)
