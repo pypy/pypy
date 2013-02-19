@@ -94,7 +94,7 @@ long stm_should_break_transaction(void)
        d->count_reads is
        greater than reads_size_limit == reads_size_limit_nonatomic.
   */
-#ifdef RPY_STM_ASSERT
+#if 0   /* ifdef RPY_STM_ASSERT */
   /* reads_size_limit is ULONG_MAX if d->atomic, or else it is equal to
      reads_size_limit_nonatomic. */
   assert(d->reads_size_limit == (d->atomic ? ULONG_MAX :
