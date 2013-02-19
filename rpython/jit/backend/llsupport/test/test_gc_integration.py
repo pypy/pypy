@@ -581,7 +581,32 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_shadowstack_collecting_call_float(self):
         cpu = self.cpu
-        xxx
+
+        def float_return(i, f):
+            # mark frame for write barrier
+            frame = rffi.cast(lltype.Ptr(JITFRAME), i)
+            frame.hdr |= 1
+            return 1.2 + f
+
+        FUNC = lltype.FuncType([lltype.Signed, lltype.Float], lltype.Float)
+        fptr = llhelper(lltype.Ptr(FUNC), float_return)
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+        loop = self.parse("""
+        [f0]
+        i = force_token()
+        f1 = call(ConstClass(fptr), i, f0, descr=calldescr)
+        finish(f1, descr=finaldescr)
+        """, namespace={'fptr': fptr, 'calldescr': calldescr,
+                        'finaldescr': BasicFinalDescr(1)})
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(20)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        frame = cpu.execute_token(token, 2.3)
+        ofs = cpu.get_baseofs_of_frame_field()
+        f = cpu.read_float_at_mem(frame, ofs)
+        assert f == 2.3 + 1.2
 
     def test_malloc_1(self):
         cpu = self.cpu
