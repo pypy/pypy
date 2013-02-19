@@ -28,20 +28,24 @@ def transform_tlref(graphs):
     c_fieldname = Constant('ptr', lltype.Void)
     c_null = Constant(llmemory.NULL, llmemory.Address)
     #
+    def getaddr(v_num, v_result):
+        v_array = varoftype(lltype.Ptr(ARRAY))
+        ops = [
+            SpaceOperation('getfield', [c_threadlocalref, c_fieldname],
+                           v_array),
+            SpaceOperation('direct_ptradd', [v_array, v_num], v_result)]
+        return ops
+    #
     for graph in graphs:
         for block in graph.iterblocks():
             for i in range(len(block.operations)-1, -1, -1):
                 op = block.operations[i]
                 if op.opname == 'stm_threadlocalref_set':
-                    v_array = varoftype(lltype.Ptr(ARRAY))
-                    ops = [
-                        SpaceOperation('getfield', [c_threadlocalref,
-                                                    c_fieldname],
-                                       v_array),
-                        SpaceOperation('setarrayitem', [v_array,
-                                                        op.args[0],
-                                                        op.args[1]],
-                                       op.result)]
+                    v_addr = varoftype(lltype.Ptr(ARRAY))
+                    ops = getaddr(op.args[0], v_addr)
+                    ops.append(SpaceOperation('stm_threadlocalref_llset',
+                                              [v_addr, op.args[1]],
+                                              op.result))
                     block.operations[i:i+1] = ops
                 elif op.opname == 'stm_threadlocalref_get':
                     v_array = varoftype(lltype.Ptr(ARRAY))
@@ -53,17 +57,9 @@ def transform_tlref(graphs):
                                                         op.args[0]],
                                        op.result)]
                     block.operations[i:i+1] = ops
-                elif op.opname == 'stm_threadlocalref_addr':
-                    v_array = varoftype(lltype.Ptr(ARRAY))
-                    ops = [
-                        SpaceOperation('getfield', [c_threadlocalref,
-                                                    c_fieldname],
-                                       v_array),
-                        SpaceOperation('direct_ptradd', [v_array,
-                                                         op.args[0]],
-                                       op.result)]
-                    block.operations[i:i+1] = ops
-                elif op.opname == 'stm_threadlocalref_count':
+                elif op.opname == 'stm_threadlocalref_lladdr':
+                    block.operations[i:i+1] = getaddr(op.args[0], op.result)
+                elif op.opname == 'stm_threadlocalref_llcount':
                     c_count = Constant(len(ids), lltype.Signed)
                     op = SpaceOperation('same_as', [c_count], op.result)
                     block.operations[i] = op

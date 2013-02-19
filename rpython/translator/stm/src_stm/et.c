@@ -54,6 +54,7 @@ struct tx_descriptor {
   struct GcPtrList list_of_read_objects;
   struct GcPtrList gcroots;
   struct G2L global_to_local;
+  struct GcPtrList undolog;
   struct FXCache recent_reads_cache;
 };
 
@@ -378,6 +379,16 @@ static void AbortTransaction(int num)
 
   CancelLocks(d);
 
+  if (d->undolog.size > 0) {
+      gcptr *item = d->undolog.items;
+      long i;
+      for (i=d->undolog.size; i>=0; i-=2) {
+          void **addr = (void **)(item[i-2]);
+          void *oldvalue = (void *)(item[i-1]);
+          *addr = oldvalue;
+      }
+  }
+
   /* upon abort, set the reads size limit to 94% of how much was read
      so far.  This should ensure that, assuming the retry does the same
      thing, it will commit just before it reaches the conflicting point. */
@@ -423,6 +434,7 @@ static void init_transaction(struct tx_descriptor *d)
   assert(!g2l_any_entry(&d->global_to_local));
   d->count_reads = 0;
   fxcache_clear(&d->recent_reads_cache);
+  gcptrlist_clear(&d->undolog);
 }
 
 void BeginTransaction(jmp_buf* buf)
@@ -767,6 +779,15 @@ _Bool stm_PtrEq(gcptr P1, gcptr P2)
     }
   /* P1 and P2 are both locals (and P1 != P2) */
   return 0;
+}
+
+/************************************************************/
+
+void stm_ThreadLocalRef_LLSet(void **addr, void *newvalue)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  gcptrlist_insert2(&d->undolog, (gcptr)addr, (gcptr)*addr);
+  *addr = newvalue;
 }
 
 /************************************************************/

@@ -431,8 +431,9 @@ LL_OPERATIONS = {
     #'stm_jit_invoke_code':    LLOp(canmallocgc=True),
     'stm_threadlocalref_get': LLOp(sideeffects=False),
     'stm_threadlocalref_set': LLOp(),
-    'stm_threadlocalref_count': LLOp(sideeffects=False),
-    'stm_threadlocalref_addr':  LLOp(sideeffects=False),
+    'stm_threadlocalref_llset': LLOp(),
+    'stm_threadlocalref_llcount': LLOp(sideeffects=False),
+    'stm_threadlocalref_lladdr':  LLOp(sideeffects=False),
 
     # __________ address operations __________
 

@@ -361,10 +361,10 @@ class StmGCTLS(object):
     def collect_from_threadlocalref(self):
         if not we_are_translated():
             return
-        i = llop.stm_threadlocalref_count(lltype.Signed)
+        i = llop.stm_threadlocalref_llcount(lltype.Signed)
         while i > 0:
             i -= 1
-            root = llop.stm_threadlocalref_addr(llmemory.Address, i)
+            root = llop.stm_threadlocalref_lladdr(llmemory.Address, i)
             self._trace_drag_out(root, None)
 
     def trace_and_drag_out_of_nursery(self, obj):
