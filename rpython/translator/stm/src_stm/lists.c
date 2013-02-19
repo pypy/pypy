@@ -258,22 +258,31 @@ static void gcptrlist_insert2(struct GcPtrList *gcptrlist, gcptr newitem1,
 
 /* The fxcache_xx functions implement a fixed-size set of gcptr's.
    Moreover the gcptr's in the set are mapped to small integers.  In case
-   of collisions, old items are discarded.  The eviction logic is a bit
-   too simple for now. */
+   of collisions, old items are discarded.  The cache uses 3-way caching
+   and the cache entries are aligned to two, which means that the items
+   0 and 2 can collide with the bordering cache rows, but not item 1.
+
+   The cache itself uses a total of FX_ENTRIES+1 entries in the 'cache'
+   array below, starting at 'cache_start'.  The reason it is bigger is
+   that fxcache_clear() simply shifts 'cache_start', making any previous
+   entries invalid by not being in the correct position any more.
+*/
 
 #define FX_ENTRIES   8192
+#define FX_TOTAL     (FX_ENTRIES * 2)
 
 struct FXCache {
   char *cache_start;
   revision_t nextadd;
   revision_t shift;
-  revision_t cache[FX_ENTRIES * 2 * 2];
+  revision_t cache[FX_TOTAL];
 };
 
 static void fxcache_clear(struct FXCache *fxcache)
 {
-  fxcache->shift += 2;
-  if (fxcache->shift > FX_ENTRIES - 2) {
+  fxcache->shift += 4;
+  /* FX_ENTRIES+1 entries are needed */
+  if (fxcache->shift + FX_ENTRIES + 1 > FX_TOTAL) {
     memset(fxcache->cache, 0, sizeof(fxcache->cache));
     fxcache->shift = 0;
   }
@@ -286,28 +295,28 @@ static inline int fxcache_add(struct FXCache *fxcache, gcptr item)
      If it is already, return 1.
      */
   revision_t uitem = (revision_t)item;
+  /* 'entry' points to 'cache_start[mask of uitem, even-valued]' */
   revision_t *entry = (revision_t *)
-    (fxcache->cache_start + (uitem & ((FX_ENTRIES-1) * sizeof(revision_t))));
-  revision_t current, *entry2;
+    (fxcache->cache_start + (uitem & ((FX_ENTRIES-2) * sizeof(revision_t))));
+  revision_t current;
 
-  current = entry[0];
+  current = entry[1];   /* first look here, the cache-private entry */
   if (current == uitem)
     return 1;
 
-  entry2 = entry + FX_ENTRIES;
-  if (entry2[0] == uitem) {
-    entry2[0] = current;
-    entry[0] = uitem;
+  if (entry[0] == uitem) {
+    entry[0] = current;    /* move from this collidable entry to */
+    entry[1] = uitem;      /*    the cache-private entry         */
     return 1;
   }
-  if (entry2[1] == uitem) {
-    entry2[1] = current;
-    entry[0] = uitem;
+  if (entry[2] == uitem) {
+    entry[2] = current;    /* move from this collidable entry to */
+    entry[1] = uitem;      /*    the cache-private entry         */
     return 1;
   }
 
-  entry2[fxcache->nextadd] = uitem;
-  fxcache->nextadd = (fxcache->nextadd + 1) & 1;
+  entry[fxcache->nextadd] = uitem;
+  fxcache->nextadd ^= 2;
   return 0;
 }
 
