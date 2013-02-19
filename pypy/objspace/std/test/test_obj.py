@@ -32,7 +32,7 @@ class AppTestObject:
             skip("on CPython >= 2.7, id != hash")
         import sys
         o = object()
-        assert (hash(o) & sys.maxint) == (id(o) & sys.maxint)
+        assert (hash(o) & sys.maxsize) == (id(o) & sys.maxsize)
 
     def test_hash_method(self):
         o = object()
@@ -52,7 +52,7 @@ class AppTestObject:
             pass
         x = X()
         if self.cpython_behavior and self.cpython_version < (2, 7):
-            assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
+            assert (hash(x) & sys.maxsize) == (id(x) & sys.maxsize)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):
@@ -189,8 +189,8 @@ class AppTestObject:
         for i in range(10):
             l.append(float(i))
             l.append(i + 0.1)
-            l.append(i + sys.maxint)
-            l.append(i - sys.maxint)
+            l.append(i + sys.maxsize)
+            l.append(i - sys.maxsize)
             l.append(i + 1j)
             l.append(1 + i * 1j)
             s = str(i)
