@@ -365,7 +365,7 @@ class StmGCTLS(object):
         while i > 0:
             i -= 1
             root = llop.stm_threadlocalref_lladdr(llmemory.Address, i)
-            if self.points_to_valid_gc_object(root):
+            if self.gc.points_to_valid_gc_object(root):
                 self._trace_drag_out(root, None)
 
     def trace_and_drag_out_of_nursery(self, obj):
