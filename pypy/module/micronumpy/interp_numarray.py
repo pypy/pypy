@@ -250,7 +250,7 @@ class __extend__(W_NDimArray):
         ret = self.implementation.get_imag(self)
         if ret:
             return W_NDimArray(ret)
-        raise OperationError(space.w_NotImplementedError, 
+        raise OperationError(space.w_NotImplementedError,
                     space.wrap('imag not implemented for this dtype'))
 
     def descr_set_real(self, space, w_value):
@@ -261,7 +261,7 @@ class __extend__(W_NDimArray):
     def descr_set_imag(self, space, w_value):
         # if possible, copy (broadcast) values into self
         if not self.get_dtype().is_complex_type():
-            raise OperationError(space.w_TypeError, 
+            raise OperationError(space.w_TypeError,
                     space.wrap('array does not have imaginary part to set'))
         tmp = self.implementation.get_imag(self)
         tmp.setslice(space, convert_to_array(space, w_value))
@@ -302,11 +302,11 @@ class __extend__(W_NDimArray):
     @unwrap_spec(axis1=int, axis2=int)
     def descr_swapaxes(self, space, axis1, axis2):
         """a.swapaxes(axis1, axis2)
-    
+
         Return a view of the array with `axis1` and `axis2` interchanged.
-    
+
         Refer to `numpy.swapaxes` for full documentation.
-    
+
         See Also
         --------
         numpy.swapaxes : equivalent function
@@ -439,7 +439,7 @@ class __extend__(W_NDimArray):
         ret = impl.base()
         if ret is None:
             return space.w_None
-        return ret    
+        return ret
 
     @unwrap_spec(inplace=bool)
     def descr_byteswap(self, space, inplace=False):
@@ -492,7 +492,7 @@ class __extend__(W_NDimArray):
                 "axis1 and axis2 cannot be the same"))
         return interp_arrayops.diagonal(space, self.implementation, offset,
                                         axis1, axis2)
-    
+
     def descr_dump(self, space, w_file):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dump not implemented yet"))
@@ -509,7 +509,7 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "setting flags not implemented yet"))
 
-    @unwrap_spec(offset=int)    
+    @unwrap_spec(offset=int)
     def descr_getfield(self, space, w_dtype, offset):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "getfield not implemented yet"))
@@ -518,7 +518,7 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "itemset not implemented yet"))
 
-    @unwrap_spec(neworder=str)    
+    @unwrap_spec(neworder=str)
     def descr_newbyteorder(self, space, neworder):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "newbyteorder not implemented yet"))
@@ -551,7 +551,7 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "setfield not implemented yet"))
 
-    def descr_setflags(self, space, w_write=None, w_align=None, w_uic=None): 
+    def descr_setflags(self, space, w_write=None, w_align=None, w_uic=None):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "setflags not implemented yet"))
 
@@ -572,7 +572,7 @@ class __extend__(W_NDimArray):
             "tofile not implemented yet"))
 
     def descr_trace(self, space, w_offset=0, w_axis1=0, w_axis2=1,
-                    w_dtype=None, w_out=None): 
+                    w_dtype=None, w_out=None):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "trace not implemented yet"))
 
@@ -627,21 +627,23 @@ class __extend__(W_NDimArray):
         w_remainder = self.descr_mod(space, w_other)
         return space.newtuple([w_quotient, w_remainder])
 
-    _descr_eq = _binop_impl("equal")
+    def _binop_comp_impl(ufunc):
+        def impl(self, space, w_other, w_out=None):
+            try:
+                return ufunc(self, space, w_other, w_out)
+            except OperationError, e:
+                if e.match(space, space.w_ValueError):
+                    return space.w_False
+                raise e
 
-    def descr_eq(self, space, w_other):
-        try:
-            return self._descr_eq(space, w_other)
-        except OperationError, e:
-            if e.match(space, space.w_ValueError):
-                return space.w_False
-            raise e
+        return func_with_new_name(impl, ufunc.func_name)
 
-    descr_ne = _binop_impl("not_equal")
-    descr_lt = _binop_impl("less")
-    descr_le = _binop_impl("less_equal")
-    descr_gt = _binop_impl("greater")
-    descr_ge = _binop_impl("greater_equal")
+    descr_eq = _binop_comp_impl(_binop_impl("equal"))
+    descr_ne = _binop_comp_impl(_binop_impl("not_equal"))
+    descr_lt = _binop_comp_impl(_binop_impl("less"))
+    descr_le = _binop_comp_impl(_binop_impl("less_equal"))
+    descr_gt = _binop_comp_impl(_binop_impl("greater"))
+    descr_ge = _binop_comp_impl(_binop_impl("greater_equal"))
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
@@ -707,7 +709,7 @@ class __extend__(W_NDimArray):
             if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
-                raise OperationError(space.w_TypeError, space.wrap( 
+                raise OperationError(space.w_TypeError, space.wrap(
                         'output must be an array'))
             else:
                 out = w_out
@@ -727,7 +729,7 @@ class __extend__(W_NDimArray):
 
     descr_cumsum = _reduce_ufunc_impl('add', cumultative=True)
     descr_cumprod = _reduce_ufunc_impl('multiply', cumultative=True)
-    
+
     def descr_mean(self, space, w_axis=None, w_out=None):
         if space.is_none(w_axis):
             w_denom = space.wrap(self.get_size())
@@ -872,7 +874,7 @@ W_NDimArray.typedef = TypeDef(
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
     item = interp2app(W_NDimArray.descr_item),
-    real = GetSetProperty(W_NDimArray.descr_get_real, 
+    real = GetSetProperty(W_NDimArray.descr_get_real,
                           W_NDimArray.descr_set_real),
     imag = GetSetProperty(W_NDimArray.descr_get_imag,
                           W_NDimArray.descr_set_imag),
@@ -932,7 +934,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
                                                         dtype)
             #if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
             #    break
-            
+
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
     if ndmin > len(shape):
