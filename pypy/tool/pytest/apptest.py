@@ -24,6 +24,35 @@ class AppError(Exception):
         self.excinfo = excinfo
 
 
+def py3k_repr(value):
+    "return the repr() that py3k would give for an object."""
+    if isinstance(value, str):
+        # python2 string -> Bytes string
+        return "b" + repr(value)
+    elif isinstance(value, unicode):
+        # python2 unicode -> python3 string
+        return repr(value)[1:]
+    elif isinstance(value, list):
+        return '[' + ', '.join(py3k_repr(item) for item in value) + ']'
+    elif isinstance(value, tuple):
+        return '(' + ', '.join(py3k_repr(item) for item in value) + ',)'
+    elif isinstance(value, dict):
+        return '{' + ', '.join('%s: %s' % (py3k_repr(key), py3k_repr(value))
+                               for key, value in value.items()) + '}'
+    elif isinstance(value, long):
+        return repr(value)[:-1]
+    elif isinstance(value, float):
+        r = repr(value)
+        if r in ('nan', 'inf', '-inf'):
+            return "float(%r)" % r
+        else:
+            return r
+    elif isinstance(value, type):
+        return type.__name__    
+    else:
+        return repr(value)
+
+
 def run_with_python(python_, target_, **definitions):
     if python_ is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
@@ -37,6 +66,7 @@ if 1:
         print(message)
         raise SystemExit(0)
     __builtins__.skip = skip
+    __builtins__.py3k_skip = skip
     class ExceptionWrapper:
         pass
     def raises(exc, func, *args, **kwargs):
@@ -68,17 +98,13 @@ if 1:
             defs.append(str(code))
             arg_repr = []
             for arg in args:
-                if isinstance(arg, str):
-                    arg_repr.append("b%r" % arg)
-                elif isinstance(arg, unicode):
-                    arg_repr.append(repr(arg)[1:])
-                elif isinstance(arg, types.FunctionType):
+                if isinstance(arg, types.FunctionType):
                     arg_repr.append(arg.__name__)
                 elif isinstance(arg, types.MethodType):
                     arg_repr.append(arg.__name__)
                 else:
-                    arg_repr.append(repr(arg))
-            args = ','.join(arg_repr)
+                    arg_repr.append(py3k_repr(arg))
+            args = ', '.join(arg_repr)
             defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
         elif isinstance(value, types.MethodType):
             # "def w_method(self)"
@@ -88,14 +114,8 @@ if 1:
         elif isinstance(value, types.ModuleType):
             name = value.__name__
             defs.append("import %s; self.%s = %s\n" % (name, symbol, name))
-        elif isinstance(value, str):
-            # python2 string -> Bytes string
-            defs.append("self.%s = b%r\n" % (symbol, value))
-        elif isinstance(value, unicode):
-            # python2 unicode -> python3 string
-            defs.append("self.%s = %s\n" % (symbol, repr(value)[1:]))
-        elif isinstance(value, (int, float, list, dict)):
-            defs.append("self.%s = %r\n" % (symbol, value))
+        elif isinstance(value, (str, unicode, int, float, list, dict)):
+            defs.append("self.%s = %s\n" % (symbol, py3k_repr(value)))
     source = py.code.Source(target_)[1:]
     pyfile = udir.join('src.py')
     source = helpers + '\n'.join(defs) + 'if 1:\n' + str(source)
