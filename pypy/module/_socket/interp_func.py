@@ -128,8 +128,9 @@ def getnameinfo(space, w_sockaddr, flags):
                                   rsocket.SOCK_DGRAM, 0,
                                   rsocket.AI_NUMERICHOST)
         if len(lst) > 1:
-            raise OperationError(get_error(space, 'error'),
-                                 "sockaddr resolved to multiple addresses")
+            raise OperationError(
+                get_error(space, 'error'),
+                space.wrap("sockaddr resolved to multiple addresses"))
         addr = lst[0][4]
         host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError, e:
