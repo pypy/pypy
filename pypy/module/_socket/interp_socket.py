@@ -158,6 +158,15 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
 
+    def __del__(self):
+        self.clear_all_weakrefs()
+        if self.space:
+            self.enqueue_for_destruction(self.space, W_RSocket.destructor,
+                                         'internal __del__ of ')
+
+    def destructor(self):
+        RSocket.__del__(self)
+
     def _dealloc_warn(self):
         space = self.space
         if not space:
