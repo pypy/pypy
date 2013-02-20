@@ -164,26 +164,19 @@ class OperationError(Exception):
         #
         # In the following table, 'Class' means a subclass of BaseException
         # and 'inst' is an instance of either 'Class' or a subclass of it.
-        # Or 'Class' can also be an old-style class and 'inst' an old-style
-        # instance of it.
         #
-        # The flow object space only deals with non-advanced case. Old-style
-        # classes and instances *are* advanced.
+        # The flow object space only deals with non-advanced case.
         #
         #  input (w_type, w_value)... becomes...                advanced case?
         # ---------------------------------------------------------------------
-        #  (tuple, w_value)           (tuple[0], w_value)             yes
         #  (Class, None)              (Class, Class())                no
         #  (Class, inst)              (inst.__class__, inst)          no
         #  (Class, tuple)             (Class, Class(*tuple))          yes
         #  (Class, x)                 (Class, Class(x))               no
-        #  ("string", ...)            ("string", ...)              deprecated
         #  (inst, None)               (inst.__class__, inst)          no
         #
         w_type  = self.w_type
         w_value = self.get_w_value(space)
-        while space.is_true(space.isinstance(w_type, space.w_tuple)):
-            w_type = space.getitem(w_type, space.wrap(0))
 
         if space.exception_is_valid_obj_as_class_w(w_type):
             # this is for all cases of the form (Class, something)

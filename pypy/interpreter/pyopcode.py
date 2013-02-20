@@ -1161,7 +1161,7 @@ class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
 
 class RaiseWithExplicitTraceback(Exception):
-    """Raised at interp-level by a 0- or 3-arguments 'raise' statement."""
+    """Raised at interp-level by a 0-argument 'raise' statement."""
     def __init__(self, operr):
         self.operr = operr
 

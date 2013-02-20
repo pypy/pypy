@@ -37,6 +37,8 @@ def check_seekable_w(space, w_obj):
         raise unsupported(space, "File or stream is not seekable")
 
 class W_IOBase(Wrappable):
+    cffi_fileobj = None    # pypy/module/_cffi_backend
+
     def __init__(self, space):
         # XXX: IOBase thinks it has to maintain its own internal state in
         # `__IOBase_closed` and call flush() by itself, but it is redundant
@@ -106,6 +108,12 @@ class W_IOBase(Wrappable):
     def close_w(self, space):
         if self._CLOSED():
             return
+
+        cffifo = self.cffi_fileobj
+        self.cffi_fileobj = None
+        if cffifo is not None:
+            cffifo.close()
+
         try:
             space.call_method(self, "flush")
         finally:

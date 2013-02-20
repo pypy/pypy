@@ -24,6 +24,35 @@ class AppError(Exception):
         self.excinfo = excinfo
 
 
+def py3k_repr(value):
+    "return the repr() that py3k would give for an object."""
+    if isinstance(value, str):
+        # python2 string -> Bytes string
+        return "b" + repr(value)
+    elif isinstance(value, unicode):
+        # python2 unicode -> python3 string
+        return repr(value)[1:]
+    elif isinstance(value, list):
+        return '[' + ', '.join(py3k_repr(item) for item in value) + ']'
+    elif isinstance(value, tuple):
+        return '(' + ', '.join(py3k_repr(item) for item in value) + ',)'
+    elif isinstance(value, dict):
+        return '{' + ', '.join('%s: %s' % (py3k_repr(key), py3k_repr(value))
+                               for key, value in value.items()) + '}'
+    elif isinstance(value, long):
+        return repr(value)[:-1]
+    elif isinstance(value, float):
+        r = repr(value)
+        if r in ('nan', 'inf', '-inf'):
+            return "float(%r)" % r
+        else:
+            return r
+    elif isinstance(value, type):
+        return type.__name__    
+    else:
+        return repr(value)
+
+
 def run_with_python(python_, target_, **definitions):
     if python_ is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
@@ -36,6 +65,8 @@ if 1:
     def skip(message):
         print(message)
         raise SystemExit(0)
+    __builtins__.skip = skip
+    __builtins__.py3k_skip = skip
     class ExceptionWrapper:
         pass
     def raises(exc, func, *args, **kwargs):
@@ -55,24 +86,25 @@ if 1:
             return res
         else:
             raise AssertionError("DID NOT RAISE")
+    __builtins__.raises = raises
     class Test:
         pass
     self = Test()
 """
     defs = []
-    for symbol, value in definitions.items():
+    for symbol, value in sorted(definitions.items()):
         if isinstance(value, tuple) and isinstance(value[0], py.code.Source):
             code, args = value
             defs.append(str(code))
             arg_repr = []
             for arg in args:
-                if isinstance(arg, str):
-                    arg_repr.append("b%r" % arg)
-                elif isinstance(arg, unicode):
-                    arg_repr.append(repr(arg)[1:])
+                if isinstance(arg, types.FunctionType):
+                    arg_repr.append(arg.__name__)
+                elif isinstance(arg, types.MethodType):
+                    arg_repr.append(arg.__name__)
                 else:
-                    arg_repr.append(repr(arg))
-            args = ','.join(arg_repr)
+                    arg_repr.append(py3k_repr(arg))
+            args = ', '.join(arg_repr)
             defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
         elif isinstance(value, types.MethodType):
             # "def w_method(self)"
@@ -82,26 +114,24 @@ if 1:
         elif isinstance(value, types.ModuleType):
             name = value.__name__
             defs.append("import %s; self.%s = %s\n" % (name, symbol, name))
-        elif isinstance(value, str):
-            # python2 string -> Bytes string
-            defs.append("self.%s = b%r\n" % (symbol, value))
-        elif isinstance(value, unicode):
-            # python2 unicode -> python3 string
-            defs.append("self.%s = %s\n" % (symbol, repr(value)[1:]))
-        elif isinstance(value, (int, float, list, dict)):
-            defs.append("self.%s = %r\n" % (symbol, value))
+        elif isinstance(value, (str, unicode, int, float, list, dict)):
+            defs.append("self.%s = %s\n" % (symbol, py3k_repr(value)))
     source = py.code.Source(target_)[1:]
     pyfile = udir.join('src.py')
-    source = helpers + '\n'.join(defs) + 'if 1:\n' + str(source)
+    target_name = target_.__name__
     with pyfile.open('w') as f:
-        f.write(source)
+        f.write(helpers)
+        f.write('\n'.join(defs))
+        f.write('def %s():\n' % target_name)
+        f.write(str(source))
+        f.write("\n%s()\n" % target_name)
     res, stdout, stderr = runsubprocess.run_subprocess(
         python_, [str(pyfile)])
-    print source
+    print pyfile.read()
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr
     if res > 0:
-        raise AssertionError("Subprocess failed")
+        raise AssertionError("Subprocess failed:\n" + stderr)
 
 
 def extract_docstring_if_empty_function(fn):
