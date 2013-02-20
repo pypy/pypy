@@ -36,6 +36,7 @@ if 1:
     def skip(message):
         print(message)
         raise SystemExit(0)
+    __builtins__.skip = skip
     class ExceptionWrapper:
         pass
     def raises(exc, func, *args, **kwargs):
@@ -55,12 +56,13 @@ if 1:
             return res
         else:
             raise AssertionError("DID NOT RAISE")
+    __builtins__.raises = raises
     class Test:
         pass
     self = Test()
 """
     defs = []
-    for symbol, value in definitions.items():
+    for symbol, value in sorted(definitions.items()):
         if isinstance(value, tuple) and isinstance(value[0], py.code.Source):
             code, args = value
             defs.append(str(code))
@@ -70,6 +72,10 @@ if 1:
                     arg_repr.append("b%r" % arg)
                 elif isinstance(arg, unicode):
                     arg_repr.append(repr(arg)[1:])
+                elif isinstance(arg, types.FunctionType):
+                    arg_repr.append(arg.__name__)
+                elif isinstance(arg, types.MethodType):
+                    arg_repr.append(arg.__name__)
                 else:
                     arg_repr.append(repr(arg))
             args = ','.join(arg_repr)
