@@ -165,6 +165,7 @@ class W_RSocket(Wrappable, RSocket):
                                          'internal __del__ of ')
 
     def destructor(self):
+        assert isinstance(self, W_RSocket)
         RSocket.__del__(self)
 
     def _dealloc_warn(self):
