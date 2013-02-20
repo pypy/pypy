@@ -338,8 +338,8 @@ class Assembler386(BaseAssembler):
             else:
                 mc.MOV_rr(edi.value, ebp.value)
                 exc0, exc1 = ebx, r12
-            mc.MOV(RawEspLoc(WORD * 5), exc0)
-            mc.MOV(RawEspLoc(WORD * 6), exc1)
+            mc.MOV(RawEspLoc(WORD * 5, REF), exc0)
+            mc.MOV(RawEspLoc(WORD * 6, INT), exc1)
             # note that it's save to store the exception in register,
             # since the call to write barrier can't collect
             # (and this is assumed a bit left and right here, like lack
@@ -372,8 +372,8 @@ class Assembler386(BaseAssembler):
             mc.MOVSD_xs(xmm0.value, 3 * WORD)
             mc.MOV_rs(eax.value, WORD) # restore
             self._restore_exception(mc, exc0, exc1)
-            mc.MOV(exc0, RawEspLoc(WORD * 5))
-            mc.MOV(exc1, RawEspLoc(WORD * 6))
+            mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
+            mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
             mc.LEA_rs(esp.value, 10 * WORD)
             mc.RET()
 
