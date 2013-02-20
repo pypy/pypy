@@ -19,6 +19,7 @@ options:
 
 from __future__ import print_function, unicode_literals
 
+import errno
 import sys
 
 DEBUG = False       # dump exceptions before calling the except hook
@@ -276,7 +277,9 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
         newline = '\n'
     try:
         buf = io.open(fd, mode, buffering, closefd=False)
-    except OSError:
+    except OSError as e:
+        if e.errno != errno.EBADF:
+            raise
         return None
 
     if buffering:
