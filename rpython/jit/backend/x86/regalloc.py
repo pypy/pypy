@@ -106,7 +106,7 @@ class X86FrameManager(FrameManager):
         self.base_ofs = base_ofs
     
     def frame_pos(self, i, box_type):
-        return StackLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
+        return FrameLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
 
     @staticmethod
     def frame_size(box_type):
@@ -117,7 +117,7 @@ class X86FrameManager(FrameManager):
 
     @staticmethod
     def get_loc_index(loc):
-        assert isinstance(loc, StackLoc)
+        assert isinstance(loc, FrameLoc)
         return loc.position
 
 if WORD == 4:
@@ -872,7 +872,7 @@ class RegAlloc(BaseRegalloc):
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
             if box.type == REF:
-                assert isinstance(loc, StackLoc)
+                assert isinstance(loc, FrameLoc)
                 val = loc.position + JITFRAME_FIXED_SIZE
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for i in range(len(gcmap)):
@@ -1195,7 +1195,7 @@ class RegAlloc(BaseRegalloc):
             box = jump_op.getarg(i)
             if isinstance(box, Box):
                 loc = arglocs[i]
-                if isinstance(loc, StackLoc):
+                if isinstance(loc, FrameLoc):
                     self.fm.hint_frame_locations[box] = loc
 
     def consider_jump(self, op):

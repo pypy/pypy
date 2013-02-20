@@ -19,8 +19,8 @@ from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
-    RegLoc, StackLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
-    imm0, imm1, FloatImmedLoc, RawStackLoc, RawEspLoc)
+    RegLoc, FrameLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
+    imm0, imm1, FloatImmedLoc, RawEbpLoc, RawEspLoc)
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.backend.x86 import rx86, codebuf
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -884,7 +884,7 @@ class Assembler386(BaseAssembler):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.SUB_ri(esp.value, 8)   # = size of doubles
             self.mc.MOVSD_sx(0, loc.value)
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
+        elif WORD == 4 and isinstance(loc, FrameLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.PUSH_b(loc.value + 4)
             self.mc.PUSH_b(loc.value)
@@ -895,7 +895,7 @@ class Assembler386(BaseAssembler):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.MOVSD_xs(loc.value, 0)
             self.mc.ADD_ri(esp.value, 8)   # = size of doubles
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
+        elif WORD == 4 and isinstance(loc, FrameLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.POP_b(loc.value)
             self.mc.POP_b(loc.value + 4)
@@ -903,14 +903,14 @@ class Assembler386(BaseAssembler):
             self.mc.POP(loc)
 
     def regalloc_immedmem2mem(self, from_loc, to_loc):
-        # move a ConstFloatLoc directly to a StackLoc, as two MOVs
+        # move a ConstFloatLoc directly to a FrameLoc, as two MOVs
         # (even on x86-64, because the immediates are encoded as 32 bits)
         assert isinstance(from_loc, ConstFloatLoc)
         low_part  = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[0]
         high_part = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[1]
         low_part  = intmask(low_part)
         high_part = intmask(high_part)
-        if isinstance(to_loc, RawStackLoc):
+        if isinstance(to_loc, RawEbpLoc):
             self.mc.MOV32_bi(to_loc.value,     low_part)
             self.mc.MOV32_bi(to_loc.value + 4, high_part)
         else:
@@ -1196,7 +1196,7 @@ class Assembler386(BaseAssembler):
             for src, dst in singlefloats:
                 if isinstance(dst, RawEspLoc):
                     # XXX too much special logic
-                    if isinstance(src, RawStackLoc):
+                    if isinstance(src, RawEbpLoc):
                         self.mc.MOV32(X86_64_SCRATCH_REG, src)
                         self.mc.MOV32(dst, X86_64_SCRATCH_REG)
                     else:
@@ -1426,7 +1426,7 @@ class Assembler386(BaseAssembler):
         assert isinstance(resloc, RegLoc)
         if isinstance(loc, RegLoc):
             self.mc.MOVD_rx(resloc.value, loc.value)
-        elif isinstance(loc, StackLoc):
+        elif isinstance(loc, FrameLoc):
             self.mc.MOV_rb(resloc.value, loc.value)
         else:
             not_implemented("llong_to_int: %s" % (loc,))
@@ -1739,7 +1739,7 @@ class Assembler386(BaseAssembler):
         elif tmploc is not None: # if both are None, just ignore
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV(tmploc, heap(self.cpu.pos_exc_value()))
-            mc.MOV(RawStackLoc(ofs), tmploc)
+            mc.MOV(RawEbpLoc(ofs), tmploc)
         if exctploc is not None:
             assert exctploc.is_reg()
             mc.MOV(exctploc, heap(self.cpu.pos_exception()))
@@ -1753,7 +1753,7 @@ class Assembler386(BaseAssembler):
         else:
             assert tmploc is not None
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
-            mc.MOV(tmploc, RawStackLoc(ofs))
+            mc.MOV(tmploc, RawEbpLoc(ofs))
             mc.MOV_bi(ofs, 0)
             mc.MOV(heap(self.cpu.pos_exc_value()), tmploc)
         mc.MOV(heap(self.cpu.pos_exception()), exctploc)
@@ -1890,7 +1890,7 @@ class Assembler386(BaseAssembler):
 
     def new_stack_loc(self, i, pos, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        return StackLoc(i, get_ebp_ofs(base_ofs, i), tp)
+        return FrameLoc(i, get_ebp_ofs(base_ofs, i), tp)
 
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
@@ -1983,7 +1983,7 @@ class Assembler386(BaseAssembler):
         else:
             [fail_descr_loc] = arglocs
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        self.mov(fail_descr_loc, RawStackLoc(ofs))
+        self.mov(fail_descr_loc, RawEbpLoc(ofs))
         arglist = op.getarglist()
         if arglist and arglist[0].type == REF:
             gcmap = self.gcmap_for_finish
@@ -2027,7 +2027,7 @@ class Assembler386(BaseAssembler):
                         argtypes=descr.get_arg_types(),
                         callconv=descr.get_call_conv())
 
-        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.type == FLOAT:
+        if IS_X86_32 and isinstance(resloc, FrameLoc) and resloc.type == FLOAT:
             # a float or a long long return
             if descr.get_result_type() == 'L':
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
@@ -2227,7 +2227,8 @@ class Assembler386(BaseAssembler):
         return self.mc.get_relative_pos()
 
     def _call_assembler_patch_je(self, result_loc, je_location):
-        if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
+        if (IS_X86_32 and isinstance(result_loc, FrameLoc) and
+            result_loc.type == FLOAT):
             self.mc.FSTPL_b(result_loc.value)
         self.mc.JMP_l8(0) # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
@@ -2498,7 +2499,7 @@ def mem(loc, offset):
     return AddressLoc(loc, imm0, 0, offset)
 
 def raw_stack(offset, type=INT):
-    return RawStackLoc(offset, type)
+    return RawEbpLoc(offset, type)
 
 def heap(addr):
     return AddressLoc(ImmedLoc(addr), imm0, 0, 0)

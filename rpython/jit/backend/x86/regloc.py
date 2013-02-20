@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 #
 # This module adds support for "locations", which can be either in a Const,
-# or a RegLoc or a StackLoc.  It also adds operations like mc.ADD(), which
+# or a RegLoc or a FrameLoc.  It also adds operations like mc.ADD(), which
 # take two locations as arguments, decode them, and calls the right
 # mc.ADD_rr()/ADD_rb()/ADD_ri().
 #
@@ -51,7 +51,7 @@ class AssemblerLocation(object):
     def get_position(self):
         raise NotImplementedError # only for stack
 
-class RawStackLoc(AssemblerLocation):
+class RawEbpLoc(AssemblerLocation):
     """ The same as stack location, but does not know it's position.
     Mostly usable for raw frame access
     """
@@ -77,7 +77,7 @@ class RawStackLoc(AssemblerLocation):
         return self.type == FLOAT
 
     def add_offset(self, ofs):
-        return RawStackLoc(self.value + ofs)
+        return RawEbpLoc(self.value + ofs)
 
     def is_stack(self):
         return True
@@ -110,7 +110,7 @@ class RawEspLoc(AssemblerLocation):
     def is_float(self):
         return self.type == FLOAT
 
-class StackLoc(RawStackLoc):
+class FrameLoc(RawEbpLoc):
     _immutable_ = True
     
     def __init__(self, position, ebp_offset, type):
