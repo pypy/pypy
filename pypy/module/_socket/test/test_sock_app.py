@@ -262,12 +262,18 @@ def test_addr_raw_packet():
         ])))
 
 def test_getnameinfo():
+    from pypy.module._socket.interp_socket import get_error
     host = "127.0.0.1"
     port = 25
     info = socket.getnameinfo((host, port), 0)
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getnameinfo((host, port), 0)")
     assert space.unwrap(w_l) == info
+    sockaddr = space.newtuple([space.wrap('mail.python.org'), space.wrap(0)])
+    space.raises_w(get_error(space, 'error'), space.appexec,
+                   [w_socket, sockaddr, space.wrap(0)],
+                   "(_socket, sockaddr, flags): return _socket.getnameinfo(sockaddr, flags)")
+
 
 def test_timeout():
     space.appexec([w_socket, space.wrap(25.4)],
