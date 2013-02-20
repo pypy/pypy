@@ -120,7 +120,7 @@ class GcLLDescription(GcCache):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(jitframe.JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcmap']:
+                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth']:
             setattr(descrs, name, cpu.fielddescrof(jitframe.JITFRAME, name))
         descrs.jfi_frame_size = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_size')
@@ -373,7 +373,6 @@ class GcLLDescr_framework(GcLLDescription):
         translator = self.translator
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
-        # XXX this can probably die horrible death
         translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
 
     def _setup_gcclass(self):
@@ -391,6 +390,8 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_tid(self):
         self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
+        frame_tid = self.layoutbuilder.get_type_id(jitframe.JITFRAME)
+        self.translator._jit2gc['frame_tid'] = frame_tid
 
     def _setup_write_barrier(self):
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(

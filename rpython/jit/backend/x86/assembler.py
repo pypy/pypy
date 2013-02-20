@@ -131,7 +131,7 @@ class Assembler386(BaseAssembler):
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
 
-    def _build_stack_check_failure(self):
+    def build_frame_realloc_slowpath(self):
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
         # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
@@ -153,12 +153,15 @@ class Assembler386(BaseAssembler):
             mc.MOV_sr(0, ebp.value)
         # align
 
+        extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+        mc.MOV_bi(extra_ofs, align * WORD)
         self._store_and_reset_exception(mc, None, ebx, ecx)
 
         mc.CALL(imm(self.cpu.realloc_frame))
         self._restore_exception(mc, None, ebx, ecx)
         mc.ADD_ri(esp.value, (align - 1) * WORD)
         mc.MOV_rr(ebp.value, eax.value)
+        mc.MOV_bi(extra_ofs, 0)
 
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -169,7 +172,7 @@ class Assembler386(BaseAssembler):
         mc.MOV_bi(gcmap_ofs, 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
-        self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
+        self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
     def _build_malloc_slowpath(self):
         """ While arriving on slowpath, we have a gcpattern on stack,
@@ -182,8 +185,6 @@ class Assembler386(BaseAssembler):
         mc.MOV_rs(ecx.value, WORD)
         mc.MOV_br(ofs, ecx.value)
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-        # XXX investigate if we need to save callee-saved registers
-        #     on the frame
         mc.SUB_rr(edi.value, eax.value)       # compute the size we want
         # the arg is already in edi
         mc.SUB_ri(esp.value, 16 - WORD)
@@ -194,6 +195,8 @@ class Assembler386(BaseAssembler):
         elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
             # for tests only
             mc.MOV_rr(esi.value, ebp.value)
+        extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+        mc.MOV_bi(extra_ofs, 16)
         mc.CALL(imm(addr))
         mc.ADD_ri(esp.value, 16 - WORD)
         mc.TEST_rr(eax.value, eax.value)
@@ -202,6 +205,7 @@ class Assembler386(BaseAssembler):
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         self._reload_frame_if_necessary(mc)
+        mc.MOV_bi(extra_ofs, 0)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
         # clear the gc pattern
@@ -643,7 +647,7 @@ class Assembler386(BaseAssembler):
             mc.MOV_si(WORD, expected_size)            
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
-        mc.CALL(imm(self._stack_check_failure))
+        mc.CALL(imm(self._frame_realloc_slowpath))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
         assert 0 < offset <= 127
@@ -815,10 +819,6 @@ class Assembler386(BaseAssembler):
         return rst
 
     def _call_header_shadowstack(self, gcrootmap):
-        # we don't *really* have to do it, since we have the frame
-        # being referenced by the caller. However, we still do it
-        # to provide a place where we can read the frame from, in case
-        # we need to reload it after a collection
         rst = self._load_shadowstack_top_in_ebx(self.mc, gcrootmap)
         self.mc.MOV_mr((ebx.value, 0), ebp.value)      # MOV [ebx], ebp
         self.mc.ADD_ri(ebx.value, WORD)
@@ -1091,6 +1091,9 @@ class Assembler386(BaseAssembler):
             stack_depth = align_stack_words(stack_depth)
             align = (stack_depth - PASS_ON_MY_FRAME)
             self.mc.SUB_ri(esp.value, align * WORD)
+            if can_collect:
+                ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+                self.mc.MOV_bi(ofs, align * WORD)
         else:
             align = 0
         p = 0
@@ -1121,7 +1124,9 @@ class Assembler386(BaseAssembler):
         self.mc.CALL(x)
         if can_collect:
             self._reload_frame_if_necessary(self.mc)
-        if can_collect:
+            if align:
+                ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+                self.mc.MOV_bi(ofs, 0)
             self.pop_gcmap(self.mc)
         #
         if callconv != FFI_DEFAULT_ABI:
@@ -1161,6 +1166,9 @@ class Assembler386(BaseAssembler):
         if stack_depth > PASS_ON_MY_FRAME:
             stack_depth = align_stack_words(stack_depth)
             align = (stack_depth - PASS_ON_MY_FRAME)
+            if can_collect:
+                ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+                self.mc.MOV_bi(ofs, align * WORD)
             self.mc.SUB_ri(esp.value, align * WORD)
         for i in range(start, len(arglocs)):
             loc = arglocs[i]
@@ -1221,6 +1229,9 @@ class Assembler386(BaseAssembler):
         self.mc.CALL(x)
         if can_collect:
             self._reload_frame_if_necessary(self.mc)
+            if align:
+                ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+                self.mc.MOV_bi(ofs, 0)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
         if can_collect:

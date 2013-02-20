@@ -723,7 +723,8 @@ class RegAlloc(BaseRegalloc):
         #  - at least the non-callee-saved registers
         #
         #  - for shadowstack, we assume that any call can collect, and we
-        #    save also the callee-saved registers that contain GC pointers.
+        #    save also the callee-saved registers that contain GC pointers
+        #    XXX for asmgcc too for now.
         #
         #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
         #    anyway, in case we need to do cpu.force().  The issue is that
@@ -734,7 +735,8 @@ class RegAlloc(BaseRegalloc):
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
-            if gcrootmap and gcrootmap.is_shadow_stack:
+            # we save all the registers for shadowstack and asmgcc for now
+            if gcrootmap: # and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
         self.rm.before_call(force_store, save_all_regs=save_all_regs)
         if op.result is not None:

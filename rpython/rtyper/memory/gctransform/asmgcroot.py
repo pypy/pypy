@@ -135,15 +135,10 @@ class AsmStackRootWalker(BaseRootWalker):
             self.walk_stack_from()
         self._asm_callback = _asm_callback
         self._shape_decompressor = ShapeDecompressor()
-        if hasattr(gctransformer.translator, '_jit2gc'):
+        self._with_jit = hasattr(gctransformer.translator, '_jit2gc')
+        if self._with_jit:
             jit2gc = gctransformer.translator._jit2gc
-            self._extra_gcmapstart  = jit2gc['gcmapstart']
-            self._extra_gcmapend    = jit2gc['gcmapend']
-            self._extra_mark_sorted = jit2gc['gcmarksorted']
-        else:
-            self._extra_gcmapstart  = lambda: llmemory.NULL
-            self._extra_gcmapend    = lambda: llmemory.NULL
-            self._extra_mark_sorted = lambda: True
+            self.frame_tid = jit2gc['frame_tid']
 
     def need_stacklet_support(self, gctransformer, getfn):
         # stacklet support: BIG HACK for rlib.rstacklet
@@ -359,12 +354,12 @@ class AsmStackRootWalker(BaseRootWalker):
         # try to locate the caller function based on retaddr.
         # set up self._shape_decompressor.
         #
-        self.locate_caller_based_on_retaddr(retaddr)
+        ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
+        self.locate_caller_based_on_retaddr(retaddr, ebp_in_caller)
         #
         # found!  Enumerate the GC roots in the caller frame
         #
         collect_stack_root = self.gcdata._gc_collect_stack_root
-        ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
         gc = self.gc
         while True:
             location = self._shape_decompressor.next()
@@ -391,46 +386,40 @@ class AsmStackRootWalker(BaseRootWalker):
         # of the entry point, stop walking"
         return caller.frame_address != llmemory.NULL
 
-    def locate_caller_based_on_retaddr(self, retaddr):
+    def locate_caller_based_on_retaddr(self, retaddr, ebp_in_caller):
         gcmapstart = llop.gc_asmgcroot_static(llmemory.Address, 0)
         gcmapend   = llop.gc_asmgcroot_static(llmemory.Address, 1)
         item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
         if item:
             self._shape_decompressor.setpos(item.signed[1])
             return
-        gcmapstart2 = self._extra_gcmapstart()
-        gcmapend2   = self._extra_gcmapend()
-        if gcmapstart2 != gcmapend2:
-            # we have a non-empty JIT-produced table to look in
-            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
+
+        if not self._shape_decompressor.sorted:
+            # the item may have been not found because the main array was
+            # not sorted.  Sort it and try again.
+            win32_follow_gcmap_jmp(gcmapstart, gcmapend)
+            sort_gcmap(gcmapstart, gcmapend)
+            self._shape_decompressor.sorted = True
+            item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
             if item:
-                self._shape_decompressor.setaddr(item)
+                self._shape_decompressor.setpos(item.signed[1])
                 return
-            # maybe the JIT-produced table is not sorted?
-            was_already_sorted = self._extra_mark_sorted()
-            if not was_already_sorted:
-                sort_gcmap(gcmapstart2, gcmapend2)
-                item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
-                if item:
-                    self._shape_decompressor.setaddr(item)
-                    return
-            # there is a rare risk that the array contains *two* entries
-            # with the same key, one of which is dead (null value), and we
-            # found the dead one above.  Solve this case by replacing all
-            # dead keys with nulls, sorting again, and then trying again.
-            replace_dead_entries_with_nulls(gcmapstart2, gcmapend2)
-            sort_gcmap(gcmapstart2, gcmapend2)
-            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
-            if item:
-                self._shape_decompressor.setaddr(item)
-                return
-        # the item may have been not found because the main array was
-        # not sorted.  Sort it and try again.
-        win32_follow_gcmap_jmp(gcmapstart, gcmapend)
-        sort_gcmap(gcmapstart, gcmapend)
-        item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
-        if item:
-            self._shape_decompressor.setpos(item.signed[1])
+
+        if self._with_jit:
+            # item not found.  We assume that it's a JIT-generated
+            # location -- but we check for consistency that ebp points
+            # to a JITFRAME object.
+            from rpython.jit.backend.llsupport.jitframe import STACK_DEPTH_OFS
+            
+            tid = self.gc.get_type_id(ebp_in_caller)
+            ll_assert(rffi.cast(lltype.Signed, tid) ==
+                      rffi.cast(lltype.Signed, self.frame_tid),
+                      "found a stack frame that does not belong "
+                      "anywhere I know, bug in asmgcc")
+            # fish the depth
+            extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+            extra_stack_depth //= rffi.sizeof(lltype.Signed)
+            self._shape_decompressor.setjitframe(extra_stack_depth)
             return
         llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
 
@@ -561,27 +550,83 @@ def _compare_gcmap_entries(addr1, addr2):
 class ShapeDecompressor:
     _alloc_flavor_ = "raw"
 
+    sorted = False
+
     def setpos(self, pos):
         if pos < 0:
             pos = ~ pos     # can ignore this "range" marker here
         gccallshapes = llop.gc_asmgcroot_static(llmemory.Address, 2)
         self.addr = gccallshapes + pos
 
-    def setaddr(self, addr):
-        self.addr = addr
+    def setjitframe(self, extra_stack_depth):
+        self.addr = llmemory.NULL
+        self.jit_index = 0
+        self.extra_stack_depth = extra_stack_depth
 
     def next(self):
-        value = 0
         addr = self.addr
-        while True:
-            b = ord(addr.char[0])
-            addr += 1
-            value += b
-            if b < 0x80:
-                break
-            value = (value - 0x80) << 7
-        self.addr = addr
-        return value
+        if addr:
+            # case "outside the jit"
+            value = 0
+            while True:
+                b = ord(addr.char[0])
+                addr += 1
+                value += b
+                if b < 0x80:
+                    break
+                value = (value - 0x80) << 7
+            self.addr = addr
+            return value
+        else:
+            # case "in the jit"
+            from rpython.jit.backend.x86.arch import FRAME_FIXED_SIZE
+            from rpython.jit.backend.x86.arch import PASS_ON_MY_FRAME
+            index = self.jit_index
+            self.jit_index = index + 1
+            if index == 0:
+                # the jitframe is an object in EBP
+                return LOC_REG | ((INDEX_OF_EBP + 1) << 2)
+            if index == 1:
+                return 0
+            # the remaining returned values should be:
+            #      saved %rbp
+            #      saved %r15           or on 32bit:
+            #      saved %r14             saved %ebp
+            #      saved %r13             saved %edi
+            #      saved %r12             saved %esi
+            #      saved %rbx             saved %ebx
+            #      return addr            return addr
+            if IS_64_BITS:
+                stack_depth = PASS_ON_MY_FRAME + self.extra_stack_depth
+                if index == 2:   # rbp
+                    return LOC_ESP_PLUS | (stack_depth << 2)
+                if index == 3:   # r15
+                    return LOC_ESP_PLUS | ((stack_depth + 5) << 2)
+                if index == 4:   # r14
+                    return LOC_ESP_PLUS | ((stack_depth + 4) << 2)
+                if index == 5:   # r13
+                    return LOC_ESP_PLUS | ((stack_depth + 3) << 2)
+                if index == 6:   # r12
+                    return LOC_ESP_PLUS | ((stack_depth + 2) << 2)
+                if index == 7:   # rbx
+                    return LOC_ESP_PLUS | ((stack_depth + 1) << 2)
+                if index == 8:   # return addr
+                    return (LOC_ESP_PLUS |
+                        ((FRAME_FIXED_SIZE + self.extra_stack_depth) << 2))
+            else:
+                if index == 2:   # ebp
+                    return LOC_ESP_PLUS | (stack_depth << 2)
+                if index == 3:   # edi
+                    return LOC_ESP_PLUS | ((stack_depth + 3) << 2)
+                if index == 4:   # esi
+                    return LOC_ESP_PLUS | ((stack_depth + 2) << 2)
+                if index == 5:   # ebx
+                    return LOC_ESP_PLUS | ((stack_depth + 1) << 2)
+                if index == 6:   # return addr
+                    return (LOC_ESP_PLUS |
+                        ((FRAME_FIXED_SIZE + self.extra_stack_depth) << 2))
+            llop.debug_fatalerror(lltype.Void, "asmgcroot: invalid index")
+            return 0   # annotator fix
 
 # ____________________________________________________________
 

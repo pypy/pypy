@@ -64,7 +64,7 @@ class BaseAssembler(object):
         self._build_wb_slowpath(True)
         self._build_wb_slowpath(False, for_frame=True)
         # only one of those
-        self._build_stack_check_failure()
+        self.build_frame_realloc_slowpath()
         if self.cpu.supports_floats:
             self._build_failure_recovery(False, withfloats=True)
             self._build_failure_recovery(True, withfloats=True)

@@ -55,6 +55,8 @@ JITFRAME = lltype.GcStruct(
     ('jf_force_descr', llmemory.GCREF),
     # a map of GC pointers
     ('jf_gcmap', lltype.Ptr(GCMAP)),
+    # how much we decrease stack pointer. Used around calls and malloc slowpath
+    ('jf_extra_stack_depth', lltype.Signed),
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),
     # For GUARD_(NO)_EXCEPTION and GUARD_NOT_FORCED: the exception we
@@ -84,6 +86,7 @@ BASEITEMOFS = llmemory.itemoffsetof(JITFRAME.jf_frame, 0)
 LENGTHOFS = llmemory.arraylengthoffset(JITFRAME.jf_frame)
 SIGN_SIZE = llmemory.sizeof(lltype.Signed)
 UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
+STACK_DEPTH_OFS = getofs('jf_extra_stack_depth')
 
 def jitframe_trace(obj_addr, prev):
     if prev == llmemory.NULL:
