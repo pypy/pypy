@@ -391,8 +391,12 @@ static void AbortTransaction(int num)
 
   /* upon abort, set the reads size limit to 94% of how much was read
      so far.  This should ensure that, assuming the retry does the same
-     thing, it will commit just before it reaches the conflicting point. */
+     thing, it will commit just before it reaches the conflicting point.
+     Note that we should never *increase* the read length limit here. */
   limit = d->count_reads;
+  if (limit > d->reads_size_limit_nonatomic) {  /* can occur if atomic */
+      limit = d->reads_size_limit_nonatomic;
+  }
   if (limit > 0) {
       limit -= (limit >> 4);
       d->reads_size_limit_nonatomic = limit;
