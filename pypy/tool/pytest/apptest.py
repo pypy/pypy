@@ -118,16 +118,20 @@ if 1:
             defs.append("self.%s = %s\n" % (symbol, py3k_repr(value)))
     source = py.code.Source(target_)[1:]
     pyfile = udir.join('src.py')
-    source = helpers + '\n'.join(defs) + 'if 1:\n' + str(source)
+    target_name = target_.__name__
     with pyfile.open('w') as f:
-        f.write(source)
+        f.write(helpers)
+        f.write('\n'.join(defs))
+        f.write('def %s():\n' % target_name)
+        f.write(str(source))
+        f.write("\n%s()\n" % target_name)
     res, stdout, stderr = runsubprocess.run_subprocess(
         python_, [str(pyfile)])
-    print source
+    print pyfile.read()
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr
     if res > 0:
-        raise AssertionError("Subprocess failed")
+        raise AssertionError("Subprocess failed:\n" + stderr)
 
 
 def extract_docstring_if_empty_function(fn):
