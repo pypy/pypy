@@ -35,7 +35,7 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "_ffi",
-     "_continuation", "_csv", # "micronumpy", "_cffi_backend",
+     "_continuation", "_csv", "_cffi_backend", # "micronumpy",
      "_posixsubprocess",
      ]
 ))
