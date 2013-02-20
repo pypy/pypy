@@ -10,7 +10,7 @@ from pypy.objspace.std.longobject import W_LongObject
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
 from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
+    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, float_as_rbigint_ratio)
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib import rfloat
 from rpython.tool.sourcetools import func_with_new_name
@@ -553,27 +553,18 @@ def getnewargs__Float(space, w_float):
 
 def float_as_integer_ratio__Float(space, w_float):
     value = w_float.floatval
-    if isinf(value):
+    try:
+        num, den = float_as_rbigint_ratio(value)
+    except OverflowError:
         w_msg = space.wrap("cannot pass infinity to as_integer_ratio()")
         raise OperationError(space.w_OverflowError, w_msg)
-    elif isnan(value):
+    except ValueError:
         w_msg = space.wrap("cannot pass nan to as_integer_ratio()")
         raise OperationError(space.w_ValueError, w_msg)
-    float_part, exp = math.frexp(value)
-    for i in range(300):
-        if float_part == math.floor(float_part):
-            break
-        float_part *= 2.0
-        exp -= 1
-    w_num = W_LongObject.fromfloat(space, float_part)
-    w_den = space.newlong(1)
-    w_exp = space.newlong(abs(exp))
-    w_exp = space.lshift(w_den, w_exp)
-    if exp > 0:
-        w_num = space.mul(w_num, w_exp)
-    else:
-        w_den = w_exp
-    # Try to return int.
+
+    w_num = space.newlong_from_rbigint(num)
+    w_den = space.newlong_from_rbigint(den)
+    # Try to return int
     return space.newtuple([space.int(w_num), space.int(w_den)])
 
 def float_is_integer__Float(space, w_float):

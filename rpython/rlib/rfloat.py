@@ -419,3 +419,25 @@ def round_away(x):
 def isfinite(x):
     "NOT_RPYTHON"
     return not isinf(x) and not isnan(x)
+
+def float_as_rbigint_ratio(value):
+    from rpython.rlib.rbigint import rbigint
+
+    if isinf(value):
+        raise OverflowError("cannot pass infinity to as_integer_ratio()")
+    elif isnan(value):
+        raise ValueError("cannot pass nan to as_integer_ratio()")
+    float_part, exp_int = math.frexp(value)
+    for i in range(300):
+        if float_part == math.floor(float_part):
+            break
+        float_part *= 2.0
+        exp_int -= 1
+    num = rbigint.fromfloat(float_part)
+    den = rbigint.fromint(1)
+    exp = den.lshift(abs(exp_int))
+    if exp_int > 0:
+        num = num.mul(exp)
+    else:
+        den = exp
+    return num, den
