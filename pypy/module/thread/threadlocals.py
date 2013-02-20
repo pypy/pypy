@@ -6,59 +6,14 @@ from pypy.interpreter.executioncontext import ExecutionContext
 ExecutionContext._signals_enabled = 0     # default value
 
 
-class OSThreadLocals:
-    """Thread-local storage for OS-level threads.
-    For memory management, this version depends on explicit notification when
-    a thread finishes.  This works as long as the thread was started by
-    os_thread.bootstrap()."""
+class BaseThreadLocals(object):
+    _mainthreadident = 0
 
-    use_dict = True
+    def initialize(self, space):
+        pass
 
-    def __init__(self):
-        if self.use_dict:
-            self._valuedict = {}   # {thread_ident: ExecutionContext()}
-        self._cleanup_()
-
-    def _cleanup_(self):
-        if self.use_dict:
-            self._valuedict.clear()
-            self.clear_cache()
-        self._mainthreadident = 0
-
-    def clear_cache(self):
-        # Cache function: fast minicaching for the common case.  Relies
-        # on the GIL; overridden in stm.py.
-        self._mostrecentkey = 0
-        self._mostrecentvalue = None
-
-    def getvalue(self):
-        # Overridden in stm.py.
-        ident = rthread.get_ident()
-        if ident == self._mostrecentkey:
-            result = self._mostrecentvalue
-        else:
-            value = self._valuedict.get(ident, None)
-            # slow path: update the minicache
-            self._mostrecentkey = ident
-            self._mostrecentvalue = value
-            result = value
-        return result
-
-    def setvalue(self, value):
-        # Overridden in stm.py.
-        ident = rthread.get_ident()
-        if value is not None:
-            if len(self._valuedict) == 0:
-                value._signals_enabled = 1    # the main thread is enabled
-                self._mainthreadident = ident
-            self._valuedict[ident] = value
-        else:
-            try:
-                del self._valuedict[ident]
-            except KeyError:
-                pass
-        # clear the minicache to prevent it from containing an outdated value
-        self.clear_cache()
+    def setup_threads(self, space):
+        pass
 
     def signals_enabled(self):
         ec = self.getvalue()
@@ -76,8 +31,56 @@ class OSThreadLocals:
                 "cannot disable signals in thread not enabled for signals")
         ec._signals_enabled = new
 
+
+class OSThreadLocals(BaseThreadLocals):
+    """Thread-local storage for OS-level threads.
+    For memory management, this version depends on explicit notification when
+    a thread finishes.  This works as long as the thread was started by
+    os_thread.bootstrap()."""
+
+    def __init__(self):
+        self._valuedict = {}   # {thread_ident: ExecutionContext()}
+        self._cleanup_()
+
+    def _cleanup_(self):
+        self._valuedict.clear()
+        self._clear_cache()
+        self._mainthreadident = 0
+
+    def _clear_cache(self):
+        # Cache function: fast minicaching for the common case.  Relies
+        # on the GIL.
+        self._mostrecentkey = 0
+        self._mostrecentvalue = None
+
+    def getvalue(self):
+        ident = rthread.get_ident()
+        if ident == self._mostrecentkey:
+            result = self._mostrecentvalue
+        else:
+            value = self._valuedict.get(ident, None)
+            # slow path: update the minicache
+            self._mostrecentkey = ident
+            self._mostrecentvalue = value
+            result = value
+        return result
+
+    def setvalue(self, value):
+        ident = rthread.get_ident()
+        if value is not None:
+            if len(self._valuedict) == 0:
+                value._signals_enabled = 1    # the main thread is enabled
+                self._mainthreadident = ident
+            self._valuedict[ident] = value
+        else:
+            try:
+                del self._valuedict[ident]
+            except KeyError:
+                pass
+        # clear the minicache to prevent it from containing an outdated value
+        self._clear_cache()
+
     def getallvalues(self):
-        # Overridden in stm.py.
         return self._valuedict
 
     def leave_thread(self, space):

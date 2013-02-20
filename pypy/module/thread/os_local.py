@@ -32,13 +32,11 @@ class Local(Wrappable):
         self.dicts[ec] = w_dict
         self._register_in_ec(ec)
         # cache the last seen dict, works because we are protected by the GIL
-        if self.can_cache():
-            self.last_dict = w_dict
-            self.last_ec = ec
-
-    def can_cache(self):
-        # can't cache with STM!  The cache causes conflicts
-        return not self.space.config.translation.stm
+        self.last_dict = w_dict
+        self.last_ec = ec
+        # note that this class can't be used with STM!
+        # The cache causes conflicts.  See STMLocal instead.
+        assert not self.space.config.translation.stm
 
     def _register_in_ec(self, ec):
         if not self.space.config.translation.rweakref:
@@ -69,15 +67,14 @@ class Local(Wrappable):
 
     def getdict(self, space):
         ec = space.getexecutioncontext()
-        if self.can_cache() and ec is self.last_ec:
+        if ec is self.last_ec:
             return self.last_dict
         try:
             w_dict = self.dicts[ec]
         except KeyError:
             w_dict = self.create_new_dict(ec)
-        if self.can_cache():
-            self.last_ec = ec
-            self.last_dict = w_dict
+        self.last_ec = ec
+        self.last_dict = w_dict
         return w_dict
 
     def descr_local__new__(space, w_subtype, __args__):

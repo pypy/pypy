@@ -37,10 +37,9 @@ class ExecutionContext(object):
         self.profilefunc = None        # if not None, no JIT
         self.w_profilefuncarg = None
         #
-        config = self.space.config
-        if config.translation.stm and config.objspace.std.withmethodcache:
-            from pypy.objspace.std.typeobject import MethodCache
-            self._methodcache = MethodCache(self.space)
+        if self.space.config.translation.stm:
+            from pypy.module.thread.stm import initialize_execution_context
+            initialize_execution_context(self)
 
     def gettopframe(self):
         return self.topframeref()

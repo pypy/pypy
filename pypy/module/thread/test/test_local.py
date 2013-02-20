@@ -3,9 +3,16 @@ from pypy.module.thread.test.support import GenericTestThread
 
 class AppTestLocal(GenericTestThread):
 
+    def setup_class(cls):
+        GenericTestThread.setup_class.im_func(cls)
+        cls.w__local = cls.space.appexec([], """():
+            import thread
+            return thread._local
+        """)
+
     def test_local_1(self):
         import thread
-        from thread import _local as tlsobject
+        tlsobject = self._local
         freed = []
         class X:
             def __del__(self):
@@ -51,10 +58,10 @@ class AppTestLocal(GenericTestThread):
         tags = ['???', 1, 2, 3, 4, 5, 54321]
         seen = []
 
-        raises(TypeError, thread._local, a=1)
-        raises(TypeError, thread._local, 1)
+        raises(TypeError, self._local, a=1)
+        raises(TypeError, self._local, 1)
 
-        class X(thread._local):
+        class X(self._local):
             def __init__(self, n):
                 assert n == 42
                 self.tag = tags.pop()
@@ -74,7 +81,7 @@ class AppTestLocal(GenericTestThread):
 
     def test_local_setdict(self):
         import thread
-        x = thread._local()
+        x = self._local()
         # XXX: On Cpython these are AttributeErrors
         raises(TypeError, "x.__dict__ = 42")
         raises(TypeError, "x.__dict__ = {}")
@@ -91,7 +98,7 @@ class AppTestLocal(GenericTestThread):
 
     def test_local_is_not_immortal(self):
         import thread, gc, time
-        class Local(thread._local):
+        class Local(self._local):
             def __del__(self):
                 done.append('del')
         done = []
