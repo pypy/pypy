@@ -65,3 +65,6 @@ one directory for reduced confusion and so they all run nightly.
 .. branch: signal-and-thread
 Add "__pypy__.thread.signals_enabled", a context manager. Can be used in a
 non-main thread to enable the processing of signal handlers in that thread.
+
+.. branch: coding-guide-update-rlib-refs
+.. branch: rlib-doc-rpython-refs
