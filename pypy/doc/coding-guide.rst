@@ -365,7 +365,7 @@ a consistent behavior before and after translation.
 We use normal integers for signed arithmetic.  It means that before
 translation we get longs in case of overflow, and after translation we get a
 silent wrap-around.  Whenever we need more control, we use the following
-helpers (which live the `rpython/rlib/rarithmetic.py`_):
+helpers (which live in `rpython/rlib/rarithmetic.py`_):
 
 **ovfcheck()**
 
