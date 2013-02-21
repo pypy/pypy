@@ -16,7 +16,7 @@ class ReleaseGILTests(BaseFrameworkTests):
     def define_simple(self):
         class Glob:
             def __init__(self):
-                self.events = []
+                glob.event = 0
         glob = Glob()
         #
 
@@ -24,7 +24,7 @@ class ReleaseGILTests(BaseFrameworkTests):
                                    rffi.CCHARP)
 
         def func():
-            glob.events.append("x")
+            glob.event += 1
 
         def before(n, x):
             invoke_around_extcall(func, func)
