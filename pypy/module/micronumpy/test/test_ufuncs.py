@@ -99,7 +99,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         #assert e.message.startswith('ufunc')
                         uncallable.append(s)
                     i+= 1
-            assert i == 47 #numpy 1.7.0
             return uncallable
         a = np.array(0,'int64')
         uncallable = find_uncallable_ufuncs(a) 
