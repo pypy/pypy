@@ -1,8 +1,7 @@
 
 import py
-py.path.local(__file__)
 import pypy
-pypydir = py.path.local(pypy.__file__).dirpath()
+pypydir = py.path.local(pypy.__file__).join('..', '..')
 distdir = pypydir.dirpath()
 issue_url = 'http://bugs.pypy.org/issue/pypy-dev/' 
 bitbucket_url = 'https://bitbucket.org/pypy/pypy/src/default/'
