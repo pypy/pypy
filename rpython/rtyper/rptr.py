@@ -23,6 +23,8 @@ class __extend__(annmodel.SomeInteriorPtr):
     def rtyper_makerepr(self, rtyper):
         return InteriorPtrRepr(self.ll_ptrtype)
 
+    def rtyper_makekey(self):
+        return self.__class__, self.ll_ptrtype
 
 class PtrRepr(Repr):
 
@@ -343,5 +345,12 @@ class __extend__(pairtype(InteriorPtrRepr, LLADTMethRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == r_to.lowleveltype:
+            return v
+        return NotImplemented
+
+class __extend__(pairtype(InteriorPtrRepr, InteriorPtrRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.__dict__ == r_to.__dict__:
             return v
         return NotImplemented

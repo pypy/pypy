@@ -1035,6 +1035,17 @@ class AbstractTestRstr(BaseRtypingTest):
         got = self.interpret(f, [7])
         assert self.ll_to_string(got) == 'None'
 
+    def test_enumerate(self):
+        const = self.const
+        def fn(n):
+            s = const('abcde')
+            for i, x in enumerate(s):
+                if i == n:
+                    return x
+            return 'x'
+        res = self.interpret(fn, [2])
+        assert res == 'c'
+
 
 def FIXME_test_str_to_pystringobj():
     def f(n):

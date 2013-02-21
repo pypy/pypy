@@ -29,7 +29,7 @@ memory (4KB) per live continulet, and half a megabyte of virtual memory
 on 32-bit or a complete megabyte on 64-bit.  Moreover, the feature is
 only available (so far) on x86 and x86-64 CPUs; for other CPUs you need
 to add a short page of custom assembler to
-`pypy/translator/c/src/stacklet/`_.
+`rpython/translator/c/src/stacklet/`_.
 
 
 Theory
@@ -271,7 +271,7 @@ Stacklets
 Continulets are internally implemented using stacklets, which is the
 generic RPython-level building block for "one-shot continuations".  For
 more information about them please see the documentation in the C source
-at `pypy/translator/c/src/stacklet/stacklet.h`_.
+at `rpython/translator/c/src/stacklet/stacklet.h`_.
 
 The module ``pypy.rlib.rstacklet`` is a thin wrapper around the above
 functions.  The key point is that new() and switch() always return a
