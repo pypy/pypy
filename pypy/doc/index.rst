@@ -295,8 +295,7 @@ Directory                          explanation/links
 ``*/test/``                        many directories have a test subdirectory containing test 
                                    modules (see `Testing in PyPy`_) 
 
-``_cache/``                        holds cache files from internally `translating application 
-                                   level to interpreterlevel`_ code.   
+``_cache/``                        holds cache files from internally `translating application level to interpreterlevel`_ code.   
 ================================   =========================================== 
 
 .. _`bytecode interpreter`: interpreter.html
