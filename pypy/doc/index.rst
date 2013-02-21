@@ -217,10 +217,9 @@ PyPy directory cross-reference
 Here is a fully referenced alphabetical two-level deep 
 directory overview of PyPy: 
 
-================================   ============================================
+=================================  ============================================
 Directory                          explanation/links
-================================   ============================================
-
+=================================  ============================================
 `pypy/bin/`_                       command-line scripts, mainly
                                    `pypy/bin/pyinteractive.py`_
 
@@ -316,7 +315,7 @@ Directory                          explanation/links
                                    modules (see `Testing in PyPy`_) 
 
 ``_cache/``                        holds cache files from various purposes
-================================   ============================================
+=================================  ============================================
 
 .. _`bytecode interpreter`: interpreter.html
 .. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
