@@ -203,6 +203,7 @@ def min_max(space, args, implementation_of):
         return min_max_unroll(space, args, implementation_of)
     else:
         return min_max_normal(space, args, implementation_of)
+min_max._always_inline = True
 
 def max(space, __args__):
     """max(iterable[, key=func]) -> value
