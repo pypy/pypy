@@ -67,11 +67,15 @@ def sum(a,axis=None, out=None):
 def min(a, axis=None, out=None):
     if not hasattr(a, "min"):
         a = _numpypy.array(a)
+    if a.size < 1:
+        return _numpypy.array([])
     return a.min(axis=axis, out=out)
 
 def max(a, axis=None, out=None):
     if not hasattr(a, "max"):
         a = _numpypy.array(a)
+    if a.size < 1:
+        return _numpypy.array([])
     return a.max(axis=axis, out=out)
 
 def arange(start, stop=None, step=1, dtype=None):

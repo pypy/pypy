@@ -26,6 +26,16 @@ class TimeModule(MixedModule):
                 interpleveldefs[name] = "space.wrap(interp_time.%s)" % name
 
 
+class ThreadModule(MixedModule):
+    appleveldefs = {
+        'signals_enabled': 'app_signal.signals_enabled',
+    }
+    interpleveldefs = {
+        '_signals_enter':  'interp_signal.signals_enter',
+        '_signals_exit':   'interp_signal.signals_exit',
+    }
+
+
 class Module(MixedModule):
     appleveldefs = {
     }
@@ -54,6 +64,7 @@ class Module(MixedModule):
     submodules = {
         "builders": BuildersModule,
         "time": TimeModule,
+        "thread": ThreadModule,
     }
 
     def setup_after_space_initialization(self):

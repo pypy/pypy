@@ -1,17 +1,16 @@
 import sys
-from rpython.tool.pairtype import pairtype
+
 from rpython.annotator import model as annmodel
 from rpython.flowspace.operation import op_appendices
-from rpython.rtyper.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
-     Void, Char, UniChar, malloc, UnsignedLongLong, \
-     SignedLongLong, build_number, Number, cast_primitive, typeOf, \
-     SignedLongLongLong
-from rpython.rtyper.rmodel import IntegerRepr, inputconst
-from rpython.rlib.rarithmetic import intmask, r_int, r_uint, r_ulonglong, \
-     r_longlong, is_emulated_long
-from rpython.rtyper.error import TyperError, MissingRTypeOperation
-from rpython.rtyper.rmodel import log
 from rpython.rlib import objectmodel
+from rpython.rlib.rarithmetic import intmask, r_int, r_longlong
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
+    Char, UniChar, UnsignedLongLong, SignedLongLong, build_number, Number,
+    cast_primitive, typeOf, SignedLongLongLong)
+from rpython.rtyper.rmodel import IntegerRepr, inputconst, log
+from rpython.tool.pairtype import pairtype
+
 
 _integer_reprs = {}
 def getintegerrepr(lltype, prefix=None):
@@ -128,7 +127,7 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
     #comparisons: eq is_ ne lt le gt ge
 
-    def rtype_eq(_, hop): 
+    def rtype_eq(_, hop):
         return _rtype_compare_template(hop, 'eq')
 
     rtype_is_ = rtype_eq
@@ -259,7 +258,7 @@ class __extend__(IntegerRepr):
     get_ll_le_function = get_ll_eq_function
 
     def get_ll_ge_function(self):
-        return None 
+        return None
 
     def get_ll_hash_function(self):
         if (sys.maxint == 2147483647 and
@@ -279,7 +278,7 @@ class __extend__(IntegerRepr):
     ll_dummy_value = -1
 
     def rtype_chr(_, hop):
-        vlist =  hop.inputargs(Signed)
+        vlist = hop.inputargs(Signed)
         if hop.has_implicit_exception(ValueError):
             hop.exception_is_here()
             hop.gendirectcall(ll_check_chr, vlist[0])
@@ -301,8 +300,8 @@ class __extend__(IntegerRepr):
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'is_true', vlist, resulttype=Bool)
 
-    #Unary arithmetic operations    
-    
+    #Unary arithmetic operations
+
     def rtype_abs(self, hop):
         self = self.as_int
         vlist = hop.inputargs(self)
@@ -325,7 +324,7 @@ class __extend__(IntegerRepr):
         self = self.as_int
         vlist = hop.inputargs(self)
         return hop.genop(self.opprefix + 'invert', vlist, resulttype=self)
-        
+
     def rtype_neg(self, hop):
         self = self.as_int
         vlist = hop.inputargs(self)

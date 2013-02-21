@@ -1,16 +1,15 @@
-from rpython.tool.staticmethods import StaticMethods
-from rpython.tool.pairtype import pairtype, pair
-from rpython.tool.sourcetools import func_with_new_name
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit
-from rpython.rlib.nonconst import NonConstant
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr
-from rpython.rtyper.rmodel import inputconst, Repr
-from rpython.rtyper.rtuple import AbstractTupleRepr
 from rpython.rtyper import rint
-from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar,\
-     cast_primitive, typeOf
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lltype import (Signed, Bool, Void, UniChar,
+    typeOf)
+from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr, inputconst, Repr
+from rpython.rtyper.rtuple import AbstractTupleRepr
+from rpython.tool.pairtype import pairtype, pair
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.tool.staticmethods import StaticMethods
+
 
 class AbstractStringRepr(Repr):
 
@@ -37,7 +36,7 @@ class AbstractStringRepr(Repr):
     def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
-    
+
 
 class AbstractCharRepr(AbstractStringRepr):
     def rtype_method_lower(self, hop):
@@ -87,7 +86,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
     def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
                                           startingpos, endingpos):
         raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
-    
+
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rstr.string_repr
@@ -356,8 +355,8 @@ class __extend__(AbstractStringRepr):
             hop.exception_is_here()
             return hop.gendirectcall(self.ll.ll_int, v_str, c_base)
         if not hop.args_r[1] == rint.signed_repr:
-            raise TyperError, 'base needs to be an int'
-        v_str, v_base= hop.inputargs(string_repr, rint.signed_repr)
+            raise TyperError('base needs to be an int')
+        v_str, v_base = hop.inputargs(string_repr, rint.signed_repr)
         hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_int, v_str, v_base)
 
@@ -653,7 +652,7 @@ class __extend__(pairtype(AbstractCharRepr, AbstractCharRepr)):
 def _rtype_compare_template(hop, func):
     rstr = hop.rtyper.type_system.rstr
     vlist = hop.inputargs(rstr.char_repr, rstr.char_repr)
-    return hop.genop('char_'+func, vlist, resulttype=Bool)
+    return hop.genop('char_' + func, vlist, resulttype=Bool)
 
 class __extend__(AbstractUniCharRepr):
 
@@ -700,7 +699,7 @@ class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
 def _rtype_unchr_compare_template(hop, func):
     rstr = hop.rtyper.type_system.rstr
     vlist = hop.inputargs(rstr.unichar_repr, rstr.unichar_repr)
-    return hop.genop('unichar_'+func, vlist, resulttype=Bool)
+    return hop.genop('unichar_' + func, vlist, resulttype=Bool)
 
 
 #
@@ -896,19 +895,18 @@ class AbstractLLHelpers:
                 break
         if beg == n:
             raise ValueError
-        end = n-1
+        end = n - 1
         while end >= 0:
             if s[end] == ' ':
                 end -= 1
             else:
                 break
         assert end >= 0
-        return rstring_to_float(s[beg:end+1])
+        return rstring_to_float(s[beg:end + 1])
 
     def ll_splitlines(cls, LIST, ll_str, keep_newlines):
         from rpython.rtyper.annlowlevel import hlstr
         s = hlstr(ll_str)
-        STR = typeOf(ll_str)
         strlen = len(s)
         i = 0
         j = 0

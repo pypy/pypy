@@ -154,9 +154,9 @@ class W_ClassObject(Wrappable):
                 return
             elif name == "__del__":
                 if self.lookup(space, name) is None:
-                    msg = ("a __del__ method added to an existing class "
-                           "will not be called")
-                    space.warn(msg, space.w_RuntimeWarning)
+                    msg = ("a __del__ method added to an existing class will "
+                           "not be called")
+                    space.warn(space.wrap(msg), space.w_RuntimeWarning)
         space.setitem(self.w_dict, w_attr, w_value)
 
     def descr_delattr(self, space, w_attr):
@@ -395,9 +395,9 @@ class W_InstanceObject(Wrappable):
                 cache = space.fromcache(Cache)
                 if (not isinstance(self, cache.cls_with_del)
                     and self.getdictvalue(space, '__del__') is None):
-                    msg = ("a __del__ method added to an instance "
-                           "with no __del__ in the class will not be called")
-                    space.warn(msg, space.w_RuntimeWarning)
+                    msg = ("a __del__ method added to an instance with no "
+                           "__del__ in the class will not be called")
+                    space.warn(space.wrap(msg), space.w_RuntimeWarning)
         if w_meth is not None:
             space.call_function(w_meth, w_name, w_value)
         else:
@@ -454,11 +454,9 @@ class W_InstanceObject(Wrappable):
             else:
                 w_as_str = self.descr_str(space)
             if space.len_w(w_format_spec) > 0:
-                space.warn(
-                    ("object.__format__ with a non-empty format string is "
-                        "deprecated"),
-                    space.w_PendingDeprecationWarning
-                )
+                msg = ("object.__format__ with a non-empty format string is "
+                       "deprecated")
+                space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
             return space.format(w_as_str, w_format_spec)
 
     def descr_len(self, space):

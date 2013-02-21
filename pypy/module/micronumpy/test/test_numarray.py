@@ -1,11 +1,12 @@
-
-import py, sys
+import py
+import sys
 
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+
 
 class MockDtype(object):
     class itemtype(object):
@@ -24,8 +25,10 @@ class MockDtype(object):
 def create_slice(a, chunks):
     return Chunks(chunks).apply(W_NDimArray(a)).implementation
 
+
 def create_array(*args, **kwargs):
     return W_NDimArray.from_shape(*args, **kwargs).implementation
+
 
 class TestNumArrayDirect(object):
     def newslice(self, *args):
@@ -1202,7 +1205,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d.shape == (3, 3)
         assert d.dtype == dtype('int32')
         assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
-   
+
     def test_eye(self):
         from _numpypy import eye
         from _numpypy import int32, dtype
@@ -1231,9 +1234,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         g = eye(3, 4, k=-1)
         assert g.shape == (3, 4)
         assert (g == [[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]]).all()
-
-
-
 
     def test_prod(self):
         from _numpypy import array
@@ -1473,6 +1473,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(a) == 6
         assert (a == [0,1,2,3,4,5]).all()
         assert a.dtype is dtype(int)
+        a = concatenate((a1, a2), axis=1)
+        assert (a == [0,1,2,3,4,5]).all()
+        a = concatenate((a1, a2), axis=-1)
+        assert (a == [0,1,2,3,4,5]).all()
+
         b1 = array([[1, 2], [3, 4]])
         b2 = array([[5, 6]])
         b = concatenate((b1, b2), axis=0)
@@ -1488,16 +1493,29 @@ class AppTestNumArray(BaseNumpyAppTest):
         f = concatenate((f1, [2], f1, [7]))
         assert (f == [0,1,2,0,1,7]).all()
 
-        bad_axis = raises(IndexError, concatenate, (a1,a2), axis=1)
-        assert str(bad_axis.value) == "axis 1 out of bounds [0, 1)"
+        g1 = array([[0,1,2]])
+        g2 = array([[3,4,5]])
+        g = concatenate((g1, g2), axis=-2)
+        assert (g == [[0,1,2],[3,4,5]]).all()
+        exc = raises(IndexError, concatenate, (g1, g2), axis=2)
+        assert str(exc.value) == "axis 2 out of bounds [0, 2)"
+        exc = raises(IndexError, concatenate, (g1, g2), axis=-3)
+        assert str(exc.value) == "axis -3 out of bounds [0, 2)"
 
-        concat_zero = raises(ValueError, concatenate, ())
-        assert str(concat_zero.value) == \
-            "need at least one array to concatenate"
+        exc = raises(ValueError, concatenate, ())
+        assert str(exc.value) == \
+                "need at least one array to concatenate"
 
-        dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
-        assert str(dims_disagree.value) == \
-            "all the input arrays must have same number of dimensions"
+        exc = raises(ValueError, concatenate, (a1, b1), axis=0)
+        assert str(exc.value) == \
+                "all the input arrays must have same number of dimensions"
+
+        g1 = array([0,1,2])
+        g2 = array([[3,4,5]])
+        exc = raises(ValueError, concatenate, (g1, g2), axis=2)
+        assert str(exc.value) == \
+                "all the input arrays must have same number of dimensions"
+
         a = array([1, 2, 3, 4, 5, 6])
         a = (a + a)[::2]
         b = concatenate((a[:3], a[-3:]))
@@ -1583,7 +1601,7 @@ class AppTestNumArray(BaseNumpyAppTest):
                                            [[3, 9], [6, 12]]])).all() 
         assert (x.swapaxes(1, 2) == array([[[1, 4], [2, 5], [3, 6]], 
                                            [[7, 10], [8, 11],[9, 12]]])).all() 
-        
+
         # test slice
         assert (x[0:1,0:2].swapaxes(0,2) == array([[[1], [4]], [[2], [5]], 
                                                    [[3], [6]]])).all()
@@ -1662,13 +1680,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([0, 1, 2], dtype=complex).astype(bool)
         assert (b == [False, True, True]).all()
         assert b.dtype == 'bool'
-        
+
         a = arange(6, dtype='f4').reshape(2,3)
         b = a.astype('i4')
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
-        
+
     def test_base(self):
         from _numpypy import array
         assert array(1).base is None
@@ -1679,6 +1697,11 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_byteswap(self):
         from _numpypy import array
+
+        s1 = array(1.).byteswap().tostring()
+        s2 = array([1.]).byteswap().tostring()
+        assert s1 == s2
+
         a = array([1, 256 + 2, 3], dtype='i2')
         assert (a.byteswap() == [0x0100, 0x0201, 0x0300]).all()
         assert (a == [1, 256 + 2, 3]).all()
@@ -1686,39 +1709,40 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0x0100, 0x0201, 0x0300]).all()
 
         a = array([1, -1, 1e300], dtype=float)
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        assert s1[7::-1] == s2[:8]
-        assert s1[15:7:-1] == s2[8:16]
-        assert s1[:15:-1] == s2[16:]
-
-        a = array([1+1e30j, -1, 1e10], dtype=complex)
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        assert s1[7::-1] == s2[:8]
-        assert s1[15:7:-1] == s2[8:16]
-        assert s1[23:15:-1] == s2[16:24]
-        assert s1[31:23:-1] == s2[24:32]
-        assert s1[39:31:-1] == s2[32:40]
-        assert s1[:39:-1] == s2[40:]
-
-        a = array([3.14, -1.5, 10000], dtype='float16')
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        s3 = [s1[1], s1[0],s1[3], s1[2], s1[5], s1[4]]
-        assert s3 == s2
-
-        a = array([1, -1, 10000], dtype='longfloat')
-        s1 = map(ord,a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        n = a.dtype.itemsize
-        assert s1[n-1] == s2[0]
-
-        a = array(0., dtype='longfloat')
         s1 = map(ord, a.tostring())
         s2 = map(ord, a.byteswap().tostring())
-        n = a.dtype.itemsize
-        assert s1[n-1] == s2[0]
+        assert a.dtype.itemsize == 8
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+        a = array([1+1e30j, -1, 1e10], dtype=complex)
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize == 16
+        for i in range(a.size*2):
+            i1 = i * a.dtype.itemsize/2
+            i2 = (i+1) * a.dtype.itemsize/2
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+        a = array([3.14, -1.5, 10000], dtype='float16')
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize == 2
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+        a = array([1, -1, 10000], dtype='longfloat')
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize >= 8
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
 
     def test_clip(self):
         from _numpypy import array
@@ -1739,12 +1763,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0xff
         assert len(a.data) == 16
 
-
     def test_explicit_dtype_conversion(self):
         from _numpypy import array
         a = array([1.0, 2.0])
         b = array(a, dtype='d')
         assert a.dtype is b.dtype
+
+    def test_notequal_different_shapes(self):
+        from _numpypy import array
+        a = array([1, 2])
+        b = array([1, 2, 3, 4])
+        assert (a == b) == False
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -2037,6 +2067,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
                             False, False, True, False, False, False]).all()
         assert ((b > range(12)) == [False, True, True,False, True, True,
                             False, False, True, False, False, False]).all()
+
     def test_flatiter_view(self):
         from _numpypy import arange
         a = arange(10).reshape(5, 2)
@@ -2257,16 +2288,17 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(12).reshape(2, 3, 2)
         assert (a.diagonal(0, 0, 1) == [[0, 8], [1, 9]]).all()
         assert a.diagonal(3, 0, 1).shape == (2, 0)
-        assert (a.diagonal(1, 0, 1) == [[2, 10], [3, 11]]).all()         
-        assert (a.diagonal(0, 2, 1) == [[0, 3], [6, 9]]).all()        
-        assert (a.diagonal(2, 2, 1) == [[4], [10]]).all()        
-        assert (a.diagonal(1, 2, 1) == [[2, 5], [8, 11]]).all()        
+        assert (a.diagonal(1, 0, 1) == [[2, 10], [3, 11]]).all()
+        assert (a.diagonal(0, 2, 1) == [[0, 3], [6, 9]]).all()
+        assert (a.diagonal(2, 2, 1) == [[4], [10]]).all()
+        assert (a.diagonal(1, 2, 1) == [[2, 5], [8, 11]]).all()
 
     def test_diagonal_axis_neg_ofs(self):
         from _numpypy import arange
         a = arange(12).reshape(2, 3, 2)
         assert (a.diagonal(-1, 0, 1) == [[6], [7]]).all()
         assert a.diagonal(-2, 0, 1).shape == (2, 0)
+
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
@@ -2438,6 +2470,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (a.argsort(axis=0) == [[1, 0, 0], [0, 1, 1]]).all()
         assert (a.argsort(axis=1) == [[2, 1, 0], [0, 1, 2]]).all()
 
+
 class AppTestRanges(BaseNumpyAppTest):
     def test_arange(self):
         from _numpypy import arange, dtype
@@ -2482,6 +2515,7 @@ class AppTestRepr(BaseNumpyAppTest):
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
         cache.w_array_str = cls.old_array_str
+
 
 class AppTestRecordDtype(BaseNumpyAppTest):
     def test_zeros(self):
@@ -2653,4 +2687,3 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert x.__pypy_data__ is obj
         del x.__pypy_data__
         assert x.__pypy_data__ is None
-    
