@@ -418,7 +418,7 @@ if sys.platform.startswith('linux'):
 
     from rpython.rtyper.tool import rffi_platform
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
-    _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
+    _eci = ExternalCompilationInfo(includes=['sys/mman.h', 'unistd.h'])
     MADV_DONTNEED = rffi_platform.getconstantinteger('MADV_DONTNEED',
                                                      '#include <sys/mman.h>')
     linux_madvise = rffi.llexternal('madvise',
