@@ -312,12 +312,20 @@ class AssemblerARM(ResOpAssembler):
         # It must keep stack alignment accordingly.
         mc = ARMv7Builder()
         #
-        if withfloats:
-            floats = r.caller_vfp_resp
+        exc0 = exc1 = None
+        mc.PUSH([r.ip.value, r.lr.value]) # push two words to keep alignment
+        if not for_frame:
+            self._push_all_regs_to_jitframe(mc, [], withfloats, callee_only=True)
         else:
-            floats = []
-        with saved_registers(mc, r.caller_resp + [r.ip, r.lr], floats):
-            mc.BL(func)
+            # we're possibly called from the slowpath of malloc
+            # save the caller saved registers
+            # assuming we do not collect here
+            exc0, exc1 = r.r4, r.r5
+            mc.PUSH([gpr.value for gpr in r.caller_resp] + [exc0.value, exc1.value])
+            mc.VPUSH([vfpr.value for vfpr in r.caller_vfp_resp])
+
+            self._store_and_reset_exception(mc, exc0, exc1)
+        mc.BL(func)
         #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
@@ -327,10 +335,20 @@ class AssemblerARM(ResOpAssembler):
                                     imm=descr.jit_wb_if_flag_byteofs)
             mc.TST_ri(r.ip.value, imm=0x80)
         #
-        mc.MOV_rr(r.pc.value, r.lr.value)
+        if not for_frame:
+            self._pop_all_regs_from_jitframe(mc, [], withfloats, callee_only=True)
+        else:
+            self._restore_exception(mc, exc0, exc1)
+            mc.VPOP([vfpr.value for vfpr in r.caller_vfp_resp])
+            mc.POP([gpr.value for gpr in r.caller_resp] +
+                            [exc0.value, exc1.value])
+        mc.POP([r.ip.value, r.pc.value])
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+        if for_frame:
+            self.wb_slowpath[4] = rawstart
+        else:
+            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_malloc_slowpath(self):
         return # XXX fix me
