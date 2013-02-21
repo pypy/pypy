@@ -273,7 +273,12 @@ def test_getnameinfo():
     space.raises_w(get_error(space, 'error'), space.appexec,
                    [w_socket, sockaddr, space.wrap(0)],
                    "(_socket, sockaddr, flags): return _socket.getnameinfo(sockaddr, flags)")
-
+    if socket.has_ipv6:
+        sockaddr = space.newtuple([space.wrap('::1'), space.wrap(0),
+                                   space.wrap(0xffffffff)])
+        space.raises_w(space.w_OverflowError, space.appexec,
+                       [w_socket, sockaddr, space.wrap(0)],
+                       "(_socket, sockaddr, flags): return _socket.getnameinfo(sockaddr, flags)")
 
 def test_timeout():
     space.appexec([w_socket, space.wrap(25.4)],

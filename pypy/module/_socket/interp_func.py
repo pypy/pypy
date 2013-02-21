@@ -1,6 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._socket.interp_socket import (
-    converted_error, W_RSocket, addr_as_object, ipaddr_from_object, get_error)
+    converted_error, W_RSocket, addr_as_object, fill_from_object, get_error)
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
 from pypy.interpreter.error import OperationError
@@ -121,9 +121,8 @@ def getnameinfo(space, w_sockaddr, flags):
 
     Get host and port for a sockaddr."""
     try:
-        w_host, w_port = space.fixedview(w_sockaddr, 2)
-        host = space.str_w(w_host)
-        port = str(space.int_w(w_port))
+        host = space.str_w((space.getitem(w_sockaddr, space.wrap(0))))
+        port = str(space.int_w(space.getitem(w_sockaddr, space.wrap(1))))
         lst = rsocket.getaddrinfo(host, port, rsocket.AF_UNSPEC,
                                   rsocket.SOCK_DGRAM, 0,
                                   rsocket.AI_NUMERICHOST)
@@ -132,6 +131,7 @@ def getnameinfo(space, w_sockaddr, flags):
                 get_error(space, 'error'),
                 space.wrap("sockaddr resolved to multiple addresses"))
         addr = lst[0][4]
+        fill_from_object(addr, space, w_sockaddr)
         host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError, e:
         raise converted_error(space, e)
