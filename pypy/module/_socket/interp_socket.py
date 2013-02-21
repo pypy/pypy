@@ -166,12 +166,14 @@ class W_RSocket(Wrappable, RSocket):
 
     def destructor(self):
         assert isinstance(self, W_RSocket)
-        RSocket.__del__(self)
+        if self.fd != rsocket.INVALID_SOCKET:
+            try:
+                self._dealloc_warn()
+            finally:
+                self.close_w(self.space)
 
     def _dealloc_warn(self):
         space = self.space
-        if not space:
-            return
         try:
             msg = (u"unclosed %s" %
                    space.unicode_w(space.repr(space.wrap(self))))
