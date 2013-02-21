@@ -84,7 +84,7 @@ class W_BytesIO(W_BufferedIOBase):
 
         output = buffer2string(self.buf, self.pos, cur_pos)
         self.pos = cur_pos
-        return space.wrap(output)
+        return space.wrapbytes(output)
 
     def read1_w(self, space, w_size):
         return self.read_w(space, w_size)
