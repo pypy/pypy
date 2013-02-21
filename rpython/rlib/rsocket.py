@@ -497,15 +497,8 @@ class RSocket(object):
     def __del__(self):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
-            try:
-                self._dealloc_warn()
-            finally:
-                self.fd = _c.INVALID_SOCKET
-                _c.socketclose(fd)
-
-    def _dealloc_warn(self):
-        """Called when implicitly closed via the deconstructor"""
-        pass
+            self.fd = _c.INVALID_SOCKET
+            _c.socketclose(fd)
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
