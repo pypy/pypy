@@ -993,7 +993,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.gen_load_int(r.ip.value, value.getint())
             self.mc.VLDR(loc.value, r.ip.value)
 
-    def load_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
+    def load_reg(self, mc, target, base, ofs=0, cond=c.AL, helper=r.ip):
         if target.is_vfp_reg():
             return self._load_vfp_reg(mc, target, base, ofs, cond, helper)
         elif target.is_reg():
@@ -1014,7 +1014,7 @@ class AssemblerARM(ResOpAssembler):
             mc.gen_load_int(helper.value, ofs, cond=cond)
             mc.LDR_rr(target.value, base.value, helper.value, cond=cond)
 
-    def store_reg(self, mc, source, base, ofs, cond=c.AL, helper=r.ip):
+    def store_reg(self, mc, source, base, ofs=0, cond=c.AL, helper=r.ip):
         if source.is_vfp_reg():
             return self._store_vfp_reg(mc, source, base, ofs, cond, helper)
         else:
