@@ -7,6 +7,7 @@
 .. _`lib_pypy/pypy_test/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/pypy_test/
 .. _`lib_pypy/tputil.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/tputil.py
 .. _`pypy/bin/`: https://bitbucket.org/pypy/pypy/src/default/pypy/bin/
+.. _`pypy/bin/pyinteractive.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/bin/pyinteractive.py
 .. _`pypy/config/`: https://bitbucket.org/pypy/pypy/src/default/pypy/config/
 .. _`pypy/config/pypyoption.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/config/pypyoption.py
 .. _`pypy/doc/`: https://bitbucket.org/pypy/pypy/src/default/pypy/doc/

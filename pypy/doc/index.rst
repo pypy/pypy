@@ -222,7 +222,7 @@ Directory                          explanation/links
 ================================   ============================================
 
 `pypy/bin/`_                       command-line scripts, mainly
-                                   `pyinteractive.py`_
+                                   `pypy/bin/pyinteractive.py`_
 
 `pypy/config/`_                    handles the numerous options for building
                                    and running PyPy
@@ -316,7 +316,6 @@ Directory                          explanation/links
                                    modules (see `Testing in PyPy`_) 
 
 ``_cache/``                        holds cache files from various purposes
-
 ================================   ============================================
 
 .. _`bytecode interpreter`: interpreter.html
