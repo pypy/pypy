@@ -1054,15 +1054,18 @@ class BaseStringIteratorRepr(AbstractStringIteratorRepr):
     def __init__(self):
         self.ll_striter = ll_striter
         self.ll_strnext = ll_strnext
+        self.ll_getnextindex = ll_getnextindex
 
 class StringIteratorRepr(BaseStringIteratorRepr):
 
+    external_item_repr = char_repr
     lowleveltype = Ptr(GcStruct('stringiter',
                                 ('string', string_repr.lowleveltype),
                                 ('index', Signed)))
 
 class UnicodeIteratorRepr(BaseStringIteratorRepr):
 
+    external_item_repr = unichar_repr
     lowleveltype = Ptr(GcStruct('unicodeiter',
                                 ('string', unicode_repr.lowleveltype),
                                 ('index', Signed)))
@@ -1086,6 +1089,9 @@ def ll_strnext(iter):
         raise StopIteration
     iter.index = index + 1
     return chars[index]
+
+def ll_getnextindex(iter):
+    return iter.index
 
 string_repr.iterator_repr = StringIteratorRepr()
 unicode_repr.iterator_repr = UnicodeIteratorRepr()
