@@ -111,11 +111,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert len(uncallable) == 2 and set(uncallable) == set(['bitwise_not', 'invert']) 
         a = np.array(1.0,'complex')
         uncallable = find_uncallable_ufuncs(a) 
-        assert len(uncallable) == 14
+        assert len(uncallable) == 13
         assert set(uncallable) == \
             set(['bitwise_not', 'ceil', 'deg2rad', 'degrees', 'fabs', 'floor',
-                'rad2deg', 'invert', 'spacing', 'radians',  'frexp', 'signbit',
-                'modf', 'trunc'])
+                'rad2deg', 'invert', 'isneginf', 'isposinf', 'radians',  'signbit',
+                'trunc'])
 
     def test_int_only(self):
         from _numpypy import bitwise_and, array
