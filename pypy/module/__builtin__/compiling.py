@@ -82,13 +82,11 @@ If only globals is given, locals defaults to it.
                                       "string, bytes or code",
                                       consts.PyCF_SOURCE_IS_UTF8)
         # source.lstrip(' \t')
-        i = 0
-        for c in source:
+        for i, c in enumerate(source):
             if c not in ' \t':
                 if i:
                     source = source[i:]
                 break
-            i += 1
 
         ec = space.getexecutioncontext()
         code = ec.compiler.compile(source, "<string>", 'eval', flags)
