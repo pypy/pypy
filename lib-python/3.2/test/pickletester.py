@@ -1107,6 +1107,7 @@ class AbstractPickleTests(unittest.TestCase):
         self.assertEqual(list(loaded.keys()), ["key"])
         self.assertEqual(loaded["key"].value, "Set-Cookie: key=value")
 
+    @impl_detail("This test is too strong indeed", pypy=False)
     def test_pickle_to_2x(self):
         # Pickle non-trivial data with protocol 2, expecting that it yields
         # the same result as Python 2.x did.
