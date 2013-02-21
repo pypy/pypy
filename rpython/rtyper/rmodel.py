@@ -1,20 +1,18 @@
-from rpython.tool.pairtype import pairtype, extendabletype, pair
-from rpython.annotator import model as annmodel, unaryop, binaryop
-from rpython.annotator import description
+from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
-from rpython.rtyper.lltypesystem.lltype import \
-     Void, Bool, Float, Signed, Char, UniChar, \
-     typeOf, LowLevelType, Ptr, isCompatibleType
-from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.ootypesystem import ootype
-from rpython.rtyper.error import TyperError, MissingRTypeOperation 
+from rpython.rtyper.error import TyperError, MissingRTypeOperation
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lltype import (Void, Bool, Float, typeOf,
+    LowLevelType, isCompatibleType)
+from rpython.tool.pairtype import pairtype, extendabletype, pair
 
-# initialization states for Repr instances 
 
-class setupstate(object): 
-    NOTINITIALIZED = 0 
+# initialization states for Repr instances
+
+class setupstate(object):
+    NOTINITIALIZED = 0
     INPROGRESS = 1
-    BROKEN = 2 
+    BROKEN = 2
     FINISHED = 3
     DELAYED = 4
 
@@ -27,7 +25,7 @@ class Repr(object):
     iterating over.
     """
     __metaclass__ = extendabletype
-    _initialized = setupstate.NOTINITIALIZED 
+    _initialized = setupstate.NOTINITIALIZED
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.lowleveltype)
@@ -35,31 +33,31 @@ class Repr(object):
     def compact_repr(self):
         return '%s %s' % (self.__class__.__name__.replace('Repr','R'), self.lowleveltype._short_name())
 
-    def setup(self): 
+    def setup(self):
         """ call _setup_repr() and keep track of the initializiation
             status to e.g. detect recursive _setup_repr invocations.
-            the '_initialized' attr has four states: 
+            the '_initialized' attr has four states:
         """
-        if self._initialized == setupstate.FINISHED: 
-            return 
-        elif self._initialized == setupstate.BROKEN: 
+        if self._initialized == setupstate.FINISHED:
+            return
+        elif self._initialized == setupstate.BROKEN:
             raise BrokenReprTyperError(
                 "cannot setup already failed Repr: %r" %(self,))
-        elif self._initialized == setupstate.INPROGRESS: 
+        elif self._initialized == setupstate.INPROGRESS:
             raise AssertionError(
                 "recursive invocation of Repr setup(): %r" %(self,))
         elif self._initialized == setupstate.DELAYED:
             raise AssertionError(
                 "Repr setup() is delayed and cannot be called yet: %r" %(self,))
-        assert self._initialized == setupstate.NOTINITIALIZED 
-        self._initialized = setupstate.INPROGRESS 
-        try: 
-            self._setup_repr() 
-        except TyperError, e: 
-            self._initialized = setupstate.BROKEN 
-            raise 
-        else: 
-            self._initialized = setupstate.FINISHED 
+        assert self._initialized == setupstate.NOTINITIALIZED
+        self._initialized = setupstate.INPROGRESS
+        try:
+            self._setup_repr()
+        except TyperError, e:
+            self._initialized = setupstate.BROKEN
+            raise
+        else:
+            self._initialized = setupstate.FINISHED
 
     def _setup_repr(self):
         "For recursive data structure, which must be initialized in two steps."
@@ -68,15 +66,15 @@ class Repr(object):
         """Same as setup(), called a bit later, for effects that are only
         needed after the typer finished (as opposed to needed for other parts
         of the typer itself)."""
-        if self._initialized == setupstate.BROKEN: 
+        if self._initialized == setupstate.BROKEN:
             raise BrokenReprTyperError("cannot perform setup_final_touch "
                              "on failed Repr: %r" %(self,))
         assert self._initialized == setupstate.FINISHED, (
                 "setup_final() on repr with state %s: %r" %
                 (self._initialized, self))
-        self._setup_repr_final() 
+        self._setup_repr_final()
 
-    def _setup_repr_final(self): 
+    def _setup_repr_final(self):
         pass
 
     def is_setup_delayed(self):
@@ -98,8 +96,8 @@ class Repr(object):
     def __getattr__(self, name):
         # Assume that when an attribute is missing, it's because setup() needs
         # to be called
-        if not (name[:2] == '__' == name[-2:]): 
-            if self._initialized == setupstate.NOTINITIALIZED: 
+        if not (name[:2] == '__' == name[-2:]):
+            if self._initialized == setupstate.NOTINITIALIZED:
                 self.setup()
                 try:
                     return self.__dict__[name]
@@ -119,7 +117,7 @@ class Repr(object):
         else:
             raise TyperError("convert_desc_or_const expects a Desc"
                              "or Constant: %r" % desc_or_const)
-                            
+
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
         if self.lowleveltype is not Void:
@@ -137,12 +135,12 @@ class Repr(object):
         values of this Repr.
         This can return None to mean that simply using '==' is fine.
         """
-        raise TyperError, 'no equality function for %r' % self
+        raise TyperError('no equality function for %r' % self)
 
     def get_ll_hash_function(self):
         """Return a hash(x) function for low-level values of this Repr.
         """
-        raise TyperError, 'no hashing function for %r' % self
+        raise TyperError('no hashing function for %r' % self)
 
     def get_ll_fasthash_function(self):
         """Return a 'fast' hash(x) function for low-level values of this
@@ -272,12 +270,15 @@ class __extend__(annmodel.SomeIterator):
             r_baseiter = r_container.make_iterator_repr()
             return EnumerateIteratorRepr(r_baseiter)
         return r_container.make_iterator_repr(*self.variant)
+
     def rtyper_makekey_ex(self, rtyper):
         return self.__class__, rtyper.makekey(self.s_container), self.variant
+
 
 class __extend__(annmodel.SomeImpossibleValue):
     def rtyper_makerepr(self, rtyper):
         return impossible_repr
+
     def rtyper_makekey(self):
         return self.__class__,
 
@@ -285,14 +286,14 @@ class __extend__(annmodel.SomeImpossibleValue):
 
 
 class __extend__(pairtype(Repr, Repr)):
-    
+
     def rtype_is_((robj1, robj2), hop):
         if hop.s_result.is_constant():
             return inputconst(Bool, hop.s_result.const)
         return hop.rtyper.type_system.generic_is(robj1, robj2, hop)
 
     # default implementation for checked getitems
-    
+
     def rtype_getitem_idx_key((r_c1, r_o1), hop):
         return pair(r_c1, r_o1).rtype_getitem(hop)
 
@@ -343,7 +344,7 @@ class IntegerRepr(FloatRepr):
         return self._opprefix
 
     opprefix = property(_get_opprefix)
-    
+
 class BoolRepr(IntegerRepr):
     lowleveltype = Bool
     # NB. no 'opprefix' here.  Use 'as_int' systematically.
@@ -411,9 +412,9 @@ def inputconst(reqtype, value):
     c.concretetype = lltype
     return c
 
-class BrokenReprTyperError(TyperError): 
-    """ raised when trying to setup a Repr whose setup 
-        has failed already. 
+class BrokenReprTyperError(TyperError):
+    """ raised when trying to setup a Repr whose setup
+        has failed already.
     """
 
 def mangle(prefix, name):
@@ -489,6 +490,3 @@ py.log.setconsumer("rtyper debug", None)
 
 def warning(msg):
     log.WARNING(msg)
-
-
-

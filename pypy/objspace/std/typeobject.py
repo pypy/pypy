@@ -295,8 +295,9 @@ class W_TypeObject(W_Object):
             msg = "can't set attributes on type object '%s'"
             raise operationerrfmt(space.w_TypeError, msg, w_self.name)
         if name == "__del__" and name not in w_self.dict_w:
-            msg = "a __del__ method added to an existing type will not be called"
-            space.warn(msg, space.w_RuntimeWarning)
+            msg = ("a __del__ method added to an existing type will not be "
+                   "called")
+            space.warn(space.wrap(msg), space.w_RuntimeWarning)
         if space.config.objspace.std.withtypeversion:
             version_tag = w_self.version_tag()
             if version_tag is not None:
