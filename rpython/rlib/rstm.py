@@ -4,10 +4,11 @@ from rpython.rlib.debug import ll_assert, fatalerror
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rposix import get_errno, set_errno
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr, llhelper
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 
 def is_inevitable():
@@ -31,6 +32,22 @@ def decrement_atomic():
 
 def is_atomic():
     return stmgcintf.StmOperations.get_atomic()
+
+def abort_info_push(instance, fieldnames):
+    "Special-cased below."
+
+def abort_info_pop(count):
+    stmgcintf.StmOperations.abort_info_pop(count)
+
+def inspect_abort_info():
+    p = stmgcintf.StmOperations.inspect_abort_info()
+    if p:
+        return rffi.charp2str(p)
+    else:
+        return None
+
+def abort_and_retry():
+    stmgcintf.StmOperations.abort_and_retry()
 
 def before_external_call():
     if not is_atomic():
@@ -103,6 +120,45 @@ def make_perform_transaction(func, CONTAINERP):
     perform_transaction._transaction_break_ = True
     #
     return perform_transaction
+
+# ____________________________________________________________
+
+class AbortInfoPush(ExtRegistryEntry):
+    _about_ = abort_info_push
+
+    def compute_result_annotation(self, s_instance, s_fieldnames):
+        from rpython.annotator.model import SomeInstance
+        assert isinstance(s_instance, SomeInstance)
+        assert s_fieldnames.is_constant()
+        assert isinstance(s_fieldnames.const, tuple)  # tuple of names
+
+    def specialize_call(self, hop):
+        fieldnames = hop.args_s[1].const
+        lst = [len(fieldnames)]
+        v_instance = hop.inputarg(hop.args_r[0], arg=0)
+        STRUCT = v_instance.concretetype.TO
+        for fieldname in fieldnames:
+            fieldname = 'inst_' + fieldname
+            TYPE = getattr(STRUCT, fieldname) #xxx check also in parent structs
+            if TYPE == lltype.Signed:
+                kind = 0
+            elif TYPE == lltype.Unsigned:
+                kind = 1
+            elif TYPE == lltype.Ptr(rstr.STR):
+                kind = 2
+            else:
+                raise NotImplementedError(
+                    "abort_info_push(%s, %r): field of type %r"
+                    % (STRUCT.__name__, fieldname, TYPE))
+            lst.append(kind)
+            lst.append(llmemory.offsetof(STRUCT, fieldname))
+        ARRAY = rffi.CArray(lltype.Signed)
+        array = lltype.malloc(ARRAY, len(lst), flavor='raw', immortal=True)
+        for i in range(len(lst)):
+            array[i] = lst[i]
+        hop.exception_cannot_occur()
+        c_array = hop.inputconst(lltype.Ptr(ARRAY), array)
+        hop.genop('stm_abort_info_push', [v_instance, c_array])
 
 # ____________________________________________________________
 

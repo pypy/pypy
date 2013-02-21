@@ -68,5 +68,10 @@ class StmOperations(object):
     set_transaction_length = smexternal('stm_set_transaction_length',
                                         [lltype.Signed], lltype.Void)
 
+    abort_info_pop = smexternal('stm_abort_info_pop',
+                                [lltype.Signed], lltype.Void)
+    inspect_abort_info = smexternal('stm_inspect_abort_info',
+                                    [], rffi.CCHARP)
+
     # for testing
-    abort_and_retry  = smexternal('stm_abort_and_retry', [], lltype.Void)
+    abort_and_retry = smexternal('stm_abort_and_retry', [], lltype.Void)

@@ -38,6 +38,20 @@ def stm_become_inevitable(funcgen, op):
 ##def stm_jit_invoke_code(funcgen, op):
 ##    return funcgen.OP_DIRECT_CALL(op)
 
+def stm_abort_info_push(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return 'stm_abort_info_push(%s, %s);' % (arg0, arg1)
+
+def stm_extraref_llcount(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_extraref_llcount();' % (result,)
+
+def stm_extraref_lladdr(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    result = funcgen.expr(op.result)
+    return '%s = stm_extraref_lladdr(%s);' % (result, arg0)
+
 def _stm_nogc_init_function():
     """Called at process start-up when running with no GC."""
     StmOperations.descriptor_init()

@@ -254,6 +254,11 @@ static void gcptrlist_insert2(struct GcPtrList *gcptrlist, gcptr newitem1,
   gcptrlist->size = i + 2;
 }
 
+static void gcptrlist_reduce_size(struct GcPtrList *gcptrlist, long newsize)
+{
+  gcptrlist->size = newsize;
+}
+
 /************************************************************/
 
 /* The fxcache_xx functions implement a fixed-size set of gcptr's.

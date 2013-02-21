@@ -203,8 +203,9 @@ class StmGCTLS(object):
         # Find the roots that are living in raw structures.
         self.collect_from_raw_structures()
         #
-        # Find the roots in the THREADLOCALREF structure.
-        self.collect_from_threadlocalref()
+        # Find the roots in the THREADLOCALREF structure, and
+        # the other extra roots hold by C code
+        self.collect_from_threadlocalref_and_misc()
         #
         # Also find the roots that are the local copy of global objects.
         self.collect_roots_from_tldict()
@@ -358,13 +359,19 @@ class StmGCTLS(object):
         self.gc.root_walker.walk_current_nongc_roots(
             StmGCTLS._trace_drag_out1, self)
 
-    def collect_from_threadlocalref(self):
+    def collect_from_threadlocalref_and_misc(self):
         if not we_are_translated():
             return
         i = llop.stm_threadlocalref_llcount(lltype.Signed)
         while i > 0:
             i -= 1
             root = llop.stm_threadlocalref_lladdr(llmemory.Address, i)
+            if self.gc.points_to_valid_gc_object(root):
+                self._trace_drag_out(root, None)
+        i = llop.stm_extraref_llcount(lltype.Signed)
+        while i > 0:
+            i -= 1
+            root = llop.stm_extraref_lladdr(llmemory.Address, i)
             if self.gc.points_to_valid_gc_object(root):
                 self._trace_drag_out(root, None)
 

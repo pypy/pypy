@@ -196,6 +196,83 @@ void stm_abort_and_retry(void)
   AbortTransaction(4);    /* manual abort */
 }
 
+void stm_abort_info_push(void *obj, void *fieldoffsets)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  gcptrlist_insert2(&d->abortinfo, (gcptr)obj, (gcptr)fieldoffsets);
+}
+
+void stm_abort_info_pop(long count)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  long newsize = d->abortinfo.size - 2 * count;
+  gcptrlist_reduce_size(&d->abortinfo, newsize < 0 ? 0 : newsize);
+}
+
+size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output)
+{
+    size_t totalsize = 0;
+    long i;
+#define WRITE(c)   { totalsize++; if (output) *output++=(c); }
+    for (i=0; i<d->abortinfo.size; i+=2) {
+        char *object       = (char*)d->abortinfo.items[i+0];
+        long *fieldoffsets = (long*)d->abortinfo.items[i+1];
+        long j;
+        for (j=0; j<fieldoffsets[0]; j++) {
+            long kind   = fieldoffsets[1+2*j+0];
+            long offset = fieldoffsets[1+2*j+1];
+            char buffer[24];
+            char *result = buffer;
+            size_t res_size;
+            RPyString *rps;
+            switch(kind) {
+            case 0:    /* signed */
+                res_size = sprintf(buffer, "%ld", *(long*)(object + offset));
+                break;
+            case 1:    /* unsigned */
+                res_size = sprintf(buffer, "%lu",
+                                   *(unsigned long*)(object + offset));
+                break;
+            case 2:    /* pointer to STR */
+                rps = *(RPyString **)(object + offset);
+                res_size = RPyString_Size(rps);
+                result = _RPyString_AsString(rps);
+                break;
+            default:
+                fprintf(stderr, "Fatal RPython error: corrupted abort log\n");
+                abort();
+            }
+            while (res_size > 0) {
+                WRITE(*result);
+                result++;
+                res_size--;
+            }
+            WRITE('\n');
+        }
+    }
+    WRITE('\0');   /* final null character */
+#undef WRITE
+    return totalsize;
+}
+
+char *stm_inspect_abort_info(void)
+{
+    struct tx_descriptor *d = thread_descriptor;
+    return d->lastabortinfo;
+}
+
+long stm_extraref_llcount(void)
+{
+    struct tx_descriptor *d = thread_descriptor;
+    return d->abortinfo.size / 2;
+}
+
+gcptr stm_extraref_lladdr(long index)
+{
+    struct tx_descriptor *d = thread_descriptor;
+    return d->abortinfo.items[index * 2];
+}
+
 #ifdef USING_NO_GC_AT_ALL
 static __thread gcptr stm_nogc_chained_list;
 void stm_nogc_start_transaction(void)

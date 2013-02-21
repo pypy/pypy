@@ -590,6 +590,9 @@ class FunctionCodeGenerator(object):
     OP_STM_BECOME_INEVITABLE = _OP_STM
     OP_STM_BARRIER = _OP_STM
     OP_STM_PTR_EQ = _OP_STM
+    OP_STM_ABORT_INFO_PUSH = _OP_STM
+    OP_STM_EXTRAREF_LLCOUNT = _OP_STM
+    OP_STM_EXTRAREF_LLADDR = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

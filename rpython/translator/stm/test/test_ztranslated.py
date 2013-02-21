@@ -128,3 +128,32 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'ok\n' in data
+
+    def test_abort_info(self):
+        from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+
+        class Foobar(object):
+            pass
+        globf = Foobar()
+
+        def check(_, retry_counter):
+            globf.xy = 100 + retry_counter
+            rstm.abort_info_push(globf, ('xy', 'yx'))
+            if retry_counter < 3:
+                rstm.abort_and_retry()
+            #
+            print rstm.inspect_abort_info()
+            #
+            rstm.abort_info_pop(2)
+            return 0
+
+        PS = lltype.Ptr(lltype.GcStruct('S', ('got_exception', OBJECTPTR)))
+        perform_transaction = rstm.make_perform_transaction(check, PS)
+
+        def main(argv):
+            globf.yx = 'hi there %d' % len(argv)
+            perform_transaction(lltype.nullptr(PS.TO))
+            return 0
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('a b')
+        assert '102\nhi there 3\n\n' in data

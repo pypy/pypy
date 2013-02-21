@@ -55,6 +55,8 @@ struct tx_descriptor {
   struct GcPtrList gcroots;
   struct G2L global_to_local;
   struct GcPtrList undolog;
+  struct GcPtrList abortinfo;
+  char *lastabortinfo;
   struct FXCache recent_reads_cache;
 };
 
@@ -368,10 +370,13 @@ static void SpinLoop(int num)
   spinloop();
 }
 
+size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output);
+
 static void AbortTransaction(int num)
 {
   struct tx_descriptor *d = thread_descriptor;
   unsigned long limit;
+  size_t size;
   assert(d->active);
   assert(!is_inevitable(d));
   assert(num < ABORT_REASONS);
@@ -379,6 +384,16 @@ static void AbortTransaction(int num)
 
   CancelLocks(d);
 
+  /* decode the 'abortinfo' and produce a human-readable summary in
+     the string 'lastabortinfo' */
+  size = _stm_decode_abort_info(d, NULL);
+  free(d->lastabortinfo);
+  d->lastabortinfo = malloc(size);
+  if (d->lastabortinfo != NULL)
+    _stm_decode_abort_info(d, d->lastabortinfo);
+
+  /* run the undo log in reverse order, cancelling the values set by
+     stm_ThreadLocalRef_LLSet(). */
   if (d->undolog.size > 0) {
       gcptr *item = d->undolog.items;
       long i;
@@ -439,6 +454,7 @@ static void init_transaction(struct tx_descriptor *d)
   d->count_reads = 0;
   fxcache_clear(&d->recent_reads_cache);
   gcptrlist_clear(&d->undolog);
+  gcptrlist_clear(&d->abortinfo);
 }
 
 void BeginTransaction(jmp_buf* buf)

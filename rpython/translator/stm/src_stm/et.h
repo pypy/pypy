@@ -122,6 +122,11 @@ void stm_set_transaction_length(long length_max);
 void stm_perform_transaction(long(*callback)(void*, long), void *arg,
                              void *save_and_restore);
 void stm_abort_and_retry(void);
+void stm_abort_info_push(void *, void *);
+void stm_abort_info_pop(long);
+char *stm_inspect_abort_info(void);
+long stm_extraref_llcount(void);
+gcptr stm_extraref_lladdr(long);
 
 #ifdef USING_NO_GC_AT_ALL
 # define OP_GC_ADR_OF_ROOT_STACK_TOP(r)   r = NULL
