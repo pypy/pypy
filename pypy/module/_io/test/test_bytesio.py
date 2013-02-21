@@ -92,3 +92,18 @@ class AppTestBytesIO:
         del buf
         memio.truncate()
 
+    def test_readline(self):
+        import _io
+        f = _io.BytesIO(b'abc\ndef\nxyzzy\nfoo\x00bar\nanother line')
+        assert f.readline() == b'abc\n'
+        assert f.readline(10) == b'def\n'
+        assert f.readline(2) == b'xy'
+        assert f.readline(4) == b'zzy\n'
+        assert f.readline() == b'foo\x00bar\n'
+        assert f.readline(None) == b'another line'
+        raises(TypeError, f.readline, 5.3)
+
+    def test_overread(self):
+        import _io
+        f = _io.BytesIO(b'abc')
+        assert f.readline(10) == b'abc'
