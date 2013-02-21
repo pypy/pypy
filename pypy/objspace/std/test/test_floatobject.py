@@ -444,6 +444,9 @@ class AppTestAppFloatTest:
     def test_format(self):
         f = 1.1234e200
         assert f.__format__("G") == "1.1234E+200"
+        assert 123.456.__format__('.4') == '123.5'
+        assert 1234.56.__format__('.4') == '1.235e+03'
+        assert 12345.6.__format__('.4') == '1.235e+04'
 
     def test_float_real(self):
         class A(float): pass

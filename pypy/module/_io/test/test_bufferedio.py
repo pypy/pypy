@@ -223,9 +223,12 @@ class AppTestBufferedReader:
                 raise _io.UnsupportedOperation("not seekable")
             def tell(self, *args):
                 raise _io.UnsupportedOperation("not seekable")
-        bufio = _io.BufferedReader(Unseekable())
+        bufio = _io.BufferedReader(Unseekable(b"A" * 10))
         raises(_io.UnsupportedOperation, bufio.tell)
         raises(_io.UnsupportedOperation, bufio.seek, 0)
+        bufio.read(1)
+        raises(_io.UnsupportedOperation, bufio.seek, 0)
+        raises(_io.UnsupportedOperation, bufio.tell)
 
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread'])

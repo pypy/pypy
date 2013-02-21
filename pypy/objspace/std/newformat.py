@@ -949,6 +949,8 @@ def make_formatting_class():
                 add_pct = False
             if self._precision == -1:
                 self._precision = default_precision
+            elif tp == "r":
+                tp = "g"
             result, special = rfloat.double_to_string(value, tp,
                                                       self._precision, flags)
             if add_pct:
