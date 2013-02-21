@@ -740,7 +740,7 @@ class AssemblerARM(ResOpAssembler):
         self.push_gcmap(mc, gcmap, push=True)
 
 
-        self.mc.BL(self._stack_check_failure)
+        self.mc.BL(self._frame_realloc_slowpath)
 
         # patch jg_location above
         currpos = self.mc.currpos()
@@ -749,7 +749,7 @@ class AssemblerARM(ResOpAssembler):
 
         return stack_check_cmp_ofs
 
-    def _build_stack_check_failure(self):
+    def build_frame_realloc_slowpath(self):
         # this code should do the following steps
         # a) store all registers in the jitframe
         # b) fish for the arguments passed by the caller
@@ -805,7 +805,7 @@ class AssemblerARM(ResOpAssembler):
         # restore registers
         self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
         mc.POP([r.ip.value, r.pc.value]) # return
-        self._stack_check_failure = mc.materialize(self.cpu.asmmemmgr, [])
+        self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
     def _load_shadowstack_top(self, mc, reg, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
