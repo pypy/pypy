@@ -5,10 +5,9 @@ and the various cases of write barrier.
 """
 
 import weakref
-import py, os
-from rpython.annotator import policy as annpolicy
+import os
 from rpython.rlib import rgc
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
