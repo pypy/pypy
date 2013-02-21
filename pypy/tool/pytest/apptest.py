@@ -118,7 +118,11 @@ if 1:
             defs.append("self.%s = %s\n" % (symbol, py3k_repr(value)))
     source = py.code.Source(target_)[1:]
     pyfile = udir.join('src.py')
-    target_name = target_.__name__
+    if isinstance(target_, str):
+        # Special case of a docstring; the function name is the first word.
+        target_name = target_.split('(', 1)[0]
+    else:
+        target_name = target_.__name__
     with pyfile.open('w') as f:
         f.write(helpers)
         f.write('\n'.join(defs))
