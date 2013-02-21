@@ -41,7 +41,7 @@ class ReleaseGILTests(BaseFrameworkTests):
 
     def test_simple(self):
         self.run('simple')
-        assert 'call_release_gil' in udir.join('test_zrpy_gc.log').read()
+        assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
 
     def define_close_stack(self):
         #
@@ -92,7 +92,7 @@ class ReleaseGILTests(BaseFrameworkTests):
 
     def test_close_stack(self):
         self.run('close_stack')
-        assert 'call_release_gil' in udir.join('test_zrpy_gc.log').read()
+        assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
 
 
 class TestShadowStack(ReleaseGILTests):
