@@ -16,7 +16,7 @@ class ReleaseGILTests(BaseFrameworkTests):
     def define_simple(self):
         class Glob:
             def __init__(self):
-                glob.event = 0
+                self.event = 0
         glob = Glob()
         #
 
