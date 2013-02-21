@@ -1387,7 +1387,8 @@ class AbstractPickleModuleTests(unittest.TestCase):
         self.assertRaises(EOFError, pickle.loads, s)
         # Test issue7455
         s = b'0'
-        self.assertRaises(pickle.UnpicklingError, pickle.loads, s)
+        self.assertRaises((pickle.UnpicklingError, IndexError),
+                          pickle.loads, s)
 
 
 class AbstractPersistentPicklerTests(unittest.TestCase):
