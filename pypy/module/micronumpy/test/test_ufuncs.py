@@ -83,34 +83,37 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert min_c_b[i] == min(b[i], c)
 
     def test_scalar(self):
+        # tests that calling all available ufuncs on scalars, none will
+        # raise uncaught interp-level exceptions,
+        # and those that are uncallable can be accounted for.
         import _numpypy as np
-        def missing_ufuncs(v):
-            missing = []
+        def find_uncallable_ufuncs(v):
+            uncallable = []
             i = 0
             for s in dir(np):
                 u = getattr(np, s)
                 if isinstance(u, np.ufunc) and u.nin < 2:
                     try:
                         u(a)
-                    except TypeError, e:
+                    except TypeError:
                         #assert e.message.startswith('ufunc')
-                        missing.append(s)
+                        uncallable.append(s)
                     i+= 1
             assert i == 47 #numpy 1.7.0
-            return missing
+            return uncallable
         a = np.array(0,'int64')
-        missing = missing_ufuncs(a) 
-        assert len(missing) == 0
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 0
         a = np.array(True,'bool')
-        missing = missing_ufuncs(a) 
-        assert len(missing) == 0 or missing == ['sign'] # numpy 1.7.0
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 0 or uncallable == ['sign'] # numpy 1.7.0
         a = np.array(1.0,'float')
-        missing = missing_ufuncs(a) 
-        assert len(missing) == 2 and set(missing) == set(['bitwise_not', 'invert']) 
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 2 and set(uncallable) == set(['bitwise_not', 'invert']) 
         a = np.array(1.0,'complex')
-        missing = missing_ufuncs(a) 
-        assert len(missing) == 14
-        assert set(missing) == \
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 14
+        assert set(uncallable) == \
             set(['bitwise_not', 'ceil', 'deg2rad', 'degrees', 'fabs', 'floor',
                 'rad2deg', 'invert', 'spacing', 'radians',  'frexp', 'signbit',
                 'modf', 'trunc'])
