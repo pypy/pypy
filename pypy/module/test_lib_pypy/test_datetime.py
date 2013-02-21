@@ -9,6 +9,26 @@ def test_repr():
     expected = "datetime.datetime(1, 2, 3, 0, 0)"
     assert repr(datetime.datetime(1,2,3)) == expected
 
+def test_attributes():
+    a = datetime.date.today()
+    raises(AttributeError, 'a.abc = 1')
+    a = datetime.time()
+    raises(AttributeError, 'a.abc = 1')
+    a = datetime.tzinfo()
+    raises(AttributeError, 'a.abc = 1')
+    a = datetime.datetime.utcnow()
+    raises(AttributeError, 'a.abc = 1')
+    a = datetime.timedelta()
+    raises(AttributeError, 'a.abc = 1')
+
+def test_unpickle():
+    e = raises(TypeError, datetime.date, '123')
+    assert e.value.args[0] == 'an integer is required'
+    e = raises(TypeError, datetime.time, '123')
+    assert e.value.args[0] == 'an integer is required'
+    e = raises(TypeError, datetime.datetime, '123')
+    assert e.value.args[0] == 'an integer is required'
+
 def test_strptime():
     import time, sys
     if sys.version_info < (2, 6):

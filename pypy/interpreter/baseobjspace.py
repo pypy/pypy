@@ -1494,10 +1494,11 @@ class ObjSpace(object):
             )
         return fd
 
-    def warn(self, msg, w_warningcls):
-        self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
+    def warn(self, w_msg, w_warningcls, stacklevel=2):
+        self.appexec([w_msg, w_warningcls, self.wrap(stacklevel)],
+                     """(msg, warningcls, stacklevel):
             import _warnings
-            _warnings.warn(msg, warningcls, stacklevel=2)
+            _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
 
 

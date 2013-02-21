@@ -395,16 +395,18 @@ def test_int_between():
     assert not int_between(1, 1, 1)
 
 # these can't be prebuilt on 32bit
-L1 = 0x0102030405060708L
-L2 = 0x0807060504030201L
+U1 = r_ulonglong(0x0102030405060708L)
+U2 = r_ulonglong(0x0807060504030201L)
+S1 = r_longlong(0x0102030405060708L)
+S2 = r_longlong(0x0807060504030201L)
 
 def test_byteswap():
     from rpython.rtyper.lltypesystem import rffi, lltype
 
     assert rffi.cast(lltype.Signed, byteswap(rffi.cast(rffi.USHORT, 0x0102))) == 0x0201
     assert rffi.cast(lltype.Signed, byteswap(rffi.cast(rffi.INT, 0x01020304))) == 0x04030201
-    assert byteswap(rffi.cast(rffi.LONGLONG, L1)) == L2
-    assert byteswap(rffi.cast(rffi.ULONGLONG, L1)) == L2
+    assert byteswap(U1) == U2
+    assert byteswap(S1) == S2
     assert ((byteswap(2.3) - 1.903598566252326e+185) / 1e185) < 0.000001
     assert (rffi.cast(lltype.Float, byteswap(rffi.cast(lltype.SingleFloat, 2.3))) - 4.173496037651603e-08) < 1e-16
 
