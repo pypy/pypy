@@ -200,12 +200,28 @@ class AssemblerARM(ResOpAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.propagate_exception_path = rawstart
 
-    def _store_and_reset_exception(self, mc, resloc):
-        assert resloc is not r.ip
-        tmpreg = r.lr # use lr as a second temporary reg
+    def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None,
+                                                                on_frame=False):
+        """ Resest the exception. If excvalloc is None, then store it on the
+        frame in jf_guard_exc
+        """
+        assert excvalloc is not r.ip
+        assert exctploc is not r.ip
+        tmpreg = r.lr
         mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
-        if resloc is not None: # store
-            self.load_reg(mc, resloc, r.ip, 0)
+        if excvalloc is not None: # store
+            assert excvalloc.is_reg()
+            self.load_reg(mc, excvalloc, r.ip)
+        if on_frame:
+            # store exc_value in JITFRAME
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            assert check_imm_arg(ofs)
+            self.store_reg(mc, r.ip, r.fp, ofs)
+        if exctploc is not None:
+            # store pos_exception in exctploc
+            assert exctploc.is_reg()
+            mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
+            self.load_reg(mc, exctploc, r.ip)
 
         # reset exception
         mc.gen_load_int(tmpreg.value, 0)
@@ -214,6 +230,23 @@ class AssemblerARM(ResOpAssembler):
 
         mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
         self.store_reg(mc, tmpreg, r.ip, 0)
+
+    def _restore_exception(self, mc, excvalloc, exctploc):
+        assert excvalloc is not r.ip
+        assert exctploc is not r.ip
+        tmpreg = r.lr # use lr as a second temporary reg
+        mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
+        if excvalloc is not None:
+            assert excvalloc.is_reg()
+            self.store_reg(mc, excvalloc, r.ip)
+        else:
+            # load exc_value from JITFRAME and put it in pos_exc_value
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            self.load_reg(mc, tmpreg, r.fp, ofs)
+            self.store_reg(mc, tmpreg, r.ip)
+
+        mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
+        self.store_reg(mc, exctploc, r.ip)
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
@@ -742,11 +775,20 @@ class AssemblerARM(ResOpAssembler):
 
         # set first arg, which is the old jitframe address
         mc.MOV_rr(r.r0.value, r.fp.value)
+
+        # store a possibly present exception
+        # we use a callee saved reg here as a tmp for the exc.
+        self._store_and_reset_exception(mc, None, r.fp, on_frame=True)
+
         # call realloc_frame, it takes two arguments
         # arg0: the old jitframe
         # arg1: the new size
         #
         mc.BL(self.cpu.realloc_frame)
+
+        # restore a possibly present exception
+        self._restore_exception(mc, None, r.fp)
+
         # set fp to the new jitframe
         mc.MOV_rr(r.fp.value, r.r0.value)
 
