@@ -23,6 +23,8 @@ class __extend__(annmodel.SomeInteriorPtr):
     def rtyper_makerepr(self, rtyper):
         return InteriorPtrRepr(self.ll_ptrtype)
 
+    def rtyper_makekey(self):
+        return self.__class__, self.ll_ptrtype
 
 class PtrRepr(Repr):
 
