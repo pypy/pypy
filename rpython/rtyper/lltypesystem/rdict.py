@@ -424,22 +424,22 @@ def ll_valid_from_value(entries, i):
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     return entries.everused(i) and entries[i].value != dummy
 
-@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
+@objectmodel.enforceargs(None, int)
 def ll_mark_deleted_in_value(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     entries[i].value = dummy
 
-@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
+@objectmodel.enforceargs(None, int)
 def ll_hash_from_cache(entries, i):
     return entries[i].f_hash
 
-@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
+@objectmodel.enforceargs(None, int)
 def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
-@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
+@objectmodel.enforceargs(None, int)
 def ll_get_value(d, i):
     return d.entries[i].value
 
