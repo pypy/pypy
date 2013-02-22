@@ -246,6 +246,23 @@ def most_neg_value_of(tp):
         return r_class(0)
 most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
+def most_pos_value_of_same_type(x):
+    from rpython.rtyper.lltypesystem import lltype
+    return most_pos_value_of(lltype.typeOf(x))
+most_pos_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
+
+def most_pos_value_of(tp):
+    from rpython.rtyper.lltypesystem import lltype, rffi
+    if tp is lltype.Signed:
+        return sys.maxint
+    r_class = rffi.platform.numbertype_to_rclass[tp]
+    assert issubclass(r_class, base_int)
+    if r_class.SIGNED:
+        return r_class(r_class.MASK >> 1)
+    else:
+        return r_class(r_class.MASK)
+most_pos_value_of._annspecialcase_ = 'specialize:memo'
+
 def is_signed_integer_type(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
@@ -613,21 +630,16 @@ def byteswap(arg):
          uint2singlefloat, singlefloat2uint
 
     T = lltype.typeOf(arg)
-    is_float = False
-    is_single_float = False
     if T == lltype.SingleFloat:
-        T = rffi.UINT
-        is_single_float = True
         arg = singlefloat2uint(arg)
     elif T == lltype.Float:
-        is_float = True
-        T = rffi.LONGLONG
         arg = float2longlong(arg)
     elif T == lltype.LongFloat:
         assert False
     else:
         # we cannot do arithmetics on small ints
         arg = widen(arg)
+
     if rffi.sizeof(T) == 1:
         res = arg
     elif rffi.sizeof(T) == 2:
@@ -650,9 +662,9 @@ def byteswap(arg):
                (f >> 24) | (g >> 40) | (h >> 56))
     else:
         assert False # unreachable code
-    if is_single_float:
+
+    if T == lltype.SingleFloat:
         return uint2singlefloat(rffi.cast(rffi.UINT, res))
-    if is_float:
-        res = rffi.cast(rffi.LONGLONG, res)
-        return longlong2float(res)
+    if T == lltype.Float:
+        return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)

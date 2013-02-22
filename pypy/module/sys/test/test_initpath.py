@@ -10,12 +10,15 @@ def build_hierarchy(prefix):
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b
 
-def test_find_stdlib(tmpdir):
+def test_find_stdlib(tmpdir, monkeypatch):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy').ensure(file=True)
     build_hierarchy(tmpdir)
     path, prefix = find_stdlib(None, str(pypy))
     assert prefix == tmpdir
+    # shouldn't find stdlib if executable == '' even if parent dir has a stdlib
+    monkeypatch.chdir(tmpdir.join('bin'))
+    assert find_stdlib(None, '') == (None, None)
 
 @py.test.mark.skipif('not hasattr(os, "symlink")')
 def test_find_stdlib_follow_symlink(tmpdir):
@@ -84,6 +87,7 @@ def test_find_executable(tmpdir, monkeypatch):
     assert find_executable('pypy') == a.join('pypy.exe')
 
 def test_resolvedirof(tmpdir):
+    assert resolvedirof('') == os.path.abspath(os.path.join(os.getcwd(), '..'))
     foo = tmpdir.join('foo').ensure(dir=True)
     bar = tmpdir.join('bar').ensure(dir=True)
     myfile = foo.join('myfile').ensure(file=True)

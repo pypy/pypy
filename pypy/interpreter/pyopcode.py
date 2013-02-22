@@ -776,17 +776,16 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
-        if self.space.is_true(self.space.isinstance(w_2, self.space.w_tuple)):
-            for w_t in self.space.fixedview(w_2):
-                if self.space.is_true(self.space.isinstance(w_t,
-                                                            self.space.w_str)):
-                    self.space.warn("catching of string exceptions is "
-                                    "deprecated",
-                                    self.space.w_DeprecationWarning)
-        elif self.space.is_true(self.space.isinstance(w_2, self.space.w_str)):
-            self.space.warn("catching of string exceptions is deprecated",
-                            self.space.w_DeprecationWarning)
-        return self.space.newbool(self.space.exception_match(w_1, w_2))
+        space = self.space
+        if space.is_true(space.isinstance(w_2, space.w_tuple)):
+            for w_t in space.fixedview(w_2):
+                if space.is_true(space.isinstance(w_t, space.w_str)):
+                    msg = "catching of string exceptions is deprecated"
+                    space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        elif space.is_true(space.isinstance(w_2, space.w_str)):
+            msg = "catching of string exceptions is deprecated"
+            space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()

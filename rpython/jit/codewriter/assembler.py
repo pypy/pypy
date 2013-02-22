@@ -107,7 +107,9 @@ class Assembler(object):
         key = (kind, Constant(value))
         if key not in self.constants_dict:
             constants.append(value)
-            self.constants_dict[key] = 256 - len(constants)
+            val = 256 - len(constants)
+            assert val >= 0, "too many constants"
+            self.constants_dict[key] = val
         # emit the constant normally, as one byte that is an index in the
         # list of constants
         self.code.append(chr(self.constants_dict[key]))

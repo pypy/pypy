@@ -13,11 +13,13 @@ class AppTestNumPyModule(BaseNumpyAppTest):
         assert sum(array(range(10))) == 45
 
     def test_min(self):
-        from _numpypy import array, min
+        from _numpypy import array, min, zeros
         assert min(range(10)) == 0
         assert min(array(range(10))) == 0
+        assert list(min(zeros((0, 2)), axis=1)) == []
 
     def test_max(self):
-        from _numpypy import array, max
+        from _numpypy import array, max, zeros
         assert max(range(10)) == 9
         assert max(array(range(10))) == 9
+        assert list(max(zeros((0, 2)), axis=1)) == []

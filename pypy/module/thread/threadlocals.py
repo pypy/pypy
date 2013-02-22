@@ -1,4 +1,9 @@
-from rpython.rlib import rthread as thread
+from rpython.rlib import rthread
+from pypy.module.thread.error import wrap_thread_error
+from pypy.interpreter.executioncontext import ExecutionContext
+
+
+ExecutionContext._signals_enabled = 0     # default value
 
 
 class OSThreadLocals:
@@ -18,7 +23,7 @@ class OSThreadLocals:
         self._mostrecentvalue = None   # fast minicaching for the common case
 
     def getvalue(self):
-        ident = thread.get_ident()
+        ident = rthread.get_ident()
         if ident == self._mostrecentkey:
             result = self._mostrecentvalue
         else:
@@ -30,9 +35,10 @@ class OSThreadLocals:
         return result
 
     def setvalue(self, value):
-        ident = thread.get_ident()
+        ident = rthread.get_ident()
         if value is not None:
-            if len(self._valuedict) == 0:
+            if self._mainthreadident == 0:
+                value._signals_enabled = 1    # the main thread is enabled
                 self._mainthreadident = ident
             self._valuedict[ident] = value
         else:
@@ -44,8 +50,21 @@ class OSThreadLocals:
         self._mostrecentkey = ident
         self._mostrecentvalue = value
 
-    def ismainthread(self):
-        return thread.get_ident() == self._mainthreadident
+    def signals_enabled(self):
+        ec = self.getvalue()
+        return ec._signals_enabled
+
+    def enable_signals(self, space):
+        ec = self.getvalue()
+        ec._signals_enabled += 1
+
+    def disable_signals(self, space):
+        ec = self.getvalue()
+        new = ec._signals_enabled - 1
+        if new < 0:
+            raise wrap_thread_error(space,
+                "cannot disable signals in thread not enabled for signals")
+        ec._signals_enabled = new
 
     def getallvalues(self):
         return self._valuedict
@@ -60,4 +79,10 @@ class OSThreadLocals:
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"
-        self._mainthreadident = thread.get_ident()
+        ident = rthread.get_ident()
+        ec = self.getvalue()
+        if ident != self._mainthreadident:
+            ec._signals_enabled += 1
+        self._cleanup_()
+        self._mainthreadident = ident
+        self.setvalue(ec)
