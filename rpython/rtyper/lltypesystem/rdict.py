@@ -526,6 +526,7 @@ def ll_dict_delitem(d, key):
 
 @jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, i):
+    assert i >= 0
     d.entries.mark_deleted(i)
     d.num_items -= 1
     # clear the key and the value if they are GC pointers
@@ -617,6 +618,7 @@ def ll_dict_lookup(d, key, hash):
         i = r_uint(i)
         i = (i << 2) + i + perturb + 1
         i = intmask(i) & mask
+        assert i >= 0
         # keep 'i' as a signed number here, to consistently pass signed
         # arguments to the small helper methods.
         if not entries.everused(i):
@@ -650,11 +652,13 @@ def ll_dict_lookup_clean(d, hash):
     entries = d.entries
     mask = len(entries) - 1
     i = hash & mask
+    assert i >= 0
     perturb = r_uint(hash)
     while entries.everused(i):
         i = r_uint(i)
         i = (i << 2) + i + perturb + 1
         i = intmask(i) & mask
+        assert i >= 0
         perturb >>= PERTURB_SHIFT
     return i
 
@@ -747,6 +751,7 @@ def _make_ll_dictnext(kind):
         if dict:
             entries = dict.entries
             index = iter.index
+            assert index >= 0
             entries_len = len(entries)
             while index < entries_len:
                 entry = entries[index]
