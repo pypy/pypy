@@ -47,24 +47,11 @@ def run_toplevel(f, *fargs, **fkwds):
     """Calls f() and handles all OperationErrors.
     Intended use is to run the main program or one interactive statement.
     run_protected() handles details like forwarding exceptions to
-    sys.excepthook(), catching SystemExit, printing a newline after
-    sys.stdout if needed, etc.
+    sys.excepthook(), catching SystemExit, etc.
     """
     try:
         # run it
         f(*fargs, **fkwds)
-
-        # we arrive here if no exception is raised.  stdout cosmetics...
-        try:
-            stdout = sys.stdout
-            softspace = stdout.softspace
-        except AttributeError:
-            pass
-            # Don't crash if user defined stdout doesn't have softspace
-        else:
-            if softspace:
-                stdout.write('\n')
-
     except SystemExit as e:
         handle_sys_exit(e)
     except:

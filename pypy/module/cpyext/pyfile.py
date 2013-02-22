@@ -81,27 +81,3 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
 def PyFile_Name(space, w_p):
     """Return the name of the file specified by p as a string object."""
     return borrow_from(w_p, space.getattr(w_p, space.wrap("name")))
-
-@cpython_api([PyObject, rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
-def PyFile_SoftSpace(space, w_p, newflag):
-    """
-    This function exists for internal use by the interpreter.  Set the
-    softspace attribute of p to newflag and return the previous value.
-    p does not have to be a file object for this function to work
-    properly; any object is supported (thought its only interesting if
-    the softspace attribute can be set).  This function clears any
-    errors, and will return 0 as the previous value if the attribute
-    either does not exist or if there were errors in retrieving it.
-    There is no way to detect errors from this function, but doing so
-    should not be needed."""
-    try:
-        if rffi.cast(lltype.Signed, newflag):
-            w_newflag = space.w_True
-        else:
-            w_newflag = space.w_False
-        oldflag = space.int_w(space.getattr(w_p, space.wrap("softspace")))
-        space.setattr(w_p, space.wrap("softspace"), w_newflag)
-        return oldflag
-    except OperationError, e:
-        return 0
-

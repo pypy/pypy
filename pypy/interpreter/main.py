@@ -95,25 +95,11 @@ def run_toplevel(space, f, verbose=False):
     """Calls f() and handle all OperationErrors.
     Intended use is to run the main program or one interactive statement.
     run_protected() handles details like forwarding exceptions to
-    sys.excepthook(), catching SystemExit, printing a newline after
-    sys.stdout if needed, etc.
+    sys.excepthook(), catching SystemExit, etc.
     """
     try:
         # run it
         f()
-
-        # we arrive here if no exception is raised.  stdout cosmetics...
-        try:
-            w_stdout = space.sys.get('stdout')
-            w_softspace = space.getattr(w_stdout, space.wrap('softspace'))
-        except OperationError, e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            # Don't crash if user defined stdout doesn't have softspace
-        else:
-            if space.is_true(w_softspace):
-                space.call_method(w_stdout, 'write', space.wrap('\n'))
-
     except OperationError, operationerr:
         operationerr.normalize_exception(space)
         w_type = operationerr.w_type

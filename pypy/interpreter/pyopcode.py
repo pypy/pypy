@@ -1472,43 +1472,20 @@ app = gateway.applevel(r'''
         displayhook(obj)
 
     def print_item_to(x, stream):
-        if file_softspace(stream, False):
-           stream.write(" ")
-
         # give to write() an argument which is either a string or a unicode
         # (and let it deals itself with unicode handling)
         if not isinstance(x, str):
             x = str(x)
         stream.write(x)
 
-        # add a softspace unless we just printed a string which ends in a '\t'
-        # or '\n' -- or more generally any whitespace character but ' '
-        if x:
-            lastchar = x[-1]
-            if lastchar.isspace() and lastchar != ' ':
-                return
-        file_softspace(stream, True)
-
     def print_item(x):
         print_item_to(x, sys_stdout())
 
     def print_newline_to(stream):
         stream.write("\n")
-        file_softspace(stream, False)
 
     def print_newline():
         print_newline_to(sys_stdout())
-
-    def file_softspace(file, newflag):
-        try:
-            softspace = file.softspace
-        except AttributeError:
-            softspace = 0
-        try:
-            file.softspace = newflag
-        except AttributeError:
-            pass
-        return softspace
 ''', filename=__file__)
 
 sys_stdout      = app.interphook('sys_stdout')
@@ -1517,7 +1494,6 @@ print_item      = app.interphook('print_item')
 print_item_to   = app.interphook('print_item_to')
 print_newline   = app.interphook('print_newline')
 print_newline_to= app.interphook('print_newline_to')
-file_softspace  = app.interphook('file_softspace')
 
 app = gateway.applevel(r'''
     def find_metaclass(bases, namespace, globals, builtin):

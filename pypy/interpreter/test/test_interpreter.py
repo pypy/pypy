@@ -308,7 +308,6 @@ class AppTestInterpreter:
             assert out.data == [(str, chr(0xa2)), (str, "\n")]
             del out.data[:]
             del out.encoding
-            # we don't care about softspace anymore
             print("foo\t", "bar\n", "trick", "baz\n")
             assert out.data == [(str, "foo\t"),
                                 (str, " "),
