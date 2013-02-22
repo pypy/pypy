@@ -173,8 +173,16 @@ class Module(MixedModule):
     }
     def setup_after_space_initialization(self):
         space = self.space
-        w_all = space.wrap(sorted(Module.interpleveldefs.keys() + \
-                                Module.appleveldefs.keys()))
+        alllist = sorted(Module.interpleveldefs.keys() + \
+                                Module.appleveldefs.keys())
+        # found by set(numpypy.__all__) - set(numpy.__all__)
+        alllist.remove('min')
+        alllist.remove('max') 
+        alllist.remove('bool') 
+        alllist.remove('int') 
+        alllist.remove('abs') 
+        alllist.remove('typeinfo') 
+        w_all = space.wrap(alllist)
         space.setitem(self.w_dict, space.new_interned_str('__all__'), w_all)
 
 if long_double_size == 16:

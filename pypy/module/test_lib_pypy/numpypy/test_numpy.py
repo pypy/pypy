@@ -11,6 +11,7 @@ class AppTestNumpy:
 
     def test_min_max_after_import(self):
         import __builtin__
+        from __builtin__ import *
 
         from numpypy import *
         assert min is __builtin__.min
