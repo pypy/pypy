@@ -307,7 +307,7 @@ def _hash_float(space, v):
         x = ((x << 28) & HASH_MODULUS) | x >> (HASH_BITS - 28)
         m *= 268435456.0  # 2**28
         e -= 28
-        y = int(m)  # pull out integer part
+        y = r_uint(m)  # pull out integer part
         m -= y
         x += y
         if x >= HASH_MODULUS:
