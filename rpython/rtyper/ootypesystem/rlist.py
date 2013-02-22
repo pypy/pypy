@@ -241,6 +241,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
+        self.external_item_repr = r_list.external_item_repr
         self.lowleveltype = ootype.Record(
                 {"iterable": r_list.lowleveltype, "index": ootype.Signed})
         self.ll_listiter = ll_listiter

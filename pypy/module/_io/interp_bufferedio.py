@@ -861,6 +861,7 @@ W_BufferedReader.typedef = TypeDef(
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
     raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
+    readline = interp2app(W_BufferedReader.readline_w),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedReader.repr_w),
