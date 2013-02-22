@@ -12,7 +12,7 @@ set_num_threads(), or you get a default of 4.
 """
 
 from __future__ import with_statement
-import sys, thread, collections
+import sys, thread, collections, cStringIO, linecache
 
 try:
     from __pypy__.thread import atomic
@@ -218,14 +218,16 @@ class _ThreadPool(object):
         # this is a staticmethod in order to make sure that we don't
         # accidentally use 'self' in the atomic block.
         try:
-            with signals_enabled:
-                with atomic:
-                    if got_exception:
-                        return    # return early if already an exc. to reraise
-                    info = last_abort_info()
-                    if info is not None:
-                        print info
-                    f(*args, **kwds)
+            while True:
+                with signals_enabled:
+                    with atomic:
+                        info = last_abort_info()
+                        if info is None:
+                            if not got_exception:
+                                f(*args, **kwds)
+                            # else return early if already an exc to reraise
+                            return
+                report_abort_info(info)
         except:
             got_exception[:] = sys.exc_info()
 
@@ -241,3 +243,31 @@ class _ThreadLocal(thread._local):
         self.pending = collections.deque()
 
 _thread_local = _ThreadLocal()
+
+
+def report_abort_info(info):
+    header = info[0]
+    f = cStringIO.StringIO()
+    if len(info) > 1:
+        print >> f, 'Traceback from detected conflict:'
+        for tb in info[1:]:
+            filename = tb[0]
+            coname = tb[1]
+            lineno = tb[2]
+            lnotab = tb[3]
+            bytecodenum = tb[-1]
+            for i in range(0, len(lnotab), 2):
+                if bytecodenum < 0:
+                    break
+                bytecodenum -= ord(lnotab[i])
+                lineno += ord(lnotab[i+1])
+            print >> f, '  File "%s", line %d, in %s' % (
+                filename, lineno, coname)
+            line = linecache.getline(filename,lineno)
+            if line: print >> f, '    ' + line.strip()
+    print >> f, 'Transaction aborted, %g seconds lost (th%d' % (
+        header[0] * 1E-9, header[2]),
+    print >> f, 'abrt%d %s%s%d/%d)' % (
+        header[1], 'atom '*header[3], 'inev '*(header[4]>1),
+        header[5], header[6])
+    sys.stderr.write(f.getvalue())
