@@ -2,7 +2,7 @@
 from pypy.interpreter import gateway
 from rpython.rlib import rfloat, rbigint
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
+from pypy.objspace.std.floatobject import HASH_INF, HASH_MODULUS, HASH_NAN
 from pypy.objspace.std.complexobject import HASH_IMAG
 
 
@@ -65,11 +65,9 @@ def get_int_info(space):
     return space.call_function(w_int_info, space.newtuple(info_w))
 
 def get_hash_info(space):
-    # XXX our _hash_float() always give values that fit in 32bit
-    modulus = (1 << 31) - 1  # Must be a prime number
     info_w = [
         space.wrap(8 * rffi.sizeof(lltype.Signed)),
-        space.wrap(modulus),
+        space.wrap(HASH_MODULUS),
         space.wrap(HASH_INF),
         space.wrap(HASH_NAN),
         space.wrap(HASH_IMAG),

@@ -129,7 +129,7 @@ def hash__Complex(space, w_value):
     hashreal = _hash_float(space, w_value.realval)
     hashimg = _hash_float(space, w_value.imagval)
     combined = intmask(hashreal + HASH_IMAG * hashimg)
-    return space.newint(combined)
+    return space.newint(-2 if combined == -1 else combined)
 
 def add__Complex_Complex(space, w_complex1, w_complex2):
     return W_ComplexObject(w_complex1.realval + w_complex2.realval,

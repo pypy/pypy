@@ -100,16 +100,27 @@ class AppTestAppFloatTest:
         # these are taken from standard Python, which produces
         # the same but for -1.
         import math
+        import sys
+
+        assert hash(-1.0) == -2
+        assert hash(-2.0) == -2
+        assert hash(-3.0) == -3
         assert hash(42.0) == 42
-        assert hash(42.125) == 1413677056
-        assert hash(math.ldexp(0.125, 1000)) in (
-            32,              # answer on 32-bit machines
-            137438953472)    # answer on 64-bit machines
-        # testing special overflow values
-        inf = 1e200 * 1e200
+        if sys.maxsize > 2 ** 31 - 1:
+            assert hash(42.125) == 288230376151711786
+            assert hash(math.ldexp(0.125, 1000)) == 2097152
+            assert hash(3.141593) == 326491229203594243
+            assert hash(2.5) == 1152921504606846978
+        else:
+            assert hash(42.125) == 268435498
+            assert hash(math.ldexp(0.125, 1000)) == 32
+            assert hash(3.141593) == 671854639
+            assert hash(2.5) == 1073741826
+        inf = float('inf')
+        nan = float('nan')
         assert hash(inf) == 314159
         assert hash(-inf) == -314159
-        assert hash(inf/inf) == 0
+        assert hash(nan) == 0
 
     def test_int_float(self):
         assert int(42.1234) == 42

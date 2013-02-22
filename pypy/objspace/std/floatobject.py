@@ -1,4 +1,5 @@
 import operator
+import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import model, newformat
@@ -7,10 +8,11 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
+from rpython.rlib.rarithmetic import (
+    LONG_BIT, intmask, ovfcheck_float_to_int, r_uint)
 from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
-    DTSF_ADD_DOT_0, DTSF_STR_PRECISION, float_as_rbigint_ratio)
+    DTSF_ADD_DOT_0, float_as_rbigint_ratio)
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib import rfloat
 from rpython.tool.sourcetools import func_with_new_name
@@ -21,6 +23,8 @@ from pypy.objspace.std.intobject import W_IntObject
 
 HASH_INF  = 314159
 HASH_NAN  = 0
+HASH_BITS = 61 if sys.maxsize > 2 ** 31 - 1 else 31
+HASH_MODULUS = (1 << HASH_BITS) - 1
 
 class W_AbstractFloatObject(W_Object):
     __slots__ = ()
@@ -284,51 +288,37 @@ def hash__Float(space, w_value):
     return space.wrap(_hash_float(space, w_value.floatval))
 
 def _hash_float(space, v):
-    if isnan(v):
+    if not isfinite(v):
+        if isinf(v):
+            return HASH_INF if v > 0 else -HASH_INF
         return HASH_NAN
 
-    # This is designed so that Python numbers of different types
-    # that compare equal hash to the same value; otherwise comparisons
-    # of mapping keys will turn out weird.
-    fractpart, intpart = math.modf(v)
+    m, e = math.frexp(v)
 
-    if fractpart == 0.0:
-        # This must return the same hash as an equal int or long.
-        try:
-            x = ovfcheck_float_to_int(intpart)
-            # Fits in a C long == a Python int, so is its own hash.
-            return x
-        except OverflowError:
-            # Convert to long and use its hash.
-            try:
-                w_lval = W_LongObject.fromfloat(space, v)
-            except (OverflowError, ValueError):
-                # can't convert to long int -- arbitrary
-                if v < 0:
-                    return -HASH_INF
-                else:
-                    return HASH_INF
-            return space.int_w(space.hash(w_lval))
+    sign = 1
+    if m < 0:
+        sign = -1
+        m = -m
 
-    # The fractional part is non-zero, so we don't have to worry about
-    # making this match the hash of some other type.
-    # Use frexp to get at the bits in the double.
-    # Since the VAX D double format has 56 mantissa bits, which is the
-    # most of any double format in use, each of these parts may have as
-    # many as (but no more than) 56 significant bits.
-    # So, assuming sizeof(long) >= 4, each part can be broken into two
-    # longs; frexp and multiplication are used to do that.
-    # Also, since the Cray double format has 15 exponent bits, which is
-    # the most of any double format in use, shifting the exponent field
-    # left by 15 won't overflow a long (again assuming sizeof(long) >= 4).
+    # process 28 bits at a time;  this should work well both for binary
+    # and hexadecimal floating point.
+    x = r_uint(0)
+    while m:
+        x = ((x << 28) & HASH_MODULUS) | x >> (HASH_BITS - 28)
+        m *= 268435456.0  # 2**28
+        e -= 28
+        y = int(m)  # pull out integer part
+        m -= y
+        x += y
+        if x >= HASH_MODULUS:
+            x -= HASH_MODULUS
 
-    v, expo = math.frexp(v)
-    v *= 2147483648.0  # 2**31
-    hipart = int(v)    # take the top 32 bits
-    v = (v - hipart) * 2147483648.0 # get the next 32 bits
-    x = intmask(hipart + int(v) + (expo << 15))
-    return x
+    # adjust for the exponent;  first reduce it modulo HASH_BITS
+    e = e % HASH_BITS if e >= 0 else HASH_BITS - 1 - ((-1 - e) % HASH_BITS)
+    x = ((x << e) & HASH_MODULUS) | x >> (HASH_BITS - e)
 
+    x = intmask(intmask(x) * sign)
+    return -2 if x == -1 else x
 
 
 def add__Float_Float(space, w_float1, w_float2):
