@@ -133,7 +133,6 @@ class AbortInfoPush(ExtRegistryEntry):
         fieldnames = hop.args_s[1].const
         lst = []
         v_instance = hop.inputarg(hop.args_r[0], arg=0)
-        STRUCT = v_instance.concretetype.TO
         for fieldname in fieldnames:
             if fieldname == '[':
                 lst.append(-2)    # start of sublist
@@ -142,7 +141,10 @@ class AbortInfoPush(ExtRegistryEntry):
                 lst.append(-1)    # end of sublist
                 continue
             fieldname = 'inst_' + fieldname
-            TYPE = getattr(STRUCT, fieldname) #xxx check also in parent structs
+            STRUCT = v_instance.concretetype.TO
+            while not hasattr(STRUCT, fieldname):
+                STRUCT = STRUCT.super
+            TYPE = getattr(STRUCT, fieldname)
             if TYPE == lltype.Signed:
                 kind = 1
             elif TYPE == lltype.Unsigned:

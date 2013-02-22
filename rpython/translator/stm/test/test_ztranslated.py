@@ -132,7 +132,9 @@ class TestSTMTranslated(CompiledSTMTests):
     def test_abort_info(self):
         from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 
-        class Foobar(object):
+        class Parent(object):
+            pass
+        class Foobar(Parent):
             pass
         globf = Foobar()
 
@@ -151,6 +153,7 @@ class TestSTMTranslated(CompiledSTMTests):
         perform_transaction = rstm.make_perform_transaction(check, PS)
 
         def main(argv):
+            Parent().xy = 0
             globf.yx = 'hi there %d' % len(argv)
             perform_transaction(lltype.nullptr(PS.TO))
             return 0
