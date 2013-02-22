@@ -214,13 +214,16 @@ void stm_abort_info_pop(long count)
     gcptrlist_reduce_size(&d->abortinfo, newsize < 0 ? 0 : newsize);
 }
 
-size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output)
+size_t _stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
+                              int abort_reason, char *output)
 {
     /* re-encodes the abort info as a single string.
        For convenience (no escaping needed, no limit on integer
        sizes, etc.) we follow the bittorrent format. */
     size_t totalsize = 0;
     long i;
+    char buffer[32];
+    size_t res_size;
 #define WRITE(c)   { totalsize++; if (output) *output++=(c); }
 #define WRITE_BUF(p, sz)  { totalsize += (sz);                          \
                             if (output) {                               \
@@ -228,12 +231,28 @@ size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output)
                              }                                          \
                            }
     WRITE('l');
+    WRITE('l');
+    res_size = sprintf(buffer, "i%llde", (long long)elapsed_time);
+    WRITE_BUF(buffer, res_size);
+    res_size = sprintf(buffer, "i%de", (int)abort_reason);
+    WRITE_BUF(buffer, res_size);
+    res_size = sprintf(buffer, "i%lde", (long)(d->my_lock - LOCKED));
+    WRITE_BUF(buffer, res_size);
+    res_size = sprintf(buffer, "i%lde", (long)d->atomic);
+    WRITE_BUF(buffer, res_size);
+    res_size = sprintf(buffer, "i%de", (int)d->active);
+    WRITE_BUF(buffer, res_size);
+    res_size = sprintf(buffer, "i%lue", (unsigned long)d->count_reads);
+    WRITE_BUF(buffer, res_size);
+    res_size = sprintf(buffer, "i%lue",
+                       (unsigned long)d->reads_size_limit_nonatomic);
+    WRITE_BUF(buffer, res_size);
+    WRITE('e');
     for (i=0; i<d->abortinfo.size; i+=2) {
         char *object = (char *)stm_RepeatReadBarrier(d->abortinfo.items[i+0]);
         long *fieldoffsets = (long*)d->abortinfo.items[i+1];
         long kind, offset;
-        char buffer[32];
-        size_t res_size, rps_size;
+        size_t rps_size;
         RPyString *rps;
 
         while (1) {

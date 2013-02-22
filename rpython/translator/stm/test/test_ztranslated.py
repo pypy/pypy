@@ -143,7 +143,7 @@ class TestSTMTranslated(CompiledSTMTests):
                 globf.xy = 100 + retry_counter
 
         def check(_, retry_counter):
-            rstm.abort_info_push(globf, ('xy', '[', 'yx', ']'))
+            rstm.abort_info_push(globf, ('[', 'xy', ']', 'yx'))
             setxy(globf, retry_counter)
             if retry_counter < 3:
                 rstm.abort_and_retry()
@@ -163,4 +163,4 @@ class TestSTMTranslated(CompiledSTMTests):
             return 0
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
-        assert 'li102el10:hi there 3ee\n' in data
+        assert 'li102ee10:hi there 3e\n' in data

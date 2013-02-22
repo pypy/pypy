@@ -10,6 +10,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <time.h>
 
 #ifndef RPY_STM
 /* for tests, a few custom defines */
@@ -48,6 +49,7 @@ struct tx_descriptor {
   unsigned long reads_size_limit_nonatomic;
   int active;    /* 0 = inactive, 1 = regular, 2 = inevitable */
   int readonly_updates;
+  struct timespec start_real_time;
   unsigned int num_commits;
   unsigned int num_aborts[ABORT_REASONS];
   unsigned int num_spinloops[SPINLOOP_REASONS];
@@ -370,13 +372,16 @@ static void SpinLoop(int num)
   spinloop();
 }
 
-size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output);
+size_t _stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
+                              int abort_reason, char *output);
 
 static void AbortTransaction(int num)
 {
   struct tx_descriptor *d = thread_descriptor;
   unsigned long limit;
   size_t size;
+  struct timespec now;
+  long long elapsed_time;
   assert(d->active);
   assert(!is_inevitable(d));
   assert(num < ABORT_REASONS);
@@ -384,13 +389,28 @@ static void AbortTransaction(int num)
 
   CancelLocks(d);
 
+  /* compute the elapsed time */
+  if (d->start_real_time.tv_nsec != -1 &&
+      clock_gettime(CLOCK_MONOTONIC, &now) >= 0) {
+    elapsed_time = now.tv_sec - d->start_real_time.tv_sec;
+    elapsed_time *= 1000000000;
+    elapsed_time += now.tv_nsec - d->start_real_time.tv_nsec;
+  }
+  else {
+    elapsed_time = -1;
+  }
+
   /* decode the 'abortinfo' and produce a human-readable summary in
      the string 'lastabortinfo' */
-  size = _stm_decode_abort_info(d, NULL);
+  size = _stm_decode_abort_info(d, elapsed_time, num, NULL);
   free(d->lastabortinfo);
   d->lastabortinfo = malloc(size);
   if (d->lastabortinfo != NULL)
-    _stm_decode_abort_info(d, d->lastabortinfo);
+    if (_stm_decode_abort_info(d, elapsed_time, num, d->lastabortinfo) != size)
+      {
+        fprintf(stderr, "during stm abort: object mutated unexpectedly\n");
+        abort();
+      }
 
   /* run the undo log in reverse order, cancelling the values set by
      stm_ThreadLocalRef_LLSet(). */
@@ -447,6 +467,9 @@ static void update_reads_size_limit(struct tx_descriptor *d)
 
 static void init_transaction(struct tx_descriptor *d)
 {
+  if (clock_gettime(CLOCK_MONOTONIC, &d->start_real_time) < 0) {
+    d->start_real_time.tv_nsec = -1;
+  }
   assert(d->active == 0);
   assert(d->list_of_read_objects.size == 0);
   assert(d->gcroots.size == 0);
