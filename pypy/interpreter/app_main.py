@@ -322,8 +322,8 @@ def c_option(options, runcmd, iterargv):
     return ['-c'] + list(iterargv)
 
 def m_option(options, runmodule, iterargv):
-    options["run_module"] = True
-    return [runmodule] + list(iterargv)
+    options["run_module"] = runmodule
+    return ['-m'] + list(iterargv)
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -534,12 +534,12 @@ def run_command_line(interactive,
             def run_it():
                 exec_(run_command, mainmodule.__dict__)
             success = run_toplevel(run_it)
-        elif run_module:
+        elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
             sys.path.insert(0, '')
             import runpy
-            success = run_toplevel(runpy._run_module_as_main, sys.argv[0])
+            success = run_toplevel(runpy._run_module_as_main, run_module)
         elif run_stdin:
             # handle the case where no command/filename/module is specified
             # on the command-line.

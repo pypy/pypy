@@ -151,14 +151,14 @@ class TestParseCommandLine:
                    no_site=1)
         self.check(['-Scpass'], {}, sys_argv=['-c'], run_command='pass', no_site=1)
         self.check(['-c', '', ''], {}, sys_argv=['-c', ''], run_command='')
-        self.check(['-mfoo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True)
-        self.check(['-m', 'foo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True)
-        self.check(['-Smfoo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True, no_site=1)
-        self.check(['-Sm', 'foo', 'bar', 'baz'], {}, sys_argv=['foo', 'bar', 'baz'],
-                   run_module=True, no_site=1)
+        self.check(['-mfoo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo')
+        self.check(['-m', 'foo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo')
+        self.check(['-Smfoo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo', no_site=1)
+        self.check(['-Sm', 'foo', 'bar', 'baz'], {}, sys_argv=['-m', 'bar', 'baz'],
+                   run_module='foo', no_site=1)
         self.check(['-', 'foo', 'bar'], {}, sys_argv=['-', 'foo', 'bar'],
                    run_stdin=True)
         self.check(['foo', 'bar'], {}, sys_argv=['foo', 'bar'])
@@ -693,6 +693,17 @@ class TestNonInteractive:
         # concerning drive letters right now.
         assert ('File: ' + p) in data
         assert ('Argv: ' + repr([p, 'extra'])) in data
+
+    def test_option_m_package(self, monkeypatch):
+        if not hasattr(runpy, '_run_module_as_main'):
+            skip("requires CPython >= 2.6")
+        p = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                         'mypackage', '__main__.py')
+        p = os.path.abspath(p)
+        monkeypatch.chdir(os.path.dirname(app_main))
+        data = self.run('-m test2.mypackage extra')
+        assert "__init__ argv: ['-m', 'extra']" in data
+        assert "__main__ argv: [%r, 'extra']" % p in data
 
     def test_pythoninspect_doesnt_override_isatty(self):
         os.environ['PYTHONINSPECT_'] = '1'
