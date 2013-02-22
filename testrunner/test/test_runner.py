@@ -41,33 +41,40 @@ class TestExecuteTest(object):
         assert res == 0
 
     def test_explicit_win32(self, fakerun):
-        args = runner.execute_args('/wd', 'test_one', 'LOGFILE',
-                                  interp=['./INTERP', 'IARG'],
-                                  test_driver=['driver', 'darg'],
-                                  _win32=True
-                                  )
+        args = runner.execute_args(
+            '/wd', 'test_one', 'LOGFILE',
+            interp=['./INTERP', 'IARG'],
+            test_driver=['driver', 'darg'],
+            _win32=True
+        )
 
-        expected = ['/wd' + os.sep + './INTERP', 'IARG',
-                    'driver', 'darg',
-                    '-p', 'resultlog',
-                    '--resultlog=LOGFILE',
-                    '--junitxml=LOGFILE.junit',
-                    'test_one']
+        expected = [
+            '/wd' + os.sep + './INTERP', 'IARG',
+            'driver', 'darg',
+            '-p', 'resultlog',
+            '--resultlog=LOGFILE',
+            '--junitxml=LOGFILE.junit',
+            'test_one'
+        ]
         assert args == expected
 
     def test_error(self, fakerun):
         fakerun.exitcode = 1
-        res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
-                                  runfunc=fakerun,
-                                  interp=['INTERP', 'IARG'],
-                                  test_driver=['driver', 'darg'])
+        res = runner.execute_test(
+            '/wd', 'test_one', 'out', 'LOGFILE',
+            runfunc=fakerun,
+            interp=['INTERP', 'IARG'],
+            test_driver=['driver', 'darg']
+        )
         assert res == 1
 
         fakerun.exitcode = -signal.SIGSEGV
-        res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
-                                  runfunc=fakerun,
-                                  interp=['INTERP', 'IARG'],
-                                  test_driver=['driver', 'darg'])
+        res = runner.execute_test(
+            '/wd', 'test_one', 'out', 'LOGFILE',
+            runfunc=fakerun,
+            interp=['INTERP', 'IARG'],
+            test_driver=['driver', 'darg']
+        )
         assert res == -signal.SIGSEGV
 
 
