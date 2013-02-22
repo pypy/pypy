@@ -959,7 +959,7 @@ class Decimal(object):
             exp_hash = pow(_PyHASH_10INV, -self._exp, _PyHASH_MODULUS)
         hash_ = int(self._int) * exp_hash % _PyHASH_MODULUS
         ans = hash_ if self >= 0 else -hash_
-        return -2 if ans == -1 else ans
+        return ans
 
     def as_tuple(self):
         """Represents the number as a triple tuple.
