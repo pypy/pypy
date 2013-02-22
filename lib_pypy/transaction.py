@@ -257,15 +257,15 @@ def report_abort_info(info):
             lnotab = tb[3]
             bytecodenum = tb[-1]
             for i in range(0, len(lnotab), 2):
+                bytecodenum -= ord(lnotab[i])
                 if bytecodenum < 0:
                     break
-                bytecodenum -= ord(lnotab[i])
                 lineno += ord(lnotab[i+1])
             print >> f, '  File "%s", line %d, in %s' % (
                 filename, lineno, coname)
             line = linecache.getline(filename,lineno)
             if line: print >> f, '    ' + line.strip()
-    print >> f, 'Transaction aborted, %g seconds lost (th%d' % (
+    print >> f, 'Transaction aborted, %.6f seconds lost (th%d' % (
         header[0] * 1E-9, header[2]),
     print >> f, 'abrt%d %s%s%d/%d)' % (
         header[1], 'atom '*header[3], 'inev '*(header[4]>1),
