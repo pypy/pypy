@@ -143,12 +143,14 @@ class TestSTMTranslated(CompiledSTMTests):
                 globf.xy = 100 + retry_counter
 
         def check(_, retry_counter):
+            last = rstm.charp_inspect_abort_info()
             rstm.abort_info_push(globf, ('[', 'xy', ']', 'yx'))
             setxy(globf, retry_counter)
             if retry_counter < 3:
                 rstm.abort_and_retry()
             #
-            print rffi.charp2str(rstm.charp_inspect_abort_info())
+            print rffi.charp2str(last)
+            print int(bool(rstm.charp_inspect_abort_info()))
             #
             rstm.abort_info_pop(2)
             return 0
@@ -158,9 +160,10 @@ class TestSTMTranslated(CompiledSTMTests):
 
         def main(argv):
             Parent().xy = 0
+            globf.xy = -2
             globf.yx = 'hi there %d' % len(argv)
             perform_transaction(lltype.nullptr(PS.TO))
             return 0
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
-        assert 'li102ee10:hi there 3e\n' in data
+        assert 'li102ee10:hi there 3e\n0\n' in data

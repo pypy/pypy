@@ -58,7 +58,8 @@ struct tx_descriptor {
   struct G2L global_to_local;
   struct GcPtrList undolog;
   struct GcPtrList abortinfo;
-  char *lastabortinfo;
+  char *longest_abort_info;
+  long long longest_abort_info_time;
   struct FXCache recent_reads_cache;
 };
 
@@ -395,22 +396,34 @@ static void AbortTransaction(int num)
     elapsed_time = now.tv_sec - d->start_real_time.tv_sec;
     elapsed_time *= 1000000000;
     elapsed_time += now.tv_nsec - d->start_real_time.tv_nsec;
+    if (elapsed_time < 1)
+      elapsed_time = 1;
   }
   else {
-    elapsed_time = -1;
+    elapsed_time = 1;
   }
 
-  /* decode the 'abortinfo' and produce a human-readable summary in
-     the string 'lastabortinfo' */
-  size = _stm_decode_abort_info(d, elapsed_time, num, NULL);
-  free(d->lastabortinfo);
-  d->lastabortinfo = malloc(size);
-  if (d->lastabortinfo != NULL)
-    if (_stm_decode_abort_info(d, elapsed_time, num, d->lastabortinfo) != size)
-      {
-        fprintf(stderr, "during stm abort: object mutated unexpectedly\n");
-        abort();
-      }
+  if (elapsed_time >= d->longest_abort_info_time)
+    {
+      /* decode the 'abortinfo' and produce a human-readable summary in
+         the string 'longest_abort_info' */
+      size = _stm_decode_abort_info(d, elapsed_time, num, NULL);
+      free(d->longest_abort_info);
+      d->longest_abort_info = malloc(size);
+      if (d->longest_abort_info == NULL)
+        d->longest_abort_info_time = 0;   /* out of memory! */
+      else
+        {
+          if (_stm_decode_abort_info(d, elapsed_time,
+                                     num, d->longest_abort_info) != size)
+            {
+              fprintf(stderr,
+                      "during stm abort: object mutated unexpectedly\n");
+              abort();
+            }
+          d->longest_abort_info_time = elapsed_time;
+        }
+    }
 
   /* run the undo log in reverse order, cancelling the values set by
      stm_ThreadLocalRef_LLSet(). */

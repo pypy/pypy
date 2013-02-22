@@ -307,7 +307,10 @@ size_t _stm_decode_abort_info(struct tx_descriptor *d, long long elapsed_time,
 char *stm_inspect_abort_info(void)
 {
     struct tx_descriptor *d = thread_descriptor;
-    return d->lastabortinfo;
+    if (d->longest_abort_info_time <= 0)
+        return NULL;
+    d->longest_abort_info_time = 0;
+    return d->longest_abort_info;
 }
 
 long stm_extraref_llcount(void)
