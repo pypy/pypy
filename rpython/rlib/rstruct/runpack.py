@@ -46,7 +46,7 @@ class FrozenUnpackIterator(FormatIterator):
     def __init__(self, fmt):
         self.formats = []
         self.fmt = fmt
-    
+
     def operate(self, fmtdesc, repetitions):
         if fmtdesc.needcount:
             self.formats.append((fmtdesc, repetitions, None))
@@ -110,5 +110,3 @@ def runpack(fmt, input):
     unpacker = create_unpacker(fmt)
     return unpacker.unpack(input)
 runpack._annspecialcase_ = 'specialize:arg(0)'
-
-    

@@ -1,9 +1,9 @@
 from rpython.annotator import model as annmodel
-from rpython.rtyper.rmodel import Repr
-from rpython.rtyper.rpbc import AbstractFunctionsPBCRepr,\
-     AbstractMethodsPBCRepr
-from rpython.tool.pairtype import pairtype
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rpbc import AbstractFunctionsPBCRepr
+from rpython.tool.pairtype import pairtype
+
 
 class AbstractGenericCallableRepr(Repr):
     def __init__(self, rtyper, s_generic):
@@ -20,7 +20,6 @@ class AbstractGenericCallableRepr(Repr):
         return self.call('call_args', hop)
 
     def call(self, opname, hop):
-        bk = self.rtyper.annotator.bookkeeper
         vlist = hop.inputargs(self, *self.args_r) + [hop.inputconst(lltype.Void, None)]
         hop.exception_is_here()
         v_result = hop.genop('indirect_call', vlist, resulttype=self.r_result)

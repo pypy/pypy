@@ -67,6 +67,8 @@ def find_stdlib(state, executable):
     stdlib.
     If it cannot be found, return (None, None).
     """
+    if executable == '':
+        return None, None
     search = executable
     while True:
         dirname = resolvedirof(search)

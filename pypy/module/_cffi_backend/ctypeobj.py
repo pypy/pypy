@@ -93,11 +93,17 @@ class W_CType(Wrappable):
                                    "not %s", self.name, expected,
                                    space.type(w_got).getname(space))
 
-    def _check_subscript_index(self, w_cdata, i):
+    def _cannot_index(self):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
                               "cdata of type '%s' cannot be indexed",
                               self.name)
+
+    def _check_subscript_index(self, w_cdata, i):
+        raise self._cannot_index()
+
+    def _check_slice_index(self, w_cdata, start, stop):
+        raise self._cannot_index()
 
     def string(self, cdataobj, maxlen):
         space = self.space

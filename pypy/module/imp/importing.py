@@ -174,9 +174,9 @@ def _get_relative_name(space, modulename, level, w_globals):
                     "Parent module '%s' not loaded, "
                     "cannot perform relative import" % ctxt_package))
             else:
-                space.warn("Parent module '%s' not found "
-                           "while handling absolute import" % ctxt_package,
-                           space.w_RuntimeWarning)
+                msg = ("Parent module '%s' not found while handling absolute "
+                       "import" % ctxt_package)
+                space.warn(space.wrap(msg), space.w_RuntimeWarning)
 
         rel_modulename = ctxt_package[:dot_position]
         rel_level = rel_modulename.count('.') + 1
@@ -533,9 +533,9 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if modtype in (PY_SOURCE, PY_COMPILED):
                     return FindInfo(PKG_DIRECTORY, filepart, None)
                 else:
-                    msg = "Not importing directory " +\
-                            "'%s' missing __init__.py" % (filepart,)
-                    space.warn(msg, space.w_ImportWarning)
+                    msg = ("Not importing directory '%s' missing __init__.py" %
+                           (filepart,))
+                    space.warn(space.wrap(msg), space.w_ImportWarning)
             modtype, suffix, filemode = find_modtype(space, filepart)
             try:
                 if modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION):

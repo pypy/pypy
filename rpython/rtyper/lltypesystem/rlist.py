@@ -246,6 +246,7 @@ def _ll_list_resize(l, newsize):
     of the list to be 'newsize'."""
     _ll_list_resize_really(l, newsize, False)
 
+
 @jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 @jit.oopspec("list._resize_ge(l, newsize)")
 def _ll_list_resize_ge(l, newsize):
@@ -418,6 +419,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
+        self.external_item_repr = r_list.external_item_repr
         self.lowleveltype = Ptr(GcStruct('listiter',
                                          ('list', r_list.lowleveltype),
                                          ('index', Signed)))

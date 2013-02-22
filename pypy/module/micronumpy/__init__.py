@@ -171,6 +171,19 @@ class Module(MixedModule):
         'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
     }
+    def setup_after_space_initialization(self):
+        space = self.space
+        alllist = sorted(Module.interpleveldefs.keys() + \
+                                Module.appleveldefs.keys())
+        # found by set(numpypy.__all__) - set(numpy.__all__)
+        alllist.remove('min')
+        alllist.remove('max') 
+        alllist.remove('bool') 
+        alllist.remove('int') 
+        alllist.remove('abs') 
+        alllist.remove('typeinfo') 
+        w_all = space.wrap(alllist)
+        space.setitem(self.w_dict, space.new_interned_str('__all__'), w_all)
 
 if long_double_size == 16:
     Module.interpleveldefs['float128'] = 'interp_boxes.W_Float128Box'
