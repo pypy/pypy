@@ -634,7 +634,7 @@ class AppTestBufferedRandom:
     def test_readline(self):
         import _io as io
         with io.BytesIO(b"abc\ndef\nxyzzy\nfoo\x00bar\nanother line") as raw:
-            with io.BufferedRandom(raw) as f:
+            with io.BufferedRandom(raw, buffer_size=10) as f:
                 assert f.readline() == b"abc\n"
                 assert f.readline(10) == b"def\n"
                 assert f.readline(2) == b"xy"

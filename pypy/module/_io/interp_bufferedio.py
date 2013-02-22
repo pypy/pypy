@@ -678,6 +678,7 @@ class BufferedMixin:
                 if limit >= 0 and have > limit:
                     have = limit
                 pos = 0
+                found = False
                 while pos < have:
                     c = self.buffer[pos]
                     pos += 1
