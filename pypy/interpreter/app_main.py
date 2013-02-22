@@ -584,6 +584,7 @@ def run_command_line(interactive,
                                                         'exec')
                             exec_(co_python_startup, mainmodule.__dict__)
                         mainmodule.__file__ = python_startup
+                        mainmodule.__cached__ = None
                         run_toplevel(run_it)
                         try:
                             del mainmodule.__file__
@@ -597,12 +598,14 @@ def run_command_line(interactive,
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
                     exec_(co_stdin, mainmodule.__dict__)
                 mainmodule.__file__ = '<stdin>'
+                mainmodule.__cached__ = None
                 success = run_toplevel(run_it)
         else:
             # handle the common case where a filename is specified
             # on the command-line.
             filename = sys.argv[0]
             mainmodule.__file__ = filename
+            mainmodule.__cached__ = None
             sys.path.insert(0, sys.pypy_resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases

@@ -66,6 +66,7 @@ def pytest_funcarg__demo_script(request):
         print('hello')
         print('Name:', __name__)
         print('File:', __file__)
+        print('Cached:', __cached__)
         import sys
         print('Exec:', sys.executable)
         print('Argv:', sys.argv)
