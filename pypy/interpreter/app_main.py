@@ -615,7 +615,7 @@ def run_command_line(interactive,
                 filename = filename.lower()
             if filename.endswith('.pyc') or filename.endswith('.pyo'):
                 args = (imp._run_compiled_module, '__main__',
-                        sys.argv[0], None, mainmodule)
+                        sys.argv[0], None, mainmodule, False)
             else:
                 # maybe it's the name of a directory or a zip file
                 filename = sys.argv[0]
@@ -762,7 +762,7 @@ if __name__ == '__main__':
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
     import imp, runpy
-    def _run_compiled_module(modulename, filename, file, module):
+    def _run_compiled_module(modulename, filename, file, module, write_paths):
         import os
         assert modulename == '__main__'
         assert os.path.isfile(filename)

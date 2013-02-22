@@ -856,17 +856,19 @@ def parse_source_module(space, pathname, source):
     pycode = ec.compiler.compile(source, pathname, 'exec', 0)
     return pycode
 
-def exec_code_module(space, w_mod, code_w, pathname, cpathname):
+def exec_code_module(space, w_mod, code_w, pathname, cpathname,
+                     write_paths=True):
     w_dict = space.getattr(w_mod, space.wrap('__dict__'))
     space.call_method(w_dict, 'setdefault',
                       space.wrap('__builtins__'),
                       space.wrap(space.builtin))
-    if pathname is not None:
-        w_pathname = get_sourcefile(space, pathname)
-    else:
-        w_pathname = space.wrap(code_w.co_filename)
-    space.setitem(w_dict, space.wrap("__file__"), w_pathname)
-    space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
+    if write_paths:
+        if pathname is not None:
+            w_pathname = get_sourcefile(space, pathname)
+        else:
+            w_pathname = space.wrap(code_w.co_filename)
+        space.setitem(w_dict, space.wrap("__file__"), w_pathname)
+        space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
     code_w.exec_code(space, w_dict, w_dict)
 
 def rightmost_sep(filename):
@@ -1065,7 +1067,7 @@ def read_compiled_module(space, cpathname, strbuf):
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
-                         timestamp, source):
+                         timestamp, source, write_paths=True):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
@@ -1076,7 +1078,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
                               "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
-    exec_code_module(space, w_mod, code_w, cpathname, cpathname)
+    exec_code_module(space, w_mod, code_w, cpathname, cpathname, write_paths)
 
     return w_mod
 

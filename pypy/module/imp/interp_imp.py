@@ -138,8 +138,9 @@ def load_source(space, w_modulename, w_filename, w_file=None):
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0')
-def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
+@unwrap_spec(filename='str0', write_paths=bool)
+def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
+                         write_paths=True):
     # the function 'imp._run_compiled_module' is a pypy-only extension
     stream = get_file(space, w_file, filename, 'rb')
 
@@ -148,7 +149,7 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
 
     importing.load_compiled_module(
         space, w_modulename, w_module, filename, magic, timestamp,
-        stream.readall())
+        stream.readall(), write_paths)
     if space.is_none(w_file):
         stream.close()
 
