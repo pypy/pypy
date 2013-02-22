@@ -171,6 +171,11 @@ class Module(MixedModule):
         'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
     }
+    def setup_after_space_initialization(self):
+        space = self.space
+        w_all = space.wrap(sorted(Module.interpleveldefs.keys() + \
+                                Module.appleveldefs.keys()))
+        space.setitem(self.w_dict, space.new_interned_str('__all__'), w_all)
 
 if long_double_size == 16:
     Module.interpleveldefs['float128'] = 'interp_boxes.W_Float128Box'
