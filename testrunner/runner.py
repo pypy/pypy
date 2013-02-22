@@ -1,12 +1,19 @@
-import sys, os, thread, Queue
+import sys
+import os
+import thread
+import Queue
 import py
 import util
 
-
-import optparse
-
 READ_MODE = 'rU'
 WRITE_MODE = 'wb'
+
+
+def fix_interppath_in_win32(path, cwd, _win32):
+    if (_win32 and not os.path.isabs(path) and
+       ('\\' in path or '/' in path)):
+        path = os.path.join(str(cwd), path)
+    return path
 
 
 def execute_args(cwd, test, logfname, interp, test_driver,
@@ -19,12 +26,7 @@ def execute_args(cwd, test, logfname, interp, test_driver,
 
     args = map(str, args)
 
-    interp0 = args[0]
-    if (_win32 and not os.path.isabs(interp0) and
-        ('\\' in interp0 or '/' in interp0)):
-        args[0] = os.path.join(str(cwd), interp0)
-
-
+    args[0] = fix_interppath_in_win32(args[0], cwd, _win32)
     return args
 
 
@@ -124,13 +126,13 @@ def execute_tests(run_param, testdirs, logfile):
             run_param.log("++ starting %s [%d started in total]",
                           res[1], started)
             continue
-        
+
         testname, somefailed, logdata, output = res[1:]
         done += 1
         failure = failure or somefailed
 
         heading = "__ %s [%d done in total] " % (testname, done)
-        
+
         run_param.log(heading.ljust(79, '_'))
 
         run_param.log(output.rstrip())
@@ -224,7 +226,6 @@ renamed_configs = {
 
 def main(opts, args, RunParamClass):
 
-
     if opts.logfile is None:
         print "no logfile specified"
         sys.exit(2)
@@ -255,10 +256,9 @@ def main(opts, args, RunParamClass):
     else:
         run_param.collect_testdirs(testdirs)
 
-
     if opts.dry_run:
         run_param.log("%s", run_param.__dict__)
-    
+
     res = execute_tests(run_param, testdirs, logfile)
 
     if res:
