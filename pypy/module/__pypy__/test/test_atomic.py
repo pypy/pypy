@@ -4,32 +4,21 @@ from pypy.module.__pypy__.interp_atomic import bdecode
 from rpython.rtyper.lltypesystem import rffi
 
 
-def test_bdecode():
-    class FakeSpace:
-        def wrap(self, x):
-            assert isinstance(x, str)
-            return x
-        def int(self, x):
-            assert isinstance(x, str)
-            return int(x)
-        def newlist(self, lst):
-            assert isinstance(lst, list)
-            return lst
+def test_bdecode(space):
 
-    space = FakeSpace()
-
-    def bdec(s):
+    def bdec(s, expected):
         p = rffi.str2charp(s)
         w_obj, q = bdecode(space, p)
         assert q == rffi.ptradd(p, len(s))
         rffi.free_charp(p)
-        return w_obj
+        w_expected = space.wrap(expected)
+        assert space.eq_w(w_obj, w_expected)
 
-    assert bdec("i123e") == 123
-    assert bdec("i-123e") == -123
-    assert bdec('12:+"*-%&/()=?\x00') == '+"*-%&/()=?\x00'
-    assert bdec("li123eli456eee") == [123, [456]]
-    assert bdec("l5:abcdei2ee") == ["abcde", 2]
+    bdec("i123e", 123)
+    bdec("i-123e", -123)
+    bdec('12:+"*-%&/()=?\x00', '+"*-%&/()=?\x00')
+    bdec("li123eli456eee", [123, [456]])
+    bdec("l5:abcdei2ee", ["abcde", 2])
 
 
 class AppTestAtomic(GenericTestThread):

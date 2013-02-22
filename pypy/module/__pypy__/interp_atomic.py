@@ -59,7 +59,8 @@ def bdecodeint(space, p):
     n = 0
     while p[n] != 'e':
         n += 1
-    return (space.int(space.wrap(rffi.charpsize2str(p, n))),
+    return (space.call_function(space.w_int,
+               space.wrap(rffi.charpsize2str(p, n))),
             rffi.ptradd(p, n + 1))
 
 def bdecodelist(space, p):
