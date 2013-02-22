@@ -1,11 +1,11 @@
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask
-from pypy.rlib import rposix
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask
+from rpython.rlib import rposix
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import os
 import sys
 import time as pytime
@@ -28,9 +28,9 @@ if _WIN:
     # time.sleep() will actually call WaitForSingleObject with the desired
     # timeout.  On Ctrl-C, the signal handler is called, the event is set,
     # and the wait function exits.
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     from pypy.interpreter.error import wrap_windowserror, wrap_oserror
-    from pypy.module.thread import ll_thread as thread
+    from rpython.rlib import rthread as thread
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h'],
@@ -87,7 +87,7 @@ if _WIN:
         def __init__(self, space):
             self.main_thread = 0
 
-        def _freeze_(self):
+        def _cleanup_(self):
             self.main_thread = 0
             globalState.init()
 
@@ -311,7 +311,7 @@ if sys.platform != 'win32':
                                  space.wrap("Invalid argument: negative time in sleep"))
         pytime.sleep(secs)
 else:
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     from errno import EINTR
     def _simple_sleep(space, secs, interruptible):
         if secs == 0.0 or not interruptible:
@@ -354,7 +354,7 @@ def _set_module_object(space, obj_name, w_obj_value):
 def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
     # in the callers, so we never get a real None here).
-    if space.is_w(w_seconds, space.w_None):
+    if space.is_none(w_seconds):
         seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
@@ -385,7 +385,10 @@ def _tm_to_tuple(space, t):
     return space.call_function(w_struct_time, w_time_tuple)
 
 def _gettmarg(space, w_tup, allowNone=True):
-    if allowNone and space.is_w(w_tup, space.w_None):
+    if space.is_none(w_tup):
+        if not allowNone:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("tuple expected"))
         # default to the current local time
         tt = rffi.r_time_t(int(pytime.time()))
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
@@ -445,7 +448,9 @@ def _gettmarg(space, w_tup, allowNone=True):
             raise OperationError(space.w_ValueError,
                 space.wrap("year out of range"))
 
-    if rffi.getintfield(glob_buf, 'c_tm_wday') < 0:
+    # tm_wday does not need checking of its upper-bound since taking "%
+    #  7" in gettmarg() automatically restricts the range.
+    if rffi.getintfield(glob_buf, 'c_tm_wday') < -1:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of week out of range"))
 

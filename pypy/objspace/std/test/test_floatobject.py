@@ -60,6 +60,8 @@ class TestW_FloatObject:
 
 
 class AppTestAppFloatTest:
+    spaceconfig = dict(usemodules=['binascii', 'rctime'])
+    
     def setup_class(cls):
         cls.w_py26 = cls.space.wrap(sys.version_info >= (2, 6))
 
@@ -449,7 +451,12 @@ class AppTestAppFloatTest:
         else:
             assert False, 'did not raise'
 
+
 class AppTestFloatHex:
+    spaceconfig = {
+        "usemodules": ["binascii", "rctime"],
+    }
+
     def w_identical(self, x, y):
         import math
         # check that floats x and y are identical, or that both

@@ -1,10 +1,10 @@
 import weakref
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
-from pypy.rlib.rshrinklist import AbstractShrinkList
+from rpython.rlib.rshrinklist import AbstractShrinkList
 
 class WRefShrinkList(AbstractShrinkList):
     def must_keep(self, wref):
@@ -30,6 +30,9 @@ class Local(Wrappable):
         w_dict = space.newdict(instance=True)
         self.dicts[ec] = w_dict
         self._register_in_ec(ec)
+        # cache the last seen dict, works because we are protected by the GIL
+        self.last_dict = w_dict
+        self.last_ec = ec
 
     def _register_in_ec(self, ec):
         if not ec.space.config.translation.rweakref:
@@ -60,10 +63,14 @@ class Local(Wrappable):
 
     def getdict(self, space):
         ec = space.getexecutioncontext()
+        if ec is self.last_ec:
+            return self.last_dict
         try:
             w_dict = self.dicts[ec]
         except KeyError:
             w_dict = self.create_new_dict(ec)
+        self.last_ec = ec
+        self.last_dict = w_dict
         return w_dict
 
     def descr_local__new__(space, w_subtype, __args__):
@@ -91,3 +98,5 @@ def thread_is_stopping(ec):
         local = wref()
         if local is not None:
             del local.dicts[ec]
+            local.last_dict = None
+            local.last_ec = None

@@ -4,7 +4,6 @@ from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
-from pypy.conftest import gettestobjspace
 
 class BaseTestCompiler:
     def setup_method(self, method):
@@ -623,7 +622,7 @@ def test():
         assert space.float_w(w_result) == 0
 
     def test_dont_inherit_across_import(self):
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         udir.join('test_dont_inherit_across_import.py').write('x = 1/2\n')
         space = self.space
         s1 = str(py.code.Source("""
@@ -915,8 +914,7 @@ class AppTestOptimizer:
         assert "LOAD_GLOBAL" not in output
 
 class AppTestCallMethod(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{'objspace.opcodes.CALL_METHOD': True})
+    spaceconfig = {'objspace.opcodes.CALL_METHOD': True}
         
     def test_call_method_kwargs(self):
         source = """def _f(a):

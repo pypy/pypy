@@ -1,8 +1,10 @@
 
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
-from pypy.module.micronumpy import loop, interp_ufuncs
+from pypy.module.micronumpy import loop, interp_dtype, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
-from pypy.module.micronumpy.strides import shape_agreement
+from pypy.module.micronumpy.strides import shape_agreement,\
+     shape_agreement_multiple
+from pypy.module.micronumpy.constants import MODES
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 
@@ -66,10 +68,13 @@ def where(space, w_arr, w_x=None, w_y=None):
     
     NOTE: support for not passing x and y is unsupported
     """
-    if space.is_w(w_y, space.w_None):
-        if space.is_w(w_x, space.w_None):
+    if space.is_none(w_y):
+        if space.is_none(w_x):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "1-arg where unsupported right now"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "Where should be called with either 1 or 3 arguments"))
+    if space.is_none(w_x):
         raise OperationError(space.w_ValueError, space.wrap(
             "Where should be called with either 1 or 3 arguments"))
     arr = convert_to_array(space, w_arr)
@@ -118,23 +123,25 @@ def concatenate(space, w_args, axis=0):
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
+        if arr.get_shape()[axis] == 0:
+            continue
         chunks[axis] = Chunk(axis_start, axis_start + arr.get_shape()[axis], 1,
                              arr.get_shape()[axis])
-        Chunks(chunks).apply(res.implementation).implementation.setslice(space, arr)
+        Chunks(chunks).apply(res).implementation.setslice(space, arr)
         axis_start += arr.get_shape()[axis]
     return res
 
 @unwrap_spec(repeats=int)
 def repeat(space, w_arr, repeats, w_axis=None):
     arr = convert_to_array(space, w_arr)
-    if space.is_w(w_axis, space.w_None):
+    if space.is_none(w_axis):
         arr = arr.descr_flatten(space)
         orig_size = arr.get_shape()[0]
         shape = [arr.get_shape()[0] * repeats]
         res = W_NDimArray.from_shape(shape, arr.get_dtype())
         for i in range(repeats):
             Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                          orig_size)]).apply(res.implementation).implementation.setslice(space, arr)
+                          orig_size)]).apply(res).implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
         shape = arr.get_shape()[:]
@@ -145,8 +152,47 @@ def repeat(space, w_arr, repeats, w_axis=None):
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(res.implementation).implementation.setslice(space, arr)
+            Chunks(chunks).apply(res).implementation.setslice(space, arr)
     return res
 
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
+
+def choose(space, arr, w_choices, out, mode):
+    choices = [convert_to_array(space, w_item) for w_item
+               in space.listview(w_choices)]
+    if not choices:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("choices list cannot be empty"))
+    shape = shape_agreement_multiple(space, choices + [out])
+    out = interp_dtype.dtype_agreement(space, choices, shape, out)
+    dtype = out.get_dtype()
+    if mode not in MODES:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("mode %s not known" % (mode,)))
+    loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
+    return out
+
+def diagonal(space, arr, offset, axis1, axis2):
+    shape = arr.get_shape()
+    shapelen = len(shape)
+    if offset < 0:
+        offset = -offset
+        axis1, axis2 = axis2, axis1
+    size = min(shape[axis1], shape[axis2] - offset)
+    dtype = arr.dtype
+    if axis1 < axis2:
+        shape = (shape[:axis1] + shape[axis1 + 1:axis2] +
+                 shape[axis2 + 1:] + [size])
+    else:
+        shape = (shape[:axis2] + shape[axis2 + 1:axis1] +
+                 shape[axis1 + 1:] + [size])
+    out = W_NDimArray.from_shape(shape, dtype)
+    if size == 0:
+        return out
+    if shapelen == 2:
+        # simple case
+        loop.diagonal_simple(space, arr, out, offset, axis1, axis2, size)
+    else:
+        loop.diagonal_array(space, arr, out, offset, axis1, axis2, shape)
+    return out

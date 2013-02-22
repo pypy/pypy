@@ -285,17 +285,14 @@ thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 Miscellaneous
 -------------
 
-* Hash randomization is not supported in PyPy.  Passing ``-R`` to the
-  command line, or setting the ``PYTHONHASHSEED`` environment variable
-  will display a warning message.
+* Hash randomization (``-R``) is ignored in PyPy.  As documented in
+  http://bugs.python.org/issue14621 , some of us believe it has no
+  purpose in CPython either.
 
-* ``sys.setrecursionlimit()`` is ignored (and not needed) on
-  PyPy.  On CPython it would set the maximum number of nested
-  calls that can occur before a RuntimeError is raised; on PyPy
-  overflowing the stack also causes RuntimeErrors, but the limit
-  is checked at a lower level.  (The limit is currently hard-coded
-  at 768 KB, corresponding to roughly 1480 Python calls on
-  Linux.)
+* ``sys.setrecursionlimit(n)`` sets the limit only approximately,
+  by setting the usable stack space to ``n * 768`` bytes.  On Linux,
+  depending on the compiler settings, the default of 768KB is enough
+  for about 1400 calls.
 
 * assignment to ``__class__`` is limited to the cases where it
   works on CPython 2.5.  On CPython 2.6 and 2.7 it works in a bit
@@ -320,11 +317,6 @@ Miscellaneous
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
-
-* the ``__len__`` or ``__length_hint__`` special methods are sometimes
-  called by CPython to get a length estimate to preallocate internal arrays.
-  So far, PyPy never calls ``__len__`` for this purpose, and never calls
-  ``__length_hint__`` at all.
 
 
 .. include:: _ref.txt

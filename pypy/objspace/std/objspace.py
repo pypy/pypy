@@ -7,11 +7,11 @@ from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod, proxyobject)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit
+from rpython.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
@@ -23,12 +23,12 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.smallintobject import W_SmallIntObject
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
@@ -47,11 +47,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.model = model.StdTypeModel(self.config)
 
         self.FrameClass = frame.build_frame(self)
+        self.StringObjectCls = W_StringObject
 
-        if self.config.objspace.std.withrope:
-            self.StringObjectCls = W_RopeObject
-        else:
-            self.StringObjectCls = W_StringObject
+        self.UnicodeObjectCls = W_UnicodeObject
 
         self._install_multimethods()
 
@@ -129,13 +127,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ec._py_repr = None
         return ec
 
-    def createframe(self, code, w_globals, outer_func=None):
-        from pypy.objspace.std.fake import CPythonFakeCode, CPythonFakeFrame
-        if not we_are_translated() and isinstance(code, CPythonFakeCode):
-            return CPythonFakeFrame(self, code, w_globals)
-        else:
-            return ObjSpace.createframe(self, code, w_globals, outer_func)
-
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 
@@ -178,8 +169,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, base_int):
             if self.config.objspace.std.withsmalllong:
                 from pypy.objspace.std.smalllongobject import W_SmallLongObject
-                from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
-                from pypy.rlib.rarithmetic import longlongmax
+                from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
+                from rpython.rlib.rarithmetic import longlongmax
                 if (not isinstance(x, r_ulonglong)
                     or x <= r_ulonglong(longlongmax)):
                     return W_SmallLongObject(r_longlong(x))
@@ -238,16 +229,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
             return self.w_Ellipsis
 
-        if self.config.objspace.nofaking:
-            raise OperationError(self.w_RuntimeError,
-                                 self.wrap("nofaking enabled: refusing "
-                                           "to wrap cpython value %r" %(x,)))
-        if isinstance(x, type(Exception)) and issubclass(x, Exception):
-            w_result = self.wrap_exception_cls(x)
-            if w_result is not None:
-                return w_result
-        from pypy.objspace.std.fake import fake_object
-        return fake_object(self, x)
+        raise OperationError(self.w_RuntimeError,
+            self.wrap("refusing to wrap cpython value %r" % (x,))
+        )
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
@@ -259,7 +243,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def wraplong(self, x):
         "NOT_RPYTHON"
         if self.config.objspace.std.withsmalllong:
-            from pypy.rlib.rarithmetic import r_longlong
+            from rpython.rlib.rarithmetic import r_longlong
             try:
                 rx = r_longlong(x)
             except OverflowError:
@@ -459,6 +443,21 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.listview_str()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_str()
+        return None
+
+    def listview_unicode(self, w_obj):
+        # note: uses exact type checking for objects with strategies,
+        # and isinstance() for others.  See test_listobject.test_uses_custom...
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_unicode()
+        if type(w_obj) is W_DictMultiObject:
+            return w_obj.listview_unicode()
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+            return w_obj.listview_unicode()
+        if isinstance(w_obj, W_UnicodeObject):
+            return w_obj.listview_unicode()
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_unicode()
         return None
 
     def listview_int(self, w_obj):

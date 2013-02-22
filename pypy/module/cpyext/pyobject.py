@@ -1,16 +1,16 @@
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.rlib.objectmodel import specialize, we_are_translated
-from pypy.rlib.rweakref import RWeakKeyDictionary
-from pypy.rpython.annlowlevel import llhelper
+from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.rweakref import RWeakKeyDictionary
+from rpython.rtyper.annlowlevel import llhelper
 
 #________________________________________________________
 # type description
@@ -150,10 +150,9 @@ class RefcountState:
         # For tests
         self.non_heaptypes_w = []
 
-    def _freeze_(self):
+    def _cleanup_(self):
         assert self.borrow_mapping == {None: {}}
         self.py_objects_r2w.clear() # is not valid anymore after translation
-        return False
 
     def init_r2w_from_w2r(self):
         """Rebuilds the dict py_objects_r2w on startup"""

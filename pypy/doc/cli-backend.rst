@@ -395,7 +395,7 @@ many subtle bugs and to do some big refactoring of the code with the
 confidence not to break anything.
 
 The core of the testing framework is in the module
-pypy.translator.cli.test.runtest; one of the most important function
+rpython.translator.cli.test.runtest; one of the most important function
 of this module is compile_function(): it takes a Python function,
 compiles it to CLI and returns a Python object that runs the just
 created executable when called.
@@ -407,7 +407,7 @@ are passed as command line arguments, and the return value is printed
 on the standard output::
 
     # Python source: foo.py
-    from pypy.translator.cli.test.runtest import compile_function
+    from rpython.translator.cli.test.runtest import compile_function
 
     def foo(x, y):
         return x+y, x*y

@@ -5,9 +5,9 @@ import sys
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
-from pypy.rlib import jit
-from pypy.rlib.runicode import MAXUNICODE
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from rpython.rlib import jit
+from rpython.rlib.runicode import MAXUNICODE
 
 # ____________________________________________________________
 
@@ -20,7 +20,8 @@ def setbuiltinmodule(w_module, name):
             "trying to change the builtin-in module %r" % (name,))
     space.setitem(w_modules, space.wrap(name), w_module)
 
-def _getframe(space, w_depth=0):
+@unwrap_spec(w_depth = WrappedDefault(0))
+def _getframe(space, w_depth):
     """Return a frame object from the call stack.  If optional integer depth is
 given, return the frame object that many calls below the top of the stack.
 If that is deeper than the call stack, ValueError is raised.  The default
@@ -54,7 +55,7 @@ reserves 768KB of stack space, which should suffice (on Linux,
 depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
 """
-    from pypy.rlib.rstack import _stack_set_length_fraction
+    from rpython.rlib.rstack import _stack_set_length_fraction
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
@@ -94,7 +95,7 @@ frame."""
 def exc_info_with_tb(space):
     operror = space.getexecutioncontext().sys_exc_info()
     if operror is None:
-        return space.newtuple([space.w_None,space.w_None,space.w_None])
+        return space.newtuple([space.w_None, space.w_None, space.w_None])
     else:
         return space.newtuple([operror.w_type, operror.get_w_value(space),
                                space.wrap(operror.get_traceback())])
@@ -217,7 +218,7 @@ class windows_version_info:
 
 
 def getwindowsversion(space):
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     info = rwin32.GetVersionEx()
     w_windows_version_info = app.wget(space, "windows_version_info")
     raw_version = space.newtuple([
@@ -252,7 +253,7 @@ def _get_dllhandle(space):
     cdll = RawCDLL(handle)
     return space.wrap(W_CDLL(space, "python api", cdll))
 
-def getsizeof(space, w_object, w_default=NoneNotWrapped):
+def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""
     if w_default is None:
         raise OperationError(space.w_TypeError,

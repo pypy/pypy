@@ -1,12 +1,10 @@
 from __future__ import with_statement
 
-from pypy.conftest import gettestobjspace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 class AppTestIoModule:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
+    spaceconfig = dict(usemodules=['_io'])
 
     def test_import(self):
         import io
@@ -157,8 +155,9 @@ class AppTestIoModule:
         assert s is None
 
 class AppTestOpen:
+    spaceconfig = dict(usemodules=['_io', '_locale', 'array', 'struct'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io', '_locale', 'array', 'struct'])
         tmpfile = udir.join('tmpfile').ensure()
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 

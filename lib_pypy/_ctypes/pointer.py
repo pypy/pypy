@@ -81,7 +81,9 @@ class _Pointer(_CData):
         addr = self._buffer[0]
         if addr == 0:
             raise ValueError("NULL pointer access")
-        return self._type_.from_address(addr)
+        instance = self._type_.from_address(addr)
+        instance.__dict__['_base'] = self
+        return instance
 
     def setcontents(self, value):
         if not isinstance(value, self._type_):

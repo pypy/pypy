@@ -71,7 +71,7 @@ extern "C" {
     /* method/function reflection information --------------------------------- */
     int cppyy_num_methods(cppyy_scope_t scope);
     cppyy_index_t cppyy_method_index_at(cppyy_scope_t scope, int imeth);
-    cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t scope, const char* name);
+    cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* name);
 
     char* cppyy_method_name(cppyy_scope_t scope, cppyy_index_t idx);
     char* cppyy_method_result_type(cppyy_scope_t scope, cppyy_index_t idx);

@@ -14,4 +14,8 @@ class AppTestVersion(AppTestCpythonExtensionBase):
         """
         module = self.import_module(name='foo', init=init)
         assert module.py_version == sys.version[:5]
-        assert module.pypy_version == '%d.%d.%d' % sys.pypy_version_info[:3]
+        v = sys.pypy_version_info
+        s = '%d.%d.%d' % (v[0], v[1], v[2])
+        if v.releaselevel != 'final':
+            s += '-%s%d' % (v[3], v[4])
+        assert module.pypy_version == s

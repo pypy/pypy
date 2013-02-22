@@ -303,7 +303,7 @@ We are using
 
   dicts with a unique key type only, provided it is hashable. Custom
   hash functions and custom equality will not be honored.
-  Use ``pypy.rlib.objectmodel.r_dict`` for custom hash functions.
+  Use ``rpython.rlib.objectmodel.r_dict`` for custom hash functions.
 
 
 **list comprehensions**
@@ -328,7 +328,7 @@ We are using
 **builtin functions**
 
   A number of builtin functions can be used.  The precise set can be
-  found in `pypy/annotation/builtin.py`_ (see ``def builtin_xxx()``).
+  found in `rpython/annotator/builtin.py`_ (see ``def builtin_xxx()``).
   Some builtin functions may be limited in what they support, though.
 
   ``int, float, str, ord, chr``... are available as simple conversion
@@ -365,7 +365,7 @@ a consistent behavior before and after translation.
 We use normal integers for signed arithmetic.  It means that before
 translation we get longs in case of overflow, and after translation we get a
 silent wrap-around.  Whenever we need more control, we use the following
-helpers (which live the `pypy/rlib/rarithmetic.py`_):
+helpers (which live in `rpython/rlib/rarithmetic.py`_):
 
 **ovfcheck()**
 
@@ -832,7 +832,7 @@ feature requests or see what's going on
 for the next milestone, both from an E-Mail and from a
 web interface.
 
-.. _`development tracker`: https://codespeak.net/issue/pypy-dev/
+.. _`development tracker`: https://bugs.pypy.org/
 
 use your codespeak login or register
 ------------------------------------
@@ -841,7 +841,7 @@ If you have an existing codespeak account, you can use it to login within the
 tracker. Else, you can `register with the tracker`_ easily.
 
 
-.. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
+.. _`register with the tracker`: https://bugs.pypy.org/user?@template=register
 .. _`roundup`: http://roundup.sourceforge.net/
 
 

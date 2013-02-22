@@ -1,14 +1,16 @@
 import py
-from pypy.conftest import gettestobjspace, option
-from pypy.rlib import debug
+
+from pypy.interpreter.gateway import interp2app
+from rpython.rlib import debug
+
 
 class AppTestDebug:
+    spaceconfig = dict(usemodules=['__pypy__'])
+
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("not meant to be run with -A")
-        cls.space = gettestobjspace(usemodules=['__pypy__'])
-        space = cls.space
-        cls.w_check_log = cls.space.wrap(cls.check_log)
+        cls.w_check_log = cls.space.wrap(interp2app(cls.check_log))
 
     def setup_method(self, meth):
         debug._log = debug.DebugLog()
@@ -16,9 +18,9 @@ class AppTestDebug:
     def teardown_method(self, meth):
         debug._log = None
 
-    @classmethod
-    def check_log(cls, expected):
-        assert list(debug._log) == expected
+    @staticmethod
+    def check_log(space, w_expected):
+        assert list(debug._log) == space.unwrap(w_expected)
 
     def test_debug_print(self):
         from __pypy__ import debug_start, debug_stop, debug_print

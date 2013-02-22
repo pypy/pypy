@@ -4,9 +4,10 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
-from pypy.tool.sourcetools import compile2, func_with_new_name
+from rpython.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
@@ -117,6 +118,9 @@ class Object(object):
 
     def descr__init__(space, w_obj, __args__):
         pass
+
+contains_jitdriver = jit.JitDriver(name='contains',
+        greens=['w_type'], reds='auto')
 
 class DescrOperation(object):
     _mixin_ = True
@@ -421,7 +425,9 @@ class DescrOperation(object):
 
     def _contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
+        w_type = space.type(w_iter)
         while 1:
+            contains_jitdriver.jit_merge_point(w_type=w_type)
             try:
                 w_next = space.next(w_iter)
             except OperationError, e:
@@ -694,7 +700,7 @@ def _make_binop_impl(symbol, specialnames):
             # sanity reasons, we just compare the two places where the
             # __xxx__ and __rxxx__ methods where found by identity.
             # Note that space.is_w() is potentially not happy if one of them
-            # is None (e.g. with the thunk space)...
+            # is None...
             if w_left_src is not w_right_src:    # XXX
                 # -- cpython bug compatibility: see objspace/std/test/
                 # -- test_unicodeobject.test_str_unicode_concat_overrides.

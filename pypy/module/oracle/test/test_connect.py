@@ -1,14 +1,13 @@
-from pypy.conftest import gettestobjspace
 from pypy.conftest import option
-from pypy.rpython.tool.rffi_platform import CompilationError
+from rpython.rtyper.tool.rffi_platform import CompilationError
 import py
 
 class OracleNotConnectedTestBase(object):
+    spaceconfig = dict(usemodules=('oracle',))
 
     @classmethod
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('oracle',))
-        cls.space = space
+        space = cls.space
         space.setitem(space.builtin.w_dict, space.wrap('oracle'),
                       space.getbuiltinmodule('cx_Oracle'))
         oracle_connect = option.oracle_connect

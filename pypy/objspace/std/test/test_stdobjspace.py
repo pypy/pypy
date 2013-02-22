@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import app2interp
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 
 class TestW_StdObjSpace:
 
@@ -77,7 +77,7 @@ class TestW_StdObjSpace:
 
     def test_wrap_various_unsigned_types(self):
         import sys
-        from pypy.rpython.lltypesystem import lltype, rffi
+        from rpython.rtyper.lltypesystem import lltype, rffi
         space = self.space
         value = sys.maxint * 2
         x = rffi.cast(lltype.Unsigned, value)

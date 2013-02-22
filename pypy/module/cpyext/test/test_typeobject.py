@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
@@ -116,6 +116,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.foo == 42
         obj2 = obj.create()
         assert obj2.foo == 42
+
+    def test_classmethod(self):
+        module = self.import_module(name="foo")
+        obj = module.fooType.classmeth()
+        assert obj is module.fooType
 
     def test_new(self):
         module = self.import_module(name='foo')

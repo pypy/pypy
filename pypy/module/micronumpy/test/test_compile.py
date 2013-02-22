@@ -1,6 +1,5 @@
-import py
-py.test.skip("this is going away")
 
+import py
 from pypy.module.micronumpy.compile import (numpy_compile, Assignment,
     ArrayConstant, FloatConstant, Operator, Variable, RangeConstant, Execute,
     FunctionCall, FakeSpace)
@@ -136,7 +135,7 @@ class TestRunner(object):
         r
         """
         interp = self.run(code)
-        assert interp.results[0].value.value == 15
+        assert interp.results[0].get_scalar_value().value == 15
 
     def test_sum2(self):
         code = """
@@ -145,7 +144,7 @@ class TestRunner(object):
         sum(b)
         """
         interp = self.run(code)
-        assert interp.results[0].value.value == 30 * (30 - 1)
+        assert interp.results[0].get_scalar_value().value == 30 * (30 - 1)
 
 
     def test_array_write(self):
@@ -164,7 +163,7 @@ class TestRunner(object):
         b = a + a
         min(b)
         """)
-        assert interp.results[0].value.value == -24
+        assert interp.results[0].get_scalar_value().value == -24
 
     def test_max(self):
         interp = self.run("""
@@ -173,7 +172,7 @@ class TestRunner(object):
         b = a + a
         max(b)
         """)
-        assert interp.results[0].value.value == 256
+        assert interp.results[0].get_scalar_value().value == 256
 
     def test_slice(self):
         interp = self.run("""
@@ -265,6 +264,7 @@ class TestRunner(object):
         assert interp.results[0].value == 3
 
     def test_take(self):
+        py.test.skip("unsupported")
         interp = self.run("""
         a = |10|
         b = take(a, [1, 1, 3, 2])
@@ -281,3 +281,13 @@ class TestRunner(object):
         d -> 1
         ''')
         assert interp.results[0].value == 0
+
+    def test_complex(self):
+        interp = self.run('''
+        a = (0, 1)
+        b = [(0, 1), (1, 0)]
+        b -> 0
+        ''')
+        assert interp.results[0].real == 0
+        assert interp.results[0].imag == 1
+        

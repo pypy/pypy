@@ -3,8 +3,8 @@ from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.astcompiler import consts
-from pypy.rlib import jit
-from pypy.tool.uid import uid
+from rpython.rlib import jit
+from rpython.tool.uid import uid
 
 class Cell(Wrappable):
     "A simple container for a wrapped value."
@@ -217,18 +217,9 @@ class __extend__(pyframe.PyFrame):
     def MAKE_CLOSURE(self, numdefaults, next_instr):
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
-        if codeobj.magic >= 0xa0df281:    # CPython 2.5 AST branch merge
-            w_freevarstuple = self.popvalue()
-            freevars = [self.space.interp_w(Cell, cell)
-                        for cell in self.space.fixedview(w_freevarstuple)]
-        else:
-            n = len(codeobj.co_freevars)
-            freevars = [None] * n
-            while True:
-                n -= 1
-                if n < 0:
-                    break
-                freevars[n] = self.space.interp_w(Cell, self.popvalue())
+        w_freevarstuple = self.popvalue()
+        freevars = [self.space.interp_w(Cell, cell)
+                    for cell in self.space.fixedview(w_freevarstuple)]
         defaultarguments = self.popvalues(numdefaults)
         fn = function.Function(self.space, codeobj, self.w_globals,
                                defaultarguments, freevars)

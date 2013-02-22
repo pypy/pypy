@@ -1,10 +1,8 @@
 import py
-from pypy.conftest import gettestobjspace
 
 
 class AppTestItertools: 
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools'])
+    spaceconfig = dict(usemodules=['itertools'])
 
     def test_count(self):
         import itertools
@@ -35,6 +33,7 @@ class AppTestItertools:
 
         raises(TypeError, itertools.count, None)
         raises(TypeError, itertools.count, 'a')
+        raises(TypeError, itertools.count, [])
 
     def test_repeat(self):
         import itertools
@@ -90,10 +89,14 @@ class AppTestItertools:
 
     def test_repeat_len(self):
         import itertools
+        import operator
 
         r = itertools.repeat('a', 15)
         r.next()
         raises(TypeError, "len(itertools.repeat('xkcd'))")
+
+        r = itertools.repeat('a', -3)
+        assert operator._length_hint(r, 3) == 0
 
     def test_takewhile(self):
         import itertools
@@ -677,8 +680,9 @@ class AppTestItertools:
 
 
 class AppTestItertools26:
+    spaceconfig = dict(usemodules=['itertools'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools'])
         if cls.space.is_true(cls.space.appexec([], """():
             import sys; return sys.version_info < (2, 6)
             """)):
@@ -908,8 +912,11 @@ class AppTestItertools26:
 
 
 class AppTestItertools27:
+    spaceconfig = {
+        "usemodules": ['itertools', 'struct', 'binascii'],
+    }
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools', 'struct'])
         if cls.space.is_true(cls.space.appexec([], """():
             import sys; return sys.version_info < (2, 7)
             """)):

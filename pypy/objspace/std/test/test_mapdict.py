@@ -1,8 +1,17 @@
-from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
 from pypy.objspace.std.mapdict import *
 
+class Config:
+    class objspace:
+        class std:
+            withsmalldicts = False
+            withcelldict = False
+            withmethodcache = False
+            withidentitydict = False
+            withmapdict = True
+
 space = FakeSpace()
+space.config = Config
 
 class Class(object):
     def __init__(self, hasdict=True):
@@ -438,8 +447,7 @@ def test_specialized_class():
 # XXX write more
 
 class AppTestWithMapDict(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
+    spaceconfig = {"objspace.std.withmapdict": True}
 
     def test_simple(self):
         class A(object):
@@ -647,12 +655,12 @@ class AppTestWithMapDict(object):
         raises(AttributeError, "a.x")
 
 class AppTestWithMapDictAndCounters(object):
+    spaceconfig = {"objspace.std.withmapdict": True,
+                   "objspace.std.withmethodcachecounter": True,
+                   "objspace.opcodes.CALL_METHOD": True}
+
     def setup_class(cls):
         from pypy.interpreter import gateway
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmapdict": True,
-               "objspace.std.withmethodcachecounter": True,
-               "objspace.opcodes.CALL_METHOD": True})
         #
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('func_code'))
@@ -992,11 +1000,9 @@ class AppTestWithMapDictAndCounters(object):
         assert got == 'd'
 
 class AppTestGlobalCaching(AppTestWithMapDict):
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter": True,
-               "objspace.std.withmapdict": True,
-               "objspace.opcodes.CALL_METHOD": True})
+    spaceconfig = {"objspace.std.withmethodcachecounter": True,
+                   "objspace.std.withmapdict": True,
+                   "objspace.opcodes.CALL_METHOD": True}
 
     def test_mix_classes(self):
         import __pypy__
@@ -1053,10 +1059,8 @@ class AppTestGlobalCaching(AppTestWithMapDict):
             assert 0, "failed: got %r" % ([got[1] for got in seen],)
 
 class TestDictSubclassShortcutBug(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmapdict": True,
-               "objspace.std.withmethodcachecounter": True})
+    spaceconfig = {"objspace.std.withmapdict": True,
+                   "objspace.std.withmethodcachecounter": True}
 
     def test_bug(self):
         w_dict = self.space.appexec([], """():
@@ -1067,3 +1071,11 @@ class TestDictSubclassShortcutBug(object):
                 return A()
                 """)
         assert w_dict.user_overridden_class
+
+def test_newdict_instance():
+    w_dict = space.newdict(instance=True)
+    assert type(w_dict.strategy) is MapDictStrategy
+
+class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
+    StrategyClass = MapDictStrategy
+    # NB: the get_impl method is not overwritten here, as opposed to above

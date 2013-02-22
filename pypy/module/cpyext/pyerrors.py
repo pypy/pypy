@@ -1,6 +1,6 @@
 import os
 
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
@@ -9,7 +9,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, Py_DecRef, borrow_from)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
-from pypy.rlib.rposix import get_errno
+from rpython.rlib.rposix import get_errno
 
 @cpython_api([PyObject, PyObject], lltype.Void)
 def PyErr_SetObject(space, w_type, w_value):
@@ -283,6 +283,20 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 def PyErr_Print(space):
     """Alias for PyErr_PrintEx(1)."""
     PyErr_PrintEx(space, 1)
+
+@cpython_api([PyObject, PyObject, PyObject], lltype.Void)
+def PyErr_Display(space, w_type, w_value, tb):
+    if tb:
+        w_tb = from_ref(space, tb)
+    else:
+        w_tb = space.w_None
+    try:
+        space.call_function(space.sys.get("excepthook"),
+                            w_type, w_value, w_tb)
+    except OperationError:
+        # Like CPython: This is wrong, but too many callers rely on
+        # this behavior.
+        pass
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyTraceBack_Print(space, w_tb, w_file):

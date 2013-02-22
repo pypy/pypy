@@ -1,6 +1,14 @@
 import py
 import pytest
-from pypy.conftest import gettestobjspace
+
+def pytest_configure(config):
+    from pypy.tool.pytest.objspace import gettestobjspace
+    # For some reason (probably a ll2ctypes cache issue on linux64)
+    # it's necessary to run "import time" at least once before any
+    # other cpyext test, otherwise the same statement will fail in
+    # test_datetime.py.
+    space = gettestobjspace(usemodules=['rctime'])
+    space.getbuiltinmodule("time")
 
 def pytest_ignore_collect(path, config):
     if config.option.runappdirect:
@@ -10,7 +18,7 @@ def pytest_ignore_collect(path, config):
     return False
 
 def pytest_funcarg__space(request):
-    return gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
+    return request.cls.api
 
 def pytest_funcarg__api(request):
     return request.cls.api

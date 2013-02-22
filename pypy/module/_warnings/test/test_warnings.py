@@ -1,11 +1,5 @@
-import py
-import sys
-from pypy.conftest import gettestobjspace
-
 class AppTestWarnings:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_warnings',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_warnings',))
 
     def test_defaults(self):
         import _warnings

@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 import py
 
 class AppTestGC(object):
@@ -74,8 +73,8 @@ class AppTestGcDumpHeap(object):
 
     def setup_class(cls):
         import py
-        from pypy.tool.udir import udir
-        from pypy.rlib import rgc
+        from rpython.tool.udir import udir
+        from rpython.rlib import rgc
         class X(object):
             def __init__(self, count, size, links):
                 self.count = count
@@ -88,13 +87,12 @@ class AppTestGcDumpHeap(object):
         cls._heap_stats = rgc._heap_stats
         rgc._heap_stats = fake_heap_stats
         fname = udir.join('gcdump.log')
-        cls.space = gettestobjspace()
         cls.w_fname = cls.space.wrap(str(fname))
         cls._fname = fname
 
     def teardown_class(cls):
         import py
-        from pypy.rlib import rgc
+        from rpython.rlib import rgc
         
         rgc._heap_stats = cls._heap_stats
         assert py.path.local(cls._fname).read() == '1 12 0,0\n2 10 10,0\n'
@@ -105,8 +103,7 @@ class AppTestGcDumpHeap(object):
 
 
 class AppTestGcMethodCache(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True})
+    spaceconfig = {"objspace.std.withmethodcache": True}
 
     def test_clear_method_cache(self):
         import gc, weakref
@@ -127,10 +124,8 @@ class AppTestGcMethodCache(object):
             assert r() is None
 
 class AppTestGcMapDictIndexCache(AppTestGcMethodCache):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True,
-                                       "objspace.std.withmapdict": True})
-
+    spaceconfig = {"objspace.std.withmethodcache": True,
+                   "objspace.std.withmapdict": True}
 
     def test_clear_index_cache(self):
         import gc, weakref

@@ -3,7 +3,7 @@ import pytest
 
 from pypy.config.pypyoption import get_pypy_config
 from pypy.objspace.std import StdObjSpace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 mod_init = """
 from pypy.interpreter.mixedmodule import MixedModule

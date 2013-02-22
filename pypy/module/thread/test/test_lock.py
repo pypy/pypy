@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from pypy.module.thread.test.support import GenericTestThread
-from pypy.translator.c.test.test_genc import compile
+from rpython.translator.c.test.test_genc import compile
 
 
 class AppTestLock(GenericTestThread):
@@ -12,7 +12,10 @@ class AppTestLock(GenericTestThread):
         assert lock.locked() is False
         raises(thread.error, lock.release)
         assert lock.locked() is False
-        lock.acquire()
+        r = lock.acquire()
+        assert r is True
+        r = lock.acquire(False)
+        assert r is False
         assert lock.locked() is True
         lock.release()
         assert lock.locked() is False
@@ -47,8 +50,8 @@ class AppTestLock(GenericTestThread):
         assert lock.locked() is False
 
 def test_compile_lock():
-    from pypy.rlib import rgc
-    from pypy.module.thread.ll_thread import allocate_lock
+    from rpython.rlib import rgc
+    from rpython.rlib.rthread import allocate_lock
     def g():
         l = allocate_lock()
         ok1 = l.acquire(True)

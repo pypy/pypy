@@ -4,16 +4,17 @@ import atexit
 
 import py
 
-from pypy.translator.goal import autopath
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.lltypesystem import ll2ctypes
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.gensupp import NameManager
-from pypy.tool.udir import udir
-from pypy.translator import platform
+from pypy.conftest import pypydir
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.lltypesystem import ll2ctypes
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.conftest import cdir
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.gensupp import NameManager
+from rpython.tool.udir import udir
+from rpython.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -25,17 +26,17 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
-from pypy.rlib.entrypoint import entrypoint
-from pypy.rlib.rposix import is_valid_fd, validate_fd
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.exports import export_struct
+from rpython.rlib.entrypoint import entrypoint
+from rpython.rlib.rposix import is_valid_fd, validate_fd
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.exports import export_struct
 from pypy.module import exceptions
 from pypy.module.exceptions import interp_exceptions
 # CPython 2.4 compatibility
 from py.builtin import BaseException
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem.lloperation import llop
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 DEBUG_WRAPPER = True
 
@@ -45,10 +46,10 @@ Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
 
-pypydir = py.path.local(autopath.pypydir)
+pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
-translator_c_dir = pypydir / 'translator' / 'c'
+translator_c_dir = py.path.local(cdir)
 include_dirs = [
     include_dir,
     translator_c_dir,
@@ -144,8 +145,12 @@ def copy_header_files(dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-_NOT_SPECIFIED = object()
-CANNOT_FAIL = object()
+class NotSpecified(object):
+    pass
+_NOT_SPECIFIED = NotSpecified()
+class CannotFail(object):
+    pass
+CANNOT_FAIL = CannotFail()
 
 # The same function can be called in three different contexts:
 # (1) from C code
@@ -316,7 +321,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                         Py_DecRef(space, arg)
             unwrapper.func = func
             unwrapper.api_func = api_function
-            unwrapper._always_inline_ = True
+            unwrapper._always_inline_ = 'try'
             return unwrapper
 
         unwrapper_catch = make_unwrapper(True)
@@ -621,7 +626,7 @@ def make_wrapper(space, callable):
                 pypy_debug_catch_fatal_exception()
         rffi.stackcounter.stacks_counter -= 1
         return retval
-    callable._always_inline_ = True
+    callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
     return wrapper
 
@@ -635,18 +640,25 @@ def setup_va_functions(eci):
                                TP, compilation_info=eci)
         globals()['va_get_%s' % name_no_star] = func
 
-def setup_init_functions(eci):
-    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void, compilation_info=eci)
-    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void, compilation_info=eci)
-    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void, compilation_info=eci)
+def setup_init_functions(eci, translating):
+    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void,
+                                  compilation_info=eci, _nowrapper=True)
+    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
+                                     compilation_info=eci, _nowrapper=True)
+    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void,
+                                   compilation_info=eci, _nowrapper=True)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
         lambda space: init_pycobject(),
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                 compilation_info=eci)    
+    if translating:
+        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
+                                     compilation_info=eci)
+    else:
+        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
+                                     compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
@@ -685,7 +697,7 @@ def build_bridge(space):
     from pypy.module.cpyext.pyobject import make_ref
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
-    from pypy.translator.c.database import LowLevelDatabase
+    from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
     generate_macros(export_symbols, rename=True, do_deref=True)
@@ -720,7 +732,7 @@ def build_bridge(space):
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
-                "#include <src/thread.h>\n")
+                "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -798,7 +810,7 @@ def build_bridge(space):
 
     setup_va_functions(eci)
 
-    setup_init_functions(eci)
+    setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
 def generate_macros(export_symbols, rename=True, do_deref=True):
@@ -910,8 +922,8 @@ def build_eci(building_bridge, export_symbols, code):
             kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
+            compile_extra.append('-g')
         export_symbols_eci.append('pypyAPI')
-        compile_extra.append('-g')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 
@@ -962,7 +974,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
-                               source_dir / "thread.c",
+                               source_dir / "pythread.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
@@ -978,7 +990,7 @@ def setup_library(space):
     from pypy.module.cpyext.pyobject import make_ref
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
-    from pypy.translator.c.database import LowLevelDatabase
+    from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
 
     generate_macros(export_symbols, rename=False, do_deref=False)
@@ -1014,7 +1026,7 @@ def setup_library(space):
         deco = entrypoint("cpyext", func.argtypes, name, relax=True)
         deco(func.get_wrapper(space))
 
-    setup_init_functions(eci)
+    setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
 
@@ -1029,7 +1041,7 @@ def load_extension_module(space, path, name):
     old_context = state.package_context
     state.package_context = name, path
     try:
-        from pypy.rlib import rdynload
+        from rpython.rlib import rdynload
         try:
             ll_libname = rffi.str2charp(path)
             try:

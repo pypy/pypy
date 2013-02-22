@@ -2,13 +2,13 @@ from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
 import sys
 
 def buffer2string(buffer, start, end):
-    from pypy.rlib.rstring import StringBuilder
+    from rpython.rlib.rstring import StringBuilder
     builder = StringBuilder(end - start)
     for i in range(start, end):
         builder.append(buffer[i])
@@ -27,7 +27,7 @@ class W_BytesIO(W_BufferedIOBase):
         self.string_size = 0
         self.pos = 0
 
-        if not space.is_w(w_initial_bytes, space.w_None):
+        if not space.is_none(w_initial_bytes):
             self.write_w(space, w_initial_bytes)
             self.pos = 0
 
@@ -50,6 +50,25 @@ class W_BytesIO(W_BufferedIOBase):
 
         output = buffer2string(self.buf, self.pos, self.pos + size)
         self.pos += size
+        return space.wrap(output)
+
+    def readline_w(self, space, w_limit=None):
+        self._check_closed(space)
+        limit = convert_size(space, w_limit)
+
+        cur_pos = self.pos
+        if limit < 0:
+            end_pos = self.string_size
+        else:
+            end_pos = min(cur_pos + limit, self.string_size)
+        while cur_pos != end_pos:
+            if self.buf[cur_pos] == '\n':
+                cur_pos += 1
+                break
+            cur_pos += 1
+
+        output = buffer2string(self.buf, self.pos, cur_pos)
+        self.pos = cur_pos
         return space.wrap(output)
 
     def read1_w(self, space, w_size):
@@ -108,7 +127,7 @@ class W_BytesIO(W_BufferedIOBase):
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
 
-        if space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             size = self.pos
         else:
             size = space.r_longlong_w(w_size)
@@ -209,6 +228,7 @@ W_BytesIO.typedef = TypeDef(
 
     read = interp2app(W_BytesIO.read_w),
     read1 = interp2app(W_BytesIO.read1_w),
+    readline = interp2app(W_BytesIO.readline_w),
     readinto = interp2app(W_BytesIO.readinto_w),
     write = interp2app(W_BytesIO.write_w),
     truncate = interp2app(W_BytesIO.truncate_w),

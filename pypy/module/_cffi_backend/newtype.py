@@ -1,8 +1,9 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.objectmodel import specialize
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
+from rpython.rlib.rarithmetic import most_neg_value_of, most_pos_value_of
+from rpython.rlib.objectmodel import specialize
 
 from pypy.module._cffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypevoid, ctypeenum
@@ -23,6 +24,14 @@ PRIMITIVE_TYPES = {}
 def eptype(name, TYPE, ctypecls):
     PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
 
+def eptypesize(name, size, ctypecls):
+    for TYPE in [lltype.Signed, lltype.SignedLongLong, rffi.SIGNEDCHAR,
+                 rffi.SHORT, rffi.INT, rffi.LONG, rffi.LONGLONG]:
+        if rffi.sizeof(TYPE) == size:
+            eptype(name, TYPE, ctypecls)
+            return
+    raise NotImplementedError("no integer type of size %d??" % size)
+
 eptype("char",        lltype.Char,     ctypeprim.W_CTypePrimitiveChar)
 eptype("wchar_t",     lltype.UniChar,  ctypeprim.W_CTypePrimitiveUniChar)
 eptype("signed char", rffi.SIGNEDCHAR, ctypeprim.W_CTypePrimitiveSigned)
@@ -39,6 +48,21 @@ eptype("float",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveFloat)
 eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
 eptype("long double", rffi.LONGDOUBLE, ctypeprim.W_CTypePrimitiveLongDouble)
 eptype("_Bool",  lltype.Bool,          ctypeprim.W_CTypePrimitiveBool)
+
+eptypesize("int8_t",   1, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint8_t",  1, ctypeprim.W_CTypePrimitiveUnsigned)
+eptypesize("int16_t",  2, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint16_t", 2, ctypeprim.W_CTypePrimitiveUnsigned)
+eptypesize("int32_t",  4, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint32_t", 4, ctypeprim.W_CTypePrimitiveUnsigned)
+eptypesize("int64_t",  8, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint64_t", 8, ctypeprim.W_CTypePrimitiveUnsigned)
+
+eptype("intptr_t",  rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned)
+eptype("uintptr_t", rffi.UINTPTR_T, ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("ptrdiff_t", rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned) # <-xxx
+eptype("size_t",    rffi.SIZE_T,    ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("ssize_t",   rffi.SSIZE_T,   ctypeprim.W_CTypePrimitiveSigned)
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
@@ -240,16 +264,38 @@ def new_void_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str)
-def new_enum_type(space, name, w_enumerators, w_enumvalues):
+@unwrap_spec(name=str, basectype=ctypeobj.W_CType)
+def new_enum_type(space, name, w_enumerators, w_enumvalues, basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
         raise OperationError(space.w_ValueError,
                              space.wrap("tuple args must have the same size"))
     enumerators = [space.str_w(w) for w in enumerators_w]
-    enumvalues  = [space.int_w(w) for w in enumvalues_w]
-    ctype = ctypeenum.W_CTypeEnum(space, name, enumerators, enumvalues)
+    #
+    if (not isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned) and
+        not isinstance(basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
+        raise OperationError(space.w_TypeError,
+              space.wrap("expected a primitive signed or unsigned base type"))
+    #
+    lvalue = lltype.malloc(rffi.CCHARP.TO, basectype.size, flavor='raw')
+    try:
+        for w in enumvalues_w:
+            # detects out-of-range or badly typed values
+            basectype.convert_from_object(lvalue, w)
+    finally:
+        lltype.free(lvalue, flavor='raw')
+    #
+    size = basectype.size
+    align = basectype.align
+    if isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned):
+        enumvalues = [space.int_w(w) for w in enumvalues_w]
+        ctype = ctypeenum.W_CTypeEnumSigned(space, name, size, align,
+                                            enumerators, enumvalues)
+    else:
+        enumvalues = [space.uint_w(w) for w in enumvalues_w]
+        ctype = ctypeenum.W_CTypeEnumUnsigned(space, name, size, align,
+                                              enumerators, enumvalues)
     return ctype
 
 # ____________________________________________________________
@@ -269,8 +315,13 @@ def new_function_type(space, w_fargs, fresult, ellipsis=0):
     #
     if ((fresult.size < 0 and not isinstance(fresult, ctypevoid.W_CTypeVoid))
             or isinstance(fresult, ctypearray.W_CTypeArray)):
-        raise operationerrfmt(space.w_TypeError,
-                              "invalid result type: '%s'", fresult.name)
+        if (isinstance(fresult, ctypestruct.W_CTypeStructOrUnion) and
+                fresult.size < 0):
+            raise operationerrfmt(space.w_TypeError,
+                                  "result type '%s' is opaque", fresult.name)
+        else:
+            raise operationerrfmt(space.w_TypeError,
+                                  "invalid result type: '%s'", fresult.name)
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis)
     return fct

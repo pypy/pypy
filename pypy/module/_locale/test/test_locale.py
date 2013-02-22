@@ -1,12 +1,11 @@
 import py
-from pypy.conftest import gettestobjspace
 
 import sys
 
 class AppTestLocaleTrivia:
+    spaceconfig = dict(usemodules=['_locale', 'unicodedata'])
+
     def setup_class(cls):
-        cls.space = space = gettestobjspace(usemodules=['_locale',
-                                                        'unicodedata'])
         if sys.platform != 'win32':
             cls.w_language_en = cls.space.wrap("C")
             cls.w_language_utf8 = cls.space.wrap("en_US.utf8")
@@ -26,21 +25,21 @@ class AppTestLocaleTrivia:
                 # some systems are only UTF-8 oriented
                 try:
                     _locale.setlocale(_locale.LC_ALL,
-                                      space.str_w(cls.w_language_en))
+                                      cls.space.str_w(cls.w_language_en))
                 except _locale.Error:
                     _locale.setlocale(_locale.LC_ALL,
-                                      space.str_w(cls.w_language_utf8))
+                                      cls.space.str_w(cls.w_language_utf8))
                     cls.w_language_en = cls.w_language_utf8
 
                 _locale.setlocale(_locale.LC_ALL,
-                                  space.str_w(cls.w_language_pl))
+                                  cls.space.str_w(cls.w_language_pl))
             except _locale.Error:
                 py.test.skip("necessary locales not installed")
 
             # Windows forbids the UTF-8 character set since Windows XP.
             try:
                 _locale.setlocale(_locale.LC_ALL,
-                                  space.str_w(cls.w_language_utf8))
+                                  cls.space.str_w(cls.w_language_utf8))
             except _locale.Error:
                 del cls.w_language_utf8
         finally:

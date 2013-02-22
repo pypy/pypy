@@ -1,5 +1,3 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestUserObject:
     def test_dictproxy(self):
         class NotEmpty(object):
@@ -62,7 +60,5 @@ class AppTestUserObject:
         raises(TypeError, int.__dict__.clear)
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter": True})
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 

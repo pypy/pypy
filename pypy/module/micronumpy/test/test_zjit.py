@@ -4,18 +4,12 @@ good assembler
 """
 
 import py
-py.test.skip("this is going away")
-
-from pypy.jit.metainterp import pyjitpl
-from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.jit.metainterp.warmspot import reset_stats
+from rpython.jit.metainterp import pyjitpl
+from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.jit.metainterp.warmspot import reset_stats
 from pypy.module.micronumpy import interp_boxes
-from pypy.module.micronumpy.compile import (FakeSpace,
-    IntObject, Parser, InterpreterState)
-from pypy.module.micronumpy.interp_numarray import (W_NDimArray,
-     BaseArray, W_FlatIterator)
-from pypy.rlib.nonconst import NonConstant
-
+from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
+from pypy.module.micronumpy.base import W_NDimArray
 
 class TestNumpyJIt(LLJitMixin):
     graph = None
@@ -24,6 +18,7 @@ class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
         default = """
         a = [1,2,3,4]
+        z = (1, 2)
         c = a + b
         sum(c) -> 1::1
         a -> 3:1:2
@@ -51,11 +46,8 @@ class TestNumpyJIt(LLJitMixin):
             if not len(interp.results):
                 raise Exception("need results")
             w_res = interp.results[-1]
-            if isinstance(w_res, BaseArray):
-                concr = w_res.get_concrete_or_scalar()
-                sig = concr.find_sig()
-                frame = sig.create_frame(concr)
-                w_res = sig.eval(frame, concr)
+            if isinstance(w_res, W_NDimArray):
+                w_res = w_res.create_iter().getitem()
             if isinstance(w_res, interp_boxes.W_Float64Box):
                 return w_res.value
             if isinstance(w_res, interp_boxes.W_Int64Box):
@@ -73,7 +65,9 @@ class TestNumpyJIt(LLJitMixin):
             self.__class__.graph = graph
         reset_stats()
         pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
-        return self.interp.eval_graph(self.graph, [i])
+        retval = self.interp.eval_graph(self.graph, [i])
+        py.test.skip("don't run for now")
+        return retval
 
     def define_add():
         return """
@@ -297,6 +291,7 @@ class TestNumpyJIt(LLJitMixin):
         """
 
     def test_take(self):
+        skip('"take" not implmenented yet')
         result = self.run("take")
         assert result == 3
         self.check_simple_loop({'raw_load': 2,
@@ -481,21 +476,13 @@ class TestNumpyJIt(LLJitMixin):
                                 'jump': 1,
                                 'raw_store': 1})
     
-    def define_count_nonzero():
+    def define_argsort():
         return """
-        a = [[0, 2, 3, 4], [5, 6, 0, 8], [9, 10, 11, 0]]
-        count_nonzero(a) 
+        a = |30|
+        argsort(a)
+        a->6
         """
 
-    def test_count_nonzero(self):
-        result = self.run("count_nonzero")
-        assert result == 9
-        self.check_simple_loop({'setfield_gc': 3, 
-                                'raw_load': 1, 
-                                'guard_false': 1, 
-                                'jump': 1, 
-                                'int_ge': 1, 
-                                'new_with_vtable': 1, 
-                                'int_add': 2, 
-                                'float_ne': 1})
-
+    def test_argsort(self):
+        result = self.run("argsort")
+        assert result == 6

@@ -1,9 +1,11 @@
-
-import py
+import os
 import sys
-from pypy.conftest import gettestobjspace
-from pypy.tool.autopath import pypydir
-from pypy.tool.udir import udir
+import py
+from pypy.conftest import pypydir
+from rpython.tool.udir import udir
+
+if os.name != 'posix':
+    py.test.skip('termios module only available on unix')
 
 class TestTermios(object):
     def setup_class(cls):
@@ -15,7 +17,7 @@ class TestTermios(object):
             import termios
         except ImportError:
             py.test.skip("termios not found")
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         assert py_py.check()
         cls.py_py = py_py
         cls.termios = termios
@@ -106,8 +108,9 @@ class TestTermios(object):
         child.expect('ok!')
 
 class AppTestTermios(object):
+    spaceconfig = dict(usemodules=['termios'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['termios'])
         d = {}
         import termios
         for name in dir(termios):

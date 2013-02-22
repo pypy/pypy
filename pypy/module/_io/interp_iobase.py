@@ -4,14 +4,14 @@ from pypy.interpreter.typedef import (
     make_weakref_descr)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib import rweakref
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import rweakref
 
 
 DEFAULT_BUFFER_SIZE = 8192
 
 def convert_size(space, w_size):
-    if space.is_w(w_size, space.w_None):
+    if space.is_none(w_size):
         return -1
     else:
         return space.int_w(w_size)

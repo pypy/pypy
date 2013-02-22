@@ -1,13 +1,11 @@
 import py
-from pypy.conftest import gettestobjspace
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
 from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
 PyObject = api.PyObject
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.state import State
 import os
 
 @api.cpython_api([PyObject], lltype.Void)
@@ -19,9 +17,7 @@ def PyPy_GetReference(space, arg):
 
 class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
-        cls.space = space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi',
-                                                        'array'])
-
+        space = cls.space
         # warm up reference counts:
         # - the posix module allocates a HCRYPTPROV on Windows
         # - writing to stdout and stderr allocates a file lock
@@ -87,7 +83,7 @@ class TestConversion(BaseApiTest):
         api.PyPy_GetReference(space.w_None)
 
     def test_typedef(self, space):
-        from pypy.translator.c.database import LowLevelDatabase
+        from rpython.translator.c.database import LowLevelDatabase
         db = LowLevelDatabase()
         assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest1'])
                 == ('Py_ssize_t', 'Py_ssize_t arg0'))

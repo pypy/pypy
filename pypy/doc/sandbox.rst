@@ -25,6 +25,13 @@ that's a lower number of lines of code to trust.  For the paranoid, in
 this case we also generate systematic run-time checks against buffer
 overflows.
 
+.. warning::
+  
+  The hard work from the PyPy side is done --- you get a fully secure
+  version.  What is only experimental and unpolished is the library to
+  use this sandboxed PyPy from a regular Python interpreter (CPython, or
+  an unsandboxed PyPy).  Contributions welcome.
+
 
 Overview
 --------
@@ -80,15 +87,15 @@ Howto
 -----
 
 
-In pypy/translator/goal::
+In pypy/goal::
 
-   ./translate.py -O2 --sandbox targetpypystandalone.py
+   ../../rpython/bin/rpython -O2 --sandbox targetpypystandalone.py
 
 If you don't have a regular PyPy installed, you should, because it's
 faster to translate, but you can also run ``python translate.py`` instead.
 
 
-To run it, use the tools in the pypy/translator/sandbox directory::
+To run it, use the tools in the pypy/sandbox directory::
 
    ./pypy_interact.py /some/path/pypy-c-sandbox [args...]
 

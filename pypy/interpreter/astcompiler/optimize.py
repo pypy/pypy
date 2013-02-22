@@ -4,8 +4,8 @@ import sys
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.runicode import MAXUNICODE
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.runicode import MAXUNICODE
 
 
 def optimize_ast(space, tree, compile_info):
@@ -141,7 +141,7 @@ unary_folders = {
 unrolling_unary_folders = unrolling_iterable(unary_folders.items())
 
 for folder in binary_folders.values() + unary_folders.values():
-    folder._always_inline_ = True
+    folder._always_inline_ = 'try'
 del folder
 
 opposite_compare_operations = misc.dict_to_switch({

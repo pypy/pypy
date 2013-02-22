@@ -95,7 +95,6 @@ class TestException(BaseTestPyPyC):
     def test_continue_in_finally(self):
         # check that 'continue' inside a try:finally: block is correctly
         # detected as closing a loop
-        py.test.skip("is this case important?")
         def f(n):
             i = 0
             while 1:
@@ -110,10 +109,9 @@ class TestException(BaseTestPyPyC):
         assert log.result == 2001
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i40 = int_add_ovf(i31, 1)
-            guard_no_overflow(descr=...)
-            i41 = int_lt(i40, i33)
-            guard_true(i41, descr=...)
+            i3 = int_lt(i1, i2)
+            guard_true(i3, descr=...)
+            i4 = int_add(i1, 1)
             --TICK--
             jump(..., descr=...)
         """)

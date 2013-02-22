@@ -1,9 +1,9 @@
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib import clibffi
-from pypy.rlib import libffi
-from pypy.rlib import jit
-from pypy.rlib.rgc import must_be_light_finalizer
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_singlefloat, intmask
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import clibffi
+from rpython.rlib import libffi
+from rpython.rlib import jit
+from rpython.rlib.rgc import must_be_light_finalizer
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_singlefloat, intmask
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -115,7 +115,7 @@ class W__StructDescr(Wrappable):
 @unwrap_spec(name=str)
 def descr_new_structdescr(space, w_type, name, w_fields=None):
     descr = W__StructDescr(name)
-    if w_fields is not space.w_None:
+    if not space.is_none(w_fields):
         descr.define_fields(space, w_fields)
     return descr
 

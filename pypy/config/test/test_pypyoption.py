@@ -1,7 +1,7 @@
 import py
 from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
-from pypy.config.config import Config, ConfigError
-from pypy.config.translationoption import set_opt_level
+from rpython.config.config import Config, ConfigError
+from rpython.config.translationoption import set_opt_level
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -24,7 +24,7 @@ def test_conflicting_gcrootfinder():
 
 
 def test_frameworkgc():
-    for name in ["marksweep", "semispace"]:
+    for name in ["minimark", "semispace"]:
         conf = get_pypy_config()
         assert conf.translation.gctransformer != "framework"
         conf.translation.gc = name
@@ -47,10 +47,10 @@ def test_set_opt_level():
 def test_set_pypy_opt_level():
     conf = get_pypy_config()
     set_pypy_opt_level(conf, '2')
-    assert conf.objspace.std.newshortcut
+    assert conf.objspace.std.getattributeshortcut
     conf = get_pypy_config()
     set_pypy_opt_level(conf, '0')
-    assert not conf.objspace.std.newshortcut
+    assert not conf.objspace.std.getattributeshortcut
 
 def test_rweakref_required():
     conf = get_pypy_config()

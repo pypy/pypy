@@ -1,10 +1,8 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.pyexpat.interp_pyexpat import global_storage
 from pytest import skip
 
 class AppTestPyexpat:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['pyexpat'])
+    spaceconfig = dict(usemodules=['pyexpat'])
 
     def teardown_class(cls):
         global_storage.clear()
@@ -148,3 +146,24 @@ class AppTestPyexpat:
     def test_model(self):
         import pyexpat
         assert isinstance(pyexpat.model.XML_CTYPE_EMPTY, int)
+
+    def test_read_chunks(self):
+        import pyexpat
+        import StringIO
+        from contextlib import closing
+
+        xml = '<xml>' + (' ' * 4096) + '</xml>'
+        with closing(StringIO.StringIO(xml)) as sio:
+            class FakeReader():
+                def __init__(self):
+                    self.read_count = 0
+
+                def read(self, size):
+                    self.read_count += 1
+                    assert size > 0
+                    return sio.read(size)
+
+            fake_reader = FakeReader()
+            p = pyexpat.ParserCreate()
+            p.ParseFile(fake_reader)
+            assert fake_reader.read_count == 4

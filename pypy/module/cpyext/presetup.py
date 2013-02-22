@@ -11,7 +11,7 @@ import sys, os
 dn = os.path.dirname
 rootdir = dn(dn(dn(dn(__file__))))
 sys.path.insert(0, rootdir)
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 pypydir = os.path.join(rootdir, 'pypy')
 f = open(os.path.join(str(udir), 'pyconfig.h'), "w")
 f.write("\n")
@@ -19,7 +19,7 @@ f.close()
 sys.path.insert(0, os.getcwd())
 from distutils import sysconfig
 
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.module.cpyext.api import build_bridge
 from pypy.module.imp.importing import get_so_extension
 

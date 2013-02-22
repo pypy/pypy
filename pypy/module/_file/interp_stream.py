@@ -1,6 +1,6 @@
 import py
-from pypy.rlib import streamio
-from pypy.rlib.streamio import StreamErrors
+from rpython.rlib import streamio
+from rpython.rlib.streamio import StreamErrors
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
@@ -58,12 +58,11 @@ class W_AbstractStream(Wrappable):
                                  self.space.wrap("stream lock is not held"))
         self._release_lock()
 
-    def _freeze_(self):
+    def _cleanup_(self):
         # remove the lock object, which will be created again as needed at
         # run-time.
         self.slock = None
         assert self.slockowner is None
-        return False
 
     def stream_read(self, n):
         """

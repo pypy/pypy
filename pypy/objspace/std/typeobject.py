@@ -1,23 +1,22 @@
+from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.function import Function, StaticMethod
+from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.typedef import weakref_descr
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
-from pypy.objspace.std.objecttype import object_typedef
-from pypy.objspace.std import identitydict
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import promote, elidable_promote, we_are_jitted,\
-     promote_string
-from pypy.rlib.jit import elidable, dont_look_inside, unroll_safe
-from pypy.rlib.rarithmetic import intmask, r_uint
+
+from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
+     promote_string, elidable, dont_look_inside, unroll_safe)
+from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
+from rpython.rlib.rarithmetic import intmask, r_uint
+
 
 class TypeCell(W_Root):
     def __init__(self, w_value=None):
         self.w_value = w_value
+
 
 def unwrap_cell(space, w_value):
     if (space.config.objspace.std.withtypeversion and
@@ -113,10 +112,8 @@ class W_TypeObject(W_Object):
     # for config.objspace.std.withidentitydict
     compares_by_identity_status = UNKNOWN
 
-    # used to cache the type __new__ function if it comes from a builtin type
-    # != 'type', in that case call__Type will also assumes the result
-    # of the __new__ is an instance of the type
-    w_bltin_new = None
+    # used to cache the type's __new__ function
+    w_new_function = None
 
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
@@ -164,7 +161,7 @@ class W_TypeObject(W_Object):
         generic mutation.
         """
         space = w_self.space
-        assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
+        assert w_self.is_heaptype()
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
             not space.config.objspace.std.withidentitydict and
@@ -181,7 +178,7 @@ class W_TypeObject(W_Object):
                 w_self.compares_by_identity_status = UNKNOWN
 
         if space.config.objspace.std.newshortcut:
-            w_self.w_bltin_new = None
+            w_self.w_new_function = None
 
         if (space.config.objspace.std.withtypeversion
             and w_self._version_tag is not None):
@@ -193,8 +190,7 @@ class W_TypeObject(W_Object):
             w_subclass.mutated(key)
 
     def version_tag(w_self):
-        if (not we_are_jitted() or w_self.is_heaptype() or
-            w_self.space.config.objspace.std.mutable_builtintypes):
+        if not we_are_jitted() or w_self.is_heaptype():
             return w_self._version_tag
         # prebuilt objects cannot get their version_tag changed
         return w_self._pure_version_tag()
@@ -281,7 +277,7 @@ class W_TypeObject(W_Object):
             if attr in w_self.lazyloaders:
                 # very clever next line: it forces the attr string
                 # to be interned.
-                w_attr = space.new_interned_str(attr)
+                space.new_interned_str(attr)
                 loader = w_self.lazyloaders[attr]
                 del w_self.lazyloaders[attr]
                 w_value = loader()
@@ -295,13 +291,13 @@ class W_TypeObject(W_Object):
         return w_self._getdictvalue_no_unwrapping(space, attr)
 
     def setdictvalue(w_self, space, name, w_value):
-        if (not space.config.objspace.std.mutable_builtintypes
-                and not w_self.is_heaptype()):
+        if not w_self.is_heaptype():
             msg = "can't set attributes on type object '%s'"
             raise operationerrfmt(space.w_TypeError, msg, w_self.name)
         if name == "__del__" and name not in w_self.dict_w:
-            msg = "a __del__ method added to an existing type will not be called"
-            space.warn(msg, space.w_RuntimeWarning)
+            msg = ("a __del__ method added to an existing type will not be "
+                   "called")
+            space.warn(space.wrap(msg), space.w_RuntimeWarning)
         if space.config.objspace.std.withtypeversion:
             version_tag = w_self.version_tag()
             if version_tag is not None:
@@ -318,9 +314,8 @@ class W_TypeObject(W_Object):
 
     def deldictvalue(w_self, space, key):
         if w_self.lazyloaders:
-            w_self._freeze_()    # force un-lazification
-        if (not space.config.objspace.std.mutable_builtintypes
-                and not w_self.is_heaptype()):
+            w_self._cleanup_()    # force un-lazification
+        if not w_self.is_heaptype():
             msg = "can't delete attributes on type object '%s'"
             raise operationerrfmt(space.w_TypeError, msg, w_self.name)
         try:
@@ -457,26 +452,23 @@ class W_TypeObject(W_Object):
                 w_self.name, w_subtype.name, w_subtype.name)
         return w_subtype
 
-    def _freeze_(w_self):
+    def _cleanup_(w_self):
         "NOT_RPYTHON.  Forces the lazy attributes to be computed."
         if 'lazyloaders' in w_self.__dict__:
             for attr in w_self.lazyloaders.keys():
                 w_self.getdictvalue(w_self.space, attr)
             del w_self.lazyloaders
-        return False
 
     def getdict(w_self, space): # returning a dict-proxy!
         from pypy.objspace.std.dictproxyobject import DictProxyStrategy
         from pypy.objspace.std.dictmultiobject import W_DictMultiObject
         if w_self.lazyloaders:
-            w_self._freeze_()    # force un-lazification
+            w_self._cleanup_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
         return W_DictMultiObject(space, strategy, storage)
 
     def unwrap(w_self, space):
-        if w_self.instancetypedef.fakedcpytype is not None:
-            return w_self.instancetypedef.fakedcpytype
         from pypy.objspace.std.model import UnwrapError
         raise UnwrapError(w_self)
 
@@ -505,7 +497,7 @@ class W_TypeObject(W_Object):
 
     def get_module(w_self):
         space = w_self.space
-        if w_self.is_heaptype() and '__module__' in w_self.dict_w:
+        if w_self.is_heaptype() and w_self.getdictvalue(space, '__module__') is not None:
             return w_self.getdictvalue(space, '__module__')
         else:
             # for non-heap types, CPython checks for a module.name in the
@@ -524,7 +516,7 @@ class W_TypeObject(W_Object):
             mod = '__builtin__'
         else:
             mod = space.str_w(w_mod)
-        if mod !='__builtin__':
+        if mod != '__builtin__':
             return '%s.%s' % (mod, w_self.name)
         else:
             return w_self.name
@@ -568,13 +560,15 @@ class W_TypeObject(W_Object):
                 subclasses_w.append(w_ob)
         return subclasses_w
 
-
     # for now, weakref support for W_TypeObject is hard to get automatically
     _lifeline_ = None
+
     def getweakref(self):
         return self._lifeline_
+
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+
     def delweakref(self):
         self._lifeline_ = None
 
@@ -701,9 +695,12 @@ def create_all_slots(w_self, hasoldstylebase):
             else:
                 create_slot(w_self, slot_name)
     wantdict = wantdict or hasoldstylebase
-    if wantdict: create_dict_slot(w_self)
-    if wantweakref: create_weakref_slot(w_self)
-    if '__del__' in dict_w: w_self.needsdel = True
+    if wantdict:
+        create_dict_slot(w_self)
+    if wantweakref:
+        create_weakref_slot(w_self)
+    if '__del__' in dict_w:
+        w_self.needsdel = True
 
 def create_slot(w_self, slot_name):
     space = w_self.space
@@ -825,28 +822,23 @@ def call__Type(space, w_type, __args__):
     promote(w_type)
     # invoke the __new__ of the type
     if not we_are_jitted():
-        # note that the annotator will figure out that w_type.w_bltin_new can
-        # only be None if the newshortcut config option is not set
-        w_bltin_new = w_type.w_bltin_new
+        # note that the annotator will figure out that w_type.w_new_function
+        # can only be None if the newshortcut config option is not set
+        w_newfunc = w_type.w_new_function
     else:
         # for the JIT it is better to take the slow path because normal lookup
-        # is nicely optimized, but the w_type.w_bltin_new attribute is not
+        # is nicely optimized, but the w_type.w_new_function attribute is not
         # known to the JIT
-        w_bltin_new = None
-    call_init = True
-    if w_bltin_new is not None:
-        w_newobject = space.call_obj_args(w_bltin_new, w_type, __args__)
-    else:
+        w_newfunc = None
+    if w_newfunc is None:
         w_newtype, w_newdescr = w_type.lookup_where('__new__')
         w_newfunc = space.get(w_newdescr, w_type)
         if (space.config.objspace.std.newshortcut and
             not we_are_jitted() and
-            isinstance(w_newtype, W_TypeObject) and
-            not w_newtype.is_heaptype() and
-            not space.is_w(w_newtype, space.w_type)):
-            w_type.w_bltin_new = w_newfunc
-        w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
-        call_init = space.isinstance_w(w_newobject, w_type)
+            isinstance(w_newtype, W_TypeObject)):
+            w_type.w_new_function = w_newfunc
+    w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
+    call_init = space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
     if (call_init and not (space.is_w(w_type, space.w_type) and
@@ -877,12 +869,11 @@ def repr__Type(space, w_obj):
         mod = None
     else:
         mod = space.str_w(w_mod)
-    if (not w_obj.is_heaptype() or
-        (mod == '__builtin__' or mod == 'exceptions')):
+    if not w_obj.is_heaptype():
         kind = 'type'
     else:
         kind = 'class'
-    if mod is not None and mod !='__builtin__':
+    if mod is not None and mod != '__builtin__':
         return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
     else:
         return space.wrap("<%s '%s'>" % (kind, w_obj.name))
@@ -901,7 +892,7 @@ def getattr__Type_ANY(space, w_type, w_name):
         # __get__(None, type): turns e.g. functions into unbound methods
         return space.get(w_value, space.w_None, w_type)
     if w_descr is not None:
-        return space.get(w_descr,w_type)
+        return space.get(w_descr, w_type)
     raise operationerrfmt(space.w_AttributeError,
                           "type object '%s' has no attribute '%s'",
                           w_type.name, name)
@@ -947,7 +938,7 @@ def compute_C3_mro(space, cls):
             return mro_error(space, orderlists)  # no candidate found
         assert candidate not in order
         order.append(candidate)
-        for i in range(len(orderlists)-1, -1, -1):
+        for i in range(len(orderlists) - 1, -1, -1):
             if orderlists[i][0] is candidate:
                 del orderlists[i][0]
                 if len(orderlists[i]) == 0:

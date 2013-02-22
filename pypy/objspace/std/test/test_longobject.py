@@ -1,17 +1,9 @@
 import py
-import sys
 from pypy.objspace.std import longobject as lobj
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.rbigint import rbigint
-from pypy.conftest import gettestobjspace
+from rpython.rlib.rbigint import rbigint
+
 
 class TestW_LongObject:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.nofaking": True})
-
     def test_bigint_w(self):
         space = self.space
         fromlong = lobj.W_LongObject.fromlong
@@ -25,7 +17,7 @@ class TestW_LongObject:
 
     def test_rint_variants(self):
         py.test.skip("XXX broken!")
-        from pypy.rpython.tool.rfficache import platform
+        from rpython.rtyper.tool.rfficache import platform
         space = self.space
         for r in platform.numbertype_to_rclass.values():
             if r is int:

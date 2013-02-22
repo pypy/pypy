@@ -1,8 +1,8 @@
 import os
 import sys
 
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
@@ -30,11 +30,11 @@ from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rstring import rsplit
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.rstring import rsplit
+from rpython.rlib.objectmodel import specialize
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
-from pypy.rlib import jit
+from rpython.rlib import jit
 
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 

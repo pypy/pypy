@@ -3,7 +3,7 @@ Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
 import re
-from pypy.translator.platform import platform
+from rpython.translator.platform import platform
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
@@ -11,7 +11,7 @@ CPYTHON_VERSION            = (2, 7, 3, "final", 42)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 9, 1, "dev", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (2, 0, 0, "beta", 1)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
@@ -28,8 +28,9 @@ else:
 
 import pypy
 pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
+pypyroot = os.path.dirname(pypydir)
 del pypy
-from pypy.tool.version import get_repo_version_info
+from rpython.tool.version import get_repo_version_info
 
 import time as t
 gmtime = t.gmtime()
@@ -68,7 +69,7 @@ def get_version(space):
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
-        get_repo_version_info()[2],
+        get_repo_version_info(root=pypyroot)[1],
         date,
         time,
         ver,
@@ -91,10 +92,10 @@ def get_subversion_info(space):
     return space.wrap(('PyPy', '', ''))
 
 def get_repo_info(space):
-    info = get_repo_version_info()
+    info = get_repo_version_info(root=pypyroot)
     if info:
-        project, repo_tag, repo_version = info
-        return space.newtuple([space.wrap(project),
+        repo_tag, repo_version = info
+        return space.newtuple([space.wrap('PyPy'),
                                space.wrap(repo_tag),
                                space.wrap(repo_version)])
     else:

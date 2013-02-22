@@ -4,7 +4,7 @@ import StringIO
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.rpython.lltypesystem import rffi, ll2ctypes
+from rpython.rtyper.lltypesystem import rffi, ll2ctypes
 
 from pypy.interpreter.gateway import interp2app
 
@@ -218,6 +218,31 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert e.filename == "blyf"
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
+
+    def test_PyErr_Display(self):
+        module = self.import_extension('foo', [
+            ("display_error", "METH_VARARGS",
+             r'''
+             PyObject *type, *val, *tb;
+             PyErr_GetExcInfo(&type, &val, &tb);
+             PyErr_Display(type, val, tb);
+             Py_XDECREF(type);
+             Py_XDECREF(val);
+             Py_XDECREF(tb);
+             Py_RETURN_NONE;
+             '''),
+            ])
+        import sys, StringIO
+        sys.stderr = StringIO.StringIO()
+        try:
+            1 / 0
+        except ZeroDivisionError:
+            module.display_error()
+        finally:
+            output = sys.stderr.getvalue()
+            sys.stderr = sys.__stderr__
+        assert "in test_PyErr_Display\n" in output
+        assert "ZeroDivisionError" in output
 
     def test_GetSetExcInfo(self):
         import sys

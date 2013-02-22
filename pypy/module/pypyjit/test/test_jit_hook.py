@@ -1,20 +1,19 @@
 
 import py
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pycode import PyCode
-from pypy.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr
-from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.logger import Logger
-from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
+from rpython.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr
+from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.logger import Logger
+from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
                                       cast_base_ptr_to_instance)
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.rclass import OBJECT
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem.rclass import OBJECT
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 from pypy.module.pypyjit.policy import pypy_hooks
-from pypy.jit.tool.oparser import parse
-from pypy.jit.metainterp.typesystem import llhelper
-from pypy.rlib.jit import JitDebugInfo, AsmInfo, Counters
+from rpython.jit.tool.oparser import parse
+from rpython.jit.metainterp.typesystem import llhelper
+from rpython.rlib.jit import JitDebugInfo, AsmInfo, Counters
 
 class MockJitDriverSD(object):
     class warmstate(object):
@@ -35,12 +34,11 @@ class MockSD(object):
     jitdrivers_sd = [MockJitDriverSD]
 
 class AppTestJitHook(object):
+    spaceconfig = dict(usemodules=('pypyjit',))
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("Can't run this test with -A")
-        space = gettestobjspace(usemodules=('pypyjit',))
-        cls.space = space
-        w_f = space.appexec([], """():
+        w_f = cls.space.appexec([], """():
         def function():
             pass
         return function
@@ -89,6 +87,7 @@ class AppTestJitHook(object):
             pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
                                 greenkey, 'blah')
 
+        space = cls.space
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
@@ -119,6 +118,8 @@ class AppTestJitHook(object):
         assert info.greenkey[1] == 0
         assert info.greenkey[2] == False
         assert info.loop_no == 0
+        assert info.type == 'loop'
+        raises(TypeError, 'info.bridge_no')
         assert len(info.operations) == 4
         int_add = info.operations[0]
         dmp = info.operations[1]

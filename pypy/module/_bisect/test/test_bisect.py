@@ -1,10 +1,6 @@
-from pypy.conftest import gettestobjspace
-
 
 class AppTestBisect:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_bisect'])
+    spaceconfig = dict(usemodules=['_bisect'])
 
     def test_bisect_left(self):
         from _bisect import bisect_left
@@ -93,3 +89,12 @@ class AppTestBisect:
         insort_right(a, 6.0)
         assert a == [0, 5, 6, 6, 6, 6.0, 7]
         assert map(type, a) == [int, int, int, int, int, float, int]
+
+    def test_bisect_overflow(self):
+        from _bisect import bisect_left, bisect_right
+        import sys
+
+        size = sys.maxsize
+        data = xrange(size - 1)
+        assert bisect_left(data, size - 3) == size - 3
+        assert bisect_right(data, size - 3) == size - 2

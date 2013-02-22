@@ -1,5 +1,4 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 
 # These tests are for the CINT backend only (they exercise ROOT features
 # and classes that are not loaded/available with the Reflex backend). At
@@ -11,8 +10,6 @@ if capi.identify() != 'CINT':
 currpath = py.path.local(__file__).dirpath()
 iotypes_dct = str(currpath.join("iotypesDict.so"))
 
-space = gettestobjspace(usemodules=['cppyy'])
-
 def setup_module(mod):
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
@@ -21,8 +18,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestCINT:
-    def setup_class(cls):
-        cls.space = space
+    spaceconfig = dict(usemodules=['cppyy'])
 
     def test01_globals(self):
         """Test the availability of ROOT globals"""
@@ -100,8 +96,30 @@ class AppTestCINT:
 
 
 class AppTestCINTPythonizations:
-    def setup_class(cls):
-        cls.space = space
+    spaceconfig = dict(usemodules=['cppyy'])
+
+    def test01_strings(self):
+        """Test TString/TObjString compatibility"""
+
+        import cppyy
+
+        pyteststr = "aap noot mies"
+        def test_string(s1, s2):
+            assert len(s1) == len(s2)
+            assert s1 == s1
+            assert s1 == s2
+            assert s1 == str(s1)
+            assert s1 == pyteststr
+            assert s1 != "aap"
+            assert s1 != ""
+            assert s1 < "noot"
+            assert repr(s1) == repr(s2)
+
+        s1 = cppyy.gbl.TString(pyteststr)
+        test_string(s1, pyteststr)
+
+        s3 = cppyy.gbl.TObjString(pyteststr)
+        test_string(s3, pyteststr)
 
     def test03_TVector(self):
         """Test TVector2/3/T behavior"""
@@ -121,13 +139,14 @@ class AppTestCINTPythonizations:
 
 
 class AppTestCINTTTree:
+    spaceconfig = dict(usemodules=['cppyy'])
+
     def setup_class(cls):
-        cls.space = space
-        cls.w_N = space.wrap(5)
-        cls.w_M = space.wrap(10)
-        cls.w_fname = space.wrap("test.root")
-        cls.w_tname = space.wrap("test")
-        cls.w_title = space.wrap("test tree")
+        cls.w_N = cls.space.wrap(5)
+        cls.w_M = cls.space.wrap(10)
+        cls.w_fname = cls.space.wrap("test.root")
+        cls.w_tname = cls.space.wrap("test")
+        cls.w_title = cls.space.wrap("test tree")
         cls.w_iotypes = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))

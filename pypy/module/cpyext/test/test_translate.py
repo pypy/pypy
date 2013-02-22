@@ -1,10 +1,10 @@
-from pypy.translator.c.test.test_genc import compile
+from rpython.translator.c.test.test_genc import compile
 import pypy.module.cpyext.api
 from pypy.module.cpyext.api import cpython_api
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.nonconst import NonConstant
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.nonconst import NonConstant
 
 def test_llhelper(monkeypatch):
     """Show how to get function pointers used in type slots"""

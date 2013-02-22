@@ -5,7 +5,7 @@ from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
 from pypy.module.cpyext.api import PyObjectP, PyObject
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):

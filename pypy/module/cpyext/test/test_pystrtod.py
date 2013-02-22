@@ -1,8 +1,8 @@
 import math
 
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype
 
 
 class TestPyOS_string_to_double(BaseApiTest):

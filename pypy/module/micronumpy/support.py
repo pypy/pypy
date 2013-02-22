@@ -1,5 +1,11 @@
-from pypy.rlib import jit
+from rpython.rlib import jit
+from pypy.interpreter.error import OperationError
 
+def int_w(space, w_obj):
+    try:
+        return space.int_w(space.index(w_obj))
+    except OperationError:
+        return space.int_w(space.int(w_obj))
 
 @jit.unroll_safe
 def product(s):
@@ -8,6 +14,7 @@ def product(s):
         i *= x
     return i
 
+@jit.unroll_safe
 def calc_strides(shape, dtype, order):
     strides = []
     backstrides = []
@@ -16,9 +23,10 @@ def calc_strides(shape, dtype, order):
     if order == 'C':
         shape_rev.reverse()
     for sh in shape_rev:
+        slimit = max(sh, 1)
         strides.append(s * dtype.get_size())
-        backstrides.append(s * (sh - 1) * dtype.get_size())
-        s *= sh
+        backstrides.append(s * (slimit - 1) * dtype.get_size())
+        s *= slimit
     if order == 'C':
         strides.reverse()
         backstrides.reverse()

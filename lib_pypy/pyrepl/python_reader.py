@@ -140,7 +140,7 @@ class PythonicReader(CompletingReader, HistoricalReader):
                 return [x[len(mod) + 1:]
                         for x in l if x.startswith(mod + '.' + name)]
         try:
-            l = completing_reader.uniqify(self.completer.complete(stem))
+            l = sorted(set(self.completer.complete(stem)))
             return l
         except (NameError, AttributeError):
             return []
@@ -178,7 +178,8 @@ class ReaderConsole(code.InteractiveInterpreter):
             self.showsyntaxerror("<input>")
         else:
             self.runcode(code)
-            sys.stdout.flush()
+            if sys.stdout and not sys.stdout.closed:
+                sys.stdout.flush()
 
     def interact(self):
         while 1:
@@ -368,7 +369,7 @@ def main(use_pygame_console=0, interactmethod=default_interactmethod, print_bann
                         encoding = None
                 else:
                     encoding = None # so you get ASCII...
-            con = UnixConsole(0, 1, None, encoding)
+            con = UnixConsole(os.dup(0), os.dup(1), None, encoding)
         if print_banner:
             print "Python", sys.version, "on", sys.platform
             print 'Type "help", "copyright", "credits" or "license" '\

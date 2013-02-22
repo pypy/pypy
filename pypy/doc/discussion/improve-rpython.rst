@@ -9,13 +9,13 @@ Improve the interpreter API
   `import` statements::
 
     from pypy.interpreter.baseobjspace import Wrappable
-    from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
+    from pypy.interpreter.gateway import ObjSpace, W_Root
     from pypy.interpreter.argument import Arguments
     from pypy.interpreter.typedef import TypeDef, GetSetProperty
     from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
     from pypy.interpreter.gateway import interp2app
     from pypy.interpreter.error import OperationError
-    from pypy.rpython.lltypesystem import rffi, lltype
+    from rpython.rtyper.lltypesystem import rffi, lltype
 
 - A more direct declarative way to write Typedef::
 
@@ -39,10 +39,7 @@ RPython language
 
 - Allocate variables on the stack, and pass their address ("by reference") to
   llexternal functions. For a typical usage, see
-  `pypy.rlib.rsocket.RSocket.getsockopt_int`.
-
-- Support context managers and the `with` statement. This could be a workaround
-  before the previous point is available.
+  `rpython.rlib.rsocket.RSocket.getsockopt_int`.
 
 Extensible type system for llexternal
 -------------------------------------

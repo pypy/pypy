@@ -1,6 +1,6 @@
 import py
 from pypy.interpreter.buffer import Buffer
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 testdir = udir.ensure('test_buffer', dir=1)
 

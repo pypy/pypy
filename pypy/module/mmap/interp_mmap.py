@@ -1,9 +1,9 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
-from pypy.rlib import rmmap, rarithmetic
-from pypy.rlib.rmmap import RValueError, RTypeError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from rpython.rlib import rmmap, rarithmetic
+from rpython.rlib.rmmap import RValueError, RTypeError
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
     OFF_T = rarithmetic.r_longlong
@@ -35,7 +35,7 @@ class W_MMap(Wrappable):
         return self.space.wrap(self.mmap.read(num))
 
     @unwrap_spec(tofind='bufferstr')
-    def find(self, tofind, w_start=NoneNotWrapped, w_end=NoneNotWrapped):
+    def find(self, tofind, w_start=None, w_end=None):
         space = self.space
         if w_start is None:
             start = self.mmap.pos
@@ -48,7 +48,7 @@ class W_MMap(Wrappable):
         return space.wrap(self.mmap.find(tofind, start, end))
 
     @unwrap_spec(tofind='bufferstr')
-    def rfind(self, tofind, w_start=NoneNotWrapped, w_end=NoneNotWrapped):
+    def rfind(self, tofind, w_start=None, w_end=None):
         space = self.space
         if w_start is None:
             start = self.mmap.pos
