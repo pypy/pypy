@@ -204,7 +204,7 @@ class Assembler386(BaseAssembler):
         jz_location = mc.get_relative_pos()
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        self._reload_frame_if_necessary(mc)
+        self._reload_frame_if_necessary(mc, align_stack=True)
         mc.MOV_bi(extra_ofs, 0)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
@@ -327,12 +327,8 @@ class Assembler386(BaseAssembler):
             else:
                 mc.MOV_rs(edi.value, WORD)
         else:
-            # we're possibly called from the slowpath of malloc, so we have
-            # one extra CALL on the stack, but one less PUSH,
-            # save to store stuff 2 locations away on the stack.
-            # we have to save all the things that can potentially
-            # be returned from a call
-            mc.SUB_ri(esp.value, 10 * WORD) # align and reserve some space
+            # we have one word to align
+            mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
             mc.MOV_sr(WORD, eax.value) # save for later
             mc.MOVSD_sx(3 * WORD, xmm0.value)
             if IS_X86_32:
@@ -378,7 +374,7 @@ class Assembler386(BaseAssembler):
             self._restore_exception(mc, exc0, exc1)
             mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
             mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
-            mc.LEA_rs(esp.value, 10 * WORD)
+            mc.LEA_rs(esp.value, 7 * WORD)
             mc.RET()
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -1237,7 +1233,7 @@ class Assembler386(BaseAssembler):
         if can_collect:
             self.pop_gcmap(self.mc)
 
-    def _reload_frame_if_necessary(self, mc):
+    def _reload_frame_if_necessary(self, mc, align_stack=False):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             rst = gcrootmap.get_root_stack_top_addr()
@@ -1248,7 +1244,7 @@ class Assembler386(BaseAssembler):
             # frame never uses card marking, so we enforce this is not
             # an array
             self._write_barrier_fastpath(mc, wbdescr, [ebp], array=False,
-                                         is_frame=True)
+                                         is_frame=True, align_stack=align_stack)
 
     def call(self, addr, args, res):
         self._emit_call(imm(addr), args)
@@ -2281,7 +2277,7 @@ class Assembler386(BaseAssembler):
     # ------------------- END CALL ASSEMBLER -----------------------
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False,
-                                is_frame=False):
+                                is_frame=False, align_stack=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
@@ -2337,7 +2333,11 @@ class Assembler386(BaseAssembler):
         #
         if not is_frame:
             mc.PUSH(loc_base)
+        if is_frame and align_stack:
+            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.CALL(imm(self.wb_slowpath[helper_num]))
+        if is_frame and align_stack:
+            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
         if card_marking:
             # The helper ends again with a check of the flag in the object.

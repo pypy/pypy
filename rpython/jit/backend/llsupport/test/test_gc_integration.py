@@ -383,6 +383,7 @@ JITFRAME = lltype.GcStruct(
     ('jf_frame_info', lltype.Ptr(jitframe.JITFRAMEINFO)),
     ('jf_descr', llmemory.GCREF),
     ('jf_force_descr', llmemory.GCREF),
+    ('jf_extra_stack_depth', lltype.Signed),
     ('jf_guard_exc', llmemory.GCREF),
     ('jf_gcmap', lltype.Ptr(jitframe.GCMAP)),
     ('jf_gc_trace_state', lltype.Signed),
@@ -460,7 +461,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         descrs = JitFrameDescrs()
         descrs.arraydescr = cpu.arraydescrof(JITFRAME)
         for name in ['jf_descr', 'jf_guard_exc', 'jf_force_descr',
-                     'jf_frame_info', 'jf_gcmap']:
+                     'jf_frame_info', 'jf_gcmap', 'jf_extra_stack_depth']:
             setattr(descrs, name, cpu.fielddescrof(JITFRAME, name))
         descrs.jfi_frame_depth = cpu.fielddescrof(jitframe.JITFRAMEINFO,
                                                   'jfi_frame_depth')
