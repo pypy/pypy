@@ -104,3 +104,4 @@ class sysflags(metaclass=structseqtype):
     hash_randomization = structseqfield(12)
 
 null_sysflags = sysflags((0,)*13)
+null__xoptions = {}

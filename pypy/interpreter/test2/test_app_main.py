@@ -170,6 +170,10 @@ class TestParseCommandLine:
         self.check(['-Wbog'], {}, sys_argv=[''], warnoptions=['bog'], run_stdin=True)
         self.check(['-W', 'ab', '-SWc'], {}, sys_argv=[''], warnoptions=['ab', 'c'],
                    run_stdin=True, no_site=1)
+        self.check(['-X', 'foo'], {}, sys_argv=[''], _xoptions=['foo'],
+                   run_stdin=True)
+        self.check(['-X', 'foo=bar', '-Xbaz'], {}, sys_argv=[''],
+                   _xoptions=['foo=bar', 'baz'], run_stdin=True)
 
         self.check([], {'PYTHONDEBUG': '1'}, sys_argv=[''], run_stdin=True, debug=1)
         self.check([], {'PYTHONDONTWRITEBYTECODE': '1'}, sys_argv=[''], run_stdin=True, dont_write_bytecode=1)
@@ -704,6 +708,13 @@ class TestNonInteractive:
         data = self.run('-m test2.mypackage extra')
         assert "__init__ argv: ['-m', 'extra']" in data
         assert "__main__ argv: [%r, 'extra']" % p in data
+
+    def test_xoptions(self):
+        data = self.run('-Xfoo -Xbar=baz -Xquux=cdrom.com=FreeBSD -Xx=X,d=e '
+                        '-c "import sys;print(sorted(sys._xoptions.items()))"')
+        expected = ("[('bar', 'baz'), ('foo', True), "
+                    "('quux', 'cdrom.com=FreeBSD'), ('x', 'X,d=e')]")
+        assert expected in data
 
     def test_pythoninspect_doesnt_override_isatty(self):
         os.environ['PYTHONINSPECT_'] = '1'

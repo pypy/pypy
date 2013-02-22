@@ -11,6 +11,7 @@ options:
   -h, --help     show this help message and exit
   -m mod         library module to be run as a script (terminates option list)
   -W arg         warning control (arg is action:message:category:module:lineno)
+  -X opt         set implementation-specific option
   -E             ignore environment variables (such as PYTHONPATH)
   -R             ignored (see http://bugs.python.org/issue14621)
   --version      print the PyPy version
@@ -325,6 +326,9 @@ def m_option(options, runmodule, iterargv):
     options["run_module"] = runmodule
     return ['-m'] + list(iterargv)
 
+def X_option(options, xoption, iterargv):
+    options["_xoptions"].append(xoption)
+
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
 
@@ -353,6 +357,7 @@ cmdline_options = {
     '--help':    (print_help,      None),
     'm':         (m_option,        Ellipsis),
     'W':         (W_option,        Ellipsis),
+    'X':         (X_option,        Ellipsis),
     'V':         (print_version,   None),
     '--version': (print_version,   None),
     '--info':    (print_info,      None),
@@ -382,6 +387,7 @@ def parse_command_line(argv):
     import os
     options = default_options.copy()
     options['warnoptions'] = []
+    options['_xoptions'] = []
 
     iterargv = iter(argv)
     argv = None
@@ -444,6 +450,9 @@ def parse_command_line(argv):
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
+
+    sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
+                         for x in options['_xoptions'])
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):

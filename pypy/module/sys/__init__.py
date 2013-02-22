@@ -92,6 +92,7 @@ class Module(MixedModule):
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',
         'flags'                 : 'app.null_sysflags',
+        '_xoptions'             : 'app.null__xoptions',
     }
 
     def setbuiltinmodule(self, w_module, name): 
