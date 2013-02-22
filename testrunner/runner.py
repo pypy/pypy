@@ -146,10 +146,8 @@ class RunParam(object):
     run = staticmethod(util.run)
     dry_run = staticmethod(util.dry_run)
 
-    pytestpath = os.path.abspath(os.path.join('py', 'bin', 'py.test'))
-    if not os.path.exists(pytestpath):
-        pytestpath = os.path.abspath(os.path.join('pytest.py'))
-        assert os.path.exists(pytestpath)
+    pytestpath = py.path.local(__file__).dirpath().dirpath().join('pytest.py')
+    assert pytestpath.check()
     test_driver = [pytestpath]
 
     cherrypick = None
