@@ -29,12 +29,16 @@ def _fill_untranslated(ec):
 
 def enter_frame(ec, frame):
     """Called from ExecutionContext.enter()."""
+    if frame.hide():
+        return
     rstm.abort_info_push(frame.pycode, ('[', 'co_filename', 'co_name',
                                         'co_firstlineno', 'co_lnotab'))
     rstm.abort_info_push(frame, ('last_instr', ']'))
 
 def leave_frame(ec, frame):
     """Called from ExecutionContext.leave()."""
+    if frame.hide():
+        return
     rstm.abort_info_pop(2)
 
 
