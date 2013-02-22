@@ -65,11 +65,11 @@ def bdecodeint(space, p):
 
 def bdecodelist(space, p):
     p = rffi.ptradd(p, 1)
-    w_list = space.newlist()
+    objects_w = []
     while p[0] != 'e':
         w_obj, p = bdecode(space, p)
-        space.call_method(w_list, 'append', w_obj)
-    return (w_list, rffi.ptradd(p, 1))
+        objects_w.append(w_obj)
+    return (space.newlist(objects_w), rffi.ptradd(p, 1))
 
 def bdecodestr(space, p):
     length = 0

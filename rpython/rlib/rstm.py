@@ -37,7 +37,8 @@ def abort_info_push(instance, fieldnames):
     "Special-cased below."
 
 def abort_info_pop(count):
-    stmgcintf.StmOperations.abort_info_pop(count)
+    if we_are_translated():
+        stmgcintf.StmOperations.abort_info_pop(count)
 
 def charp_inspect_abort_info():
     return stmgcintf.StmOperations.inspect_abort_info()

@@ -12,11 +12,9 @@ def test_bdecode():
         def int(self, x):
             assert isinstance(x, str)
             return int(x)
-        def newlist(self):
-            return []
-        def call_method(self, w_obj, method, *args):
-            assert method == 'append'
-            w_obj.append(*args)
+        def newlist(self, lst):
+            assert isinstance(lst, list)
+            return lst
 
     space = FakeSpace()
 
