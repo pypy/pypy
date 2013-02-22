@@ -53,8 +53,9 @@ def make_template_formatting_class():
             self.empty = u"" if is_unicode else ""
             self.template = template
 
-        def build(self, args):
-            self.args, self.kwargs = args.unpack()
+        def build(self, args, w_kwargs):
+            self.args = args
+            self.w_kwargs = w_kwargs
             self.auto_numbering = 0
             self.auto_numbering_state = ANS_INIT
             return self._build_string(0, len(self.template), 2)
@@ -212,11 +213,12 @@ def make_template_formatting_class():
                         raise OperationError(space.w_KeyError, space.wrap(kwarg))
                 else:
                     arg_key = kwarg
-                try:
-                    w_arg = self.kwargs[arg_key]
-                except KeyError:
-                    raise OperationError(space.w_KeyError, space.wrap(arg_key))
+                w_arg = space.getitem(self.w_kwargs, space.wrap(arg_key))
             else:
+                if self.args is None:
+                    w_msg = space.wrap("Format string contains positional "
+                                       "fields")
+                    raise OperationError(space.w_ValueError, w_msg)
                 try:
                     w_arg = self.args[index]
                 except IndexError:
@@ -374,14 +376,14 @@ def unicode_template_formatter(space, template):
     return UnicodeTemplateFormatter(space, True, template)
 
 
-def format_method(space, w_string, args, is_unicode):
+def format_method(space, w_string, args, w_kwargs, is_unicode):
     if is_unicode:
         template = unicode_template_formatter(space,
                                               space.unicode_w(w_string))
-        return space.wrap(template.build(args))
+        return space.wrap(template.build(args, w_kwargs))
     else:
         template = str_template_formatter(space, space.bytes_w(w_string))
-        return space.wrap(template.build(args))
+        return space.wrap(template.build(args, w_kwargs))
 
 
 class NumberSpec(object):

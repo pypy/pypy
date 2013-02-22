@@ -872,3 +872,12 @@ class AppTestUnicodeString:
         assert b == 'hello \u1234'
 
         assert '%s' % S('mar\xe7') == 'mar\xe7'
+
+    def test_format_new(self):
+        assert '0{0}1{b}2'.format('A', b='B') == '0A1B2'
+
+    def test_format_map(self):
+        assert '0{a}1'.format_map({'a': 'A'}) == '0A1'
+
+    def test_format_map_positional(self):
+        raises(ValueError, '{}'.format_map, {})

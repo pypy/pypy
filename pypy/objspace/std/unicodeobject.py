@@ -867,7 +867,16 @@ def mod__Unicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
 
 def unicode_format__Unicode(space, w_unicode, __args__):
-    return newformat.format_method(space, w_unicode, __args__, True)
+    w_kwds = space.newdict()
+    if __args__.keywords:
+        for i in range(len(__args__.keywords)):
+            space.setitem(w_kwds, space.wrap(__args__.keywords[i]),
+                          __args__.keywords_w[i])
+    return newformat.format_method(space, w_unicode, __args__.arguments_w,
+                                   w_kwds, True)
+
+def unicode_format_map__Unicode_ANY(space, w_unicode, w_mapping):
+    return newformat.format_method(space, w_unicode, None, w_mapping, True)
 
 def format__Unicode_ANY(space, w_unicode, w_spec):
     return newformat.run_formatter(space, w_spec, "format_string", w_unicode)
