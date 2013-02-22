@@ -273,7 +273,7 @@ generic RPython-level building block for "one-shot continuations".  For
 more information about them please see the documentation in the C source
 at `rpython/translator/c/src/stacklet/stacklet.h`_.
 
-The module ``pypy.rlib.rstacklet`` is a thin wrapper around the above
+The module ``rpython.rlib.rstacklet`` is a thin wrapper around the above
 functions.  The key point is that new() and switch() always return a
 fresh stacklet handle (or an empty one), and switch() additionally
 consumes one.  It makes no sense to have code in which the returned
