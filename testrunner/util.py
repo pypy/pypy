@@ -92,9 +92,7 @@ def should_report_failure(logdata):
     # contains "F", "E" or "P" then it's a regular failure, otherwise
     # we have to report it.
     for line in logdata.splitlines():
-        if (line.startswith('F ') or
-            line.startswith('E ') or
-            line.startswith('P ')):
+        if line[:2] in ('F ', 'E ', 'P '):
             return False
     return True
 
