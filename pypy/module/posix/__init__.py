@@ -1,6 +1,7 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.rlib import rposix
 
 import os, sys
 exec 'import %s as posix' % os.name
@@ -95,7 +96,7 @@ corresponding Unix manual entries for more information on calls."""
         }
 
     for name in '''
-            wait wait3 wait4 chown lchown fchown fchmod ftruncate
+            wait wait3 wait4 chown lchown ftruncate
             fsync fdatasync fchdir putenv unsetenv killpg getpid
             link symlink readlink
             fork openpty forkpty waitpid execv execve uname sysconf fpathconf
@@ -106,6 +107,12 @@ corresponding Unix manual entries for more information on calls."""
             _getfullpathname
             '''.split():
         if hasattr(posix, name):
+            interpleveldefs[name] = 'interp_posix.%s' % (name,)
+
+    for name in '''fchmod fchown
+                '''.split():
+        symbol = 'HAS_' + name.upper()
+        if getattr(rposix, symbol):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
 
     for constant in '''

@@ -1,6 +1,7 @@
 import os
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
 from rpython.rtyper.lltypesystem import ll2ctypes, rffi
+from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import specialize
@@ -83,14 +84,23 @@ if os.name == 'nt':
 else:
     separate_module_sources = []
     export_symbols = []
-    includes=['errno.h','stdio.h']
-errno_eci = ExternalCompilationInfo(
+    includes=['errno.h', 'stdio.h', 'unistd.h', 'sys/stat.h']
+rposix_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
     export_symbols=export_symbols,
 )
 
-_get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
+class CConfig:
+    _compilation_info_ = rposix_eci
+
+    HAS_FCHMOD = rffi_platform.Has("fchmod")
+    HAS_FCHOWN = rffi_platform.Has("fchown")
+
+globals().update(rffi_platform.configure(CConfig))
+
+
+_get_errno, _set_errno = CExternVariable(INT, 'errno', rposix_eci,
                                          CConstantErrno, sandboxsafe=True,
                                          _nowrapper=True, c_type='int')
 # the default wrapper for set_errno is not suitable for use in critical places
@@ -105,7 +115,7 @@ def set_errno(errno):
 if os.name == 'nt':
     is_valid_fd = rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
-        compilation_info=errno_eci,
+        compilation_info=rposix_eci,
         )
     @jit.dont_look_inside
     def validate_fd(fd):
@@ -126,6 +136,15 @@ def closerange(fd_low, fd_high):
                 os.close(fd)
         except OSError:
             pass
+
+# Expose posix functions
+def external(name, args, result):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_)
+
+c_fchmod = external('fchmod', [rffi.INT, rffi.MODE_T], rffi.INT)
+c_fchown = external('fchown', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
+
 
 #___________________________________________________________________
 # Wrappers around posix functions, that accept either strings, or

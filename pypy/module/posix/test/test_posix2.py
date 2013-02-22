@@ -6,6 +6,7 @@ from pypy.objspace.std import StdObjSpace
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.conftest import pypydir
+from rpython.rlib import rposix
 from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 import os
@@ -833,7 +834,7 @@ class AppTestPosix:
             os.symlink('foobar', self.path)
             os.lchown(self.path, os.getuid(), os.getgid())
 
-    if hasattr(os, 'fchown'):
+    if rposix.HAS_FCHOWN:
         def test_fchown(self):
             os = self.posix
             f = open(self.path, "w")
@@ -856,7 +857,7 @@ class AppTestPosix:
                 os.chmod(self.path, 0200)
                 assert (os.stat(self.path).st_mode & 0777) == 0200
 
-    if hasattr(os, 'fchmod'):
+    if rposix.HAS_FCHMOD:
         def test_fchmod(self):
             os = self.posix
             f = open(self.path, "w")

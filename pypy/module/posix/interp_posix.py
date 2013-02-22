@@ -20,6 +20,10 @@ if _WIN32:
     
 c_int = "c_int"
 
+def oserror_from_errno(space):
+    errno = rposix.get_errno()
+    return wrap_oserror(space, OSError(errno, "OSError"))
+
 # CPython 2.7 semantics are too messy to follow exactly,
 # e.g. setuid(-2) works on 32-bit but not on 64-bit.  As a result,
 # we decided to just accept any 'int', i.e. any C signed long, and
@@ -586,10 +590,9 @@ def fchmod(space, w_fd, mode):
     """Change the access permissions of the file given by file
 descriptor fd."""
     fd = space.c_filedescriptor_w(w_fd)
-    try:
-        os.fchmod(fd, mode)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    res = rposix.c_fchmod(fd, mode)
+    if res == -1:
+        raise oserror_from_errno(space)
 
 def rename(space, w_old, w_new):
     "Rename a file or directory."
@@ -1153,10 +1156,9 @@ fd to the numeric uid and gid."""
     fd = space.c_filedescriptor_w(w_fd)
     check_uid_range(space, uid)
     check_uid_range(space, gid)
-    try:
-        os.fchown(fd, uid, gid)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    res = rposix.c_fchown(fd, uid, gid)
+    if res == -1:
+        raise oserror_from_errno(space)
 
 def getloadavg(space):
     try:
