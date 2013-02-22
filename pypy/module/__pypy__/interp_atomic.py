@@ -41,15 +41,14 @@ def atomic_exit(space, w_ignored1=None, w_ignored2=None, w_ignored3=None):
     raise wrap_thread_error(space,
         "atomic.__exit__(): more exits than enters")
 
-def raw_last_abort_info(space):
-    return space.wrap(rstm.inspect_abort_info())
-
 def last_abort_info(space):
-    p = rstm.inspect_abort_info()
+    from rpython.rlib.rstm import charp_inspect_abort_info
+    p = charp_inspect_abort_info()
     if not p:
         return space.w_None
     assert p[0] == 'l'
     w_obj, p = bdecode(space, p)
+    assert p[0] == '\0'
     return w_obj
 
 def bdecode(space, p):

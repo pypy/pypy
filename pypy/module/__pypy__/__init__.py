@@ -39,7 +39,6 @@ class ThreadModule(MixedModule):
         '_atomic_enter':           'interp_atomic.atomic_enter',
         '_exclusive_atomic_enter': 'interp_atomic.exclusive_atomic_enter',
         '_atomic_exit':            'interp_atomic.atomic_exit',
-        '_raw_last_abort_info':    'interp_atomic.raw_last_abort_info',
         'last_abort_info':         'interp_atomic.last_abort_info',
     }
 
