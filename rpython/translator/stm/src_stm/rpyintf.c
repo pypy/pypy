@@ -297,10 +297,10 @@ long stm_extraref_llcount(void)
     return d->abortinfo.size / 2;
 }
 
-gcptr stm_extraref_lladdr(long index)
+gcptr *stm_extraref_lladdr(long index)
 {
     struct tx_descriptor *d = thread_descriptor;
-    return d->abortinfo.items[index * 2];
+    return &d->abortinfo.items[index * 2];
 }
 
 #ifdef USING_NO_GC_AT_ALL

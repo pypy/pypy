@@ -50,7 +50,7 @@ def stm_extraref_llcount(funcgen, op):
 def stm_extraref_lladdr(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)
-    return '%s = stm_extraref_lladdr(%s);' % (result, arg0)
+    return '%s = (char *)stm_extraref_lladdr(%s);' % (result, arg0)
 
 def _stm_nogc_init_function():
     """Called at process start-up when running with no GC."""

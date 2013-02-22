@@ -126,7 +126,7 @@ void stm_abort_info_push(void *, void *);
 void stm_abort_info_pop(long);
 char *stm_inspect_abort_info(void);
 long stm_extraref_llcount(void);
-gcptr stm_extraref_lladdr(long);
+gcptr *stm_extraref_lladdr(long);
 
 #ifdef USING_NO_GC_AT_ALL
 # define OP_GC_ADR_OF_ROOT_STACK_TOP(r)   r = NULL
