@@ -328,7 +328,7 @@ We are using
 **builtin functions**
 
   A number of builtin functions can be used.  The precise set can be
-  found in `pypy/annotation/builtin.py`_ (see ``def builtin_xxx()``).
+  found in `rpython/annotator/builtin.py`_ (see ``def builtin_xxx()``).
   Some builtin functions may be limited in what they support, though.
 
   ``int, float, str, ord, chr``... are available as simple conversion

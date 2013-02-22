@@ -347,3 +347,10 @@ class __extend__(pairtype(InteriorPtrRepr, LLADTMethRepr)):
         if r_from.lowleveltype == r_to.lowleveltype:
             return v
         return NotImplemented
+
+class __extend__(pairtype(InteriorPtrRepr, InteriorPtrRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.__dict__ == r_to.__dict__:
+            return v
+        return NotImplemented

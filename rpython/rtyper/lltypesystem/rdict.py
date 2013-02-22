@@ -8,6 +8,7 @@ from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError
+from rpython.annotator.model import SomeInteger
 
 
 HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
@@ -385,48 +386,60 @@ class __extend__(pairtype(DictRepr, DictRepr)):
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_everused_from_flag(entries, i):
     return entries[i].f_everused
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_everused_from_key(entries, i):
     return bool(entries[i].key)
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_everused_from_value(entries, i):
     return bool(entries[i].value)
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_valid_from_flag(entries, i):
     return entries[i].f_valid
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_mark_deleted_in_flag(entries, i):
     entries[i].f_valid = False
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_valid_from_key(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     return entries.everused(i) and entries[i].key != dummy
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_mark_deleted_in_key(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     entries[i].key = dummy
 
+@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_valid_from_value(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     return entries.everused(i) and entries[i].value != dummy
 
+@objectmodel.enforceargs(None, int)
 def ll_mark_deleted_in_value(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     entries[i].value = dummy
 
+@objectmodel.enforceargs(None, int)
 def ll_hash_from_cache(entries, i):
     return entries[i].f_hash
 
+@objectmodel.enforceargs(None, int)
 def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
+@objectmodel.enforceargs(None, int)
 def ll_get_value(d, i):
     return d.entries[i].value
 
@@ -513,6 +526,7 @@ def ll_dict_delitem(d, key):
 
 @jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, i):
+    assert i >= 0
     d.entries.mark_deleted(i)
     d.num_items -= 1
     # clear the key and the value if they are GC pointers
@@ -573,6 +587,7 @@ def ll_dict_lookup(d, key, hash):
     direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
     mask = len(entries) - 1
     i = hash & mask
+    assert i >= 0
     # do the first try before any looping
     if entries.valid(i):
         checkingkey = entries[i].key
@@ -603,6 +618,7 @@ def ll_dict_lookup(d, key, hash):
         i = r_uint(i)
         i = (i << 2) + i + perturb + 1
         i = intmask(i) & mask
+        assert i >= 0
         # keep 'i' as a signed number here, to consistently pass signed
         # arguments to the small helper methods.
         if not entries.everused(i):
@@ -636,11 +652,13 @@ def ll_dict_lookup_clean(d, hash):
     entries = d.entries
     mask = len(entries) - 1
     i = hash & mask
+    assert i >= 0
     perturb = r_uint(hash)
     while entries.everused(i):
         i = r_uint(i)
         i = (i << 2) + i + perturb + 1
         i = intmask(i) & mask
+        assert i >= 0
         perturb >>= PERTURB_SHIFT
     return i
 
@@ -733,6 +751,7 @@ def _make_ll_dictnext(kind):
         if dict:
             entries = dict.entries
             index = iter.index
+            assert index >= 0
             entries_len = len(entries)
             while index < entries_len:
                 entry = entries[index]

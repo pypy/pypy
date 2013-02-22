@@ -395,7 +395,7 @@ class AbstractInstanceRepr(Repr):
         assert not s_attr.is_constant()
         if '__iter__' in self.allinstancefields:
             raise Exception("__iter__ on instance disallowed")
-        r_method = self.rtyper.makerepr(s_attr)
+        r_method = self.rtyper.getrepr(s_attr)
         r_method.get_method_from_instance(self, vinst, hop.llops)
         hop2 = hop.copy()
         hop2.spaceop.opname = 'simple_call'

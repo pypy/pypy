@@ -1082,7 +1082,7 @@ class MIFrame(object):
     def opimpl_debug_fatalerror(self, box):
         from rpython.rtyper.lltypesystem import rstr, lloperation
         msg = box.getref(lltype.Ptr(rstr.STR))
-        lloperation.llop.debug_fatalerror(msg)
+        lloperation.llop.debug_fatalerror(lltype.Void, msg)
 
     @arguments("box", "box", "box", "box", "box")
     def opimpl_jit_debug(self, stringbox, arg1box, arg2box, arg3box, arg4box):
