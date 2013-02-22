@@ -439,7 +439,6 @@ def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
-@objectmodel.enforceargs(None, SomeInteger(nonneg=True))
 def ll_get_value(d, i):
     return d.entries[i].value
 
