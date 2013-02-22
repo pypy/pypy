@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.module.thread.error import wrap_thread_error
+from rpython.rtyper.lltypesystem import rffi
 
 
 
@@ -39,3 +40,53 @@ def atomic_exit(space, w_ignored1=None, w_ignored2=None, w_ignored3=None):
             return
     raise wrap_thread_error(space,
         "atomic.__exit__(): more exits than enters")
+
+def raw_last_abort_info(space):
+    return space.wrap(rstm.inspect_abort_info())
+
+def last_abort_info(space):
+    p = rstm.inspect_abort_info()
+    if not p:
+        return space.w_None
+    assert p[0] == 'l'
+    w_obj, p = bdecode(space, p)
+    return w_obj
+
+def bdecode(space, p):
+    return decoder[p[0]](space, p)
+
+def bdecodeint(space, p):
+    p = rffi.ptradd(p, 1)
+    n = 0
+    while p[n] != 'e':
+        n += 1
+    return (space.int(space.wrap(rffi.charpsize2str(p, n))),
+            rffi.ptradd(p, n + 1))
+
+def bdecodelist(space, p):
+    p = rffi.ptradd(p, 1)
+    w_list = space.newlist()
+    while p[0] != 'e':
+        w_obj, p = bdecode(space, p)
+        space.call_method(w_list, 'append', w_obj)
+    return (w_list, rffi.ptradd(p, 1))
+
+def bdecodestr(space, p):
+    length = 0
+    n = 0
+    while p[n] != ':':
+        c = p[n]
+        n += 1
+        assert '0' <= c <= '9'
+        length = length * 10 + (ord(c) - ord('0'))
+    n += 1
+    p = rffi.ptradd(p, n)
+    return (space.wrap(rffi.charpsize2str(p, length)),
+            rffi.ptradd(p, length))
+
+decoder = {'i': bdecodeint,
+           'l': bdecodelist,
+           #'d': bdecodedict,
+           }
+for c in '0123456789':
+    decoder[c] = bdecodestr

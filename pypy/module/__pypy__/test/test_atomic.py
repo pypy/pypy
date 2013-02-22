@@ -1,5 +1,37 @@
 from __future__ import with_statement
 from pypy.module.thread.test.support import GenericTestThread
+from pypy.module.__pypy__.interp_atomic import bdecode
+from rpython.rtyper.lltypesystem import rffi
+
+
+def test_bdecode():
+    class FakeSpace:
+        def wrap(self, x):
+            assert isinstance(x, str)
+            return x
+        def int(self, x):
+            assert isinstance(x, str)
+            return int(x)
+        def newlist(self):
+            return []
+        def call_method(self, w_obj, method, *args):
+            assert method == 'append'
+            w_obj.append(*args)
+
+    space = FakeSpace()
+
+    def bdec(s):
+        p = rffi.str2charp(s)
+        w_obj, q = bdecode(space, p)
+        assert q == rffi.ptradd(p, len(s))
+        rffi.free_charp(p)
+        return w_obj
+
+    assert bdec("i123e") == 123
+    assert bdec("i-123e") == -123
+    assert bdec('12:+"*-%&/()=?\x00') == '+"*-%&/()=?\x00'
+    assert bdec("li123eli456eee") == [123, [456]]
+    assert bdec("l5:abcdei2ee") == ["abcde", 2]
 
 
 class AppTestAtomic(GenericTestThread):

@@ -211,45 +211,65 @@ void stm_abort_info_pop(long count)
 
 size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output)
 {
+    /* re-encodes the abort info as a single string.
+       For convenience (no escaping needed, no limit on integer
+       sizes, etc.) we follow the bittorrent format. */
     size_t totalsize = 0;
     long i;
 #define WRITE(c)   { totalsize++; if (output) *output++=(c); }
+#define WRITE_BUF(p, sz)  { totalsize += (sz);                          \
+                            if (output) {                               \
+                                 memcpy(output, (p), (sz)); output += (sz); \
+                             }                                          \
+                           }
+    WRITE('l');
     for (i=0; i<d->abortinfo.size; i+=2) {
         char *object       = (char*)d->abortinfo.items[i+0];
         long *fieldoffsets = (long*)d->abortinfo.items[i+1];
-        long j;
-        for (j=0; j<fieldoffsets[0]; j++) {
-            long kind   = fieldoffsets[1+2*j+0];
-            long offset = fieldoffsets[1+2*j+1];
-            char buffer[24];
-            char *result = buffer;
-            size_t res_size;
-            RPyString *rps;
+        long kind, offset;
+        char buffer[32];
+        size_t res_size, rps_size;
+        RPyString *rps;
+
+        while (1) {
+            kind = *fieldoffsets++;
+            if (kind <= 0) {
+                if (kind == -2) {
+                    WRITE('l');    /* '[', start of sublist */
+                    continue;
+                }
+                if (kind == -1) {
+                    WRITE('e');    /* ']', end of sublist */
+                    continue;
+                }
+                break;   /* 0, terminator */
+            }
+            offset = *fieldoffsets++;
             switch(kind) {
-            case 0:    /* signed */
-                res_size = sprintf(buffer, "%ld", *(long*)(object + offset));
+            case 1:    /* signed */
+                res_size = sprintf(buffer, "i%lde",
+                                   *(long*)(object + offset));
+                WRITE_BUF(buffer, res_size);
                 break;
-            case 1:    /* unsigned */
-                res_size = sprintf(buffer, "%lu",
+            case 2:    /* unsigned */
+                res_size = sprintf(buffer, "i%lue",
                                    *(unsigned long*)(object + offset));
+                WRITE_BUF(buffer, res_size);
                 break;
-            case 2:    /* pointer to STR */
+            case 3:    /* pointer to STR */
                 rps = *(RPyString **)(object + offset);
-                res_size = RPyString_Size(rps);
-                result = _RPyString_AsString(rps);
+                rps_size = RPyString_Size(rps);
+                res_size = sprintf(buffer, "%zu:", rps_size);
+                WRITE_BUF(buffer, res_size);
+                WRITE_BUF(_RPyString_AsString(rps), rps_size);
                 break;
             default:
                 fprintf(stderr, "Fatal RPython error: corrupted abort log\n");
                 abort();
             }
-            while (res_size > 0) {
-                WRITE(*result);
-                result++;
-                res_size--;
-            }
-            WRITE('\n');
         }
     }
+    WRITE('e');
     WRITE('\0');   /* final null character */
 #undef WRITE
     return totalsize;

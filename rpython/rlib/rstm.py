@@ -39,12 +39,8 @@ def abort_info_push(instance, fieldnames):
 def abort_info_pop(count):
     stmgcintf.StmOperations.abort_info_pop(count)
 
-def inspect_abort_info():
-    p = stmgcintf.StmOperations.inspect_abort_info()
-    if p:
-        return rffi.charp2str(p)
-    else:
-        return None
+def charp_inspect_abort_info():
+    return stmgcintf.StmOperations.inspect_abort_info()
 
 def abort_and_retry():
     stmgcintf.StmOperations.abort_and_retry()
@@ -134,30 +130,37 @@ class AbortInfoPush(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         fieldnames = hop.args_s[1].const
-        lst = [len(fieldnames)]
+        lst = []
         v_instance = hop.inputarg(hop.args_r[0], arg=0)
         STRUCT = v_instance.concretetype.TO
         for fieldname in fieldnames:
+            if fieldname == '[':
+                lst.append(-2)    # start of sublist
+                continue
+            if fieldname == ']':
+                lst.append(-1)    # end of sublist
+                continue
             fieldname = 'inst_' + fieldname
             TYPE = getattr(STRUCT, fieldname) #xxx check also in parent structs
             if TYPE == lltype.Signed:
-                kind = 0
-            elif TYPE == lltype.Unsigned:
                 kind = 1
-            elif TYPE == lltype.Ptr(rstr.STR):
+            elif TYPE == lltype.Unsigned:
                 kind = 2
+            elif TYPE == lltype.Ptr(rstr.STR):
+                kind = 3
             else:
                 raise NotImplementedError(
                     "abort_info_push(%s, %r): field of type %r"
                     % (STRUCT.__name__, fieldname, TYPE))
             lst.append(kind)
             lst.append(llmemory.offsetof(STRUCT, fieldname))
+        lst.append(0)
         ARRAY = rffi.CArray(lltype.Signed)
         array = lltype.malloc(ARRAY, len(lst), flavor='raw', immortal=True)
         for i in range(len(lst)):
             array[i] = lst[i]
-        hop.exception_cannot_occur()
         c_array = hop.inputconst(lltype.Ptr(ARRAY), array)
+        hop.exception_cannot_occur()
         hop.genop('stm_abort_info_push', [v_instance, c_array])
 
 # ____________________________________________________________

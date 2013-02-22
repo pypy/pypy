@@ -1,6 +1,6 @@
 import py
 from rpython.rlib import rstm, rgc
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.translator.stm.test.support import NoGcCompiledSTMTests
@@ -138,11 +138,11 @@ class TestSTMTranslated(CompiledSTMTests):
 
         def check(_, retry_counter):
             globf.xy = 100 + retry_counter
-            rstm.abort_info_push(globf, ('xy', 'yx'))
+            rstm.abort_info_push(globf, ('xy', '[', 'yx', ']'))
             if retry_counter < 3:
                 rstm.abort_and_retry()
             #
-            print rstm.inspect_abort_info()
+            print rffi.charp2str(rstm.charp_inspect_abort_info())
             #
             rstm.abort_info_pop(2)
             return 0
@@ -156,4 +156,4 @@ class TestSTMTranslated(CompiledSTMTests):
             return 0
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('a b')
-        assert '102\nhi there 3\n\n' in data
+        assert 'li102el10:hi there 3ee\n' in data

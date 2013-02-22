@@ -60,6 +60,9 @@ class ExecutionContext(object):
         return frame
 
     def enter(self, frame):
+        if self.space.config.translation.stm:
+            from pypy.module.thread.stm import enter_frame
+            enter_frame(self, frame)
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
@@ -83,6 +86,10 @@ class ExecutionContext(object):
 
         if self.w_tracefunc is not None and not frame.hide():
             self.space.frame_trace_action.fire()
+
+        if self.space.config.translation.stm:
+            from pypy.module.thread.stm import leave_frame
+            leave_frame(self, frame)
 
     # ________________________________________________________________
 

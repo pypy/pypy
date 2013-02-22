@@ -17,6 +17,7 @@ from rpython.rlib.objectmodel import invoke_around_extcall, we_are_translated
 ec_cache = rstm.ThreadLocalReference(ExecutionContext)
 
 def initialize_execution_context(ec):
+    """Called from ExecutionContext.__init__()."""
     ec._thread_local_dicts = rweakref.RWeakKeyDictionary(STMLocal, W_Root)
     if ec.space.config.objspace.std.withmethodcache:
         from pypy.objspace.std.typeobject import MethodCache
@@ -25,6 +26,16 @@ def initialize_execution_context(ec):
 def _fill_untranslated(ec):
     if not we_are_translated() and not hasattr(ec, '_thread_local_dicts'):
         initialize_execution_context(ec)
+
+def enter_frame(ec, frame):
+    """Called from ExecutionContext.enter()."""
+    rstm.abort_info_push(frame.pycode, ('[', 'co_filename', 'co_name',
+                                        'co_firstlineno', 'co_lnotab'))
+    rstm.abort_info_push(frame, ('last_instr', ']'))
+
+def leave_frame(ec, frame):
+    """Called from ExecutionContext.leave()."""
+    rstm.abort_info_pop(2)
 
 
 class STMThreadLocals(BaseThreadLocals):
