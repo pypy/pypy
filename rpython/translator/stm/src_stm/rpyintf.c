@@ -198,15 +198,20 @@ void stm_abort_and_retry(void)
 
 void stm_abort_info_push(void *obj, void *fieldoffsets)
 {
-  struct tx_descriptor *d = thread_descriptor;
-  gcptrlist_insert2(&d->abortinfo, (gcptr)obj, (gcptr)fieldoffsets);
+    struct tx_descriptor *d = thread_descriptor;
+    gcptr P = (gcptr)obj;
+    if ((P->h_tid & GCFLAG_GLOBAL) &&
+        (P->h_tid & GCFLAG_POSSIBLY_OUTDATED)) {
+        P = LatestGlobalRevision(d, P, NULL, 0);
+    }
+    gcptrlist_insert2(&d->abortinfo, P, (gcptr)fieldoffsets);
 }
 
 void stm_abort_info_pop(long count)
 {
-  struct tx_descriptor *d = thread_descriptor;
-  long newsize = d->abortinfo.size - 2 * count;
-  gcptrlist_reduce_size(&d->abortinfo, newsize < 0 ? 0 : newsize);
+    struct tx_descriptor *d = thread_descriptor;
+    long newsize = d->abortinfo.size - 2 * count;
+    gcptrlist_reduce_size(&d->abortinfo, newsize < 0 ? 0 : newsize);
 }
 
 size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output)
@@ -224,7 +229,7 @@ size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output)
                            }
     WRITE('l');
     for (i=0; i<d->abortinfo.size; i+=2) {
-        char *object       = (char*)d->abortinfo.items[i+0];
+        char *object = (char *)stm_RepeatReadBarrier(d->abortinfo.items[i+0]);
         long *fieldoffsets = (long*)d->abortinfo.items[i+1];
         long kind, offset;
         char buffer[32];
@@ -258,10 +263,15 @@ size_t _stm_decode_abort_info(struct tx_descriptor *d, char *output)
                 break;
             case 3:    /* pointer to STR */
                 rps = *(RPyString **)(object + offset);
-                rps_size = RPyString_Size(rps);
-                res_size = sprintf(buffer, "%zu:", rps_size);
-                WRITE_BUF(buffer, res_size);
-                WRITE_BUF(_RPyString_AsString(rps), rps_size);
+                if (rps) {
+                    rps_size = RPyString_Size(rps);
+                    res_size = sprintf(buffer, "%zu:", rps_size);
+                    WRITE_BUF(buffer, res_size);
+                    WRITE_BUF(_RPyString_AsString(rps), rps_size);
+                }
+                else {
+                    WRITE_BUF("0:", 2);
+                }
                 break;
             default:
                 fprintf(stderr, "Fatal RPython error: corrupted abort log\n");

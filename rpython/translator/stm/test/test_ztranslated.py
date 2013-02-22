@@ -138,9 +138,13 @@ class TestSTMTranslated(CompiledSTMTests):
             pass
         globf = Foobar()
 
+        def setxy(globf, retry_counter):
+            if retry_counter > 1:
+                globf.xy = 100 + retry_counter
+
         def check(_, retry_counter):
-            globf.xy = 100 + retry_counter
             rstm.abort_info_push(globf, ('xy', '[', 'yx', ']'))
+            setxy(globf, retry_counter)
             if retry_counter < 3:
                 rstm.abort_and_retry()
             #
