@@ -40,6 +40,13 @@ except ImportError:
             pass
     signals_enabled = _SignalsEnabled()
 
+try:
+    from __pypy__.thread import last_abort_info
+except ImportError:
+    # Not a STM-enabled PyPy.
+    def last_abort_info():
+        return None
+
 
 def set_num_threads(num):
     """Set the number of threads to use."""
@@ -215,6 +222,9 @@ class _ThreadPool(object):
                 with atomic:
                     if got_exception:
                         return    # return early if already an exc. to reraise
+                    info = last_abort_info()
+                    if info is not None:
+                        print info
                     f(*args, **kwds)
         except:
             got_exception[:] = sys.exc_info()

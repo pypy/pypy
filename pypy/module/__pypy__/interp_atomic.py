@@ -51,6 +51,10 @@ def last_abort_info(space):
     assert p[0] == '\0'
     return w_obj
 
+def discard_last_abort_info(space):
+    from rpython.rlib.rstm import charp_inspect_abort_info
+    charp_inspect_abort_info()
+
 def bdecode(space, p):
     return decoder[p[0]](space, p)
 
