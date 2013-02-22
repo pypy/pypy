@@ -22,7 +22,6 @@ class TestExecuteTest(object):
     def pytest_funcarg__fakerun(self, request):
         return FakeRun()
 
-
     def test_explicit(self, fakerun):
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
                                   runfunc=fakerun,
@@ -38,7 +37,7 @@ class TestExecuteTest(object):
 
                     'test_one']
 
-        assert fakerun.called == (expected, '/wd', 'out', 'secs')        
+        assert fakerun.called == (expected, '/wd', 'out', 'secs')
         assert res == 0
 
     def test_explicit_win32(self, fakerun):
@@ -63,7 +62,6 @@ class TestExecuteTest(object):
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'])
         assert res == 1
-
 
         fakerun.exitcode = -signal.SIGSEGV
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',

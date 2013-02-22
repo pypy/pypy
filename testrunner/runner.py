@@ -151,7 +151,7 @@ class RunParam(object):
     test_driver = [pytestpath]
 
     cherrypick = None
-    
+
     def __init__(self, root, out):
         self.root = root
         self.out = out
@@ -160,7 +160,7 @@ class RunParam(object):
         self.parallel_runs = 1
         self.timeout = None
         self.cherrypick = None
-    
+
     @classmethod
     def from_options(cls, opts, out):
         root = py.path.local(opts.root)
@@ -175,7 +175,6 @@ class RunParam(object):
         else:
             self.runfunc = self.run
         return self
-
 
     def log(self, fmt, *args):
         self.out.write((fmt % args) + '\n')
@@ -199,7 +198,7 @@ class RunParam(object):
     def collect_testdirs(self, testdirs, p=None):
         if p is None:
             p = self.root
-            
+
         reldir = self.reltoroot(p)
         entries = [p1 for p1 in p.listdir() if p1.check(dotfile=0)]
         entries.sort()
