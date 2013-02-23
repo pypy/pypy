@@ -10,7 +10,7 @@ import os
 import shutil
 from os.path import normcase
 
-from test.support import run_unittest, TESTFN, DirsOnSysPath
+from test.support import check_impl_detail, run_unittest, TESTFN, DirsOnSysPath
 
 from test import inspect_fodder as mod
 from test import inspect_fodder2 as mod2
@@ -80,7 +80,8 @@ class TestPredicates(IsTestBase):
 
     def test_excluding_predicates(self):
         self.istest(inspect.isbuiltin, 'sys.exit')
-        self.istest(inspect.isbuiltin, '[].append')
+        if check_impl_detail():
+            self.istest(inspect.isbuiltin, '[].append')
         self.istest(inspect.iscode, 'mod.spam.__code__')
         self.istest(inspect.isframe, 'tb.tb_frame')
         self.istest(inspect.isfunction, 'mod.spam')
@@ -97,7 +98,8 @@ class TestPredicates(IsTestBase):
         else:
             self.assertFalse(inspect.isgetsetdescriptor(type(tb.tb_frame).f_locals))
         if hasattr(types, 'MemberDescriptorType'):
-            self.istest(inspect.ismemberdescriptor, 'datetime.timedelta.days')
+            self.istest(inspect.ismemberdescriptor,
+                        'type(lambda: None).__globals__')
         else:
             self.assertFalse(inspect.ismemberdescriptor(datetime.timedelta.days))
 
