@@ -1705,7 +1705,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from _numpypy import array
         a = array([1, 2, 17, -3, 12])
         assert (a.clip(-2, 13) == [1, 2, 13, -2, 12]).all()
-        assert (a.clip(-1, 1) == [1, 1, 1, -1, 1]).all()
+        assert (a.clip(-1, 1, out=None) == [1, 1, 1, -1, 1]).all()
+        assert (a == [1, 2, 17, -3, 12]).all()
         assert (a.clip(-1, [1, 2, 3, 4, 5]) == [1, 2, 3, -1, 5]).all()
         assert (a.clip(-2, 13, out=a) == [1, 2, 13, -2, 12]).all()
         assert (a == [1, 2, 13, -2, 12]).all()
