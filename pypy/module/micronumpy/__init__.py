@@ -27,9 +27,6 @@ class Module(MixedModule):
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',
 
-        'bool': 'space.w_bool',
-        'int': 'space.w_int',
-
         'typeinfo': 'interp_dtype.get_dtype_cache(space).w_typeinfo',
 
         'generic': 'interp_boxes.W_GenericBox',
@@ -170,8 +167,6 @@ class Module(MixedModule):
         all_list = sorted(Module.interpleveldefs.keys() + \
                                 Module.appleveldefs.keys())
         # found by set(numpypy.__all__) - set(numpy.__all__)
-        all_list.remove('bool')
-        all_list.remove('int')
         all_list.remove('abs')
         all_list.remove('typeinfo')
         w_all = space.wrap(all_list)

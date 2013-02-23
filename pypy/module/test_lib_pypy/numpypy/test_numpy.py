@@ -31,3 +31,13 @@ class AppTestNumpy:
         assert max is not __builtin__.max
         assert min is amin
         assert max is amax
+
+    def test_builtin_aliases(self):
+        import __builtin__
+        import numpypy
+        from numpypy import *
+
+        for name in ['bool', 'int', 'long', 'float', 'complex', 'object',
+                     'unicode', 'str']:
+            assert name not in locals()
+            assert getattr(numpypy, name) is getattr(__builtin__, name)
