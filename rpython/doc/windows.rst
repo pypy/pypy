@@ -63,7 +63,7 @@ directory is ``d:\pypy``. You must then set the
 INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
 Abridged method (for -Ojit builds using Visual Studio 2008)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Download the versions of all the external packages
 from 
 https://bitbucket.org/pypy/pypy/downloads/local.zip
