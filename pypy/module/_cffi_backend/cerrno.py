@@ -1,5 +1,7 @@
 import sys
+
 from rpython.rlib import rposix
+
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.gateway import unwrap_spec
 
