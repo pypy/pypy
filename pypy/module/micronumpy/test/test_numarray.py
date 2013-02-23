@@ -1692,15 +1692,6 @@ class AppTestNumArray(BaseNumpyAppTest):
             i2 = (i+1) * a.dtype.itemsize
             assert list(reversed(s1[i1:i2])) == s2[i1:i2]
 
-        a = array([1, -1, 10000], dtype='longfloat')
-        s1 = map(ord, a.tostring())
-        s2 = map(ord, a.byteswap().tostring())
-        assert a.dtype.itemsize >= 8
-        for i in range(a.size):
-            i1 = i * a.dtype.itemsize
-            i2 = (i+1) * a.dtype.itemsize
-            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
-
     def test_clip(self):
         from _numpypy import array
         a = array([1, 2, 17, -3, 12])
@@ -2336,7 +2327,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_fromstring_types(self):
         from _numpypy import (fromstring, int8, int16, int32, int64, uint8,
-            uint16, uint32, float16, float32, float64, longfloat, array)
+            uint16, uint32, float16, float32, float64, array)
         a = fromstring('\xFF', dtype=int8)
         assert a[0] == -1
         b = fromstring('\xFF', dtype=uint8)
@@ -2359,18 +2350,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert j[0] == 12
         k = fromstring(self.float16val, dtype=float16)
         assert k[0] == float16(5.)
-        dt =  array([5],dtype=longfloat).dtype
-        if dt.itemsize == 12:
-            from _numpypy import float96
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
-        elif dt.itemsize==16:
-            from _numpypy import float128
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype=float128)
-        elif dt.itemsize == 8:
-            skip('longfloat is float64')
-        else:
-            skip('unknown itemsize for longfloat')
-        assert m[0] == longfloat(5.)
 
     def test_fromstring_invalid(self):
         from _numpypy import fromstring, uint16, uint8
@@ -2645,3 +2624,40 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert x.__pypy_data__ is obj
         del x.__pypy_data__
         assert x.__pypy_data__ is None
+
+class AppTestLongDoubleDtypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        from pypy.module.micronumpy import Module
+        print dir(Module.interpleveldefs)
+        if not Module.interpleveldefs.get('longfloat', None):
+            py.test.skip('no longdouble types yet')
+        BaseNumpyAppTest.setup_class.im_func(cls)
+
+    def test_byteswap(self):
+        from _numpypy import array
+
+        a = array([1, -1, 10000], dtype='longfloat')
+        s1 = map(ord, a.tostring())
+        s2 = map(ord, a.byteswap().tostring())
+        assert a.dtype.itemsize >= 8
+        for i in range(a.size):
+            i1 = i * a.dtype.itemsize
+            i2 = (i+1) * a.dtype.itemsize
+            assert list(reversed(s1[i1:i2])) == s2[i1:i2]
+
+    def test_fromstring_types(self):
+        from _numpypy import (fromstring, longfloat, array)
+        dt =  array([5],dtype=longfloat).dtype
+        if dt.itemsize == 12:
+            from _numpypy import float96
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
+        elif dt.itemsize==16:
+            from _numpypy import float128
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype=float128)
+        elif dt.itemsize == 8:
+            skip('longfloat is float64')
+        else:
+            skip('unknown itemsize for longfloat')
+        assert m[0] == longfloat(5.)
+
+

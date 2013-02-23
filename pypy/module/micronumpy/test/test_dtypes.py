@@ -14,7 +14,7 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
             from rpython.rtyper.lltypesystem import rffi
             ptr_size = rffi.sizeof(rffi.CCHARP)
         cls.w_ptr_size = cls.space.wrap(ptr_size)
-
+    
 class AppTestDtypes(BaseAppTestDtypes):
     def test_dtype(self):
         from _numpypy import dtype
@@ -42,13 +42,6 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert "int8" == dtype("int8")
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
-
-    def test_dtype_aliases(self):
-        from _numpypy import dtype
-        assert dtype('longfloat').num in (12, 13)
-        assert dtype('longdouble').num in (12, 13)
-        assert dtype('clongfloat').num in (15, 16)
-        assert dtype('clongdouble').num in (15, 16)
 
     def test_dtype_with_types(self):
         from _numpypy import dtype
@@ -154,8 +147,6 @@ class AppTestDtypes(BaseAppTestDtypes):
             '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 
             'e'
         ]
-        if array([0], dtype='longdouble').itemsize > 8:
-            types += ['g', 'G']
         a = array([True], '?')
         for t in types:
             assert (a + array([0], t)).dtype is dtype(t)
@@ -271,7 +262,6 @@ class AppTestDtypes(BaseAppTestDtypes):
             (numpy.float16, 10.),
             (numpy.float32, 2.0),
             (numpy.float64, 4.32),
-            (numpy.longdouble, 4.32),
         ]:
             assert hash(tp(value)) == hash(value)
 
@@ -528,20 +518,6 @@ class AppTestTypes(BaseAppTestDtypes):
         from math import isnan
         assert isnan(numpy.float32(None))
         assert isnan(numpy.float64(None))
-        assert isnan(numpy.longdouble(None))
-
-    def test_longfloat(self):
-        import _numpypy as numpy
-        # it can be float96 or float128
-        if numpy.longfloat != numpy.float64:
-            assert numpy.longfloat.mro()[1:] == [numpy.floating,
-                                       numpy.inexact, numpy.number, 
-                                       numpy.generic, object]
-        a = numpy.array([1, 2, 3], numpy.longdouble)
-        assert type(a[1]) is numpy.longdouble
-        assert numpy.float64(12) == numpy.longdouble(12)
-        assert numpy.float64(12) == numpy.longfloat(12)
-        raises(ValueError, numpy.longfloat, '23.2df')
 
     def test_complex_floating(self):
         import _numpypy as numpy
@@ -799,12 +775,6 @@ class AppTestNotDirect(BaseNumpyAppTest):
         a = array([1, 2, 3], dtype=self.non_native_prefix + 'f2')
         assert a[0] == 1
         assert (a + a)[1] == 4
-        a = array([1, 2, 3], dtype=self.non_native_prefix + 'g') # longdouble
-        assert a[0] == 1
-        assert (a + a)[1] == 4
-        a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
-        assert a[0] == 1
-        assert (a + a)[1] == 4
 
 class AppTestPyPyOnly(BaseNumpyAppTest):
     def setup_class(cls):
@@ -818,3 +788,81 @@ class AppTestPyPyOnly(BaseNumpyAppTest):
         assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
         assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
         assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
+
+class AppTestNoLongDoubleDtypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        from pypy.module.micronumpy import Module
+        if Module.interpleveldefs.get('longfloat', None):
+            py.test.skip('longdouble exists, skip these tests')
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+            py.test.skip("pypy only test for no longdouble support")
+        BaseNumpyAppTest.setup_class.im_func(cls)
+
+    def test_nolongfloat(self):
+        import _numpypy
+        from _numpypy import dtype
+        assert not getattr(_numpypy, 'longdouble', False)
+        assert not getattr(_numpypy, 'float128', False)
+        assert not getattr(_numpypy, 'float96', False)
+        raises(TypeError, dtype, 'longdouble')
+        raises(TypeError, dtype, 'clongdouble')
+        raises(TypeError, dtype, 'longfloat')
+        raises(TypeError, dtype, 'clongfloat')
+        raises(TypeError, dtype, 'float128')
+        raises(TypeError, dtype, 'float96')
+
+class AppTestLongDoubleDtypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        from pypy.module.micronumpy import Module
+        print dir(Module.interpleveldefs)
+        if not Module.interpleveldefs.get('longfloat', None):
+            py.test.skip('no longdouble types yet')
+        BaseNumpyAppTest.setup_class.im_func(cls)
+
+    def test_longfloat(self):
+        import _numpypy as numpy
+        # it can be float96 or float128
+        if numpy.longfloat != numpy.float64:
+            assert numpy.longfloat.mro()[1:] == [numpy.floating,
+                                       numpy.inexact, numpy.number, 
+                                       numpy.generic, object]
+        a = numpy.array([1, 2, 3], numpy.longdouble)
+        assert type(a[1]) is numpy.longdouble
+        assert numpy.float64(12) == numpy.longdouble(12)
+        assert numpy.float64(12) == numpy.longfloat(12)
+        raises(ValueError, numpy.longfloat, '23.2df')
+
+    def test_dtype_aliases(self):
+        from _numpypy import dtype
+        assert dtype('longfloat').num in (12, 13)
+        assert dtype('longdouble').num in (12, 13)
+        assert dtype('clongfloat').num in (15, 16)
+        assert dtype('clongdouble').num in (15, 16)
+
+    def test_bool_binop_types(self):
+        from _numpypy import array, dtype
+        types = ['g', 'G']
+        a = array([True], '?')
+        for t in types:
+            assert (a + array([0], t)).dtype is dtype(t)
+
+    def test_hash(self):
+        import _numpypy as numpy
+        for tp, value in [
+            (numpy.longdouble, 4.32),
+        ]:
+            assert hash(tp(value)) == hash(value)
+
+    def test_float_None(self):
+        import _numpypy as numpy
+        from math import isnan
+        assert isnan(numpy.longdouble(None))
+
+    def test_non_native(self):
+        from _numpypy import array
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'g') # longdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4

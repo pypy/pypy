@@ -18,6 +18,9 @@ Implement __lenght_hint__ according to PEP 424
 
 .. branch: numpypy-longdouble
 Long double support for numpypy
+.. branch: numpypy-disable-longdouble
+Since r_longdouble support is missing, disable all longdouble and derivative
+dtypes using ENABLED_LONG_DOUBLE = False
 .. branch: numpypy-real-as-view
 Convert real, imag from ufuncs to views. This involves the beginning of
 view() functionality
