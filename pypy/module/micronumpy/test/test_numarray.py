@@ -1432,9 +1432,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert len(a) == 6
         assert (a == [0,1,2,3,4,5]).all()
         assert a.dtype is dtype(int)
-        if 0: # XXX too pedantic
+        if 0: # XXX why does numpy allow this?
             a = concatenate((a1, a2), axis=1)
             assert (a == [0,1,2,3,4,5]).all()
+        if 0: # segfault
             a = concatenate((a1, a2), axis=-1)
             assert (a == [0,1,2,3,4,5]).all()
 
@@ -1455,9 +1456,10 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         g1 = array([[0,1,2]])
         g2 = array([[3,4,5]])
-        if 0: # XXX too pedantic
+        if 0: # segfault
             g = concatenate((g1, g2), axis=-2)
             assert (g == [[0,1,2],[3,4,5]]).all()
+        if 0: # XXX why does numpy allow this?
             exc = raises(IndexError, concatenate, (g1, g2), axis=-3)
             assert str(exc.value) == "axis -3 out of bounds [0, 2)"
         exc = raises(IndexError, concatenate, (g1, g2), axis=2)
@@ -2516,19 +2518,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from _numpypy import dtype, array
 
         d = dtype([('x', str), ('y', 'int32')])
-        if 0: # XXX too pedantic
-            assert str(d.fields['x'][0]) == '|S0'
+        assert str(d.fields['x'][0]) == '|S0'
         assert d.fields['x'][1] == 0
         assert str(d.fields['y'][0]) == 'int32'
-        if 0: # XXX too pedantic
-            assert d.fields['y'][1] == 0
-            assert d.name == 'void32'
+        assert d.fields['y'][1] == 0
+        assert d.name == 'void32'
 
         a = array([('a', 2), ('cde', 1)], dtype=d)
-        if 0: # XXX too pedantic
+        if 0: # XXX why does numpy allow this?
             assert a[0]['x'] == '\x02'
         assert a[0]['y'] == 2
-        if 0: # XXX too pedantic
+        if 0: # XXX why does numpy allow this?
             assert a[1]['x'] == '\x01'
         assert a[1]['y'] == 1
 
@@ -2549,9 +2549,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from _numpypy import array
         a = array(['abc'])
         assert str(a.dtype) == '|S3'
-        if 0: # XXX too pedantic
-            a = array(['abc'], 'S')
-            assert str(a.dtype) == '|S3'
+        a = array(['abc'], 'S')
+        assert str(a.dtype) == '|S3'
         a = array(['abc'], 'S3')
         assert str(a.dtype) == '|S3'
         a = array(['abcde'], 'S3')
