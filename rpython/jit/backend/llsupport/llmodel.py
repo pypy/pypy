@@ -92,6 +92,7 @@ class AbstractLLCPU(AbstractCPU):
                 new_frame.jf_frame[i] = frame.jf_frame[i]
                 i += 1
             new_frame.jf_savedata = frame.jf_savedata
+            new_frame.jf_guard_exc = frame.jf_guard_exc
             # all other fields are empty
             llop.gc_assume_young_pointers(lltype.Void, new_frame)
             return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
