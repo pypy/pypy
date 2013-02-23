@@ -200,8 +200,8 @@ RPython modules independently of translating the complete interpreter.
 (It could be done given enough efforts, but it's a really serious
 undertaking.  Consider it as quite unlikely for now.)
 
-----------------------------------------------------------
-Why does PyPy draw a Mandelbrot fractal while translating?
-----------------------------------------------------------
+--------------------------------------------------------------------
+Why does the translator draw a Mandelbrot fractal while translating?
+--------------------------------------------------------------------
 
 Because it's fun.
