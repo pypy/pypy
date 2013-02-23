@@ -1360,10 +1360,9 @@ def sum(a, axis=None, dtype=None, out=None):
 
     """
     assert dtype is None
-    assert out is None
     if not hasattr(a, "sum"):
         a = numpypy.array(a)
-    return a.sum(axis=axis)
+    return a.sum(axis=axis, out=out)
 
 
 def product (a, axis=None, dtype=None, out=None):
@@ -1720,11 +1719,11 @@ def amax(a, axis=None, out=None):
     4.0
 
     """
-    assert axis is None
-    assert out is None
     if not hasattr(a, "max"):
         a = numpypy.array(a)
-    return a.max()
+    if a.size < 1:
+        return numpypy.array([])
+    return a.max(axis=axis, out=out)
 
 
 def amin(a, axis=None, out=None):
@@ -1782,12 +1781,11 @@ def amin(a, axis=None, out=None):
     0.0
 
     """
-    # amin() is equivalent to min()
-    assert axis is None
-    assert out is None
     if not hasattr(a, 'min'):
         a = numpypy.array(a)
-    return a.min()
+    if a.size < 1:
+        return numpypy.array([])
+    return a.min(axis=axis, out=out)
 
 def alen(a):
     """

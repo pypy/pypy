@@ -26,6 +26,8 @@ class AppTestNumpy:
         assert min(4, 3, 2, 1) == 1
         assert max(1, 2, 3, 4) == 4
 
-        from numpypy import min, max
+        from numpypy import min, max, amin, amax
         assert min is not __builtin__.min
         assert max is not __builtin__.max
+        assert min is amin
+        assert max is amax
