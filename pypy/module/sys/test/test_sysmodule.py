@@ -170,6 +170,18 @@ class AppTestSysModulePortedFromCPython:
 
         sys.stdout = savestdout
 
+    def test_original_displayhook_unencodable(self):
+        import sys, _io
+        out = _io.BytesIO()
+        savestdout = sys.stdout
+        sys.stdout = _io.TextIOWrapper(out, encoding='ascii')
+
+        sys.__displayhook__("a=\xe9 b=\uDC80 c=\U00010000 d=\U0010FFFF")
+        assert (out.getvalue() ==
+                b"'a=\\xe9 b=\\udc80 c=\\U00010000 d=\\U0010ffff'")
+
+        sys.stdout = savestdout
+
     def test_lost_displayhook(self):
         import sys
         olddisplayhook = sys.displayhook

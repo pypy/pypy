@@ -1477,7 +1477,20 @@ app = gateway.applevel(r'''
         # (and let it deals itself with unicode handling)
         if not isinstance(x, str):
             x = str(x)
-        stream.write(x)
+        try:
+            stream.write(x)
+        except UnicodeEncodeError:
+            print_unencodable_to(x, stream)
+
+    def print_unencodable_to(x, stream):
+        encoding = stream.encoding
+        encoded = x.encode(encoding, 'backslashreplace')
+        buffer = getattr(stream, 'buffer', None)
+        if buffer is not None:
+             buffer.write(encoded)
+        else:
+            escaped = encoded.decode(encoding, 'strict')
+            stream.write(escaped)
 
     def print_item(x):
         print_item_to(x, sys_stdout())
