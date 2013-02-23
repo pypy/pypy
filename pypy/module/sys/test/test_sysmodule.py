@@ -213,9 +213,14 @@ class AppTestSysModulePortedFromCPython:
             raise ValueError(42)
         except ValueError as exc:
             eh(*sys.exc_info())
+        assert err.getvalue().endswith("ValueError: 42\n")
+
+        eh(1, '1', 1)
+        expected = ("TypeError: print_exception(): Exception expected for "
+                    "value, str found")
+        assert expected in err.getvalue()
 
         sys.stderr = savestderr
-        assert err.getvalue().endswith("ValueError: 42\n")
 
     def test_excepthook_failsafe_path(self):
         import traceback
