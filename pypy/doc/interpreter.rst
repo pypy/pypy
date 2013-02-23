@@ -25,7 +25,7 @@ source code, and their main content is *bytecode*.  We use the same
 compact bytecode format as CPython 2.7, with minor differences in the bytecode
 set.  Our bytecode compiler is
 implemented as a chain of flexible passes (tokenizer, lexer, parser,
-abstract syntax tree builder, bytecode generator).  The latter passes
+abstract syntax tree builder and bytecode generator).  The latter passes
 are based on the ``compiler`` package from the standard library of
 CPython, with various improvements and bug fixes. The bytecode compiler
 (living under `pypy/interpreter/astcompiler/`_) is now integrated and is
@@ -50,10 +50,10 @@ of the virtual machine's bytecode instructions::
               6 BINARY_ADD          
               7 RETURN_VALUE        
 
-CPython as well as PyPy are stack-based virtual machines, i.e.
-they don't have registers but put object to and pull objects
+CPython and PyPy are stack-based virtual machines, i.e.
+they don't have registers but instead push object to and pull objects
 from a stack.  The bytecode interpreter is only responsible
-for implementing control flow and putting and pulling black
+for implementing control flow and pushing and pulling black
 box objects to and from this value stack.  The bytecode interpreter 
 does not know how to perform operations on those black box
 (`wrapped`_) objects for which it delegates to the `object
@@ -75,8 +75,8 @@ See `application level exceptions`_ for some more information
 on ``OperationErrors``. 
 
 The interpreter implementation offers mechanisms to allow a
-caller to be unaware if a particular function invocation leads
-to bytecode interpretation or is executed directly at
+caller to be unaware of whether a particular function invocation 
+leads to bytecode interpretation or is executed directly at
 interpreter-level.  The two basic kinds of `Gateway classes`_
 expose either an interpreter-level function to
 application-level execution (``interp2app``) or allow
