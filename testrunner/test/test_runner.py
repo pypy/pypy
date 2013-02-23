@@ -7,12 +7,25 @@ import pypy
 pytest_script = py.path.local(pypy.__file__).dirpath('test_all.py')
 
 
-
 class FakeRun(object):
     exitcode = 0
+
     def __call__(self, args, cwd, out, timeout):
         self.called = (args, cwd, out, timeout)
         return self.exitcode
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        pass
+
+    def open(self, mode):
+        assert mode=='w'
+        return self
+
+    def write(self, data):
+        pass
 
 
 
@@ -22,8 +35,8 @@ class TestExecuteTest(object):
     def pytest_funcarg__fakerun(self, request):
         return FakeRun()
 
-    def test_explicit(self, fakerun):
-        res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
+    def test_explicit(self, fakerun, ):
+        res = runner.execute_test('/wd', 'test_one', fakerun, 'LOGFILE',
                                   runfunc=fakerun,
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'],
@@ -37,7 +50,7 @@ class TestExecuteTest(object):
 
                     'test_one']
 
-        assert fakerun.called == (expected, '/wd', 'out', 'secs')
+        assert fakerun.called == (expected, '/wd', fakerun, 'secs')
         assert res == 0
 
     def test_explicit_win32(self, fakerun):
@@ -61,7 +74,7 @@ class TestExecuteTest(object):
     def test_error(self, fakerun):
         fakerun.exitcode = 1
         res = runner.execute_test(
-            '/wd', 'test_one', 'out', 'LOGFILE',
+            '/wd', 'test_one', fakerun, 'LOGFILE',
             runfunc=fakerun,
             interp=['INTERP', 'IARG'],
             test_driver=['driver', 'darg']
@@ -70,7 +83,7 @@ class TestExecuteTest(object):
 
         fakerun.exitcode = -signal.SIGSEGV
         res = runner.execute_test(
-            '/wd', 'test_one', 'out', 'LOGFILE',
+            '/wd', 'test_one', fakerun, 'LOGFILE',
             runfunc=fakerun,
             interp=['INTERP', 'IARG'],
             test_driver=['driver', 'darg']

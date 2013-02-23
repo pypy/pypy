@@ -137,11 +137,12 @@ def interpret_exitcode(exitcode, test, logdata=""):
 
 def run(args, cwd, out, timeout=None):
     try:
-        p = subprocess.Popen(args, cwd=str(cwd), stdout=f, stderr=f)
+        p = subprocess.Popen(args, cwd=str(cwd), stdout=out, stderr=out)
     except Exception, e:
-        f.write("Failed to run %s with cwd='%s' timeout=%s:\n"
-                " %s\n"
-                % (args, cwd, timeout, e))
+        out.write(
+            "Failed to run %s with cwd='%s' timeout=%s:\n %s\n" % (
+                args, cwd, timeout, e
+            ))
         return RUNFAILED
 
     if timeout is None:

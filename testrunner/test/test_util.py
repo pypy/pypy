@@ -1,3 +1,4 @@
+import py
 import sys
 import util
 import signal
@@ -51,39 +52,58 @@ class TestRunHelper(object):
         tmpdir = request.getfuncargvalue('tmpdir')
         return tmpdir.ensure('out')
 
-    def test_run(self, out):
-        res = util.run([sys.executable, "-c", "print 42"], '.', out)
+    def pytest_funcarg__outf(self, request):
+        out = request.getfuncargvalue('out')
+        return out.open('w')
+
+    def test_run(self, out, outf):
+        res = util.run([sys.executable, "-c", "print 42"], '.', outf)
         assert res == 0
         assert out.read() == "42\n"
 
-    def test_error(self, out):
-        res = util.run([sys.executable, "-c", "import sys; sys.exit(3)"], '.', out)
+    def test_error(self, outf):
+        res = util.run(
+            [sys.executable, "-c", "import sys; sys.exit(3)"],
+            '.', outf)
         assert res == 3
 
-    def test_signal(self, out):
+    def test_signal(self, outf):
         if sys.platform == 'win32':
             py.test.skip("no death by signal on windows")
-        res = util.run([sys.executable, "-c", "import os; os.kill(os.getpid(), 9)"], '.', out)
+        res = util.run(
+            [sys.executable, "-c", "import os; os.kill(os.getpid(), 9)"],
+            '.', outf)
         assert res == -9
 
-    def test_timeout(self, out):
-        res = util.run([sys.executable, "-c", "while True: pass"], '.', out, timeout=3)
+    def test_timeout(self, outf):
+        res = util.run(
+            [sys.executable, "-c", "while True: pass"],
+            '.', outf, timeout=3)
         assert res == -999
 
-    def test_timeout_lock(self, out):
-        res = util.run([sys.executable, "-c", "import threading; l=threading.Lock(); l.acquire(); l.acquire()"], '.', out, timeout=3)
+    def test_timeout_lock(self, outf):
+        res = util.run(
+            [sys.executable, "-c",
+             "import threading; l=threading.Lock(); l.acquire(); l.acquire()"],
+            '.', outf, timeout=3)
         assert res == -999
 
-    def test_timeout_syscall(self, out):
-        res = util.run([sys.executable, "-c", "import socket; s=s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(('', 0)); s.recv(1000)"], '.', out, timeout=3)
-        assert res == -999        
+    def test_timeout_syscall(self, outf):
+        res = util.run(
+            [sys.executable, "-c",
+             "import socket;"
+             "s= socket.socket(socket.AF_INET, socket.SOCK_DGRAM);"
+             "s.bind(('', 0)); s.recv(1000)"],
+            '.', outf, timeout=3)
+        assert res == -999
 
-    def test_timeout_success(self, out):
-        res = util.run([sys.executable, "-c", "print 42"], '.',
-                         out, timeout=2)
+    def test_timeout_success(self, out, outf):
+        res = util.run(
+            [sys.executable, "-c", "print 42"], '.',
+            outf, timeout=2)
         assert res == 0
         out = out.read()
-        assert out == "42\n"        
+        assert out == "42\n"
 
 
 
