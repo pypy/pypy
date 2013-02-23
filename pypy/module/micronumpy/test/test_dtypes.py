@@ -614,9 +614,6 @@ class AppTestTypes(BaseAppTestDtypes):
     def test_various_types(self):
         import _numpypy as numpy
 
-        assert numpy.bool is bool
-        assert numpy.int is int
-
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8

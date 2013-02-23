@@ -52,6 +52,25 @@ class W_BytesIO(W_BufferedIOBase):
         self.pos += size
         return space.wrap(output)
 
+    def readline_w(self, space, w_limit=None):
+        self._check_closed(space)
+        limit = convert_size(space, w_limit)
+
+        cur_pos = self.pos
+        if limit < 0:
+            end_pos = self.string_size
+        else:
+            end_pos = min(cur_pos + limit, self.string_size)
+        while cur_pos != end_pos:
+            if self.buf[cur_pos] == '\n':
+                cur_pos += 1
+                break
+            cur_pos += 1
+
+        output = buffer2string(self.buf, self.pos, cur_pos)
+        self.pos = cur_pos
+        return space.wrap(output)
+
     def read1_w(self, space, w_size):
         return self.read_w(space, w_size)
 
@@ -209,6 +228,7 @@ W_BytesIO.typedef = TypeDef(
 
     read = interp2app(W_BytesIO.read_w),
     read1 = interp2app(W_BytesIO.read1_w),
+    readline = interp2app(W_BytesIO.readline_w),
     readinto = interp2app(W_BytesIO.readinto_w),
     write = interp2app(W_BytesIO.write_w),
     truncate = interp2app(W_BytesIO.truncate_w),

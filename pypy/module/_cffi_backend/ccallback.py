@@ -2,18 +2,17 @@
 Callbacks.
 """
 import os
-from pypy.interpreter.error import OperationError, operationerrfmt
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
-from rpython.rlib import clibffi, rweakref
-from rpython.rlib import jit
 
+from rpython.rlib import clibffi, rweakref, jit
+from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
+from rpython.rtyper.lltypesystem import lltype, rffi
+
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
-from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
-from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
+from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
-from pypy.module._cffi_backend import cerrno, misc
 
 # ____________________________________________________________
 
@@ -151,6 +150,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
 # ____________________________________________________________
 
 STDERR = 2
+
 
 @jit.jit_callback("CFFI")
 def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):

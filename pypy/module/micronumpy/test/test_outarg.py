@@ -83,22 +83,9 @@ class AppTestOutArg(BaseNumpyAppTest):
         b = add(10, 10, out=out)
         assert b==out
         assert b.dtype == out.dtype
-        
-    def test_applevel(self):
-        from _numpypy import array, sum, max, min
-        a = array([[1, 2], [3, 4]])
-        out = array([[0, 0], [0, 0]])
-        c = sum(a, axis=0, out=out[0])
-        assert (c == [4, 6]).all()
-        assert (c == out[0]).all()
-        assert (c != out[1]).all()
-        c = max(a, axis=1, out=out[0])
-        assert (c == [2, 4]).all()
-        assert (c == out[0]).all()
-        assert (c != out[1]).all()
-        
+
     def test_ufunc_cast(self):
-        from _numpypy import array, negative, add, sum
+        from _numpypy import array, negative, add
         a = array(16, dtype = int)
         c = array(0, dtype = float)
         b = negative(a, out=c)
@@ -106,7 +93,7 @@ class AppTestOutArg(BaseNumpyAppTest):
         b = add(a, a, out=c)
         assert b == c
         d = array([16, 16], dtype=int)
-        b = sum(d, out=c)
+        b = d.sum(out=c)
         assert b == c
         #cast_error = raises(TypeError, negative, c, a)
         #assert str(cast_error.value) == \

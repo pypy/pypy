@@ -96,11 +96,11 @@ class DumpHeapEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         from rpython.annotator import model as annmodel
-        from rpython.rtyper.memory.gc.base import ARRAY_TYPEID_MAP
+        from rpython.memory.gc.base import ARRAY_TYPEID_MAP
         return annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP))
 
     def specialize_call(self, hop):
-        from rpython.rtyper.memory.gc.base import ARRAY_TYPEID_MAP
+        from rpython.memory.gc.base import ARRAY_TYPEID_MAP
         hop.exception_is_here()
         return hop.genop('gc_heap_stats', [], resulttype=hop.r_result)
 
