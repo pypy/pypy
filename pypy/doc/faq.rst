@@ -202,20 +202,20 @@ This will disable SELinux's protection and allow PyPy to configure correctly.
 Be sure to enable it again if you need it!
 
 
-The PyPy translation tool chain
-===============================
+The RPython translation tool chain
+===================================
 
----------------------------------------------
-Can PyPy compile normal Python programs to C?
----------------------------------------------
+------------------------------------------------
+Can RPython compile normal Python programs to C?
+------------------------------------------------
 
-No, PyPy is not a Python compiler.
+No, RPython is not a Python compiler.
 
 In Python, it is mostly impossible to *prove* anything about the types
 that a program will manipulate by doing a static analysis.  It should be
 clear if you are familiar with Python, but if in doubt see [BRETT]_.
 
-If you want a fast Python program, please use our JIT_ instead.
+If you want a fast Python program, please use the PyPy JIT_ instead.
 
 .. _JIT: jit/index.html
 
