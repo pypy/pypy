@@ -99,6 +99,7 @@ class AbstractLLCPU(AbstractCPU):
                 return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
             except Exception, e:
                 print "Unhandled exception", e, "in realloc_frame"
+                return lltype.nullptr(llmemory.GCREF.TO)
 
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame)
