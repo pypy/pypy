@@ -151,7 +151,7 @@ We are using
 **builtin functions**
 
   A number of builtin functions can be used.  The precise set can be
-  found in `rpython/annotator/builtin.py`_ (see ``def builtin_xxx()``).
+  found in :source:`rpython/annotator/builtin.py` (see ``def builtin_xxx()``).
   Some builtin functions may be limited in what they support, though.
 
   ``int, float, str, ord, chr``... are available as simple conversion
@@ -188,7 +188,7 @@ a consistent behavior before and after translation.
 We use normal integers for signed arithmetic.  It means that before
 translation we get longs in case of overflow, and after translation we get a
 silent wrap-around.  Whenever we need more control, we use the following
-helpers (which live in `rpython/rlib/rarithmetic.py`_):
+helpers (which live in :source:`rpython/rlib/rarithmetic.py`):
 
 **ovfcheck()**
 
