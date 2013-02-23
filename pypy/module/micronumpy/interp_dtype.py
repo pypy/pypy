@@ -164,8 +164,11 @@ class W_Dtype(Wrappable):
     def is_record_type(self):
         return self.fields is not None
 
+    def is_str_or_unicode(self):
+        return (self.num == 18 or self.num == 19)
+
     def is_flexible_type(self):
-        return (self.num == 18 or self.num == 19 or self.num == 20)
+        return (self.is_str_or_unicode() or self.is_record_type())
 
     def __repr__(self):
         if self.fields is not None:
@@ -526,7 +529,7 @@ class DtypeCache(object):
             self.w_longdouble = self.w_float64dtype
             self.w_clongdouble = self.w_complex128dtype
         self.w_stringdtype = W_Dtype(
-            types.StringType(1),
+            types.StringType(0),
             num=18,
             kind=STRINGLTR,
             name='string',

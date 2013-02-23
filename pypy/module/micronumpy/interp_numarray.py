@@ -932,7 +932,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         return w_object
 
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
-    if dtype is None:
+    if dtype is None or (
+                 dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1):
         for w_elem in elems_w:
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
@@ -941,6 +942,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
+    if dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1:
+        # promote S0 -> S1, U0 -> U1
+        dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     arr = W_NDimArray.from_shape(shape, dtype, order=order)
