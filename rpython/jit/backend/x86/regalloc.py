@@ -1298,6 +1298,8 @@ class RegAlloc(BaseRegalloc):
         # the hints about the expected position of the spilled variables.
 
         # XXX we never compile code like that?
+        # YYY of course, because compute_hint_frame_locations() is disabled.
+        #     re-enable this once we re-enable it!
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
