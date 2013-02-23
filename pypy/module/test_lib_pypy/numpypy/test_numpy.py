@@ -41,3 +41,13 @@ class AppTestNumpy:
                      'unicode', 'str']:
             assert name not in locals()
             assert getattr(numpypy, name) is getattr(__builtin__, name)
+
+    def test_typeinfo(self):
+        import numpypy
+        assert 'typeinfo' not in dir(numpypy)
+        assert 'typeinfo' in dir(numpypy.core.multiarray)
+
+    def test_set_string_function(self):
+        import numpypy
+        assert numpypy.set_string_function is not \
+               numpypy.core.multiarray.set_string_function

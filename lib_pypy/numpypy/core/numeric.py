@@ -7,7 +7,7 @@ from _numpypy import concatenate
 from .fromnumeric import any
 import math
 import sys
-import _numpypy as multiarray # ARGH
+import multiarray
 from numpypy.core.arrayprint import array2string
 
 newaxis = None

@@ -6,6 +6,7 @@ import fromnumeric
 from fromnumeric import *
 import shape_base
 from shape_base import *
+import multiarray
 
 from fromnumeric import amax as max, amin as min
 from _numpypy import absolute as abs
