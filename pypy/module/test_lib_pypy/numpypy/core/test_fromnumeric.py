@@ -34,6 +34,20 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         # a = array([(1, 2), (3, 4)], dtype=[('x', 'i4'), ('y', 'i4')])
         # assert shape(a) == (2,)
 
+    def test_clip(self):
+        import numpypy as np
+        a = np.arange(10)
+        b = np.clip(a, 1, 8)
+        assert (b == [1, 1, 2, 3, 4, 5, 6, 7, 8, 8]).all()
+        assert (a == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+        b = np.clip(a, 3, 6, out=a)
+        assert (b == [3, 3, 3, 3, 4, 5, 6, 6, 6, 6]).all()
+        assert (a == [3, 3, 3, 3, 4, 5, 6, 6, 6, 6]).all()
+        a = np.arange(10)
+        b = np.clip(a, [3,4,1,1,1,4,4,4,4,4], 8)
+        assert (b == [3, 4, 2, 3, 4, 5, 6, 7, 8, 8]).all()
+        assert (a == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).all()
+
     def test_sum(self):
         # tests taken from numpy/core/fromnumeric.py docstring
         from numpypy import array, sum, ones, zeros
