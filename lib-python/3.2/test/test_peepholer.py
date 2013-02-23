@@ -3,6 +3,7 @@ import re
 import sys
 from io import StringIO
 import unittest
+from test.support import check_impl_detail
 
 def disassemble(func):
     f = StringIO()
@@ -43,14 +44,14 @@ class TestTranforms(unittest.TestCase):
     def test_global_as_constant(self):
         # LOAD_GLOBAL None/True/False  -->  LOAD_CONST None/True/False
         def f(x):
-            None
+            y = None
             None
             return x
         def g(x):
-            True
+            y = True
             return x
         def h(x):
-            False
+            y = False
             return x
         for func, name in ((f, 'None'), (g, 'True'), (h, 'False')):
             asm = disassemble(func)
@@ -77,10 +78,13 @@ class TestTranforms(unittest.TestCase):
             self.assertIn(elem, asm)
 
     def test_pack_unpack(self):
+        # On PyPy, "a, b = ..." is even more optimized, by removing
+        # the ROT_TWO.  But the ROT_TWO is not removed if assigning
+        # to more complex expressions, so check that.
         for line, elem in (
             ('a, = a,', 'LOAD_CONST',),
-            ('a, b = a, b', 'ROT_TWO',),
-            ('a, b, c = a, b, c', 'ROT_THREE',),
+            ('a[1], b = a, b', 'ROT_TWO',),
+            ('a, b[2], c = a, b, c', 'ROT_THREE',),
             ):
             asm = dis_single(line)
             self.assertIn(elem, asm)
@@ -88,6 +92,8 @@ class TestTranforms(unittest.TestCase):
             self.assertNotIn('UNPACK_TUPLE', asm)
 
     def test_folding_of_tuples_of_constants(self):
+        # On CPython, "a,b,c=1,2,3" turns into "a,b,c=<constant (1,2,3)>"
+        # but on PyPy, it turns into "a=1;b=2;c=3".
         for line, elem in (
             ('a = 1,2,3', '((1, 2, 3))'),
             ('("a","b","c")', "(('a', 'b', 'c'))"),
@@ -96,7 +102,8 @@ class TestTranforms(unittest.TestCase):
             ('((1, 2), 3, 4)', '(((1, 2), 3, 4))'),
             ):
             asm = dis_single(line)
-            self.assertIn(elem, asm)
+            self.assert_(elem in asm or (
+                line == 'a,b,c = 1,2,3' and 'UNPACK_TUPLE' not in asm))
             self.assertNotIn('BUILD_TUPLE', asm)
 
         # Bug 1053819:  Tuple of constants misidentified when presented with:
@@ -196,13 +203,14 @@ class TestTranforms(unittest.TestCase):
         self.assertIn('(1000)', asm)
 
     def test_binary_subscr_on_unicode(self):
-        # valid code get optimized
-        asm = dis_single('"foo"[0]')
-        self.assertIn("('f')", asm)
-        self.assertNotIn('BINARY_SUBSCR', asm)
-        asm = dis_single('"\u0061\uffff"[1]')
-        self.assertIn("('\\uffff')", asm)
-        self.assertNotIn('BINARY_SUBSCR', asm)
+        if check_impl_detail(pypy=False):
+            # valid code get optimized
+            asm = dis_single('"foo"[0]')
+            self.assertIn("('f')", asm)
+            self.assertNotIn('BINARY_SUBSCR', asm)
+            asm = dis_single('"\u0061\uffff"[1]')
+            self.assertIn("('\\uffff')", asm)
+            self.assertNotIn('BINARY_SUBSCR', asm)
 
         # invalid code doesn't get optimized
         # out of range
