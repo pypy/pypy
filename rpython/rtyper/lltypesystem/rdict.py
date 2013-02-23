@@ -1,8 +1,6 @@
 from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
-# rtype_newdict is accessed through this module in other places
-from rpython.rtyper.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
-    rtype_newdict)
+from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.debug import ll_assert
