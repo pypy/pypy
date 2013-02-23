@@ -99,7 +99,7 @@ The following figure gives a simplified overview (`PDF color version`_):
     .. image:: _static/translation-greyscale-small.png
 
 
-.. _`PDF color version`: https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/image/translation.pdf
+.. _`PDF color version`: _static/translation.pdf
 .. _`bytecode evaluator`: interpreter.html
 .. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
