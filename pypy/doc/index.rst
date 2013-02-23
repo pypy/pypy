@@ -1,5 +1,5 @@
 
-Welcome to PyPy Development
+Welcome to PyPy Documentation
 =============================================
 
 The PyPy project aims at producing a flexible and fast Python_
