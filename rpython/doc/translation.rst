@@ -96,7 +96,7 @@ stages.
 
 The following figure gives a simplified overview (`PDF color version`_):
 
-    .. image:: image/translation-greyscale-small.png
+    .. image:: _static/translation-greyscale-small.png
 
 
 .. _`PDF color version`: https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/image/translation.pdf
@@ -130,7 +130,7 @@ We have an extremely useful PyGame viewer, which allows you to visually
 inspect the graphs at various stages of the translation process (very
 useful to try to work out why things are breaking).  It looks like this:
 
-   .. image:: image/bpnn_update.png
+   .. image:: _static/bpnn_update.png
 
 It is recommended to play with ``python bin/translatorshell.py`` on a few
 examples to get an idea of the structure of flow graphs. The following describes
@@ -720,7 +720,7 @@ and complicated beast, formed from many separate components.
 The following image summarizes the various parts of the toolchain as of the
 0.9 release, with the default translation to C highlighted:
 
-.. image:: image/pypy-translation-0.9.png
+.. image:: _static/pypy-translation-0.9.png
    :align: center
 
 A detail that has not yet been emphasized is the interaction of the
@@ -734,7 +734,7 @@ some of its small helper functions to improve performance.  The
 following picture attempts to summarize the components involved in
 performing each step of the default translation process:
 
-.. image:: image/translation-detail-0.9.png
+.. image:: _static/translation-detail-0.9.png
    :align: center
 
 .. _`low-level helpers`: glossary.html#low-level-helper
