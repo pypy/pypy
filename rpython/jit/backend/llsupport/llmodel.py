@@ -79,23 +79,26 @@ class AbstractLLCPU(AbstractCPU):
         base_ofs = self.get_baseofs_of_frame_field()
 
         def realloc_frame(frame, size):
-            if not we_are_translated():
-                assert not self._exception_emulator[0]
-            frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
-            if size > frame.jf_frame_info.jfi_frame_depth:
-                # update the frame_info size, which is for whatever reason
-                # not up to date
-                frame.jf_frame_info.set_frame_depth(base_ofs, size)
-            new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
-            i = 0
-            while i < len(frame.jf_frame):
-                new_frame.jf_frame[i] = frame.jf_frame[i]
-                i += 1
-            new_frame.jf_savedata = frame.jf_savedata
-            new_frame.jf_guard_exc = frame.jf_guard_exc
-            # all other fields are empty
-            llop.gc_assume_young_pointers(lltype.Void, new_frame)
-            return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
+            try:
+                if not we_are_translated():
+                    assert not self._exception_emulator[0]
+                frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
+                if size > frame.jf_frame_info.jfi_frame_depth:
+                    # update the frame_info size, which is for whatever reason
+                    # not up to date
+                    frame.jf_frame_info.set_frame_depth(base_ofs, size)
+                new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
+                i = 0
+                while i < len(frame.jf_frame):
+                    new_frame.jf_frame[i] = frame.jf_frame[i]
+                    i += 1
+                new_frame.jf_savedata = frame.jf_savedata
+                new_frame.jf_guard_exc = frame.jf_guard_exc
+                # all other fields are empty
+                llop.gc_assume_young_pointers(lltype.Void, new_frame)
+                return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
+            except Exception, e:
+                print "Unhandled exception", e, "in realloc_frame"
 
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame)
