@@ -220,7 +220,7 @@ def test_address_eq_as_int():
     assert llmemory.cast_adr_to_int(a+1) == llmemory.cast_adr_to_int(a1) + 1
 
 def test_replace_object_with_stub():
-    from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+    from rpython.memory.gcheader import GCHeaderBuilder
     HDR = lltype.Struct('HDR', ('x', lltype.Signed))
     S = lltype.GcStruct('S', ('y', lltype.Signed), ('z', lltype.Signed))
     STUB = lltype.GcStruct('STUB', ('t', lltype.Char))
@@ -271,7 +271,7 @@ def test_compiled():
     assert res == 42
 
 def test_shrink_obj():
-    from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+    from rpython.memory.gcheader import GCHeaderBuilder
     HDR = lltype.Struct('HDR', ('h', lltype.Signed))
     gcheaderbuilder = GCHeaderBuilder(HDR)
     size_gc_header = gcheaderbuilder.size_gc_header

@@ -665,7 +665,7 @@ def ll_newdict_size(DICT, length_estimate):
     d.resize_counter = n * 2
     return d
 
-# rpython.rtyper.memory.lldict uses a dict based on Struct and Array
+# rpython.memory.lldict uses a dict based on Struct and Array
 # instead of GcStruct and GcArray, which is done by using different
 # 'allocate' and 'delete' adtmethod implementations than the ones below
 def _ll_malloc_dict(DICT):
