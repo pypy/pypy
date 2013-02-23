@@ -453,13 +453,17 @@ class __extend__(W_NDimArray):
 
     @unwrap_spec(mode=str)
     def descr_choose(self, space, w_choices, mode='raise', w_out=None):
-        if not space.is_none(w_out) and not isinstance(w_out, W_NDimArray):
+        if space.is_none(w_out):
+            w_out = None
+        elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "return arrays must be of ArrayType"))
         return interp_arrayops.choose(space, self, w_choices, w_out, mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
-        if not space.is_none(w_out) and not isinstance(w_out, W_NDimArray):
+        if space.is_none(w_out):
+            w_out = None
+        elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                 "return arrays must be of ArrayType"))
         min = convert_to_array(space, w_min)
