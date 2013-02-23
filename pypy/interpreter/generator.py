@@ -107,6 +107,11 @@ return next yielded value or raise StopIteration."""
 
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
+        if tb is None:
+            tb = space.getattr(operr.get_w_value(space),
+                               space.wrap('__traceback__'))
+            if not space.is_w(tb, space.w_None):
+                operr.set_traceback(tb)
         return self.send_ex(space.w_None, operr)
 
     def descr_next(self):
