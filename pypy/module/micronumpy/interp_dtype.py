@@ -474,7 +474,7 @@ class DtypeCache(object):
             aliases=["complex"],
             float_type = self.w_float64dtype,
         )
-        if 0 and interp_boxes.long_double_size == 12:
+        if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
             self.w_float96dtype = W_Dtype(
                 types.Float96(),
                 num=13,
@@ -497,7 +497,7 @@ class DtypeCache(object):
             )
             self.w_longdouble = self.w_float96dtype
             self.w_clongdouble = self.w_complex192dtype
-        elif 0 and interp_boxes.long_double_size == 16:
+        elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
             self.w_float128dtype = W_Dtype(
                 types.Float128(),
                 num=13,
@@ -520,7 +520,7 @@ class DtypeCache(object):
             )
             self.w_longdouble = self.w_float128dtype
             self.w_clongdouble = self.w_complex256dtype
-        elif 0:
+        elif interp_boxes.ENABLED_LONG_DOUBLE:
             self.w_float64dtype.aliases += ["longdouble", "longfloat"]
             self.w_complex128dtype.aliases += ["clongdouble", "clongfloat"]
             self.w_longdouble = self.w_float64dtype
@@ -596,27 +596,27 @@ class DtypeCache(object):
             char=UINTPLTR,
             w_box_type = space.gettypefor(uintp_box),
         )
+        float_dtypes = [self.w_float16dtype,
+                self.w_float32dtype, self.w_float64dtype,
+                ]
+        complex_dtypes =  [self.w_complex64dtype, self.w_complex128dtype]
+        if interp_boxes.ENABLED_LONG_DOUBLE:
+            float_dtypes.append(self.w_longdouble)
+            complex_dtypes.append(self.w_clongdouble)
         self.builtin_dtypes = [
             self.w_booldtype,
             self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype,
             self.w_longdtype, self.w_ulongdtype,
             self.w_int32dtype, self.w_uint32dtype,
-            self.w_int64dtype, self.w_uint64dtype,
-            self.w_float16dtype,
-            self.w_float32dtype, self.w_float64dtype, 
-            # self.w_longdouble,
-            self.w_complex64dtype, self.w_complex128dtype, 
-            # self.w_clongdouble,
+            self.w_int64dtype, self.w_uint64dtype] + \
+            float_dtypes + complex_dtypes + [
             self.w_stringdtype, self.w_unicodedtype, self.w_voiddtype,
             self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
-            for dtype in [self.w_float16dtype, self.w_float32dtype,
-                          self.w_float64dtype, 
-                          # self.w_longdouble, 
-                         ]
+            for dtype in float_dtypes
         )
         self.dtypes_by_num = {}
         self.dtypes_by_name = {}
@@ -659,7 +659,6 @@ class DtypeCache(object):
             'LONGLONG': self.w_int64dtype,
             'SHORT': self.w_int16dtype,
             'VOID': self.w_voiddtype,
-            #'LONGDOUBLE': self.w_longdouble,
             'UBYTE': self.w_uint8dtype,
             'UINTP': self.w_ulongdtype,
             'ULONG': self.w_ulongdtype,
@@ -682,8 +681,11 @@ class DtypeCache(object):
             'USHORT': self.w_uint16dtype,
             'FLOAT': self.w_float32dtype,
             'BOOL': self.w_booldtype,
-            #'CLONGDOUBLE': self.w_clongdouble,
         }
+        if interp_boxes.ENABLED_LONG_DOUBLE:
+            typeinfo_full['LONGDOUBLE'] = self.w_longdouble
+            typeinfo_full['CLONGDOUBLE'] = self.w_clongdouble
+
         typeinfo_partial = {
             'Generic': interp_boxes.W_GenericBox,
             'Character': interp_boxes.W_CharacterBox,
