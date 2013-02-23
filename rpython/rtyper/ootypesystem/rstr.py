@@ -445,6 +445,7 @@ class UnicodeIteratorRepr(AbstractStringIteratorRepr):
     def __init__(self):
         self.ll_striter = ll_unicodeiter
         self.ll_strnext = ll_strnext
+        self.ll_getnextindex = ll_getnextindex
 
 def ll_striter(string):
     iter = ootype.new(string_repr.string_iterator_repr.lowleveltype)

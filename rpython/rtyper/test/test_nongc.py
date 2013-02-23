@@ -230,6 +230,6 @@ def test_rtype_nongc_object():
     assert isinstance(s, annmodel.SomeAddress)
     rtyper = RPythonTyper(a)
     rtyper.specialize()
-##     from rpython.rtyper.memory.lladdress import _address
+##     from rpython.memory.lladdress import _address
 ##     res = interpret(malloc_and_free, [_address()])
 ##     assert res == _address()

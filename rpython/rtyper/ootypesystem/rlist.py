@@ -1,6 +1,6 @@
 from rpython.tool.pairtype import pairtype
 from rpython.rtyper.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractListIteratorRepr, AbstractFixedSizeListRepr, rtype_newlist, rtype_alloc_and_set
+        AbstractListIteratorRepr, AbstractFixedSizeListRepr
 from rpython.rtyper.rmodel import Repr, IntegerRepr
 from rpython.rtyper.rmodel import inputconst, externalvsinternal
 from rpython.rtyper.lltypesystem.lltype import Signed, Void
@@ -241,6 +241,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
+        self.external_item_repr = r_list.external_item_repr
         self.lowleveltype = ootype.Record(
                 {"iterable": r_list.lowleveltype, "index": ootype.Signed})
         self.ll_listiter = ll_listiter

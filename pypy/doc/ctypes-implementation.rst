@@ -38,7 +38,7 @@ to create C objects (arrays and structures) and calling functions
 in dynamic libraries through libffi. Freeing objects in most cases and making
 sure that objects referring to each other are kept alive is responsibility of the higher levels.
 
-This module uses bindings to libffi which are defined in ``pypy/rlib/libffi.py``.
+This module uses bindings to libffi which are defined in ``rpython/rlib/libffi.py``.
 
 We tried to keep this module as small as possible. It is conceivable
 that other implementations (e.g. Jython) could use our ctypes
