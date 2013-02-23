@@ -1141,7 +1141,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.mean(1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
 
     def test_sum(self):
-        from _numpypy import array
+        from _numpypy import array, zeros
         a = array(range(5))
         assert a.sum() == 10
         assert a[:4].sum() == 6
@@ -1155,6 +1155,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.sum(out=d)
         assert b == d
         assert b is d
+
+        assert list(zeros((0, 2)).sum(axis=1)) == []
 
     def test_reduce_nd(self):
         from numpypy import arange, array, multiply
@@ -1242,11 +1244,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[:4].prod() == 24.0
 
     def test_max(self):
-        from _numpypy import array
+        from _numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.max() == 5.7
         b = array([])
         raises(ValueError, "b.max()")
+
+        assert list(zeros((0, 2)).max(axis=1)) == []
 
     def test_max_add(self):
         from _numpypy import array
@@ -1254,11 +1258,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a + a).max() == 11.4
 
     def test_min(self):
-        from _numpypy import array
+        from _numpypy import array, zeros
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.min() == -3.0
         b = array([])
         raises(ValueError, "b.min()")
+
+        assert list(zeros((0, 2)).min(axis=1)) == []
 
     def test_argmax(self):
         from _numpypy import array
