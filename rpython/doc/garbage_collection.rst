@@ -42,7 +42,7 @@ Semispace copying collector
 Two arenas of equal size, with only one arena in use and getting filled
 with new objects.  When the arena is full, the live objects are copied
 into the other arena using Cheney's algorithm.  The old arena is then
-cleared.  See `rpython/memory/gc/semispace.py`_.
+cleared.  See :source:`rpython/memory/gc/semispace.py`.
 
 On Unix the clearing is done by reading ``/dev/zero`` into the arena,
 which is extremely memory efficient at least on Linux: it lets the
@@ -55,7 +55,7 @@ amount of objects alive grows.
 Generational GC
 ---------------
 
-This is a two-generations GC.  See `rpython/memory/gc/generation.py`_.
+This is a two-generations GC.  See :source:`rpython/memory/gc/generation.py`.
 
 It is implemented as a subclass of the Semispace copying collector.  It
 adds a nursery, which is a chunk of the current semispace.  Its size is
@@ -86,7 +86,7 @@ This is coupled with a segregation of the objects in three generations.
 Each generation is collected much less often than the previous one.  The
 division of the generations is slightly more complicated than just
 nursery / semispace / external; see the diagram at the start of the
-source code, in `rpython/memory/gc/hybrid.py`_.
+source code, in :source:`rpython/memory/gc/hybrid.py`.
 
 Mark & Compact GC
 -----------------
@@ -161,7 +161,7 @@ In more detail:
   to the old stage. The dying case 2 objects are immediately freed.
 
 - The old stage is an area of memory containing old (small) objects.  It
-  is handled by `rpython/memory/gc/minimarkpage.py`_.  It is organized
+  is handled by :source:`rpython/memory/gc/minimarkpage.py`.  It is organized
   as "arenas" of 256KB or 512KB, subdivided into "pages" of 4KB or 8KB.
   Each page can either be free, or contain small objects of all the same
   size.  Furthermore at any point in time each object location can be
@@ -209,5 +209,3 @@ In more detail:
   next minor collection, we move it there, and so its id() and hash()
   are preserved.  If the object dies then the pre-reserved location
   becomes free garbage, to be collected at the next major collection.
-
-.. include:: _ref.txt

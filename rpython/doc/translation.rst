@@ -90,7 +90,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an `interactive interface`_ called `rpython/bin/translatorshell.py`_ to the
+There is an `interactive interface`_ called :source:`rpython/bin/translatorshell.py` to the
 translation process which allows you to interactively work through these
 stages.
 
@@ -116,7 +116,7 @@ describing object spaces`_. Here we describe the data structures produced by it,
 which are the basic data structures of the translation
 process.
 
-All these types are defined in `rpython/flowspace/model.py`_ (which is a rather
+All these types are defined in :source:`rpython/flowspace/model.py` (which is a rather
 important module in the PyPy source base, to reinforce the point).
 
 The flow graph of a function is represented by the class ``FunctionGraph``.
@@ -744,5 +744,3 @@ provides a convenient interface for a "late" (after RTyping)
 translation step to declare that it needs to be able to call each of a
 collection of functions (which may refer to each other in a mutually
 recursive fashion) and annotate and rtype them all at once.
-
-.. include:: _ref.txt
