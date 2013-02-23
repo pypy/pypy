@@ -530,5 +530,5 @@ def identity(n, dtype=None):
            [ 0.,  0.,  1.]])
 
     """
-    from _numpypy import eye
+    from numpy import eye
     return eye(n, dtype=dtype)

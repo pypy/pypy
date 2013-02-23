@@ -163,7 +163,6 @@ class Module(MixedModule):
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
     appleveldefs = {
-        'eye': 'app_numpy.eye',
         'arange': 'app_numpy.arange',
     }
     def setup_after_space_initialization(self):

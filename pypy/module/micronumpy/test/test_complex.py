@@ -382,7 +382,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_conjugate(self):
         from _numpypy import conj, conjugate, complex128, complex64
-        import _numpypy as np
+        import numpypy as np
 
         c0 = complex128(complex(2.5, 0))
         c1 = complex64(complex(1, 2))
