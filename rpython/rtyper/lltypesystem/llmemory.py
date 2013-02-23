@@ -808,7 +808,7 @@ def raw_malloc(size):
 
 def raw_free(adr):
     # try to free the whole object if 'adr' is the address of the header
-    from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+    from rpython.memory.gcheader import GCHeaderBuilder
     try:
         objectptr = GCHeaderBuilder.object_from_header(adr.ptr)
     except KeyError:
@@ -821,7 +821,7 @@ def raw_free(adr):
 def raw_malloc_usage(size):
     if isinstance(size, AddressOffset):
         # ouah
-        from rpython.rtyper.memory.lltypelayout import convert_offset_to_int
+        from rpython.memory.lltypelayout import convert_offset_to_int
         size = convert_offset_to_int(size)
     return size
 

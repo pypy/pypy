@@ -631,6 +631,72 @@ class BufferedMixin:
             return res
         return None
 
+    def readline_w(self, space, w_limit=None):
+        self._check_init(space)
+        self._check_closed(space, "readline of closed file")
+
+        limit = convert_size(space, w_limit)
+
+        # First, try to find a line in the buffer. This can run
+        # unlocked because the calls to the C API are simple enough
+        # that they can't trigger any thread switch.
+        have = self._readahead()
+        if limit >= 0 and have > limit:
+            have = limit
+        for pos in range(self.pos, self.pos+have):
+            if self.buffer[pos] == '\n':
+                break
+        else:
+            pos = -1
+        if pos >= 0:
+            w_res = space.wrap(''.join(self.buffer[self.pos:pos+1]))
+            self.pos = pos + 1
+            return w_res
+        if have == limit:
+            w_res = space.wrap(''.join(self.buffer[self.pos:self.pos+have]))
+            self.pos += have
+            return w_res
+
+        written = 0
+        with self.lock:
+            # Now we try to get some more from the raw stream
+            chunks = []
+            if have > 0:
+                chunks.extend(self.buffer[self.pos:self.pos+have])
+                written += have
+                self.pos += have
+                if limit >= 0:
+                    limit -= have
+            if self.writable:
+                self._flush_and_rewind_unlocked(space)
+
+            while True:
+                self._reader_reset_buf()
+                have = self._fill_buffer(space)
+                if have == 0:
+                    break
+                if limit >= 0 and have > limit:
+                    have = limit
+                pos = 0
+                found = False
+                while pos < have:
+                    c = self.buffer[pos]
+                    pos += 1
+                    if c == '\n':
+                        self.pos = pos
+                        found = True
+                        break
+                chunks.extend(self.buffer[0:pos])
+                if found:
+                    break
+                if have == limit:
+                    self.pos = have
+                    break
+                written += have
+                if limit >= 0:
+                    limit -= have
+            return space.wrap(''.join(chunks))
+
     # ____________________________________________________
     # Write methods
 
@@ -795,6 +861,7 @@ W_BufferedReader.typedef = TypeDef(
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
     raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
+    readline = interp2app(W_BufferedReader.readline_w),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedReader.repr_w),
@@ -968,6 +1035,7 @@ W_BufferedRandom.typedef = TypeDef(
     read = interp2app(W_BufferedRandom.read_w),
     peek = interp2app(W_BufferedRandom.peek_w),
     read1 = interp2app(W_BufferedRandom.read1_w),
+    readline = interp2app(W_BufferedRandom.readline_w),
 
     write = interp2app(W_BufferedRandom.write_w),
     flush = interp2app(W_BufferedRandom.flush_w),

@@ -286,7 +286,7 @@ Directory                          explanation/links
 `rpython/rtyper/ootypesystem/`_    the `object-oriented type system`_
                                    for OO backends
 
-`rpython/rtyper/memory/`_          the `garbage collector`_ construction
+`rpython/memory/`_                 the `garbage collector`_ construction
                                    framework
 
 `rpython/translator/`_             translation_ backends and support code

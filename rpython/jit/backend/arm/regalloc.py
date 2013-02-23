@@ -697,7 +697,7 @@ class Regalloc(BaseRegalloc):
             classptr = y_val
             # here, we have to go back from 'classptr' to the value expected
             # from reading the 16 bits in the object header
-            from rpython.rtyper.memory.gctypelayout import GCData
+            from rpython.memory.gctypelayout import GCData
             sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)

@@ -27,9 +27,6 @@ class Module(MixedModule):
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',
 
-        'bool': 'space.w_bool',
-        'int': 'space.w_int',
-
         'typeinfo': 'interp_dtype.get_dtype_cache(space).w_typeinfo',
 
         'generic': 'interp_boxes.W_GenericBox',
@@ -82,7 +79,6 @@ class Module(MixedModule):
 
     # ufuncs
     for exposed, impl in [
-        ("abs", "absolute"),
         ("absolute", "absolute"),
         ("add", "add"),
         ("arccos", "arccos"),
@@ -163,14 +159,17 @@ class Module(MixedModule):
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
     appleveldefs = {
-        'average': 'app_numpy.average',
-        'sum': 'app_numpy.sum',
-        'min': 'app_numpy.min',
-        'identity': 'app_numpy.identity',
-        'eye': 'app_numpy.eye',
-        'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
     }
+    def setup_after_space_initialization(self):
+        space = self.space
+        all_list = sorted(Module.interpleveldefs.keys() + \
+                                Module.appleveldefs.keys())
+        # found by set(numpypy.__all__) - set(numpy.__all__)
+        all_list.remove('set_string_function')
+        all_list.remove('typeinfo')
+        w_all = space.wrap(all_list)
+        space.setitem(self.w_dict, space.new_interned_str('__all__'), w_all)
 
 if long_double_size == 16:
     Module.interpleveldefs['float128'] = 'interp_boxes.W_Float128Box'
