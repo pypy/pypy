@@ -2,13 +2,6 @@ import math
 
 import _numpypy
 
-def average(a):
-    # This implements a weighted average, for now we don't implement the
-    # weighting, just the average part!
-    if not hasattr(a, "mean"):
-        a = _numpypy.array(a)
-    return a.mean()
-
 def eye(n, m=None, k=0, dtype=None):
     if m is None:
         m = n

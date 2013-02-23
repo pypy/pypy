@@ -1,5 +1,6 @@
 from _numpypy import *
 from .core import *
+from .lib import *
 
 import _numpypy
 __all__ = _numpypy.__all__

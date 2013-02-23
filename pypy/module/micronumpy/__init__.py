@@ -163,7 +163,6 @@ class Module(MixedModule):
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
     appleveldefs = {
-        'average': 'app_numpy.average',
         'eye': 'app_numpy.eye',
         'arange': 'app_numpy.arange',
     }
