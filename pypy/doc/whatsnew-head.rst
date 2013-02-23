@@ -68,6 +68,7 @@ non-main thread to enable the processing of signal handlers in that thread.
 
 .. branch: coding-guide-update-rlib-refs
 .. branch: rlib-doc-rpython-refs
+.. branch: clean-up-remaining-pypy-rlib-refs
 
 .. branch: enumerate-rstr
 Support enumerate() over rstr types.

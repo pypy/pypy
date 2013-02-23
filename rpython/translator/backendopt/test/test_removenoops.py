@@ -2,7 +2,7 @@ from rpython.translator.backendopt.removenoops import remove_same_as, \
         remove_unaryops, remove_duplicate_casts
 from rpython.translator.backendopt.inline import simple_inline_function
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.rtyper.memory.gctransform.test.test_transform import getops
+from rpython.memory.gctransform.test.test_transform import getops
 from rpython.translator.test.snippet import simple_method
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST

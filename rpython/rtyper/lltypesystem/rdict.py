@@ -1,14 +1,12 @@
 from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
-from rpython.rtyper.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
-     rtype_newdict)
+from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError
-from rpython.annotator.model import SomeInteger
 
 
 HIGHEST_BIT = r_uint(intmask(1 << (LONG_BIT - 1)))
@@ -667,7 +665,7 @@ def ll_newdict_size(DICT, length_estimate):
     d.resize_counter = n * 2
     return d
 
-# rpython.rtyper.memory.lldict uses a dict based on Struct and Array
+# rpython.memory.lldict uses a dict based on Struct and Array
 # instead of GcStruct and GcArray, which is done by using different
 # 'allocate' and 'delete' adtmethod implementations than the ones below
 def _ll_malloc_dict(DICT):

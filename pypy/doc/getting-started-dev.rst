@@ -20,7 +20,7 @@ you need to:
 
 To start the interactive translator shell do::
 
-    cd pypy
+    cd rpython
     python bin/translatorshell.py
 
 Test snippets of translatable code are provided in the file

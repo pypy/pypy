@@ -382,7 +382,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_conjugate(self):
         from _numpypy import conj, conjugate, complex128, complex64
-        import _numpypy as np
+        import numpypy as np
 
         c0 = complex128(complex(2.5, 0))
         c1 = complex64(complex(1, 2))
@@ -495,8 +495,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_basic(self):
         from _numpypy import (complex128, complex64, add, array, dtype,
-            subtract as sub, multiply, divide, negative, abs, floor_divide,
-            real, imag, sign, clongfloat)
+            subtract as sub, multiply, divide, negative, absolute as abs,
+            floor_divide, real, imag, sign, clongfloat)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
         assert real(4.0) == 4.0
