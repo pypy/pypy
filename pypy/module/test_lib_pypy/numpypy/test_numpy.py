@@ -1,4 +1,6 @@
-class AppTestNumpy:
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+
+class AppTestNumpy(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=['micronumpy'])
 
     def test_imports(self):
