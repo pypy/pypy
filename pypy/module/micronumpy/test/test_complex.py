@@ -495,8 +495,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_basic(self):
         from _numpypy import (complex128, complex64, add, array, dtype,
-            subtract as sub, multiply, divide, negative, abs, floor_divide,
-            real, imag, sign, clongfloat)
+            subtract as sub, multiply, divide, negative, absolute as abs,
+            floor_divide, real, imag, sign, clongfloat)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
         assert real(4.0) == 4.0

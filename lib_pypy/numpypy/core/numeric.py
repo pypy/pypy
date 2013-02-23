@@ -1,3 +1,6 @@
+__all__ = ['asanyarray', 'base_repr',
+           'array_repr', 'array_str', 'set_string_function',
+           'array_equal', 'asarray', 'outer', 'identity']
 
 from _numpypy import array, ndarray, int_, float_, bool_, flexible #, complex_# , longlong
 from _numpypy import concatenate

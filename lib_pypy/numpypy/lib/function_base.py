@@ -1,3 +1,5 @@
+__all__ = ['average']
+
 from _numpypy import array
 
 def average(a):

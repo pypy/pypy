@@ -1,3 +1,5 @@
+__all__ = ['atleast_1d', 'atleast_2d', 'atleast_3d', 'vstack', 'hstack', 'dstack']
+
 import _numpypy
 from numeric import array, asanyarray, newaxis
 

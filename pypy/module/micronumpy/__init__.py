@@ -79,7 +79,6 @@ class Module(MixedModule):
 
     # ufuncs
     for exposed, impl in [
-        ("abs", "absolute"),
         ("absolute", "absolute"),
         ("add", "add"),
         ("arccos", "arccos"),
@@ -167,7 +166,6 @@ class Module(MixedModule):
         all_list = sorted(Module.interpleveldefs.keys() + \
                                 Module.appleveldefs.keys())
         # found by set(numpypy.__all__) - set(numpy.__all__)
-        all_list.remove('abs')
         all_list.remove('typeinfo')
         w_all = space.wrap(all_list)
         space.setitem(self.w_dict, space.new_interned_str('__all__'), w_all)

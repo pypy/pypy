@@ -1,3 +1,5 @@
+__all__ = ['eye']
+
 from _numpypy import zeros
 
 def eye(N, M=None, k=0, dtype=float):
