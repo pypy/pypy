@@ -1,6 +1,6 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-class AppTestFunctionBase(BaseNumpyAppTest):
+class AppTestTwoDimBase(BaseNumpyAppTest):
     def test_eye(self):
         from _numpypy import int32, dtype
         from numpypy import eye
