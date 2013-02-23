@@ -1629,17 +1629,17 @@ TypeError: throw() third argument must be a traceback object
 >>> g.throw("abc")
 Traceback (most recent call last):
   ...
-TypeError: exceptions must be classes or instances deriving from BaseException, not str
+TypeError: exceptions must derive from BaseException, not str
 
 >>> g.throw(0)
 Traceback (most recent call last):
   ...
-TypeError: exceptions must be classes or instances deriving from BaseException, not int
+TypeError: exceptions must derive from BaseException, not int
 
 >>> g.throw(list)
 Traceback (most recent call last):
   ...
-TypeError: exceptions must be classes or instances deriving from BaseException, not type
+TypeError: exceptions must derive from BaseException, not type
 
 >>> def throw(g,exc):
 ...     try:
