@@ -1290,7 +1290,9 @@ def clip(a, a_min, a_max, out=None):
     array([3, 4, 2, 3, 4, 5, 6, 7, 8, 8])
 
     """
-    raise NotImplementedError('Waiting on interp level method')
+    if not hasattr(a, 'clip'):
+        a = numpypy.array(a)
+    return a.clip(a_min, a_max, out=out)
 
 
 def sum(a, axis=None, dtype=None, out=None):

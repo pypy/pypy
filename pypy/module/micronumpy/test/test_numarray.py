@@ -1188,55 +1188,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(0) == [3, 8]).all()
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
-    def test_identity(self):
-        from _numpypy import identity, array
-        from _numpypy import int32, float64, dtype
-        a = identity(0)
-        assert len(a) == 0
-        assert a.dtype == dtype('float64')
-        assert a.shape == (0, 0)
-        b = identity(1, dtype=int32)
-        assert len(b) == 1
-        assert b[0][0] == 1
-        assert b.shape == (1, 1)
-        assert b.dtype == dtype('int32')
-        c = identity(2)
-        assert c.shape == (2, 2)
-        assert (c == [[1, 0], [0, 1]]).all()
-        d = identity(3, dtype='int32')
-        assert d.shape == (3, 3)
-        assert d.dtype == dtype('int32')
-        assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
-
-    def test_eye(self):
-        from _numpypy import eye
-        from _numpypy import int32, dtype
-        a = eye(0)
-        assert len(a) == 0
-        assert a.dtype == dtype('float64')
-        assert a.shape == (0, 0)
-        b = eye(1, dtype=int32)
-        assert len(b) == 1
-        assert b[0][0] == 1
-        assert b.shape == (1, 1)
-        assert b.dtype == dtype('int32')
-        c = eye(2)
-        assert c.shape == (2, 2)
-        assert (c == [[1, 0], [0, 1]]).all()
-        d = eye(3, dtype='int32')
-        assert d.shape == (3, 3)
-        assert d.dtype == dtype('int32')
-        assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
-        e = eye(3, 4)
-        assert e.shape == (3, 4)
-        assert (e == [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]).all()
-        f = eye(2, 4, k=3)
-        assert f.shape == (2, 4)
-        assert (f == [[0, 0, 0, 1], [0, 0, 0, 0]]).all()
-        g = eye(3, 4, k=-1)
-        assert g.shape == (3, 4)
-        assert (g == [[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]]).all()
-
     def test_prod(self):
         from _numpypy import array
         a = array(range(1, 6))
@@ -1754,7 +1705,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from _numpypy import array
         a = array([1, 2, 17, -3, 12])
         assert (a.clip(-2, 13) == [1, 2, 13, -2, 12]).all()
-        assert (a.clip(-1, 1) == [1, 1, 1, -1, 1]).all()
+        assert (a.clip(-1, 1, out=None) == [1, 1, 1, -1, 1]).all()
+        assert (a == [1, 2, 17, -3, 12]).all()
         assert (a.clip(-1, [1, 2, 3, 4, 5]) == [1, 2, 3, -1, 5]).all()
         assert (a.clip(-2, 13, out=a) == [1, 2, 13, -2, 12]).all()
         assert (a == [1, 2, 13, -2, 12]).all()
