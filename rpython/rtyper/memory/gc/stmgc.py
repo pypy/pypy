@@ -321,7 +321,6 @@ class StmGC(MovingGCBase):
         tls = self.get_tls()
         try:
             localobj = tls.duplicate_obj(obj, self.get_size(obj))
-            tls.copied_local_objects.append(localobj)     # XXX KILL
         except MemoryError:
             # should not really let the exception propagate.
             # XXX do something slightly better, like abort the transaction

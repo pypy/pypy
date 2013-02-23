@@ -51,7 +51,6 @@ class StmGCTLS(object):
         # --- a thread-local allocator for the shared area
         from rpython.rtyper.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
-        self.copied_local_objects = self.AddressStack()   # XXX KILL
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
         self.local_weakrefs = self.AddressStack()
@@ -63,7 +62,6 @@ class StmGCTLS(object):
         self._cleanup_state()
         self._unregister_with_C_code()
         self.local_weakrefs.delete()
-        self.copied_local_objects.delete()
         self.sharedarea_tls.delete()
         self._free_nursery(self.nursery_start)
         free_non_gc_object(self)
@@ -290,8 +288,6 @@ class StmGCTLS(object):
             ll_assert(hdr.tid & GCFLAG_LOCAL_COPY == 0,"already LOCAL_COPY [1]")
             hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
             self._clear_revision_for_global_object(hdr)
-        #
-        self.copied_local_objects.clear()
 
     def _clear_revision_for_global_object(self, hdr):
         # Reset the 'revision' to initialize a newly global object.
@@ -310,8 +306,6 @@ class StmGCTLS(object):
         # free the old unused local objects still allocated in the
         # StmGCThreadLocalAllocator
         self.sharedarea_tls.free_and_clear()
-        # free these ones too
-        self.sharedarea_tls.free_and_clear_list(self.copied_local_objects)
         # forget the local weakrefs.
         self.local_weakrefs.clear()
 
