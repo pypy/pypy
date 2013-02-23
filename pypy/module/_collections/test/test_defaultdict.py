@@ -5,6 +5,8 @@ class AppTestBasic:
     def test_basics(self):
         from _collections import defaultdict
         d = defaultdict(list)
+        assert d.default_factory is list
+        assert defaultdict.default_factory.__get__(d) is list
         l = d[5]
         d[5].append(42)
         d[5].append(43)
