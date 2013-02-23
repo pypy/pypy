@@ -24,15 +24,42 @@ class OperationError(Exception):
 
     def __init__(self, w_type, w_value, tb=None, w_cause=None):
         assert w_type is not None
-        self.setup(w_type)
-        self._w_value = w_value
+        self.setup(w_type, w_value)
         self._application_traceback = tb
         self.w_cause = w_cause
 
-    def setup(self, w_type):
+    def setup(self, w_type, w_value=None):
+        from pypy.objspace.std.typeobject import W_TypeObject
         self.w_type = w_type
+        self._w_value = w_value
+        if isinstance(w_type, W_TypeObject):
+            self.setup_context(w_type.space)
         if not we_are_translated():
             self.debug_excs = []
+
+    def setup_context(self, space):
+        # Implicit exception chaining
+        last_operror = space.getexecutioncontext().sys_exc_info()
+        if last_operror is None:
+            return
+
+        # We must normalize the value right now to check for cycles
+        self.normalize_exception(space)
+        w_value = self.get_w_value(space)
+        w_last_value = last_operror.get_w_value(space)
+        if not space.is_w(w_value, w_last_value):
+            # Avoid reference cycles through the context chain. This is
+            # O(chain length) but context chains are usually very short.
+            w_obj = w_last_value
+            while True:
+                w_context = space.getattr(w_obj, space.wrap('__context__'))
+                if space.is_w(w_context, space.w_None):
+                    break
+                if space.is_w(w_context, w_value):
+                    space.setattr(w_obj, space.wrap('__context__'), space.w_None)
+                    break
+                w_obj = w_context
+            space.setattr(w_value, space.wrap('__context__'), w_last_value)
 
     def clear(self, space):
         self.w_type = space.w_None
@@ -199,8 +226,21 @@ class OperationError(Exception):
                         w_value = space.call_function(w_type, w_value)
                     w_type = self._exception_getclass(space, w_value)
             if self.w_cause:
+                # ensure w_cause is of a valid type
+                self._exception_getclass(space, self.w_cause, "exception causes")
                 space.setattr(w_value, space.wrap("__cause__"), self.w_cause)
-
+            if self._application_traceback:
+                from pypy.interpreter.pytraceback import PyTraceback
+                from pypy.module.exceptions.interp_exceptions import W_BaseException
+                tb = self._application_traceback
+                if (isinstance(w_value, W_BaseException) and
+                    isinstance(tb, PyTraceback)):
+                    # traceback hasn't escaped yet
+                    w_value.w_traceback = tb
+                else:
+                    # traceback has escaped
+                    space.setattr(w_value, space.wrap("__traceback__"),
+                                  space.wrap(self.get_traceback()))
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
@@ -215,13 +255,12 @@ class OperationError(Exception):
         self.w_type   = w_type
         self._w_value = w_value
 
-    def _exception_getclass(self, space, w_inst):
+    def _exception_getclass(self, space, w_inst, what="exceptions"):
         w_type = space.exception_getclass(w_inst)
         if not space.exception_is_valid_class_w(w_type):
             typename = w_type.getname(space)
-            msg = ("exceptions must be classes or instances deriving from "
-                   "BaseException, not %s")
-            raise operationerrfmt(space.w_TypeError, msg, typename)
+            msg = "%s must derive from BaseException, not %s"
+            raise operationerrfmt(space.w_TypeError, msg, what, typename)
         return w_type
 
     def write_unraisable(self, space, where, w_object=None,
@@ -336,12 +375,12 @@ def get_operrcls2(valuefmt):
         #
         class OpErrFmt(OperationError):
             def __init__(self, w_type, strings, *args):
-                self.setup(w_type)
                 assert len(args) == len(strings) - 1
                 self.xstrings = strings
                 for i, fmt, attr in entries:
                     setattr(self, attr, args[i])
                 assert w_type is not None
+                self.setup(w_type)
             def _compute_value(self):
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, fmt, attr in entries:

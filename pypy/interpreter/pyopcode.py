@@ -480,11 +480,12 @@ class __extend__(pyframe.PyFrame):
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
             raise RaiseWithExplicitTraceback(operror)
-        w_value = w_cause = space.w_None
         if nbargs == 2:
             w_cause = self.popvalue()
             if space.exception_is_valid_obj_as_class_w(w_cause):
                 w_cause = space.call_function(w_cause)
+        else:
+            w_cause = None
         w_value = self.popvalue()
         if space.exception_is_valid_obj_as_class_w(w_value):
             w_type = w_value

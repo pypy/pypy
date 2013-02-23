@@ -171,7 +171,12 @@ class W_BaseException(Wrappable):
         self.w_context = w_newcontext
 
     def descr_gettraceback(self, space):
-        return self.w_traceback
+        from pypy.interpreter.pytraceback import PyTraceback
+        tb = self.w_traceback
+        if tb is not None and isinstance(tb, PyTraceback):
+            # tb escapes to app level (see OperationError.get_traceback)
+            tb.frame.mark_as_escaped()
+        return tb
 
     def descr_settraceback(self, space, w_newtraceback):
         msg = '__traceback__ must be a traceback or None'

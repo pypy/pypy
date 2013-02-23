@@ -79,21 +79,6 @@ class AppTestRaise:
             assert sys.exc_info()[0] is ValueError
         assert sys.exc_info() == (None, None, None)
 
-    def test_raise_with___traceback__(self):
-        import sys
-        try:
-            raise ValueError
-        except:
-            exc_type,exc_val,exc_tb = sys.exc_info()
-        try:
-            exc_val.__traceback__ = exc_tb
-            raise exc_val
-        except:
-            exc_type2,exc_val2,exc_tb2 = sys.exc_info()
-        assert exc_type is exc_type2
-        assert exc_val is exc_val2
-        assert exc_tb is exc_tb2.tb_next
-
     def test_reraise_1(self):
         raises(IndexError, """
             import sys
@@ -321,6 +306,111 @@ class AppTestRaise:
                 break
         assert sys.exc_info() == (None, None, None)
 
+class AppTestRaiseContext:
+
+    def test_instance_context(self):
+        context = IndexError()
+        try:
+            try:
+                raise context
+            except:
+                raise OSError()
+        except OSError as e:
+            assert e.__context__ is context
+        else:
+            fail('No exception raised')
+
+    def test_class_context(self):
+        context = IndexError
+        try:
+            try:
+                raise context
+            except:
+                raise OSError()
+        except OSError as e:
+            assert e.__context__ != context
+            assert isinstance(e.__context__, context)
+        else:
+            fail('No exception raised')
+
+    def test_internal_exception(self):
+        try:
+            try:
+                1/0
+            except:
+                xyzzy
+        except NameError as e:
+            assert isinstance(e.__context__, ZeroDivisionError)
+        else:
+            fail("No exception raised")
+
+    def test_cycle_broken(self):
+        try:
+            try:
+                1/0
+            except ZeroDivisionError as e:
+                raise e
+        except ZeroDivisionError as e:
+            assert e.__context__ is None
+        else:
+            fail("No exception raised")
+
+    def test_reraise_cycle_broken(self):
+        try:
+            try:
+                xyzzy
+            except NameError as a:
+                try:
+                    1/0
+                except ZeroDivisionError:
+                    raise a
+        except NameError as e:
+            assert e.__context__.__context__ is None
+        else:
+            fail("No exception raised")
+
+class AppTestTraceback:
+
+    def test_raise_with___traceback__(self):
+        import sys
+        try:
+            raise ValueError
+        except:
+            exc_type,exc_val,exc_tb = sys.exc_info()
+        try:
+            exc_val.__traceback__ = exc_tb
+            raise exc_val
+        except:
+            exc_type2,exc_val2,exc_tb2 = sys.exc_info()
+        assert exc_type is exc_type2
+        assert exc_val is exc_val2
+        assert exc_tb is exc_tb2.tb_next
+
+    def test_sets_traceback(self):
+        import types
+        try:
+            raise IndexError()
+        except IndexError as e:
+            assert isinstance(e.__traceback__, types.TracebackType)
+        else:
+            fail("No exception raised")
+
+    def test_accepts_traceback(self):
+        import sys
+        def get_tb():
+            try:
+                raise OSError()
+            except:
+                return sys.exc_info()[2]
+        tb = get_tb()
+        try:
+            raise IndexError().with_traceback(tb)
+        except IndexError as e:
+            assert e.__traceback__ != tb
+            assert e.__traceback__.tb_next is tb
+        else:
+            fail("No exception raised")
+
     def test_invalid_reraise(self):
         try:
             raise
@@ -328,3 +418,27 @@ class AppTestRaise:
             assert "No active exception" in str(e)
         else:
             fail("Expected RuntimeError")
+
+    def test_invalid_cause(self):
+        """
+        try:
+            raise IndexError from 5
+        except TypeError as e:
+            assert "exception cause" in str(e)
+        else:
+            fail("Expected TypeError")
+            """
+
+    def test_invalid_cause_setter(self):
+        """
+        class Setter(BaseException):
+            def set_cause(self, cause):
+                self.cause = cause
+            __cause__ = property(fset=set_cause)
+        try:
+            raise Setter from 5
+        except TypeError as e:
+            assert "exception cause" in str(e)
+        else:
+            fail("Expected TypeError")
+            """

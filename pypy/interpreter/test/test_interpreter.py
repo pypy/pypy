@@ -73,8 +73,7 @@ class TestInterpreter:
                 raise 1
             ''', 'f', [])
         assert "TypeError:" in x
-        assert ("exceptions must be classes or instances deriving from "
-                "BaseException, not ") in x
+        assert "exceptions must derive from BaseException" in x
 
     def test_except2(self):
         x = self.codetest('''
