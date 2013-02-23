@@ -36,7 +36,7 @@ class AppTestFromNumeric(BaseNumpyAppTest):
 
     def test_sum(self):
         # tests taken from numpy/core/fromnumeric.py docstring
-        from numpypy import array, sum, ones
+        from numpypy import array, sum, ones, zeros
         assert sum([0.5, 1.5])== 2.0
         assert sum([[0, 1], [0, 5]]) == 6
         # assert sum([0.5, 0.7, 0.2, 1.5], dtype=int32) == 1
@@ -47,6 +47,7 @@ class AppTestFromNumeric(BaseNumpyAppTest):
 
         assert sum(range(10)) == 45
         assert sum(array(range(10))) == 45
+        assert list(sum(zeros((0, 2)), axis=1)) == []
 
         a = array([[1, 2], [3, 4]])
         out = array([[0, 0], [0, 0]])
