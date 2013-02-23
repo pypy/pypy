@@ -414,7 +414,6 @@ def graph_footprint(graph):
         links = 0
         ops = 0
     count = Counter()
-    def visit(block):
     for block in graph.iterblocks():
             count.blocks += 1
             count.ops += len(block.operations)
