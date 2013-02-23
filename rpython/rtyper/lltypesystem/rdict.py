@@ -1,14 +1,12 @@
 from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
-from rpython.rtyper.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
-     rtype_newdict)
+from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError
-from rpython.annotator.model import SomeInteger
 
 
 HIGHEST_BIT = r_uint(intmask(1 << (LONG_BIT - 1)))
