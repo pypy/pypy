@@ -33,7 +33,8 @@ def execute_args(cwd, test, logfname, interp, test_driver,
 def execute_test(cwd, test, out, logfname, interp, test_driver,
                  runfunc, timeout=None):
     args = execute_args(cwd, test, logfname, interp, test_driver)
-    exitcode = runfunc(args, cwd, out, timeout=timeout)
+    with out.open('w') as fp:
+        exitcode = runfunc(args, cwd, fp, timeout=timeout)
     return exitcode
 
 

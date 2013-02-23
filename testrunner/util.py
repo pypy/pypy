@@ -136,29 +136,27 @@ def interpret_exitcode(exitcode, test, logdata=""):
 
 
 def run(args, cwd, out, timeout=None):
-    with out.open('w') as f:
-        try:
-            p = subprocess.Popen(args, cwd=str(cwd), stdout=f, stderr=f)
-        except Exception, e:
-            f.write("Failed to run %s with cwd='%s' timeout=%s:\n"
-                    " %s\n"
-                    % (args, cwd, timeout, e))
-            return RUNFAILED
+    try:
+        p = subprocess.Popen(args, cwd=str(cwd), stdout=f, stderr=f)
+    except Exception, e:
+        f.write("Failed to run %s with cwd='%s' timeout=%s:\n"
+                " %s\n"
+                % (args, cwd, timeout, e))
+        return RUNFAILED
 
-        if timeout is None:
-            return p.wait()
-        else:
-            returncode = busywait(p, timeout)
-            if returncode is not None:
-                return returncode
-            # timeout!
-            _kill(p.pid, SIGTERM)
-            if busywait(p, 10) is None:
-                _kill(p.pid, SIGKILL)
-            return TIMEDOUT
+    if timeout is None:
+        return p.wait()
+    else:
+        returncode = busywait(p, timeout)
+        if returncode is not None:
+            return returncode
+        # timeout!
+        _kill(p.pid, SIGTERM)
+        if busywait(p, 10) is None:
+            _kill(p.pid, SIGKILL)
+        return TIMEDOUT
 
 
 def dry_run(args, cwd, out, timeout=None):
-    with out.open('w') as f:
-        f.write("run %s with cwd='%s' timeout=%s\n" % (args, cwd, timeout))
+    out.write("run %s with cwd='%s' timeout=%s\n" % (args, cwd, timeout))
     return 0
