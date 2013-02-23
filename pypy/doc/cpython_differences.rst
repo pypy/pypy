@@ -134,7 +134,7 @@ next access.  Any code that uses weak proxies must carefully catch such
 ``ReferenceError`` at any place that uses them.  (Or, better yet, don't use
 ``weakref.proxy()`` at all; use ``weakref.ref()``.)
 
-There are a few extra implications for the difference in the GC.  Most
+There are a few extra implications from the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
 than once in PyPy; but CPython will call the same ``__del__`` several times
 if the object is resurrected and dies again.  The ``__del__`` methods are
@@ -156,7 +156,7 @@ as `issue 736`__.
 
 .. __: http://bugs.pypy.org/issue736
 
-Using the default GC called ``minimark``, the built-in function ``id()``
+Using the default GC (called ``minimark``), the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
 are not real addresses (because an object can move around several times)
 and calling it a lot can lead to performance problem.
@@ -286,7 +286,7 @@ Miscellaneous
 -------------
 
 * Hash randomization (``-R``) is ignored in PyPy.  As documented in
-  http://bugs.python.org/issue14621 , some of us believe it has no
+  http://bugs.python.org/issue14621, some of us believe it has no
   purpose in CPython either.
 
 * ``sys.setrecursionlimit(n)`` sets the limit only approximately,
