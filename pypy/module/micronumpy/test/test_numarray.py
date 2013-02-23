@@ -1188,26 +1188,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(0) == [3, 8]).all()
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
-    def test_identity(self):
-        from _numpypy import identity, array
-        from _numpypy import int32, float64, dtype
-        a = identity(0)
-        assert len(a) == 0
-        assert a.dtype == dtype('float64')
-        assert a.shape == (0, 0)
-        b = identity(1, dtype=int32)
-        assert len(b) == 1
-        assert b[0][0] == 1
-        assert b.shape == (1, 1)
-        assert b.dtype == dtype('int32')
-        c = identity(2)
-        assert c.shape == (2, 2)
-        assert (c == [[1, 0], [0, 1]]).all()
-        d = identity(3, dtype='int32')
-        assert d.shape == (3, 3)
-        assert d.dtype == dtype('int32')
-        assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
-
     def test_eye(self):
         from _numpypy import eye
         from _numpypy import int32, dtype

@@ -9,12 +9,6 @@ def average(a):
         a = _numpypy.array(a)
     return a.mean()
 
-def identity(n, dtype=None):
-    a = _numpypy.zeros((n, n), dtype=dtype)
-    for i in range(n):
-        a[i][i] = 1
-    return a
-
 def eye(n, m=None, k=0, dtype=None):
     if m is None:
         m = n

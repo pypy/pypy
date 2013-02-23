@@ -164,7 +164,6 @@ class Module(MixedModule):
 
     appleveldefs = {
         'average': 'app_numpy.average',
-        'identity': 'app_numpy.identity',
         'eye': 'app_numpy.eye',
         'arange': 'app_numpy.arange',
     }
