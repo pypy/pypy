@@ -1,6 +1,6 @@
 from rpython.tool.pairtype import pairtype
 from rpython.rtyper.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractListIteratorRepr, AbstractFixedSizeListRepr, rtype_newlist, rtype_alloc_and_set
+        AbstractListIteratorRepr, AbstractFixedSizeListRepr
 from rpython.rtyper.rmodel import Repr, IntegerRepr
 from rpython.rtyper.rmodel import inputconst, externalvsinternal
 from rpython.rtyper.lltypesystem.lltype import Signed, Void
