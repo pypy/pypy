@@ -300,8 +300,8 @@ coercion rules would probably drive you insane first).  -- mwh
 Do I have to rewrite my programs in RPython?
 --------------------------------------------
 
-No.  And you shouldn't try.  First and foremost, RPython is a language
-that is designed to write interpreters in.  It is a restricted subset of
+No, and you shouldn't try.  First and foremost, RPython is a language
+designed for writing interpreters. It is a restricted subset of
 Python.  If you program is not an interpreter but tries to do "real
 things", like use *any* part of the standard Python library or *any*
 3rd-party library, then it is not RPython to start with.  You should
@@ -381,8 +381,8 @@ Can RPython modules for PyPy be translated independently?
 
 No, you have to rebuild the entire interpreter.  This means two things:
 
-* It is imperative to use test-driven development.  You have to test
-  exhaustively your module in pure Python, before even attempting to
+* It is imperative to use test-driven development.  You have to exhaustively
+  test your module in pure Python, before even attempting to
   translate it.  Once you translate it, you should have only a few typing
   issues left to fix, but otherwise the result should work out of the box.
 
