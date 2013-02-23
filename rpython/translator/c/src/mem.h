@@ -7,7 +7,7 @@
 #define OP_NOP(r, x)         /* nothing */
 
 
-/* used by pypy.rlib.rstack, but also by asmgcc */
+/* used by rpython.rlib.rstack, but also by asmgcc */
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 

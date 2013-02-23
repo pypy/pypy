@@ -355,7 +355,7 @@ def arena_reserve(addr, size, check_alignment=True):
     For debugging this can check that reserved ranges of bytes don't
     overlap.  The size must be symbolic; in non-translated version
     this is used to know what type of lltype object to allocate."""
-    from rpython.rtyper.memory.lltypelayout import memory_alignment
+    from rpython.memory.lltypelayout import memory_alignment
     addr = getfakearenaaddress(addr)
     letter = 'x'
     if llmemory.raw_malloc_usage(size) == 1:

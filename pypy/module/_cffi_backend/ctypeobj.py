@@ -1,9 +1,8 @@
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.typedef import make_weakref_descr
-from pypy.interpreter.typedef import GetSetProperty, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
+
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import we_are_translated
 

@@ -39,7 +39,7 @@ RPython language
 
 - Allocate variables on the stack, and pass their address ("by reference") to
   llexternal functions. For a typical usage, see
-  `pypy.rlib.rsocket.RSocket.getsockopt_int`.
+  `rpython.rlib.rsocket.RSocket.getsockopt_int`.
 
 Extensible type system for llexternal
 -------------------------------------

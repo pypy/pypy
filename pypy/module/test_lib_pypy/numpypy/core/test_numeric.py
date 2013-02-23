@@ -20,6 +20,7 @@ class AppTestBaseRepr(BaseNumpyAppTest):
         assert base_repr(-12, 10, 4) == '-000012'
         assert base_repr(-12, 4) == '-30'
 
+
 class AppTestRepr(BaseNumpyAppTest):
     def test_repr(self):
         from numpypy import array
@@ -146,10 +147,10 @@ class AppTestRepr(BaseNumpyAppTest):
     def test_equal(self):
         from _numpypy import array
         from numpypy import array_equal
-        
+
         a = [1, 2, 3]
         b = [1, 2, 3]
-        
+
         assert array_equal(a, b)
         assert array_equal(a, array(b))
         assert array_equal(array(a), b)
@@ -158,10 +159,10 @@ class AppTestRepr(BaseNumpyAppTest):
     def test_not_equal(self):
         from _numpypy import array
         from numpypy import array_equal
-        
+
         a = [1, 2, 3]
         b = [1, 2, 4]
-        
+
         assert not array_equal(a, b)
         assert not array_equal(a, array(b))
         assert not array_equal(array(a), b)
@@ -170,17 +171,17 @@ class AppTestRepr(BaseNumpyAppTest):
     def test_mismatched_shape(self):
         from _numpypy import array
         from numpypy import array_equal
-        
+
         a = [1, 2, 3]
         b = [[1, 2, 3], [1, 2, 3]]
-        
+
         assert not array_equal(a, b)
         assert not array_equal(a, array(b))
         assert not array_equal(array(a), b)
         assert not array_equal(array(a), array(b))
 
-class AppTestNumeric(BaseNumpyAppTest):
 
+class AppTestNumeric(BaseNumpyAppTest):
     def test_outer(self):
         from _numpypy import array
         from numpypy import outer
@@ -192,3 +193,22 @@ class AppTestNumeric(BaseNumpyAppTest):
                           [12, 15, 18]])
         assert (res == expected).all()
 
+    def test_identity(self):
+        from _numpypy import array, int32, float64, dtype
+        from numpypy import identity
+        a = identity(0)
+        assert len(a) == 0
+        assert a.dtype == dtype('float64')
+        assert a.shape == (0, 0)
+        b = identity(1, dtype=int32)
+        assert len(b) == 1
+        assert b[0][0] == 1
+        assert b.shape == (1, 1)
+        assert b.dtype == dtype('int32')
+        c = identity(2)
+        assert c.shape == (2, 2)
+        assert (c == [[1, 0], [0, 1]]).all()
+        d = identity(3, dtype='int32')
+        assert d.shape == (3, 3)
+        assert d.dtype == dtype('int32')
+        assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()

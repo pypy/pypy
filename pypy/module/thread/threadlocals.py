@@ -68,7 +68,7 @@ class OSThreadLocals(BaseThreadLocals):
     def setvalue(self, value):
         ident = rthread.get_ident()
         if value is not None:
-            if len(self._valuedict) == 0:
+            if self._mainthreadident == 0:
                 value._signals_enabled = 1    # the main thread is enabled
                 self._mainthreadident = ident
             self._valuedict[ident] = value
@@ -98,5 +98,5 @@ class OSThreadLocals(BaseThreadLocals):
         if ident != self._mainthreadident:
             ec._signals_enabled += 1
         self._cleanup_()
-        self.setvalue(ec)
         self._mainthreadident = ident
+        self.setvalue(ec)

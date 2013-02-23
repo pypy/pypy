@@ -99,10 +99,13 @@ class AppTestNumSupport(BaseNumpyAppTest):
     def test_choose_out(self):
         from _numpypy import array
         a, b, c = array([1, 2, 3]), [4, 5, 6], 13
+        r = array([2, 1, 0]).choose([a, b, c], out=None)
+        assert (r == [13, 5, 3]).all()
+        assert (a == [1, 2, 3]).all()
         r = array([2, 1, 0]).choose([a, b, c], out=a)
         assert (r == [13, 5, 3]).all()
         assert (a == [13, 5, 3]).all()
-        
+
     def test_choose_modes(self):
         from _numpypy import array
         a, b, c = array([1, 2, 3]), [4, 5, 6], 13

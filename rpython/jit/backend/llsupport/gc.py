@@ -16,7 +16,7 @@ from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
-from rpython.rtyper.memory.gctransform import asmgcroot
+from rpython.memory.gctransform import asmgcroot
 
 # ____________________________________________________________
 
@@ -791,7 +791,7 @@ class GcLLDescr_framework(GcLLDescription):
     def _make_layoutbuilder(self):
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
-        from rpython.rtyper.memory.gctransform import framework
+        from rpython.memory.gctransform import framework
         translator = self.translator
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
         self.layoutbuilder.delay_encoding()
@@ -799,7 +799,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcrootmap.add_jit2gc_hooks(translator._jit2gc)
 
     def _setup_gcclass(self):
-        from rpython.rtyper.memory.gcheader import GCHeaderBuilder
+        from rpython.memory.gcheader import GCHeaderBuilder
         self.GCClass = self.layoutbuilder.GCClass
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
@@ -824,7 +824,7 @@ class GcLLDescr_framework(GcLLDescription):
             self.do_write_barrier = do_write_barrier
 
     def _setup_barriers_for_stm(self):
-        from rpython.rtyper.memory.gc import stmgc
+        from rpython.memory.gc import stmgc
         WBDescr = WriteBarrierDescr
         self.P2Rdescr = WBDescr(self, (stmgc.GCFLAG_GLOBAL,      'P2R',
                                        'stm_DirectReadBarrier'))
@@ -846,7 +846,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.do_stm_barrier = do_stm_barrier
 
     def _make_functions(self, really_not_translated):
-        from rpython.rtyper.memory.gctypelayout import check_typeid
+        from rpython.memory.gctypelayout import check_typeid
         llop1 = self.llop1
         (self.standard_array_basesize, _, self.standard_array_length_ofs) = \
              symbolic.get_array_token(lltype.GcArray(lltype.Signed),
@@ -945,7 +945,7 @@ class GcLLDescr_framework(GcLLDescription):
                                    RESULT=lltype.Bool)
 
     def _bh_malloc(self, sizedescr):
-        from rpython.rtyper.memory.gctypelayout import check_typeid
+        from rpython.memory.gctypelayout import check_typeid
         llop1 = self.llop1
         type_id = llop.extract_ushort(llgroup.HALFWORD, sizedescr.tid)
         check_typeid(type_id)
@@ -954,7 +954,7 @@ class GcLLDescr_framework(GcLLDescription):
                                                False, False, False)
 
     def _bh_malloc_array(self, num_elem, arraydescr):
-        from rpython.rtyper.memory.gctypelayout import check_typeid
+        from rpython.memory.gctypelayout import check_typeid
         llop1 = self.llop1
         type_id = llop.extract_ushort(llgroup.HALFWORD, arraydescr.tid)
         check_typeid(type_id)

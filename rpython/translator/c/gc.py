@@ -103,7 +103,7 @@ class RefcountingInfo:
 class RefcountingGcPolicy(BasicGcPolicy):
 
     def gettransformer(self):
-        from rpython.rtyper.memory.gctransform import refcounting
+        from rpython.memory.gctransform import refcounting
         return refcounting.RefcountingGCTransformer(self.db.translator)
 
     def common_gcheader_initdata(self, defnode):
@@ -191,7 +191,7 @@ class BoehmInfo:
 class BoehmGcPolicy(BasicGcPolicy):
 
     def gettransformer(self):
-        from rpython.rtyper.memory.gctransform import boehm
+        from rpython.memory.gctransform import boehm
         return boehm.BoehmGCTransformer(self.db.translator)
 
     def common_gcheader_initdata(self, defnode):
@@ -246,11 +246,11 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield 'boehm_gc_startup_code();'
 
     def get_real_weakref_type(self):
-        from rpython.rtyper.memory.gctransform import boehm
+        from rpython.memory.gctransform import boehm
         return boehm.WEAKLINK
 
     def convert_weakref_to(self, ptarget):
-        from rpython.rtyper.memory.gctransform import boehm
+        from rpython.memory.gctransform import boehm
         return boehm.convert_weakref_to(ptarget)
 
     def OP_GC__COLLECT(self, funcgen, op):
@@ -300,7 +300,7 @@ class NoneGcPolicy(BoehmGcPolicy):
 
     def gettransformer(self):
         if self.db.translator.config.translation.stm:
-            from rpython.rtyper.memory.gctransform import nogcstm
+            from rpython.memory.gctransform import nogcstm
             return nogcstm.NoneSTMGCTransformer(self.db.translator)
         return BoehmGcPolicy.gettransformer(self)
 
@@ -349,11 +349,11 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
         yield '%s();' % (self.db.get(fnptr),)
 
     def get_real_weakref_type(self):
-        from rpython.rtyper.memory.gctypelayout import WEAKREF
+        from rpython.memory.gctypelayout import WEAKREF
         return WEAKREF
 
     def convert_weakref_to(self, ptarget):
-        from rpython.rtyper.memory.gctypelayout import convert_weakref_to
+        from rpython.memory.gctypelayout import convert_weakref_to
         return convert_weakref_to(ptarget)
 
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
@@ -442,13 +442,13 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
     def gettransformer(self):
-        from rpython.rtyper.memory.gctransform import shadowstack
+        from rpython.memory.gctransform import shadowstack
         return shadowstack.ShadowStackFrameworkGCTransformer(self.db.translator)
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
     def gettransformer(self):
-        from rpython.rtyper.memory.gctransform import asmgcroot
+        from rpython.memory.gctransform import asmgcroot
         return asmgcroot.AsmGcRootFrameworkGCTransformer(self.db.translator)
 
     def GC_KEEPALIVE(self, funcgen, v):
@@ -460,7 +460,7 @@ class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 class StmFrameworkGcPolicy(BasicFrameworkGcPolicy):
     
     def gettransformer(self):
-        from rpython.rtyper.memory.gctransform import stmframework
+        from rpython.memory.gctransform import stmframework
         return stmframework.StmFrameworkGCTransformer(self.db.translator)
 
 

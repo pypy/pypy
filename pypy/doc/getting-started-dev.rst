@@ -58,8 +58,7 @@ The first command replaces the operations with other low level versions that
 only use low level types that are available in C (e.g. int). The compiled
 version is now in a ``.so`` library. You can run it say using ctypes:
 
-   >>> from ctypes import CDLL
-   >>> f = CDLL(lib)
+   >>> f = get_c_function(lib, snippet.is_perfect_number)
    >>> f(5)
    0
    >>> f(6)
@@ -173,23 +172,23 @@ or start off at one of the following points:
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `pypy/translator`_ contains the code analysis and generation stuff.
+*  `rpython/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py, from which it should be easy to follow
    the pieces of code involved in the various translation phases.
 
-*  `pypy/annotation`_ contains the data model for the type annotation that
+*  `rpython/annotator`_ contains the data model for the type annotation that
    can be inferred about a graph.  The graph "walker" that uses this is in
-   `pypy/annotation/annrpython.py`_.
+   `rpython/annotator/annrpython.py`_.
 
-*  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
+*  `rpython/rtyper`_ contains the code of the RPython typer. The typer transforms
    annotated flow graphs in a way that makes them very similar to C code so
    that they can be easy translated. The graph transformations are controlled
-   by the code in `pypy/rpython/rtyper.py`_. The object model that is used can
-   be found in `pypy/rpython/lltypesystem/lltype.py`_. For each RPython type
+   by the code in `rpython/rtyper/rtyper.py`_. The object model that is used can
+   be found in `rpython/rtyper/lltypesystem/lltype.py`_. For each RPython type
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
-*  `pypy/rlib`_ contains the `RPython standard library`_, things that you can
+*  `rpython/rlib`_ contains the `RPython standard library`_, things that you can
    use from rpython.
 
 .. _`RPython standard library`: rlib.html
@@ -320,10 +319,10 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
 Demos
 -------
 
-The `demo/`_ directory contains examples of various aspects of PyPy,
-ranging from running regular Python programs (that we used as compliance goals) 
-over experimental distribution mechanisms to examples translating 
-sufficiently static programs into low level code. 
+The `example-interpreter`_ repository contains an example interpreter
+written using the RPython translation toolchain.
+
+.. _`example-interpreter`: https://bitbucket.org/pypy/example-interpreter
 
 Additional Tools for running (and hacking) PyPy 
 -----------------------------------------------
