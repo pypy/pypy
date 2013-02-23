@@ -659,11 +659,11 @@ class BufferedMixin:
         else:
             pos = -1
         if pos >= 0:
-            w_res = space.wrap(''.join(self.buffer[self.pos:pos+1]))
+            w_res = space.wrapbytes(''.join(self.buffer[self.pos:pos+1]))
             self.pos = pos + 1
             return w_res
         if have == limit:
-            w_res = space.wrap(''.join(self.buffer[self.pos:self.pos+have]))
+            w_res = space.wrapbytes(''.join(self.buffer[self.pos:self.pos+have]))
             self.pos += have
             return w_res
 
@@ -705,7 +705,7 @@ class BufferedMixin:
                 written += have
                 if limit >= 0:
                     limit -= have
-            return space.wrap(''.join(chunks))
+            return space.wrapbytes(''.join(chunks))
 
     # ____________________________________________________
     # Write methods
