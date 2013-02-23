@@ -1435,9 +1435,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         if 0: # XXX why does numpy allow this?
             a = concatenate((a1, a2), axis=1)
             assert (a == [0,1,2,3,4,5]).all()
-        if 0: # segfault
-            a = concatenate((a1, a2), axis=-1)
-            assert (a == [0,1,2,3,4,5]).all()
+        a = concatenate((a1, a2), axis=-1)
+        assert (a == [0,1,2,3,4,5]).all()
 
         b1 = array([[1, 2], [3, 4]])
         b2 = array([[5, 6]])
@@ -1456,12 +1455,10 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         g1 = array([[0,1,2]])
         g2 = array([[3,4,5]])
-        if 0: # segfault
-            g = concatenate((g1, g2), axis=-2)
-            assert (g == [[0,1,2],[3,4,5]]).all()
-        if 0: # XXX why does numpy allow this?
-            exc = raises(IndexError, concatenate, (g1, g2), axis=-3)
-            assert str(exc.value) == "axis -3 out of bounds [0, 2)"
+        g = concatenate((g1, g2), axis=-2)
+        assert (g == [[0,1,2],[3,4,5]]).all()
+        exc = raises(IndexError, concatenate, (g1, g2), axis=-3)
+        assert str(exc.value) == "axis -3 out of bounds [0, 2)"
         exc = raises(IndexError, concatenate, (g1, g2), axis=2)
         assert str(exc.value) == "axis 2 out of bounds [0, 2)"
 

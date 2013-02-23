@@ -106,29 +106,32 @@ def concatenate(space, w_args, axis=0):
     args_w = [convert_to_array(space, w_arg) for w_arg in args_w]
     dtype = args_w[0].get_dtype()
     shape = args_w[0].get_shape()[:]
-    if len(shape) <= axis:
+    _axis = axis
+    if axis < 0:
+        _axis = len(shape) + axis
+    if _axis < 0 or len(shape) <= _axis:
         raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
     for arr in args_w[1:]:
         dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
-        if len(arr.get_shape()) <= axis:
+        if _axis < 0 or len(arr.get_shape()) <= _axis:
             raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
         for i, axis_size in enumerate(arr.get_shape()):
-            if len(arr.get_shape()) != len(shape) or (i != axis and axis_size != shape[i]):
+            if len(arr.get_shape()) != len(shape) or (i != _axis and axis_size != shape[i]):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "all the input arrays must have same number of dimensions"))
-            elif i == axis:
+            elif i == _axis:
                 shape[i] += axis_size
     res = W_NDimArray.from_shape(shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
-        if arr.get_shape()[axis] == 0:
+        if arr.get_shape()[_axis] == 0:
             continue
-        chunks[axis] = Chunk(axis_start, axis_start + arr.get_shape()[axis], 1,
-                             arr.get_shape()[axis])
+        chunks[_axis] = Chunk(axis_start, axis_start + arr.get_shape()[_axis], 1,
+                             arr.get_shape()[_axis])
         Chunks(chunks).apply(res).implementation.setslice(space, arr)
-        axis_start += arr.get_shape()[axis]
+        axis_start += arr.get_shape()[_axis]
     return res
 
 @unwrap_spec(repeats=int)
