@@ -596,8 +596,8 @@ class ShapeDecompressor:
             #      saved %r12             saved %esi
             #      saved %rbx             saved %ebx
             #      return addr            return addr
+            stack_depth = PASS_ON_MY_FRAME + self.extra_stack_depth
             if IS_64_BITS:
-                stack_depth = PASS_ON_MY_FRAME + self.extra_stack_depth
                 if index == 2:   # rbp
                     return LOC_ESP_PLUS | (stack_depth << 2)
                 if index == 3:   # r15
