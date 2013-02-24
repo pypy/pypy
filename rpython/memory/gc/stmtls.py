@@ -14,7 +14,8 @@ from rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
 from rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY
 from rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
 from rpython.memory.gc.stmgc import GCFLAG_NOT_WRITTEN
-from rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, GCFLAG_NEW_HASH
+from rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, GCFLAG_WITH_HASH
+from rpython.memory.gc.stmgc import GCFLAG_PREBUILT_ORIGINAL
 from rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 
 SIZE_OF_SIGNED = llmemory.sizeof(lltype.Signed)
@@ -54,6 +55,11 @@ class StmGCTLS(object):
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
         self.local_weakrefs = self.AddressStack()
+        #
+        # Support for id and identityhash: map nursery objects with
+        # GCFLAG_HAS_SHADOW to their future location after the next
+        # local collection.
+        self.nursery_objects_shadows = self.AddressDict()
         #
         self._register_with_C_code()
         debug_stop("gc-init")
@@ -214,6 +220,10 @@ class StmGCTLS(object):
         # Walk the list of LOCAL weakrefs, and update it if necessary.
         if self.local_weakrefs.non_empty():
             self.update_local_weakrefs()
+        #
+        # Clear this mapping.
+        if self.nursery_objects_shadows.length() > 0:
+            self.nursery_objects_shadows.clear()
         #
         # Visit all previous OLD objects.  Free the ones that have not been
         # visited above, and reset GCFLAG_VISITED on the others.
@@ -439,7 +449,7 @@ class StmGCTLS(object):
         # First visit to 'obj': we must move this YOUNG obj out of the
         # nursery.  This is the common case.  Allocate a new location
         # for it outside the nursery.
-        newobj = self.duplicate_obj(obj, size)
+        newobj = self.duplicate_obj(obj, size, from_nursery=True)
         #
         # Note that references from 'obj' to other objects in the
         # nursery are kept unchanged in this step: they are copied
@@ -463,18 +473,43 @@ class StmGCTLS(object):
         # walk 'pending_list'.
         self.pending.append(newobj)
 
-    def duplicate_obj(self, obj, objsize):
+    def duplicate_obj(self, obj, objsize, from_nursery=False):
         size_gc_header = self.gc.gcheaderbuilder.size_gc_header
         totalsize_without_hash = size_gc_header + objsize
         hdr = self.gc.header(obj)
-        has_hash = (hdr.tid & (GCFLAG_HASH_FIELD | GCFLAG_NEW_HASH))
-        if has_hash:
-            newtotalsize = totalsize_without_hash + (
-                llmemory.sizeof(lltype.Signed))
-        else:
-            newtotalsize = totalsize_without_hash
         #
-        newaddr = self.sharedarea_tls.malloc_object(newtotalsize)
+        make_hash_field = False
+        has_shadow = False
+        if from_nursery:
+            # 'obj' is a nursery object: check if it has a shadow.
+            # Note that if it does, the shadow doesn't have an extra
+            # hash field either, but will simply have the same flag
+            # combination, i.e. (GCFLAG_WITH_HASH & ~GCFLAG_HASH_FIELD).
+            # So future reads of the hash/id on this new object will
+            # continue to return the mangled address of this new
+            # object (which was merely the shadow until now).
+            ll_assert((hdr.tid & GCFLAG_HASH_FIELD) == 0,
+                      "nursery object with GCFLAG_HASH_FIELD")
+            if hdr.tid & GCFLAG_WITH_HASH:
+                has_shadow = True
+        else:
+            # From a non-nursery object: we need a hash field if
+            # any of the following two flags is already set on 'obj'
+            if hdr.tid & (GCFLAG_HASH_FIELD|GCFLAG_WITH_HASH):
+                make_hash_field = True
+        #
+        if has_shadow:
+            newobj = self.nursery_objects_shadows.get(obj)
+            ll_assert(newobj != NULL,
+                "duplicate_obj: GCFLAG_WITH_HASH but no shadow found")
+            newaddr = newobj - size_gc_header
+        else:
+            if make_hash_field:
+                newtotalsize = totalsize_without_hash + (
+                    llmemory.sizeof(lltype.Signed))
+            else:
+                newtotalsize = totalsize_without_hash
+            newaddr = self.sharedarea_tls.malloc_object(newtotalsize)
         #
         # Initialize the copy by doing a memcpy of the bytes.
         # The object header of localobj will then be fixed by the C code.
@@ -484,12 +519,37 @@ class StmGCTLS(object):
                              totalsize_without_hash)
         newobj = newaddr + size_gc_header
         #
-        if has_hash:
-            hash = self.gc._get_object_hash(obj)
+        if make_hash_field:
+            # we have to write a value inside the new hash field
+            #
+            if hdr.tid & GCFLAG_HASH_FIELD:
+                #
+                if hdr.tid & GCFLAG_WITH_HASH:
+                    # 'obj' has already an explicit hash/id field, and is not
+                    # a prebuilt object at all.  Just propagate the content
+                    # of that field.
+                    hash = self.gc._get_hash_field(obj)
+                    #
+                elif hdr.tid & GCFLAG_PREBUILT_ORIGINAL:
+                    # 'obj' is an original prebuilt object with a hash field.
+                    # In the new hash field, store the original's address
+                    hash = llmemory.cast_adr_to_int(obj)
+                else:
+                    # 'obj' is already a modified copy of a prebuilt object.
+                    # Propagate the content of the field.
+                    hash = self.gc._get_hash_field(obj)
+                #
+            else:
+                # No previous field; store in the new field the old mangled
+                # address, and fix the new tid flags.
+                newhdr = self.gc.header(newobj)
+                ll_assert((newhdr.tid & GCFLAG_WITH_HASH) != 0, "gc bug!")
+                newhdr.tid |= GCFLAG_HASH_FIELD
+                hash = self.gc._get_mangled_address(obj)
+            #
             hashaddr = llarena.getfakearenaaddress(newobj) + objsize
             llarena.arena_reserve(hashaddr, SIZE_OF_SIGNED)
             hashaddr.signed[0] = hash
-            self.gc.header(newobj).tid |= GCFLAG_HASH_FIELD
         #
         return newobj
 

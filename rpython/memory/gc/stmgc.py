@@ -63,7 +63,18 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     the LOCAL COPY objects, but only on them.
 #
 #   - GCFLAG_HASH_FIELD: the object contains an extra field added at the
-#     end, with the hash value
+#     end.  If GCFLAG_WITH_HASH (usual case), then the field contains
+#     both the hash and id value given to this object.  Otherwise,
+#     it's a prebuilt object; if GCFLAG_PREBUILT_ORIGINAL then the
+#     field contains the hash result but the id is the address of the
+#     object; otherwise the field contains the address of the original
+#     prebuilt object, where the hash result can be indirectly found.
+#
+#   - GCFLAG_WITH_HASH: the hash/id has been taken.  On a nursery object,
+#     means that it has an entry in 'nursery_objects_shadows'.  Otherwise,
+#     if GCFLAG_HASH_FIELD is set, that field stores the hash/id value.
+#     Otherwise, means that the hash/id is equal to this exact object's
+#     address.
 #
 # Invariant: between two transactions, all objects visible from the current
 # thread are always GLOBAL.  In particular:
@@ -115,9 +126,12 @@ GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
 GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
 GCFLAG_VISITED           = first_gcflag << 4     # keep in sync with et.h
 GCFLAG_HASH_FIELD        = first_gcflag << 5
-GCFLAG_NEW_HASH          = first_gcflag << 6
+GCFLAG_WITH_HASH         = first_gcflag << 6
+GCFLAG_PREBUILT_ORIGINAL = first_gcflag << 7
 
-GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
+GCFLAG_PREBUILT_FLAGS    = (GCFLAG_GLOBAL |
+                            GCFLAG_NOT_WRITTEN |
+                            GCFLAG_PREBUILT_ORIGINAL)
 REV_INITIAL              = r_uint(1)
 
 
@@ -306,7 +320,7 @@ class StmGC(MovingGCBase):
         hdr.tid = self.combine(typeid16, flags)
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
-        flags |= GCFLAG_PREBUILT
+        flags |= GCFLAG_PREBUILT_FLAGS
         self.init_gc_object(addr, typeid16, flags)
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.revision = REV_INITIAL
@@ -329,7 +343,8 @@ class StmGC(MovingGCBase):
             return llmemory.NULL
         #
         hdr = self.header(localobj)
-        hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED)
+        hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED |
+                     GCFLAG_PREBUILT_ORIGINAL)
         hdr.tid |= (GCFLAG_VISITED | GCFLAG_LOCAL_COPY)
         return localobj
 
@@ -345,29 +360,88 @@ class StmGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    def id(self, gcobj):
-        debug_print("XXX: id() not implemented")
-        return self.identityhash(gcobj)
-
-    def identityhash(self, gcobj):
+    def id_or_identityhash(self, gcobj, is_hash):
+        """Implement the common logic of id() and identityhash()
+        of an object, given as a GCREF.
+        """
+        # First go to the most up-to-date version of gcobj.  It can
+        # be the latest global version, or the local version if it was
+        # already modified during this transaction.
         gcobj = llop.stm_read_barrier(lltype.typeOf(gcobj), gcobj)
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        if not (self.header(obj).tid & (GCFLAG_HASH_FIELD | GCFLAG_NEW_HASH)):
-            # 'obj' has no hash so far.  Force one; this is a write operation.
-            localgcobj = llop.stm_write_barrier(lltype.typeOf(gcobj), gcobj)
-            obj = llmemory.cast_ptr_to_adr(localgcobj)
-            self.header(obj).tid |= GCFLAG_NEW_HASH
         #
-        return self._get_object_hash(obj)
+        flags = self.header(obj).tid & (GCFLAG_HASH_FIELD | GCFLAG_WITH_HASH)
+        #
+        if flags == GCFLAG_HASH_FIELD | GCFLAG_WITH_HASH:
+            # 'obj' has already an explicit hash/id field, and is not a
+            # prebuilt object at all.  Return the content of that field.
+            return self._get_hash_field(obj)
+        #
+        elif flags == GCFLAG_HASH_FIELD | 0:
+            # 'obj' is a prebuilt object with a hash field, or a runtime
+            # copy of such an object.
+            if not (self.header(obj).tid & GCFLAG_PREBUILT_ORIGINAL):
+                # 'obj' is a runtime copy of an original prebuilt object.
+                # Fetch from the "hash field" the address of this original.
+                obj = self._get_hash_field(obj)
+                obj = llmemory.cast_int_to_adr(obj)
+                ll_assert((self.header(obj).tid & GCFLAG_PREBUILT_ORIGINAL)
+                          != 0, "id/hash: expected a prebuilt_original")
+            #
+            if is_hash:
+                return self._get_hash_field(obj)
+        #
+        elif flags == 0 | GCFLAG_WITH_HASH:
+            # 'obj' doesn't have a hash/id field, but we already took its
+            # hash/id.  If it is a nursery object, go to its shadow.
+            tls = self.get_tls()
+            if tls.is_in_nursery(obj):
+                obj = tls.nursery_objects_shadows.get(obj)
+                ll_assert(obj != NULL,
+                         "GCFLAG_WITH_HASH on nursery obj but no shadow found")
+        #
+        else:  # flags == 0, 'obj' has no hash/id at all so far.
+            # We are going to force one; this is a write operation.
+            # Note that we cannot get here twice for the same gcobj
+            # in the same transaction: after stm_write_barrier, the
+            # stm_read_barrier() above will return the local object
+            # with GCFLAG_WITH_HASH set.
+            localgcobj = llop.stm_write_barrier(lltype.typeOf(gcobj),gcobj)
+            obj = llmemory.cast_ptr_to_adr(localgcobj)
+            realobj = obj
+            #
+            # If 'obj' is a nursery object, we need to make a shadow
+            tls = self.get_tls()
+            if tls.is_in_nursery(obj):
+                size_gc_header = self.gcheaderbuilder.size_gc_header
+                size = self.get_size(obj)
+                shadowhdr = tls.sharedarea_tls.malloc_object(
+                    size_gc_header + size)
+                # XXX must initialize the shadow enough to be considered
+                # a valid gc object by the next major collection
+                obj = shadowhdr + size_gc_header
+                tls.nursery_objects_shadows.setitem(realobj, obj)
+            #
+            self.header(realobj).tid |= GCFLAG_WITH_HASH
+        #
+        # Cases that fall through are cases where the answer is the
+        # mangled address of 'obj'.
+        return self._get_mangled_address(obj)
 
-    def _get_object_hash(self, obj):
-        if self.header(obj).tid & GCFLAG_HASH_FIELD:
-            objsize = self.get_size(obj)
-            obj = llarena.getfakearenaaddress(obj)
-            return (obj + objsize).signed[0]
-        else:
-            # XXX improve hash(nursery_object)
-            return mangle_hash(llmemory.cast_adr_to_int(obj))
+    def id(self, gcobj):
+        return self.id_or_identityhash(gcobj, False)
+
+    def identityhash(self, gcobj):
+        return self.id_or_identityhash(gcobj, True)
+
+    def _get_hash_field(self, obj):
+        objsize = self.get_size(obj)
+        obj = llarena.getfakearenaaddress(obj)
+        return (obj + objsize).signed[0]
+
+    def _get_mangled_address(self, obj):
+        i = llmemory.cast_adr_to_int(obj)
+        return mangle_hash(i)
 
     def can_move(self, addr):
         tls = self.get_tls()

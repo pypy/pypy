@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
-from rpython.rlib.rarithmetic import r_uint, LONG_BIT
+from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from rpython.rlib.debug import ll_assert
 from rpython.tool.identity_dict import identity_dict
 
@@ -9,7 +9,9 @@ def mangle_hash(i):
     # To hash pointers in dictionaries.  Assumes that i shows some
     # alignment (to 4, 8, maybe 16 bytes), so we use the following
     # formula to avoid the trailing bits being always 0.
-    return i ^ (i >> 4)
+    # This formula is reversible: two different values of 'i' will
+    # always give two different results.
+    return i ^ intmask(r_uint(i) >> 4)
 
 # ____________________________________________________________
 
