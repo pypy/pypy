@@ -31,7 +31,7 @@ from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
@@ -493,9 +493,9 @@ class Assembler386(BaseAssembler):
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
-            rawstart + looppos,
-            rawstart + size_excluding_failure_stuff,
-            rawstart))
+            r_uint(rawstart + looppos),
+            r_uint(rawstart + size_excluding_failure_stuff),
+            r_uint(rawstart)))
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
         #
@@ -546,7 +546,8 @@ class Assembler386(BaseAssembler):
         rawstart = self.materialize_loop(original_loop_token)
         debug_start("jit-backend-addr")
         debug_print("bridge out of Guard %x has address %x to %x" %
-                    (descr_number, rawstart, rawstart + codeendpos))
+                    (descr_number, r_uint(rawstart),
+                     r_uint(rawstart + codeendpos)))
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
