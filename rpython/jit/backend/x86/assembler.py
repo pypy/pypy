@@ -450,7 +450,6 @@ class Assembler386(BaseAssembler):
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
                _x86_fullsize        (debug: full size including failure)
-               _x86_debug_checksum
         '''
         # XXX this function is too longish and contains some code
         # duplication with assemble_bridge().  Also, we should think
@@ -729,7 +728,6 @@ class Assembler386(BaseAssembler):
             s = 0
             for op in operations:
                 s += op.getopnum()
-            looptoken._x86_debug_checksum = s
 
             newoperations = []
             self._append_debugging_code(newoperations, tp, number,

@@ -565,21 +565,3 @@ class TestDebuggingAssembler(object):
         l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
         l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
         assert ('jit-backend-counts', [l0, l1, l2]) in dlog
-
-    def test_debugger_checksum(self):
-        loop = """
-        [i0]
-        label(i0, descr=targettoken)
-        debug_merge_point('xyz', 0, 0)
-        i1 = int_add(i0, 1)
-        i2 = int_ge(i1, 10)
-        guard_false(i2) []
-        jump(i1, descr=targettoken)
-        """
-        ops = parse(loop, namespace={'targettoken': TargetToken()})
-        self.cpu.assembler.set_debug(True)
-        looptoken = JitCellToken()
-        self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
-        self.cpu.execute_token(looptoken, 0)
-        assert looptoken._x86_debug_checksum == sum([op.getopnum()
-                                                     for op in ops.operations])
