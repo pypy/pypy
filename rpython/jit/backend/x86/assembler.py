@@ -265,6 +265,7 @@ class Assembler386(BaseAssembler):
             # have been used to pass arguments. Note that we pass only
             # one argument, that is the frame
             mc.MOV_rr(edi.value, esp.value)
+            mc.SUB_ri(esp.value, WORD)
         #
         if IS_X86_32:
             mc.SUB_ri(esp.value, 2*WORD) # alignment
@@ -273,13 +274,15 @@ class Assembler386(BaseAssembler):
         # esp is now aligned to a multiple of 16 again
         mc.CALL(imm(slowpathaddr))
         #
+        if IS_X86_32:
+            mc.ADD_ri(esp.value, 3*WORD)    # alignment
+        else:
+            mc.ADD_ri(esp.value, WORD)
+        #
         mc.MOV(eax, heap(self.cpu.pos_exception()))
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il8(rx86.Conditions['NZ'], 0)
         jnz_location = mc.get_relative_pos()
-        #
-        if IS_X86_32:
-            mc.ADD_ri(esp.value, 3*WORD)    # alignment
         #
         mc.RET()
         #
