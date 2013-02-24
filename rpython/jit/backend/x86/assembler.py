@@ -2141,9 +2141,9 @@ class Assembler386(BaseAssembler):
             self.mc.MOV_sr(frame_ptr, reg.value)     # MOV [css.frame], reg
             # Set up jf_extra_stack_depth to pretend that the return address
             # was at css, and so our stack frame is supposedly shorter by
-            # (css+1) words
+            # (css+WORD) bytes
             extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
-            self.mc.MOV_bi(extra_ofs, (-css-1) * WORD)
+            self.mc.MOV_bi(extra_ofs, -css-WORD)
             # Call the closestack() function (also releasing the GIL)
             args = [reg]
         #
@@ -2160,9 +2160,13 @@ class Assembler386(BaseAssembler):
             args = []
         else:
             from rpython.memory.gctransform import asmgcroot
+            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
+            # Restore ebp
+            index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
+            self.mc.MOV_rs(ebp.value, index_of_ebp)  # MOV ESP, [css.ebp]
+            #
             extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
             self.mc.MOV_bi(extra_ofs, 0)
-            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
             if IS_X86_32:
                 reg = eax
             elif IS_X86_64:
