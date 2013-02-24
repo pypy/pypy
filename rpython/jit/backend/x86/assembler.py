@@ -1123,7 +1123,8 @@ class Assembler386(BaseAssembler):
             self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(x)
         if can_collect:
-            self._reload_frame_if_necessary(self.mc)
+            if can_collect != 3:
+                self._reload_frame_if_necessary(self.mc)
             if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
@@ -1229,7 +1230,8 @@ class Assembler386(BaseAssembler):
             self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(x)
         if can_collect:
-            self._reload_frame_if_necessary(self.mc)
+            if can_collect != 3:
+                self._reload_frame_if_necessary(self.mc)
             if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
@@ -2039,7 +2041,8 @@ class Assembler386(BaseAssembler):
         if self._is_asmgcc() and op.getopnum() == rop.CALL_RELEASE_GIL:
             from rpython.memory.gctransform import asmgcroot
             stack_max -= asmgcroot.JIT_USE_WORDS
-            can_collect = 2    # don't write jf_extra_stack_depth
+            can_collect = 3    # asmgcc only: don't write jf_extra_stack_depth,
+                               # and don't call the write barrier on ebp
         else:
             can_collect = 1
 
@@ -2163,7 +2166,11 @@ class Assembler386(BaseAssembler):
             css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
             # Restore ebp
             index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            self.mc.MOV_rs(ebp.value, index_of_ebp)  # MOV ESP, [css.ebp]
+            self.mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
+            wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+            assert wbdescr
+            self._write_barrier_fastpath(self.mc, wbdescr, [ebp], array=False,
+                                         is_frame=True)
             #
             extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
             self.mc.MOV_bi(extra_ofs, 0)
