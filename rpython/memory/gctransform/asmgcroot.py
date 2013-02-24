@@ -654,6 +654,8 @@ else:
     INDEX_OF_EBP      = 3
     FRAME_PTR         = CALLEE_SAVED_REGS    # the frame is at index 4 in the array
 
+JIT_USE_WORDS = 2 + FRAME_PTR + 1
+
 ASM_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 # used internally by walk_stack_from()

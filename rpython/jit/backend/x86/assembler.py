@@ -65,7 +65,6 @@ class Assembler386(BaseAssembler):
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
-        self.gcrootmap_retaddr_forced = 0
         self.teardown()
 
     def set_debug(self, v):
@@ -1068,11 +1067,18 @@ class Assembler386(BaseAssembler):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
+    def _is_asmgcc(self):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        return bool(gcrootmap) and not gcrootmap.is_shadow_stack
+
     def _emit_call(self, x, arglocs, start=0, tmp=eax,
-                   argtypes=None, callconv=FFI_DEFAULT_ABI, can_collect=True):
+                   argtypes=None, callconv=FFI_DEFAULT_ABI, can_collect=1,
+                   stack_max=PASS_ON_MY_FRAME):
+        if can_collect == 1 and not self._is_asmgcc():
+            can_collect = 2    # don't bother with jf_extra_stack_depth
         if IS_X86_64:
             return self._emit_call_64(x, arglocs, start, argtypes,
-                                      can_collect=can_collect)
+                                      can_collect, stack_max)
         stack_depth = 0
         n = len(arglocs)
         for i in range(start, n):
@@ -1083,11 +1089,11 @@ class Assembler386(BaseAssembler):
                 else:
                     stack_depth += 1
             stack_depth += loc.get_width() // WORD
-        if stack_depth > PASS_ON_MY_FRAME:
+        if stack_depth > stack_max:
             stack_depth = align_stack_words(stack_depth)
-            align = (stack_depth - PASS_ON_MY_FRAME)
+            align = (stack_depth - stack_max)
             self.mc.SUB_ri(esp.value, align * WORD)
-            if can_collect:
+            if can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, align * WORD)
         else:
@@ -1120,7 +1126,7 @@ class Assembler386(BaseAssembler):
         self.mc.CALL(x)
         if can_collect:
             self._reload_frame_if_necessary(self.mc)
-            if align:
+            if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
             self.pop_gcmap(self.mc)
@@ -1137,7 +1143,8 @@ class Assembler386(BaseAssembler):
         # the called function just added 'p' to ESP, by subtracting it again.
         self.mc.SUB_ri(esp.value, p)
 
-    def _emit_call_64(self, x, arglocs, start, argtypes, can_collect=True):
+    def _emit_call_64(self, x, arglocs, start, argtypes,
+                      can_collect, stack_max):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
@@ -1159,10 +1166,10 @@ class Assembler386(BaseAssembler):
         stack_depth = (max(all_args - floats - len(unused_gpr), 0) +
                        max(floats - len(unused_xmm), 0))
         align = 0
-        if stack_depth > PASS_ON_MY_FRAME:
+        if stack_depth > stack_max:
             stack_depth = align_stack_words(stack_depth)
-            align = (stack_depth - PASS_ON_MY_FRAME)
-            if can_collect:
+            align = (stack_depth - stack_max)
+            if can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, align * WORD)
             self.mc.SUB_ri(esp.value, align * WORD)
@@ -1225,7 +1232,7 @@ class Assembler386(BaseAssembler):
         self.mc.CALL(x)
         if can_collect:
             self._reload_frame_if_necessary(self.mc)
-            if align:
+            if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
         if align:
@@ -2030,9 +2037,19 @@ class Assembler386(BaseAssembler):
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
 
+        stack_max = PASS_ON_MY_FRAME
+        if self._is_asmgcc() and op.getopnum() == rop.CALL_RELEASE_GIL:
+            from rpython.memory.gctransform import asmgcroot
+            stack_max -= asmgcroot.JIT_USE_WORDS
+            can_collect = 2    # don't write jf_extra_stack_depth
+        else:
+            can_collect = 1
+
         self._emit_call(x, arglocs, 3, tmp=tmp,
                         argtypes=descr.get_arg_types(),
-                        callconv=descr.get_call_conv())
+                        callconv=descr.get_call_conv(),
+                        can_collect=can_collect,
+                        stack_max=stack_max)
 
         if IS_X86_32 and isinstance(resloc, FrameLoc) and resloc.type == FLOAT:
             # a float or a long long return
@@ -2103,79 +2120,36 @@ class Assembler386(BaseAssembler):
         self._emit_guard_not_forced(guard_token)
 
     def call_release_gil(self, gcrootmap, save_registers):
-        # First, we need to save away the registers listed in
-        # 'save_registers' that are not callee-save.  XXX We assume that
-        # the XMM registers won't be modified.  We store them in
-        # [ESP+4], [ESP+8], etc.; on x86-32 we leave enough room in [ESP]
-        # for the single argument to closestack_addr below.
-        if IS_X86_32:
-            p = WORD
-        elif IS_X86_64:
-            p = 0
-        for reg in self._regalloc.rm.save_around_call_regs:
-            if reg in save_registers:
-                self.mc.MOV_sr(p, reg.value)
-                p += WORD
-        #
         if gcrootmap.is_shadow_stack:
             args = []
         else:
-            # note that regalloc.py used save_all_regs=True to save all
-            # registers, so we don't have to care about saving them (other
-            # than ebp) in the close_stack_struct.  But if they are registers
-            # like %eax that would be destroyed by this call, *and* they are
-            # used by arglocs for the *next* call, then trouble; for now we
-            # will just push/pop them.
-            raise NotImplementedError
-            xxx
             from rpython.memory.gctransform import asmgcroot
-            css = self._regalloc.close_stack_struct
-            if css == 0:
-                use_words = (2 + max(asmgcroot.INDEX_OF_EBP,
-                                     asmgcroot.FRAME_PTR) + 1)
-                pos = self._regalloc.fm.reserve_location_in_frame(use_words)
-                css = get_ebp_ofs(pos + use_words - 1)
-                self._regalloc.close_stack_struct = css
-            # The location where the future CALL will put its return address
-            # will be [ESP-WORD].  But we can't use that as the next frame's
-            # top address!  As the code after releasegil() runs without the
-            # GIL, it might not be set yet by the time we need it (very
-            # unlikely), or it might be overwritten by the following call
-            # to reaquiregil() (much more likely).  So we hack even more
-            # and use a dummy location containing a dummy value (a pointer
-            # to itself) which we pretend is the return address :-/ :-/ :-/
-            # It prevents us to store any %esp-based stack locations but we
-            # don't so far.
-            adr = self.datablockwrapper.malloc_aligned(WORD, WORD)
-            rffi.cast(rffi.CArrayPtr(lltype.Signed), adr)[0] = adr
-            self.gcrootmap_retaddr_forced = adr
-            frame_ptr = css + WORD * (2+asmgcroot.FRAME_PTR)
-            if rx86.fits_in_32bits(adr):
-                self.mc.MOV_bi(frame_ptr, adr)          # MOV [css.frame], adr
-            else:
-                self.mc.MOV_ri(eax.value, adr)          # MOV EAX, adr
-                self.mc.MOV_br(frame_ptr, eax.value)    # MOV [css.frame], EAX
+            # build a 'css' structure on the stack: 2 words for the linkage,
+            # and 5/7 words as described for asmgcroot.ASM_FRAMEDATA, for a
+            # total size of JIT_USE_WORDS.  This structure is found at
+            # [ESP+css].
+            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
+            assert css >= 2
             # Save ebp
             index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            self.mc.MOV_br(index_of_ebp, ebp.value)     # MOV [css.ebp], EBP
-            # Call the closestack() function (also releasing the GIL)
+            self.mc.MOV_sr(index_of_ebp, ebp.value)  # MOV [css.ebp], EBP
+            # Save the "return address": we pretend that it's css
             if IS_X86_32:
                 reg = eax
             elif IS_X86_64:
                 reg = edi
-            self.mc.LEA_rb(reg.value, css)
+            self.mc.LEA_rs(reg.value, css)           # LEA reg, [css]
+            frame_ptr = css + WORD * (2+asmgcroot.FRAME_PTR)
+            self.mc.MOV_sr(frame_ptr, reg.value)     # MOV [css.frame], reg
+            # Set up jf_extra_stack_depth to pretend that the return address
+            # was at css, and so our stack frame is supposedly shorter by
+            # (css+1) words
+            extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+            self.mc.MOV_bi(extra_ofs, (-css-1) * WORD)
+            # Call the closestack() function (also releasing the GIL)
             args = [reg]
         #
         self._emit_call(imm(self.releasegil_addr), args)
-        # Finally, restore the registers saved above.
-        if IS_X86_32:
-            p = WORD
-        elif IS_X86_64:
-            p = 0
-        for reg in self._regalloc.rm.save_around_call_regs:
-            if reg in save_registers:
-                self.mc.MOV_rs(reg.value, p)
-                p += WORD
 
     def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result (eax/xmm0) into the stack temporarily.
@@ -2187,18 +2161,15 @@ class Assembler386(BaseAssembler):
         if gcrootmap.is_shadow_stack:
             args = []
         else:
-            raise NotImplementedError
-            xxx
-            assert self.gcrootmap_retaddr_forced == -1, (
-                      "missing mark_gc_roots() in CALL_RELEASE_GIL")
-            self.gcrootmap_retaddr_forced = 0
-            css = self._regalloc.close_stack_struct
-            assert css != 0
+            from rpython.memory.gctransform import asmgcroot
+            extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
+            self.mc.MOV_bi(extra_ofs, 0)
+            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
             if IS_X86_32:
                 reg = eax
             elif IS_X86_64:
                 reg = edi
-            self.mc.LEA_rb(reg.value, css)
+            self.mc.LEA_rs(reg.value, css)
             args = [reg]
         self._emit_call(imm(self.reacqgil_addr), args)
         # restore the result from the stack

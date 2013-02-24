@@ -141,7 +141,6 @@ class RegAlloc(BaseRegalloc):
         self.translate_support_code = translate_support_code
         # to be read/used by the assembler too
         self.jump_target_descr = None
-        self.close_stack_struct = 0
         self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
@@ -797,7 +796,17 @@ class RegAlloc(BaseRegalloc):
         assert guard_op is not None
         self._consider_call(op, guard_op)
 
-    consider_call_release_gil = consider_call_may_force
+    def consider_call_release_gil(self, op, guard_op):
+        # We spill the arguments to the stack, because we need to do 3 calls:
+        # call_release_gil(), the_real_c_function(), and call_reacquire_gil().
+        # The arguments are used on the second call only.  XXX we assume
+        # that the XMM arguments won't be modified by call_release_gil().
+        for i in range(op.numargs()):
+            loc = self.loc(op.getarg(i))
+            if loc in self.rm.save_around_call_regs:
+                self.rm.force_spill_var(op.getarg(i))
+        assert guard_op is not None
+        self._consider_call(op, guard_op)
 
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)
