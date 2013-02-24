@@ -132,14 +132,14 @@ class TestStrUtil:
             raises(ParseStringError, string_to_int, '-'+s, base)
 
     def test_string_to_bigint(self):
-        assert string_to_bigint('123L').tolong() == 123
-        assert string_to_bigint('123L  ').tolong() == 123
+        assert string_to_bigint('123').tolong() == 123
+        assert string_to_bigint('123  ').tolong() == 123
         raises(ParseStringError, string_to_bigint, 'L')
         raises(ParseStringError, string_to_bigint, 'L  ')
-        assert string_to_bigint('123L', 4).tolong() == 27
+        assert string_to_bigint('123', 4).tolong() == 27
         assert string_to_bigint('123L', 30).tolong() == 27000 + 1800 + 90 + 21
         assert string_to_bigint('123L', 22).tolong() == 10648 + 968 + 66 + 21
-        assert string_to_bigint('123L', 21).tolong() == 441 + 42 + 3
+        assert string_to_bigint('123', 21).tolong() == 441 + 42 + 3
         assert string_to_bigint('1891234174197319').tolong() == 1891234174197319
 
     def test_string_to_float(self):
