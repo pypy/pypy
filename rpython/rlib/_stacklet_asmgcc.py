@@ -77,15 +77,20 @@ def get_stackletrootwalker():
                     callee = self.curframe
                     retaddraddr = self.translateptr(callee.frame_address)
                     retaddr = retaddraddr.address[0]
-                    basewalker.locate_caller_based_on_retaddr(retaddr)
+                    ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
+                    ebp_in_caller = self.translateptr(ebp_in_caller)
+                    ebp_in_caller = ebp_in_caller.address[0]
+                    basewalker.locate_caller_based_on_retaddr(retaddr,
+                                                              ebp_in_caller)
                     self.enumerating = True
+                else:
+                    callee = self.curframe
+                    ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
+                    ebp_in_caller = self.translateptr(ebp_in_caller)
+                    ebp_in_caller = ebp_in_caller.address[0]
                 #
                 # not really a loop, but kept this way for similarity
                 # with asmgcroot:
-                callee = self.curframe
-                ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
-                ebp_in_caller = self.translateptr(ebp_in_caller)
-                ebp_in_caller = ebp_in_caller.address[0]
                 while True:
                     location = basewalker._shape_decompressor.next()
                     if location == 0:
