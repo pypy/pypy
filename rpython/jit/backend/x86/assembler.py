@@ -1123,7 +1123,7 @@ class Assembler386(BaseAssembler):
             self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(x)
         if can_collect:
-            self._reload_frame_if_necessary(self.mc)
+            self._reload_frame_if_necessary(self.mc, can_collect=can_collect)
             if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
@@ -1229,7 +1229,7 @@ class Assembler386(BaseAssembler):
             self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(x)
         if can_collect:
-            self._reload_frame_if_necessary(self.mc)
+            self._reload_frame_if_necessary(self.mc, can_collect=can_collect)
             if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
@@ -1238,12 +1238,19 @@ class Assembler386(BaseAssembler):
         if can_collect:
             self.pop_gcmap(self.mc)
 
-    def _reload_frame_if_necessary(self, mc, align_stack=False):
+    def _reload_frame_if_necessary(self, mc, align_stack=False, can_collect=0):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            rst = gcrootmap.get_root_stack_top_addr()
-            mc.MOV(edx, heap(rst))
-            mc.MOV(ebp, mem(edx, -WORD))
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack:
+                rst = gcrootmap.get_root_stack_top_addr()
+                mc.MOV(ecx, heap(rst))
+                mc.MOV(ebp, mem(ecx, -WORD))
+            elif can_collect == 3:
+                # specially for call_release_gil: must reload ebp from the css
+                from rpython.memory.gctransform import asmgcroot
+                css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
+                index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
+                mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
@@ -2039,7 +2046,8 @@ class Assembler386(BaseAssembler):
         if self._is_asmgcc() and op.getopnum() == rop.CALL_RELEASE_GIL:
             from rpython.memory.gctransform import asmgcroot
             stack_max -= asmgcroot.JIT_USE_WORDS
-            can_collect = 2    # don't write jf_extra_stack_depth
+            can_collect = 3    # asmgcc only: don't write jf_extra_stack_depth,
+                               # and reload ebp from the css
         else:
             can_collect = 1
 
@@ -2141,9 +2149,9 @@ class Assembler386(BaseAssembler):
             self.mc.MOV_sr(frame_ptr, reg.value)     # MOV [css.frame], reg
             # Set up jf_extra_stack_depth to pretend that the return address
             # was at css, and so our stack frame is supposedly shorter by
-            # (css+1) words
+            # (css+WORD) bytes
             extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
-            self.mc.MOV_bi(extra_ofs, (-css-1) * WORD)
+            self.mc.MOV_bi(extra_ofs, -css-WORD)
             # Call the closestack() function (also releasing the GIL)
             args = [reg]
         #
@@ -2160,9 +2168,9 @@ class Assembler386(BaseAssembler):
             args = []
         else:
             from rpython.memory.gctransform import asmgcroot
+            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
             extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
             self.mc.MOV_bi(extra_ofs, 0)
-            css = WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS)
             if IS_X86_32:
                 reg = eax
             elif IS_X86_64:
