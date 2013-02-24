@@ -20,8 +20,8 @@ def sc_operator(space, fn, args):
         elif opname == 'getattr' and len(args_w) == 3:
             return space.do_operation('simple_call', Constant(getattr), *args_w)
         else:
-            raise Exception, "should call %r with exactly %d arguments" % (
-                fn, Arity[opname])
+            raise Exception("should call %r with exactly %d arguments" % (
+                fn, Arity[opname]))
     # completely replace the call with the underlying
     # operation and its limited implicit exceptions semantic
     return getattr(space, opname)(*args_w)
@@ -79,4 +79,3 @@ SPECIAL_CASES = {__import__: sc_import, r_uint: sc_r_uint,
         locals: sc_locals}
 for fn in OperationName:
     SPECIAL_CASES[fn] = sc_operator
-
