@@ -300,11 +300,18 @@ class RegAlloc(BaseRegalloc):
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform_math(op, arglocs, result_loc)
 
-    def locs_for_fail(self, guard_op):
-        return [self.loc(v) for v in guard_op.getfailargs()]
+    def locs_for_fail(self, guard_op, no_regs=False):
+        r = []
+        for v in guard_op.getfailargs():
+            loc = self.loc(v)
+            if no_regs and loc is not None:
+                assert isinstance(loc, FrameLoc)
+            r.append(loc)
+        return r
 
-    def perform_with_guard(self, op, guard_op, arglocs, result_loc):
-        faillocs = self.locs_for_fail(guard_op)
+    def perform_with_guard(self, op, guard_op, arglocs, result_loc,
+                           no_regs=False):
+        faillocs = self.locs_for_fail(guard_op, no_regs=no_regs)
         self.rm.position += 1
         self.xrm.position += 1
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
@@ -745,7 +752,8 @@ class RegAlloc(BaseRegalloc):
         else:
             resloc = None
         if guard_not_forced_op is not None:
-            self.perform_with_guard(op, guard_not_forced_op, arglocs, resloc)
+            self.perform_with_guard(op, guard_not_forced_op, arglocs, resloc,
+                                    no_regs=True)
         else:
             self.perform(op, arglocs, resloc)
 
