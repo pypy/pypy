@@ -20,6 +20,10 @@ options:
 
 from __future__ import print_function, unicode_literals
 
+try:
+    from __pypy__ import hidden_applevel
+except ImportError:
+    hidden_applevel = lambda f: f
 import errno
 import sys
 
@@ -44,6 +48,7 @@ def handle_sys_exit(e):
             exitcode = 1
     raise SystemExit(exitcode)
 
+@hidden_applevel
 def run_toplevel(f, *fargs, **fkwds):
     """Calls f() and handles all OperationErrors.
     Intended use is to run the main program or one interactive statement.
@@ -55,13 +60,13 @@ def run_toplevel(f, *fargs, **fkwds):
         f(*fargs, **fkwds)
     except SystemExit as e:
         handle_sys_exit(e)
-    except:
-        display_exception()
+    except BaseException as e:
+        display_exception(e)
         return False
     return True   # success
 
-def display_exception():
-    etype, evalue, etraceback = sys.exc_info()
+def display_exception(e):
+    etype, evalue, etraceback = type(e), e, e.__traceback__
     try:
         # extra debugging info in case the code below goes very wrong
         if DEBUG and hasattr(sys, 'stderr'):
@@ -87,14 +92,14 @@ def display_exception():
         hook(etype, evalue, etraceback)
         return # done
 
-    except:
+    except BaseException as e:
         try:
             stderr = sys.stderr
         except AttributeError:
             pass   # too bad
         else:
             print('Error calling sys.excepthook:', file=stderr)
-            originalexcepthook(*sys.exc_info())
+            originalexcepthook(type(e), e, e.__traceback__)
             print(file=stderr)
             print('Original exception was:', file=stderr)
 
@@ -463,6 +468,7 @@ def parse_command_line(argv):
 
 # this indirection is needed to be able to import this module on python2, else
 # we have a SyntaxError: unqualified exec in a nested function
+@hidden_applevel
 def exec_(src, dic):
     exec(src, dic)
 
@@ -540,6 +546,7 @@ def run_command_line(interactive,
             # Put '' on sys.path
             sys.path.insert(0, '')
 
+            @hidden_applevel
             def run_it():
                 exec_(run_command, mainmodule.__dict__)
             success = run_toplevel(run_it)
@@ -574,6 +581,7 @@ def run_command_line(interactive,
                         print("Could not open PYTHONSTARTUP", file=sys.stderr)
                         print("IOError:", e, file=sys.stderr)
                     else:
+                        @hidden_applevel
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
@@ -590,6 +598,7 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
                     exec_(co_stdin, mainmodule.__dict__)
@@ -624,6 +633,7 @@ def run_command_line(interactive,
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
+                    @hidden_applevel
                     def execfile(filename, namespace):
                         with open(filename, 'rb') as f:
                             code = f.read()

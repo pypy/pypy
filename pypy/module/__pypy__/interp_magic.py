@@ -56,6 +56,13 @@ def builtinify(space, w_func):
     bltn = BuiltinFunction(func)
     return space.wrap(bltn)
 
+def hidden_applevel(space, w_func):
+    """Decorator that hides a function's frame from app-level"""
+    from pypy.interpreter.function import Function
+    func = space.interp_w(Function, w_func)
+    func.getcode().hidden_applevel = True
+    return w_func
+
 @unwrap_spec(ObjSpace, W_Root, str)
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
