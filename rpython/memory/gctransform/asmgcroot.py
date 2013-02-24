@@ -557,6 +557,7 @@ class ShapeDecompressor:
             pos = ~ pos     # can ignore this "range" marker here
         gccallshapes = llop.gc_asmgcroot_static(llmemory.Address, 2)
         self.addr = gccallshapes + pos
+        self.jit_index = -1
 
     def setjitframe(self, extra_stack_depth):
         self.addr = llmemory.NULL
@@ -564,9 +565,10 @@ class ShapeDecompressor:
         self.extra_stack_depth = extra_stack_depth
 
     def next(self):
-        addr = self.addr
-        if addr:
+        index = self.jit_index
+        if index < 0:
             # case "outside the jit"
+            addr = self.addr
             value = 0
             while True:
                 b = ord(addr.char[0])
@@ -581,7 +583,6 @@ class ShapeDecompressor:
             # case "in the jit"
             from rpython.jit.backend.x86.arch import FRAME_FIXED_SIZE
             from rpython.jit.backend.x86.arch import PASS_ON_MY_FRAME
-            index = self.jit_index
             self.jit_index = index + 1
             if index == 0:
                 # the jitframe is an object in EBP
