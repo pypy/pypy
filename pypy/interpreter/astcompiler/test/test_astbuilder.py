@@ -1146,7 +1146,6 @@ class TestAstBuilder:
         assert space.eq_w(s.s, space.wrap(u'Ç'))
  
     def test_string_bug(self):
-        py.test.py3k_skip('fixme')
         space = self.space
         source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'
         info = pyparse.CompileInfo("<test>", "exec")
@@ -1154,8 +1153,7 @@ class TestAstBuilder:
         assert info.encoding == "utf8"
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
-        expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
-        assert space.eq_w(s.s, space.wrap(''.join(expected)))
+        assert space.eq_w(s.s, space.wrap(u'x \xe9 \n'))
 
     def test_number(self):
         def get_num(s):
