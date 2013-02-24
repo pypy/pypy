@@ -40,6 +40,10 @@ PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
 PYPYLOG: If set to a non-empty value, enable logging.
 """
 
+try:
+    from __pypy__ import hidden_applevel
+except ImportError:
+    hidden_applevel = lambda f: f
 import sys
 
 DEBUG = False       # dump exceptions before calling the except hook
@@ -63,6 +67,7 @@ def handle_sys_exit(e):
             exitcode = 1
     raise SystemExit(exitcode)
 
+@hidden_applevel
 def run_toplevel(f, *fargs, **fkwds):
     """Calls f() and handles all OperationErrors.
     Intended use is to run the main program or one interactive statement.
@@ -87,13 +92,13 @@ def run_toplevel(f, *fargs, **fkwds):
 
     except SystemExit as e:
         handle_sys_exit(e)
-    except:
-        display_exception()
+    except BaseException as e:
+        display_exception(e)
         return False
     return True   # success
 
-def display_exception():
-    etype, evalue, etraceback = sys.exc_info()
+def display_exception(e):
+    etype, evalue, etraceback = type(e), e, e.__traceback__
     try:
         # extra debugging info in case the code below goes very wrong
         if DEBUG and hasattr(sys, 'stderr'):
@@ -119,11 +124,11 @@ def display_exception():
         hook(etype, evalue, etraceback)
         return # done
 
-    except:
+    except BaseException as e:
         try:
             stderr = sys.stderr
             print >> stderr, 'Error calling sys.excepthook:'
-            originalexcepthook(*sys.exc_info())
+            originalexcepthook(type(e), e, e.__traceback__)
             print >> stderr
             print >> stderr, 'Original exception was:'
         except:
@@ -597,6 +602,7 @@ def run_command_line(interactive,
             # Put '' on sys.path
             sys.path.insert(0, '')
 
+            @hidden_applevel
             def run_it():
                 exec run_command in mainmodule.__dict__
             success = run_toplevel(run_it)
@@ -634,6 +640,7 @@ def run_command_line(interactive,
                         print >> sys.stderr, "Could not open PYTHONSTARTUP"
                         print >> sys.stderr, "IOError:", e
                     else:
+                        @hidden_applevel
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
@@ -650,6 +657,7 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
                                        PyCF_ACCEPT_NULL_BYTES)

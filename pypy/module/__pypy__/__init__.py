@@ -71,6 +71,7 @@ class Module(MixedModule):
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'debug_flush'               : 'interp_debug.debug_flush',
         'builtinify'                : 'interp_magic.builtinify',
+        'hidden_applevel'           : 'interp_magic.hidden_applevel',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'validate_fd'               : 'interp_magic.validate_fd',

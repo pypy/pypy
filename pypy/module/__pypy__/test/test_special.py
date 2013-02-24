@@ -27,6 +27,39 @@ class AppTest(object):
         assert A.a is not A.__dict__['a']
         assert A.b is A.__dict__['b']
 
+    def test_hidden_applevel(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def sneak(): (lambda: 1/0)()
+        try:
+            sneak()
+        except ZeroDivisionError as e:
+            tb = e.__traceback__
+            assert tb.tb_frame == sys._getframe()
+            assert tb.tb_next.tb_frame.f_code.co_name == '<lambda>'
+        else:
+            assert False, 'Expected ZeroDivisionError'
+
+    def test_hidden_applevel_frames(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def test_hidden():
+            assert sys._getframe().f_code.co_name != 'test_hidden'
+            def e(): 1/0
+            try: e()
+            except ZeroDivisionError as e:
+                assert sys.exc_info() == (None, None, None)
+                frame = e.__traceback__.tb_frame
+                assert frame != sys._getframe()
+                assert frame.f_code.co_name == 'e'
+            else: assert False
+            return 2
+        assert test_hidden() == 2
+
     def test_lookup_special(self):
         from __pypy__ import lookup_special
         class X(object):
