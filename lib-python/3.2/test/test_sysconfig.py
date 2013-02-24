@@ -12,7 +12,8 @@ import shutil
 from copy import copy, deepcopy
 
 from test.support import (run_unittest, TESTFN, unlink, get_attribute,
-                          captured_stdout, skip_unless_symlink)
+                          captured_stdout, skip_unless_symlink,
+                          impl_detail)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -277,6 +278,7 @@ class TestSysConfig(unittest.TestCase):
         self.assertTrue(len(output.getvalue().split('\n')) > 0)
 
     @unittest.skipIf(sys.platform == "win32", "Does not apply to Windows")
+    @impl_detail("PyPy lacks LDFLAGS/LDSHARED config vars", pypy=False)
     def test_ldshared_value(self):
         ldflags = sysconfig.get_config_var('LDFLAGS')
         ldshared = sysconfig.get_config_var('LDSHARED')
@@ -333,6 +335,7 @@ class TestSysConfig(unittest.TestCase):
 class MakefileTests(unittest.TestCase):
     @unittest.skipIf(sys.platform.startswith('win'),
                      'Test is not Windows compatible')
+    @impl_detail("PyPy lacks sysconfig.get_makefile_filename", pypy=False)
     def test_get_makefile_filename(self):
         makefile = sysconfig.get_makefile_filename()
         self.assertTrue(os.path.isfile(makefile), makefile)
