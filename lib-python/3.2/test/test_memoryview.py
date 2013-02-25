@@ -11,7 +11,11 @@ import weakref
 import array
 import io
 
-getrefcount = sys.getrefcount if hasattr(sys, 'getrefcount') else lambda o: -1
+try:
+    getrefcount = sys.getrefcount
+except AttributeError:
+    # PyPy
+    getrefcount = lambda o: len(gc.get_referents(o))
 
 class AbstractMemoryTests:
     source_bytes = b"abcdef"
