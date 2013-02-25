@@ -25,3 +25,21 @@ class TestCall(LLJitMixin):
         res = self.interp_operations(f, [3])
         assert res == f(3)
     
+    def test_call_elidable_none(self):
+        d = {}
+        
+        @jit.elidable
+        def f(a):
+            return d.get(a, None)
+
+        driver = jit.JitDriver(greens = [], reds = ['n'])
+
+        def main(n):
+            while n > 0:
+                driver.jit_merge_point(n=n)
+                f(n)
+                f(n)
+                n -= 1
+            return 3
+
+        self.meta_interp(main, [10])
