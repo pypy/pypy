@@ -1,4 +1,5 @@
 __all__ = [
+           'ufunc',
            'asanyarray', 'base_repr',
            'array_repr', 'array_str', 'set_string_function',
            'array_equal', 'asarray', 'outer', 'identity', 'little_endian',
@@ -6,13 +7,15 @@ __all__ = [
           ]
 
 from _numpypy import array, ndarray, int_, float_, bool_, flexible #, complex_# , longlong
-from _numpypy import concatenate
+from _numpypy import concatenate, sin
 from .fromnumeric import any
 import sys
 import multiarray
 import umath
 from umath import *
 from numpypy.core.arrayprint import array2string
+
+ufunc = type(sin)
 
 def extend_all(module):
     adict = {}

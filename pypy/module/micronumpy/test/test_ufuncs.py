@@ -16,7 +16,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
     def test_ufunc_instance(self):
-        from _numpypy import add, ufunc
+        from numpypy import add, ufunc
 
         assert isinstance(add, ufunc)
         assert repr(add) == "<ufunc 'add'>"

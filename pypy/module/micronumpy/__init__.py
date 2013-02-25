@@ -8,7 +8,6 @@ class Module(MixedModule):
     interpleveldefs = {
         'ndarray': 'interp_numarray.W_NDimArray',
         'dtype': 'interp_dtype.W_Dtype',
-        'ufunc': 'interp_ufuncs.W_Ufunc',
 
         'array': 'interp_numarray.array',
         'zeros': 'interp_numarray.zeros',
