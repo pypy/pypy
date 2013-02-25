@@ -1,6 +1,6 @@
 __all__ = ['atleast_1d', 'atleast_2d', 'atleast_3d', 'vstack', 'hstack']
 
-import _numpypy
+import numeric as _nx
 from numeric import array, asanyarray, newaxis
 
 def atleast_1d(*arys):
@@ -223,7 +223,7 @@ def vstack(tup):
            [4]])
 
     """
-    return _numpypy.concatenate(map(atleast_2d,tup),0)
+    return _nx.concatenate(map(atleast_2d,tup),0)
 
 def hstack(tup):
     """
@@ -270,6 +270,6 @@ def hstack(tup):
     arrs = map(atleast_1d,tup)
     # As a special case, dimension 0 of 1-dimensional arrays is "horizontal"
     if arrs[0].ndim == 1:
-        return _numpypy.concatenate(arrs, 0)
+        return _nx.concatenate(arrs, 0)
     else:
-        return _numpypy.concatenate(arrs, 1)
+        return _nx.concatenate(arrs, 1)

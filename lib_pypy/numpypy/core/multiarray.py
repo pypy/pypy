@@ -1,1 +1,1 @@
-from _numpypy import set_string_function, typeinfo
+from _numpypy.multiarray import *

@@ -1,7 +1,7 @@
 __all__ = ['dstack']
 
-import numpypy.core.numeric as _nx
-from numpypy.core import atleast_3d
+from ..core import numeric as _nx
+from ..core import atleast_3d
 
 def dstack(tup):
     """
