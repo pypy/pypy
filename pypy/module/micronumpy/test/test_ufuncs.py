@@ -82,6 +82,52 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert min_c_b[i] == min(b[i], c)
 
+    def test_scalar(self):
+        # tests that by calling all available ufuncs on scalars, none will
+        # raise uncaught interp-level exceptions, (and crash the test)
+        # and those that are uncallable can be accounted for.
+        # test on the four base-class dtypes: int, bool, float, complex
+        # We need this test since they have no common base class.
+        import numpypy as np
+        def find_uncallable_ufuncs(v):
+            uncallable = []
+            for s in dir(np):
+                u = getattr(np, s)
+                if isinstance(u, np.ufunc) and u.nin < 2:
+                    try:
+                        u(a)
+                    except TypeError:
+                        #assert e.message.startswith('ufunc')
+                        uncallable.append(s)
+                elif isinstance(u, np.ufunc) and u.nin ==2:
+                    try:
+                        u(a, a)
+                    except TypeError:
+                        #assert e.message.startswith('ufunc')
+                        uncallable.append(s)
+            return uncallable
+        a = np.array(0,'int64')
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 0
+        a = np.array(True,'bool')
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 0 or uncallable == ['sign'] # numpy 1.7.0
+        a = np.array(1.0,'float')
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 2 and set(uncallable) == set(['bitwise_not', 'invert']) 
+        a = np.array(1.0,'complex')
+        uncallable = find_uncallable_ufuncs(a) 
+        assert len(uncallable) == 13
+        assert set(uncallable) == \
+            set(['bitwise_not', 'ceil', 'deg2rad', 'degrees', 'fabs', 'floor',
+                'rad2deg', 'invert', 'isneginf', 'isposinf', 'radians',  'signbit',
+                'trunc'])
+
+    def test_int_only(self):
+        from numpypy import bitwise_and, array
+        a = array(1.0)
+        raises(TypeError, bitwise_and, a, a)
+
     def test_negative(self):
         from numpypy import array, negative
 
@@ -249,12 +295,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a == ref).all()
 
     def test_signbit(self):
-        from numpypy import signbit
+        from numpypy import signbit, add
 
         assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
             [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
             [False,  True,  True,  True,  True]).all()
+
+        a = add.identity
+        assert signbit(a) == False
 
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==

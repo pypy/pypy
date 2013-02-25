@@ -7,6 +7,7 @@ from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
+from rpython.rlib.rarithmetic import maxint
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
@@ -375,6 +376,20 @@ class Bool(BaseType, Primitive):
     def invert(self, v):
         return ~v
 
+    @raw_unary_op
+    def isfinite(self, v):
+        return True
+
+    @raw_unary_op
+    def signbit(self, v):
+        return False
+
+    @simple_unary_op
+    def reciprocal(self, v):
+        if v:
+            return 1
+        return 0
+
 NonNativeBool = Bool
 
 class Integer(Primitive):
@@ -478,6 +493,17 @@ class Integer(Primitive):
     @simple_unary_op
     def invert(self, v):
         return ~v
+
+    @simple_unary_op
+    def reciprocal(self, v):
+        if v == 0:
+            # XXX good place to warn
+            return -maxint
+        return 1 / v
+
+    @raw_unary_op
+    def signbit(self, v):
+        return v < 0
 
 class NonNativeInteger(NonNativePrimitive, Integer):
     _mixin_ = True
