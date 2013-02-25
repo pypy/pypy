@@ -16,6 +16,7 @@
 ######################################################################
 
 import numpypy
+from _numpypy import choose, repeat
 
 # Module containing non-deprecated functions borrowed from Numeric.
 __docformat__ = "restructuredtext en"
@@ -274,7 +275,7 @@ def choose(a, choices, out=None, mode='raise'):
             [-1, -2, -3, -4, -5]]])
 
     """
-    raise NotImplementedError('Waiting on interp level method')
+    return choose(a, choices, out, mode)
 
 
 def repeat(a, repeats, axis=None):
@@ -316,7 +317,7 @@ def repeat(a, repeats, axis=None):
            [3, 4]])
 
     """
-    raise NotImplementedError('Waiting on interp level method')
+    return repeat(a, repeats, axis)
 
 
 def put(a, ind, v, mode='raise'):

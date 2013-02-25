@@ -14,7 +14,7 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
-from pypy.module.micronumpy.interp_arrayops import repeat
+from pypy.module.micronumpy.interp_arrayops import repeat, choose
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -452,13 +452,8 @@ class __extend__(W_NDimArray):
             return res
 
     @unwrap_spec(mode=str)
-    def descr_choose(self, space, w_choices, mode='raise', w_out=None):
-        if space.is_none(w_out):
-            w_out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "return arrays must be of ArrayType"))
-        return interp_arrayops.choose(space, self, w_choices, w_out, mode)
+    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
+        return choose(space, self, w_choices, w_out, mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
         if space.is_none(w_out):

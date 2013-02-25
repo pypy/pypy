@@ -16,7 +16,6 @@ class MultiArrayModule(MixedModule):
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_flatiter.W_FlatIterator',
         'concatenate': 'interp_arrayops.concatenate',
-        'repeat': 'interp_arrayops.repeat',
         'where': 'interp_arrayops.where',
         'count_nonzero': 'interp_arrayops.count_nonzero',
 
@@ -180,7 +179,10 @@ class UMathModule(MixedModule):
 class Module(MixedModule):
     applevel_name = '_numpypy'
     appleveldefs = {}
-    interpleveldefs = {}
+    interpleveldefs = {
+        'choose': 'interp_arrayops.choose',
+        'repeat': 'interp_arrayops.repeat',
+    }
     submodules = {
         'multiarray': MultiArrayModule,
         'numerictypes': NumericTypesModule,
