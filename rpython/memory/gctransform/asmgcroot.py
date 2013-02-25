@@ -560,7 +560,6 @@ class ShapeDecompressor:
         self.jit_index = -1
 
     def setjitframe(self, extra_stack_depth):
-        self.addr = llmemory.NULL
         self.jit_index = 0
         self.extra_stack_depth = extra_stack_depth
 
