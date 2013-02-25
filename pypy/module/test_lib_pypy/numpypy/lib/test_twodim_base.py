@@ -2,8 +2,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestTwoDimBase(BaseNumpyAppTest):
     def test_eye(self):
-        from _numpypy import int32, dtype
-        from numpypy import eye
+        from numpypy import eye, int32, dtype
         a = eye(0)
         assert len(a) == 0
         assert a.dtype == dtype('float64')

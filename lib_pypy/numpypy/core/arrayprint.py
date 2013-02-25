@@ -13,9 +13,9 @@ __docformat__ = 'restructuredtext'
 # and by Travis Oliphant  2005-8-22 for numpy
 
 import sys
-import _numpypy as _nt
-from _numpypy import maximum, minimum, absolute, not_equal, isnan, isinf
-#from _numpypy import format_longfloat, datetime_as_string, datetime_data
+import numerictypes as _nt
+from umath import maximum, minimum, absolute, not_equal, isnan, isinf
+#from multiarray import format_longfloat, datetime_as_string, datetime_data
 from fromnumeric import ravel
 
 

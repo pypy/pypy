@@ -10,9 +10,9 @@ def arange(start, stop=None, step=1, dtype=None):
         stop = start
         start = 0
     if dtype is None:
-        test = _numpypy.array([start, stop, step, 0])
+        test = _numpypy.multiarray.array([start, stop, step, 0])
         dtype = test.dtype
-    arr = _numpypy.zeros(int(math.ceil((stop - start) / step)), dtype=dtype)
+    arr = _numpypy.multiarray.zeros(int(math.ceil((stop - start) / step)), dtype=dtype)
     i = start
     for j in range(arr.size):
         arr[j] = i

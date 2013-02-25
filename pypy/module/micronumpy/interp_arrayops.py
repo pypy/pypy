@@ -135,7 +135,7 @@ def concatenate(space, w_args, axis=0):
     return res
 
 @unwrap_spec(repeats=int)
-def repeat(space, w_arr, repeats, w_axis=None):
+def repeat(space, w_arr, repeats, w_axis):
     arr = convert_to_array(space, w_arr)
     if space.is_none(w_axis):
         arr = arr.descr_flatten(space)
@@ -161,14 +161,21 @@ def repeat(space, w_arr, repeats, w_axis=None):
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
 
-def choose(space, arr, w_choices, out, mode):
+@unwrap_spec(mode=str)
+def choose(space, w_arr, w_choices, w_out, mode):
+    arr = convert_to_array(space, w_arr)
     choices = [convert_to_array(space, w_item) for w_item
                in space.listview(w_choices)]
     if not choices:
         raise OperationError(space.w_ValueError,
                              space.wrap("choices list cannot be empty"))
-    shape = shape_agreement_multiple(space, choices + [out])
-    out = interp_dtype.dtype_agreement(space, choices, shape, out)
+    if space.is_none(w_out):
+        w_out = None
+    elif not isinstance(w_out, W_NDimArray):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "return arrays must be of ArrayType"))
+    shape = shape_agreement_multiple(space, choices + [w_out])
+    out = interp_dtype.dtype_agreement(space, choices, shape, w_out)
     dtype = out.get_dtype()
     if mode not in MODES:
         raise OperationError(space.w_ValueError,
