@@ -1,3 +1,5 @@
+from _numpypy.umath import *
+
 import math
 e = math.e
 pi = math.pi
