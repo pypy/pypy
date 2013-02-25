@@ -16,7 +16,7 @@
 ######################################################################
 
 import numpypy
-from _numpypy import choose, repeat
+import _numpypy
 
 # Module containing non-deprecated functions borrowed from Numeric.
 __docformat__ = "restructuredtext en"
@@ -275,7 +275,7 @@ def choose(a, choices, out=None, mode='raise'):
             [-1, -2, -3, -4, -5]]])
 
     """
-    return choose(a, choices, out, mode)
+    return _numpypy.choose(a, choices, out, mode)
 
 
 def repeat(a, repeats, axis=None):
@@ -317,7 +317,7 @@ def repeat(a, repeats, axis=None):
            [3, 4]])
 
     """
-    return repeat(a, repeats, axis)
+    return _numpypy.repeat(a, repeats, axis)
 
 
 def put(a, ind, v, mode='raise'):
