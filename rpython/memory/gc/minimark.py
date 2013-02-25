@@ -223,7 +223,7 @@ class MiniMarkGC(MovingGCBase):
     def __init__(self, config,
                  read_from_env=False,
                  nursery_size=32*WORD,
-                 nursery_cleanup=8*WORD,
+                 nursery_cleanup=9*WORD,
                  page_size=16*WORD,
                  arena_size=64*WORD,
                  small_request_threshold=5*WORD,
@@ -356,11 +356,9 @@ class MiniMarkGC(MovingGCBase):
                 self.debug_tiny_nursery = newsize & ~(WORD-1)
                 newsize = minsize
 
-            nursery_cleanup = env.read_from_env('PYPY_GC_NURSERY_CLEANUP')
-            if nursery_cleanup > 0:
-                if nursery_cleanup < self.nonlarge_max + 1:
-                    nursery_cleanup = self.nonlarge_max + 1
-                self.nursery_cleanup = nursery_cleanup
+            nurs_cleanup = env.read_from_env('PYPY_GC_NURSERY_CLEANUP')
+            if nurs_cleanup > 0:
+                self.nursery_cleanup = nurs_cleanup
             #
             major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
             if major_coll > 1.0:
@@ -391,7 +389,16 @@ class MiniMarkGC(MovingGCBase):
             llarena.arena_free(self.nursery)
             self.nursery_size = newsize
             self.allocate_nursery()
-
+        #
+        if self.nursery_cleanup < self.nonlarge_max + 1:
+            self.nursery_cleanup = self.nonlarge_max + 1
+        # We need exactly initial_cleanup + N*nursery_cleanup = nursery_size.
+        # We choose the value of initial_cleanup to be between 1x and 2x the
+        # value of nursery_cleanup.
+        self.initial_cleanup = self.nursery_cleanup + (
+                self.nursery_size % self.nursery_cleanup)
+        if self.initial_cleanup > self.nursery_size:
+            self.initial_cleanup = self.nursery_size
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
@@ -413,9 +420,9 @@ class MiniMarkGC(MovingGCBase):
         self.nursery = self._alloc_nursery()
         # the current position in the nursery:
         self.nursery_free = self.nursery
-        self.nursery_top = self.nursery + self.nursery_cleanup
         # the end of the nursery:
-        self.nursery_real_top = self.nursery + self.nursery_size
+        self.nursery_top = self.nursery + self.nursery_size
+        self.nursery_real_top = self.nursery_top
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
                                               self.major_collection_threshold)
@@ -427,6 +434,7 @@ class MiniMarkGC(MovingGCBase):
         self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
         ll_assert(self.extra_threshold == 0, "extra_threshold set too early")
+        self.initial_cleanup = self.nursery_size
         debug_stop("gc-set-nursery-size")
 
 
@@ -479,7 +487,7 @@ class MiniMarkGC(MovingGCBase):
             newnurs = self.debug_rotating_nurseries.pop(0)
             llarena.arena_protect(newnurs, self._nursery_memory_size(), False)
             self.nursery = newnurs
-            self.nursery_top = self.nursery + self.nursery_cleanup
+            self.nursery_top = self.nursery + self.initial_cleanup
             self.nursery_real_top = self.nursery + self.nursery_size
             debug_print("switching from nursery", oldnurs,
                         "to nursery", self.nursery,
@@ -602,10 +610,14 @@ class MiniMarkGC(MovingGCBase):
             self.major_collection()
 
     def move_nursery_top(self, totalsize):
-        size = min(self.nursery_real_top - self.nursery_top,
-                   self.nursery_cleanup)
+        size = self.nursery_cleanup
+        ll_assert(self.nursery_real_top - self.nursery_top >= size,
+            "nursery_cleanup not a divisor of nursery_size - initial_cleanup")
+        ll_assert(llmemory.raw_malloc_usage(totalsize) <= size,
+            "totalsize > nursery_cleanup")
         llarena.arena_reset(self.nursery_top, size, 2)
         self.nursery_top += size
+    move_nursery_top._always_inline_ = True
 
     def collect_and_reserve(self, prev_result, totalsize):
         """To call when nursery_free overflows nursery_top.
@@ -1300,10 +1312,10 @@ class MiniMarkGC(MovingGCBase):
         # All live nursery objects are out, and the rest dies.  Fill
         # the nursery up to the cleanup point with zeros
         llarena.arena_reset(self.nursery, self.nursery_size, 0)
-        llarena.arena_reset(self.nursery, self.nursery_cleanup, 2)
+        llarena.arena_reset(self.nursery, self.initial_cleanup, 2)
         self.debug_rotate_nursery()
         self.nursery_free = self.nursery
-        self.nursery_top = self.nursery + self.nursery_cleanup
+        self.nursery_top = self.nursery + self.initial_cleanup
         self.nursery_real_top = self.nursery + self.nursery_size
         #
         debug_print("minor collect, total memory used:",
