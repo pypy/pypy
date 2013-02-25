@@ -1,12 +1,12 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from rpython.rlib.rarithmetic import most_neg_value_of, most_pos_value_of
-from rpython.rlib.objectmodel import specialize
 
-from pypy.module._cffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
-from pypy.module._cffi_backend import ctypestruct, ctypevoid, ctypeenum
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rtyper.lltypesystem import lltype, rffi
+
+from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
+    ctypearray, ctypestruct, ctypevoid, ctypeenum)
 
 
 @specialize.memo()
@@ -167,7 +167,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
         #
         if foffset < 0:
             # align this field to its own 'falign' by inserting padding
-            offset = (offset + falign - 1) & ~(falign-1)
+            offset = (offset + falign - 1) & ~(falign - 1)
         else:
             # a forced field position: ignore the offset just computed,
             # except to know if we must set 'custom_field_pos'
@@ -178,7 +178,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
                 fbitsize == 8 * ftype.size and not
                 isinstance(ftype, ctypeprim.W_CTypePrimitiveCharOrUniChar)):
             fbitsize = -1
-            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length==0:
+            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length == 0:
                 bitshift = ctypestruct.W_CField.BS_EMPTY_ARRAY
             else:
                 bitshift = ctypestruct.W_CField.BS_REGULAR
@@ -241,7 +241,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
     # as 1 instead.  But for ctypes support, we allow the manually-
     # specified totalsize to be zero in this case.
     if totalsize < 0:
-        offset = (offset + alignment - 1) & ~(alignment-1)
+        offset = (offset + alignment - 1) & ~(alignment - 1)
         totalsize = offset or 1
     elif totalsize < offset:
         raise operationerrfmt(space.w_TypeError,

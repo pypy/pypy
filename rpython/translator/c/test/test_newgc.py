@@ -11,7 +11,7 @@ from rpython.rlib.objectmodel import keepalive_until_here, compute_hash, compute
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.memory.test import snippet
+from rpython.memory.test import snippet
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
 

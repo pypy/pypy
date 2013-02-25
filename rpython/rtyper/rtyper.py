@@ -624,7 +624,7 @@ class RPythonTyper(object):
         return rlist.rtype_newlist(hop)
 
     def translate_op_newdict(self, hop):
-        return self.type_system.rdict.rtype_newdict(hop)
+        return rdict.rtype_newdict(hop)
 
     def translate_op_alloc_and_set(self, hop):
         return rlist.rtype_alloc_and_set(hop)

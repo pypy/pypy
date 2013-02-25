@@ -18,6 +18,9 @@ Implement __lenght_hint__ according to PEP 424
 
 .. branch: numpypy-longdouble
 Long double support for numpypy
+.. branch: numpypy-disable-longdouble
+Since r_longdouble support is missing, disable all longdouble and derivative
+dtypes using ENABLED_LONG_DOUBLE = False
 .. branch: numpypy-real-as-view
 Convert real, imag from ufuncs to views. This involves the beginning of
 view() functionality
@@ -68,3 +71,10 @@ non-main thread to enable the processing of signal handlers in that thread.
 
 .. branch: coding-guide-update-rlib-refs
 .. branch: rlib-doc-rpython-refs
+.. branch: clean-up-remaining-pypy-rlib-refs
+
+.. branch: enumerate-rstr
+Support enumerate() over rstr types.
+
+.. branch: cleanup-numpypy-namespace
+Cleanup _numpypy and numpypy namespaces to more closely resemble numpy.

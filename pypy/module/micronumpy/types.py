@@ -1541,7 +1541,7 @@ class Complex128(ComplexFloating, BaseType):
 
 NonNativeComplex128 = Complex128
 
-if interp_boxes.long_double_size == 12:
+if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
     class Float96(BaseType, Float):
         _attrs_ = ()
 
@@ -1571,7 +1571,7 @@ if interp_boxes.long_double_size == 12:
 
     NonNativeComplex192 = Complex192
 
-elif interp_boxes.long_double_size == 16:
+elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
     class Float128(BaseType, Float):
         _attrs_ = ()
 

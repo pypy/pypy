@@ -1,10 +1,11 @@
-from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from rpython.rtyper.lltypesystem import rffi
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
+
+from rpython.rtyper.lltypesystem import rffi
 
 
 class LLBuffer(RWBuffer):

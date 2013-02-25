@@ -419,6 +419,7 @@ class ListIteratorRepr(AbstractListIteratorRepr):
 
     def __init__(self, r_list):
         self.r_list = r_list
+        self.external_item_repr = r_list.external_item_repr
         self.lowleveltype = Ptr(GcStruct('listiter',
                                          ('list', r_list.lowleveltype),
                                          ('index', Signed)))

@@ -2,6 +2,7 @@
 Arguments objects.
 """
 
+
 class Signature(object):
     _immutable_ = True
     _immutable_fields_ = ["argnames[*]"]
@@ -57,7 +58,6 @@ class Signature(object):
             return NotImplemented
         return not self == other
 
-
     # make it look tuply for its use in the annotator
 
     def __len__(self):
@@ -71,6 +71,7 @@ class Signature(object):
         if i == 2:
             return self.kwargname
         raise IndexError
+
 
 class ArgumentsForTranslation(object):
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
@@ -142,16 +143,15 @@ class ArgumentsForTranslation(object):
             self.keywords = self.keywords + keywords
             self.keywords_w = self.keywords_w + keywords_w
 
-
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
         or raise a real ValueError if the length is wrong."""
         if self.keywords:
-            raise ValueError, "no keyword arguments expected"
+            raise ValueError("no keyword arguments expected")
         if len(self.arguments_w) > argcount:
-            raise ValueError, "too many arguments (%d expected)" % argcount
+            raise ValueError("too many arguments (%d expected)" % argcount)
         elif len(self.arguments_w) < argcount:
-            raise ValueError, "not enough arguments (%d expected)" % argcount
+            raise ValueError("not enough arguments (%d expected)" % argcount)
         return self.arguments_w
 
     def combine_if_necessary(self):
@@ -270,7 +270,6 @@ class ArgumentsForTranslation(object):
                 kwds_w[self.keywords[i]] = self.keywords_w[i]
         return self.arguments_w, kwds_w
 
-
     def match_signature(self, signature, defaults_w):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
@@ -330,7 +329,7 @@ class ArgumentsForTranslation(object):
         return ArgumentsForTranslation(self.space, args_w, keywords, keywords_w)
 
     @staticmethod
-    def fromshape(space, (shape_cnt,shape_keys,shape_star,shape_stst), data_w):
+    def fromshape(space, (shape_cnt, shape_keys, shape_star, shape_stst), data_w):
         args_w = data_w[:shape_cnt]
         p = end_keys = shape_cnt + len(shape_keys)
         if shape_star:
@@ -360,7 +359,7 @@ class ArgumentsForTranslation(object):
 
     def _rawshape(self, nextra=0):
         assert not self.combine_has_happened
-        shape_cnt  = len(self.arguments_w)+nextra        # Number of positional args
+        shape_cnt = len(self.arguments_w) + nextra        # Number of positional args
         if self.keywords:
             shape_keys = self.keywords[:]                # List of keywords (strings)
             shape_keys.sort()
@@ -369,6 +368,7 @@ class ArgumentsForTranslation(object):
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
         shape_stst = self.w_starstararg is not None # Flag: presence of **kwds
         return shape_cnt, tuple(shape_keys), shape_star, shape_stst # shape_keys are sorted
+
 
 def rawshape(args, nextra=0):
     return args._rawshape(nextra)
@@ -380,12 +380,11 @@ def rawshape(args, nextra=0):
 #
 
 class ArgErr(Exception):
-
     def getmsg(self):
         raise NotImplementedError
 
-class ArgErrCount(ArgErr):
 
+class ArgErrCount(ArgErr):
     def __init__(self, got_nargs, nkwds, signature,
                  defaults_w, missing_args):
         self.signature = signature
@@ -432,8 +431,8 @@ class ArgErrCount(ArgErr):
                 num_args)
         return msg
 
-class ArgErrMultipleValues(ArgErr):
 
+class ArgErrMultipleValues(ArgErr):
     def __init__(self, argname):
         self.argname = argname
 
@@ -442,8 +441,8 @@ class ArgErrMultipleValues(ArgErr):
             self.argname)
         return msg
 
-class ArgErrUnknownKwds(ArgErr):
 
+class ArgErrUnknownKwds(ArgErr):
     def __init__(self, space, num_remainingkwds, keywords, kwds_mapping,
                  keyword_names_w):
         name = ''

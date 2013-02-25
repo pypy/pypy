@@ -428,20 +428,24 @@ UnicodeRepr.char_repr = unichar_repr
 
 
 class StringIteratorRepr(AbstractStringIteratorRepr):
+    external_item_repr = char_repr
     lowleveltype = ootype.Record({'string': string_repr.lowleveltype,
                                   'index': ootype.Signed})
 
     def __init__(self):
         self.ll_striter = ll_striter
         self.ll_strnext = ll_strnext
+        self.ll_getnextindex = ll_getnextindex
 
 class UnicodeIteratorRepr(AbstractStringIteratorRepr):
+    external_item_repr = unichar_repr
     lowleveltype = ootype.Record({'string': unicode_repr.lowleveltype,
                                   'index': ootype.Signed})
 
     def __init__(self):
         self.ll_striter = ll_unicodeiter
         self.ll_strnext = ll_strnext
+        self.ll_getnextindex = ll_getnextindex
 
 def ll_striter(string):
     iter = ootype.new(string_repr.string_iterator_repr.lowleveltype)
@@ -462,6 +466,9 @@ def ll_strnext(iter):
         raise StopIteration
     iter.index = index + 1
     return string.ll_stritem_nonneg(index)
+
+def ll_getnextindex(iter):
+    return iter.index
 
 
 StringRepr.string_iterator_repr = StringIteratorRepr()
