@@ -748,65 +748,66 @@ void BeginInevitableTransaction(void)
 
 inline static _Bool _PtrEq_Globals(gcptr G1, gcptr G2)
 {
-  /* This is a bit lengthy, but (probably) efficient: the idea is to
-     check if G1 and G2 are pointers in the same chained list of globals
-     or not.  Assumes no partial sharing in the chained lists.  Works by
-     trying to search forward with S1, starting from G1, if it reaches
-     G2; and conversely with S2, starting from G2, if it reaches G1. */
-  gcptr S1 = G1, S2 = G2;
+  /* This is a mess, because G1 and G2 can be different pointers to "the
+     same" object, and it's hard to determine that.  Description of the
+     idealized problem: we have chained lists following the 'h_revision'
+     field from G1 and from G2, and we must return True if the chained
+     lists end in the same object G and False if they don't.
+
+     It's possible that G1 != G2 but G1->h_revision == G2->h_revision.
+     This occurs because of random updates done by PossiblyUpdateChain().
+
+     But the real mess comes from other threads doing concurrent
+     updates.  They can be either done by PossiblyUpdateChain() from
+     other threads, changing 'h_revision' without warning to point to
+     what used to be 'h_revision-> ... -> h_revision'.  Alternatively,
+     they can be adding new objects to the so-far root of the tree:
+     consider the G that used to be the end of both chained lists.  Its
+     'h_revision' used to be not-a-pointer.  But it can suddenly
+     suddenly turns into a LOCK value, and then later to a pointer to
+     some new object, making the chained list longer.  Worse, once the
+     list is longer, a PossiblyUpdateChain() might make shortcuts in
+     it...
+
+     So it means even the following algorithm is flawed: "follow
+     h_revisions from G1 until we reach G; then follow h_revisions from
+     G2, and return True/False if we reach/do not reach the same G".
+
+     For now we go with: try to move forward G1 and G2 alternatively,
+     until we failed three times to move forward one of these.  Let's
+     say the last three steps were "G1 is already at the end", "G2 is
+     already at the end", "G1 is already at the end".  Then we can
+     return (G1 == G2).  This is because we know that G1 was at the end
+     of the chained list for the whole time during which we checked G2.
+
+     WARNING: THIS ONLY WORKS ON THE X86 MEMORY MODEL, AND NOT ON WEAKER
+     MODELS!
+  */
+  int blocked_steps = 0;
   volatile revision_t *vp;
   revision_t v;
+  gcptr G3;
 
   while (1)
     {
-      if (S2 == G1)
-        return 1;
-
-      /* move forward S1 */
-      vp = (volatile revision_t *)&S1->h_revision;
+      /* try to move G1 forward */
+      vp = (volatile revision_t *)&G1->h_revision;
       v = *vp;
-      if (v & 1)  // "is not a pointer", i.e.
-        goto s1_end;   // "doesn't have a more recent revision"
-      S1 = (gcptr)v;
-
-      if (S1 == G2)
-        return 1;
-
-      /* move forward S2 */
-      vp = (volatile revision_t *)&S2->h_revision;
-      v = *vp;
-      if (v & 1)  // "is not a pointer", i.e.
-        goto s2_end;   // "doesn't have a more recent revision"
-      S2 = (gcptr)v;
+      if (v & 1)
+        {
+          blocked_steps++;
+          if (blocked_steps == 3)
+            break;
+        }
+      else
+        {
+          G1 = (gcptr)v;    /* success */
+          blocked_steps = 0;
+        }
+      /* swap the roles of G1 and G2, then loop */
+      G3 = G1; G1 = G2; G2 = G3;
     }
-
- s1_end:
-  while (1)
-    {
-      /* move forward S2 */
-      vp = (volatile revision_t *)&S2->h_revision;
-      v = *vp;
-      if (v & 1)  // "is not a pointer", i.e.
-        return 0;      // "doesn't have a more recent revision"
-      S2 = (gcptr)v;
-
-      if (S2 == G1)
-        return 1;
-    }
-
- s2_end:
-  while (1)
-    {
-      /* move forward S1 */
-      vp = (volatile revision_t *)&S1->h_revision;
-      v = *vp;
-      if (v & 1)  // "is not a pointer", i.e.
-        return 0;      // "doesn't have a more recent revision"
-      S1 = (gcptr)v;
-
-      if (S1 == G2)
-        return 1;
-    }
+  return G1 == G2;
 }
 
 _Bool stm_PtrEq(gcptr P1, gcptr P2)
