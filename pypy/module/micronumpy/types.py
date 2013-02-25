@@ -361,6 +361,14 @@ class Bool(BaseType, Primitive):
         return self.box(True)
 
     @simple_binary_op
+    def lshift(self, v1, v2):
+        return v1 << v2
+
+    @simple_binary_op
+    def rshift(self, v1, v2):
+        return v1 >> v2
+
+    @simple_binary_op
     def bitwise_and(self, v1, v2):
         return v1 & v2
 

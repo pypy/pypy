@@ -114,14 +114,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert len(uncallable) == 0 or uncallable == ['sign'] # numpy 1.7.0
         a = np.array(1.0,'float')
         uncallable = find_uncallable_ufuncs(a) 
-        assert len(uncallable) == 2 and set(uncallable) == set(['bitwise_not', 'invert']) 
+        assert len(uncallable) == 7 and set(uncallable) == set(
+                ['bitwise_xor', 'bitwise_not', 'invert', 'left_shift', 'bitwise_or', 
+                 'bitwise_and', 'right_shift'])
         a = np.array(1.0,'complex')
         uncallable = find_uncallable_ufuncs(a) 
-        assert len(uncallable) == 13
-        assert set(uncallable) == \
-            set(['bitwise_not', 'ceil', 'deg2rad', 'degrees', 'fabs', 'floor',
-                'rad2deg', 'invert', 'isneginf', 'isposinf', 'radians',  'signbit',
-                'trunc'])
+        assert len(uncallable) == 23
+        assert set(uncallable) == set(['arctan2', 'bitwise_and', 'bitwise_not', 
+                  'bitwise_or', 'bitwise_xor', 'ceil', 'copysign', 'deg2rad', 
+                  'degrees', 'fabs', 'floor', 'fmod', 'invert', 'isneginf', 
+                  'isposinf', 'left_shift', 'logaddexp', 'logaddexp2', 'rad2deg', 
+                  'radians', 'right_shift', 'signbit', 'trunc'])
 
     def test_int_only(self):
         from numpypy import bitwise_and, array
@@ -674,10 +677,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (invert(a) == ~a).all()
 
     def test_shift(self):
-        from numpypy import left_shift, right_shift
+        from numpypy import left_shift, right_shift, bool
 
         assert (left_shift([5, 1], [2, 13]) == [20, 2**13]).all()
         assert (right_shift(10, range(5)) == [10, 5, 2, 1, 0]).all()
+        assert left_shift(bool(1), 3) == left_shift(1, 3)
+        assert right_shift(bool(1), 3) == right_shift(1, 3)
 
     def test_comparisons(self):
         import operator
