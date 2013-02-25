@@ -1,18 +1,14 @@
 from pypy.conftest import option
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from rpython.rlib.rcomplex import c_pow
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
-        import os
+        import os, sys
         BaseNumpyAppTest.setup_class.im_func(cls)
-
-        def cls_c_pow(space, args_w):
-            return space.wrap(c_pow(*map(space.unwrap, args_w)))
-        cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
-        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
+        cls.w_isNumpy = cls.space.wrap(option.runappdirect \
+                and '__pypy__' not in sys.builtin_module_names)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
     def test_ufunc_instance(self):
@@ -114,17 +110,20 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert len(uncallable) == 0 or uncallable == ['sign'] # numpy 1.7.0
         a = np.array(1.0,'float')
         uncallable = find_uncallable_ufuncs(a) 
-        assert len(uncallable) == 7 and set(uncallable) == set(
+        if not self.isNumpy:
+            assert len(uncallable) == 7 and set(uncallable) == set(
                 ['bitwise_xor', 'bitwise_not', 'invert', 'left_shift', 'bitwise_or', 
                  'bitwise_and', 'right_shift'])
         a = np.array(1.0,'complex')
         uncallable = find_uncallable_ufuncs(a) 
-        assert len(uncallable) == 23
-        assert set(uncallable) == set(['arctan2', 'bitwise_and', 'bitwise_not', 
-                  'bitwise_or', 'bitwise_xor', 'ceil', 'copysign', 'deg2rad', 
-                  'degrees', 'fabs', 'floor', 'fmod', 'invert', 'isneginf', 
-                  'isposinf', 'left_shift', 'logaddexp', 'logaddexp2', 'rad2deg', 
-                  'radians', 'right_shift', 'signbit', 'trunc'])
+        if not self.isNumpy:
+            assert len(uncallable) == 23
+            assert set(uncallable) == set(['arctan2', 'bitwise_and', 
+                  'bitwise_not', 'bitwise_or', 'bitwise_xor', 'ceil',
+                  'copysign', 'deg2rad', 'degrees', 'fabs', 'floor', 'fmod',
+                  'invert', 'isneginf', 'isposinf', 'left_shift', 'logaddexp',
+                  'logaddexp2', 'rad2deg', 'radians', 'right_shift',
+                  'signbit', 'trunc'])
 
     def test_int_only(self):
         from numpypy import bitwise_and, array
