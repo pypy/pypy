@@ -1,14 +1,32 @@
-__all__ = ['asanyarray', 'base_repr',
+__all__ = [
+           'asanyarray', 'base_repr',
            'array_repr', 'array_str', 'set_string_function',
-           'array_equal', 'asarray', 'outer', 'identity']
+           'array_equal', 'asarray', 'outer', 'identity', 'little_endian',
+           'Inf', 'inf', 'infty', 'Infinity', 'nan', 'NaN', 'False_', 'True_',
+          ]
 
 from _numpypy import array, ndarray, int_, float_, bool_, flexible #, complex_# , longlong
 from _numpypy import concatenate
 from .fromnumeric import any
-import math
 import sys
 import multiarray
+import umath
+from umath import *
 from numpypy.core.arrayprint import array2string
+
+def extend_all(module):
+    adict = {}
+    for a in __all__:
+        adict[a] = 1
+    try:
+        mall = getattr(module, '__all__')
+    except AttributeError:
+        mall = [k for k in module.__dict__.keys() if not k.startswith('_')]
+    for a in mall:
+        if a not in adict:
+            __all__.append(a)
+
+extend_all(umath)
 
 newaxis = None
 
@@ -422,15 +440,10 @@ set_string_function(array_repr, 1)
 
 little_endian = (sys.byteorder == 'little')
 
-Inf = inf = infty = Infinity = PINF = float('inf')
-NINF = float('-inf')
-PZERO = 0.0
-NZERO = -0.0
-nan = NaN = NAN = float('nan')
+Inf = inf = infty = Infinity = PINF
+nan = NaN = NAN
 False_ = bool_(False)
 True_ = bool_(True)
-e = math.e
-pi = math.pi
 
 def outer(a,b):
     """

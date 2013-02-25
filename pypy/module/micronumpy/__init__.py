@@ -23,10 +23,6 @@ class Module(MixedModule):
         'count_nonzero': 'interp_arrayops.count_nonzero',
 
         'set_string_function': 'appbridge.set_string_function',
-
-        'True_': 'types.Bool.True',
-        'False_': 'types.Bool.False',
-
         'typeinfo': 'interp_dtype.get_dtype_cache(space).w_typeinfo',
 
         'generic': 'interp_boxes.W_GenericBox',

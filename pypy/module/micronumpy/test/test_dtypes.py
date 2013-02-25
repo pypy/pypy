@@ -80,7 +80,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert str(d) == "bool"
 
     def test_bool_array(self):
-        from _numpypy import array, False_, True_
+        from _numpypy import array
+        from numpypy import False_, True_
 
         a = array([0, 1, 2, 2.5], dtype='?')
         assert a[0] is False_
@@ -88,7 +89,8 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert a[i] is True_
 
     def test_copy_array_with_dtype(self):
-        from _numpypy import array, False_, longlong
+        from _numpypy import array, longlong
+        from numpypy import False_
 
         a = array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
@@ -102,14 +104,16 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert b[0] is False_
 
     def test_zeros_bool(self):
-        from _numpypy import zeros, False_
+        from _numpypy import zeros
+        from numpypy import False_
 
         a = zeros(10, dtype=bool)
         for i in range(10):
             assert a[i] is False_
 
     def test_ones_bool(self):
-        from _numpypy import ones, True_
+        from _numpypy import ones
+        from numpypy import True_
 
         a = ones(10, dtype=bool)
         for i in range(10):
@@ -317,7 +321,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert int_(4) ** 2 == 16
 
     def test_bool(self):
-        import _numpypy as numpy
+        import numpypy as numpy
 
         assert numpy.bool_.mro() == [numpy.bool_, numpy.generic, object]
         assert numpy.bool_(3) is numpy.True_
@@ -634,7 +638,8 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_operators(self):
         from operator import truediv
-        from _numpypy import float64, int_, True_, False_
+        from _numpypy import float64, int_
+        from numpypy import True_, False_
         assert 5 / int_(2) == int_(2)
         assert truediv(int_(3), int_(2)) == float64(1.5)
         assert truediv(3, int_(2)) == float64(1.5)

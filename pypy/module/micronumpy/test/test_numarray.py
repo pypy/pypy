@@ -780,6 +780,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_mul(self):
         import _numpypy
+        from numpypy import False_, True_
 
         a = _numpypy.array(range(5))
         b = a * a
@@ -790,9 +791,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = _numpypy.array(range(5), dtype=bool)
         b = a * a
         assert b.dtype is _numpypy.dtype(bool)
-        assert b[0] is _numpypy.False_
+        assert b[0] is False_
         for i in range(1, 5):
-            assert b[i] is _numpypy.True_
+            assert b[i] is True_
 
     def test_mul_constant(self):
         from _numpypy import array
