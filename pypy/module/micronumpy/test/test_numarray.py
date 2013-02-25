@@ -2579,7 +2579,6 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         #assert a == 'x'
 
     def test_flexible_repr(self):
-        # numpypy overrides _numpypy repr with pure python one
         from numpypy import array
         a = array(['abc'],'S3')
         s = repr(a)
