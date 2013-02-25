@@ -9,11 +9,12 @@ from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 from rpython.flowspace.argument import ArgumentsForTranslation
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-    UnwrapException, c_last_exception)
+    c_last_exception)
 from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
-        recursively_flatten)
+    recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
-        rpython_print_newline)
+    rpython_print_newline)
+
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -107,13 +108,12 @@ def fixeggblocks(graph):
 
 # ____________________________________________________________
 
-class Recorder:
-
+class Recorder(object):
     def append(self, operation):
         raise NotImplementedError
 
     def guessbool(self, frame, w_condition, **kwds):
-        raise AssertionError, "cannot guessbool(%s)" % (w_condition,)
+        raise AssertionError("cannot guessbool(%s)" % (w_condition,))
 
 
 class BlockRecorder(Recorder):
@@ -212,11 +212,13 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
-_unary_ops = [('UNARY_POSITIVE', "pos"),
+_unary_ops = [
+    ('UNARY_POSITIVE', "pos"),
     ('UNARY_NEGATIVE', "neg"),
     ('UNARY_NOT', "not_"),
     ('UNARY_CONVERT', "repr"),
-    ('UNARY_INVERT', "invert"),]
+    ('UNARY_INVERT', "invert"),
+]
 
 def unaryoperation(OPCODE, op):
     def UNARY_OP(self, *ignored):
@@ -382,7 +384,7 @@ class FlowSpaceFrame(object):
             n -= 1
             if n < 0:
                 break
-            values_w[n] = self.locals_stack_w[base+n]
+            values_w[n] = self.locals_stack_w[base + n]
         return values_w
 
     def dropvalues(self, n):
@@ -564,7 +566,7 @@ class FlowSpaceFrame(object):
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
         stack_items_w = self.locals_stack_w
-        for i in range(self.valuestackdepth-1, self.pycode.co_nlocals-1, -1):
+        for i in range(self.valuestackdepth - 1, self.pycode.co_nlocals - 1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
@@ -665,9 +667,9 @@ class FlowSpaceFrame(object):
                 raise FSException(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
 
-        w_value = w_traceback = space.w_None
+        w_value = space.w_None
         if nbargs >= 3:
-            w_traceback = self.popvalue()
+            self.popvalue()
         if nbargs >= 2:
             w_value = self.popvalue()
         if 1:
@@ -960,7 +962,7 @@ class FlowSpaceFrame(object):
 
     def call_function(self, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff
-        n_keywords = (oparg>>8) & 0xff
+        n_keywords = (oparg >> 8) & 0xff
         if n_keywords:
             keywords = [None] * n_keywords
             keywords_w = [None] * n_keywords
@@ -979,7 +981,7 @@ class FlowSpaceFrame(object):
         arguments = self.popvalues(n_arguments)
         args = ArgumentsForTranslation(self.space, arguments, keywords,
                 keywords_w, w_star, w_starstar)
-        w_function  = self.popvalue()
+        w_function = self.popvalue()
         w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
 
@@ -1193,6 +1195,7 @@ class SReturnValue(SuspendedUnroller):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
     kind = 0x01
+
     def __init__(self, w_returnvalue):
         self.w_returnvalue = w_returnvalue
 
@@ -1210,6 +1213,7 @@ class SApplicationException(SuspendedUnroller):
     """Signals an application-level exception
     (i.e. an OperationException)."""
     kind = 0x02
+
     def __init__(self, operr):
         self.operr = operr
 
@@ -1240,6 +1244,7 @@ class SContinueLoop(SuspendedUnroller):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
     kind = 0x08
+
     def __init__(self, jump_to):
         self.jump_to = jump_to
 
