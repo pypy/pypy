@@ -547,19 +547,25 @@ class ResOpAssembler(BaseAssembler):
     emit_op_keepalive = emit_op_debug_merge_point
 
     def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, fcond)
+
+    def emit_op_cond_call_gc_wb_array(self, op, arglocs, regalloc, fcond):
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
+                                                        fcond, array=True)
+
+    def _write_barrier_fastpath(self, mc, descr, arglocs, fcond, array=False,
+                                                            is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
         # and call the function jit_remember_young_pointer() from the GC.
-        descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         #
-        opnum = op.getopnum()
         card_marking = False
         mask = descr.jit_wb_if_flag_singlebyte
-        if opnum == rop.COND_CALL_GC_WB_ARRAY and descr.jit_wb_cards_set != 0:
+        if array and descr.jit_wb_cards_set != 0:
             # assumptions the rest of the function depends on:
             assert (descr.jit_wb_cards_set_byteofs ==
                     descr.jit_wb_if_flag_byteofs)
@@ -568,11 +574,13 @@ class ResOpAssembler(BaseAssembler):
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
         loc_base = arglocs[0]
-        self.mc.LDRB_ri(r.ip.value, loc_base.value,
-                                    imm=descr.jit_wb_if_flag_byteofs)
+        if is_frame:
+            assert loc_base is r.fp
+        else:
+            self.mc.LDRB_ri(r.ip.value, loc_base.value,
+                                        imm=descr.jit_wb_if_flag_byteofs)
         mask &= 0xFF
         self.mc.TST_ri(r.ip.value, imm=mask)
-
         jz_location = self.mc.currpos()
         self.mc.BKPT()
 
@@ -657,8 +665,6 @@ class ResOpAssembler(BaseAssembler):
         pmc = OverwritingBuilder(self.mc, jz_location, WORD)
         pmc.B_offs(offset, c.EQ)
         return fcond
-
-    emit_op_cond_call_gc_wb_array = emit_op_cond_call_gc_wb
 
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs

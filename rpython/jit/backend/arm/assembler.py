@@ -327,6 +327,14 @@ class AssemblerARM(ResOpAssembler):
             self._store_and_reset_exception(mc, exc0, exc1)
         mc.BL(func)
         #
+        if not for_frame:
+            self._pop_all_regs_from_jitframe(mc, [], withfloats, callee_only=True)
+        else:
+            self._restore_exception(mc, exc0, exc1)
+            mc.VPOP([vfpr.value for vfpr in r.caller_vfp_resp])
+            mc.POP([gpr.value for gpr in r.caller_resp] +
+                            [exc0.value, exc1.value])
+        #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
@@ -335,13 +343,6 @@ class AssemblerARM(ResOpAssembler):
                                     imm=descr.jit_wb_if_flag_byteofs)
             mc.TST_ri(r.ip.value, imm=0x80)
         #
-        if not for_frame:
-            self._pop_all_regs_from_jitframe(mc, [], withfloats, callee_only=True)
-        else:
-            self._restore_exception(mc, exc0, exc1)
-            mc.VPOP([vfpr.value for vfpr in r.caller_vfp_resp])
-            mc.POP([gpr.value for gpr in r.caller_resp] +
-                            [exc0.value, exc1.value])
         mc.POP([r.ip.value, r.pc.value])
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
