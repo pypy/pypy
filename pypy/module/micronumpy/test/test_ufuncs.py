@@ -4,12 +4,6 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
-    def setup_class(cls):
-        import sys
-        BaseNumpyAppTest.setup_class.im_func(cls)
-        cls.w_isNumpy = cls.space.wrap(option.runappdirect \
-                and '__pypy__' not in sys.builtin_module_names)
-
     def test_ufunc_instance(self):
         from numpypy import add, ufunc
 
@@ -96,17 +90,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         uncallable.add(s)
             return uncallable
         assert find_uncallable_ufuncs(np.array(1, 'int')) == set()
-        if not self.isNumpy:
-            assert find_uncallable_ufuncs(np.array(1, 'bool')) == set()
-            assert find_uncallable_ufuncs(np.array(1, 'float')) == set(
-                    ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
-                     'left_shift', 'right_shift', 'invert'])
-            assert find_uncallable_ufuncs(np.array(1, 'complex')) == set(
-                    ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
-                     'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
-                     'fabs', 'fmod', 'invert', 'isneginf', 'isposinf',
-                     'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
-                     'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
+        assert find_uncallable_ufuncs(np.array(1, 'bool')) == set()
+        assert find_uncallable_ufuncs(np.array(1, 'float')) == set(
+                ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
+                 'left_shift', 'right_shift', 'invert'])
+        assert find_uncallable_ufuncs(np.array(1, 'complex')) == set(
+                ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
+                 'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
+                 'fabs', 'fmod', 'invert', 'isneginf', 'isposinf',
+                 'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
+                 'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
 
     def test_int_only(self):
         from numpypy import bitwise_and, array
