@@ -341,13 +341,13 @@ class Regalloc(BaseRegalloc):
         for box, loc in self.rm.reg_bindings.iteritems():
             if loc in forbidden_regs:
                 continue
-            if box.type == REF:
+            if box.type == REF and self.fm.stays_alive(box):
                 assert not noregs
                 assert isinstance(loc, RegLoc)
                 val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
-            if box.type == REF:
+            if box.type == REF and self.fm.stays_alive(box):
                 assert isinstance(loc, StackLoc)
                 val = loc.value // WORD
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
