@@ -366,10 +366,9 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         (i_flavor, lltype.Void),
         (i_zero, None),
         (i_track_allocation, None),
-        (i_add_memory_pressure, None),
-        (i_immortal, None))
+        (i_add_memory_pressure, None))
     (v_flavor, v_zero, v_track_allocation,
-     v_add_memory_pressure, v_immortal) = kwds_v
+     v_add_memory_pressure) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
