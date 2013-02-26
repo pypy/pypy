@@ -545,11 +545,7 @@ def run_command_line(interactive,
             # handle the "-c" command
             # Put '' on sys.path
             sys.path.insert(0, '')
-
-            @hidden_applevel
-            def run_it():
-                exec_(run_command, mainmodule.__dict__)
-            success = run_toplevel(run_it)
+            success = run_toplevel(exec_, run_command, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
