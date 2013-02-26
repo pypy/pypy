@@ -78,23 +78,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # test on the four base-class dtypes: int, bool, float, complex
         # We need this test since they have no common base class.
         import numpypy as np
-        def find_uncallable_ufuncs(a):
+        def find_uncallable_ufuncs(dtype):
             uncallable = set()
+            array = np.array(1, dtype)
             for s in dir(np):
                 u = getattr(np, s)
                 if isinstance(u, np.ufunc):
                     try:
-                        u(* [a] * u.nin)
+                        u(* [array] * u.nin)
                     except TypeError:
                         assert s not in uncallable
                         uncallable.add(s)
             return uncallable
-        assert find_uncallable_ufuncs(np.array(1, 'int')) == set()
-        assert find_uncallable_ufuncs(np.array(1, 'bool')) == set()
-        assert find_uncallable_ufuncs(np.array(1, 'float')) == set(
+        assert find_uncallable_ufuncs('int') == set()
+        assert find_uncallable_ufuncs('bool') == set()
+        assert find_uncallable_ufuncs('float') == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'left_shift', 'right_shift', 'invert'])
-        assert find_uncallable_ufuncs(np.array(1, 'complex')) == set(
+        assert find_uncallable_ufuncs('complex') == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
                  'fabs', 'fmod', 'invert', 'isneginf', 'isposinf',
