@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from pypy.interpreter.gateway import interp2app
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.module._io import interp_bufferedio
 from pypy.interpreter.error import OperationError
 import py.test
@@ -557,6 +557,14 @@ class AppTestBufferedRandom:
         f.seek(0)
         assert f.read() == 'a\nbxxxx'
 
+    def test_simple_read_after_write(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'wb+')
+        f = _io.BufferedRandom(raw)
+        f.write('abc')
+        f.seek(0)
+        assert f.read() == 'abc'
+
     def test_write_rewind_write(self):
         # Various combinations of reading / writing / seeking
         # backwards / writing again
@@ -583,7 +591,7 @@ class AppTestBufferedRandom:
                 expected[j] = 2
                 expected[i] = 1
                 assert raw.getvalue() == str(expected)
-        
+
     def test_interleaved_read_write(self):
         import _io as io
         # Test for issue #12213
@@ -622,6 +630,19 @@ class AppTestBufferedRandom:
                 assert f.readline() == b'\n'
                 f.flush()
                 assert raw.getvalue() == b'1b\n2def\n3\n'
+
+    def test_readline(self):
+        import _io as io
+        with io.BytesIO(b"abc\ndef\nxyzzy\nfoo\x00bar\nanother line") as raw:
+            with io.BufferedRandom(raw, buffer_size=10) as f:
+                assert f.readline() == b"abc\n"
+                assert f.readline(10) == b"def\n"
+                assert f.readline(2) == b"xy"
+                assert f.readline(4) == b"zzy\n"
+                assert f.readline() == b"foo\x00bar\n"
+                assert f.readline(None) == b"another line"
+                raises(TypeError, f.readline, 5.3)
+
 
 class TestNonReentrantLock:
     spaceconfig = dict(usemodules=['thread'])

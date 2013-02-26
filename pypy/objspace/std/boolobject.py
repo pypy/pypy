@@ -1,5 +1,5 @@
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib.rarithmetic import r_uint
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
 from pypy.objspace.std.model import registerimplementation, W_Object

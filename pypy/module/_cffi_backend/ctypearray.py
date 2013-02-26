@@ -2,18 +2,17 @@
 Arrays.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import ovfcheck
 
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUniChar
-from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import ovfcheck
+
 from pypy.module._cffi_backend import cdataobj
+from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
@@ -75,6 +74,17 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 "index too large for cdata '%s' (expected %d < %d)",
                 self.name, i, w_cdata.get_array_length())
         return self
+
+    def _check_slice_index(self, w_cdata, start, stop):
+        space = self.space
+        if start < 0:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("negative index not supported"))
+        if stop > w_cdata.get_array_length():
+            raise operationerrfmt(space.w_IndexError,
+                "index too large (expected %d <= %d)",
+                stop, w_cdata.get_array_length())
+        return self.ctptr
 
     def convert_from_object(self, cdata, w_ob):
         self.convert_array_from_object(cdata, w_ob)

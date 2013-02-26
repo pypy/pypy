@@ -1,10 +1,12 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError, operationerrfmt
+
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
+
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType

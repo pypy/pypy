@@ -1213,6 +1213,17 @@ class TestsWithMultipleOpens(unittest.TestCase):
             self.assertEqual(data1, '1'*FIXEDTEST_SIZE)
             self.assertEqual(data2, '2'*FIXEDTEST_SIZE)
 
+    def test_many_opens(self):
+        # Verify that read() and open() promptly close the file descriptor,
+        # and don't rely on the garbage collector to free resources.
+        with zipfile.ZipFile(TESTFN2, mode="r") as zipf:
+            for x in range(100):
+                zipf.read('ones')
+                with zipf.open('ones') as zopen1:
+                    pass
+        for x in range(10):
+            self.assertLess(open('/dev/null').fileno(), 100)
+
     def tearDown(self):
         unlink(TESTFN2)
 

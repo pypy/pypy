@@ -1,11 +1,13 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib import jit
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.interpreter.error import OperationError
+
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 
@@ -43,14 +45,14 @@ def read_raw_long_data(target, size):
 def read_raw_unsigned_data(target, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
-            return rffi.cast(lltype.UnsignedLongLong, rffi.cast(TPP,target)[0])
+            return rffi.cast(lltype.UnsignedLongLong, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad integer size")
 
 def read_raw_ulong_data(target, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
             assert rffi.sizeof(TP) <= rffi.sizeof(lltype.Unsigned)
-            return rffi.cast(lltype.Unsigned, rffi.cast(TPP,target)[0])
+            return rffi.cast(lltype.Unsigned, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad integer size")
 
 def read_raw_float_data(target, size):

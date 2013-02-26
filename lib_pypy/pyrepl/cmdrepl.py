@@ -53,8 +53,8 @@ class CmdReader(CR):
     def get_completions(self, stem):
         if len(stem) != self.pos:
             return []
-        return cr.uniqify([s for s in self.completions
-                           if s.startswith(stem)])
+        return sorted(set(s for s in self.completions
+                           if s.startswith(stem)))
 
 def replize(klass, history_across_invocations=1):
 

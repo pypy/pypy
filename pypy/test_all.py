@@ -23,8 +23,8 @@ if __name__ == '__main__':
     if len(sys.argv) == 1 and os.path.dirname(sys.argv[0]) in '.':
         print >> sys.stderr, __doc__
         sys.exit(2)
-
-    import tool.autopath
+    #Add toplevel repository dir to sys.path
+    sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     import pytest
     import pytest_cov
     sys.exit(pytest.main(plugins=[pytest_cov]))

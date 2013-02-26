@@ -1,5 +1,5 @@
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
-from pypy.module.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
+import py
+import sys
 
 class AppTestUnicodeData:
     spaceconfig = dict(usemodules=('unicodedata',))
@@ -82,10 +82,9 @@ class AppTestUnicodeData:
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
 
+    @py.test.mark.skipif("sys.maxunicode < 0x10ffff")
     def test_normalize_wide(self):
-        import sys, unicodedata
-        if sys.maxunicode < 0x10ffff:
-            skip("requires a 'wide' python build.")
+        import unicodedata
         assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
 
     def test_linebreaks(self):
@@ -104,98 +103,6 @@ class AppTestUnicodeData:
         # For no reason, unicodedata.mirrored() returns an int, not a bool
         assert repr(unicodedata.mirrored(u' ')) == '0'
 
-class TestUnicodeData(object):
-    def setup_class(cls):
-        import random, unicodedata
-        if unicodedata.unidata_version != '5.2.0':
-            skip('Needs python with unicode 5.2.0 database.')
-
-        seed = random.getrandbits(32)
-        print "random seed: ", seed
-        random.seed(seed)
-        cls.charlist = charlist = []
-        cls.nocharlist = nocharlist = []
-        while len(charlist) < 1000 or len(nocharlist) < 1000:
-            chr = unichr(random.randrange(65536))
-            try:
-                charlist.append((chr, unicodedata.name(chr)))
-            except ValueError:
-                nocharlist.append(chr)
-
-    def test_random_charnames(self):
-        for chr, name in self.charlist:
-            assert unicodedb_5_2_0.name(ord(chr)) == name
-            assert unicodedb_5_2_0.lookup(name) == ord(chr)
-
-    def test_random_missing_chars(self):
-        for chr in self.nocharlist:
-            raises(KeyError, unicodedb_5_2_0.name, ord(chr))
-
-    def test_compare_functions(self):
-        import unicodedata # CPython implementation
-
-        def getX(fun, code):
-            try:
-                return getattr(unicodedb_5_2_0, fun)(code)
-            except KeyError:
-                return -1
-        
-        for code in range(0x10000):
-            char = unichr(code)
-            assert unicodedata.digit(char, -1) == getX('digit', code)
-            assert unicodedata.numeric(char, -1) == getX('numeric', code)
-            assert unicodedata.decimal(char, -1) == getX('decimal', code)
-            assert unicodedata.category(char) == unicodedb_5_2_0.category(code)
-            assert unicodedata.bidirectional(char) == unicodedb_5_2_0.bidirectional(code)
-            assert unicodedata.decomposition(char) == unicodedb_5_2_0.decomposition(code)
-            assert unicodedata.mirrored(char) == unicodedb_5_2_0.mirrored(code)
-            assert unicodedata.combining(char) == unicodedb_5_2_0.combining(code)
-
-    def test_compare_methods(self):
-        for code in range(0x10000):
-            char = unichr(code)
-            assert char.isalnum() == unicodedb_5_2_0.isalnum(code)
-            assert char.isalpha() == unicodedb_5_2_0.isalpha(code)
-            assert char.isdecimal() == unicodedb_5_2_0.isdecimal(code)
-            assert char.isdigit() == unicodedb_5_2_0.isdigit(code)
-            assert char.islower() == unicodedb_5_2_0.islower(code)
-            assert char.isnumeric() == unicodedb_5_2_0.isnumeric(code)
-            assert char.isspace() == unicodedb_5_2_0.isspace(code), hex(code)
-            assert char.istitle() == (unicodedb_5_2_0.isupper(code) or unicodedb_5_2_0.istitle(code)), code
-            assert char.isupper() == unicodedb_5_2_0.isupper(code)
-
-            assert char.lower() == unichr(unicodedb_5_2_0.tolower(code))
-            assert char.upper() == unichr(unicodedb_5_2_0.toupper(code))
-            assert char.title() == unichr(unicodedb_5_2_0.totitle(code)), hex(code)
-
-    def test_hangul_difference_520(self):
-        assert unicodedb_5_2_0.name(40874) == 'CJK UNIFIED IDEOGRAPH-9FAA'
-
-    def test_differences(self):
-        assert unicodedb_5_2_0.name(9187) == 'BENZENE RING WITH CIRCLE'
-        assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
-        raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
-        raises(KeyError, unicodedb_3_2_0.name, 9187)
-
-class TestTranslated(BaseRtypingTest, LLRtypeMixin):
-
-    def test_translated(self):
-        def f(n):
-            if n == 0:
-                return -1
-            else:
-                u = unicodedb_5_2_0.lookup("GOTHIC LETTER FAIHU")
-                return u
-        res = self.interpret(f, [1])
-        print hex(res)
-        assert res == f(1)
-
-    def test_code_to_unichr(self):
-        from pypy.module.unicodedata.interp_ucd import code_to_unichr
-        def f(c):
-            return code_to_unichr(c) + u''
-        res = self.ll_to_unicode(self.interpret(f, [0x10346]))
-        assert res == u'\U00010346'
-
-
-
+    def test_bidirectional(self):
+        import unicodedata
+        raises(TypeError, unicodedata.bidirectional, u'xx')

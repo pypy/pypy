@@ -1,2 +1,0 @@
-
-from pypy.conftest import *

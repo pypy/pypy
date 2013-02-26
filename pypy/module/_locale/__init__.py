@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import rlocale
+from rpython.rlib import rlocale
 import sys
 
 class Module(MixedModule):

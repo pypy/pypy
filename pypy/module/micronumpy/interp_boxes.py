@@ -7,19 +7,21 @@ from pypy.objspace.std.stringtype import str_typedef
 from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef
-from pypy.rlib.rarithmetic import LONG_BIT
-from pypy.rpython.lltypesystem import rffi
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper.lltypesystem import rffi
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
 # Is this the proper place for this?
+ENABLED_LONG_DOUBLE = False
 long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
+
 import os
 if long_double_size == 8 and os.name == 'nt':
-    # this is a lie, or maybe a wish
+    # this is a lie, or maybe a wish, MS fakes longdouble math with double
     long_double_size = 12
 
 
@@ -42,6 +44,9 @@ class PrimitiveBox(object):
 
     def convert_to(self, dtype):
         return dtype.box(self.value)
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.value)
 
 class ComplexBox(object):
     _mixin_ = True
@@ -285,6 +290,11 @@ class W_StringBox(W_CharacterBox):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
 
+    def convert_to(self, dtype):
+        from pypy.module.micronumpy import types
+        assert isinstance(dtype.itemtype, types.StringType)
+        return self
+
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
@@ -296,6 +306,11 @@ class W_UnicodeBox(W_CharacterBox):
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
+
+    def convert_to(self, dtype):
+        from pypy.module.micronumpy import types
+        assert isinstance(dtype.itemtype, types.UnicodeType)
+        return self
 
 
 class W_ComplexFloatingBox(W_InexactBox):
@@ -322,7 +337,7 @@ class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype = new_dtype_getter("complex128")
     _COMPONENTS_BOX = W_Float64Box
 
-if long_double_size == 12:
+if ENABLED_LONG_DOUBLE and long_double_size == 12:
     class W_Float96Box(W_FloatingBox, PrimitiveBox):
         descr__new__, _get_dtype = new_dtype_getter("float96")
 
@@ -334,7 +349,7 @@ if long_double_size == 12:
 
     W_CLongDoubleBox = W_Complex192Box
 
-elif long_double_size == 16:
+elif ENABLED_LONG_DOUBLE and long_double_size == 16:
     class W_Float128Box(W_FloatingBox, PrimitiveBox):
         descr__new__, _get_dtype = new_dtype_getter("float128")
     W_LongDoubleBox = W_Float128Box
@@ -345,7 +360,7 @@ elif long_double_size == 16:
 
     W_CLongDoubleBox = W_Complex256Box
 
-else:
+elif ENABLED_LONG_DOUBLE:
     W_LongDoubleBox = W_Float64Box
     W_CLongDoubleBox = W_Complex64Box
 
@@ -513,7 +528,7 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
 
-if long_double_size == 12:
+if ENABLED_LONG_DOUBLE and long_double_size == 12:
     W_Float96Box.typedef = TypeDef("float96", (W_FloatingBox.typedef),
         __module__ = "numpypy",
 
@@ -527,7 +542,7 @@ if long_double_size == 12:
         imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
     )
 
-elif long_double_size == 16:
+elif ENABLED_LONG_DOUBLE and long_double_size == 16:
     W_Float128Box.typedef = TypeDef("float128", (W_FloatingBox.typedef),
         __module__ = "numpypy",
 

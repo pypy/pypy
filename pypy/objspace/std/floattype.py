@@ -1,7 +1,7 @@
 import math
 import sys
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib import rfloat, rarithmetic
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rfloat, rarithmetic
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
@@ -59,7 +59,7 @@ def descr__new__(space, w_floattype, w_x):
 
 
 def detect_floatformat():
-    from pypy.rpython.lltypesystem import rffi, lltype
+    from rpython.rtyper.lltypesystem import rffi, lltype
     buf = lltype.malloc(rffi.CCHARP.TO, 8, flavor='raw')
     rffi.cast(rffi.DOUBLEP, buf)[0] = 9006104071832581.0
     packed = rffi.charpsize2str(buf, 8)

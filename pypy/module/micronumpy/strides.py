@@ -1,4 +1,4 @@
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray
 
@@ -28,7 +28,7 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
     for i, chunk in enumerate_chunks(chunks):
         if chunk.step != 0:
             rstrides[j] = strides[i] * chunk.step
-            rbackstrides[j] = strides[i] * (chunk.lgt - 1) * chunk.step
+            rbackstrides[j] = strides[i] * max(0, chunk.lgt - 1) * chunk.step
             rshape[j] = chunk.lgt
             j += 1
         rstart += strides[i] * chunk.start
@@ -134,6 +134,16 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     return ret
 
 @jit.unroll_safe
+def shape_agreement_multiple(space, array_list):
+    """ call shape_agreement recursively, allow elements from array_list to
+    be None (like w_out)
+    """
+    shape = array_list[0].get_shape()
+    for arr in array_list[1:]:
+        if not space.is_none(arr):
+            shape = shape_agreement(space, shape, arr)
+    return shape
+
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.

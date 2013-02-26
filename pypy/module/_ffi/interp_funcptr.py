@@ -5,14 +5,14 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.module._ffi.interp_ffitype import W_FFIType
 #
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 #
-from pypy.rlib import jit
-from pypy.rlib import libffi
-from pypy.rlib.clibffi import get_libc_name, StackCheckError, LibFFIError
-from pypy.rlib.rdynload import DLOpenError
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit
+from rpython.rlib import libffi
+from rpython.rlib.clibffi import get_libc_name, StackCheckError, LibFFIError
+from rpython.rlib.rdynload import DLOpenError
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 from pypy.module._rawffi.interp_rawffi import got_libffi_error
 

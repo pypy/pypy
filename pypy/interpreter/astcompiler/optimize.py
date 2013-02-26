@@ -4,8 +4,8 @@ import sys
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.runicode import MAXUNICODE
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.runicode import MAXUNICODE
 
 
 def optimize_ast(space, tree, compile_info):

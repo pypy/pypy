@@ -430,21 +430,21 @@ class AppTestFile25:
         assert f.subclass_closed
 
     def test_readline_unbuffered_should_read_one_line_only(self):
-        import posix
+        import os
 
-        with self.file(self.temppath, 'w') as f:
+        with self.file(self.temppath, 'wb') as f:
             f.write('foo\nbar\n')
 
-        with self.file(self.temppath, 'r', 0) as f:
+        with self.file(self.temppath, 'rb', 0) as f:
             s = f.readline()
             assert s == 'foo\n'
-            s = posix.read(f.fileno(), 10)
+            s = os.read(f.fileno(), 10)
             assert s == 'bar\n'
 
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
-    from pypy.tool.udir import udir
+    from rpython.tool.udir import udir
 
     tmpfile = udir.join('test_flush_at_exit')
     config = make_config(conftest.option)

@@ -12,7 +12,7 @@ class AppTestLargeFile(object):
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
-            from pypy.module.posix.test.test_posix2 import need_sparse_files
+            from rpython.translator.c.test.test_extfunc import need_sparse_files
             need_sparse_files()
 
     def test_large_seek_offsets(self):

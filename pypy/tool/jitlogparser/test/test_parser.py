@@ -4,7 +4,7 @@ from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            parse_log_counts)
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
-from pypy.jit.backend.detect_cpu import autodetect_main_model
+from rpython.jit.backend.detect_cpu import autodetect_main_model
 
 def parse(input, **kwds):
     return SimpleParser.parse_from_input(input, **kwds)
@@ -229,7 +229,7 @@ def test_parsing_arm_assembler():
 debug_merge_point(0, 're StrMatchIn at 92 [17. 4. 0. 20. 393237. 21. 0. 29. 9. 1. 65535. 15. 4. 9. 3. 0. 1. 21. 1. 29. 9. 1. 65535. 15. 4. 9. 2. 0. 1. 1...')
 +116: i3 = int_lt(i0, i1)
 guard_true(i3, descr=<Guard86>) [i1, i0, p2]
-+124: p4 = getfield_gc(p2, descr=<FieldP pypy.rlib.rsre.rsre_core.StrMatchContext.inst__string 36>)
++124: p4 = getfield_gc(p2, descr=<FieldP rpython.rlib.rsre.rsre_core.StrMatchContext.inst__string 36>)
 +128: i5 = strgetitem(p4, i0)
 +136: i7 = int_eq(40, i5)
 +152: i9 = int_eq(41, i5)
@@ -354,3 +354,25 @@ def test_parse_nonpython():
     f = Function.from_operations(loop.operations, LoopStorage())
     assert f.chunks[-1].filename == 'x.py'
     assert f.filename is None
+
+def test_parse_2_levels_up():
+    loop = parse("""
+    []
+    debug_merge_point(0, 0, 'one')
+    debug_merge_point(1, 0, 'two')
+    debug_merge_point(2, 0, 'three')
+    debug_merge_point(0, 0, 'one')    
+    """)
+    f = Function.from_operations(loop.operations, LoopStorage())
+    assert len(f.chunks) == 3
+
+def test_parse_from_inside():
+    loop = parse("""
+    []
+    debug_merge_point(1, 0, 'two')
+    debug_merge_point(2, 0, 'three')
+    debug_merge_point(0, 0, 'one')    
+    """)
+    f = Function.from_operations(loop.operations, LoopStorage())
+    assert len(f.chunks) == 2
+    
