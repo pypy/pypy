@@ -529,7 +529,7 @@ def op_gc_writebarrier_before_copy(source, dest,
         assert A.TO.OF.TO._gckind == 'gc'
     else:
         assert isinstance(A.TO, lltype.GcStruct)
-        assert hasattr(A.TO, '_arrayfld')
+        assert A.TO._arrayfld is not None
     assert type(source_start) is int
     assert type(dest_start) is int
     assert type(length) is int
