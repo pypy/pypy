@@ -1754,15 +1754,6 @@ all_float_types = []
 all_int_types = []
 all_complex_types = []
 
-def for_int_computation(v):
-    return widen(v)
-
-def for_float_computation(v):
-    return float(v)
-
-def for_complex_computation(v):
-    return float(v[0]), float(v[1])
-
 def _setup():
     # compute alignment
     for tp in globals().values():
@@ -1812,7 +1803,7 @@ class Float16(BaseType, BaseFloat16):
     def _write(self, storage, i, offset, value):
         hbits = float_pack(value,2)
         raw_storage_setitem(storage, i + offset,
-                rffi.cast(self._STORAGE_T, hbits))    
+                rffi.cast(self._STORAGE_T, hbits))
 
 class NonNativeFloat16(BaseType, BaseFloat16):
     def _read(self, storage, i, offset):
@@ -1823,5 +1814,3 @@ class NonNativeFloat16(BaseType, BaseFloat16):
         hbits = float_pack(value,2)
         raw_storage_setitem(storage, i + offset,
                 byteswap(rffi.cast(self._STORAGE_T, hbits)))
-
-
