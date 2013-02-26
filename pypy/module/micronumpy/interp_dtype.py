@@ -419,6 +419,7 @@ class DtypeCache(object):
             w_box_type=space.gettypefor(interp_boxes.W_ULongBox),
             alternate_constructors=[ space.gettypefor(interp_boxes.W_UnsignedIntegerBox),
                                    ],
+            aliases=['uint'],
         )
         self.w_int64dtype = W_Dtype(
             types.Int64(),
