@@ -397,7 +397,8 @@ class MiniMarkGC(MovingGCBase):
         # value of nursery_cleanup.
         self.initial_cleanup = self.nursery_cleanup + (
                 self.nursery_size % self.nursery_cleanup)
-        if self.initial_cleanup > self.nursery_size:
+        if (r_uint(self.initial_cleanup) > r_uint(self.nursery_size) or
+            self.debug_tiny_nursery >= 0):
             self.initial_cleanup = self.nursery_size
 
     def _nursery_memory_size(self):
