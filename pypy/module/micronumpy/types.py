@@ -507,7 +507,7 @@ class Integer(Primitive):
         if v == 0:
             # XXX good place to warn
             return -maxint
-        return 1 / v
+        return rffi.cast(self.T, 1) / v
 
     @raw_unary_op
     def signbit(self, v):
