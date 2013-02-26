@@ -405,7 +405,7 @@ from rpython.annotator.model import SomePtr
 from rpython.rtyper.lltypesystem import lltype
 
 def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None,
-           s_add_memory_pressure=None, s_immortal=None):
+           s_add_memory_pressure=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, rpython.rlib.rarithmetic.base_int))
     assert s_T.is_constant()

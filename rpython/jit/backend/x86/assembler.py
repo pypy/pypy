@@ -1967,12 +1967,11 @@ class Assembler386(BaseAssembler):
         self._push_all_regs_to_frame(mc, [], withfloats)
 
         if exc:
-            # We might have an exception pending.  Load it into ebx
-            # (this is a register saved across calls, both if 32 or 64)
+            # We might have an exception pending.  Load it into ebx...
             mc.MOV(ebx, heap(self.cpu.pos_exc_value()))
             mc.MOV(heap(self.cpu.pos_exception()), imm0)
             mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
-            # save ebx into 'jf_guard_exc'
+            # ...and save ebx into 'jf_guard_exc'
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV_br(offset, ebx.value)
 
@@ -1986,7 +1985,7 @@ class Assembler386(BaseAssembler):
         mc.MOV_br(ofs2, eax.value)
         mc.POP(eax)
         mc.MOV_br(ofs, eax.value)
-        # store the gc pattern
+        # the return value is the jitframe
         mc.MOV_rr(eax.value, ebp.value)
 
         self._call_footer()

@@ -639,8 +639,14 @@ class MiniMarkGC(MovingGCBase):
             # The nursery might not be empty now, because of
             # execute_finalizers().  If it is almost full again,
             # we need to fix it with another call to minor_collection().
-            if self.nursery_free + totalsize > self.nursery_real_top:
-                self.minor_collection()
+            if self.nursery_free + totalsize > self.nursery_top:
+                #
+                if self.nursery_free + totalsize > self.nursery_real_top:
+                    self.minor_collection()
+                    # then the nursery is empty
+                else:
+                    # we just need to clean up a bit more of the nursery
+                    self.move_nursery_top(totalsize)
         #
         result = self.nursery_free
         self.nursery_free = result + totalsize
