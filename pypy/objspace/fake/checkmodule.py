@@ -11,5 +11,9 @@ def checkmodule(*modnames):
         module = mod.Module(space, W_Root())
         for name in module.loaders:
             module._load_lazily(space, name)
+        for cls in module.submodules.itervalues():
+            submod = cls(space, W_Root())
+            for name in submod.loaders:
+                submod._load_lazily(space, name)
     #
     space.translates(**{'translation.list_comprehension_operations': True})
