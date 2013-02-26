@@ -160,7 +160,7 @@ class RPyStringPrinter(object):
             except ValueError:
                 # it's a gdb.Value so it has "121 'y'" as repr
                 res.append(chr(int(str(items[0]).split(" ")[0])))
-        if i < length:
+        if length > MAX_DISPLAY_LENGTH:
             res.append('...')
         string = ''.join(res)
         return 'r' + repr(string)
