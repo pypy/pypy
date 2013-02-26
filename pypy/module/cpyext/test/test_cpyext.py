@@ -250,7 +250,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                     space.sys.get('modules'),
                     space.wrap(name))
             else:
-                return space.wrap(os.path.dirname(mod))
+                return os.path.dirname(mod)
 
         @unwrap_spec(mod=str, name=str)
         def reimport_module(space, mod, name):
