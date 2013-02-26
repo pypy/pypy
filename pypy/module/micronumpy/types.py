@@ -7,11 +7,11 @@ from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
 from rpython.rlib import rfloat, clibffi, rcomplex
-from rpython.rlib.rarithmetic import maxint
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong
+from rpython.rlib.rarithmetic import (widen, byteswap, r_ulonglong,
+                                      most_neg_value_of)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -506,7 +506,9 @@ class Integer(Primitive):
     def reciprocal(self, v):
         if v == 0:
             # XXX good place to warn
-            return -maxint
+            if self.T in (rffi.INT, rffi.LONG):
+                return most_neg_value_of(self.T)
+            return 0
         if v == 1 or v == -1:
             return v
         return 0
