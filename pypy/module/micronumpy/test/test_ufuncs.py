@@ -5,11 +5,10 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
-        import os, sys
+        import sys
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_isNumpy = cls.space.wrap(option.runappdirect \
                 and '__pypy__' not in sys.builtin_module_names)
-        cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
     def test_ufunc_instance(self):
         from numpypy import add, ufunc
@@ -85,45 +84,29 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # test on the four base-class dtypes: int, bool, float, complex
         # We need this test since they have no common base class.
         import numpypy as np
-        def find_uncallable_ufuncs(v):
-            uncallable = []
+        def find_uncallable_ufuncs(a):
+            uncallable = set()
             for s in dir(np):
                 u = getattr(np, s)
-                if isinstance(u, np.ufunc) and u.nin < 2:
+                if isinstance(u, np.ufunc):
                     try:
-                        u(a)
+                        u(* [a] * u.nin)
                     except TypeError:
-                        #assert e.message.startswith('ufunc')
-                        uncallable.append(s)
-                elif isinstance(u, np.ufunc) and u.nin ==2:
-                    try:
-                        u(a, a)
-                    except TypeError:
-                        #assert e.message.startswith('ufunc')
-                        uncallable.append(s)
+                        assert s not in uncallable
+                        uncallable.add(s)
             return uncallable
-        a = np.array(0,'int64')
-        uncallable = find_uncallable_ufuncs(a) 
-        assert len(uncallable) == 0
-        a = np.array(True,'bool')
-        uncallable = find_uncallable_ufuncs(a) 
-        assert len(uncallable) == 0 or uncallable == ['sign'] # numpy 1.7.0
-        a = np.array(1.0,'float')
-        uncallable = find_uncallable_ufuncs(a) 
+        assert find_uncallable_ufuncs(np.array(1, 'int')) == set()
         if not self.isNumpy:
-            assert len(uncallable) == 7 and set(uncallable) == set(
-                ['bitwise_xor', 'bitwise_not', 'invert', 'left_shift', 'bitwise_or', 
-                 'bitwise_and', 'right_shift'])
-        a = np.array(1.0,'complex')
-        uncallable = find_uncallable_ufuncs(a) 
-        if not self.isNumpy:
-            assert len(uncallable) == 23
-            assert set(uncallable) == set(['arctan2', 'bitwise_and', 
-                  'bitwise_not', 'bitwise_or', 'bitwise_xor', 'ceil',
-                  'copysign', 'deg2rad', 'degrees', 'fabs', 'floor', 'fmod',
-                  'invert', 'isneginf', 'isposinf', 'left_shift', 'logaddexp',
-                  'logaddexp2', 'rad2deg', 'radians', 'right_shift',
-                  'signbit', 'trunc'])
+            assert find_uncallable_ufuncs(np.array(1, 'bool')) == set()
+            assert find_uncallable_ufuncs(np.array(1, 'float')) == set(
+                    ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
+                     'left_shift', 'right_shift', 'invert'])
+            assert find_uncallable_ufuncs(np.array(1, 'complex')) == set(
+                    ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
+                     'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
+                     'fabs', 'fmod', 'invert', 'isneginf', 'isposinf',
+                     'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
+                     'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
 
     def test_int_only(self):
         from numpypy import bitwise_and, array
@@ -864,7 +847,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = floor_divide(a, 2.5)
         for i in range(len(a)):
             assert b[i] == a[i] // 2.5
-        
+
         a = array([10+10j, -15-100j, 0+10j], dtype=complex)
         b = floor_divide(a, 2.5)
         for i in range(len(a)):
