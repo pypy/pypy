@@ -502,16 +502,17 @@ class Integer(Primitive):
     def invert(self, v):
         return ~v
 
-    @simple_unary_op
-    def reciprocal(self, v):
-        if v == 0:
-            # XXX good place to warn
-            if self.T in (rffi.INT, rffi.LONG):
-                return most_neg_value_of(self.T)
+    if 0: # XXX breaks translation
+        @simple_unary_op
+        def reciprocal(self, v):
+            if v == 0:
+                # XXX good place to warn
+                if self.T in (rffi.INT, rffi.LONG):
+                    return most_neg_value_of(self.T)
+                return 0
+            if v == 1 or v == -1:
+                return v
             return 0
-        if v == 1 or v == -1:
-            return v
-        return 0
 
     @raw_unary_op
     def signbit(self, v):
