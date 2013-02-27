@@ -87,7 +87,8 @@ class AbstractLLCPU(AbstractCPU):
                     # update the frame_info size, which is for whatever reason
                     # not up to date
                     frame.jf_frame_info.set_frame_depth(base_ofs, size)
-                new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
+                new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info,
+                                                       self.JITFRAME_FIXED_SIZE)
                 i = 0
                 while i < len(frame.jf_frame):
                     new_frame.jf_frame[i] = frame.jf_frame[i]
