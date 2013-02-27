@@ -231,6 +231,21 @@ int sqlite3_value_type(sqlite3_value*);
 int sqlite3_value_numeric_type(sqlite3_value*);
 """)
 
+
+def _has_load_extension():
+    """Only available since 3.3.6"""
+    unverified_ffi = FFI()
+    unverified_ffi.cdef("""
+    typedef ... sqlite3;
+    int sqlite3_enable_load_extension(sqlite3 *db, int onoff);
+    """)
+    unverified_lib = unverified_ffi.dlopen('sqlite3')
+    return hasattr(unverified_lib, 'sqlite3_enable_load_extension')
+
+
+if _has_load_extension():
+    ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
+
 lib = ffi.verify("""
 #include <sqlite3.h>
 """, libraries=['sqlite3'])
@@ -271,7 +286,6 @@ exported_sqlite_symbols = [
 
 for symbol in exported_sqlite_symbols:
     globals()[symbol] = getattr(lib, symbol)
-
 
 _SQLITE_TRANSIENT = ffi.cast('void *', lib.SQLITE_TRANSIENT)
 
@@ -758,7 +772,7 @@ class Connection(object):
         from sqlite3.dump import _iterdump
         return _iterdump(self)
 
-    if lib.HAS_LOAD_EXTENSION:
+    if hasattr(lib, 'sqlite3_enable_load_extension'):
         def enable_load_extension(self, enabled):
             self._check_thread()
             self._check_closed()
