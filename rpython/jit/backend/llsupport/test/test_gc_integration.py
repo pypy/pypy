@@ -651,18 +651,21 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
         invoke_around_extcall(before, after)
 
-        def f(x):
+        def f(frame, x):
+            # all the gc pointers are alive p1 -> p7 (but not p0)
+            assert bin(frame.jf_gcmap[0]).count('1') == 7
             assert x == 1
             return 2
         
-        FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
+        FUNC = lltype.FuncType([JITFRAMEPTR, lltype.Signed], lltype.Signed)
         fptr = llhelper(lltype.Ptr(FUNC), f)
         calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                     EffectInfo.MOST_GENERAL)        
         loop = self.parse("""
-        [i0]
-        i1 = call_release_gil(ConstClass(fptr), i0, descr=calldescr)
-        guard_not_forced(descr=faildescr) []
+        [i0, p1, p2, p3, p4, p5, p6, p7]
+        p0 = force_token()
+        i1 = call_release_gil(ConstClass(fptr), p0, i0, descr=calldescr)
+        guard_not_forced(descr=faildescr) [p1, p2, p3, p4, p5, p6, p7]
         finish(i1, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr':calldescr,
                         'faildescr': BasicFailDescr(),
@@ -671,7 +674,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
         cpu.compile_loop(loop.inputargs, loop.operations, token)
-        frame = cpu.execute_token(token, 1)
+        args = [lltype.nullptr(llmemory.GCREF.TO) for i in range(7)]
+        frame = cpu.execute_token(token, 1, *args)
         frame = rffi.cast(JITFRAMEPTR, frame)
         assert frame.jf_frame[0] == 2
         assert l == ['before', 'after']
