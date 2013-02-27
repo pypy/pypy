@@ -210,7 +210,8 @@ class AbstractLLCPU(AbstractCPU):
             func = rffi.cast(FUNCPTR, addr)
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)
             frame_info = clt.frame_info
-            frame = self.gc_ll_descr.malloc_jitframe(frame_info)
+            frame = self.gc_ll_descr.malloc_jitframe(frame_info,
+                                                     self.JITFRAME_FIXED_SIZE)
             ll_frame = lltype.cast_opaque_ptr(llmemory.GCREF, frame)
             locs = executable_token.compiled_loop_token._ll_initial_locs
             prev_interpreter = None   # help flow space

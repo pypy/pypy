@@ -38,9 +38,13 @@ JITFRAMEINFOPTR = lltype.Ptr(JITFRAMEINFO)
 # the JITFRAME that's stored on the heap. See backend/<backend>/arch.py for
 # detailed explanation how it is on your architecture
 
-def jitframe_allocate(frame_info):
+def jitframe_allocate(frame_info, staticsize):
     frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
     frame.jf_frame_info = frame_info
+    i = 0
+    while i < staticsize:
+        frame.jf_frame[i] = 13
+        i += 1
     return frame
 
 JITFRAME = lltype.GcStruct(
