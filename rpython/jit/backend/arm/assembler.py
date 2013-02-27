@@ -181,6 +181,7 @@ class AssemblerARM(ResOpAssembler):
             return      # not supported (for tests, or non-translated)
         #
         #
+        xxxx
         mc = ARMv7Builder()
         self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
@@ -742,7 +743,7 @@ class AssemblerARM(ResOpAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        mc.STR_ri(r.r12.value, r.fp.value, imm=ofs)
+        mc.LDR_ri(r.r12.value, r.fp.value, imm=ofs)
         stack_check_cmp_ofs = mc.currpos()
         if expected_size == -1:
             mc.NOP()
