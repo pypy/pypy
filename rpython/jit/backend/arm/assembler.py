@@ -742,7 +742,7 @@ class AssemblerARM(ResOpAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        mc.gen_load_int(r.ip.value, ofs)
+        mc.STR_ri(r.r12.value, r.fp.value, imm=ofs)
         stack_check_cmp_ofs = mc.currpos()
         if expected_size == -1:
             mc.NOP()
