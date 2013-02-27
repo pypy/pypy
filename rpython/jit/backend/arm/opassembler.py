@@ -26,11 +26,10 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.metainterp.history import (Box, AbstractFailDescr,
-                                            INT, FLOAT, REF)
-from rpython.jit.metainterp.history import JitCellToken, TargetToken
+                                            INT, FLOAT)
+from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 
