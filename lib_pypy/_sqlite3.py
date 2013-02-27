@@ -758,7 +758,7 @@ class Connection(object):
         from sqlite3.dump import _iterdump
         return _iterdump(self)
 
-    if False and lib.HAS_LOAD_EXTENSION:
+    if lib.HAS_LOAD_EXTENSION:
         def enable_load_extension(self, enabled):
             self._check_thread()
             self._check_closed()
