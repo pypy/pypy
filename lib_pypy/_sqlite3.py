@@ -703,7 +703,7 @@ class Connection(object):
             def step_callback(context, argc, c_params):
                 res = lib.sqlite3_aggregate_context(context,
                                                     ffi.sizeof("size_t"))
-                aggregate_ptr = ffi.cast("size_t *", res)
+                aggregate_ptr = ffi.cast("size_t[1]", res)
 
                 if not aggregate_ptr[0]:
                     try:
@@ -731,7 +731,7 @@ class Connection(object):
             def final_callback(context):
                 res = lib.sqlite3_aggregate_context(context,
                                                     ffi.sizeof("size_t"))
-                aggregate_ptr = ffi.cast("size_t", res)
+                aggregate_ptr = ffi.cast("size_t[1]", res)
 
                 if aggregate_ptr[0]:
                     aggregate = self.aggregate_instances[aggregate_ptr[0]]
@@ -987,7 +987,7 @@ class Cursor(object):
 
 class Statement(object):
     def __init__(self, connection, sql):
-        self.statement = None
+        self.statement = ffi.NULL
         if not isinstance(sql, str):
             raise ValueError("sql must be a string")
         self.con = connection
@@ -1208,7 +1208,7 @@ class Statement(object):
 
     def finalize(self):
         lib.sqlite3_finalize(self.statement)
-        self.statement = None
+        self.statement = ffi.NULL
         self.in_use = False
 
     def mark_dirty(self):
@@ -1216,7 +1216,7 @@ class Statement(object):
 
     def __del__(self):
         lib.sqlite3_finalize(self.statement)
-        self.statement = None
+        self.statement = ffi.NULL
 
     def _get_description(self):
         if self.kind == DML:
@@ -1319,13 +1319,13 @@ def _convert_params(con, nargs, params):
         elif typ == lib.SQLITE_BLOB:
             blob_len = lib.sqlite3_value_bytes(params[i])
             blob = lib.sqlite3_value_blob(params[i])
-            val = ffi.buffer(blob, blob_len)[:]
+            val = buffer(ffi.buffer(blob, blob_len))
         elif typ == lib.SQLITE_NULL:
             val = None
         elif typ == lib.SQLITE_TEXT:
             val = lib.sqlite3_value_text(params[i])
             # XXX changed from con.text_factory
-            val = unicode(val, 'utf-8')
+            val = unicode(ffi.string(val), 'utf-8')
         else:
             raise NotImplementedError
         _params.append(val)
