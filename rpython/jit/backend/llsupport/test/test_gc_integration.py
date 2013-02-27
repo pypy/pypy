@@ -683,13 +683,15 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
     def test_call_may_force_gcmap(self):
         cpu = self.cpu
         
-        def f(frame, x):
+        def f(frame, arg, x):
+            assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
             frame.jf_descr = frame.jf_force_descr # make guard_not_forced fail
             assert x == 1
             return lltype.nullptr(llmemory.GCREF.TO)
 
-        FUNC = lltype.FuncType([JITFRAMEPTR, lltype.Signed], llmemory.GCREF)
+        FUNC = lltype.FuncType([JITFRAMEPTR, llmemory.GCREF, lltype.Signed],
+                               llmemory.GCREF)
         fptr = llhelper(lltype.Ptr(FUNC), f)
         calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                     EffectInfo.MOST_GENERAL)
@@ -703,7 +705,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         p1 = getarrayitem_gc(p0, 0, descr=arraydescr)
         p2 = getarrayitem_gc(p0, 1, descr=arraydescr)
         p3 = getarrayitem_gc(p0, 2, descr=arraydescr)
-        px = call_may_force(ConstClass(fptr), pf, i0, descr=calldescr)
+        pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
+        px = call_may_force(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
         guard_not_forced(descr=faildescr) [p1, p2, p3, px]
         finish(px, descr=finishdescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
