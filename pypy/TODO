@@ -1,5 +1,2 @@
 
-* 32bit x86
 * ARM
-* asmgcc
-* kill jit2gc on translator
