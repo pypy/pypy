@@ -686,6 +686,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
+            assert bin(frame.jf_gcmap[0]).count('1') == 3 # p1, p2, p3, but
+            # not in registers
             frame.jf_descr = frame.jf_force_descr # make guard_not_forced fail
             assert x == 1
             return lltype.nullptr(llmemory.GCREF.TO)
@@ -728,6 +730,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
+            assert bin(frame.jf_gcmap[0]).count('1') == 3 # p1, p2, p3
             frame.jf_descr = frame.jf_force_descr # make guard_not_forced fail
             assert x == 1
             return lltype.nullptr(llmemory.GCREF.TO)
