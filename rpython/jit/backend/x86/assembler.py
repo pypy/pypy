@@ -494,7 +494,7 @@ class Assembler386(BaseAssembler):
         rawstart = self.materialize_loop(looptoken)
         looptoken._ll_loop_code = looppos + rawstart
         debug_start("jit-backend-addr")
-        debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
+        debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
             looptoken.number, loopname,
             r_uint(rawstart + looppos),
             r_uint(rawstart + size_excluding_failure_stuff),
@@ -548,8 +548,8 @@ class Assembler386(BaseAssembler):
         #
         rawstart = self.materialize_loop(original_loop_token)
         debug_start("jit-backend-addr")
-        debug_print("bridge out of Guard %x has address %x to %x" %
-                    (descr_number, r_uint(rawstart),
+        debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                    (r_uint(descr_number), r_uint(rawstart),
                      r_uint(rawstart + codeendpos)))
         debug_stop("jit-backend-addr")
         self.patch_pending_failure_recoveries(rawstart)

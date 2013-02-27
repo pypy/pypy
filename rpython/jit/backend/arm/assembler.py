@@ -636,11 +636,11 @@ class AssemblerARM(ResOpAssembler):
         self.teardown()
 
         debug_start("jit-backend-addr")
-        debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
+        debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
             looptoken.number, loopname,
-            rawstart + loop_head,
-            rawstart + size_excluding_failure_stuff,
-            rawstart))
+            r_uint(rawstart + loop_head),
+            r_uint(rawstart + size_excluding_failure_stuff),
+            r_uint(rawstart)))
         debug_stop("jit-backend-addr")
 
         return AsmInfo(ops_offset, rawstart + loop_head,
@@ -710,7 +710,7 @@ class AssemblerARM(ResOpAssembler):
         self.teardown()
 
         debug_start("jit-backend-addr")
-        debug_print("bridge out of Guard %d has address %x to %x" %
+        debug_print("bridge out of Guard %d has address 0x%x to 0x%x" %
                     (descr_number, r_uint(rawstart),
                      r_uint(rawstart + codeendpos)))
         debug_stop("jit-backend-addr")
