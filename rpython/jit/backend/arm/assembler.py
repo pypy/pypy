@@ -711,7 +711,8 @@ class AssemblerARM(ResOpAssembler):
 
         debug_start("jit-backend-addr")
         debug_print("bridge out of Guard %d has address %x to %x" %
-                    (descr_number, rawstart, rawstart + codeendpos))
+                    (descr_number, r_uint(rawstart),
+                     r_uint(rawstart + codeendpos)))
         debug_stop("jit-backend-addr")
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
