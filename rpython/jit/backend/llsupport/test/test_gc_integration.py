@@ -721,3 +721,45 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
                                        cpu.execute_token(token, 1, a))
         assert bin(frame.jf_gcmap[0]).count('1') == 4
+
+    def test_call_gcmap_no_guard(self):
+        cpu = self.cpu
+        
+        def f(frame, arg, x):
+            assert not arg
+            assert frame.jf_gcmap[0] & 31 == 0
+            frame.jf_descr = frame.jf_force_descr # make guard_not_forced fail
+            assert x == 1
+            return lltype.nullptr(llmemory.GCREF.TO)
+
+        FUNC = lltype.FuncType([JITFRAMEPTR, llmemory.GCREF, lltype.Signed],
+                               llmemory.GCREF)
+        fptr = llhelper(lltype.Ptr(FUNC), f)
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+
+        A = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Signed)))
+        a = lltype.malloc(A, 3, zero=True)
+
+        loop = self.parse("""
+        [i0, p0]
+        pf = force_token()
+        p1 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        p2 = getarrayitem_gc(p0, 1, descr=arraydescr)
+        p3 = getarrayitem_gc(p0, 2, descr=arraydescr)
+        pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
+        px = call(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
+        guard_false(i0, descr=faildescr) [p1, p2, p3, px]
+        finish(px, descr=finishdescr)
+        """, namespace={'fptr': fptr, 'calldescr': calldescr,
+                        'arraydescr': cpu.arraydescrof(A),
+                        'faildescr': BasicFailDescr(1),
+                        'finaldescr': BasicFinalDescr(2)})
+
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
+                                       cpu.execute_token(token, 1, a))
+        assert bin(frame.jf_gcmap[0]).count('1') == 4
