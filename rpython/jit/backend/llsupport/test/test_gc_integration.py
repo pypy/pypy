@@ -679,3 +679,39 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         frame = rffi.cast(JITFRAMEPTR, frame)
         assert frame.jf_frame[0] == 2
         assert l == ['before', 'after']
+
+    def test_call_may_force_gcmap(self):
+        cpu = self.cpu
+        
+        def f(frame, x):
+            assert frame.jf_gcmap[0] & 31 == 0
+            assert x == 1
+            return 2
+
+        FUNC = lltype.FuncType([JITFRAMEPTR, lltype.Signed], lltype.Signed)
+        fptr = llhelper(lltype.Ptr(FUNC), f)
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+
+        A = lltype.GcArray(lltype.Ptr(lltype.GcArray(lltype.Signed)))
+        a = lltype.malloc(A, 3, zero=True)
+
+        loop = self.parse("""
+        [i0, p0]
+        pf = force_token()
+        p1 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        p2 = getarrayitem_gc(p0, 1, descr=arraydescr)
+        p3 = getarrayitem_gc(p0, 2, descr=arraydescr)
+        i3 = call_may_force(ConstClass(fptr), pf, i0, descr=calldescr)
+        guard_not_forced(descr=faildescr) [p1, p2, p3]
+        finish(i3, descr=finishdescr)
+        """, namespace={'fptr': fptr, 'calldescr': calldescr,
+                        'arraydescr': cpu.arraydescrof(A),
+                        'faildescr': BasicFailDescr(1),
+                        'finaldescr': BasicFinalDescr(2)})
+
+        token = JitCellToken()
+        cpu.gc_ll_descr.init_nursery(100)
+        cpu.setup_once()
+        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        cpu.execute_token(token, 1, a)
