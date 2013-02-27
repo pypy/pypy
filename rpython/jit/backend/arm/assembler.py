@@ -749,7 +749,7 @@ class AssemblerARM(ResOpAssembler):
             mc.NOP()
         else:
             mc.gen_load_int(r.lr.value, expected_size)
-        mc.CMP_rr(r.ip.value, r.lr.value)
+        mc.CMP_rr(r.lr.value, r.ip.value)
 
         jg_location = mc.currpos()
         mc.BKPT()
@@ -758,7 +758,6 @@ class AssemblerARM(ResOpAssembler):
         mc.PUSH([r.lr.value])
 
         self.push_gcmap(mc, gcmap, push=True)
-
 
         self.mc.BL(self._frame_realloc_slowpath)
 
