@@ -640,7 +640,7 @@ def run_command_line(interactive,
     except SystemExit as e:
         status = e.code
         if inspect_requested():
-            display_exception()
+            display_exception(e)
     else:
         status = not success
 

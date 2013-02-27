@@ -351,6 +351,11 @@ class TestInteraction:
         child.sendline('sys.last_type.__name__')
         child.expect(re.escape(repr('NameError')))
 
+    def test_options_i_c_sysexit(self):
+        child = self.spawn(['-i', '-c', 'import sys; sys.exit(1)'])
+        child.expect('SystemExit: 1')
+        child.expect('>>>')
+
     def test_atexit(self):
         skip("Python3 atexit is a builtin module")
         child = self.spawn([])
