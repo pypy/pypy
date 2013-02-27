@@ -233,20 +233,34 @@ def setup_and_fix_paths(ignore_environment=False, **extra):
 def initstdio(encoding=None, unbuffered=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
-    if not encoding:
-        encoding = sys.getfilesystemencoding()
-    if ':' in encoding:
-        encoding, errors = encoding.split(':', 1)
-    else:
-        errors = None
 
-    sys.stdin = sys.__stdin__ = create_stdio(
-        0, False, "<stdin>", encoding, errors, unbuffered)
-    sys.stdout = sys.__stdout__ = create_stdio(
-        1, True, "<stdout>", encoding, errors, unbuffered)
-    sys.stderr = sys.__stderr__ = create_stdio(
-        2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
+    # Hack to avoid recursion issues during bootstrapping: pre-import
+    # the utf-8 and latin-1 codecs
+    encerr = None
+    try:
+        import encodings.utf_8
+        import encodings.latin_1
+    except ImportError as e:
+        encerr = e
 
+    try:
+        if not encoding:
+            encoding = sys.getfilesystemencoding()
+        if ':' in encoding:
+            encoding, errors = encoding.split(':', 1)
+        else:
+            errors = None
+
+        sys.stdin = sys.__stdin__ = create_stdio(
+            0, False, "<stdin>", encoding, errors, unbuffered)
+        sys.stdout = sys.__stdout__ = create_stdio(
+            1, True, "<stdout>", encoding, errors, unbuffered)
+        sys.stderr = sys.__stderr__ = create_stdio(
+            2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
+    finally:
+        if encerr:
+            display_exception(encerr)
+            del encerr
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
