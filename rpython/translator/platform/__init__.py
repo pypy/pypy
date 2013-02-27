@@ -286,6 +286,13 @@ elif "freebsd" in sys.platform:
         host_factory = Freebsd
     else:
         host_factory = Freebsd_64
+elif sys.platform.startswith('netbsd'):
+    from rpython.translator.platform.netbsd import Netbsd, Netbsd_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Netbsd
+    else:
+        host_factory = Netbsd_64
 elif "openbsd" in sys.platform:
     from rpython.translator.platform.openbsd import OpenBSD, OpenBSD_64
     import platform
