@@ -80,10 +80,8 @@ class W_ComplexObject(W_AbstractComplexObject):
         return W_ComplexObject(rr, ir)
 
     def divmod(self, space, other):
-        space.warn(
-            "complex divmod(), // and % are deprecated",
-            space.w_DeprecationWarning
-        )
+        space.warn(space.wrap("complex divmod(), // and % are deprecated"),
+                   space.w_DeprecationWarning)
         w_div = self.div(other)
         div = math.floor(w_div.realval)
         w_mod = self.sub(

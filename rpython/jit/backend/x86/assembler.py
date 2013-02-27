@@ -426,7 +426,7 @@ class Assembler386(object):
     @rgc.no_collect
     def _release_gil_asmgcc(css):
         # similar to trackgcroot.py:pypy_asm_stackwalk, first part
-        from rpython.rtyper.memory.gctransform import asmgcroot
+        from rpython.memory.gctransform import asmgcroot
         new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
         next = asmgcroot.gcrootanchor.next
         new.next = next
@@ -446,7 +446,7 @@ class Assembler386(object):
         if after:
             after()
         # similar to trackgcroot.py:pypy_asm_stackwalk, second part
-        from rpython.rtyper.memory.gctransform import asmgcroot
+        from rpython.memory.gctransform import asmgcroot
         old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
         prev = old.prev
         next = old.next
@@ -1786,7 +1786,7 @@ class Assembler386(object):
             # from reading the half-word in the object header.  Note that
             # this half-word is at offset 0 on a little-endian machine;
             # it would be at offset 2 or 4 on a big-endian machine.
-            from rpython.rtyper.memory.gctypelayout import GCData
+            from rpython.memory.gctypelayout import GCData
             sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
@@ -2296,7 +2296,7 @@ class Assembler386(object):
             # like %eax that would be destroyed by this call, *and* they are
             # used by arglocs for the *next* call, then trouble; for now we
             # will just push/pop them.
-            from rpython.rtyper.memory.gctransform import asmgcroot
+            from rpython.memory.gctransform import asmgcroot
             css = self._regalloc.close_stack_struct
             if css == 0:
                 use_words = (2 + max(asmgcroot.INDEX_OF_EBP,

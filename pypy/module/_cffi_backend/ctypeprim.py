@@ -3,13 +3,14 @@ Primitives.
 """
 
 from pypy.interpreter.error import operationerrfmt
-from rpython.rtyper.lltypesystem import lltype, rffi
+
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib import jit
+from rpython.rtyper.lltypesystem import lltype, rffi
 
-from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, misc
+from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypePrimitive(W_CType):
@@ -171,9 +172,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             self.vrangemax = (r_uint(1) << sh) - 1
 
     def int(self, cdata):
-        # enums: really call convert_to_object() just below,
-        # and not the one overridden in W_CTypeEnum.
-        return W_CTypePrimitiveSigned.convert_to_object(self, cdata)
+        return self.convert_to_object(cdata)
 
     def convert_to_object(self, cdata):
         if self.value_fits_long:

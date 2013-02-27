@@ -18,8 +18,11 @@ Implement __lenght_hint__ according to PEP 424
 
 .. branch: numpypy-longdouble
 Long double support for numpypy
+.. branch: numpypy-disable-longdouble
+Since r_longdouble support is missing, disable all longdouble and derivative
+dtypes using ENABLED_LONG_DOUBLE = False
 .. branch: numpypy-real-as-view
-Convert real, imag from ufuncs to views. This involves the beginning of 
+Convert real, imag from ufuncs to views. This involves the beginning of
 view() functionality
 
 .. branch: signatures
@@ -36,6 +39,7 @@ Rudimentary support for bytearray in RPython
 .. branch: task-decorator
 .. branch: fix-e4fa0b2
 .. branch: win32-fixes
+.. branch: numpy-unify-methods
 .. branch: fix-version-tool
 .. branch: popen2-removal
 
@@ -54,3 +58,24 @@ around exceptions that escape the function they were raised in.
 
 .. branch: missing-ndarray-attributes
 Some missing attributes from ndarrays
+
+.. branch: cleanup-tests
+Consolidated the lib_pypy/pypy_test and pypy/module/test_lib_pypy tests into
+one directory for reduced confusion and so they all run nightly.
+
+.. branch: unquote-faster
+.. branch: urlparse-unquote-faster
+
+.. branch: signal-and-thread
+Add "__pypy__.thread.signals_enabled", a context manager. Can be used in a
+non-main thread to enable the processing of signal handlers in that thread.
+
+.. branch: coding-guide-update-rlib-refs
+.. branch: rlib-doc-rpython-refs
+.. branch: clean-up-remaining-pypy-rlib-refs
+
+.. branch: enumerate-rstr
+Support enumerate() over rstr types.
+
+.. branch: cleanup-numpypy-namespace
+Cleanup _numpypy and numpypy namespaces to more closely resemble numpy.

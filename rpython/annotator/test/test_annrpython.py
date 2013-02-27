@@ -3912,8 +3912,16 @@ class TestAnnotateTestCase:
                                             int, int]),
                           annmodel.SomeInteger)
 
+    def test_constant_startswith_endswith(self):
+        def f():
+            return "abc".startswith("ab") and "abc".endswith("bc")
+        a = self.RPythonAnnotator()
+        assert a.build_types(f, []).const is True
+
+
 def g(n):
-    return [0,1,2,n]
+    return [0, 1, 2, n]
+
 
 def f_calls_g(n):
     total = 0
@@ -3929,4 +3937,3 @@ constant_unsigned_five = r_uint(5)
 class Freezing:
     def _freeze_(self):
         return True
-

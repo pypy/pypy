@@ -12,25 +12,22 @@ computation part.
 """
 
 import os
+
 import py
-from rpython.tool.pairtype import pair
+
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.annotator.annrpython import FAIL
-from rpython.flowspace.model import Variable, Constant
-from rpython.flowspace.model import SpaceOperation, c_last_exception
-from rpython.rtyper.lltypesystem.lltype import \
-     Signed, Unsigned, Float, Char, Bool, Void, \
-     LowLevelType, Ptr, ContainerType, \
-     FuncType, functionptr, typeOf, RuntimeTypeInfo, \
-     attachRuntimeTypeInfo, Primitive, Number
-from rpython.rtyper.ootypesystem import ootype
-from rpython.translator.unsimplify import insert_empty_block
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.rmodel import warning
+from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
-from rpython.rtyper.typesystem import LowLevelTypeSystem,\
-                                    ObjectOrientedTypeSystem
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
+    Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
+    attachRuntimeTypeInfo, Primitive)
+from rpython.rtyper.ootypesystem import ootype
+from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
+from rpython.rtyper.typesystem import LowLevelTypeSystem, ObjectOrientedTypeSystem
+from rpython.tool.pairtype import pair
+from rpython.translator.unsimplify import insert_empty_block
 
 
 class RPythonTyper(object):
@@ -103,8 +100,8 @@ class RPythonTyper(object):
         if isinstance(lltype, Primitive):
             repr = self.primitive_to_repr[lltype] = self.getrepr(annmodel.lltype_to_annotation(lltype))
             return repr
-        raise TyperError('There is no primitive repr for %r'%(lltype,))
-    
+        raise TyperError('There is no primitive repr for %r' % (lltype,))
+
     def add_wrapper(self, clsdef):
         # record that this class has a wrapper, and what the __init__ is
         cls = clsdef.classdesc.pyobj
@@ -115,14 +112,14 @@ class RPythonTyper(object):
         # not nice, but we sometimes need to know which function we are wrapping
         self.wrapper_context = obj
 
-    def add_pendingsetup(self, repr): 
+    def add_pendingsetup(self, repr):
         assert isinstance(repr, Repr)
-        if repr in self._seen_reprs_must_call_setup: 
+        if repr in self._seen_reprs_must_call_setup:
             #warning("ignoring already seen repr for setup: %r" %(repr,))
-            return 
-        self._reprs_must_call_setup.append(repr) 
-        self._seen_reprs_must_call_setup[repr] = True 
-        
+            return
+        self._reprs_must_call_setup.append(repr)
+        self._seen_reprs_must_call_setup[repr] = True
+
     def getexceptiondata(self):
         return self.exceptiondata    # built at the end of specialize()
 
@@ -167,7 +164,7 @@ class RPythonTyper(object):
 
     def makerepr(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makerepr(self)
-        
+
     def getrepr(self, s_obj):
         # s_objs are not hashable... try hard to find a unique key anyway
         key = self.makekey(s_obj)
@@ -268,8 +265,8 @@ class RPythonTyper(object):
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
-        if self.typererrors: 
-            self.dump_typererrors(to_log=True) 
+        if self.typererrors:
+            self.dump_typererrors(to_log=True)
             raise TyperError("there were %d error" % len(self.typererrors))
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))
@@ -312,12 +309,12 @@ class RPythonTyper(object):
                     if methname not in SELF._methods:
                         ootype.addMethods(SELF, {methname: meth})
 
-    def dump_typererrors(self, num=None, minimize=True, to_log=False): 
+    def dump_typererrors(self, num=None, minimize=True, to_log=False):
         c = 0
         bc = 0
-        for err in self.typererrors[:num]: 
+        for err in self.typererrors[:num]:
             c += 1
-            if minimize and isinstance(err, BrokenReprTyperError): 
+            if minimize and isinstance(err, BrokenReprTyperError):
                 bc += 1
                 continue
             graph, block, position = err.where
@@ -388,8 +385,8 @@ class RPythonTyper(object):
             self.setup_block_entry(block)
         except TyperError, e:
             self.gottypererror(e, block, "block-entry", None)
-            return  # cannot continue this block            
-            
+            return  # cannot continue this block
+
 
         # specialize all the operations, as far as possible
         if block.operations == ():   # return or except block
@@ -412,7 +409,7 @@ class RPythonTyper(object):
 
         extrablock = None
         pos = newops.llop_raising_exceptions
-        if (pos is not None and pos != len(newops)-1):
+        if (pos is not None and pos != len(newops) - 1):
             # this is for the case where the llop that raises the exceptions
             # is not the last one in the list.
             assert block.exitswitch == c_last_exception
@@ -447,7 +444,7 @@ class RPythonTyper(object):
             # consider it as a link source instead
             self.insert_link_conversions(extrablock)
 
-    def _convert_link(self, block, link):  
+    def _convert_link(self, block, link):
         if link.exitcase is not None and link.exitcase != 'default':
             if isinstance(block.exitswitch, Variable):
                 r_case = self.bindingrepr(block.exitswitch)
@@ -627,7 +624,7 @@ class RPythonTyper(object):
         return rlist.rtype_newlist(hop)
 
     def translate_op_newdict(self, hop):
-        return self.type_system.rdict.rtype_newdict(hop)
+        return rdict.rtype_newdict(hop)
 
     def translate_op_alloc_and_set(self, hop):
         return rlist.rtype_alloc_and_set(hop)
@@ -800,11 +797,11 @@ class HighLevelOp(object):
         return self.llops.gendirectcall(ll_function, *args_v)
 
     def r_s_pop(self, index=-1):
-        "Return and discard the argument with index position."        
+        "Return and discard the argument with index position."
         self.nb_args -= 1
         self.args_v.pop(index)
         return self.args_r.pop(index), self.args_s.pop(index)
-    
+
     def r_s_popfirstarg(self):
         "Return and discard the first argument."
         return self.r_s_pop(0)
@@ -966,7 +963,7 @@ class LowLevelOpList(list):
             else:
                 args_s.append(annmodel.lltype_to_annotation(v.concretetype))
             newargs_v.append(v)
-        
+
         self.rtyper.call_all_setups()  # compute ForwardReferences now
 
         # hack for bound methods

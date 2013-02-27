@@ -2,6 +2,7 @@
 Arguments objects.
 """
 
+
 class Signature(object):
     _immutable_ = True
     _immutable_fields_ = ["argnames[*]"]
@@ -56,7 +57,6 @@ class Signature(object):
         if not isinstance(other, Signature):
             return NotImplemented
         return not self == other
-
 
     # make it look tuply for its use in the annotator
 

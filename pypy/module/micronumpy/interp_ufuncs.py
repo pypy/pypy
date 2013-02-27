@@ -258,6 +258,9 @@ class W_Ufunc1(W_Ufunc):
         if w_obj.get_dtype().is_flexible_type():
             raise OperationError(space.w_TypeError, 
                       space.wrap('Not implemented for this type'))
+        if self.int_only and not w_obj.get_dtype().is_int_type():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "ufunc %s not supported for the input type" % self.name))
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
@@ -324,10 +327,12 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if w_lhs.get_dtype().is_flexible_type() or \
-           w_rhs.get_dtype().is_flexible_type():
-            raise OperationError(space.w_TypeError, 
-                      space.wrap('unsupported operand types'))
+        if (w_lhs.get_dtype().is_flexible_type() or \
+                w_rhs.get_dtype().is_flexible_type()):
+            raise OperationError(space.w_TypeError, space.wrap(
+                 'unsupported operand dtypes %s and %s for "%s"' % \
+                 (w_rhs.get_dtype().get_name(), w_lhs.get_dtype().get_name(),
+                  self.name)))
         calc_dtype = find_binop_result_dtype(space,
             w_lhs.get_dtype(), w_rhs.get_dtype(),
             int_only=self.int_only,
@@ -335,6 +340,9 @@ class W_Ufunc2(W_Ufunc):
             promote_bools=self.promote_bools,
             allow_complex=self.allow_complex,
             )
+        if self.int_only and not calc_dtype.is_int_type():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "ufunc '%s' not supported for the input types" % self.name))
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
@@ -398,12 +406,11 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
         elif dt2.num == 15:
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
-        elif dt2.num == 16:
+        elif interp_boxes.ENABLED_LONG_DOUBLE and dt2.num == 16:
             return interp_dtype.get_dtype_cache(space).w_clongdouble
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
 
-    
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
@@ -424,13 +431,13 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             return dt2
         # we need to promote both dtypes
         dtypenum = dt2.num + 2
-    else:
-        # increase to the next signed type (or to float)
-        dtypenum = dt2.num + 1
+    elif dt2.num == 10 or (LONG_BIT == 64 and dt2.num == 8):
         # UInt64 + signed = Float64
-        if dt2.num == 10:
-            dtypenum += 2
-    newdtype = interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
+        dtypenum = 12
+    else:
+        # increase to the next signed type
+        dtypenum = dt2.num + 1
+    newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
         newdtype.kind == interp_dtype.FLOATINGLTR):
@@ -438,11 +445,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
         # this is really for dealing with the Long and Ulong dtypes
-        if LONG_BIT == 32:
-            dtypenum += 2
-        else:
-            dtypenum += 4
-        return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
+        dtypenum += 2
+        return interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]
 
 
 @jit.unroll_safe

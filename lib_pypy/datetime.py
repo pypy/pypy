@@ -18,7 +18,6 @@ Thanks to Tim Peters for suggesting using it.
 
 import time as _time
 import math as _math
-import decimal as _decimal
 
 MINYEAR = 1
 MAXYEAR = 9999
@@ -272,9 +271,17 @@ def _check_utc_offset(name, offset):
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
 def _check_int_field(value):
-    if not isinstance(value, (int, long, _decimal.Decimal)):
-        raise TypeError('integer argument expected')
-    return int(value)
+    if isinstance(value, int):
+        return value
+    if not isinstance(value, float):
+        try:
+            value = value.__int__()
+        except AttributeError:
+            pass
+        else:
+            if isinstance(value, (int, long)):
+                return value
+    raise TypeError('an integer is required')
 
 def _check_date_fields(year, month, day):
     year = _check_int_field(year)
@@ -451,6 +458,8 @@ class timedelta(object):
     Representation: (days, seconds, microseconds).  Why?  Because I
     felt like it.
     """
+
+    __slots__ = '_days', '_seconds', '_microseconds'
 
     def __new__(cls, days=0, seconds=0, microseconds=0,
                 # XXX The following should only be used as keyword args:
@@ -765,6 +774,8 @@ class date(object):
     year, month, day
     """
 
+    __slots__ = '_year', '_month', '_day'
+
     def __new__(cls, year, month=None, day=None):
         """Constructor.
 
@@ -772,7 +783,7 @@ class date(object):
 
         year, month, day (required, base 1)
         """
-        if isinstance(year, str):
+        if isinstance(year, str) and len(year) == 4:
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(year)
@@ -1058,6 +1069,8 @@ class tzinfo(object):
     Subclasses must override the name(), utcoffset() and dst() methods.
     """
 
+    __slots__ = ()
+
     def tzname(self, dt):
         "datetime -> string name of time zone."
         raise NotImplementedError("tzinfo subclass must override tzname()")
@@ -1149,6 +1162,8 @@ class time(object):
     Properties (readonly):
     hour, minute, second, microsecond, tzinfo
     """
+
+    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo'
 
     def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None):
         """Constructor.
@@ -1452,9 +1467,11 @@ class datetime(date):
     instance of a tzinfo subclass. The remaining arguments may be ints or longs.
     """
 
+    __slots__ = date.__slots__ + time.__slots__
+
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
-        if isinstance(year, str):
+        if isinstance(year, str) and len(year) == 10:
             # Pickle support
             self = date.__new__(cls, year[:4])
             self.__setstate(year, month)

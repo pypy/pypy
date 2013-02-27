@@ -14,7 +14,7 @@ def get_stackletrootwalker():
     if _stackletrootwalker is not None:
         return _stackletrootwalker
 
-    from rpython.rtyper.memory.gctransform.asmgcroot import (
+    from rpython.memory.gctransform.asmgcroot import (
         WALKFRAME, CALLEE_SAVED_REGS, INDEX_OF_EBP, sizeofaddr)
 
     assert _asmstackrootwalker is not None, "should have been monkey-patched"

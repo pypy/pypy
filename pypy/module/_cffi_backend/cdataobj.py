@@ -1,11 +1,13 @@
 import operator
-from pypy.interpreter.error import OperationError, operationerrfmt
+
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
+
 from rpython.rlib import objectmodel, rgc
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.module._cffi_backend import misc
@@ -119,9 +121,12 @@ class W_CData(Wrappable):
 
     def getitem(self, w_index):
         space = self.space
-        i = space.getindex_w(w_index, space.w_IndexError)
-        ctype = self.ctype._check_subscript_index(self, i)
-        w_o = self._do_getitem(ctype, i)
+        if space.isinstance_w(w_index, space.w_slice):
+            w_o = self._do_getslice(w_index)
+        else:
+            i = space.getindex_w(w_index, space.w_IndexError)
+            ctype = self.ctype._check_subscript_index(self, i)
+            w_o = self._do_getitem(ctype, i)
         keepalive_until_here(self)
         return w_o
 
@@ -132,13 +137,99 @@ class W_CData(Wrappable):
 
     def setitem(self, w_index, w_value):
         space = self.space
-        i = space.getindex_w(w_index, space.w_IndexError)
-        ctype = self.ctype._check_subscript_index(self, i)
-        ctitem = ctype.ctitem
-        ctitem.convert_from_object(
-            rffi.ptradd(self._cdata, i * ctitem.size),
-            w_value)
+        if space.isinstance_w(w_index, space.w_slice):
+            self._do_setslice(w_index, w_value)
+        else:
+            i = space.getindex_w(w_index, space.w_IndexError)
+            ctype = self.ctype._check_subscript_index(self, i)
+            ctitem = ctype.ctitem
+            ctitem.convert_from_object(
+                rffi.ptradd(self._cdata, i * ctitem.size),
+                w_value)
         keepalive_until_here(self)
+
+    def _do_getslicearg(self, w_slice):
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
+        from pypy.objspace.std.sliceobject import W_SliceObject
+        assert isinstance(w_slice, W_SliceObject)
+        space = self.space
+        #
+        if space.is_w(w_slice.w_start, space.w_None):
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("slice start must be specified"))
+        start = space.int_w(w_slice.w_start)
+        #
+        if space.is_w(w_slice.w_stop, space.w_None):
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("slice stop must be specified"))
+        stop = space.int_w(w_slice.w_stop)
+        #
+        if not space.is_w(w_slice.w_step, space.w_None):
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("slice with step not supported"))
+        #
+        if start > stop:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("slice start > stop"))
+        #
+        ctype = self.ctype._check_slice_index(self, start, stop)
+        assert isinstance(ctype, W_CTypePointer)
+        #
+        return ctype, start, stop - start
+
+    def _do_getslice(self, w_slice):
+        ctptr, start, length = self._do_getslicearg(w_slice)
+        #
+        space = self.space
+        ctarray = ctptr.cache_array_type
+        if ctarray is None:
+            from pypy.module._cffi_backend import newtype
+            ctarray = newtype.new_array_type(space, ctptr, space.w_None)
+            ctptr.cache_array_type = ctarray
+        #
+        p = rffi.ptradd(self._cdata, start * ctarray.ctitem.size)
+        return W_CDataSliced(space, p, ctarray, length)
+
+    def _do_setslice(self, w_slice, w_value):
+        ctptr, start, length = self._do_getslicearg(w_slice)
+        ctitem = ctptr.ctitem
+        ctitemsize = ctitem.size
+        cdata = rffi.ptradd(self._cdata, start * ctitemsize)
+        #
+        if isinstance(w_value, W_CData):
+            from pypy.module._cffi_backend import ctypearray
+            ctv = w_value.ctype
+            if (isinstance(ctv, ctypearray.W_CTypeArray) and
+                ctv.ctitem is ctitem and
+                w_value.get_array_length() == length):
+                # fast path: copying from exactly the correct type
+                s = w_value._cdata
+                for i in range(ctitemsize * length):
+                    cdata[i] = s[i]
+                keepalive_until_here(w_value)
+                return
+        #
+        space = self.space
+        w_iter = space.iter(w_value)
+        for i in range(length):
+            try:
+                w_item = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                raise operationerrfmt(space.w_ValueError,
+                                      "need %d values to unpack, got %d",
+                                      length, i)
+            ctitem.convert_from_object(cdata, w_item)
+            cdata = rffi.ptradd(cdata, ctitemsize)
+        try:
+            space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+        else:
+            raise operationerrfmt(space.w_ValueError,
+                                  "got more than %d values to unpack", length)
 
     def _add_or_sub(self, w_other, sign):
         space = self.space
@@ -279,6 +370,22 @@ class W_CDataPtrToStructOrUnion(W_CData):
     def _do_getitem(self, ctype, i):
         assert i == 0
         return self.structobj
+
+
+class W_CDataSliced(W_CData):
+    """Subclass with an explicit length, for slices."""
+    _attrs_ = ['length']
+    _immutable_fields_ = ['length']
+
+    def __init__(self, space, cdata, ctype, length):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.length = length
+
+    def _repr_extra(self):
+        return "sliced length %d" % (self.length,)
+
+    def get_array_length(self):
+        return self.length
 
 
 W_CData.typedef = TypeDef(

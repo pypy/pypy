@@ -476,7 +476,7 @@ class JitDriver(object):
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver'):
+                 name='jitdriver', check_untranslated=True):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -511,6 +511,7 @@ class JitDriver(object):
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
+        self.check_untranslated = check_untranslated
 
     def _freeze_(self):
         return True
@@ -565,13 +566,15 @@ class JitDriver(object):
 
     def jit_merge_point(_self, **livevars):
         # special-cased by ExtRegistryEntry
-        _self._check_arguments(livevars)
+        if _self.check_untranslated:
+            _self._check_arguments(livevars)
 
     def can_enter_jit(_self, **livevars):
         if _self.autoreds:
             raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
         # special-cased by ExtRegistryEntry
-        _self._check_arguments(livevars)
+        if _self.check_untranslated:
+            _self._check_arguments(livevars)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry

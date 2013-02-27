@@ -4,25 +4,21 @@ Function pointers.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib import jit, clibffi, jit_libffi
-from rpython.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
-from rpython.rlib.jit_libffi import FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP
-from rpython.rlib.jit_libffi import SIZE_OF_FFI_ARG
-from rpython.rlib.objectmodel import we_are_translated, instantiate
-from rpython.rlib.objectmodel import keepalive_until_here
 
+from rpython.rlib import jit, clibffi, jit_libffi
+from rpython.rlib.jit_libffi import (CIF_DESCRIPTION, CIF_DESCRIPTION_P,
+    FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP, SIZE_OF_FFI_ARG)
+from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+
+from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct
-from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUnsigned
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveCharOrUniChar
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
-from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
+from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
+    W_CTypePrimitiveUnsigned, W_CTypePrimitiveCharOrUniChar,
+    W_CTypePrimitiveFloat, W_CTypePrimitiveLongDouble)
 
 
 class W_CTypeFunc(W_CTypePtrBase):
@@ -96,7 +92,6 @@ class W_CTypeFunc(W_CTypePtrBase):
         if attrchar == 'A':    # abi
             return self.space.wrap(clibffi.FFI_DEFAULT_ABI)     # XXX
         return W_CTypePtrBase._fget(self, attrchar)
-
 
     def call(self, funcaddr, args_w):
         if self.cif_descr:
@@ -270,7 +265,6 @@ class CifDescrBuilder(object):
             self.bufferp = rffi.ptradd(result, size)
             return result
 
-
     def fb_fill_type(self, ctype, is_result_type):
         return ctype._get_ffi_type(self, is_result_type)
 
@@ -357,7 +351,6 @@ class CifDescrBuilder(object):
 
         return ffistruct
 
-
     def fb_build(self):
         # Build a CIF_DESCRIPTION.  Actually this computes the size and
         # allocates a larger amount of data.  It starts with a
@@ -386,7 +379,6 @@ class CifDescrBuilder(object):
             atype = self.fb_fill_type(farg, False)
             if self.atypes:
                 self.atypes[i] = atype
-
 
     def align_arg(self, n):
         return (n + 7) & ~7

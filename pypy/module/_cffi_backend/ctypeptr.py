@@ -2,15 +2,15 @@
 Pointers.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import wrap_oserror
-from rpython.rtyper.lltypesystem import lltype, rffi
+from pypy.interpreter.error import OperationError, operationerrfmt, wrap_oserror
+
+from rpython.rlib import rposix
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib import rposix
+from rpython.rtyper.lltypesystem import lltype, rffi
 
-from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
+from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypePtrOrArray(W_CType):
@@ -174,9 +174,10 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = ['is_file']
-    _immutable_fields_ = ['is_file']
+    _attrs_ = ['is_file', 'cache_array_type']
+    _immutable_fields_ = ['is_file', 'cache_array_type?']
     kind = "pointer"
+    cache_array_type = None
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -185,7 +186,8 @@ class W_CTypePointer(W_CTypePtrBase):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
-        self.is_file = (ctitem.name == "struct _IO_FILE")
+        self.is_file = (ctitem.name == "struct _IO_FILE" or
+                        ctitem.name == "struct $FILE")
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):
@@ -222,6 +224,9 @@ class W_CTypePointer(W_CTypePtrBase):
                 raise operationerrfmt(space.w_IndexError,
                                       "cdata '%s' can only be indexed by 0",
                                       self.name)
+        return self
+
+    def _check_slice_index(self, w_cdata, start, stop):
         return self
 
     def add(self, cdata, i):
@@ -331,18 +336,21 @@ class W_CTypePointer(W_CTypePtrBase):
 
 
 rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
-rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP,rffi.CCHARP], lltype.Void)
+rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP, rffi.CCHARP], lltype.Void)
 rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
 
 class CffiFileObj(object):
     _immutable_ = True
+
     def __init__(self, fd, mode):
         self.llf = rffi_fdopen(fd, mode)
         if not self.llf:
             raise OSError(rposix.get_errno(), "fdopen failed")
         rffi_setbuf(self.llf, lltype.nullptr(rffi.CCHARP.TO))
+
     def close(self):
         rffi_fclose(self.llf)
+
 
 def prepare_file_argument(space, fileobj):
     fileobj.direct_flush()

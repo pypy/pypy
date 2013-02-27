@@ -217,17 +217,20 @@ PyPy directory cross-reference
 Here is a fully referenced alphabetical two-level deep 
 directory overview of PyPy: 
 
-================================   =========================================== 
+=================================  ============================================
 Directory                          explanation/links
-================================   =========================================== 
+=================================  ============================================
+`pypy/bin/`_                       command-line scripts, mainly
+                                   `pypy/bin/pyinteractive.py`_
 
-`pypy/bin/`_                       command-line scripts, mainly `pyinteractive.py`_
+`pypy/config/`_                    handles the numerous options for building
+                                   and running PyPy
 
-`pypy/config/`_                    handles the numerous options for building and running PyPy
+`pypy/doc/`_                       text versions of PyPy developer
+                                   documentation
 
-`pypy/doc/`_                       text versions of PyPy developer documentation
-
-`pypy/doc/config/`_                documentation for the numerous translation options
+`pypy/doc/config/`_                documentation for the numerous translation
+                                   options
 
 `pypy/doc/discussion/`_            drafts of ideas and documentation
 
@@ -238,19 +241,24 @@ Directory                          explanation/links
 
 `pypy/interpreter/pyparser/`_      interpreter-level Python source parser
 
-`pypy/interpreter/astcompiler/`_   interpreter-level bytecode compiler, via an AST
-                                   representation
+`pypy/interpreter/astcompiler/`_   interpreter-level bytecode compiler,
+                                   via an AST representation
 
-`pypy/module/`_                    contains `mixed modules`_ implementing core modules with 
+`pypy/module/`_                    contains `mixed modules`_
+                                   implementing core modules with 
                                    both application and interpreter level code.
-                                   Not all are finished and working.  Use the ``--withmod-xxx``
-                                   or ``--allworkingmodules`` translation options.
+                                   Not all are finished and working.  Use
+                                   the ``--withmod-xxx``
+                                   or ``--allworkingmodules`` translation
+                                   options.
 
 `pypy/objspace/`_                  `object space`_ implementations
 
-`pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's objects and types
+`pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's
+                                   objects and types
 
-`pypy/tool/`_                      various utilities and hacks used from various places 
+`pypy/tool/`_                      various utilities and hacks used
+                                   from various places 
 
 `pypy/tool/algo/`_                 general-purpose algorithmic and mathematic
                                    tools
@@ -258,49 +266,58 @@ Directory                          explanation/links
 `pypy/tool/pytest/`_               support code for our `testing methods`_
 
 
-`rpython/annotator/`_              `type inferencing code`_ for `RPython`_ programs 
+`rpython/annotator/`_              `type inferencing code`_ for
+                                   `RPython`_ programs 
 
 `rpython/config/`_                 handles the numerous options for RPython
 
 
-`rpython/flowspace/`_              the FlowObjSpace_ implementing `abstract interpretation`_
+`rpython/flowspace/`_              the FlowObjSpace_ implementing
+                                   `abstract interpretation`_
 
-
-`rpython/rlib/`_                   a `"standard library"`_ for RPython_ programs
+`rpython/rlib/`_                   a `"standard library"`_ for RPython_
+                                   programs
 
 `rpython/rtyper/`_                 the `RPython Typer`_ 
 
-`rpython/rtyper/lltypesystem/`_    the `low-level type system`_ for C-like backends
+`rpython/rtyper/lltypesystem/`_    the `low-level type system`_ for
+                                   C-like backends
 
-`rpython/rtyper/ootypesystem/`_    the `object-oriented type system`_ for OO backends
+`rpython/rtyper/ootypesystem/`_    the `object-oriented type system`_
+                                   for OO backends
 
-`rpython/rtyper/memory/`_          the `garbage collector`_ construction framework
+`rpython/memory/`_                 the `garbage collector`_ construction
+                                   framework
 
 `rpython/translator/`_             translation_ backends and support code
 
-`rpython/translator/backendopt/`_  general optimizations that run before a backend generates code
+`rpython/translator/backendopt/`_  general optimizations that run before a 
+                                   backend generates code
 
-`rpython/translator/c/`_           the `GenC backend`_, producing C code from an
+`rpython/translator/c/`_           the `GenC backend`_, producing C code
+                                   from an
                                    RPython program (generally via the rtyper_)
 
-`rpython/translator/cli/`_         the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
+`rpython/translator/cli/`_         the `CLI backend`_ for `.NET`_
+                                   (Microsoft CLR or Mono_)
 
-`pypy/goal/`_                      our `main PyPy-translation scripts`_ live here
+`pypy/goal/`_                      our `main PyPy-translation scripts`_
+                                   live here
 
 `rpython/translator/jvm/`_         the Java backend
 
-`rpython/translator/tool/`_        helper tools for translation, including the Pygame
-                                   `graph viewer`_
+`rpython/translator/tool/`_        helper tools for translation
 
-``*/test/``                        many directories have a test subdirectory containing test 
+`dotviewer/`_                      `graph viewer`_
+
+``*/test/``                        many directories have a test subdirectory
+                                   containing test 
                                    modules (see `Testing in PyPy`_) 
 
-``_cache/``                        holds cache files from internally `translating application 
-                                   level to interpreterlevel`_ code.   
-================================   =========================================== 
+``_cache/``                        holds cache files from various purposes
+=================================  ============================================
 
 .. _`bytecode interpreter`: interpreter.html
-.. _`translating application level to interpreterlevel`: geninterp.html
 .. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
 .. _`mixed modules`: coding-guide.html#mixed-modules 
 .. _`modules`: coding-guide.html#modules 
