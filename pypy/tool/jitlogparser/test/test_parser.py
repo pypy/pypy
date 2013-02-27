@@ -162,23 +162,23 @@ def test_reassign_loops():
     loops = LoopStorage().reconnect_loops([main, bridge, entry_bridge])
     assert len(loops) == 2
     assert len(loops[0].operations[0].bridge.operations) == 1
-    assert loops[0].operations[0].bridge.no == 18
+    assert loops[0].operations[0].bridge.no == 0x18
     assert loops[0].operations[0].percentage == 30
 
 def test_adjust_bridges():
     main = parse('''
     [v0]
-    guard_false(v0, descr=<Guard13>)
+    guard_false(v0, descr=<Guard1a>)
     guard_true(v0, descr=<Guard5>)
     ''')
     bridge = parse('''
-    # bridge out of Guard 13
+    # bridge out of Guard 1a
     []
     int_add(0, 1)
     ''')
     LoopStorage().reconnect_loops([main, bridge])
     assert adjust_bridges(main, {})[1].name == 'guard_true'
-    assert adjust_bridges(main, {'loop-13': True})[1].name == 'int_add'
+    assert adjust_bridges(main, {'loop-1a': True})[1].name == 'int_add'
 
 def test_parsing_strliteral():
     loop = parse("""
@@ -259,7 +259,7 @@ guard_true(i23, descr=<Guard88>) [i1, i22, p2]
 +348: i32 = int_is_true(i31)
 +360: i33 = int_or(i27, i32)
 +364: i34 = int_is_true(i33)
-guard_false(i34, descr=<Guard89>) [i1, i22, p2]
+guard_false(i34, descr=<Guard8a>) [i1, i22, p2]
 +372: i35 = int_add(i22, 1)
 debug_merge_point(0, 're StrMatchIn at 92 [17. 4. 0. 20. 393237. 21. 0. 29. 9. 1. 65535. 15. 4. 9. 3. 0. 1. 21. 1. 29. 9. 1. 65535. 15. 4. 9. 2. 0. 1. 1...')
 +376: jump(i35, i1, p2, p4, descr=TargetToken(1081858656))
@@ -323,7 +323,7 @@ def test_parse_log_counts():
     [i7]
     i9 = int_lt(i7, 1003)
     label(i9, descr=grrr)
-    guard_true(i9, descr=<Guard2>) []
+    guard_true(i9, descr=<Guardaf>) []
     i13 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
     label(i13, descr=asb)
     i19 = int_lt(i13, 1003)
@@ -336,10 +336,10 @@ def test_parse_log_counts():
     i0 = int_lt(1, 2)
     finish(i0)
     ''')
-    bridge.comment = 'bridge out of Guard 2 with 1 ops'
+    bridge.comment = 'bridge out of Guard af with 1 ops'
     loop.comment = 'Loop 0'
     loops = split_trace(loop) + split_trace(bridge)
-    input = ['grrr:123\nasb:12\nbridge 2:1234']
+    input = ['grrr:123\nasb:12\nbridge af:1234']
     parse_log_counts(input, loops)
     assert loops[-1].count == 1234
     assert loops[1].count == 123
