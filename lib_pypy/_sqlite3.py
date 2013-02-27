@@ -118,19 +118,19 @@ typedef int64_t sqlite3_int64;
 typedef uint64_t sqlite3_uint64;
 
 int sqlite3_open(
-  const char *filename,   /* Database filename (UTF-8) */
-  sqlite3 **ppDb          /* OUT: SQLite db handle */
+    const char *filename,   /* Database filename (UTF-8) */
+    sqlite3 **ppDb          /* OUT: SQLite db handle */
 );
 
 int sqlite3_close(sqlite3 *);
 
 int sqlite3_busy_timeout(sqlite3*, int ms);
 int sqlite3_prepare_v2(
-  sqlite3 *db,            /* Database handle */
-  const char *zSql,       /* SQL statement, UTF-8 encoded */
-  int nByte,              /* Maximum length of zSql in bytes. */
-  sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
-  const char **pzTail     /* OUT: Pointer to unused portion of zSql */
+    sqlite3 *db,            /* Database handle */
+    const char *zSql,       /* SQL statement, UTF-8 encoded */
+    int nByte,              /* Maximum length of zSql in bytes. */
+    sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
+    const char **pzTail     /* OUT: Pointer to unused portion of zSql */
 );
 int sqlite3_finalize(sqlite3_stmt *pStmt);
 int sqlite3_column_count(sqlite3_stmt *pStmt);
@@ -164,26 +164,26 @@ const char *sqlite3_column_decltype(sqlite3_stmt*,int);
 
 void sqlite3_progress_handler(sqlite3*, int, int(*)(void*), void*);
 int sqlite3_create_collation(
-  sqlite3*,
-  const char *zName,
-  int eTextRep,
-  void*,
-  int(*xCompare)(void*,int,const void*,int,const void*)
+    sqlite3*,
+    const char *zName,
+    int eTextRep,
+    void*,
+    int(*xCompare)(void*,int,const void*,int,const void*)
 );
 int sqlite3_set_authorizer(
-  sqlite3*,
-  int (*xAuth)(void*,int,const char*,const char*,const char*,const char*),
-  void *pUserData
+    sqlite3*,
+    int (*xAuth)(void*,int,const char*,const char*,const char*,const char*),
+    void *pUserData
 );
 int sqlite3_create_function(
-  sqlite3 *db,
-  const char *zFunctionName,
-  int nArg,
-  int eTextRep,
-  void *pApp,
-  void (*xFunc)(sqlite3_context*,int,sqlite3_value**),
-  void (*xStep)(sqlite3_context*,int,sqlite3_value**),
-  void (*xFinal)(sqlite3_context*)
+    sqlite3 *db,
+    const char *zFunctionName,
+    int nArg,
+    int eTextRep,
+    void *pApp,
+    void (*xFunc)(sqlite3_context*,int,sqlite3_value**),
+    void (*xStep)(sqlite3_context*,int,sqlite3_value**),
+    void (*xFinal)(sqlite3_context*)
 );
 void *sqlite3_aggregate_context(sqlite3_context*, int nBytes);
 
@@ -193,11 +193,11 @@ const char *sqlite3_bind_parameter_name(sqlite3_stmt*, int);
 int sqlite3_total_changes(sqlite3*);
 
 int sqlite3_prepare(
-  sqlite3 *db,            /* Database handle */
-  const char *zSql,       /* SQL statement, UTF-8 encoded */
-  int nByte,              /* Maximum length of zSql in bytes. */
-  sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
-  const char **pzTail     /* OUT: Pointer to unused portion of zSql */
+    sqlite3 *db,            /* Database handle */
+    const char *zSql,       /* SQL statement, UTF-8 encoded */
+    int nByte,              /* Maximum length of zSql in bytes. */
+    sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
+    const char **pzTail     /* OUT: Pointer to unused portion of zSql */
 );
 
 void sqlite3_result_blob(sqlite3_context*, const void*, int, void(*)(void*));
