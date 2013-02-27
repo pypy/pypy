@@ -181,13 +181,12 @@ class AssemblerARM(ResOpAssembler):
             return      # not supported (for tests, or non-translated)
         #
         #
-        xxxx
         mc = ARMv7Builder()
         self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        mc.STR_ri(r.r0.value, r.fp.value, imm=ofs)
+        mc.LDR_ri(r.r0.value, r.fp.value, imm=ofs)
         propagate_exception_descr = rffi.cast(lltype.Signed,
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         # put propagate_exception_descr into frame
