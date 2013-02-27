@@ -685,10 +685,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         
         def f(frame, x):
             assert frame.jf_gcmap[0] & 31 == 0
+            frame.jf_descr = frame.jf_force_descr # make guard_not_forced fail
             assert x == 1
-            return 2
+            return lltype.nullptr(llmemory.GCREF.TO)
 
-        FUNC = lltype.FuncType([JITFRAMEPTR, lltype.Signed], lltype.Signed)
+        FUNC = lltype.FuncType([JITFRAMEPTR, lltype.Signed], llmemory.GCREF)
         fptr = llhelper(lltype.Ptr(FUNC), f)
         calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                     EffectInfo.MOST_GENERAL)
@@ -702,9 +703,9 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         p1 = getarrayitem_gc(p0, 0, descr=arraydescr)
         p2 = getarrayitem_gc(p0, 1, descr=arraydescr)
         p3 = getarrayitem_gc(p0, 2, descr=arraydescr)
-        i3 = call_may_force(ConstClass(fptr), pf, i0, descr=calldescr)
-        guard_not_forced(descr=faildescr) [p1, p2, p3]
-        finish(i3, descr=finishdescr)
+        px = call_may_force(ConstClass(fptr), pf, i0, descr=calldescr)
+        guard_not_forced(descr=faildescr) [p1, p2, p3, px]
+        finish(px, descr=finishdescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
                         'arraydescr': cpu.arraydescrof(A),
                         'faildescr': BasicFailDescr(1),
@@ -714,4 +715,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr.init_nursery(100)
         cpu.setup_once()
         cpu.compile_loop(loop.inputargs, loop.operations, token)
-        cpu.execute_token(token, 1, a)
+        frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
+                                       cpu.execute_token(token, 1, a))
+        assert bin(frame.jf_gcmap[0]).count('1') == 4
