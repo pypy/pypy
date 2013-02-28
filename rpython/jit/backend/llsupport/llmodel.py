@@ -89,6 +89,7 @@ class AbstractLLCPU(AbstractCPU):
                     frame.jf_frame_info.set_frame_depth(base_ofs, size)
                 new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info,
                                                        self.JITFRAME_FIXED_SIZE)
+                frame.jf_forward = new_frame
                 i = 0
                 while i < len(frame.jf_frame):
                     new_frame.jf_frame[i] = frame.jf_frame[i]
@@ -193,6 +194,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def force(self, addr_of_force_token):
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)
+        frame = frame.resolve()
         frame.jf_descr = frame.jf_force_descr
         return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
 

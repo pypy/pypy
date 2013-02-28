@@ -47,7 +47,14 @@ def jitframe_allocate(frame_info, staticsize):
         i += 1
     return frame
 
-JITFRAME = lltype.GcStruct(
+def jitframe_resolve(frame):
+    while frame.jf_forward:
+        frame = frame.jf_forward
+    return frame
+
+JITFRAME = lltype.GcForwardReference()
+
+JITFRAME.become(lltype.GcStruct(
     'JITFRAME',
     ('jf_frame_info', lltype.Ptr(JITFRAMEINFO)),
     # Once the execute_token() returns, the field 'jf_descr' stores the
@@ -68,6 +75,8 @@ JITFRAME = lltype.GcStruct(
     # RPython code that finishes the function with an exception, the
     # exception is not stored there, but is simply kept as a variable there)
     ('jf_guard_exc', llmemory.GCREF),
+    # in case the frame got reallocated, we have to forward it somewhere
+    ('jf_forward', lltype.Ptr(JITFRAME)),
     # absolutely useless field used to make up for tracing hooks inflexibilities
     ('jf_gc_trace_state', lltype.Signed),
     # the actual frame
@@ -76,9 +85,10 @@ JITFRAME = lltype.GcStruct(
     # about GCrefs here and not in frame info which might change
     adtmeths = {
         'allocate': jitframe_allocate,
+        'resolve': jitframe_resolve,
     },
     rtti = True,
-)
+))
 
 @specialize.memo()
 def getofs(name):

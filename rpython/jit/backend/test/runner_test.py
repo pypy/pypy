@@ -3732,7 +3732,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_compile_bridge_while_running(self):        
         def func():
             bridge = parse("""
-            [i1, i2]
+            [i1, i2, px]
             i3 = int_add(i1, i2)
             i4 = int_add(i1, i3)
             i5 = int_add(i1, i4)
@@ -3750,7 +3750,7 @@ class LLtypeBackendTest(BaseBackendTest):
             force_spill(i8)
             force_spill(i9)
             call(ConstClass(func2_ptr), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, descr=calldescr2)
-            guard_true(i1, descr=guarddescr) [i1, i2, i3, i4, i5, i6, i7, i8, i9]
+            guard_true(i1, descr=guarddescr) [i1, i2, i3, i4, i5, i6, i7, i8, i9, px]
             finish(i1, descr=finaldescr)
             """, namespace={'finaldescr': finaldescr, 'calldescr2': calldescr2,
                             'guarddescr': guarddescr, 'func2_ptr': func2_ptr})
@@ -3783,7 +3783,8 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse("""
         [i0, i1, i2]
         call(ConstClass(func_ptr), descr=calldescr)
-        guard_true(i0, descr=faildescr) [i1, i2]
+        px = force_token()
+        guard_true(i0, descr=faildescr) [i1, i2, px]
         finish(i2, descr=finaldescr2)
         """, namespace=locals())
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -3796,6 +3797,11 @@ class LLtypeBackendTest(BaseBackendTest):
             
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
         assert len(frame.jf_frame) == frame.jf_frame_info.jfi_frame_depth
+        ref = self.cpu.get_ref_value(frame, 9)
+        token = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, ref)
+        assert token != frame
+        token = token.resolve()
+        assert token == frame
 
     def test_compile_bridge_while_running_guard_no_exc(self):
         xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
