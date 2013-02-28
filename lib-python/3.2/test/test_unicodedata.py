@@ -234,10 +234,11 @@ class UnicodeMiscTest(UnicodeDatabaseTest):
         # been loaded in this process.
         popen = subprocess.Popen(args, stderr=subprocess.PIPE)
         popen.wait()
-        self.assertEqual(popen.returncode, 1)
-        error = "SyntaxError: (unicode error) \\N escapes not supported " \
-            "(can't load unicodedata module)"
-        self.assertIn(error, popen.stderr.read().decode("ascii"))
+        self.assertIn(popen.returncode, [0, 1]) # at least it did not segfault
+        if test.support.check_impl_detail():
+            error = "SyntaxError: (unicode error) \\N escapes not supported " \
+                "(can't load unicodedata module)"
+            self.assertIn(error, popen.stderr.read().decode("ascii"))
         popen.stderr.close()
 
     def test_decimal_numeric_consistent(self):
