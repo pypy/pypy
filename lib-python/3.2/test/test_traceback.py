@@ -7,6 +7,7 @@ import unittest
 import re
 from test.support import run_unittest, Error, captured_output
 from test.support import TESTFN, unlink
+from test.support import check_impl_detail
 
 import traceback
 
@@ -57,8 +58,11 @@ class SyntaxTracebackCases(unittest.TestCase):
                                         IndentationError)
         self.assertEqual(len(err), 4)
         self.assertEqual(err[1].strip(), "print(2)")
-        self.assertIn("^", err[2])
-        self.assertEqual(err[1].find(")"), err[2].find("^"))
+        if check_impl_detail():
+            # on CPython, there is a "^" at the end of the line on PyPy,
+            # there is a "^" too, but at the start, more logically
+            self.assertIn("^", err[2])
+            self.assertEqual(err[1].find(")"), err[2].find("^"))
 
     def test_base_exception(self):
         # Test that exceptions derived from BaseException are formatted right
