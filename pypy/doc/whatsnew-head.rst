@@ -79,3 +79,6 @@ Support enumerate() over rstr types.
 
 .. branch: cleanup-numpypy-namespace
 Cleanup _numpypy and numpypy namespaces to more closely resemble numpy.
+
+.. branch: kill-flowobjspace
+Random cleanups to hide FlowObjSpace from public view.
