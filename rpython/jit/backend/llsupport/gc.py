@@ -132,10 +132,10 @@ class GcLLDescription(GcCache):
         """ This functions retuns an arraydescr of type for the JITFRAME"""
         raise NotImplementedError
 
-    def malloc_jitframe(self, frame_info, staticsize):
+    def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
-        frame = jitframe.JITFRAME.allocate(frame_info, staticsize)
+        frame = jitframe.JITFRAME.allocate(frame_info)
         llop.gc_assume_young_pointers(lltype.Void, frame)
         return frame
 

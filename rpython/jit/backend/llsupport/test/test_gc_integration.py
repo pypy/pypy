@@ -450,7 +450,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         self.frames[-1].hdr |= 1
         self.init_nursery()
 
-    def malloc_jitframe(self, frame_info, ignored):
+    def malloc_jitframe(self, frame_info):
         """ Allocate a new frame, overwritten by tests
         """
         frame = JITFRAME.allocate(frame_info)
