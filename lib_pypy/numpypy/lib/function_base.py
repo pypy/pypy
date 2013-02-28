@@ -1,6 +1,6 @@
 __all__ = ['average']
 
-from _numpypy import array
+from ..core.numeric import array
 
 def average(a):
     # This implements a weighted average, for now we don't implement the

@@ -258,6 +258,9 @@ class W_Ufunc1(W_Ufunc):
         if w_obj.get_dtype().is_flexible_type():
             raise OperationError(space.w_TypeError, 
                       space.wrap('Not implemented for this type'))
+        if self.int_only and not w_obj.get_dtype().is_int_type():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "ufunc %s not supported for the input type" % self.name))
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
@@ -337,6 +340,9 @@ class W_Ufunc2(W_Ufunc):
             promote_bools=self.promote_bools,
             allow_complex=self.allow_complex,
             )
+        if self.int_only and not calc_dtype.is_int_type():
+            raise OperationError(space.w_TypeError, space.wrap(
+                "ufunc '%s' not supported for the input types" % self.name))
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
@@ -400,7 +406,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
         elif dt2.num == 15:
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
-        elif dt2.num == 16:
+        elif interp_boxes.ENABLED_LONG_DOUBLE and dt2.num == 16:
             return interp_dtype.get_dtype_cache(space).w_clongdouble
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))

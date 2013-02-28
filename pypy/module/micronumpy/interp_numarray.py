@@ -14,7 +14,7 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
-from pypy.module.micronumpy.interp_arrayops import repeat
+from pypy.module.micronumpy.interp_arrayops import repeat, choose
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -452,13 +452,8 @@ class __extend__(W_NDimArray):
             return res
 
     @unwrap_spec(mode=str)
-    def descr_choose(self, space, w_choices, mode='raise', w_out=None):
-        if space.is_none(w_out):
-            w_out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "return arrays must be of ArrayType"))
-        return interp_arrayops.choose(space, self, w_choices, w_out, mode)
+    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
+        return choose(space, self, w_choices, w_out, mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
         if space.is_none(w_out):
@@ -932,7 +927,8 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         return w_object
 
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
-    if dtype is None:
+    if dtype is None or (
+                 dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1):
         for w_elem in elems_w:
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
@@ -941,6 +937,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
+    if dtype.is_str_or_unicode() and dtype.itemtype.get_size() < 1:
+        # promote S0 -> S1, U0 -> U1
+        dtype = interp_dtype.variable_dtype(space, dtype.char + '1')
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     arr = W_NDimArray.from_shape(shape, dtype, order=order)
