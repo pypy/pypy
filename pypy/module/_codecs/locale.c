@@ -4,13 +4,20 @@
 /*
 #include "Python.h"
 */
+#include <locale.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <wchar.h>
+#ifdef _MSC_VER
+#define MS_WINDOWS
+#endif
 #define PyMem_Malloc malloc
 #define PyMem_Free free
 /* C99 but recent Windows has it */
 #define HAVE_MBRTOWC 1
+/* Hopefully? */
+#define HAVE_LANGINFO_H
 
 #ifdef MS_WINDOWS
 #  include <windows.h>
