@@ -18,7 +18,9 @@ def get_env_vector(key, default):
 class Netbsd(posix.BasePosix):
     name = "netbsd"
 
-    link_flags = ['-pthread'] + get_env_vector('LDFLAGS', '')
+    link_flags = ['-pthread',
+                  '-Wl,-R' + get_env("LOCALBASE", "/usr/pkg") + '/lib'
+                 ] + get_env_vector('LDFLAGS', '')
     cflags = ['-O3', '-pthread', '-fomit-frame-pointer'
              ] + get_env_vector('CFLAGS', '')
     standalone_only = []
