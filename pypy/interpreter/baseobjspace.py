@@ -1397,6 +1397,11 @@ class ObjSpace(object):
         """
         return w_obj.identifier_w(self)
 
+    def fsencode_w(self, w_obj):
+        if self.isinstance_w(w_obj, self.w_unicode):
+            w_obj = self.fsencode(w_obj)
+        return self.bytes0_w(w_obj)
+
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
         # This is here mostly just for gateway.int_unwrapping_space_method().

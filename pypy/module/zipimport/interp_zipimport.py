@@ -351,7 +351,7 @@ class W_ZipImporter(Wrappable):
         space = self.space
         return space.wrap(self.filename)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name='fsencode')
 def descr_new_zipimporter(space, w_type, name):
     ok = False
     parts_ends = [i for i in range(0, len(name))

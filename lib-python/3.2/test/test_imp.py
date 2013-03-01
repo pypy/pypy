@@ -161,8 +161,9 @@ class ImportTests(unittest.TestCase):
                 os.mkdir(test_package_name)
             with open(init_file_name, 'w') as file:
                 file.write('b = 2\n')
-            package = imp.load_package(test_package_name, test_package_name)
-            self.assertEqual(package.b, 2)
+            if support.check_impl_detail(cpython=True):
+                package = imp.load_package(test_package_name, test_package_name)
+                self.assertEqual(package.b, 2)
         finally:
             del sys.path[0]
             for ext in ('.py', '.pyc', '.pyo'):

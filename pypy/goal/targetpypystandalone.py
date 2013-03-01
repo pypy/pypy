@@ -49,8 +49,9 @@ def create_entry_point(space, w_dict):
         try:
             try:
                 space.call_function(w_run_toplevel, w_call_startup_gateway)
-                w_executable = space.wrap(argv[0])
-                w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
+                w_executable = space.fsdecode(space.wrapbytes(argv[0]))
+                w_argv = space.newlist([space.fsdecode(space.wrapbytes(s))
+                                        for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in

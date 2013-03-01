@@ -2,13 +2,14 @@ import py, os
 import time
 import struct
 from pypy.module.imp.importing import get_pyc_magic, _w_long
+from pypy.module.imp.test.support import BaseImportTest
 from StringIO import StringIO
 
 from rpython.tool.udir import udir
 from zipfile import ZIP_STORED, ZIP_DEFLATED
 
 
-class AppTestZipimport:
+class AppTestZipimport(BaseImportTest):
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
@@ -40,6 +41,7 @@ class AppTestZipimport:
 
     @classmethod
     def make_class(cls):
+        BaseImportTest.setup_class.im_func(cls)
         source = """\
 def get_name():
     return __name__
@@ -357,6 +359,24 @@ def get_co_filename():
         code = z.get_code('mymodule')
         co_filename = code.co_filename
         assert co_filename == expected
+
+    def test_unencodable(self):
+        if not self.testfn_unencodable:
+            skip("need an unencodable filename")
+        import os
+        import time
+        import zipimport
+        from zipfile import ZipFile, ZipInfo
+        filename = self.testfn_unencodable + ".zip"
+        z = ZipFile(filename, "w")
+        zinfo = ZipInfo("uu.py", time.localtime(self.now))
+        zinfo.compress_type = self.compression
+        z.writestr(zinfo, '')
+        z.close()
+        try:
+            zipimport.zipimporter(filename)
+        finally:
+            os.remove(filename)
 
 
 class AppTestZipimportDeflated(AppTestZipimport):

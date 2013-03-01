@@ -34,6 +34,7 @@ def llexternal(*args, **kwargs):
 # An actual wchar_t*, rffi.CWCHARP is an array of UniChar (possibly on a
 # narrow build)
 RAW_WCHARP = lltype.Ptr(lltype.Array(rffi.WCHAR_T, hints={'nolength': True}))
+WCHAR_NUL = rffi.cast(rffi.WCHAR_T, u'\x00')
 pypy_char2wchar = llexternal('pypy_char2wchar', [rffi.CCHARP, rffi.SIZE_TP],
                              RAW_WCHARP)
 pypy_char2wchar_free = llexternal('pypy_char2wchar_free', [RAW_WCHARP],
@@ -113,14 +114,14 @@ class scoped_unicode2rawwcharp:
 
 def unicode2rawwcharp(u):
     """unicode -> raw wchar_t*"""
-    size = _unicode2cwcharp_loop(u, None) if MERGE_SURROGATES else len(u)
+    size = _unicode2rawwcharp_loop(u, None) if MERGE_SURROGATES else len(u)
     array = lltype.malloc(RAW_WCHARP.TO, size + 1, flavor='raw')
-    array[size] = rffi.cast(rffi.WCHAR_T, u'\x00')
-    _unicode2cwcharp_loop(u, array)
+    array[size] = WCHAR_NUL
+    _unicode2rawwcharp_loop(u, array)
     return array
 unicode2rawwcharp._annenforceargs_ = [unicode]
 
-def _unicode2cwcharp_loop(u, array):
+def _unicode2rawwcharp_loop(u, array):
     write = array is not None
     ulen = len(u)
     count = i = 0
@@ -140,14 +141,14 @@ def _unicode2cwcharp_loop(u, array):
             i += 1
         count += 1
     return count
-unicode2rawwcharp._annenforceargs_ = [unicode, None]
+_unicode2rawwcharp_loop._annenforceargs_ = [unicode, None]
 
 
 def rawwcharp2unicoden(wcp, maxlen):
     b = UnicodeBuilder(maxlen)
     i = 0
-    while i < maxlen and wcp[i] != u'\x00':
+    while i < maxlen and wcp[i] != WCHAR_NUL:
         b.append(code_to_unichr(wcp[i]))
         i += 1
     return assert_str0(b.build())
-unicode2rawwcharp._annenforceargs_ = [None, int]
+rawwcharp2unicoden._annenforceargs_ = [None, int]
