@@ -798,6 +798,24 @@ class AppTestCompiler:
         s = '\udcff'
         raises(UnicodeEncodeError, compile, s, 'foo', 'exec')
 
+    def test_ast_equality(self):
+        import _ast
+        sample_code = [
+            ['<assign>', 'x = 5'],
+            ['<ifblock>', """if True:\n    pass\n"""],
+            ['<forblock>', """for n in [1, 2, 3]:\n    print(n)\n"""],
+            ['<deffunc>', """def foo():\n    pass\nfoo()\n"""],
+        ]
+
+        for fname, code in sample_code:
+            co1 = compile(code, '%s1' % fname, 'exec')
+            ast = compile(code, '%s2' % fname, 'exec', _ast.PyCF_ONLY_AST)
+            assert type(ast) == _ast.Module
+            co2 = compile(ast, '%s3' % fname, 'exec')
+            assert co1 == co2
+            # the code object's filename comes from the second compilation step
+            assert co2.co_filename == '%s3' % fname
+
 
 class AppTestOptimizer:
 
