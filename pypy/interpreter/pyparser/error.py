@@ -12,8 +12,12 @@ class SyntaxError(Exception):
         self.lastlineno = lastlineno
 
     def wrap_info(self, space):
+        if self.filename is None:
+            w_filename = space.w_None
+        else:
+            w_filename = space.fsdecode(space.wrapbytes(self.filename))
         return space.newtuple([space.wrap(self.msg),
-                               space.newtuple([space.wrap(self.filename),
+                               space.newtuple([w_filename,
                                                space.wrap(self.lineno),
                                                space.wrap(self.offset),
                                                space.wrap(self.text),

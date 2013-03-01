@@ -525,6 +525,12 @@ def interp_attrproperty_bytes(name, cls, doc=None):
         return space.wrapbytes(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
+def interp_attrproperty_fsdecode(name, cls, doc=None):
+    "NOT_RPYTHON: initialization-time only"
+    def fget(space, obj):
+        return space.fsdecode(space.wrapbytes(getattr(obj, name)))
+    return GetSetProperty(fget, cls=cls, doc=doc)
+
 def interp_attrproperty_w(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
@@ -748,7 +754,7 @@ PyCode.typedef = TypeDef('code',
     co_varnames = GetSetProperty(PyCode.fget_co_varnames),
     co_freevars = GetSetProperty(PyCode.fget_co_freevars),
     co_cellvars = GetSetProperty(PyCode.fget_co_cellvars),
-    co_filename = interp_attrproperty('co_filename', cls=PyCode),
+    co_filename = interp_attrproperty_fsdecode('co_filename', cls=PyCode),
     co_name = interp_attrproperty('co_name', cls=PyCode),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
     co_lnotab = interp_attrproperty_bytes('co_lnotab', cls=PyCode),

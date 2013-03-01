@@ -794,6 +794,10 @@ class AppTestCompiler:
         raises(SyntaxError, compile, code.format('<>'),
                '<FLUFL test>', 'exec')
 
+    def test_surrogate(self):
+        s = '\udcff'
+        raises(UnicodeEncodeError, compile, s, 'foo', 'exec')
+
 
 class AppTestOptimizer:
 
@@ -1038,3 +1042,14 @@ class AppTestExceptions:
         err3 = eval(repr(err1))
         assert str(err3) == str(err1)
         assert repr(err3) == repr(err1)
+
+    def test_surrogate_filename(self):
+        fname = '\udcff'
+        co = compile("'dr cannon'", fname, 'exec')
+        assert co.co_filename == fname
+        try:
+            compile("'dr", fname, 'exec')
+        except SyntaxError as e:
+            assert e.filename == fname
+        else:
+            assert False, 'SyntaxError expected'
