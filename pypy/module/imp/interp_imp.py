@@ -57,7 +57,7 @@ def get_file(space, w_file, filename, filemode):
         return streamio.fdopen_as_stream(fd, filemode)
 
 def find_module(space, w_name, w_path=None):
-    name = space.str0_w(w_name)
+    name = space.fsencode_w(w_name)
     if space.is_none(w_path):
         w_path = None
 
@@ -68,7 +68,7 @@ def find_module(space, w_name, w_path=None):
             space.w_ImportError,
             "No module named %s", name)
 
-    w_filename = space.wrap(find_info.filename)
+    w_filename = space.fsdecode(space.wrapbytes(find_info.filename))
     stream = find_info.stream
 
     if stream is not None:
@@ -107,7 +107,7 @@ def find_module(space, w_name, w_path=None):
 def load_module(space, w_name, w_file, w_filename, w_info):
     w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info)
 
-    filename = space.str0_w(w_filename)
+    filename = space.fsencode_w(w_filename)
     filemode = space.str_w(w_filemode)
     if space.is_w(w_file, space.w_None):
         stream = None
@@ -124,7 +124,7 @@ def load_module(space, w_name, w_file, w_filename, w_info):
         space, w_name, find_info, reuse=True)
 
 def load_source(space, w_modulename, w_filename, w_file=None):
-    filename = space.str0_w(w_filename)
+    filename = space.fsencode_w(w_filename)
 
     stream = get_file(space, w_file, filename, 'U')
 
@@ -138,7 +138,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0', write_paths=bool)
+@unwrap_spec(filename='fsencode', write_paths=bool)
 def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
                          write_paths=True):
     # the function 'imp._run_compiled_module' is a pypy-only extension
@@ -153,14 +153,14 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
     if space.is_none(w_file):
         stream.close()
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def load_compiled(space, w_modulename, filename, w_file=None):
     w_mod = space.wrap(Module(space, w_modulename))
     importing._prepare_module(space, w_mod, filename, None)
     _run_compiled_module(space, w_modulename, filename, w_file, w_mod)
     return w_mod
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='fsencode')
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not space.config.objspace.usemodules.cpyext:
         raise OperationError(space.w_ImportError, space.wrap(
@@ -215,7 +215,7 @@ def reinit_lock(space):
     if space.config.objspace.usemodules.thread:
         importing.getimportlock(space).reinit_lock()
 
-@unwrap_spec(pathname='str0')
+@unwrap_spec(pathname='fsencode')
 def cache_from_source(space, pathname, w_debug_override=None):
     """cache_from_source(path, [debug_override]) -> path
     Given the path to a .py file, return the path to its .pyc/.pyo file.
@@ -226,9 +226,10 @@ def cache_from_source(space, pathname, w_debug_override=None):
 
     If debug_override is not None, then it must be a boolean and is taken as
     the value of __debug__ instead."""
-    return space.wrap(importing.make_compiled_pathname(pathname))
+    return space.fsdecode(space.wrapbytes(
+            importing.make_compiled_pathname(pathname)))
 
-@unwrap_spec(pathname='str0')
+@unwrap_spec(pathname='fsencode')
 def source_from_cache(space, pathname):
     """source_from_cache(path) -> path
     Given the path to a .pyc./.pyo file, return the path to its .py file.
@@ -240,4 +241,4 @@ def source_from_cache(space, pathname):
     if sourcename is None:
         raise operationerrfmt(space.w_ValueError,
                               "Not a PEP 3147 pyc path: %s", pathname)
-    return space.wrap(sourcename)
+    return space.fsdecode(space.wrapbytes(sourcename))

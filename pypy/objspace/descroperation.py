@@ -497,6 +497,14 @@ class DescrOperation(object):
                 "'%s' does not support the buffer interface", typename)
         return space.get_and_call_function(w_impl, w_obj)
 
+    def fsencode(space, w_obj):
+        from pypy.interpreter.unicodehelper import PyUnicode_EncodeFSDefault
+        return PyUnicode_EncodeFSDefault(space, w_obj)
+
+    def fsdecode(space, w_obj):
+        from pypy.interpreter.unicodehelper import PyUnicode_DecodeFSDefault
+        return PyUnicode_DecodeFSDefault(space, w_obj)
+
 
 # helpers
 

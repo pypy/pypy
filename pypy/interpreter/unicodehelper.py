@@ -1,7 +1,15 @@
+import sys
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import runicode
 from pypy.module._codecs import interp_codecs
+_WIN32 = sys.platform == 'win32'
+_MACOSX = sys.platform == 'darwin'
+if _WIN32:
+    from rpython.rlib.runicode import str_decode_mbcs, unicode_encode_mbcs
+else:
+    # Workaround translator's confusion
+    str_decode_mbcs = unicode_encode_mbcs = lambda *args, **kwargs: None
 
 @specialize.memo()
 def decode_error_handler(space):
@@ -28,6 +36,60 @@ def encode_error_handler(space):
     return raise_unicode_exception_encode
 
 # ____________________________________________________________
+
+def PyUnicode_DecodeFSDefault(space, w_string):
+    state = space.fromcache(interp_codecs.CodecState)
+    if _WIN32:
+        bytes = space.bytes_w(w_string)
+        uni = str_decode_mbcs(bytes, len(bytes), 'strict',
+                              errorhandler=decode_error_handler(space))[0]
+    elif _MACOSX:
+        bytes = space.bytes_w(w_string)
+        uni = runicode.str_decode_utf_8(
+            bytes, len(bytes), 'surrogateescape',
+            errorhandler=state.decode_error_handler)[0]
+    elif state.codec_need_encodings:
+        # bootstrap check: if the filesystem codec is implemented in
+        # Python we cannot use it before the codecs are ready. use the
+        # locale codec instead
+        from pypy.module._codecs.locale import (
+            unicode_decode_locale_surrogateescape)
+        bytes = space.bytes_w(w_string)
+        uni = unicode_decode_locale_surrogateescape(
+            bytes, errorhandler=encode_decode_handler(space))
+    else:
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
+        return space.call_method(w_string, 'decode',
+                                 getfilesystemencoding(space),
+                                 space.wrap('surrogateescape'))
+    return space.wrap(uni)
+
+def PyUnicode_EncodeFSDefault(space, w_uni):
+    state = space.fromcache(interp_codecs.CodecState)
+    if _WIN32:
+        uni = space.unicode_w(w_uni)
+        bytes = unicode_encode_mbcs(uni, len(uni), 'strict',
+                                    errorhandler=encode_error_handler(space))
+    elif _MACOSX:
+        uni = space.unicode_w(w_uni)
+        bytes = runicode.unicode_encode_utf_8(
+            uni, len(uni), 'surrogateescape',
+            errorhandler=state.encode_error_handler)
+    elif state.codec_need_encodings:
+        # bootstrap check: if the filesystem codec is implemented in
+        # Python we cannot use it before the codecs are ready. use the
+        # locale codec instead
+        from pypy.module._codecs.locale import (
+            unicode_encode_locale_surrogateescape)
+        uni = space.unicode_w(w_uni)
+        bytes = unicode_encode_locale_surrogateescape(
+            uni, errorhandler=encode_error_handler(space))
+    else:
+        from pypy.module.sys.interp_encoding import getfilesystemencoding
+        return space.call_method(w_uni, 'encode',
+                                 getfilesystemencoding(space),
+                                 space.wrap('surrogateescape'))
+    return space.wrapbytes(bytes)
 
 def PyUnicode_AsEncodedString(space, w_data, w_encoding):
     return interp_codecs.encode(space, w_data, w_encoding)

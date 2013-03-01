@@ -421,7 +421,7 @@ class W_NullImporter(Wrappable):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path='str0')
+    @unwrap_spec(path='fsencode')
     def descr_init(self, space, path):
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(

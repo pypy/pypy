@@ -10,7 +10,6 @@ from rpython.rtyper.module import ll_os_stat
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
 
@@ -36,30 +35,13 @@ else:
             raise OperationError(space.w_OverflowError,
                                  space.wrap("integer out of range"))
 
-def fsencode_w(space, w_obj):
-    if space.isinstance_w(w_obj, space.w_unicode):
-        w_obj = fsencode(space, w_obj)
-    return space.bytes0_w(w_obj)
-
-def fsencode(space, w_obj):
-    w_bytes = space.call_method(w_obj, 'encode',
-                                getfilesystemencoding(space),
-                                space.wrap('surrogateescape'))
-    return w_bytes
-
-def fsdecode(space, w_obj):
-    w_unicode = space.call_method(w_obj, 'decode',
-                                  getfilesystemencoding(space),
-                                  space.wrap('surrogateescape'))
-    return w_unicode
-
 class FileEncoder(object):
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return fsencode_w(self.space, self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
         return self.space.unicode0_w(self.w_obj)
@@ -74,7 +56,7 @@ class FileDecoder(object):
 
     def as_unicode(self):
         space = self.space
-        w_unicode = fsdecode(space, self.w_obj)
+        w_unicode = space.fsdecode(self.w_obj)
         return space.unicode0_w(w_unicode)
 
 @specialize.memo()
@@ -443,7 +425,7 @@ if _WIN32:
 else:
     def getcwd(space):
         """Return the current working directory as a string."""
-        return fsdecode(space, getcwdb(space))
+        return space.fsdecode(getcwdb(space))
 
 def chdir(space, w_path):
     """Change the current working directory to the specified path."""
@@ -557,7 +539,7 @@ entries '.' and '..' even if they are present in the directory."""
             result_w = [None] * len_result
             for i in range(len_result):
                 w_bytes = space.wrapbytes(result[i])
-                result_w[i] = fsdecode(space, w_bytes)
+                result_w[i] = space.fsdecode(w_bytes)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
@@ -783,13 +765,13 @@ Execute a path with arguments and environment, replacing current process.
         args: iterable of arguments
         env: dictionary of strings mapping to strings
     """
-    command = fsencode_w(space, w_command)
+    command = space.fsencode_w(w_command)
     try:
         args_w = space.unpackiterable(w_args)
         if len(args_w) < 1:
             w_msg = space.wrap("execv() must have at least one argument")
             raise OperationError(space.w_ValueError, w_msg)
-        args = [fsencode_w(space, w_arg) for w_arg in args_w]
+        args = [space.fsencode_w(w_arg) for w_arg in args_w]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise

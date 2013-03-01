@@ -12,7 +12,6 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import CodecState
-from pypy.module.posix.interp_posix import fsencode, fsdecode
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
 from rpython.rlib import runicode, rstring
 from rpython.tool.sourcetools import func_renamer
@@ -423,7 +422,7 @@ def PyUnicode_FSConverter(space, w_obj, result):
         w_output = w_obj
     else:
         w_obj = PyUnicode_FromObject(space, w_obj)
-        w_output = fsencode(space, w_obj)
+        w_output = space.fsencode(w_obj)
         if not space.isinstance_w(w_output, space.w_bytes):
             raise OperationError(space.w_TypeError,
                                  space.wrap("encoder failed to return bytes"))
@@ -447,7 +446,7 @@ def PyUnicode_FSDecoder(space, w_obj, result):
         w_output = w_obj
     else:
         w_obj = PyBytes_FromObject(space, w_obj)
-        w_output = fsdecode(space, w_obj)
+        w_output = space.fsdecode(w_obj)
         if not space.isinstance_w(w_output, space.w_unicode):
             raise OperationError(space.w_TypeError,
                                  space.wrap("decoder failed to return unicode"))
@@ -466,7 +465,7 @@ def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
     
     Use 'strict' error handler on Windows."""
     w_bytes = space.wrapbytes(rffi.charpsize2str(s, size))
-    return fsdecode(space, w_bytes)
+    return space.fsdecode(w_bytes)
 
 
 @cpython_api([rffi.CCHARP], PyObject)
@@ -481,7 +480,7 @@ def PyUnicode_DecodeFSDefault(space, s):
     
     Use 'strict' error handler on Windows."""
     w_bytes = space.wrapbytes(rffi.charp2str(s))
-    return fsdecode(space, w_bytes)
+    return space.fsdecode(w_bytes)
 
 
 @cpython_api([PyObject], PyObject)
@@ -494,7 +493,7 @@ def PyUnicode_EncodeFSDefault(space, w_unicode):
     If Py_FileSystemDefaultEncoding is not set, fall back to the
     locale encoding.
     """
-    return fsencode(space, w_unicode)
+    return space.fsencode(w_unicode)
 
 
 @cpython_api([CONST_STRING], PyObject)

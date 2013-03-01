@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
-from pypy.module.posix.interp_posix import fsencode_w, run_fork_hooks
+from pypy.module.posix.interp_posix import run_fork_hooks
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import (
     OperationError, exception_from_errno, wrap_oserror)
@@ -115,7 +115,7 @@ def fork_exec(space, w_process_args, w_executable_list,
         l_exec_array = rffi.liststr2charpp(exec_array)
 
         if not space.is_none(w_process_args):
-            argv = [fsencode_w(space, w_item)
+            argv = [space.fsencode_w(w_item)
                     for w_item in space.listview(w_process_args)]
             l_argv = rffi.liststr2charpp(argv)
 
@@ -136,7 +136,7 @@ def fork_exec(space, w_process_args, w_executable_list,
             preexec.w_preexec_fn = None
 
         if not space.is_none(w_cwd):
-            cwd = fsencode_w(space, w_cwd)
+            cwd = space.fsencode_w(w_cwd)
             l_cwd = rffi.str2charp(cwd)
             
         run_fork_hooks('before', space)

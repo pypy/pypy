@@ -385,6 +385,17 @@ class TestGateway:
                        w_app_g3_idx,
                        space.mul(space.wrap(sys.maxint), space.wrap(-7)))
 
+    def test_interp2app_unwrap_spec_fsencode(self):
+        space = self.space
+        w = space.wrap
+        def f(filename):
+            return space.wrapbytes(filename)
+        app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
+        w_app_f = space.wrap(app_f)
+        assert space.eq_w(
+            space.call_function(w_app_f, w(u'\udc80')),
+            space.wrapbytes('\x80'))
+
     def test_interp2app_unwrap_spec_typechecks(self):
         space = self.space
         w = space.wrap
