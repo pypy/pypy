@@ -135,6 +135,14 @@ class AppTestAbstractInst:
         raises(TypeError, isinstance, x, BBase)
         assert not isinstance(x, BSub2)
 
+        class BadClass:
+            @property
+            def __class__(self):
+                raise RuntimeError
+        raises(RuntimeError, isinstance, BadClass(), bool)
+        # test another code path
+        raises(RuntimeError, isinstance, BadClass(), Foo)
+
     def test_abstract_issubclass(self):
         class MyBaseInst(object):
             pass

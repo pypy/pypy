@@ -69,8 +69,8 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
         # From now on we know that w_klass_or_tuple is indeed a type.
         # Try also to compare it with obj.__class__, if this is not
         # the same as type(obj).
+        w_pretendtype = abstract_getclass(space, w_obj)
         try:
-            w_pretendtype = space.getattr(w_obj, space.wrap('__class__'))
             if space.is_w(w_pretendtype, space.type(w_obj)):
                 return False     # common case: obj.__class__ is type(obj)
             if allow_override:
