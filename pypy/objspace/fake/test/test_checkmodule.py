@@ -3,6 +3,7 @@ from pypy.objspace.fake.objspace import FakeObjSpace, is_root
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.test.test_llinterp import interpret
 
 def make_checker():
@@ -31,6 +32,22 @@ def test_wrap_interp2app_int():
         return space.wrap(x - z)
     space = FakeObjSpace()
     space.wrap(interp2app(foobar, unwrap_spec=[ObjSpace, int, W_Root, int]))
+    space.translates()
+    assert check
+
+def test_wrap_interp2app_later():
+    see, check = make_checker()
+    #
+    @specialize.memo()
+    def hithere(space):
+        space.wrap(interp2app(foobar2))
+    #
+    def foobar(space):
+        hithere(space)
+    def foobar2(space):
+        see()
+    space = FakeObjSpace()
+    space.wrap(interp2app(foobar))
     space.translates()
     assert check
 

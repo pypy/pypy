@@ -286,8 +286,10 @@ class FakeObjSpace(ObjSpace):
             #print self._seen_extras
             ann.build_types(self._seen_extras[done], [],
                             complete_now=False)
+            ann.complete_pending_blocks()
             done += 1
         ann.complete()
+        assert done == len(self._seen_extras)
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
