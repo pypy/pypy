@@ -146,7 +146,7 @@ _unicode2rawwcharp_loop._annenforceargs_ = [unicode, None]
 def rawwcharp2unicoden(wcp, maxlen):
     b = UnicodeBuilder(maxlen)
     i = 0
-    while i < maxlen and wcp[i] != 0:
+    while i < maxlen and rffi.cast(lltype.Signed, wcp[i]) != 0:
         b.append(code_to_unichr(wcp[i]))
         i += 1
     return assert_str0(b.build())
