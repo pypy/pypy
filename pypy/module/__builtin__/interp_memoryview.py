@@ -20,6 +20,8 @@ class W_MemoryView(Wrappable):
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
             other = space.interpclass_w(w_other)
+            if self.buf is None:
+                return space.wrap(getattr(operator, name)(self, other))
             if isinstance(other, W_MemoryView):
                 # xxx not the most efficient implementation
                 str1 = self.as_str()
@@ -66,12 +68,15 @@ class W_MemoryView(Wrappable):
         not in CPython; but CPython supports passing memoryview() to most
         built-in functions that accept buffers, with the notable exception
         of the buffer() built-in."""
+        self._check_released(space)
         return space.wrap(self.buf)
 
     def descr_tobytes(self, space):
+        self._check_released(space)
         return space.wrapbytes(self.as_str())
 
     def descr_tolist(self, space):
+        self._check_released(space)
         buf = self.buf
         result = []
         for i in range(buf.getlength()):
@@ -79,6 +84,7 @@ class W_MemoryView(Wrappable):
         return space.newlist(result)
 
     def descr_getitem(self, space, w_index):
+        self._check_released(space)
         start, stop, step = space.decode_index(w_index, self.getlength())
         if step == 0:  # index only
             return space.wrapbytes(self.buf.getitem(start))
@@ -92,6 +98,7 @@ class W_MemoryView(Wrappable):
 
     @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
+        self._check_released(space)
         buf = self.buf
         if isinstance(buf, buffer.RWBuffer):
             buf.descr_setitem(space, w_index, newstring)
@@ -100,26 +107,53 @@ class W_MemoryView(Wrappable):
                                  space.wrap("cannot modify read-only memory"))
 
     def descr_len(self, space):
+        self._check_released(space)
         return self.buf.descr_len(space)
 
     def w_get_format(self, space):
+        self._check_released(space)
         return space.wrap("B")
     def w_get_itemsize(self, space):
+        self._check_released(space)
         return space.wrap(1)
     def w_get_ndim(self, space):
+        self._check_released(space)
         return space.wrap(1)
     def w_is_readonly(self, space):
+        self._check_released(space)
         return space.wrap(not isinstance(self.buf, buffer.RWBuffer))
     def w_get_shape(self, space):
+        self._check_released(space)
         return space.newtuple([space.wrap(self.getlength())])
     def w_get_strides(self, space):
+        self._check_released(space)
         return space.newtuple([space.wrap(1)])
     def w_get_suboffsets(self, space):
+        self._check_released(space)
         # I've never seen anyone filling this field
         return space.w_None
 
     def descr_repr(self, space):
-        return self.getrepr(space, 'memory')
+        if self.buf is None:
+            return self.getrepr(space, 'released memory')
+        else:
+            return self.getrepr(space, 'memory')
+
+    def descr_release(self, space):
+        self.buf = None
+
+    def _check_released(self, space):
+        if self.buf is None:
+            raise OperationError(space.w_ValueError, space.wrap(
+                    "operation forbidden on released memoryview object"))
+
+    def descr_enter(self, space):
+        self._check_released(space)
+        return self
+
+    def descr_exit(self, space, __args__):
+        self.buf = None
+        return space.w_None
 
 
 def descr_new(space, w_subtype, w_object):
@@ -139,8 +173,11 @@ Create a new memoryview object which references the given object.
     __ne__      = interp2app(W_MemoryView.descr_ne),
     __setitem__ = interp2app(W_MemoryView.descr_setitem),
     __repr__    = interp2app(W_MemoryView.descr_repr),
+    __enter__   = interp2app(W_MemoryView.descr_enter),
+    __exit__    = interp2app(W_MemoryView.descr_exit),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
+    release     = interp2app(W_MemoryView.descr_release),
     format      = GetSetProperty(W_MemoryView.w_get_format),
     itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
     ndim        = GetSetProperty(W_MemoryView.w_get_ndim),
