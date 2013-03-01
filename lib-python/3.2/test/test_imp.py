@@ -172,8 +172,15 @@ class ImportTests(unittest.TestCase):
 
     def test_issue9319(self):
         path = os.path.dirname(__file__)
-        self.assertRaises(SyntaxError,
-                          imp.find_module, "badsyntax_pep3120", [path])
+        try:
+            imp.find_module("badsyntax_pep3120", [path])
+        except SyntaxError:
+            pass
+        else:
+            # PyPy's find_module won't raise a SyntaxError when checking
+            # the file's magic encoding comment, the point of the test
+            # is to ensure no seg fault anyway
+            self.assertTrue(support.check_impl_detail(cpython=False))
 
 
 class ReloadTests(unittest.TestCase):
