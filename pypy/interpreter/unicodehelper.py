@@ -56,7 +56,7 @@ def PyUnicode_DecodeFSDefault(space, w_string):
             unicode_decode_locale_surrogateescape)
         bytes = space.bytes_w(w_string)
         uni = unicode_decode_locale_surrogateescape(
-            bytes, errorhandler=encode_decode_handler(space))
+            bytes, errorhandler=decode_error_handler(space))
     else:
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_string, 'decode',
