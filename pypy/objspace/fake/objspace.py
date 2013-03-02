@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, SpaceCach
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
-from rpython.rlib.objectmodel import instantiate, we_are_translated
+from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -236,7 +236,8 @@ class FakeObjSpace(ObjSpace):
 
     def gettypeobject(self, typedef):
         assert typedef is not None
-        return self.fromcache(TypeCache).getorbuild(typedef)
+        see_typedef(self, typedef)
+        return w_some_type()
 
     def type(self, w_obj):
         return w_some_type()
@@ -275,7 +276,7 @@ class FakeObjSpace(ObjSpace):
 
     # ----------
 
-    def translates(self, func=None, argtypes=None, **kwds):
+    def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
         config = make_config(None, **kwds)
         if func is not None:
             if argtypes is None:
@@ -287,6 +288,10 @@ class FakeObjSpace(ObjSpace):
         ann = t.buildannotator()
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
+        if seeobj_w:
+            def seeme(n):
+                return seeobj_w[n]
+            ann.build_types(seeme, [int], complete_now=False)
         #
         # annotate all _seen_extras, knowing that annotating some may
         # grow the list
@@ -338,13 +343,12 @@ setup()
 
 # ____________________________________________________________
 
-class TypeCache(SpaceCache):
-    def build(cache, typedef):
-        assert isinstance(typedef, TypeDef)
-        if not isinstance(typedef, StdTypeDef):
-            for value in typedef.rawdict.values():
-                cache.space.wrap(value)
-        return w_some_obj()
+@specialize.memo()
+def see_typedef(space, typedef):
+    assert isinstance(typedef, TypeDef)
+    if not isinstance(typedef, StdTypeDef):
+        for name, value in typedef.rawdict.items():
+            space.wrap(value)
 
 class FakeCompiler(object):
     pass

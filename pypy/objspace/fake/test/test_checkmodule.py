@@ -93,3 +93,23 @@ def test_gettype_mro():
         return len(w_type.mro_w)
 
     assert interpret(f, [1]) == 2
+
+def test_see_objects():
+    see, check = make_checker()
+    class W_Foo(Wrappable):
+        def __init__(self, x):
+            self.x = x
+        def do_it(self):
+            if self.x == 42:
+                return
+            see()
+    def f():
+        W_Foo(42).do_it()
+    #
+    space = FakeObjSpace()
+    space.translates(f)
+    assert not check
+    #
+    space = FakeObjSpace()
+    space.translates(f, seeobj_w=[W_Foo(15)])
+    assert check
