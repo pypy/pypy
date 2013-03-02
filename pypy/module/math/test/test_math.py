@@ -33,7 +33,13 @@ class AppTestMath:
             else:
                 expected = space.wrap(expected)
             cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))
-        cls.w_cases = space.newlist(cases)
+        if cls.runappdirect:
+            cls.w_cases = space.appexec([], """():
+                from rpython.rtyper.lltypesystem.module.test.math_testcase import MathTests
+                return MathTests.TESTCASES
+            """)
+        else:
+            cls.w_cases = space.newlist(cases)
         cls.w_consistent_host = space.wrap(test_direct.consistent_host)
 
     @classmethod
@@ -51,7 +57,7 @@ class AppTestMath:
         import math
         for fnname, args, expected in self.cases:
             fn = getattr(math, fnname)
-            print(fn, args)
+            print(fn, args, expected)
             try:
                 got = fn(*args)
             except ValueError:
