@@ -564,9 +564,10 @@ def run_command_line(interactive,
                 print("Unable to decode the command from the command line:",
                       file=sys.stderr)
                 display_exception(e)
-                return 1
-            sys.path.insert(0, '')
-            success = run_toplevel(exec_, bytes, mainmodule.__dict__)
+                success = False
+            else:
+                sys.path.insert(0, '')
+                success = run_toplevel(exec_, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
