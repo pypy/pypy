@@ -513,6 +513,10 @@ class Integer(Primitive):
             if v == 1 or v == -1:
                 return v
             return 0
+    else:
+        @simple_unary_op
+        def reciprocal(self, v):
+            return v
 
     @raw_unary_op
     def signbit(self, v):
