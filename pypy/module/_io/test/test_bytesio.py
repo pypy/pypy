@@ -13,6 +13,11 @@ class AppTestBytesIO:
         assert b.read() == buf
         raises(TypeError, _io.BytesIO, buf, foo=None)
 
+    def test_new(self):
+        import _io
+        f = _io.BytesIO.__new__(_io.BytesIO)
+        assert not f.closed
+
     def test_capabilities(self):
         import _io
         f = _io.BytesIO()
