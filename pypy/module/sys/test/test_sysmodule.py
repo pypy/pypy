@@ -28,7 +28,7 @@ def test_stdout_flush_at_shutdown(space):
 
     try:
         space.call_method(w_sys.get('stdout'), 'write', space.wrap('x'))
-        # called by sys.shtudown
+        # called at shtudown
         w_sys.flush_std_files(space)
 
         msg = space.bytes_w(space.call_function(w_read))

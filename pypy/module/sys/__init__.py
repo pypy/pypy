@@ -127,19 +127,17 @@ class Module(MixedModule):
                 sys.stderr.buffer.raw.name = "<stderr>"
                """)
 
-    def shutdown(self, space):
-        self.flush_std_files(space)
-
     def flush_std_files(self, space):
-        if space.config.translating:
-            return
-        for w_file in space.sys.get('stdout'), space.sys.get('stderr'):
+        w_stdout = space.sys.get('stdout')
+        w_stderr = space.sys.get('stderr')
+        for w_file in w_stdout, w_stderr:
             if not (space.is_none(w_file) or
                     self._file_is_closed(space, w_file)):
                 try:
                     space.call_method(w_file, 'flush')
                 except OperationError as e:
-                    e.write_unraisable(space, '', w_file)
+                    if w_file is w_stdout:
+                        e.write_unraisable(space, '', w_file)
 
     def _file_is_closed(self, space, w_file):
         try:
