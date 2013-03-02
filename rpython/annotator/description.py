@@ -351,6 +351,7 @@ class FunctionDesc(Desc):
                 row[desc.rowkey()] = graph
                 return s_ImpossibleValue   # meaningless
             desc.pycall(enlist, args, s_ImpossibleValue, op)
+            assert row
         return row
     row_to_consider = staticmethod(row_to_consider)
 
