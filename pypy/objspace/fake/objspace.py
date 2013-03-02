@@ -2,6 +2,8 @@ from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.sliceobject import W_SliceObject
 from rpython.rlib.objectmodel import instantiate, we_are_translated
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
@@ -132,9 +134,13 @@ class FakeObjSpace(ObjSpace):
         is_root(w_start)
         is_root(w_end)
         is_root(w_step)
+        W_SliceObject(w_start, w_end, w_step)
         return w_some_obj()
 
     def newint(self, x):
+        return w_some_obj()
+
+    def newlong(self, x):
         return w_some_obj()
 
     def newfloat(self, x):
@@ -144,6 +150,9 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newlong_from_rbigint(self, x):
+        return w_some_obj()
+
+    def newseqiter(self, x):
         return w_some_obj()
 
     def marshal_w(self, w_obj):
@@ -332,8 +341,9 @@ setup()
 class TypeCache(SpaceCache):
     def build(cache, typedef):
         assert isinstance(typedef, TypeDef)
-        for value in typedef.rawdict.values():
-            cache.space.wrap(value)
+        if not isinstance(typedef, StdTypeDef):
+            for value in typedef.rawdict.values():
+                cache.space.wrap(value)
         return w_some_obj()
 
 class FakeCompiler(object):
