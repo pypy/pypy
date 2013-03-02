@@ -11,35 +11,12 @@ class AppTestMath:
     }
 
     def setup_class(cls):
+        from rpython.rtyper.lltypesystem.module.test import math_cases
+        filename = math_cases.__file__
+        if filename.endswith('.pyc'):
+            filename = filename[:-1]
         space = cls.space
-        cases = []
-        for a, b, expected in test_direct.MathTests.TESTCASES:
-            # marked as OverflowError to match 2.x/ll_math in
-            # test_direct, but this is a ValueError on 3.x
-            if (a, b, expected) == ('log1p', (-1.0,), OverflowError):
-                expected = ValueError
-            # 3.x ceil/floor differ from 2.x
-            if a in ('ceil', 'floor'):
-                if b[0] in (INFINITY, -INFINITY):
-                    expected = OverflowError
-                elif b[0] in (NAN, -NAN):
-                    expected = ValueError
-
-            if type(expected) is type and issubclass(expected, Exception):
-                expected = getattr(space, "w_%s" % expected.__name__)
-            elif callable(expected):
-                if not cls.runappdirect:
-                    expected = cls.make_callable_wrapper(expected)
-            else:
-                expected = space.wrap(expected)
-            cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))
-        if cls.runappdirect:
-            cls.w_cases = space.appexec([], """():
-                from rpython.rtyper.lltypesystem.module.test.math_testcase import MathTests
-                return MathTests.TESTCASES
-            """)
-        else:
-            cls.w_cases = space.newlist(cases)
+        cls.w_math_cases = space.wrap(filename)
         cls.w_consistent_host = space.wrap(test_direct.consistent_host)
 
     @classmethod
@@ -51,11 +28,34 @@ class AppTestMath:
     def w_ftest(self, actual, expected):
         assert abs(actual - expected) < 10E-5
 
+    def w_cases(self):
+        with open(self.math_cases) as f:
+            mod = compile(f.read(), "math_cases.py", "exec")
+        ns = {}
+        eval(mod, ns)
+        TESTCASES = ns['MathTests'].TESTCASES
+        INFINITY = ns['INFINITY']
+        NAN = ns['NAN']
+
+        for fnname, args, expected in TESTCASES:
+            # marked as OverflowError to match 2.x/ll_math in
+            # test_direct, but this is a ValueError on 3.x
+            if (fnname, args, expected) == ('log1p', (-1.0,), OverflowError):
+                expected = ValueError
+            # 3.x ceil/floor differ from 2.x
+            if fnname in ('ceil', 'floor'):
+                if args[0] in (INFINITY, -INFINITY):
+                    expected = OverflowError
+                elif args[0] is NAN:
+                    expected = ValueError
+
+            yield fnname, args, expected
+
     def test_all_cases(self):
         if not self.consistent_host:
             skip("please test this on top of PyPy or CPython >= 2.6")
         import math
-        for fnname, args, expected in self.cases:
+        for fnname, args, expected in self.cases():
             fn = getattr(math, fnname)
             print(fn, args, expected)
             try:
