@@ -673,6 +673,15 @@ class TestNonInteractive:
         data = self.run('-c "print(6**5)"')
         assert '7776' in data
 
+    def test_option_c_unencodable(self):
+        data, status = self.run_with_status_code(b"""-c 'print(b"\xff")'""",
+                                                 env={'LC_ALL': 'C'})
+        assert status in (0, 1)
+        pattern = ("Unable to decode the command from the command line:"
+                   if status else
+                   "'\\xff' ")
+        assert data.startswith(pattern)
+
     def test_no_pythonstartup(self, monkeypatch, demo_script, crashing_demo_script):
         monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
         data = self.run('"%s"' % (demo_script,))
