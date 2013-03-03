@@ -4,7 +4,8 @@ import pygame
 from pygame.locals import *
 from drawgraph import GraphRenderer, FIXEDFONT
 from drawgraph import Node, Edge
-from drawgraph import EventQueue, wait_for_events, forceunicode, forcestr
+from drawgraph import EventQueue, wait_for_events
+from strunicode import forceunicode, forcestr
 
 
 METAKEYS = dict([
