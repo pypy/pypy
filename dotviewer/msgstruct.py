@@ -24,9 +24,15 @@ long_min = -2147483648
 long_max = 2147483647
 
 
+def _encodeme(x):
+    if type(x) is unicode:
+        x = x.encode('utf-8')
+    return x
+
 def message(tp, *values):
     #print >> sys.stderr, tp, values
     typecodes = ['']
+    values = map(_encodeme, values)
     for v in values:
         if type(v) is str:
             typecodes.append('%ds' % len(v))

@@ -7,13 +7,14 @@ import collections
 
 from rpython.tool.error import source_lines
 from rpython.tool.stdlib_opcode import host_bytecode_spec
-from rpython.flowspace.argument import ArgumentsForTranslation
+from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-    c_last_exception)
+    c_last_exception, SpaceOperation)
 from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
     recursively_flatten)
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
+from rpython.flowspace.operation import implicit_exceptions
 
 
 class FlowingError(Exception):
@@ -361,11 +362,6 @@ class FlowSpaceFrame(object):
             "peek past the bottom of the stack")
         return self.locals_stack_w[index]
 
-    def pushrevvalues(self, n, values_w): # n should be len(values_w)
-        assert len(values_w) == n
-        for i in range(n - 1, -1, -1):
-            self.pushvalue(values_w[i])
-
     def settopvalue(self, w_object, index_from_top=0):
         index = self.valuestackdepth + ~index_from_top
         assert index >= self.pycode.co_nlocals, (
@@ -375,16 +371,6 @@ class FlowSpaceFrame(object):
     def popvalues(self, n):
         values_w = [self.popvalue() for i in range(n)]
         values_w.reverse()
-        return values_w
-
-    def peekvalues(self, n):
-        values_w = [None] * n
-        base = self.valuestackdepth - n
-        while True:
-            n -= 1
-            if n < 0:
-                break
-            values_w[n] = self.locals_stack_w[base + n]
         return values_w
 
     def dropvalues(self, n):
@@ -472,6 +458,17 @@ class FlowSpaceFrame(object):
 
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
+
+    def do_operation(self, name, *args_w):
+        spaceop = SpaceOperation(name, args_w, Variable())
+        spaceop.offset = self.last_instr
+        self.record(spaceop)
+        return spaceop.result
+
+    def do_operation_with_implicit_exceptions(self, name, *args_w):
+        w_result = self.do_operation(name, *args_w)
+        self.handle_implicit_exceptions(implicit_exceptions.get(name))
+        return w_result
 
     def handle_implicit_exceptions(self, exceptions):
         """
@@ -742,7 +739,7 @@ class FlowSpaceFrame(object):
     def YIELD_VALUE(self, _, next_instr):
         assert self.pycode.is_generator
         w_result = self.popvalue()
-        self.space.do_operation('yield', w_result)
+        self.do_operation('yield', w_result)
         # XXX yield expressions not supported. This will blow up if the value
         # isn't popped straightaway.
         self.pushvalue(None)
@@ -753,7 +750,7 @@ class FlowSpaceFrame(object):
 
     def PRINT_ITEM(self, oparg, next_instr):
         w_item = self.popvalue()
-        w_s = self.space.do_operation('str', w_item)
+        w_s = self.do_operation('str', w_item)
         self.space.appcall(rpython_print_item, w_s)
 
     def PRINT_NEWLINE(self, oparg, next_instr):
@@ -961,26 +958,18 @@ class FlowSpaceFrame(object):
         self.pushvalue(last_val)
 
     def call_function(self, oparg, w_star=None, w_starstar=None):
+        if w_starstar is not None:
+            raise FlowingError(self, "Dict-unpacking is not RPython")
         n_arguments = oparg & 0xff
         n_keywords = (oparg >> 8) & 0xff
-        if n_keywords:
-            keywords = [None] * n_keywords
-            keywords_w = [None] * n_keywords
-            while True:
-                n_keywords -= 1
-                if n_keywords < 0:
-                    break
-                w_value = self.popvalue()
-                w_key = self.popvalue()
-                key = self.space.str_w(w_key)
-                keywords[n_keywords] = key
-                keywords_w[n_keywords] = w_value
-        else:
-            keywords = None
-            keywords_w = None
+        keywords = {}
+        for _ in range(n_keywords):
+            w_value = self.popvalue()
+            w_key = self.popvalue()
+            key = self.space.str_w(w_key)
+            keywords[key] = w_value
         arguments = self.popvalues(n_arguments)
-        args = ArgumentsForTranslation(self.space, arguments, keywords,
-                keywords_w, w_star, w_starstar)
+        args = CallSpec(arguments, keywords, w_star, w_starstar)
         w_function = self.popvalue()
         w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
@@ -1017,8 +1006,9 @@ class FlowSpaceFrame(object):
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
-        items = self.space.unpackiterable(w_iterable, itemcount)
-        self.pushrevvalues(itemcount, items)
+        items = self.space.unpack_sequence(w_iterable, itemcount)
+        for w_item in reversed(items):
+            self.pushvalue(w_item)
 
     def slice(self, w_start, w_end):
         w_obj = self.popvalue()

@@ -1,18 +1,20 @@
 __all__ = [
-           'asanyarray', 'base_repr',
+           'newaxis', 'ufunc',
+           'asarray', 'asanyarray', 'base_repr',
            'array_repr', 'array_str', 'set_string_function',
-           'array_equal', 'asarray', 'outer', 'identity', 'little_endian',
+           'array_equal', 'outer', 'identity', 'little_endian',
            'Inf', 'inf', 'infty', 'Infinity', 'nan', 'NaN', 'False_', 'True_',
           ]
 
-from _numpypy import array, ndarray, int_, float_, bool_, flexible #, complex_# , longlong
-from _numpypy import concatenate
-from .fromnumeric import any
 import sys
 import multiarray
+from multiarray import *
+del set_string_function
+del typeinfo
 import umath
 from umath import *
-from numpypy.core.arrayprint import array2string
+import numerictypes
+from numerictypes import *
 
 def extend_all(module):
     adict = {}
@@ -26,9 +28,13 @@ def extend_all(module):
         if a not in adict:
             __all__.append(a)
 
+extend_all(multiarray)
+__all__.remove('typeinfo')
 extend_all(umath)
+extend_all(numerictypes)
 
 newaxis = None
+ufunc = type(sin)
 
 # XXX this file to be reviewed
 def seterr(**args):
@@ -138,6 +144,10 @@ def base_repr(number, base=2, padding=0):
     if number < 0:
         res.append('-')
     return ''.join(reversed(res or '0'))
+
+
+#Use numarray's printing function
+from arrayprint import array2string
 
 _typelessdata = [int_, float_]#, complex_]
 # XXX
@@ -324,6 +334,11 @@ def set_string_function(f, repr=True):
     else:
         return multiarray.set_string_function(f, repr)
 
+set_string_function(array_str, 0)
+set_string_function(array_repr, 1)
+
+little_endian = (sys.byteorder == 'little')
+
 def array_equal(a1, a2):
     """
     True if two arrays have the same shape and elements, False otherwise.
@@ -435,16 +450,6 @@ def asarray(a, dtype=None, order=None):
     """
     return array(a, dtype, copy=False, order=order)
 
-set_string_function(array_str, 0)
-set_string_function(array_repr, 1)
-
-little_endian = (sys.byteorder == 'little')
-
-Inf = inf = infty = Infinity = PINF
-nan = NaN = NAN
-False_ = bool_(False)
-True_ = bool_(True)
-
 def outer(a,b):
     """
     Compute the outer product of two vectors.
@@ -548,3 +553,12 @@ def identity(n, dtype=None):
     """
     from numpy import eye
     return eye(n, dtype=dtype)
+
+Inf = inf = infty = Infinity = PINF
+nan = NaN = NAN
+False_ = bool_(False)
+True_ = bool_(True)
+
+import fromnumeric
+from fromnumeric import *
+extend_all(fromnumeric)

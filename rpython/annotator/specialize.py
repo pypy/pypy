@@ -111,7 +111,8 @@ class MemoTable(object):
 
     def absorb(self, other):
         self.table.update(other.table)
-        self.graph = None   # just in case
+        assert self.graph is None, "too late for MemoTable merge!"
+        del other.graph   # just in case
         other.do_not_process = True
 
     fieldnamecounter = 0

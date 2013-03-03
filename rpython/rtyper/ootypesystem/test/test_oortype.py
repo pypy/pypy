@@ -5,7 +5,6 @@ from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.ootypesystem.rlist import ListRepr
 from rpython.rtyper.rint import signed_repr
 from rpython.annotator import model as annmodel
-from rpython.flowspace.objspace import FlowObjSpace
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.objectmodel import r_dict
@@ -25,7 +24,7 @@ def gengraph(f, args=[], viewBefore=False, viewAfter=False, mangle=True):
 
 def test_simple_class():
     C = Instance("test", ROOT, {'a': Signed})
-    
+
     def f():
         c = new(C)
         return c
@@ -33,10 +32,10 @@ def test_simple_class():
     g = gengraph(f)
     rettype = g.getreturnvar().concretetype
     assert rettype == C
-    
+
 def test_simple_field():
     C = Instance("test", ROOT, {'a': (Signed, 3)})
-    
+
     def f():
         c = new(C)
         c.a = 5
@@ -45,7 +44,7 @@ def test_simple_field():
     g = gengraph(f)
     rettype = g.getreturnvar().concretetype
     assert rettype == Signed
-    
+
 def test_simple_method():
     C = Instance("test", ROOT, {'a': (Signed, 3)})
     M = Meth([], Signed)
@@ -53,7 +52,7 @@ def test_simple_method():
        return self.a
     m = meth(M, _name="m", _callable=m_)
     addMethods(C, {"m": m})
-    
+
     def f():
         c = new(C)
         return c.m()
@@ -83,7 +82,7 @@ def test_truth_value():
 
 def test_simple_classof():
     I = Instance("test", ROOT, {'a': Signed})
-    
+
     def oof():
         i = new(I)
         return classof(i)
@@ -94,8 +93,8 @@ def test_simple_classof():
 
 def test_subclassof():
     I = Instance("test", ROOT, {'a': Signed})
-    I1 = Instance("test1", I) 
-    
+    I1 = Instance("test1", I)
+
     def oof():
         i = new(I)
         i1 = new(I1)
@@ -171,7 +170,7 @@ def test_ootypeintro():
     class A:
         def method(self, number):
             return number + 2
-    
+
     def oof():
         a = A()
         return a.method(3)
@@ -188,8 +187,8 @@ def test_is_exception_instance():
         t.view()
     rtyper = t.buildrtyper(type_system="ootype")
     rtyper.specialize()
-    graph = graphof(t, f) 
-    
+    graph = graphof(t, f)
+
     INST = graph.getreturnvar().concretetype
     assert rtyper.exceptiondata.is_exception_instance(INST)
 
@@ -297,7 +296,7 @@ def test_pbc_record():
 
     def oof():
         return r.foo
-    
+
     res = interpret(oof, [], type_system='ootype')
     assert res == 42
 
@@ -347,7 +346,7 @@ def test_method_wrapper():
         lst = L.ll_newlist(1)
         lst.ll_setitem_fast(0, 42)
         return wrapper(lst, 0)
-    
+
     res = interpret(fn, [], type_system='ootype')
     assert res == 42
 

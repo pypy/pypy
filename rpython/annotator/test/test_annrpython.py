@@ -13,7 +13,7 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import FlowObjSpace, FlowingError
+from rpython.flowspace.objspace import build_flow, FlowingError
 
 from rpython.translator.test import snippet
 
@@ -40,9 +40,6 @@ def somedict(s_key, s_value):
 
 
 class TestAnnotateTestCase:
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-
     def teardown_method(self, meth):
         assert annmodel.s_Bool == annmodel.SomeBool()
 
@@ -60,7 +57,7 @@ class TestAnnotateTestCase:
         except AttributeError:
             pass
         name = func.func_name
-        funcgraph = self.space.build_flow(func)
+        funcgraph = build_flow(func)
         funcgraph.source = inspect.getsource(func)
         return funcgraph
 
@@ -775,7 +772,7 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomePBC)
         assert s.const == myobj
 
-    def test_cleanup_protocol(self): 
+    def test_cleanup_protocol(self):
         class Stuff:
             def __init__(self):
                 self.called = False
@@ -3754,7 +3751,7 @@ class TestAnnotateTestCase:
 
     def test_join_none_and_nonnull(self):
         from rpython.rlib.rstring import assert_str0
-        
+
         def f(i):
             a = str(i)
             a = assert_str0(a)
@@ -3798,7 +3795,7 @@ class TestAnnotateTestCase:
         class A(object):
             def __iter__(self):
                 return self
-        
+
         def fn():
             return iter(A())
 
@@ -3857,7 +3854,7 @@ class TestAnnotateTestCase:
                 return True
 
         x = X()
-        
+
         def f(i):
             if i:
                 x1 = x

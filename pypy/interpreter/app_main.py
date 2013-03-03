@@ -564,7 +564,7 @@ def run_command_line(interactive,
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print
                 # a banner and run $PYTHONSTARTUP.
-                print_banner()
+                print_banner(not no_site)
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
@@ -645,10 +645,11 @@ def run_command_line(interactive,
 
     return status
 
-def print_banner():
+def print_banner(copyright):
     print 'Python %s on %s' % (sys.version, sys.platform)
-    print ('Type "help", "copyright", "credits" or '
-           '"license" for more information.')
+    if copyright:
+        print ('Type "help", "copyright", "credits" or '
+               '"license" for more information.')
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.
