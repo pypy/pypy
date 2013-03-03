@@ -63,7 +63,7 @@ varnames: ('obj',)
 cellvars: ()
 freevars: ()
 nlocals: 1
-flags: 67
+flags: 524355
 consts: ('None',)
 
 >>> def optimize_away():
@@ -105,6 +105,7 @@ consts: ('None',)
 import unittest
 import weakref
 import _testcapi
+from test import support
 
 
 def consts(t):
@@ -154,6 +155,7 @@ class CodeWeakRefTest(unittest.TestCase):
         coderef = weakref.ref(f.__code__, callback)
         self.assertTrue(bool(coderef()))
         del f
+        support.gc_collect()
         self.assertFalse(bool(coderef()))
         self.assertTrue(self.called)
 
