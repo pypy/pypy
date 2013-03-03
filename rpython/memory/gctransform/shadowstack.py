@@ -1,6 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import rgc
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -400,8 +401,8 @@ def get_shadowstackref(gctransformer):
         if h:
             _c.destroy(h)
 
-    DESTRFUNC = lltype.FuncType([SHADOWSTACKREFPTR], lltype.Void)
-    destrptr = llhelper(lltype.Ptr(DESTRFUNC), shadowstack_destructor)
+    destrptr = gctransformer.annotate_helper(shadowstack_destructor,
+                                             [SHADOWSTACKREFPTR], lltype.Void)
 
     lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr,
                                  destrptr=destrptr)

@@ -1228,14 +1228,9 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
                 [llmemory.Address], lltype.Void)
         try:
             g = destrptr._obj.graph
-        except AttributeError:
-            # hack hack hack
-            self.transformer.annotate_finalizer(
-                destrptr._obj._callable, [DESTR_ARG], lltype.Void)
-            g = self.transformer._last_annotated_graph
-            destrptr._obj.__dict__['graph'] = g
-            #
-        light = not FinalizerAnalyzer(self.translator).analyze_light_finalizer(g)
+            light = not FinalizerAnalyzer(self.translator).analyze_light_finalizer(g)
+        except lltype.DelayedPointer:
+            light = False    # XXX bah, too bad
         return fptr, light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):

@@ -318,8 +318,8 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
             fptrs = gctransf.special_funcptr_for_type(TYPE)
             # make sure this is seen by the database early, i.e. before
             # finish_helpers() on the gctransformer
-            #destrptr = rtti._obj.destructor_funcptr
-            #self.db.get(destrptr)
+            destrptr = rtti._obj.destructor_funcptr
+            self.db.get(destrptr)
             # the following, on the other hand, will only discover ll_finalizer
             # helpers.  The get() sees and records a delayed pointer.  It is
             # still important to see it so that it can be followed as soon as

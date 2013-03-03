@@ -1,8 +1,8 @@
-from rpython.rlib import _rffi_stacklet as _c
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
+from rpython.annotator import model as annmodel
 
 
 _asmstackrootwalker = None    # BIG HACK: monkey-patched by asmgcroot.py
@@ -126,8 +126,19 @@ def get_stackletrootwalker():
             return _c._translate_pointer(self.context, addr)
 
     _stackletrootwalker = StackletRootWalker()
+    _asmstackrootwalker.gctransformer._hack_call_later = complete_destrptr
     return _stackletrootwalker
 get_stackletrootwalker._annspecialcase_ = 'specialize:memo'
+
+def complete_destrptr(gctransformer):
+    translator = gctransformer.translator
+    mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+    args_s = [annmodel.lltype_to_annotation(lltype.Ptr(SUSPSTACK))]
+    s_result = annmodel.s_None
+    destrptr = mixlevelannotator.delayedfunction(suspstack_destructor,
+                                                 args_s, s_result)
+    mixlevelannotator.finish()
+    lltype.attachRuntimeTypeInfo(SUSPSTACK, destrptr=destrptr)
 
 
 def customtrace(obj, prev):
@@ -148,12 +159,7 @@ NULL_SUSPSTACK = lltype.nullptr(SUSPSTACK)
 CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                   llmemory.Address)
 customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-
-DESTRFUNC = lltype.FuncType([lltype.Ptr(SUSPSTACK)], lltype.Void)
-destrptr = llhelper(lltype.Ptr(DESTRFUNC), suspstack_destructor)
-
-lltype.attachRuntimeTypeInfo(SUSPSTACK, customtraceptr=customtraceptr,
-                             destrptr=destrptr)
+lltype.attachRuntimeTypeInfo(SUSPSTACK, customtraceptr=customtraceptr)
 
 ASM_FRAMEDATA_HEAD_PTR = lltype.Ptr(lltype.ForwardReference())
 ASM_FRAMEDATA_HEAD_PTR.TO.become(lltype.Struct('ASM_FRAMEDATA_HEAD',

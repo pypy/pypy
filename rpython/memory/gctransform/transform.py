@@ -267,7 +267,6 @@ class BaseGCTransformer(object):
         if inline:
             self.graphs_to_inline[graph] = True
         FUNCTYPE = lltype.FuncType(ll_args, ll_result)
-        self._last_annotated_graph = graph
         return self.mixlevelannotator.graph2delayed(graph, FUNCTYPE=FUNCTYPE)
 
     def inittime_helper(self, ll_helper, ll_args, ll_result, inline=True):
@@ -282,6 +281,10 @@ class BaseGCTransformer(object):
     def finish_helpers(self, backendopt=True):
         if self.translator is not None:
             self.mixlevelannotator.finish_annotate()
+            if hasattr(self, '_hack_call_later'):
+                f = self._hack_call_later
+                del self._hack_call_later
+                f(self)
         self.finished_helpers = True
         if self.translator is not None:
             self.mixlevelannotator.finish_rtype()
