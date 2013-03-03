@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.annotator import model as annmodel
+from rpython.rlib import _rffi_stacklet as _c
 
 
 _asmstackrootwalker = None    # BIG HACK: monkey-patched by asmgcroot.py
