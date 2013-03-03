@@ -26,7 +26,7 @@ from rpython.rlib.rstring import StringBuilder
 class Buffer(Wrappable):
     """Abstract base class for memory views."""
 
-    __slots__ = ()     # no extra slot here
+    __slots__ = ('format', 'itemsize')
 
     def getlength(self):
         raise NotImplementedError

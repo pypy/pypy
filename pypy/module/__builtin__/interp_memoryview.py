@@ -112,10 +112,10 @@ class W_MemoryView(Wrappable):
 
     def w_get_format(self, space):
         self._check_released(space)
-        return space.wrap("B")
+        return space.wrap(self.buf.format)
     def w_get_itemsize(self, space):
         self._check_released(space)
-        return space.wrap(1)
+        return space.wrap(self.buf.itemsize)
     def w_get_ndim(self, space):
         self._check_released(space)
         return space.wrap(1)
@@ -127,7 +127,7 @@ class W_MemoryView(Wrappable):
         return space.newtuple([space.wrap(self.getlength())])
     def w_get_strides(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(1)])
+        return space.newtuple([space.wrap(self.buf.itemsize)])
     def w_get_suboffsets(self, space):
         self._check_released(space)
         # I've never seen anyone filling this field

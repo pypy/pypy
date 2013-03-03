@@ -156,16 +156,20 @@ unroll_typecodes = unrolling_iterable(types.keys())
 class ArrayBuffer(RWBuffer):
     def __init__(self, array):
         self.array = array
+        self.format = array.typecode
+        self.itemsize = array.itemsize
 
     def getlength(self):
-        return self.array.len * self.array.itemsize
+        return self.array.len
 
     def getitem(self, index):
+        resbuf = ['\x00'] * self.itemsize
         array = self.array
         data = array._charbuf_start()
-        char = data[index]
+        for i in xrange(self.itemsize):
+            resbuf[i] = data[index + i]
         array._charbuf_stop()
-        return char
+        return ''.join(resbuf)
 
     def setitem(self, index, char):
         array = self.array
