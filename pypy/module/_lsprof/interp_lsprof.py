@@ -2,7 +2,7 @@ import py
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.function import Method, Function
+from pypy.interpreter.function import BuiltinFunction, Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
@@ -214,7 +214,8 @@ def create_spec_for_function(space, w_func):
             module = ''
         else:
             module += '.'
-    return '{%s%s}' % (module, w_func.name)
+    pre = 'built-in function ' if isinstance(w_func, BuiltinFunction) else ''
+    return '{%s%s%s}' % (pre, module, w_func.name)
 
 
 @jit.elidable_promote()
