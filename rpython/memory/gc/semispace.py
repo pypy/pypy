@@ -494,7 +494,7 @@ class SemiSpaceGC(MovingGCBase):
                 new_objects.append(self.get_forwarding_address(obj))
             else:
                 finalizer = self.getfinalizer(self.get_type_id(obj))
-                finalizer(obj, llmemory.NULL)
+                finalizer(obj)
         self.objects_with_light_finalizers.delete()
         self.objects_with_light_finalizers = new_objects
 

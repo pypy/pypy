@@ -226,10 +226,6 @@ class ShadowStackRootWalker(BaseRootWalker):
             ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
             return ssref.context
 
-        def gc_shadowstackref_destroy(gcref):
-            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
-            shadow_stack_pool.destroy(ssref)
-
         def gc_save_current_state_away(gcref, ncontext):
             ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
             shadow_stack_pool.save_current_state_away(ssref, ncontext)
@@ -251,9 +247,6 @@ class ShadowStackRootWalker(BaseRootWalker):
                                                minimal_transform=False)
         self.gc_shadowstackref_context_ptr = getfn(gc_shadowstackref_context,
                                                    [s_gcref], s_addr,
-                                                   inline=True)
-        self.gc_shadowstackref_destroy_ptr = getfn(gc_shadowstackref_destroy,
-                                                   [s_gcref], annmodel.s_None,
                                                    inline=True)
         self.gc_save_current_state_away_ptr = getfn(gc_save_current_state_away,
                                                     [s_gcref, s_addr],
@@ -340,10 +333,6 @@ class ShadowStackPool(object):
         self.gcdata.root_stack_top  = self.unused_full_stack
         self.unused_full_stack = llmemory.NULL
 
-    def destroy(self, shadowstackref):
-        llmemory.raw_free(shadowstackref.base)
-        self._cleanup(shadowstackref)
-
     def _cleanup(self, shadowstackref):
         shadowstackref.base = llmemory.NULL
         shadowstackref.top = llmemory.NULL
@@ -402,7 +391,20 @@ def get_shadowstackref(gctransformer):
     CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                       llmemory.Address)
     customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-    lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr)
+
+    def shadowstack_destructor(shadowstackref):
+        from rpython.rlib import _rffi_stacklet as _c
+        h = shadowstackref.context
+        h = llmemory.cast_adr_to_ptr(h, _c.handle)
+        llmemory.raw_free(shadowstackref.base)
+        if h:
+            _c.destroy(h)
+
+    DESTRFUNC = lltype.FuncType([SHADOWSTACKREFPTR], lltype.Void)
+    destrptr = llhelper(lltype.Ptr(DESTRFUNC), shadowstack_destructor)
+
+    lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr,
+                                 destrptr=destrptr)
 
     gctransformer._SHADOWSTACKREF = SHADOWSTACKREF
     return SHADOWSTACKREF

@@ -134,6 +134,11 @@ def customtrace(obj, prev):
     stackletrootwalker = get_stackletrootwalker()
     return stackletrootwalker.next(obj, prev)
 
+def suspstack_destructor(suspstack):
+    h = suspstack.handle
+    if h:
+        _c.destroy(h)
+
 
 SUSPSTACK = lltype.GcStruct('SuspStack',
                             ('handle', _c.handle),
@@ -143,7 +148,12 @@ NULL_SUSPSTACK = lltype.nullptr(SUSPSTACK)
 CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                   llmemory.Address)
 customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-lltype.attachRuntimeTypeInfo(SUSPSTACK, customtraceptr=customtraceptr)
+
+DESTRFUNC = lltype.FuncType([lltype.Ptr(SUSPSTACK)], lltype.Void)
+destrptr = llhelper(lltype.Ptr(DESTRFUNC), suspstack_destructor)
+
+lltype.attachRuntimeTypeInfo(SUSPSTACK, customtraceptr=customtraceptr,
+                             destrptr=destrptr)
 
 ASM_FRAMEDATA_HEAD_PTR = lltype.Ptr(lltype.ForwardReference())
 ASM_FRAMEDATA_HEAD_PTR.TO.become(lltype.Struct('ASM_FRAMEDATA_HEAD',
@@ -169,7 +179,7 @@ def _new_callback():
     # stacklet with stacklet_new().  If this call fails, then we
     # are just returning NULL.
     _stack_just_closed()
-    return _c.new(gcrootfinder.thrd, llhelper(_c.run_fn, _new_runfn),
+    return _c.new(gcrootfinder.newthrd, llhelper(_c.run_fn, _new_runfn),
                   llmemory.NULL)
 
 def _stack_just_closed():
@@ -216,7 +226,7 @@ def _switch_callback():
     #
     # gcrootfinder.suspstack.anchor is left with the anchor of the
     # previous place (i.e. before the call to switch()).
-    h2 = _c.switch(gcrootfinder.thrd, h)
+    h2 = _c.switch(h)
     #
     if not h2:    # MemoryError: restore
         gcrootfinder.suspstack.anchor = oldanchor
@@ -228,7 +238,7 @@ class StackletGcRootFinder(object):
     suspstack = NULL_SUSPSTACK
 
     def new(self, thrd, callback, arg):
-        self.thrd = thrd._thrd
+        self.newthrd = thrd._thrd
         self.runfn = callback
         self.arg = arg
         # make a fresh new clean SUSPSTACK
@@ -240,8 +250,7 @@ class StackletGcRootFinder(object):
                                 alternateanchor)
         return self.get_result_suspstack(h)
 
-    def switch(self, thrd, suspstack):
-        self.thrd = thrd._thrd
+    def switch(self, suspstack):
         self.suspstack = suspstack
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _switch_callback),
                                 alternateanchor)
@@ -266,11 +275,6 @@ class StackletGcRootFinder(object):
         else:
             # This is a return that gave us a real handle.  Store it.
             return self.attach_handle_on_suspstack(h)
-
-    def destroy(self, thrd, suspstack):
-        h = suspstack.handle
-        suspstack.handle = _c.null_handle
-        _c.destroy(thrd._thrd, h)
 
     def is_empty_handle(self, suspstack):
         return not suspstack
