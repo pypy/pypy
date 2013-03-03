@@ -302,7 +302,6 @@ class LLHelpers(AbstractLLHelpers):
             b.chars[i] = str.chars[i]
         return b
 
-    @jit.look_inside_iff(lambda s: jit.isvirtual(s))
     @jit.elidable
     def ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
