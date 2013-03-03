@@ -240,12 +240,10 @@ class AppTestBufferedWriter:
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        if cls.runappdirect:
-            cls.w_readfile = tmpfile.read
-        else:
-            def readfile(space):
-                return space.wrapbytes(tmpfile.read())
-            cls.w_readfile = cls.space.wrap(interp2app(readfile))
+
+    def w_readfile(self):
+        with open(self.tmpfile, 'rb') as f:
+            return f.read()
 
     def test_write(self):
         import _io
