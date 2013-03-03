@@ -127,7 +127,6 @@ def get_stackletrootwalker():
             return _c._translate_pointer(self.context, addr)
 
     _stackletrootwalker = StackletRootWalker()
-    _asmstackrootwalker.gctransformer._hack_call_later = complete_destrptr
     return _stackletrootwalker
 get_stackletrootwalker._annspecialcase_ = 'specialize:memo'
 

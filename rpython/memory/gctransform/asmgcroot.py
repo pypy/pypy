@@ -145,6 +145,7 @@ class AsmStackRootWalker(BaseRootWalker):
         # stacklet support: BIG HACK for rlib.rstacklet
         from rpython.rlib import _stacklet_asmgcc
         _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
+        _stacklet_asmgcc.complete_destrptr(gctransformer)
 
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.
