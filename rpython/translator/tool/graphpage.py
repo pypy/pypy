@@ -425,6 +425,8 @@ def try_show(obj):
                     if block not in seen:
                         pending.append(block)
                         seen[block] = True
+                elif isinstance(y, dict):
+                    pending.append(y)   # go back from the dict to the real obj
         graph = IncompleteGraph(pending)
         SingleGraphPage(graph).display()
     else:

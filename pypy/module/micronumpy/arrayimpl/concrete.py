@@ -416,8 +416,8 @@ class ArrayBuffer(RWBuffer):
         return raw_storage_getitem(lltype.Char, self.impl.storage, item)
 
     def setitem(self, item, v):
-        return raw_storage_setitem(self.impl.storage, item,
-                                   rffi.cast(lltype.Char, v))
+        raw_storage_setitem(self.impl.storage, item,
+                            rffi.cast(lltype.Char, v))
 
     def getlength(self):
         return self.impl.size

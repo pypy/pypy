@@ -5,6 +5,8 @@ from rpython.rlib.rfloat import break_up_float
 from rpython.rlib.rfloat import copysign
 from rpython.rlib.rfloat import round_away
 from rpython.rlib.rfloat import round_double
+from rpython.rlib.rfloat import erf, erfc, gamma, lgamma, isnan
+from rpython.rlib.rfloat import ulps_check, acc_check
 from rpython.rlib.rbigint import rbigint
 
 def test_copysign():
@@ -129,3 +131,104 @@ def test_float_as_rbigint_ratio():
         float_as_rbigint_ratio(float('-inf'))
     with py.test.raises(ValueError):
         float_as_rbigint_ratio(float('nan'))
+
+def test_mtestfile():
+    from rpython.rlib import rfloat
+    import zipfile
+    import os
+    def _parse_mtestfile(fname):
+        """Parse a file with test values
+
+        -- starts a comment
+        blank lines, or lines containing only a comment, are ignored
+        other lines are expected to have the form
+          id fn arg -> expected [flag]*
+
+        """
+        with open(fname) as fp:
+            for line in fp:
+                # strip comments, and skip blank lines
+                if '--' in line:
+                    line = line[:line.index('--')]
+                if not line.strip():
+                    continue
+
+                lhs, rhs = line.split('->')
+                id, fn, arg = lhs.split()
+                rhs_pieces = rhs.split()
+                exp = rhs_pieces[0]
+                flags = rhs_pieces[1:]
+
+                yield (id, fn, float(arg), float(exp), flags)
+
+    ALLOWED_ERROR = 20  # permitted error, in ulps
+    fail_fmt = "{}:{}({!r}): expected {!r}, got {!r}"
+
+    failures = []
+    math_testcases = os.path.join(os.path.dirname(__file__),
+                                  "math_testcases.txt")
+    for id, fn, arg, expected, flags in _parse_mtestfile(math_testcases):
+        func = getattr(rfloat, fn)
+
+        if 'invalid' in flags or 'divide-by-zero' in flags:
+            expected = 'ValueError'
+        elif 'overflow' in flags:
+            expected = 'OverflowError'
+
+        try:
+            got = func(arg)
+        except ValueError:
+            got = 'ValueError'
+        except OverflowError:
+            got = 'OverflowError'
+
+        accuracy_failure = None
+        if isinstance(got, float) and isinstance(expected, float):
+            if isnan(expected) and isnan(got):
+                continue
+            if not isnan(expected) and not isnan(got):
+                if fn == 'lgamma':
+                    # we use a weaker accuracy test for lgamma;
+                    # lgamma only achieves an absolute error of
+                    # a few multiples of the machine accuracy, in
+                    # general.
+                    accuracy_failure = acc_check(expected, got,
+                                              rel_err = 5e-15,
+                                              abs_err = 5e-15)
+                elif fn == 'erfc':
+                    # erfc has less-than-ideal accuracy for large
+                    # arguments (x ~ 25 or so), mainly due to the
+                    # error involved in computing exp(-x*x).
+                    #
+                    # XXX Would be better to weaken this test only
+                    # for large x, instead of for all x.
+                    accuracy_failure = ulps_check(expected, got, 2000)
+
+                else:
+                    accuracy_failure = ulps_check(expected, got, 20)
+                if accuracy_failure is None:
+                    continue
+
+        if isinstance(got, str) and isinstance(expected, str):
+            if got == expected:
+                continue
+
+        fail_msg = fail_fmt.format(id, fn, arg, expected, got)
+        if accuracy_failure is not None:
+            fail_msg += ' ({})'.format(accuracy_failure)
+        failures.append(fail_msg)
+    assert not failures
+
+
+def test_gamma_overflow_translated():
+    from rpython.translator.c.test.test_genc import compile
+    def wrapper(arg):
+        try:
+            return gamma(arg)
+        except OverflowError:
+            return -42
+
+    f = compile(wrapper, [float])
+    assert f(10.0) == 362880.0
+    assert f(1720.0) == -42
+    assert f(172.0) == -42
