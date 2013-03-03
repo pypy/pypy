@@ -27,6 +27,8 @@ class Buffer(Wrappable):
     """Abstract base class for memory views."""
 
     __slots__ = ('format', 'itemsize')
+    format = 'B'
+    itemsize = 1
 
     def getlength(self):
         raise NotImplementedError
