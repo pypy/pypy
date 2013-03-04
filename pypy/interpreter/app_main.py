@@ -117,8 +117,7 @@ def print_info(*args):
     except AttributeError:
         print('no translation information found', file=sys.stderr)
     else:
-        optitems = list(options.items())
-        optitems.sort()
+        optitems = sorted(options.items())
         current = []
         for key, value in optitems:
             group = key.split('.')
