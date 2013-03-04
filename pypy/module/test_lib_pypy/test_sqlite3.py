@@ -29,3 +29,20 @@ def test_connection_check_init():
     con = Connection(":memory:")
     e = pytest.raises(_sqlite3.ProgrammingError, "con.cursor()")
     assert '__init__' in e.value.message
+
+@pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
+def test_connection_del(tmpdir):
+    """For issue1325."""
+    import gc
+
+    def open_many(cleanup):
+        con = []
+        for i in range(1024):
+            con.append(_sqlite3.connect(str(tmpdir.join('test.db'))))
+            if cleanup:
+                con[i] = None
+                gc.collect(); gc.collect()
+
+    pytest.raises(_sqlite3.OperationalError, open_many, False)
+    gc.collect(); gc.collect()
+    open_many(True)

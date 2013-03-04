@@ -343,6 +343,10 @@ class Connection(object):
         if check_same_thread:
             self.thread_ident = thread_get_ident()
 
+    def __del__(self):
+        if self.db:
+            sqlite.sqlite3_close(self.db)
+
     def _get_exception(self, error_code = None):
         if error_code is None:
             error_code = sqlite.sqlite3_errcode(self.db)
