@@ -711,7 +711,7 @@ if __name__ == '__main__':
         from os.path import abspath, join, dirname as dn
         thisfile = abspath(__file__)
         root = dn(dn(dn(thisfile)))
-        return [join(root, 'lib-python', '2.7'),
+        return [join(root, 'lib-python', '2'),
                 join(root, 'lib_pypy')]
 
     def pypy_resolvedirof(s):

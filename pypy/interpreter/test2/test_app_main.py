@@ -889,7 +889,7 @@ class AppTestAppMain:
         # setup code for test_setup_bootstrap_path
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        cpy_ver = '%d' % CPYTHON_VERSION[0]
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
