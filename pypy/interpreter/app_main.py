@@ -120,8 +120,7 @@ def print_info(*args):
     except AttributeError:
         print >> sys.stderr, 'no translation information found'
     else:
-        optitems = options.items()
-        optitems.sort()
+        optitems = sorted(options.items())
         current = []
         for key, value in optitems:
             group = key.split('.')
@@ -151,8 +150,7 @@ def _print_jit_help():
     except ImportError:
         print >> sys.stderr, "No jit support in %s" % (sys.executable,)
         return
-    items = pypyjit.defaults.items()
-    items.sort()
+    items = sorted(pypyjit.defaults.items())
     print 'Advanced JIT options: a comma-separated list of OPTION=VALUE:'
     for key, value in items:
         print
