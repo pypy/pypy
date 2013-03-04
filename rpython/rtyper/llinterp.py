@@ -890,8 +890,6 @@ class LLFrame(object):
         raise NotImplementedError("gc_shadowstackref_new")
     def op_gc_shadowstackref_context(self):
         raise NotImplementedError("gc_shadowstackref_context")
-    def op_gc_shadowstackref_destroy(self):
-        raise NotImplementedError("gc_shadowstackref_destroy")
     def op_gc_save_current_state_away(self):
         raise NotImplementedError("gc_save_current_state_away")
     def op_gc_forget_current_state(self):

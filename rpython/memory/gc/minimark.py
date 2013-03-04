@@ -1890,7 +1890,7 @@ class MiniMarkGC(MovingGCBase):
             if not self.is_forwarded(obj):
                 finalizer = self.getlightfinalizer(self.get_type_id(obj))
                 ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj, llmemory.NULL)
+                finalizer(obj)
             else:
                 obj = self.get_forwarding_address(obj)
                 self.old_objects_with_light_finalizers.append(obj)
@@ -1911,7 +1911,7 @@ class MiniMarkGC(MovingGCBase):
                 # dying
                 finalizer = self.getlightfinalizer(self.get_type_id(obj))
                 ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj, llmemory.NULL)
+                finalizer(obj)
         self.old_objects_with_light_finalizers.delete()
         self.old_objects_with_light_finalizers = new_objects
 

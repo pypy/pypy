@@ -139,11 +139,13 @@ class AsmStackRootWalker(BaseRootWalker):
         if self._with_jit:
             jit2gc = gctransformer.translator._jit2gc
             self.frame_tid = jit2gc['frame_tid']
+        self.gctransformer = gctransformer
 
     def need_stacklet_support(self, gctransformer, getfn):
         # stacklet support: BIG HACK for rlib.rstacklet
         from rpython.rlib import _stacklet_asmgcc
         _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
+        _stacklet_asmgcc.complete_destrptr(gctransformer)
 
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.

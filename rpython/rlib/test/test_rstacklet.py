@@ -6,7 +6,7 @@ try:
 except CompilationError, e:
     py.test.skip("cannot import rstacklet: %s" % e)
 
-from rpython.rlib import rrandom
+from rpython.rlib import rrandom, rgc
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.c.test.test_standalone import StandaloneTests
@@ -72,7 +72,9 @@ class Runner:
             self.status = 0
             h = self.sthread.new(switchbackonce_callback,
                                  rffi.cast(llmemory.Address, 321))
-            self.sthread.destroy(h)
+            # 'h' ignored
+            if (i % 5000) == 2500:
+                rgc.collect()
 
     def any_alive(self):
         for task in self.tasks:

@@ -518,7 +518,6 @@ LL_OPERATIONS = {
     # for stacklet+shadowstack support
     'gc_shadowstackref_new':      LLOp(canmallocgc=True),
     'gc_shadowstackref_context':  LLOp(),
-    'gc_shadowstackref_destroy':  LLOp(),
     'gc_save_current_state_away': LLOp(),
     'gc_forget_current_state':    LLOp(),
     'gc_restore_state_from':      LLOp(),
