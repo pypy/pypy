@@ -176,6 +176,7 @@ def _wrap_strftime(object, format, timetuple):
         raise ValueError("year=%d is before 1900; the datetime strftime() "
                          "methods require year >= 1900" % year)
     # Don't call _utcoffset() or tzname() unless actually needed.
+    freplace = None # the string to use for %f
     zreplace = None # the string to use for %z
     Zreplace = None # the string to use for %Z
 
@@ -190,7 +191,12 @@ def _wrap_strftime(object, format, timetuple):
             if i < n:
                 ch = format[i]
                 i += 1
-                if ch == 'z':
+                if ch == 'f':
+                    if freplace is None:
+                        freplace = '%06d' % getattr(object,
+                                                    'microsecond', 0)
+                    newformat.append(freplace)
+                elif ch == 'z':
                     if zreplace is None:
                         zreplace = ""
                         if hasattr(object, "_utcoffset"):
@@ -213,11 +219,6 @@ def _wrap_strftime(object, format, timetuple):
                                 # strftime is going to have at this: escape %
                                 Zreplace = s.replace('%', '%%')
                     newformat.append(Zreplace)
-                elif ch == 'f':
-                    if isinstance(object, (time, datetime)):
-                        newformat.append('%06d' % object.microsecond)
-                    else:
-                        newformat.append('000000')
                 else:
                     push('%')
                     push(ch)
