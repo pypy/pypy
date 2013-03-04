@@ -1515,16 +1515,16 @@ class datetime(date):
 
         converter = _time.localtime if tz is None else _time.gmtime
 
-        if t < 0.0:
-            us = int(round(((-t) % 1.0) * 1000000))
-            if us > 0:
-                us = 1000000 - us
-                t -= 1.0
-        else:
-            us = int(round((t % 1.0) * 1000000))
-            if us == 1000000:
-                us = 0
-                t += 1.0
+        t, frac = divmod(t, 1.0)
+        us = int(round(frac * 1e6))
+
+        # If timestamp is less than one microsecond smaller than a
+        # full second, us can be rounded up to 1000000.  In this case,
+        # roll over to seconds, otherwise, ValueError is raised
+        # by the constructor.
+        if us == 1000000:
+            t += 1
+            us = 0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(t)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
         result = cls(y, m, d, hh, mm, ss, us, tz)
