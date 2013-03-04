@@ -113,6 +113,9 @@ def jitframe_trace(obj_addr, prev):
         elif fld == -3:
             (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -4
             return obj_addr + getofs('jf_guard_exc')
+        elif fld == -4:
+            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -5
+            return obj_addr + getofs('jf_forward')
         else:
             if not (obj_addr + getofs('jf_gcmap')).address[0]:
                 return llmemory.NULL    # done

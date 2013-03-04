@@ -296,20 +296,20 @@ def test_custom_tracer():
             assert all_addrs[counter] == frame_adr + jitframe.getofs(name)
             counter += 1
     # gcpattern
-    assert all_addrs[4] == indexof(0)
-    assert all_addrs[5] == indexof(1)
-    assert all_addrs[6] == indexof(3)
-    assert all_addrs[7] == indexof(5)
-    assert all_addrs[8] == indexof(7)
+    assert all_addrs[5] == indexof(0)
+    assert all_addrs[6] == indexof(1)
+    assert all_addrs[7] == indexof(3)
+    assert all_addrs[8] == indexof(5)
+    assert all_addrs[9] == indexof(7)
     if sys.maxint == 2**31 - 1:
-        assert all_addrs[9] == indexof(31)
-        assert all_addrs[10] == indexof(33 + 32)
+        assert all_addrs[10] == indexof(31)
+        assert all_addrs[11] == indexof(33 + 32)
     else:
-        assert all_addrs[9] == indexof(63)
-        assert all_addrs[10] == indexof(65 + 64)
+        assert all_addrs[10] == indexof(63)
+        assert all_addrs[11] == indexof(65 + 64)
 
-    assert len(all_addrs) == 4 + 6 + 4
-    # 4 static fields, 4 addresses from gcmap, 2 from gcpattern
+    assert len(all_addrs) == 5 + 6 + 4
+    # 5 static fields, 4 addresses from gcmap, 2 from gcpattern
     lltype.free(frame_info, flavor='raw')
     lltype.free(frame.jf_gcmap, flavor='raw')
 
