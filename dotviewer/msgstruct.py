@@ -1,6 +1,6 @@
 import sys, os
 from struct import pack, unpack, calcsize
-from strunicode import forceencoded
+from strunicode import tryencode
 
 MAGIC = -0x3b83728b
 
@@ -28,7 +28,7 @@ long_max = 2147483647
 def message(tp, *values):
     #print >> sys.stderr, tp, values
     typecodes = ['']
-    values = map(forceencoded, values)
+    values = map(tryencode, values)
     for v in values:
         if type(v) is str:
             typecodes.append('%ds' % len(v))

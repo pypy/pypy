@@ -3,7 +3,7 @@
 #
 import py
 import codecs
-from dotviewer.strunicode import RAW_ENCODING, forcestr, forceunicode, forceencoded
+from dotviewer.strunicode import RAW_ENCODING, forcestr, forceunicode, tryencode
 
 SOURCE1 = u"""digraph G{
 λ -> b
@@ -61,7 +61,7 @@ class TestUnicodeUtil(object):
         sut =      [1,   u"a", "miau", u"λ"]
         expected = [int, str,  str   , str ]
 
-        results = map(forceencoded, sut)
+        results = map(tryencode, sut)
 
 
         for result, expected_type in zip(results, expected):

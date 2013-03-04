@@ -10,6 +10,6 @@ def forcestr(name):
     """ returns `name` as (possibly `RAW_ENCODING` encoded) string, even if it wasn't before  """
     return name if isinstance(name, str) else name.encode(RAW_ENCODING, ENCODING_ERROR_HANDLING)
 
-def forceencoded(name):
+def tryencode(name):
     """ returns `name` as encoded string if it was unicode before """
     return name.encode(RAW_ENCODING, ENCODING_ERROR_HANDLING) if isinstance(name, unicode) else name
