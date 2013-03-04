@@ -9,7 +9,7 @@ from test.test_profile import ProfileTest, regenerate_expected_output
 
 class CProfileTest(ProfileTest):
     profilerclass = cProfile.Profile
-    expected_max_output = "{built-in method max}"
+    expected_max_output = "{built-in function max}"
 
     def get_expected_output(self):
         return _ProfileOutput
@@ -68,8 +68,8 @@ profilee.py:88(helper2)                           <-       6    0.234    0.300  
 profilee.py:98(subhelper)                         <-       8    0.064    0.080  profilee.py:88(helper2)
 {built-in function hasattr}                       <-       4    0.000    0.004  profilee.py:73(helper1)
                                                            8    0.000    0.008  profilee.py:88(helper2)
-{method 'append' of 'list' objects}               <-       4    0.000    0.000  profilee.py:73(helper1)
-{built-in function sys.exc_info}                  <-       4    0.000    0.000  profilee.py:73(helper1)"""
+{built-in function sys.exc_info}                  <-       4    0.000    0.000  profilee.py:73(helper1)
+{method 'append' of 'list' objects}               <-       4    0.000    0.000  profilee.py:73(helper1)"""
 _ProfileOutput['print_callees'] = """\
 <string>:1(<module>)                              ->       1    0.270    1.000  profilee.py:25(testfunc)
 profilee.py:110(__getattr__)                      ->
