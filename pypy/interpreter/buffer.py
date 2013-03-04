@@ -26,7 +26,7 @@ from rpython.rlib.rstring import StringBuilder
 class Buffer(Wrappable):
     """Abstract base class for memory views."""
 
-    _attrs_ = ('format', 'itemsize')
+    __slots__ = ('format', 'itemsize')
     format = 'B'
     itemsize = 1
 
