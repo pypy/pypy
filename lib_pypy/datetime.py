@@ -490,8 +490,8 @@ class timedelta(object):
             daysecondsfrac, daysecondswhole = _math.modf(dayfrac * (24.*3600.))
             assert daysecondswhole == int(daysecondswhole)  # can't overflow
             s = int(daysecondswhole)
-            assert days == long(days)
-            d = long(days)
+            assert days == int(days)
+            d = int(days)
         else:
             daysecondsfrac = 0.0
             d = days
@@ -503,8 +503,8 @@ class timedelta(object):
 
         if isinstance(seconds, float):
             secondsfrac, seconds = _math.modf(seconds)
-            assert seconds == long(seconds)
-            seconds = long(seconds)
+            assert seconds == int(seconds)
+            seconds = int(seconds)
             secondsfrac += daysecondsfrac
             assert abs(secondsfrac) <= 2.0
         else:
@@ -527,14 +527,14 @@ class timedelta(object):
 
         if isinstance(microseconds, float):
             microseconds += usdouble
-            microseconds = round(microseconds, 0)
+            microseconds = _round(microseconds)
             seconds, microseconds = divmod(microseconds, 1e6)
             assert microseconds == int(microseconds)
-            assert seconds == long(seconds)
-            days, seconds = divmod(seconds, 24.*3600.)
-            assert days == long(days)
             assert seconds == int(seconds)
-            d += long(days)
+            days, seconds = divmod(seconds, 24.*3600.)
+            assert days == int(days)
+            assert seconds == int(seconds)
+            d += int(days)
             s += int(seconds)   # can't overflow
             assert isinstance(s, int)
             assert abs(s) <= 3 * 24 * 3600
@@ -547,7 +547,7 @@ class timedelta(object):
             assert abs(s) <= 3 * 24 * 3600
             microseconds = float(microseconds)
             microseconds += usdouble
-            microseconds = round(microseconds, 0)
+            microseconds = _round(microseconds)
         assert abs(s) <= 3 * 24 * 3600
         assert abs(microseconds) < 3.1e6
 
