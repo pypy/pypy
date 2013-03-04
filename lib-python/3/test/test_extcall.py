@@ -89,19 +89,19 @@ Verify clearing of SF bug #733667
 
     >>> class Nothing: pass
     ...
-    >>> g(*Nothing())
+    >>> g(*Nothing())  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: g() argument after * must be a sequence, not Nothing
+    TypeError: ...argument after * must be a sequence, not Nothing
 
     >>> class Nothing:
     ...     def __len__(self): return 5
     ...
 
-    >>> g(*Nothing())
+    >>> g(*Nothing())  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: g() argument after * must be a sequence, not Nothing
+    TypeError: ...argument after * must be a sequence, not Nothing
 
     >>> class Nothing():
     ...     def __len__(self): return 5
@@ -153,52 +153,52 @@ What about willful misconduct?
       ...
     TypeError: g() got multiple values for keyword argument 'x'
 
-    >>> f(**{1:2})
+    >>> f(**{1:2})  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: f() keywords must be strings
+    TypeError: ...keywords must be strings
 
     >>> h(**{'e': 2})
     Traceback (most recent call last):
       ...
     TypeError: h() got an unexpected keyword argument 'e'
 
-    >>> h(*h)
+    >>> h(*h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: h() argument after * must be a sequence, not function
+    TypeError: ...argument after * must be a sequence, not function
 
-    >>> dir(*h)
+    >>> dir(*h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: dir() argument after * must be a sequence, not function
+    TypeError: ...argument after * must be a sequence, not function
 
-    >>> None(*h)
+    >>> None(*h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: NoneType object argument after * must be a sequence, \
+    TypeError: ...argument after * must be a sequence, \
 not function
 
-    >>> h(**h)
+    >>> h(**h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: h() argument after ** must be a mapping, not function
+    TypeError: ...argument after ** must be a mapping, not function
 
-    >>> dir(**h)
+    >>> dir(**h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: dir() argument after ** must be a mapping, not function
+    TypeError: ...argument after ** must be a mapping, not function
 
-    >>> None(**h)
+    >>> None(**h)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: NoneType object argument after ** must be a mapping, \
+    TypeError: ...argument after ** must be a mapping, \
 not function
 
-    >>> dir(b=1, **{'b': 1})
+    >>> dir(b=1, **{'b': 1})  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: dir() got multiple values for keyword argument 'b'
+    TypeError: ...got multiple values for keyword argument 'b'
 
 Another helper function
 
@@ -239,10 +239,10 @@ TypeError if te dictionary is not empty
     ...     False
     True
 
-    >>> id(1, **{'foo': 1})
+    >>> id(1, **{'foo': 1})  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: id() takes no keyword arguments
+    TypeError: id() ... keyword argument...
 
 A corner case of keyword dictionary items being deleted during
 the function call setup. See <http://bugs.python.org/issue2016>.
@@ -276,16 +276,16 @@ The number of arguments passed in includes keywords:
 
     >>> def f(a):
     ...    pass
-    >>> f(6, a=4, *(1, 2, 3))
+    >>> f(6, a=4, *(1, 2, 3))  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: f() takes exactly 1 positional argument (5 given)
+    TypeError: f() takes exactly 1 ...argument (5 given)
     >>> def f(a, *, kw):
     ...    pass
-    >>> f(6, 4, kw=4)
+    >>> f(6, 4, kw=4)  #doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: f() takes exactly 1 positional argument (3 given)
+    TypeError: f() takes exactly 1 ...argument (3 given)
 """
 
 import sys
