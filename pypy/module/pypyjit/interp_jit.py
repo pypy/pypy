@@ -29,7 +29,9 @@ JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 def get_printable_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
-    return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
+    # XXX: lame
+    repre = bytecode.get_repr().encode('utf-8', 'backslashreplace')
+    return '%s #%d %s' % (repre, next_instr, name)
 
 def get_jitcell_at(next_instr, is_being_profiled, bytecode):
     return bytecode.jit_cells.get((next_instr, is_being_profiled), None)

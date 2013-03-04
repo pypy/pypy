@@ -164,11 +164,9 @@ class AppTestCodeIntrospection:
         def f():
             xxx
         res = repr(f.__code__)
-        expected = ["<code object f",
-                    self.file,
-                    'line']
-        for i in expected:
-            assert i in res
+        assert res.startswith("<code object f at 0x")
+        assert ', file "%s", line ' % f.__code__.co_filename in res
+        assert res.endswith('>')
 
     def test_code_extra(self):
         d = {}

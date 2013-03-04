@@ -55,9 +55,7 @@ class FileDecoder(object):
         return self.space.bytes0_w(self.w_obj)
 
     def as_unicode(self):
-        space = self.space
-        w_unicode = space.fsdecode(self.w_obj)
-        return space.unicode0_w(w_unicode)
+        return self.space.fsdecode_w(self.w_obj)
 
 @specialize.memo()
 def dispatch_filename(func, tag=0):

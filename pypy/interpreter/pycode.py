@@ -426,8 +426,13 @@ class PyCode(eval.Code):
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def get_repr(self):
-        return "<code object %s, file '%s', line %d>" % (
-            self.co_name, self.co_filename, self.co_firstlineno)
+        space = self.space
+        # co_name should be an identifier
+        name = self.co_name.decode('utf-8')
+        fn = space.fsdecode_w(space.wrapbytes(self.co_filename))
+        return u'<code object %s at 0x%s, file "%s", line %d>' % (
+            name, unicode(self.getaddrstring(space)), fn,
+            -1 if self.co_firstlineno == 0 else self.co_firstlineno)
 
     def repr(self, space):
         return space.wrap(self.get_repr())
