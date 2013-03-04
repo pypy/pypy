@@ -5,7 +5,7 @@ Reference tracker for lltype data structures.
 import sys, os
 import gc
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.memory.gcheader import header2obj
+from rpython.memory.gcheader import header2obj
 from rpython.translator.tool.reftracker import BaseRefTrackerPage, MARKER
 from rpython.tool.uid import uid
 from rpython.tool.identity_dict import identity_dict

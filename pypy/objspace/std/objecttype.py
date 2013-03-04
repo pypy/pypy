@@ -126,11 +126,8 @@ def descr___format__(space, w_obj, w_format_spec):
         msg = "format_spec must be a string"
         raise OperationError(space.w_TypeError, space.wrap(msg))
     if space.len_w(w_format_spec) > 0:
-        space.warn(
-            ("object.__format__ with a non-empty format string is "
-                "deprecated"),
-            space.w_PendingDeprecationWarning
-        )
+        msg = "object.__format__ with a non-empty format string is deprecated"
+        space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
     return space.format(w_as_str, w_format_spec)
 
 def descr___subclasshook__(space, __args__):

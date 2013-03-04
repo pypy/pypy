@@ -1,5 +1,5 @@
 #
-# One-liner implementation of cPickle
+# Reimplementation of cPickle, mostly as a copy of pickle.py
 #
 
 from pickle import Pickler, dump, dumps, PickleError, PicklingError, UnpicklingError, _EmptyClass
@@ -131,6 +131,13 @@ mloads = marshal.loads
 
 # Unpickling machinery
 
+class _Stack(list):
+    def pop(self, index=-1):
+        try:
+            return list.pop(self, index)
+        except IndexError:
+            raise UnpicklingError("unpickling stack underflow")
+
 class Unpickler(object):
 
     def __init__(self, file):
@@ -155,7 +162,7 @@ class Unpickler(object):
         Return the reconstituted object hierarchy specified in the file.
         """
         self.mark = object() # any new unique object
-        self.stack = []
+        self.stack = _Stack()
         self.append = self.stack.append
         try:
             key = ord(self.read(1))

@@ -1482,9 +1482,10 @@ class ObjSpace(object):
                     )
                 raise
             w_fd = self.call_function(w_fileno)
-            if not self.isinstance_w(w_fd, self.w_int):
+            if (not self.isinstance_w(w_fd, self.w_int) and
+                not self.isinstance_w(w_fd, self.w_long)):
                 raise OperationError(self.w_TypeError,
-                    self.wrap("fileno() must return an integer")
+                    self.wrap("fileno() returned a non-integer")
                 )
         fd = self.int_w(w_fd)
         if fd < 0:
@@ -1493,10 +1494,11 @@ class ObjSpace(object):
             )
         return fd
 
-    def warn(self, msg, w_warningcls):
-        self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
+    def warn(self, w_msg, w_warningcls, stacklevel=2):
+        self.appexec([w_msg, w_warningcls, self.wrap(stacklevel)],
+                     """(msg, warningcls, stacklevel):
             import _warnings
-            _warnings.warn(msg, warningcls, stacklevel=2)
+            _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
 
 
@@ -1663,6 +1665,8 @@ ObjSpace.ExceptionTable = [
     'UnicodeTranslateError',
     'ValueError',
     'ZeroDivisionError',
+    'RuntimeWarning',
+    'PendingDeprecationWarning',
     ]
 
 if sys.platform.startswith("win"):

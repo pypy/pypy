@@ -1,18 +1,18 @@
 # rtyping of memory address operations
-from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
-from rpython.rtyper.lltypesystem.llmemory import NULL, Address, \
-     cast_adr_to_int, fakeaddress, sizeof
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.llmemory import (NULL, Address,
+    cast_adr_to_int, fakeaddress, sizeof)
 from rpython.rtyper.rmodel import Repr, IntegerRepr
 from rpython.rtyper.rptr import PtrRepr
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rlib.rarithmetic import r_uint
+from rpython.tool.pairtype import pairtype
 
 
 class __extend__(annmodel.SomeAddress):
     def rtyper_makerepr(self, rtyper):
         return address_repr
-    
+
     def rtyper_makekey(self):
         return self.__class__,
 
@@ -141,5 +141,3 @@ class __extend__(pairtype(PtrRepr, AddressRepr)):
 
     def convert_from_to((r_ptr, r_addr), v, llops):
         return llops.genop('cast_ptr_to_adr', [v], resulttype=Address)
-
-

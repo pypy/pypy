@@ -446,7 +446,8 @@ class __extend__(pairtype(SomeString, SomeByteArray),
 class __extend__(pairtype(SomeChar, SomeChar)):
 
     def union((chr1, chr2)):
-        return SomeChar()
+        no_nul = chr1.no_nul and chr2.no_nul
+        return SomeChar(no_nul=no_nul)
 
 
 class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
@@ -664,14 +665,14 @@ class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
         getbookkeeper().count("str_getitem", int2)        
-        return SomeChar()
+        return SomeChar(no_nul=str1.no_nul)
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
         getbookkeeper().count("str_getitem", int2)        
-        return SomeChar()        
+        return SomeChar(no_nul=str1.no_nul)
     getitem_idx.can_only_throw = [IndexError]
 
     getitem_idx_key = getitem_idx

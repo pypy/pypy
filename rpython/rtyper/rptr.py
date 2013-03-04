@@ -1,10 +1,10 @@
-from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
 from rpython.flowspace import model as flowmodel
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import Repr, IntegerRepr
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.tool.pairtype import pairtype
 
 
 class __extend__(annmodel.SomePtr):
@@ -23,6 +23,8 @@ class __extend__(annmodel.SomeInteriorPtr):
     def rtyper_makerepr(self, rtyper):
         return InteriorPtrRepr(self.ll_ptrtype)
 
+    def rtyper_makekey(self):
+        return self.__class__, self.ll_ptrtype
 
 class PtrRepr(Repr):
 
@@ -346,3 +348,9 @@ class __extend__(pairtype(InteriorPtrRepr, LLADTMethRepr)):
             return v
         return NotImplemented
 
+class __extend__(pairtype(InteriorPtrRepr, InteriorPtrRepr)):
+
+    def convert_from_to((r_from, r_to), v, llops):
+        if r_from.__dict__ == r_to.__dict__:
+            return v
+        return NotImplemented

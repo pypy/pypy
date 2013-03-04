@@ -360,6 +360,8 @@ class CStandaloneBuilder(CBuilder):
         extra_opts = []
         if self.config.translation.make_jobs != 1:
             extra_opts += ['-j', str(self.config.translation.make_jobs)]
+        if self.config.translation.lldebug:
+            extra_opts += ["lldebug"]
         self.translator.platform.execute_makefile(self.targetdir,
                                                   extra_opts)
         if shared:

@@ -4,7 +4,7 @@ import py
 import sys
 
 class AppTestKqueue(object):
-    spaceconfig = dict(usemodules=["select", "_socket", "posix"])
+    spaceconfig = dict(usemodules=["select", "_socket", "posix", "rctime"])
 
     def setup_class(cls):
         if not 'bsd' in sys.platform and \
@@ -90,6 +90,7 @@ class AppTestKqueue(object):
         import select
         import socket
         import sys
+        import time
 
         server_socket = socket.socket()
         server_socket.bind(("127.0.0.1", 0))
@@ -99,10 +100,9 @@ class AppTestKqueue(object):
         try:
             client.connect(("127.0.0.1", server_socket.getsockname()[1]))
         except socket.error, e:
-            if 'bsd' in sys.platform:
-                assert e.args[0] == errno.ENOENT
-            else:
-                assert e.args[0] == errno.EINPROGRESS
+            assert e.args[0] == errno.EINPROGRESS
+        else:
+            assert False, "EINPROGRESS not raised"
         server, addr = server_socket.accept()
 
         if sys.platform.startswith("darwin"):

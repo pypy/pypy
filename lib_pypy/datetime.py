@@ -19,6 +19,9 @@ Thanks to Tim Peters for suggesting using it.
 import time as _time
 import math as _math
 
+def _round(x):
+    return _math.floor(x + 0.5) if x >= 0.0 else _math.ceil(x - 0.5)
+
 MINYEAR = 1
 MAXYEAR = 9999
 
@@ -43,10 +46,6 @@ del dbm, dim
 def _is_leap(year):
     "year -> 1 if leap year, else 0."
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
-
-def _days_in_year(year):
-    "year -> number of days in year (366 if a leap year, else 365)."
-    return 365 + _is_leap(year)
 
 def _days_before_year(year):
     "year -> number of days before January 1st of year."
@@ -180,6 +179,7 @@ def _wrap_strftime(object, format, timetuple):
         raise ValueError("year=%d is before 1900; the datetime strftime() "
                          "methods require year >= 1900" % year)
     # Don't call _utcoffset() or tzname() unless actually needed.
+    freplace = None # the string to use for %f
     zreplace = None # the string to use for %z
     Zreplace = None # the string to use for %Z
 
@@ -194,7 +194,12 @@ def _wrap_strftime(object, format, timetuple):
             if i < n:
                 ch = format[i]
                 i += 1
-                if ch == 'z':
+                if ch == 'f':
+                    if freplace is None:
+                        freplace = '%06d' % getattr(object,
+                                                    'microsecond', 0)
+                    newformat.append(freplace)
+                elif ch == 'z':
                     if zreplace is None:
                         zreplace = ""
                         if hasattr(object, "_utcoffset"):
@@ -217,11 +222,6 @@ def _wrap_strftime(object, format, timetuple):
                                 # strftime is going to have at this: escape %
                                 Zreplace = s.replace('%', '%%')
                     newformat.append(Zreplace)
-                elif ch == 'f':
-                    if isinstance(object, (time, datetime)):
-                        newformat.append('%06d' % object.microsecond)
-                    else:
-                        newformat.append('000000')
                 else:
                     push('%')
                     push(ch)
@@ -270,10 +270,23 @@ def _check_utc_offset(name, offset):
         return offset
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
+def _check_int_field(value):
+    if isinstance(value, int):
+        return value
+    if not isinstance(value, float):
+        try:
+            value = value.__int__()
+        except AttributeError:
+            pass
+        else:
+            if isinstance(value, (int, long)):
+                return value
+    raise TypeError('an integer is required')
+
 def _check_date_fields(year, month, day):
-    for value in [year, day]:
-        if not isinstance(value, (int, long)):
-            raise TypeError('int expected')
+    year = _check_int_field(year)
+    month = _check_int_field(month)
+    day = _check_int_field(day)
     if not MINYEAR <= year <= MAXYEAR:
         raise ValueError('year must be in %d..%d' % (MINYEAR, MAXYEAR), year)
     if not 1 <= month <= 12:
@@ -281,11 +294,13 @@ def _check_date_fields(year, month, day):
     dim = _days_in_month(year, month)
     if not 1 <= day <= dim:
         raise ValueError('day must be in 1..%d' % dim, day)
+    return year, month, day
 
 def _check_time_fields(hour, minute, second, microsecond):
-    for value in [hour, minute, second, microsecond]:
-        if not isinstance(value, (int, long)):
-            raise TypeError('int expected')
+    hour = _check_int_field(hour)
+    minute = _check_int_field(minute)
+    second = _check_int_field(second)
+    microsecond = _check_int_field(microsecond)
     if not 0 <= hour <= 23:
         raise ValueError('hour must be in 0..23', hour)
     if not 0 <= minute <= 59:
@@ -294,6 +309,7 @@ def _check_time_fields(hour, minute, second, microsecond):
         raise ValueError('second must be in 0..59', second)
     if not 0 <= microsecond <= 999999:
         raise ValueError('microsecond must be in 0..999999', microsecond)
+    return hour, minute, second, microsecond
 
 def _check_tzinfo_arg(tz):
     if tz is not None and not isinstance(tz, tzinfo):
@@ -443,6 +459,8 @@ class timedelta(object):
     felt like it.
     """
 
+    __slots__ = '_days', '_seconds', '_microseconds'
+
     def __new__(cls, days=0, seconds=0, microseconds=0,
                 # XXX The following should only be used as keyword args:
                 milliseconds=0, minutes=0, hours=0, weeks=0):
@@ -472,8 +490,8 @@ class timedelta(object):
             daysecondsfrac, daysecondswhole = _math.modf(dayfrac * (24.*3600.))
             assert daysecondswhole == int(daysecondswhole)  # can't overflow
             s = int(daysecondswhole)
-            assert days == long(days)
-            d = long(days)
+            assert days == int(days)
+            d = int(days)
         else:
             daysecondsfrac = 0.0
             d = days
@@ -485,8 +503,8 @@ class timedelta(object):
 
         if isinstance(seconds, float):
             secondsfrac, seconds = _math.modf(seconds)
-            assert seconds == long(seconds)
-            seconds = long(seconds)
+            assert seconds == int(seconds)
+            seconds = int(seconds)
             secondsfrac += daysecondsfrac
             assert abs(secondsfrac) <= 2.0
         else:
@@ -509,14 +527,14 @@ class timedelta(object):
 
         if isinstance(microseconds, float):
             microseconds += usdouble
-            microseconds = round(microseconds)
+            microseconds = _round(microseconds)
             seconds, microseconds = divmod(microseconds, 1e6)
             assert microseconds == int(microseconds)
-            assert seconds == long(seconds)
-            days, seconds = divmod(seconds, 24.*3600.)
-            assert days == long(days)
             assert seconds == int(seconds)
-            d += long(days)
+            days, seconds = divmod(seconds, 24.*3600.)
+            assert days == int(days)
+            assert seconds == int(seconds)
+            d += int(days)
             s += int(seconds)   # can't overflow
             assert isinstance(s, int)
             assert abs(s) <= 3 * 24 * 3600
@@ -529,7 +547,7 @@ class timedelta(object):
             assert abs(s) <= 3 * 24 * 3600
             microseconds = float(microseconds)
             microseconds += usdouble
-            microseconds = round(microseconds)
+            microseconds = _round(microseconds)
         assert abs(s) <= 3 * 24 * 3600
         assert abs(microseconds) < 3.1e6
 
@@ -582,6 +600,7 @@ class timedelta(object):
         return s
 
     def total_seconds(self):
+        """Total seconds in the duration."""
         return ((self.days * 86400 + self.seconds) * 10**6
                 + self.microseconds) / 1e6
 
@@ -714,8 +733,6 @@ class timedelta(object):
 
     # Pickle support.
 
-    __safe_for_unpickling__ = True      # For Python 2.2
-
     def _getstate(self):
         return (self._days, self._seconds, self._microseconds)
 
@@ -756,6 +773,8 @@ class date(object):
     year, month, day
     """
 
+    __slots__ = '_year', '_month', '_day'
+
     def __new__(cls, year, month=None, day=None):
         """Constructor.
 
@@ -763,12 +782,12 @@ class date(object):
 
         year, month, day (required, base 1)
         """
-        if isinstance(year, str):
+        if isinstance(year, str) and len(year) == 4:
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(year)
             return self
-        _check_date_fields(year, month, day)
+        year, month, day = _check_date_fields(year, month, day)
         self = object.__new__(cls)
         self._year = year
         self._month = month
@@ -822,7 +841,7 @@ class date(object):
     # strftime("%c", ...) is locale specific.
 
     def ctime(self):
-        "Format a la ctime()."
+        "Return ctime() style string."
         return tmxxx(self._year, self._month, self._day).ctime()
 
     def strftime(self, fmt):
@@ -889,7 +908,7 @@ class date(object):
             month = self._month
         if day is None:
             day = self._day
-        _check_date_fields(year, month, day)
+        year, month, day = _check_date_fields(year, month, day)
         return date(year, month, day)
 
     # Comparisons of date objects with other.
@@ -968,7 +987,7 @@ class date(object):
             self._checkOverflow(t.year)
             result = date(t.year, t.month, t.day)
             return result
-        return NotImplemented    # note that this doesn't work on CPython 2.2
+        return NotImplemented
 
     __radd__ = __add__
 
@@ -1022,8 +1041,6 @@ class date(object):
 
     # Pickle support.
 
-    __safe_for_unpickling__ = True      # For Python 2.2
-
     def _getstate(self):
         yhi, ylo = divmod(self._year, 256)
         return ("%c%c%c%c" % (yhi, ylo, self._month, self._day), )
@@ -1048,6 +1065,8 @@ class tzinfo(object):
 
     Subclasses must override the name(), utcoffset() and dst() methods.
     """
+
+    __slots__ = ()
 
     def tzname(self, dt):
         "datetime -> string name of time zone."
@@ -1097,8 +1116,6 @@ class tzinfo(object):
 
     # Pickle support.
 
-    __safe_for_unpickling__ = True      # For Python 2.2
-
     def __reduce__(self):
         getinitargs = getattr(self, "__getinitargs__", None)
         if getinitargs:
@@ -1115,7 +1132,7 @@ class tzinfo(object):
         else:
             return (self.__class__, args, state)
 
-_tzinfo_class = tzinfo   # so functions w/ args named "tinfo" can get at it
+_tzinfo_class = tzinfo  # so functions w/ args named "tzinfo" can get at the class
 
 class time(object):
     """Time with time zone.
@@ -1141,6 +1158,8 @@ class time(object):
     hour, minute, second, microsecond, tzinfo
     """
 
+    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo'
+
     def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None):
         """Constructor.
 
@@ -1150,13 +1169,14 @@ class time(object):
         second, microsecond (default to zero)
         tzinfo (default to None)
         """
-        self = object.__new__(cls)
         if isinstance(hour, str):
             # Pickle support
+            self = object.__new__(cls)
             self.__setstate(hour, minute or None)
             return self
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        _check_time_fields(hour, minute, second, microsecond)
+        self = object.__new__(cls)
         self._hour = hour
         self._minute = minute
         self._second = second
@@ -1249,7 +1269,6 @@ class time(object):
                        (other._hour, other._minute, other._second,
                         other._microsecond))
         if myoff is None or otoff is None:
-            # XXX Buggy in 2.2.2.
             raise TypeError("cannot compare naive and aware times")
         myhhmm = self._hour * 60 + self._minute - myoff
         othhmm = other._hour * 60 + other._minute - otoff
@@ -1374,6 +1393,12 @@ class time(object):
             offset = timedelta(minutes=offset)
         return offset
 
+    # Return an integer (or None) instead of a timedelta (or None).
+    def _dst(self):
+        offset = _call_tzinfo_method(self._tzinfo, "dst", None)
+        offset = _check_utc_offset("dst", offset)
+        return offset
+
     def replace(self, hour=None, minute=None, second=None, microsecond=None,
                 tzinfo=True):
         """Return a new time with new values for the specified fields."""
@@ -1387,15 +1412,9 @@ class time(object):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        _check_time_fields(hour, minute, second, microsecond)
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         return time(hour, minute, second, microsecond, tzinfo)
-
-    # Return an integer (or None) instead of a timedelta (or None).
-    def _dst(self):
-        offset = _call_tzinfo_method(self._tzinfo, "dst", None)
-        offset = _check_utc_offset("dst", offset)
-        return offset
 
     def __nonzero__(self):
         if self.second or self.microsecond:
@@ -1404,8 +1423,6 @@ class time(object):
         return self.hour * 60 + self.minute - offset != 0
 
     # Pickle support.
-
-    __safe_for_unpickling__ = True      # For Python 2.2
 
     def _getstate(self):
         us2, us3 = divmod(self._microsecond, 256)
@@ -1442,17 +1459,19 @@ class datetime(date):
     instance of a tzinfo subclass. The remaining arguments may be ints or longs.
     """
 
+    __slots__ = date.__slots__ + time.__slots__
+
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
-        if isinstance(year, str):
+        if isinstance(year, str) and len(year) == 10:
             # Pickle support
             self = date.__new__(cls, year[:4])
             self.__setstate(year, month)
             return self
+        year, month, day = _check_date_fields(year, month, day)
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        _check_time_fields(hour, minute, second, microsecond)
-        self = date.__new__(cls, year, month, day)
-        # XXX This duplicates __year, __month, __day for convenience :-(
+        self = object.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
@@ -1497,20 +1516,19 @@ class datetime(date):
         """
 
         _check_tzinfo_arg(tz)
-        if tz is None:
-            converter = _time.localtime
-        else:
-            converter = _time.gmtime
-        if t < 0.0:
-            us = int(round(((-t) % 1.0) * 1000000))
-            if us > 0:
-                us = 1000000 - us
-                t -= 1.0
-        else:
-            us = int(round((t % 1.0) * 1000000))
-            if us == 1000000:
-                us = 0
-                t += 1.0
+
+        converter = _time.localtime if tz is None else _time.gmtime
+
+        t, frac = divmod(t, 1.0)
+        us = int(_round(frac * 1e6))
+
+        # If timestamp is less than one microsecond smaller than a
+        # full second, us can be rounded up to 1000000.  In this case,
+        # roll over to seconds, otherwise, ValueError is raised
+        # by the constructor.
+        if us == 1000000:
+            t += 1
+            us = 0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(t)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
         result = cls(y, m, d, hh, mm, ss, us, tz)
@@ -1522,7 +1540,7 @@ class datetime(date):
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
         t, frac = divmod(t, 1.0)
-        us = int(round(frac * 1e6))
+        us = int(_round(frac * 1e6))
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
@@ -1617,8 +1635,8 @@ class datetime(date):
             microsecond = self.microsecond
         if tzinfo is True:
             tzinfo = self.tzinfo
-        _check_date_fields(year, month, day)
-        _check_time_fields(hour, minute, second, microsecond)
+        year, month, day = _check_date_fields(year, month, day)
+        hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
         return datetime(year, month, day, hour, minute, second,
                           microsecond, tzinfo)
@@ -1646,7 +1664,7 @@ class datetime(date):
     # Ways to produce a string.
 
     def ctime(self):
-        "Format a la ctime()."
+        "Return ctime() style string."
         t = tmxxx(self._year, self._month, self._day, self._hour,
                   self._minute, self._second)
         return t.ctime()
@@ -1748,13 +1766,13 @@ class datetime(date):
             offset = timedelta(minutes=offset)
         return offset
 
-    # Return an integer (or None) instead of a timedelta (or None).1573
+    # Return an integer (or None) instead of a timedelta (or None).
     def _dst(self):
         offset = _call_tzinfo_method(self._tzinfo, "dst", self)
         offset = _check_utc_offset("dst", offset)
         return offset
 
-    # Comparisons.
+    # Comparisons of datetime objects with other.
 
     def __eq__(self, other):
         if isinstance(other, datetime):
@@ -1827,7 +1845,6 @@ class datetime(date):
                         other._hour, other._minute, other._second,
                         other._microsecond))
         if myoff is None or otoff is None:
-            # XXX Buggy in 2.2.2.
             raise TypeError("cannot compare naive and aware datetimes")
         # XXX What follows could be done more efficiently...
         diff = self - other     # this will take offsets into account
@@ -1887,8 +1904,6 @@ class datetime(date):
         return hash(timedelta(days, seconds, self.microsecond))
 
     # Pickle support.
-
-    __safe_for_unpickling__ = True      # For Python 2.2
 
     def _getstate(self):
         yhi, ylo = divmod(self._year, 256)
@@ -2127,4 +2142,3 @@ small dst() may get within its bounds; and it doesn't even matter if some
 perverse time zone returns a negative dst()).  So a breaking case must be
 pretty bizarre, and a tzinfo subclass can override fromutc() if it is.
 """
-

@@ -1,6 +1,7 @@
 import os, sys, re
 import subprocess
 import msgstruct
+from strunicode import forcestr
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 GRAPHSERVER = os.path.join(this_dir, 'graphserver.py')
@@ -34,7 +35,7 @@ def display_page(page, wait=True, save_tmp_file=None):
         page = getpage(graph_id)
         if save_tmp_file:
             f = open(save_tmp_file, 'w')
-            f.write(page.source)
+            f.write(forcestr(page.source))
             f.close()
         messages.extend(page_messages(page, graph_id))
         send_graph_messages(io, messages)
@@ -75,7 +76,7 @@ def display_page(page, wait=True, save_tmp_file=None):
 
 def page_messages(page, graph_id):
     import graphparse
-    return graphparse.parse_dot(graph_id, page.source, page.links,
+    return graphparse.parse_dot(graph_id, forcestr(page.source), page.links,
                                 getattr(page, 'fixedfont', False))
 
 def send_graph_messages(io, messages):

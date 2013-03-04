@@ -35,8 +35,8 @@ def test_jitdriver_numreds():
     assert driver.reds == ['a', 'b']
     assert driver.numreds == 2
 
-@py.test.mark.xfail(reason="@inline off: see skipped failures in test_warmspot.")
 def test_jitdriver_inline():
+    py.test.skip("@inline off: see skipped failures in test_warmspot.")
     driver = JitDriver(greens=[], reds='auto')
     calls = []
     def foo(a, b):
@@ -55,8 +55,8 @@ def test_jitdriver_inline():
         ('bar', 40, 2),
         ]
 
-@py.test.mark.xfail(reason="@inline off: see skipped failures in test_warmspot.")
 def test_jitdriver_clone():
+    py.test.skip("@inline off: see skipped failures in test_warmspot.")
     def bar(): pass
     def foo(): pass
     driver = JitDriver(greens=[], reds=[])

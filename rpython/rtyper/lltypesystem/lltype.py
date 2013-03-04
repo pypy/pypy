@@ -105,6 +105,23 @@ class LowLevelType(object):
 
     _is_compatible = __eq__
 
+    def __setattr__(self, attr, nvalue):
+        try:
+            LowLevelType.__cached_hash.__get__(self)
+        except AttributeError:
+            pass
+        else:
+            try:
+                reprself = repr(self)
+            except:
+                try:
+                    reprself = str(self)
+                except:
+                    reprself = object.__repr__(self)
+            raise AssertionError("%s: changing the field %r but we already "
+                                 "computed the hash" % (reprself, attr))
+        object.__setattr__(self, attr, nvalue)
+
     def _enforce(self, value):
         if typeOf(value) != self:
             raise TypeError
@@ -486,6 +503,10 @@ class FixedSizeArray(Struct):
         return obj
 
     def __init__(self, OF, length, **kwds):
+        if hasattr(self, '_name'):
+            assert self.OF == OF
+            assert self.length == length
+            return
         fields = [('item%d' % i, OF) for i in range(length)]
         super(FixedSizeArray, self).__init__('array%d' % length, *fields,
                                              **kwds)

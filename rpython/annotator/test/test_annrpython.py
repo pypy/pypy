@@ -13,7 +13,7 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import FlowObjSpace, FlowingError
+from rpython.flowspace.objspace import build_flow, FlowingError
 
 from rpython.translator.test import snippet
 
@@ -40,9 +40,6 @@ def somedict(s_key, s_value):
 
 
 class TestAnnotateTestCase:
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-
     def teardown_method(self, meth):
         assert annmodel.s_Bool == annmodel.SomeBool()
 
@@ -60,7 +57,7 @@ class TestAnnotateTestCase:
         except AttributeError:
             pass
         name = func.func_name
-        funcgraph = self.space.build_flow(func)
+        funcgraph = build_flow(func)
         funcgraph.source = inspect.getsource(func)
         return funcgraph
 
@@ -775,7 +772,7 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomePBC)
         assert s.const == myobj
 
-    def test_cleanup_protocol(self): 
+    def test_cleanup_protocol(self):
         class Stuff:
             def __init__(self):
                 self.called = False
@@ -1983,13 +1980,9 @@ class TestAnnotateTestCase:
                 return None
         def g(a):
             x = f(a)
-            #assert x is not None
             if x is None:
                 return "abcd"
             return x
-            if isinstance(x, str):
-                return x
-            return "impossible"
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
@@ -2068,7 +2061,23 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
-        
+
+    def test_getitem_str0(self):
+        def f(s, n):
+            if n == 1:
+                return s[0]
+            elif n == 2:
+                return s[1]
+            elif n == 3:
+                return s[1:]
+            return s
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True),
+                              annmodel.SomeInteger()])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
@@ -2330,6 +2339,41 @@ class TestAnnotateTestCase:
             _mixin_ = True
 
             def m(self, v):
+                return v
+
+        class Base(object):
+            pass
+
+        class A(Base, Mixin):
+            pass
+
+        class B(Base, Mixin):
+            pass
+
+        class C(B):
+            pass
+
+        def f():
+            a = A()
+            v0 = a.m(2)
+            b = B()
+            v1 = b.m('x')
+            c = C()
+            v2 = c.m('y')
+            return v0, v1, v2
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s.items[0], annmodel.SomeInteger)
+        assert isinstance(s.items[1], annmodel.SomeChar)
+        assert isinstance(s.items[2], annmodel.SomeChar)
+
+    def test_mixin_staticmethod(self):
+        class Mixin(object):
+            _mixin_ = True
+
+            @staticmethod
+            def m(v):
                 return v
 
         class Base(object):
@@ -3707,7 +3751,7 @@ class TestAnnotateTestCase:
 
     def test_join_none_and_nonnull(self):
         from rpython.rlib.rstring import assert_str0
-        
+
         def f(i):
             a = str(i)
             a = assert_str0(a)
@@ -3751,7 +3795,7 @@ class TestAnnotateTestCase:
         class A(object):
             def __iter__(self):
                 return self
-        
+
         def fn():
             return iter(A())
 
@@ -3810,7 +3854,7 @@ class TestAnnotateTestCase:
                 return True
 
         x = X()
-        
+
         def f(i):
             if i:
                 x1 = x
@@ -3868,8 +3912,16 @@ class TestAnnotateTestCase:
                                             int, int]),
                           annmodel.SomeInteger)
 
+    def test_constant_startswith_endswith(self):
+        def f():
+            return "abc".startswith("ab") and "abc".endswith("bc")
+        a = self.RPythonAnnotator()
+        assert a.build_types(f, []).const is True
+
+
 def g(n):
-    return [0,1,2,n]
+    return [0, 1, 2, n]
+
 
 def f_calls_g(n):
     total = 0
@@ -3885,4 +3937,3 @@ constant_unsigned_five = r_uint(5)
 class Freezing:
     def _freeze_(self):
         return True
-

@@ -7,7 +7,7 @@
 typedef enum RPyLockStatus {
     RPY_LOCK_FAILURE = 0,
     RPY_LOCK_ACQUIRED = 1,
-    RPY_LOCK_INTR
+    RPY_LOCK_INTR = 2
 } RPyLockStatus;
 
 #ifdef _WIN32

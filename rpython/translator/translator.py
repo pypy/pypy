@@ -8,7 +8,7 @@ import os, sys, types, copy
 
 from rpython.translator import simplify
 from rpython.flowspace.model import FunctionGraph, checkgraph, Block
-from rpython.flowspace.objspace import FlowObjSpace
+from rpython.flowspace.objspace import build_flow
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.sourcetools import nice_repr_for_func
 from rpython.config.translationoption import get_combined_translation_config
@@ -52,8 +52,7 @@ class TranslationContext(object):
         else:
             if self.config.translation.verbose:
                 log.start(nice_repr_for_func(func))
-            space = FlowObjSpace()
-            graph = space.build_flow(func)
+            graph = build_flow(func)
             if self.config.translation.simplifying:
                 simplify.simplify_graph(graph)
             if self.config.translation.list_comprehension_operations:

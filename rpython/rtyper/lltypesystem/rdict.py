@@ -1,7 +1,6 @@
 from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
-from rpython.rtyper.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
-     rtype_newdict)
+from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.debug import ll_assert
@@ -10,8 +9,8 @@ from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError
 
 
-HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
-MASK = intmask(HIGHEST_BIT - 1)
+HIGHEST_BIT = r_uint(intmask(1 << (LONG_BIT - 1)))
+MASK = r_uint(intmask(HIGHEST_BIT - 1))
 
 # ____________________________________________________________
 #
@@ -572,7 +571,7 @@ def ll_dict_lookup(d, key, hash):
     ENTRIES = lltype.typeOf(entries).TO
     direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
     mask = len(entries) - 1
-    i = hash & mask
+    i = r_uint(hash & mask)
     # do the first try before any looping
     if entries.valid(i):
         checkingkey = entries[i].key
@@ -591,7 +590,7 @@ def ll_dict_lookup(d, key, hash):
                 return i   # found the entry
         freeslot = -1
     elif entries.everused(i):
-        freeslot = i
+        freeslot = intmask(i)
     else:
         return i | HIGHEST_BIT # pristine entry -- lookup failed
 
@@ -600,15 +599,14 @@ def ll_dict_lookup(d, key, hash):
     perturb = r_uint(hash)
     while 1:
         # compute the next index using unsigned arithmetic
-        i = r_uint(i)
         i = (i << 2) + i + perturb + 1
-        i = intmask(i) & mask
+        i = i & mask
         # keep 'i' as a signed number here, to consistently pass signed
         # arguments to the small helper methods.
         if not entries.everused(i):
             if freeslot == -1:
-                freeslot = i
-            return freeslot | HIGHEST_BIT
+                freeslot = intmask(i)
+            return r_uint(freeslot) | HIGHEST_BIT
         elif entries.valid(i):
             checkingkey = entries[i].key
             if direct_compare and checkingkey == key:
@@ -626,7 +624,7 @@ def ll_dict_lookup(d, key, hash):
                 if found:
                     return i   # found the entry
         elif freeslot == -1:
-            freeslot = i
+            freeslot = intmask(i)
         perturb >>= PERTURB_SHIFT
 
 def ll_dict_lookup_clean(d, hash):
@@ -635,12 +633,11 @@ def ll_dict_lookup_clean(d, hash):
     # It only finds the next free slot for the given hash.
     entries = d.entries
     mask = len(entries) - 1
-    i = hash & mask
+    i = r_uint(hash & mask)
     perturb = r_uint(hash)
     while entries.everused(i):
-        i = r_uint(i)
         i = (i << 2) + i + perturb + 1
-        i = intmask(i) & mask
+        i = i & mask
         perturb >>= PERTURB_SHIFT
     return i
 
@@ -668,7 +665,7 @@ def ll_newdict_size(DICT, length_estimate):
     d.resize_counter = n * 2
     return d
 
-# rpython.rtyper.memory.lldict uses a dict based on Struct and Array
+# rpython.memory.lldict uses a dict based on Struct and Array
 # instead of GcStruct and GcArray, which is done by using different
 # 'allocate' and 'delete' adtmethod implementations than the ones below
 def _ll_malloc_dict(DICT):
@@ -733,6 +730,7 @@ def _make_ll_dictnext(kind):
         if dict:
             entries = dict.entries
             index = iter.index
+            assert index >= 0
             entries_len = len(entries)
             while index < entries_len:
                 entry = entries[index]
@@ -908,14 +906,14 @@ def ll_popitem(ELEM, dic):
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
     r.item1 = recast(ELEM.TO.item1, entry.value)
-    _ll_dict_del(dic, i)
+    _ll_dict_del(dic, r_uint(i))
     return r
 
 def ll_pop(dic, key):
     i = ll_dict_lookup(dic, key, dic.keyhash(key))
     if not i & HIGHEST_BIT:
-        value = ll_get_value(dic, i)
-        _ll_dict_del(dic, i)
+        value = ll_get_value(dic, r_uint(i))
+        _ll_dict_del(dic, r_uint(i))
         return value
     else:
         raise KeyError

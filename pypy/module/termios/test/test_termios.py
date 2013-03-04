@@ -1,8 +1,11 @@
-
-import py
+import os
 import sys
+import py
 from pypy.conftest import pypydir
 from rpython.tool.udir import udir
+
+if os.name != 'posix':
+    py.test.skip('termios module only available on unix')
 
 class TestTermios(object):
     def setup_class(cls):

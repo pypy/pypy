@@ -5,6 +5,7 @@ from pygame.locals import *
 from drawgraph import GraphRenderer, FIXEDFONT
 from drawgraph import Node, Edge
 from drawgraph import EventQueue, wait_for_events
+from strunicode import forceunicode, forcestr
 
 
 METAKEYS = dict([
@@ -285,7 +286,7 @@ class GraphDisplay(Display):
                     if e.key == K_ESCAPE:
                         return None
                     elif e.key == K_RETURN:
-                        return text.encode('latin-1')   # XXX do better
+                        return forcestr(text) # return encoded unicode
                     elif e.key == K_BACKSPACE:
                         text = text[:-1]
                     elif e.unicode and ord(e.unicode) >= ord(' '):
@@ -423,7 +424,7 @@ class GraphDisplay(Display):
         self.layout.request_reload()
 
     def setstatusbar(self, text, fgcolor=None, bgcolor=None):
-        info = (text, fgcolor or self.STATUSBAR_FGCOLOR, bgcolor or self.STATUSBAR_BGCOLOR)
+        info = (forceunicode(text), fgcolor or self.STATUSBAR_FGCOLOR, bgcolor or self.STATUSBAR_BGCOLOR)
         if info != self.statusbarinfo:
             self.statusbarinfo = info
             self.must_redraw = True
@@ -711,7 +712,7 @@ def renderline(text, font, fgcolor, width, maxheight=sys.maxint,
     lines = []
     while words:
         line = words.pop(0)
-        img = font.render(line or ' ', 1, fgcolor)
+        img = font.render(line or ' ', True, fgcolor)
         while words:
             longerline = line + ' ' + words[0]
             longerimg = font.render(longerline, 1, fgcolor)
@@ -723,7 +724,7 @@ def renderline(text, font, fgcolor, width, maxheight=sys.maxint,
             img = longerimg
         w, h = img.get_size()
         if h > maxheight:
-            img = font.render('...', 1, overflowcolor)
+            img = font.render('...', True, overflowcolor)
             w, h = img.get_size()
             while lines and h > maxheight:
                 maxheight += lines.pop().get_size()[1]

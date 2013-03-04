@@ -38,7 +38,7 @@ to create C objects (arrays and structures) and calling functions
 in dynamic libraries through libffi. Freeing objects in most cases and making
 sure that objects referring to each other are kept alive is responsibility of the higher levels.
 
-This module uses bindings to libffi which are defined in ``pypy/rlib/libffi.py``.
+This module uses bindings to libffi which are defined in ``rpython/rlib/libffi.py``.
 
 We tried to keep this module as small as possible. It is conceivable
 that other implementations (e.g. Jython) could use our ctypes
@@ -113,7 +113,7 @@ From pyglet, the following examples are known to work:
 The pypy-c translated to run the ctypes tests can be used to run the pyglet examples as well. They can be run like e.g.::
 
     $ cd pyglet/
-    $ PYTHONPATH=. ../ctypes-stable/pypy/translator/goal/pypy-c examples/opengl.py
+    $ PYTHONPATH=. ../ctypes-stable/pypy/goal/pypy-c examples/opengl.py
 
 
 they usually should be terminated with ctrl-c. Refer to the their doc strings for details about how they should behave.

@@ -57,6 +57,17 @@ class ByteArrayRepr(AbstractByteArrayRepr):
             p.chars[i] = chr(c)
         return p
 
+    def ll_str(self, ll_b):
+        from rpython.rtyper.lltypesystem.rstr import mallocstr, STR
+        if ll_b:
+            lgt = ll_b.length()
+            ll_s = mallocstr(lgt)
+            for i in range(lgt):
+                ll_s.chars[i] = ll_b.chars[i]
+            return ll_s
+        else:
+            return lltype.nullptr(STR)
+
 bytearray_repr = ByteArrayRepr()
 
 def hlbytearray(ll_b):

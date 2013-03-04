@@ -113,6 +113,9 @@ class RPythonAnnotator(object):
         if policy is None:
             from rpython.annotator.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
+            # XXX hack
+            annmodel.TLS.check_str_without_nul = (
+                self.translator.config.translation.check_str_without_nul)
         graph, inputcells = self.get_call_parameters(function, args_s, policy)
         self.build_graph_types(graph, inputcells, complete_now=False)
         self.complete_helpers(policy)
@@ -189,12 +192,15 @@ class RPythonAnnotator(object):
             if not self.annotated[block]:
                 self.pendingblocks[block] = graph
 
+    def complete_pending_blocks(self):
+        while self.pendingblocks:
+            block, graph = self.pendingblocks.popitem()
+            self.processblock(graph, block)
+
     def complete(self):
         """Process pending blocks until none is left."""
         while True:
-            while self.pendingblocks:
-                block, graph = self.pendingblocks.popitem()
-                self.processblock(graph, block)
+            self.complete_pending_blocks()
             self.policy.no_more_blocks_to_annotate(self)
             if not self.pendingblocks:
                 break   # finished

@@ -1694,14 +1694,13 @@ class BasicTests:
         assert res == -2
 
     def test_guard_always_changing_value(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x'])
-        class A:
-            pass
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'a'])
         def f(x):
+            a = 0
             while x > 0:
-                myjitdriver.can_enter_jit(x=x)
-                myjitdriver.jit_merge_point(x=x)
-                a = A()
+                myjitdriver.can_enter_jit(x=x, a=a)
+                myjitdriver.jit_merge_point(x=x, a=a)
+                a += 1
                 promote(a)
                 x -= 1
         self.meta_interp(f, [50])
