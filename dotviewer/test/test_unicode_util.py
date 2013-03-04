@@ -3,7 +3,7 @@
 #
 import py
 import codecs
-from dotviewer.drawgraph import RAW_ENCODING, forcestr, forceunicode
+from dotviewer.strunicode import RAW_ENCODING, forcestr, forceunicode
 
 SOURCE1 = u"""digraph G{
 λ -> b
