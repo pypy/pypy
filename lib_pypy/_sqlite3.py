@@ -316,7 +316,6 @@ class Connection(object):
             sqlite.sqlite3_busy_timeout(self.db, timeout)
 
         self.text_factory = unicode_text_factory
-        self.closed = False
         self.statements = []
         self.statement_counter = 0
         self.row_factory = None
@@ -513,7 +512,7 @@ class Connection(object):
     def _check_closed(self):
         if self.db is None:
             raise ProgrammingError("Base Connection.__init__ not called.")
-        if getattr(self, 'closed', True):
+        if not self.db:
             raise ProgrammingError("Cannot operate on a closed database.")
 
     def __enter__(self):
@@ -531,18 +530,17 @@ class Connection(object):
 
     def close(self):
         self._check_thread()
-        if self.closed:
-            return
+
         for statement in self.statements:
             obj = statement()
             if obj is not None:
                 obj.finalize()
 
-        self.closed = True
-        ret = sqlite.sqlite3_close(self.db)
-        self._reset_cursors()
-        if ret != SQLITE_OK:
-            raise self._get_exception(ret)
+        if self.db:
+            ret = sqlite.sqlite3_close(self.db)
+            if ret != SQLITE_OK:
+                raise self._get_exception(ret)
+            self.db.value = 0
 
     def create_collation(self, name, callback):
         self._check_thread()
