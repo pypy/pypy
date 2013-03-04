@@ -18,6 +18,8 @@ def buffer2string(buffer, start, end):
 class BytesIOBuffer(RWBuffer):
     def __init__(self, w_bytesio):
         self.w_bytesio = w_bytesio
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return int(self.w_bytesio.string_size)

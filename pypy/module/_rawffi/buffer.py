@@ -7,6 +7,8 @@ class RawFFIBuffer(RWBuffer):
 
     def __init__(self, datainstance):
         self.datainstance = datainstance
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return self.datainstance.getrawsize()

@@ -10,6 +10,8 @@ class ByteBuffer(RWBuffer):
 
     def __init__(self, len):
         self.data = ['\x00'] * len
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return len(self.data)

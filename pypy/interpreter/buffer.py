@@ -218,6 +218,8 @@ class StringBuffer(Buffer):
 
     def __init__(self, value):
         self.value = value
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return len(self.value)
@@ -246,6 +248,8 @@ class StringLikeBuffer(Buffer):
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         space = self.space
@@ -284,6 +288,8 @@ class SubBufferMixin(object):
         self.buffer = buffer
         self.offset = offset
         self.size = size
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         at_most = self.buffer.getlength() - self.offset

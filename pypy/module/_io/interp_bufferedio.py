@@ -124,6 +124,8 @@ class RawBuffer(RWBuffer):
         self.buf = buf
         self.start = start
         self.length = length
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return self.length

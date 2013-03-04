@@ -14,6 +14,8 @@ class LLBuffer(RWBuffer):
     def __init__(self, raw_cdata, size):
         self.raw_cdata = raw_cdata
         self.size = size
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return self.size

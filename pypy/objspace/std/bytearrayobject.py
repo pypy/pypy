@@ -662,6 +662,8 @@ def _strip(space, w_bytearray, u_chars, left, right):
 class BytearrayBuffer(RWBuffer):
     def __init__(self, data):
         self.data = data
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return len(self.data)

@@ -235,6 +235,8 @@ class CPyBuffer(W_Buffer):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
+        self.format = 'B'
+        self.itemsize = 1
 
     def getlength(self):
         return self.size
