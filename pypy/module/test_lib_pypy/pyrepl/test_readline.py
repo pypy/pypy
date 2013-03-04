@@ -1,16 +1,12 @@
-import os
-
-if os.name == 'posix':
-    from pyrepl.readline import _ReadlineWrapper
-else:
-    import pytest
-    e = pytest.raises(ImportError, "import pyrepl.readline")
-    assert 'termios' in e.value.message
-    pytest.skip('pyrepl.readline requires termios')
+import pytest
 
 
+@pytest.mark.skipif("os.name != 'posix'")
 def test_raw_input():
+    import os
     import pty
+    from pyrepl.readline import _ReadlineWrapper
+
     master, slave = pty.openpty()
     readline_wrapper = _ReadlineWrapper(slave, slave)
     os.write(master, b'input\n')
