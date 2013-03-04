@@ -26,7 +26,7 @@ def test_dir_structure(test='test'):
         builddir = package.package(py.path.local(pypydir).dirpath(), test,
                                    rename_pypy_c)
         prefix = builddir.join(test)
-        cpyver = '%d.%d' % CPYTHON_VERSION[:2]
+        cpyver = '%d' % CPYTHON_VERSION[0]
         assert prefix.join('lib-python', cpyver, 'test').check()
         assert prefix.join(exe_name_in_archive).check()
         assert prefix.join('lib_pypy', 'syslog.py').check()

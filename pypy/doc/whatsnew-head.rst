@@ -82,3 +82,6 @@ Cleanup _numpypy and numpypy namespaces to more closely resemble numpy.
 
 .. branch: kill-flowobjspace
 Random cleanups to hide FlowObjSpace from public view.
+
+.. branch: vendor-rename
+Remove minor verison number from lib-python dirs to simplify stdlib upgrades.
