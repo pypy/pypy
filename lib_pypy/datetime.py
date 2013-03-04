@@ -44,10 +44,6 @@ def _is_leap(year):
     "year -> 1 if leap year, else 0."
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
-def _days_in_year(year):
-    "year -> number of days in year (366 if a leap year, else 365)."
-    return 365 + _is_leap(year)
-
 def _days_before_year(year):
     "year -> number of days before January 1st of year."
     y = year - 1
@@ -527,7 +523,7 @@ class timedelta(object):
 
         if isinstance(microseconds, float):
             microseconds += usdouble
-            microseconds = round(microseconds)
+            microseconds = round(microseconds, 0)
             seconds, microseconds = divmod(microseconds, 1e6)
             assert microseconds == int(microseconds)
             assert seconds == long(seconds)
@@ -547,7 +543,7 @@ class timedelta(object):
             assert abs(s) <= 3 * 24 * 3600
             microseconds = float(microseconds)
             microseconds += usdouble
-            microseconds = round(microseconds)
+            microseconds = round(microseconds, 0)
         assert abs(s) <= 3 * 24 * 3600
         assert abs(microseconds) < 3.1e6
 
@@ -600,6 +596,7 @@ class timedelta(object):
         return s
 
     def total_seconds(self):
+        """Total seconds in the duration."""
         return ((self.days * 86400 + self.seconds) * 10**6
                 + self.microseconds) / 1e6
 
@@ -732,8 +729,6 @@ class timedelta(object):
 
     # Pickle support.
 
-    __safe_for_unpickling__ = True      # For Python 2.2
-
     def _getstate(self):
         return (self._days, self._seconds, self._microseconds)
 
@@ -842,7 +837,7 @@ class date(object):
     # strftime("%c", ...) is locale specific.
 
     def ctime(self):
-        "Format a la ctime()."
+        "Return ctime() style string."
         return tmxxx(self._year, self._month, self._day).ctime()
 
     def strftime(self, fmt):
@@ -988,7 +983,7 @@ class date(object):
             self._checkOverflow(t.year)
             result = date(t.year, t.month, t.day)
             return result
-        return NotImplemented    # note that this doesn't work on CPython 2.2
+        return NotImplemented
 
     __radd__ = __add__
 
@@ -1041,8 +1036,6 @@ class date(object):
         return year, week+1, day+1
 
     # Pickle support.
-
-    __safe_for_unpickling__ = True      # For Python 2.2
 
     def _getstate(self):
         yhi, ylo = divmod(self._year, 256)
@@ -1119,8 +1112,6 @@ class tzinfo(object):
 
     # Pickle support.
 
-    __safe_for_unpickling__ = True      # For Python 2.2
-
     def __reduce__(self):
         getinitargs = getattr(self, "__getinitargs__", None)
         if getinitargs:
@@ -1137,7 +1128,7 @@ class tzinfo(object):
         else:
             return (self.__class__, args, state)
 
-_tzinfo_class = tzinfo   # so functions w/ args named "tinfo" can get at it
+_tzinfo_class = tzinfo  # so functions w/ args named "tzinfo" can get at the class
 
 class time(object):
     """Time with time zone.
@@ -1274,7 +1265,6 @@ class time(object):
                        (other._hour, other._minute, other._second,
                         other._microsecond))
         if myoff is None or otoff is None:
-            # XXX Buggy in 2.2.2.
             raise TypeError("cannot compare naive and aware times")
         myhhmm = self._hour * 60 + self._minute - myoff
         othhmm = other._hour * 60 + other._minute - otoff
@@ -1399,6 +1389,12 @@ class time(object):
             offset = timedelta(minutes=offset)
         return offset
 
+    # Return an integer (or None) instead of a timedelta (or None).
+    def _dst(self):
+        offset = _call_tzinfo_method(self._tzinfo, "dst", None)
+        offset = _check_utc_offset("dst", offset)
+        return offset
+
     def replace(self, hour=None, minute=None, second=None, microsecond=None,
                 tzinfo=True):
         """Return a new time with new values for the specified fields."""
@@ -1416,12 +1412,6 @@ class time(object):
         _check_tzinfo_arg(tzinfo)
         return time(hour, minute, second, microsecond, tzinfo)
 
-    # Return an integer (or None) instead of a timedelta (or None).
-    def _dst(self):
-        offset = _call_tzinfo_method(self._tzinfo, "dst", None)
-        offset = _check_utc_offset("dst", offset)
-        return offset
-
     def __nonzero__(self):
         if self.second or self.microsecond:
             return 1
@@ -1429,8 +1419,6 @@ class time(object):
         return self.hour * 60 + self.minute - offset != 0
 
     # Pickle support.
-
-    __safe_for_unpickling__ = True      # For Python 2.2
 
     def _getstate(self):
         us2, us3 = divmod(self._microsecond, 256)
@@ -1524,10 +1512,9 @@ class datetime(date):
         """
 
         _check_tzinfo_arg(tz)
-        if tz is None:
-            converter = _time.localtime
-        else:
-            converter = _time.gmtime
+
+        converter = _time.localtime if tz is None else _time.gmtime
+
         if t < 0.0:
             us = int(round(((-t) % 1.0) * 1000000))
             if us > 0:
@@ -1673,7 +1660,7 @@ class datetime(date):
     # Ways to produce a string.
 
     def ctime(self):
-        "Format a la ctime()."
+        "Return ctime() style string."
         t = tmxxx(self._year, self._month, self._day, self._hour,
                   self._minute, self._second)
         return t.ctime()
@@ -1775,13 +1762,13 @@ class datetime(date):
             offset = timedelta(minutes=offset)
         return offset
 
-    # Return an integer (or None) instead of a timedelta (or None).1573
+    # Return an integer (or None) instead of a timedelta (or None).
     def _dst(self):
         offset = _call_tzinfo_method(self._tzinfo, "dst", self)
         offset = _check_utc_offset("dst", offset)
         return offset
 
-    # Comparisons.
+    # Comparisons of datetime objects with other.
 
     def __eq__(self, other):
         if isinstance(other, datetime):
@@ -1854,7 +1841,6 @@ class datetime(date):
                         other._hour, other._minute, other._second,
                         other._microsecond))
         if myoff is None or otoff is None:
-            # XXX Buggy in 2.2.2.
             raise TypeError("cannot compare naive and aware datetimes")
         # XXX What follows could be done more efficiently...
         diff = self - other     # this will take offsets into account
@@ -1914,8 +1900,6 @@ class datetime(date):
         return hash(timedelta(days, seconds, self.microsecond))
 
     # Pickle support.
-
-    __safe_for_unpickling__ = True      # For Python 2.2
 
     def _getstate(self):
         yhi, ylo = divmod(self._year, 256)
@@ -2154,4 +2138,3 @@ small dst() may get within its bounds; and it doesn't even matter if some
 perverse time zone returns a negative dst()).  So a breaking case must be
 pretty bizarre, and a tzinfo subclass can override fromutc() if it is.
 """
-
