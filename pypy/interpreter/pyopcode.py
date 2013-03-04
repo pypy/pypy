@@ -1400,7 +1400,9 @@ def source_as_str(space, w_source, funcname, what, flags):
     from pypy.interpreter.astcompiler import consts
 
     if space.isinstance_w(w_source, space.w_unicode):
-        source = space.unicode0_w(w_source).encode('utf-8')
+        from pypy.objspace.std.unicodetype import encode_object
+        w_source = encode_object(space, w_source, None, None)
+        source = space.bytes0_w(w_source)
         flags |= consts.PyCF_IGNORE_COOKIE
     elif space.isinstance_w(w_source, space.w_bytes):
         source = space.bytes0_w(w_source)

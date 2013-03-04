@@ -10,6 +10,33 @@ def test_stdout_exists(space):
     space.sys.get('stdout')
     space.sys.get('__stdout__')
 
+def test_stdout_flush_at_shutdown(space):
+    w_sys = space.sys
+    w_read = space.appexec([], """():
+        import sys
+        from io import BytesIO, TextIOWrapper
+        class BadWrite(BytesIO):
+            def write(self, data):
+                raise IOError
+        buf = BytesIO()
+        def read():
+            buf.seek(0)
+            return buf.read()
+        sys.stdout = TextIOWrapper(BadWrite())
+        sys.stderr = TextIOWrapper(buf)
+        return read""")
+
+    try:
+        space.call_method(w_sys.get('stdout'), 'write', space.wrap('x'))
+        # called at shtudown
+        w_sys.flush_std_files(space)
+
+        msg = space.bytes_w(space.call_function(w_read))
+        assert 'Exception IOError' in msg
+    finally:
+        space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
+        space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
+
 class AppTestAppSysTests:
 
     def setup_class(cls):

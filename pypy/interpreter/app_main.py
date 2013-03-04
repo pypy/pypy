@@ -117,8 +117,7 @@ def print_info(*args):
     except AttributeError:
         print('no translation information found', file=sys.stderr)
     else:
-        optitems = list(options.items())
-        optitems.sort()
+        optitems = sorted(options.items())
         current = []
         for key, value in optitems:
             group = key.split('.')
@@ -558,8 +557,16 @@ def run_command_line(interactive,
         if run_command != 0:
             # handle the "-c" command
             # Put '' on sys.path
-            sys.path.insert(0, '')
-            success = run_toplevel(exec_, run_command, mainmodule.__dict__)
+            try:
+                bytes = run_command.encode()
+            except BaseException as e:
+                print("Unable to decode the command from the command line:",
+                      file=sys.stderr)
+                display_exception(e)
+                success = False
+            else:
+                sys.path.insert(0, '')
+                success = run_toplevel(exec_, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
@@ -581,7 +588,7 @@ def run_command_line(interactive,
                 # banner (unless "-q" was specified) and run
                 # $PYTHONSTARTUP.
                 if not quiet:
-                    print_banner()
+                    print_banner(not no_site)
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
@@ -671,10 +678,11 @@ def run_command_line(interactive,
 
     return status
 
-def print_banner():
+def print_banner(copyright):
     print('Python %s on %s' % (sys.version, sys.platform))
-    print('Type "help", "copyright", "credits" or '
-          '"license" for more information.')
+    if copyright:
+        print('Type "help", "copyright", "credits" or '
+              '"license" for more information.')
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.
@@ -765,7 +773,7 @@ if __name__ == '__main__':
         from os.path import abspath, join, dirname as dn
         thisfile = abspath(__file__)
         root = dn(dn(dn(thisfile)))
-        return [join(root, 'lib-python', '3.2'),
+        return [join(root, 'lib-python', '3'),
                 join(root, 'lib_pypy')]
 
     def pypy_resolvedirof(s):

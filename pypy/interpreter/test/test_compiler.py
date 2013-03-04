@@ -794,6 +794,28 @@ class AppTestCompiler:
         raises(SyntaxError, compile, code.format('<>'),
                '<FLUFL test>', 'exec')
 
+    def test_surrogate(self):
+        s = '\udcff'
+        raises(UnicodeEncodeError, compile, s, 'foo', 'exec')
+
+    def test_ast_equality(self):
+        import _ast
+        sample_code = [
+            ['<assign>', 'x = 5'],
+            ['<ifblock>', """if True:\n    pass\n"""],
+            ['<forblock>', """for n in [1, 2, 3]:\n    print(n)\n"""],
+            ['<deffunc>', """def foo():\n    pass\nfoo()\n"""],
+        ]
+
+        for fname, code in sample_code:
+            co1 = compile(code, '%s1' % fname, 'exec')
+            ast = compile(code, '%s2' % fname, 'exec', _ast.PyCF_ONLY_AST)
+            assert type(ast) == _ast.Module
+            co2 = compile(ast, '%s3' % fname, 'exec')
+            assert co1 == co2
+            # the code object's filename comes from the second compilation step
+            assert co2.co_filename == '%s3' % fname
+
 
 class AppTestOptimizer:
 
@@ -1038,3 +1060,14 @@ class AppTestExceptions:
         err3 = eval(repr(err1))
         assert str(err3) == str(err1)
         assert repr(err3) == repr(err1)
+
+    def test_surrogate_filename(self):
+        fname = '\udcff'
+        co = compile("'dr cannon'", fname, 'exec')
+        assert co.co_filename == fname
+        try:
+            compile("'dr", fname, 'exec')
+        except SyntaxError as e:
+            assert e.filename == fname
+        else:
+            assert False, 'SyntaxError expected'

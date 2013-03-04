@@ -367,7 +367,6 @@ def test_dup():
     if sys.platform == "win32":
         skip("dup does not work on Windows")
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
     s.bind(INETAddress('localhost', 50007))
     s2 = s.dup()
     assert s.fd != s2.fd
@@ -377,10 +376,10 @@ def test_c_dup():
     # rsocket.dup() duplicates fd, it also works on Windows
     # (but only on socket handles!)
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
     s.bind(INETAddress('localhost', 50007))
-    fd2 = dup(s.fd)
-    assert s.fd != fd2
+    s2 = RSocket(fd=dup(s.fd))
+    assert s.fd != s2.fd
+    assert s.getsockname().eq(s2.getsockname())
 
 def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
@@ -444,7 +443,6 @@ class TestTCP:
 
     def setup_method(self, method):
         self.serv = RSocket(AF_INET, SOCK_STREAM)
-        self.serv.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
         self.serv.bind(INETAddress(self.HOST, self.PORT))
         self.serv.listen(1)
 

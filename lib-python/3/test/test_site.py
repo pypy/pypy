@@ -6,7 +6,7 @@ executing have not been removed.
 """
 import unittest
 from test.support import run_unittest, TESTFN, EnvironmentVarGuard
-from test.support import captured_stderr
+from test.support import captured_stderr, check_impl_detail
 import builtins
 import os
 import sys
@@ -341,8 +341,9 @@ class ImportSideEffectTests(unittest.TestCase):
 
         self.assertEqual(proc.returncode, 0)
         os__file__, os__cached__ = stdout.splitlines()[:2]
-        self.assertFalse(os.path.isabs(os__file__))
-        self.assertFalse(os.path.isabs(os__cached__))
+        if check_impl_detail(cpython=True):
+            self.assertFalse(os.path.isabs(os__file__))
+            self.assertFalse(os.path.isabs(os__cached__))
         # Now, with 'import site', it works.
         proc = subprocess.Popen([sys.executable, '-c', command],
                                 env=env,

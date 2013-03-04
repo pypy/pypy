@@ -588,8 +588,9 @@ class AppTestSocketTCP:
         
     def setup_method(self, method):
         w_HOST = space.wrap(self.HOST)
-        self.w_serv = space.appexec([w_socket, w_HOST],
-            '''(_socket, HOST):
+        self.w_serv = space.appexec([w_HOST],
+            '''(HOST):
+            import _socket
             serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
             serv.bind((HOST, 0))
             serv.listen(1)

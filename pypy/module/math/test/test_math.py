@@ -11,29 +11,12 @@ class AppTestMath:
     }
 
     def setup_class(cls):
+        from rpython.rtyper.lltypesystem.module.test import math_cases
+        filename = math_cases.__file__
+        if filename.endswith('.pyc'):
+            filename = filename[:-1]
         space = cls.space
-        cases = []
-        for a, b, expected in test_direct.MathTests.TESTCASES:
-            # marked as OverflowError to match 2.x/ll_math in
-            # test_direct, but this is a ValueError on 3.x
-            if (a, b, expected) == ('log1p', (-1.0,), OverflowError):
-                expected = ValueError
-            # 3.x ceil/floor differ from 2.x
-            if a in ('ceil', 'floor'):
-                if b[0] in (INFINITY, -INFINITY):
-                    expected = OverflowError
-                elif b[0] in (NAN, -NAN):
-                    expected = ValueError
-
-            if type(expected) is type and issubclass(expected, Exception):
-                expected = getattr(space, "w_%s" % expected.__name__)
-            elif callable(expected):
-                if not cls.runappdirect:
-                    expected = cls.make_callable_wrapper(expected)
-            else:
-                expected = space.wrap(expected)
-            cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))
-        cls.w_cases = space.newlist(cases)
+        cls.w_math_cases = space.wrap(filename)
         cls.w_consistent_host = space.wrap(test_direct.consistent_host)
 
     @classmethod
@@ -45,13 +28,36 @@ class AppTestMath:
     def w_ftest(self, actual, expected):
         assert abs(actual - expected) < 10E-5
 
+    def w_cases(self):
+        with open(self.math_cases) as f:
+            mod = compile(f.read(), "math_cases.py", "exec")
+        ns = {}
+        eval(mod, ns)
+        TESTCASES = ns['MathTests'].TESTCASES
+        INFINITY = ns['INFINITY']
+        NAN = ns['NAN']
+
+        for fnname, args, expected in TESTCASES:
+            # marked as OverflowError to match 2.x/ll_math in
+            # test_direct, but this is a ValueError on 3.x
+            if (fnname, args, expected) == ('log1p', (-1.0,), OverflowError):
+                expected = ValueError
+            # 3.x ceil/floor differ from 2.x
+            if fnname in ('ceil', 'floor'):
+                if args[0] in (INFINITY, -INFINITY):
+                    expected = OverflowError
+                elif args[0] is NAN:
+                    expected = ValueError
+
+            yield fnname, args, expected
+
     def test_all_cases(self):
         if not self.consistent_host:
             skip("please test this on top of PyPy or CPython >= 2.6")
         import math
-        for fnname, args, expected in self.cases:
+        for fnname, args, expected in self.cases():
             fn = getattr(math, fnname)
-            print(fn, args)
+            print(fn, args, expected)
             try:
                 got = fn(*args)
             except ValueError:
@@ -163,139 +169,6 @@ class AppTestMath:
         self.ftest(math.atanh(-0.5), -0.54930614433405489)
         raises(ValueError, math.atanh, 1.)
         assert math.isnan(math.atanh(float("nan")))
-
-    def test_mtestfile(self):
-        import math
-        import zipfile
-        import os
-        import struct
-        def _parse_mtestfile(fname):
-            """Parse a file with test values
-
-            -- starts a comment
-            blank lines, or lines containing only a comment, are ignored
-            other lines are expected to have the form
-              id fn arg -> expected [flag]*
-
-            """
-            with open(fname) as fp:
-                for line in fp:
-                    # strip comments, and skip blank lines
-                    if '--' in line:
-                        line = line[:line.index('--')]
-                    if not line.strip():
-                        continue
-
-                    lhs, rhs = line.split('->')
-                    id, fn, arg = lhs.split()
-                    rhs_pieces = rhs.split()
-                    exp = rhs_pieces[0]
-                    flags = rhs_pieces[1:]
-
-                    yield (id, fn, float(arg), float(exp), flags)
-        def to_ulps(x):
-            """Convert a non-NaN float x to an integer, in such a way that
-            adjacent floats are converted to adjacent integers.  Then
-            abs(ulps(x) - ulps(y)) gives the difference in ulps between two
-            floats.
-
-            The results from this function will only make sense on platforms
-            where C doubles are represented in IEEE 754 binary64 format.
-
-            """
-            n = struct.unpack('<q', struct.pack('<d', x))[0]
-            if n < 0:
-                n = ~(n+2**63)
-            return n
-
-        def ulps_check(expected, got, ulps=20):
-            """Given non-NaN floats `expected` and `got`,
-            check that they're equal to within the given number of ulps.
-
-            Returns None on success and an error message on failure."""
-
-            ulps_error = to_ulps(got) - to_ulps(expected)
-            if abs(ulps_error) <= ulps:
-                return None
-            return "error = {} ulps; permitted error = {} ulps".format(ulps_error,
-                                                                       ulps)
-
-        def acc_check(expected, got, rel_err=2e-15, abs_err = 5e-323):
-            """Determine whether non-NaN floats a and b are equal to within a
-            (small) rounding error.  The default values for rel_err and
-            abs_err are chosen to be suitable for platforms where a float is
-            represented by an IEEE 754 double.  They allow an error of between
-            9 and 19 ulps."""
-
-            # need to special case infinities, since inf - inf gives nan
-            if math.isinf(expected) and got == expected:
-                return None
-
-            error = got - expected
-
-            permitted_error = max(abs_err, rel_err * abs(expected))
-            if abs(error) < permitted_error:
-                return None
-            return "error = {}; permitted error = {}".format(error,
-                                                             permitted_error)
-
-        ALLOWED_ERROR = 20  # permitted error, in ulps
-        fail_fmt = "{}:{}({!r}): expected {!r}, got {!r}"
-
-        failures = []
-        math_testcases = os.path.join(os.path.dirname(zipfile.__file__), "test",
-                                      "math_testcases.txt")
-        for id, fn, arg, expected, flags in _parse_mtestfile(math_testcases):
-            func = getattr(math, fn)
-
-            if 'invalid' in flags or 'divide-by-zero' in flags:
-                expected = 'ValueError'
-            elif 'overflow' in flags:
-                expected = 'OverflowError'
-
-            try:
-                got = func(arg)
-            except ValueError:
-                got = 'ValueError'
-            except OverflowError:
-                got = 'OverflowError'
-
-            accuracy_failure = None
-            if isinstance(got, float) and isinstance(expected, float):
-                if math.isnan(expected) and math.isnan(got):
-                    continue
-                if not math.isnan(expected) and not math.isnan(got):
-                    if fn == 'lgamma':
-                        # we use a weaker accuracy test for lgamma;
-                        # lgamma only achieves an absolute error of
-                        # a few multiples of the machine accuracy, in
-                        # general.
-                        accuracy_failure = acc_check(expected, got,
-                                                  rel_err = 5e-15,
-                                                  abs_err = 5e-15)
-                    elif fn == 'erfc':
-                        # erfc has less-than-ideal accuracy for large
-                        # arguments (x ~ 25 or so), mainly due to the
-                        # error involved in computing exp(-x*x).
-                        #
-                        # XXX Would be better to weaken this test only
-                        # for large x, instead of for all x.
-                        accuracy_failure = ulps_check(expected, got, 2000)
-
-                    else:
-                        accuracy_failure = ulps_check(expected, got, 20)
-                    if accuracy_failure is None:
-                        continue
-
-            if isinstance(got, str) and isinstance(expected, str):
-                if got == expected:
-                    continue
-
-            fail_msg = fail_fmt.format(id, fn, arg, expected, got)
-            if accuracy_failure is not None:
-                fail_msg += ' ({})'.format(accuracy_failure)
-            failures.append(fail_msg)
-        assert not failures
 
     def test_trunc(self):
         import math
@@ -414,3 +287,40 @@ class AppTestMath:
                 return 99.9
 
         assert math.floor(CustomFloat()) == 99
+
+    def test_erf(self):
+        import math
+        assert math.erf(100.0) == 1.0
+        assert math.erf(-1000.0) == -1.0
+        assert math.erf(float("inf")) == 1.0
+        assert math.erf(float("-inf")) == -1.0
+        assert math.isnan(math.erf(float("nan")))
+        # proper tests are in rpython/rlib/test/test_rfloat
+        assert round(math.erf(1.0), 9) == 0.842700793
+
+    def test_erfc(self):
+        import math
+        assert math.erfc(0.0) == 1.0
+        assert math.erfc(-0.0) == 1.0
+        assert math.erfc(float("inf")) == 0.0
+        assert math.erfc(float("-inf")) == 2.0
+        assert math.isnan(math.erf(float("nan")))
+        assert math.erfc(1e-308) == 1.0
+
+    def test_gamma(self):
+        import math
+        assert raises(ValueError, math.gamma, 0.0)
+        assert math.gamma(5.0) == 24.0
+        assert math.gamma(6.0) == 120.0
+        assert raises(ValueError, math.gamma, -1)
+        assert math.gamma(0.5) == math.pi ** 0.5
+
+    def test_lgamma(self):
+        import math
+        math.lgamma(1.0) == 0.0
+        math.lgamma(2.0) == 0.0
+        # proper tests are in rpython/rlib/test/test_rfloat
+        assert round(math.lgamma(5.0), 9) == round(math.log(24.0), 9)
+        assert round(math.lgamma(6.0), 9) == round(math.log(120.0), 9)
+        assert raises(ValueError, math.gamma, -1)
+        assert round(math.lgamma(0.5), 9) == round(math.log(math.pi ** 0.5), 9)

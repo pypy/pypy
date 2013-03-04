@@ -20,6 +20,7 @@ else:
 
 class PythonAPITestCase(unittest.TestCase):
 
+    @xfail
     def test_PyBytes_FromStringAndSize(self):
         PyBytes_FromStringAndSize = pythonapi.PyBytes_FromStringAndSize
 

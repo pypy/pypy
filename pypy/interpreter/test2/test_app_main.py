@@ -673,6 +673,15 @@ class TestNonInteractive:
         data = self.run('-c "print(6**5)"')
         assert '7776' in data
 
+    def test_option_c_unencodable(self):
+        data, status = self.run_with_status_code(b"""-c 'print(b"\xff")'""",
+                                                 env={'LC_ALL': 'C'})
+        assert status in (0, 1)
+        pattern = ("Unable to decode the command from the command line:"
+                   if status else
+                   "'\\xff' ")
+        assert data.startswith(pattern)
+
     def test_no_pythonstartup(self, monkeypatch, demo_script, crashing_demo_script):
         monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
         data = self.run('"%s"' % (demo_script,))
@@ -747,6 +756,10 @@ class TestNonInteractive:
         data = self.run('-iq', senddata='6*7\nraise SystemExit\n',
                         expect_prompt=True, expect_banner=False)
         assert '42\n' in data
+
+    def test_option_S_copyright(self):
+        data = self.run('-S -i', expect_prompt=True, expect_banner=True)
+        assert 'copyright' not in data
 
     def test_non_interactive_stdout_fully_buffered(self):
         path = getscript(r"""
@@ -990,7 +1003,7 @@ class AppTestAppMain:
         # setup code for test_setup_bootstrap_path
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        cpy_ver = '%d' % CPYTHON_VERSION[0]
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and

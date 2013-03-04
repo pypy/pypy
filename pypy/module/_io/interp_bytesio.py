@@ -32,13 +32,19 @@ class BytesIOBuffer(RWBuffer):
 class W_BytesIO(W_BufferedIOBase):
     def __init__(self, space):
         W_BufferedIOBase.__init__(self, space)
+        self.buf = []
         self.pos = 0
         self.string_size = 0
-        self.buf = None
+
+    def descr_new(space, w_subtype, __args__):
+        self = space.allocate_instance(W_BytesIO, w_subtype)
+        W_BytesIO.__init__(self, space)
+        return space.wrap(self)
 
     def descr_init(self, space, w_initial_bytes=None):
         # In case __init__ is called multiple times
-        self.buf = []
+        if self.buf:
+            self.buf = []
         self.string_size = 0
         self.pos = 0
 
@@ -242,7 +248,7 @@ class W_BytesIO(W_BufferedIOBase):
 W_BytesIO.typedef = TypeDef(
     'BytesIO', W_BufferedIOBase.typedef,
     __module__ = "_io",
-    __new__ = generic_new_descr(W_BytesIO),
+    __new__  = interp2app(W_BytesIO.descr_new.im_func),
     __init__  = interp2app(W_BytesIO.descr_init),
 
     read = interp2app(W_BytesIO.read_w),

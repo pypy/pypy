@@ -34,7 +34,6 @@ def llexternal(*args, **kwargs):
 # An actual wchar_t*, rffi.CWCHARP is an array of UniChar (possibly on a
 # narrow build)
 RAW_WCHARP = lltype.Ptr(lltype.Array(rffi.WCHAR_T, hints={'nolength': True}))
-WCHAR_NUL = rffi.cast(rffi.WCHAR_T, u'\x00')
 pypy_char2wchar = llexternal('pypy_char2wchar', [rffi.CCHARP, rffi.SIZE_TP],
                              RAW_WCHARP)
 pypy_char2wchar_free = llexternal('pypy_char2wchar_free', [RAW_WCHARP],
@@ -116,7 +115,7 @@ def unicode2rawwcharp(u):
     """unicode -> raw wchar_t*"""
     size = _unicode2rawwcharp_loop(u, None) if MERGE_SURROGATES else len(u)
     array = lltype.malloc(RAW_WCHARP.TO, size + 1, flavor='raw')
-    array[size] = WCHAR_NUL
+    array[size] = rffi.cast(rffi.WCHAR_T, u'\x00')
     _unicode2rawwcharp_loop(u, array)
     return array
 unicode2rawwcharp._annenforceargs_ = [unicode]
@@ -147,7 +146,7 @@ _unicode2rawwcharp_loop._annenforceargs_ = [unicode, None]
 def rawwcharp2unicoden(wcp, maxlen):
     b = UnicodeBuilder(maxlen)
     i = 0
-    while i < maxlen and wcp[i] != WCHAR_NUL:
+    while i < maxlen and rffi.cast(lltype.Signed, wcp[i]) != 0:
         b.append(code_to_unichr(wcp[i]))
         i += 1
     return assert_str0(b.build())
