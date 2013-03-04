@@ -16,6 +16,7 @@
 # RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+import os
 import pytest
 from .infrastructure import read_spec
 
@@ -76,6 +77,7 @@ def test_yank_pop():
                ( 'accept',                ['cd '])])
 
 
+@pytest.mark.skipif("os.name == 'nt'")
 def test_interrupt():
     with pytest.raises(KeyboardInterrupt):
         read_spec([('interrupt', [''])])

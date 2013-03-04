@@ -1,5 +1,11 @@
-from pyrepl.readline import _ReadlineWrapper
 import os
+import pytest
+
+if os.name == 'nt':
+    pytest.skip('No pyrepl.readline in windows, requires termios')
+
+from pyrepl.readline import _ReadlineWrapper
+
 import pty
 
 

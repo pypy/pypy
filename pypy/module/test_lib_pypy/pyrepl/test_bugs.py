@@ -25,6 +25,9 @@ from .infrastructure import EA, BaseTestReader, read_spec
 
 import pytest
 
+import os
+if os.name == 'nt':
+    pytest.skip('pyrepl does not work properly on windows')
 
 class HistoricalTestReader(HistoricalReader, BaseTestReader):
     pass
