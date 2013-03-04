@@ -940,6 +940,11 @@ class MiniMarkGC(MovingGCBase):
     def get_forwarding_address(self, obj):
         return llmemory.cast_adr_to_ptr(obj, FORWARDSTUBPTR).forw
 
+    def get_possibly_forwarded_type_id(self, obj):
+        if self.is_in_nursery(obj) and self.is_forwarded(obj):
+            obj = self.get_forwarding_address(obj)
+        return self.get_type_id(obj)
+
     def get_total_memory_used(self):
         """Return the total memory used, not counting any object in the
         nursery: only objects in the ArenaCollection or raw-malloced.

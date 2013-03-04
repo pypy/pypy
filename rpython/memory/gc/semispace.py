@@ -438,6 +438,12 @@ class SemiSpaceGC(MovingGCBase):
     def visit_external_object(self, obj):
         pass    # hook for the HybridGC
 
+    def get_possibly_forwarded_type_id(self, obj):
+        tid = self.header(obj).tid
+        if self.is_forwarded(obj) and not (tid & GCFLAG_EXTERNAL):
+            obj = self.get_forwarding_address(obj)
+        return self.get_type_id(obj)
+
     def set_forwarding_address(self, obj, newobj, objsize):
         # To mark an object as forwarded, we set the GCFLAG_FORWARDED and
         # overwrite the object with a FORWARDSTUB.  Doing so is a bit

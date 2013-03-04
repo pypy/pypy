@@ -413,7 +413,7 @@ class AsmStackRootWalker(BaseRootWalker):
             # to a JITFRAME object.
             from rpython.jit.backend.llsupport.jitframe import STACK_DEPTH_OFS
             
-            tid = self.gc.get_type_id(ebp_in_caller)
+            tid = self.gc.get_possibly_forwarded_type_id(ebp_in_caller)
             ll_assert(rffi.cast(lltype.Signed, tid) ==
                       rffi.cast(lltype.Signed, self.frame_tid),
                       "found a stack frame that does not belong "
