@@ -881,6 +881,9 @@ def unicode_format_map__Unicode_ANY(space, w_unicode, w_mapping):
 def format__Unicode_ANY(space, w_unicode, w_spec):
     return newformat.run_formatter(space, w_spec, "format_string", w_unicode)
 
+def iter__Unicode(space, w_unicode):
+    return space.newseqiter(w_unicode)
+
 
 from pypy.objspace.std import unicodetype
 register_all(vars(), unicodetype)

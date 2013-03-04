@@ -741,6 +741,13 @@ class AppTestUnicodeString:
         assert s[1:-1] == "b"
         assert s[-2:-1] == "b"
 
+    def test_iter(self):
+        foo = "\u1111\u2222\u3333"
+        assert hasattr(foo, '__iter__')
+        iter = foo.__iter__()
+        assert next(iter) == '\u1111'
+        assert next(iter) == '\u2222'
+
     def test_no_len_on_str_iter(self):
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
