@@ -57,28 +57,17 @@ class TestUnicodeUtil(object):
         assert result
 
     def test_only_unicode_encode(self):
-
         sut =      [1,   u"a", "miau", u"λ"]
-        expected = [int, str,  str   , str ]
+        expected = [int, str,  str,    str ]
 
         results = map(tryencode, sut)
-
-
         for result, expected_type in zip(results, expected):
             assert isinstance(result, expected_type)
 
     def test_forceunicode_should_not_fail(self):
-
-        garbage = "\xef\xff\xbb\xbf\xce\xbb\xff\xff" # garbage with a lambda
-
-        result = forceunicode(garbage)
-        assert True, "should not raise"
+        garbage = "\xef\xff\xbb\xbf\xce\xbb\xff\xff"   # garbage with a lambda
+        result = forceunicode(garbage)                 # should not raise
 
     def test_forcestr_should_not_fail(self):
-
-        garbage = u"\xef\xff\xbb\xbf\xce\xbb\xff\xff" # garbage
-
-        result = forcestr(garbage)
-        assert True, "should not raise"
-
-
+        garbage = u"\xef\xff\xbb\xbf\xce\xbb\xff\xff"  # garbage
+        result = forcestr(garbage)                     # should not raise
