@@ -101,10 +101,9 @@ class AppTestKqueue(object):
         try:
             client.connect(("127.0.0.1", server_socket.getsockname()[1]))
         except socket.error as e:
-            if 'bsd' in sys.platform:
-                assert e.args[0] == errno.ENOENT
-            else:
-                assert e.args[0] == errno.EINPROGRESS
+            assert e.args[0] == errno.EINPROGRESS
+        else:
+            assert False, "EINPROGRESS not raised"
         server, addr = server_socket.accept()
 
         if sys.platform.startswith("darwin"):

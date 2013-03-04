@@ -232,7 +232,7 @@ def _rtype_compare_template(hop, func):
         if not s_int1.nonneg or not s_int2.nonneg:
             raise TyperError("comparing a signed and an unsigned number")
 
-    repr = hop.rtyper.makerepr(annmodel.unionof(s_int1, s_int2)).as_int
+    repr = hop.rtyper.getrepr(annmodel.unionof(s_int1, s_int2)).as_int
     vlist = hop.inputargs(repr, repr)
     hop.exception_is_here()
     return hop.genop(repr.opprefix+func, vlist, resulttype=Bool)
