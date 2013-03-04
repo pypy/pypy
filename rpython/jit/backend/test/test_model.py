@@ -13,7 +13,7 @@ class FrameInfo(object):
     def __init__(self, depth):
         self.jfi_frame_depth = depth
 
-    def set_frame_depth(self, baseofs, newdepth):
+    def update_frame_depth(self, baseofs, newdepth):
         self.jfi_frame_depth = newdepth
 
 def test_redirect_loop_token():

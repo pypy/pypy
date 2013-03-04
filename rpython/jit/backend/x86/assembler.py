@@ -471,7 +471,7 @@ class Assembler386(BaseAssembler):
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.allgcrefs = []
-        clt.frame_info.set_frame_depth(0, 0) # for now
+        clt.frame_info.update_frame_depth(0, 0) # for now
 
         if log:
             operations = self._inject_debugging_code(looptoken, operations,
@@ -622,7 +622,7 @@ class Assembler386(BaseAssembler):
 
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
-        self.current_clt.frame_info.set_frame_depth(baseofs, frame_depth)
+        self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
     def _check_frame_depth(self, mc, gcmap, expected_size=-1):
         """ check if the frame is of enough depth to follow this bridge.
@@ -2391,18 +2391,6 @@ class Assembler386(BaseAssembler):
                                  failaddr, arglocs, resloc):
         not_implemented("not implemented operation (guard): %s" %
                         op.getopname())
-
-    def check_frame_before_jump(self, target_token):
-        if target_token in self.target_tokens_currently_compiling:
-            return
-        if target_token._x86_clt is self.current_clt:
-            return
-        # We can have a frame coming from god knows where that's
-        # passed to a jump to another loop. Make sure it has the
-        # correct depth
-        expected_size = target_token._x86_clt.frame_info.jfi_frame_depth
-        self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
-                                expected_size=expected_size)
 
     def closing_jump(self, target_token):
         target = target_token._ll_loop_code

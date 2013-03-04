@@ -598,7 +598,7 @@ class AssemblerARM(ResOpAssembler):
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.allgcrefs = []
-        clt.frame_info.set_frame_depth(0, 0) # for now
+        clt.frame_info.update_frame_depth(0, 0) # for now
 
         if False and log:
             operations = self._inject_debugging_code(looptoken, operations,
@@ -854,7 +854,7 @@ class AssemblerARM(ResOpAssembler):
 
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
-        self.current_clt.frame_info.set_frame_depth(baseofs, frame_depth)
+        self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
     def write_pending_failure_recoveries(self):
         for tok in self.pending_guards:
