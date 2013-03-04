@@ -44,6 +44,7 @@ class BaseCTypesTestChecker:
         del_funcptr_refs_maybe(mod, 'dll2')
         del_funcptr_refs_maybe(mod, 'lib')
         del_funcptr_refs_maybe(mod, 'testdll')
+        del_funcptr_refs_maybe(mod, 'windll')
         del_funcptr_refs_maybe(mod, 'ctdll')
         del_funcptr_refs_maybe(cls, '_dll')
         #
