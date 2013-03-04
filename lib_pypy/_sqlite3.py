@@ -1028,7 +1028,7 @@ class Statement(object):
             param = bytes(param)
             sqlite.sqlite3_bind_blob(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
         else:
-            raise InterfaceError("parameter type %s is not supported" % 
+            raise InterfaceError("parameter type %s is not supported" %
                                  type(param))
 
     def set_params(self, params):
