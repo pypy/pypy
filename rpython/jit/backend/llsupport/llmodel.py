@@ -92,6 +92,7 @@ class AbstractLLCPU(AbstractCPU):
                 i = 0
                 while i < len(frame.jf_frame):
                     new_frame.jf_frame[i] = frame.jf_frame[i]
+                    frame.jf_frame[i] = 0
                     i += 1
                 new_frame.jf_savedata = frame.jf_savedata
                 new_frame.jf_guard_exc = frame.jf_guard_exc
