@@ -1,9 +1,15 @@
 RAW_ENCODING = "utf-8"
-
+ENCODING_ERROR_HANDLING = "replace"
 
 def forceunicode(name):
-    return name if isinstance(name, unicode) else name.decode(RAW_ENCODING)
+    """ returns `name` as unicode, even if it wasn't before  """
+    return name if isinstance(name, unicode) else name.decode(RAW_ENCODING, ENCODING_ERROR_HANDLING)
 
 
 def forcestr(name):
-    return name if isinstance(name, str) else name.encode(RAW_ENCODING)
+    """ returns `name` as (possibly `RAW_ENCODING` encoded) string, even if it wasn't before  """
+    return name if isinstance(name, str) else name.encode(RAW_ENCODING, ENCODING_ERROR_HANDLING)
+
+def forceencoded(name):
+    """ returns `name` as encoded string if it was unicode before """
+    return name.encode(RAW_ENCODING, ENCODING_ERROR_HANDLING) if isinstance(name, unicode) else name
