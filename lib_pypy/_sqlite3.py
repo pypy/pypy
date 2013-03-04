@@ -304,6 +304,8 @@ class StatementCache(object):
 
 
 class Connection(object):
+    db = None
+
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
         self.db = c_void_p()
@@ -509,6 +511,8 @@ class Connection(object):
             self._reset_cursors()
 
     def _check_closed(self):
+        if self.db is None:
+            raise ProgrammingError("Base Connection.__init__ not called.")
         if getattr(self, 'closed', True):
             raise ProgrammingError("Cannot operate on a closed database.")
 
