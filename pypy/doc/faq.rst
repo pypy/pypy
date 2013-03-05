@@ -4,10 +4,6 @@ Frequently Asked Questions
 
 .. contents::
 
-
-General
-=======
-
 -------------
 What is PyPy?
 -------------
@@ -133,10 +129,6 @@ machine code completely impossible without some very advanced way of
 mapping addresses in the old (now-dead) process to addresses in the new
 process, including checking that all the previous assumptions about the
 (now-dead) object are still true about the new object.
-
-
-Development
-===========
 
 -----------------------------------------------------------
 How do I get into PyPy development?  Can I come to sprints?
