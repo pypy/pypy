@@ -105,6 +105,7 @@ class AbstractLLCPU(AbstractCPU):
 
         def realloc_frame_crash(frame, size):
             print "frame", frame, "size", size
+            return lltype.nullptr(llmemory.GCREF.TO)
 
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame)
