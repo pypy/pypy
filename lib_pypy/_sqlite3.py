@@ -935,12 +935,13 @@ class Cursor(object):
         self.closed = True
 
     def __del__(self):
-        if self.statement:
-            self.statement.reset()
-        try:
-            self.connection.cursors.remove(weakref.ref(self))
-        except ValueError:
-            pass
+        if self.initialized:
+            if self.statement:
+                self.statement.reset()
+            try:
+                self.connection.cursors.remove(weakref.ref(self))
+            except ValueError:
+                pass
 
     def setinputsizes(self, *args):
         pass
@@ -953,8 +954,9 @@ class Cursor(object):
 
 
 class Statement(object):
+    statement = None
+
     def __init__(self, connection, sql):
-        self.statement = None
         if not isinstance(sql, str):
             raise ValueError("sql must be a string")
         self.con = connection
@@ -1170,8 +1172,8 @@ class Statement(object):
         self.in_use = True
 
     def __del__(self):
-        sqlite.sqlite3_finalize(self.statement)
-        self.statement = None
+        if self.statement:
+            sqlite.sqlite3_finalize(self.statement)
 
     def _get_description(self):
         if self.kind == DML:
