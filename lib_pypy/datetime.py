@@ -349,8 +349,6 @@ def _cmperror(x, y):
 # second-guess timezones or DST.  Instead fold whatever adjustments you want
 # into the minutes argument (and the constructor will normalize).
 
-_ORD1970 = _ymd2ord(1970, 1, 1) # base ordinal for UNIX epoch
-
 class tmxxx:
 
     ordinal = None
@@ -412,32 +410,6 @@ class tmxxx:
         self.hour, self.minute, self.second = hour, minute, second
         self.microsecond = microsecond
 
-    def toordinal(self):
-        """Return proleptic Gregorian ordinal for the year, month and day.
-
-        January 1 of year 1 is day 1.  Only the year, month and day values
-        contribute to the result.
-        """
-        if self.ordinal is None:
-            self.ordinal = _ymd2ord(self.year, self.month, self.day)
-        return self.ordinal
-
-    def time(self):
-        "Return Unixish timestamp, as a float (assuming UTC)."
-        days = self.toordinal() - _ORD1970   # convert to UNIX epoch
-        seconds = ((days * 24. + self.hour)*60. + self.minute)*60.
-        return seconds + self.second + self.microsecond / 1e6
-
-    def ctime(self):
-        "Return ctime() style string."
-        weekday = self.toordinal() % 7 or 7
-        return "%s %s %2d %02d:%02d:%02d %04d" % (
-            _DAYNAMES[weekday],
-            _MONTHNAMES[self.month],
-            self.day,
-            self.hour, self.minute, self.second,
-            self.year)
-
 class timedelta(object):
     """Represent the difference between two datetime objects.
 
@@ -458,7 +430,6 @@ class timedelta(object):
     __slots__ = '_days', '_seconds', '_microseconds'
 
     def __new__(cls, days=0, seconds=0, microseconds=0,
-                # XXX The following should only be used as keyword args:
                 milliseconds=0, minutes=0, hours=0, weeks=0):
         # Doing this efficiently and accurately in C is going to be difficult
         # and error-prone, due to ubiquitous overflow possibilities, and that
@@ -835,9 +806,14 @@ class date(object):
     # easily done without using strftime() -- that's better too because
     # strftime("%c", ...) is locale specific.
 
+
     def ctime(self):
         "Return ctime() style string."
-        return tmxxx(self._year, self._month, self._day).ctime()
+        weekday = self.toordinal() % 7 or 7
+        return "%s %s %2d 00:00:00 %04d" % (
+            _DAYNAMES[weekday],
+            _MONTHNAMES[self._month],
+            self._day, self._year)
 
     def strftime(self, fmt):
         "Format using strftime()."
@@ -1126,7 +1102,7 @@ class tzinfo(object):
         else:
             return (self.__class__, args, state)
 
-_tzinfo_class = tzinfo  # so functions w/ args named "tzinfo" can get at the class
+_tzinfo_class = tzinfo
 
 class time(object):
     """Time with time zone.
@@ -1657,9 +1633,13 @@ class datetime(date):
 
     def ctime(self):
         "Return ctime() style string."
-        t = tmxxx(self._year, self._month, self._day, self._hour,
-                  self._minute, self._second)
-        return t.ctime()
+        weekday = self.toordinal() % 7 or 7
+        return "%s %s %2d %02d:%02d:%02d %04d" % (
+            _DAYNAMES[weekday],
+            _MONTHNAMES[self._month],
+            self._day,
+            self._hour, self._minute, self._second,
+            self._year)
 
     def isoformat(self, sep='T'):
         """Return the time formatted according to ISO.
