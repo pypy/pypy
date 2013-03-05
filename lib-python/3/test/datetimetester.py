@@ -3676,6 +3676,18 @@ class Oddballs(unittest.TestCase):
         self.assertEqual(as_datetime, datetime_sc)
         self.assertEqual(datetime_sc, as_datetime)
 
+    def test_attributes():
+        a = datetime.date.today()
+        with self.assertRaises(AttributeError): a.abc = 1
+        a = datetime.time()
+        with self.assertRaises(AttributeError): a.abc = 1
+        a = datetime.tzinfo()
+        with self.assertRaises(AttributeError): a.abc = 1
+        a = datetime.datetime.utcnow()
+        with self.assertRaises(AttributeError): a.abc = 1
+        a = datetime.timedelta()
+        with self.assertRaises(AttributeError): a.abc = 1
+
 def test_main():
     support.run_unittest(__name__)
 
