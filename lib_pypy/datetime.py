@@ -61,17 +61,14 @@ def _days_in_month(year, month):
 
 def _days_before_month(year, month):
     "year, month -> number of days in year preceeding first day of month."
-    if not 1 <= month <= 12:
-        raise ValueError('month must be in 1..12', month)
+    assert 1 <= month <= 12, 'month must be in 1..12'
     return _DAYS_BEFORE_MONTH[month] + (month > 2 and _is_leap(year))
 
 def _ymd2ord(year, month, day):
     "year, month, day -> ordinal, considering 01-Jan-0001 as day 1."
-    if not 1 <= month <= 12:
-        raise ValueError('month must be in 1..12', month)
+    assert 1 <= month <= 12, 'month must be in 1..12'
     dim = _days_in_month(year, month)
-    if not 1 <= day <= dim:
-        raise ValueError('day must be in 1..%d' % dim, day)
+    assert 1 <= day <= dim, ('day must be in 1..%d' % dim)
     return (_days_before_year(year) +
             _days_before_month(year, month) +
             day)
