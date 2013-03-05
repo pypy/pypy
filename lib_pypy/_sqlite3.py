@@ -742,6 +742,8 @@ class CursorLock(object):
 
 
 class Cursor(object):
+    initialized = False
+
     def __init__(self, con):
         if not isinstance(con, Connection):
             raise TypeError
@@ -756,8 +758,11 @@ class Cursor(object):
         self.statement = None
         self.reset = False
         self.locked = False
+        self.initialized = True
 
     def _check_closed(self):
+        if not self.initialized:
+            raise ProgrammingError("Base Cursor.__init__ not called.")
         if not getattr(self, 'connection', None):
             raise ProgrammingError("Cannot operate on a closed cursor.")
         self.connection._check_thread()
