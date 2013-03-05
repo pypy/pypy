@@ -3680,19 +3680,11 @@ class Oddballs(unittest.TestCase):
         self.assertEqual(as_datetime, datetime_sc)
         self.assertEqual(datetime_sc, as_datetime)
 
-    def test_attributes(self):
-        a = date.today()
-        with self.assertRaises(AttributeError): a.abc = 1
-        a = time()
-        with self.assertRaises(AttributeError): a.abc = 1
-        a = tzinfo()
-        with self.assertRaises(AttributeError): a.abc = 1
-        a = datetime.utcnow()
-        with self.assertRaises(AttributeError): a.abc = 1
-        a = timedelta()
-        with self.assertRaises(AttributeError): a.abc = 1
-        a = timezone(timedelta())
-        with self.assertRaises(AttributeError): a.abc = 1
+    def test_extra_attributes(self):
+        for x in [date.today(), time(), datetime.utcnow(), timedelta(),
+                  tzinfo(), timezone(timedelta())]:
+            with self.assertRaises(AttributeError):
+                x.abc = 1
 
     def test_check_arg_types(self):
         import decimal
@@ -3701,26 +3693,22 @@ class Oddballs(unittest.TestCase):
                 self.value = value
             def __int__(self):
                 return self.value
-        i10 = 10
-        d10 = decimal.Decimal(10)
-        d11 = decimal.Decimal('10.9')
-        c10 = Number(10)
-        assert datetime(i10, i10, i10, i10, i10, i10, i10) == \
-               datetime(d10, d10, d10, d10, d10, d10, d10) == \
-               datetime(d11, d11, d11, d11, d11, d11, d11) == \
-               datetime(c10, c10, c10, c10, c10, c10, c10)
 
-        with self.assertRaises(TypeError):
+        for xx in [decimal.Decimal(10), decimal.Decimal('10.9'), Number(10)]:
+            self.assertEqual(datetime(10, 10, 10, 10, 10, 10, 10),
+                             datetime(xx, xx, xx, xx, xx, xx, xx))
+
+        with self.assertRaisesRegex(TypeError, '^an integer is required$'):
             datetime(10, 10, '10')
 
         f10 = Number(10.9)
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, '^nb_int should return int object$'):
             datetime(10, 10, f10)
 
         class Float(float):
             pass
         s10 = Float(10.9)
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, '^integer argument expected, got float$'):
             datetime(10, 10, s10)
 
         with self.assertRaises(TypeError):
