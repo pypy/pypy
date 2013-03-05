@@ -442,16 +442,19 @@ class AppTestPosix:
             if not hasattr(os, "fork"):
                 skip("Need fork() to test execve()")
             try:
-                output = "caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
+                output = "caf\xe9 \u1234".encode(sys.getfilesystemencoding())
             except UnicodeEncodeError:
                 skip("encoding not good enough")
+            t = ' abc\uDCFF'
+            output += t.encode(sys.getfilesystemencoding(),
+                               'surrogateescape')
             pid = os.fork()
             if pid == 0:
                 os.execve("/bin/sh", ["sh", "-c",
-                                      "echo caf\xe9 \u1234 > onefile"],
-                          {'ddd': 'xxx'})
+                                      "echo caf\xe9 \u1234 $t > onefile"],
+                          {'ddd': 'xxx', 't': t})
             os.waitpid(pid, 0)
-            assert open("onefile", "rb").read() == output
+            assert open("onefile", "rb").read() == output + b'\n'
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 

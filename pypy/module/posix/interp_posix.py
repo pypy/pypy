@@ -362,7 +362,7 @@ def times(space):
                                space.wrap(times[3]),
                                space.wrap(times[4])])
 
-@unwrap_spec(cmd='str0')
+@unwrap_spec(cmd='fsencode')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -636,7 +636,7 @@ in the hardest way possible on the hosting operating system."""
     import signal
     rposix.os_kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src='str0', dst='str0')
+@unwrap_spec(src='fsencode', dst='fsencode')
 def link(space, src, dst):
     "Create a hard link to a file."
     try:
@@ -651,7 +651,7 @@ def symlink(space, w_src, w_dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def readlink(space, path):
     "Return a string representing the path to which the symbolic link points."
     try:
@@ -751,7 +751,7 @@ def _env2interp(space, w_env):
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.str0_w(w_key)] = space.str0_w(w_value)
+        env[space.fsencode_w(w_key)] = space.fsencode_w(w_value)
     return env
 
 def execve(space, w_command, w_args, w_env):
@@ -788,18 +788,18 @@ Execute a path with arguments and environment, replacing current process.
         except OSError, e:
             raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnv(space, mode, path, w_args):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(mode=int, path='str0')
+@unwrap_spec(mode=int, path='fsencode')
 def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -917,7 +917,7 @@ def setegid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(path='str0')
+@unwrap_spec(path='fsencode')
 def chroot(space, path):
     """ chroot(path)
 
@@ -1106,7 +1106,7 @@ def fpathconf(space, fd, w_name):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid."""
     check_uid_range(space, uid)
@@ -1116,7 +1116,7 @@ def chown(space, path, uid, gid):
     except OSError, e:
         raise wrap_oserror(space, e, path)
 
-@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='fsencode', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
     """Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links."""
