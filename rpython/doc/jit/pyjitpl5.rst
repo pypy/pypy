@@ -2,18 +2,18 @@
  PyJitPl5
 ==========
 
-This document describes the fifth generation of PyPy's JIT.
+This document describes the fifth generation of the RPython JIT generator.
 
 
 Implementation of the JIT
 =========================
 
 The JIT's `theory`_ is great in principle, but the actual code is a different
-story. This section tries to give a high level overview of how PyPy's JIT is
+story. This section tries to give a high level overview of how RPython's JIT is
 implemented.  It's helpful to have an understanding of how the `RPython translation
 toolchain`_ works before digging into the sources.
 
-Almost all JIT specific code is found in pypy/jit subdirectories.  Translation
+Almost all JIT specific code is found in rpython subdirectories.  Translation
 time code is in the codewriter directory.  The metainterp directory holds
 platform independent code including the the tracer and the optimizer.  Code in
 the backend directory is responsible for generating machine code.
@@ -25,7 +25,7 @@ the backend directory is responsible for generating machine code.
 JIT hints
 ---------
 
-To add a JIT to an interpreter, PyPy only requires that two hints be added to
+To add a JIT to an interpreter, RPython only requires two hints to be added to
 the target interpreter.  These are jit_merge_point and can_enter_jit.
 jit_merge_point is supposed to go at the start of opcode dispatch.  It allows
 the JIT to bail back to the interpreter in case running machine code is no
@@ -34,7 +34,7 @@ the Python interpreter, this is the JUMP_ABSOLUTE bytecode.  The Python
 interpreter defines its hints in pypy/module/pypyjit/interp_jit.py in a few
 overridden methods of the default interpreter loop.
 
-An interpreter wishing to use the PyPy's JIT must define a list of *green*
+An interpreter wishing to use the RPython JIT generator must define a list of *green*
 variables and a list of *red* variables.  The *green* variables are loop
 constants.  They are used to identify the current loop.  Red variables are for
 everything else used in the execution loop.  For example, the Python interpreter
@@ -152,7 +152,7 @@ during the loop and does not escape from it via calls or longevity past the
 loop.  Since it is only used by the JIT, it can be "optimized out"; the value
 doesn't have to be allocated at all and its fields can be stored as first class
 values instead of deferencing them in memory.  Virtuals allow temporary objects
-in the interpreter to be unwrapped.  For example, a W_IntObject in the PyPy can
+in the interpreter to be unwrapped.  For example, a W_IntObject in the PyPy interpreter can
 be unwrapped to just be its integer value as long as the object is known not to
 escape the machine code.
 
