@@ -845,7 +845,7 @@ class date(object):
 
     def __format__(self, fmt):
         if not isinstance(fmt, (str, unicode)):
-            raise ValueError("__format__ excepts str or unicode, not %s" %
+            raise ValueError("__format__ expects str or unicode, not %s" %
                              fmt.__class__.__name__)
         if len(fmt) != 0:
             return self.strftime(fmt)
@@ -1337,7 +1337,7 @@ class time(object):
 
     def __format__(self, fmt):
         if not isinstance(fmt, (str, unicode)):
-            raise ValueError("__format__ excepts str or unicode, not %s" %
+            raise ValueError("__format__ expects str or unicode, not %s" %
                              fmt.__class__.__name__)
         if len(fmt) != 0:
             return self.strftime(fmt)
