@@ -3676,7 +3676,7 @@ class Oddballs(unittest.TestCase):
         self.assertEqual(as_datetime, datetime_sc)
         self.assertEqual(datetime_sc, as_datetime)
 
-    def test_attributes():
+    def test_attributes(self):
         a = datetime.date.today()
         with self.assertRaises(AttributeError): a.abc = 1
         a = datetime.time()
@@ -3688,7 +3688,7 @@ class Oddballs(unittest.TestCase):
         a = datetime.timedelta()
         with self.assertRaises(AttributeError): a.abc = 1
 
-    def test_check_arg_types():
+    def test_check_arg_types(self):
         import decimal
         class Number:
             def __init__(self, value):
