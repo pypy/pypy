@@ -21,6 +21,11 @@ def test_list_ddl():
     result = list(cursor)
     assert result == [(42,)]
 
+def test_total_changes_after_close():
+    con = _sqlite3.connect(':memory:')
+    con.close()
+    pytest.raises(_sqlite3.ProgrammingError, "con.total_changes")
+
 def test_connection_check_init():
     class Connection(_sqlite3.Connection):
         def __init__(self, name):

@@ -529,6 +529,7 @@ class Connection(object):
             self.rollback()
 
     def _get_total_changes(self):
+        self._check_closed()
         return sqlite.sqlite3_total_changes(self.db)
     total_changes = property(_get_total_changes)
 
