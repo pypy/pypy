@@ -12,12 +12,8 @@ General
 What is PyPy?
 -------------
 
-PyPy is both:
-
- - a reimplementation of Python in Python, and
-
- - a framework for implementing interpreters and virtual machines for
-   programming languages, especially dynamic languages.
+PyPy is a reimplementation of Python in Python, using the RPython translation
+toolchain.
 
 PyPy tries to find new answers about ease of creation, flexibility,
 maintainability and speed trade-offs for language implementations.

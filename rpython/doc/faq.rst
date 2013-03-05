@@ -4,6 +4,13 @@ Frequently Asked Questions
 
 .. contents::
 
+----------------
+What is RPython?
+----------------
+
+RPython is a framework for implementing interpreters and virtual machines for
+programming languages, especially dynamic languages.
+
 ------------------------------------------------
 Can RPython compile normal Python programs to C?
 ------------------------------------------------
