@@ -568,10 +568,10 @@ class timedelta:
         if isinstance(other, timedelta):
             return usec / other._to_microseconds()
         if isinstance(other, int):
-            return timedelta(0, 0, usec / other)
+            return timedelta(0, 0, round(usec / other))
         if isinstance(other, float):
             a, b = other.as_integer_ratio()
-            return timedelta(0, 0, b * usec / a)
+            return timedelta(0, 0, round(b * usec / a))
 
     def __mod__(self, other):
         if isinstance(other, timedelta):
