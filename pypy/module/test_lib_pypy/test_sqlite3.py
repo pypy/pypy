@@ -45,6 +45,13 @@ def test_cursor_check_init():
     e = pytest.raises(_sqlite3.ProgrammingError, "cur.execute('select 1')")
     assert '__init__' in e.value.message
 
+def test_connection_after_close():
+    con = _sqlite3.connect(':memory:')
+    pytest.raises(TypeError, "con()")
+    con.close()
+    # raises ProgrammingError because should check closed before check args
+    pytest.raises(_sqlite3.ProgrammingError, "con()")
+
 def test_cursor_after_close():
      con = _sqlite3.connect(':memory:')
      cur = con.execute('select 1')
