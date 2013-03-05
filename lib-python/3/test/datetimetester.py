@@ -603,6 +603,8 @@ class TestTimeDelta(HarmlessMixedComparison, unittest.TestCase):
         # Single-field rounding.
         eq(td(milliseconds=0.4/1000), td(0))    # rounds to 0
         eq(td(milliseconds=-0.4/1000), td(0))    # rounds to 0
+        eq(td(milliseconds=0.5/1000), td(microseconds=1))
+        eq(td(milliseconds=-0.5/1000), td(microseconds=-1))
         eq(td(milliseconds=0.6/1000), td(microseconds=1))
         eq(td(milliseconds=-0.6/1000), td(microseconds=-1))
 
