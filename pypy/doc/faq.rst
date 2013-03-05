@@ -139,31 +139,6 @@ process, including checking that all the previous assumptions about the
 (now-dead) object are still true about the new object.
 
 
-.. _`prolog and javascript`:
-
---------------------------------------------------------------------------
-Can I use PyPy's translation toolchain for other languages besides Python?
---------------------------------------------------------------------------
-
-Yes. The toolsuite that translates the PyPy interpreter is quite
-general and can be used to create optimized versions of interpreters
-for any language, not just Python.  Of course, these interpreters
-can make use of the same features that PyPy brings to Python:
-translation to various languages, stackless features,
-garbage collection, implementation of various things like arbitrarily long
-integers, etc. 
-
-Currently, we have preliminary versions of a JavaScript interpreter
-(Leonardo Santagada as his Summer of PyPy project), a `Prolog interpreter`_
-(Carl Friedrich Bolz as his Bachelor thesis), and a `SmallTalk interpreter`_
-(produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
-Scheme and an Io implementation; both of these are unfinished at the moment.
-
-.. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
-.. _`SmallTalk interpreter`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
-.. _`PyPy bitbucket page`: https://bitbucket.org/pypy/
-
-
 Development
 ===========
 
