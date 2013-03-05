@@ -3688,6 +3688,50 @@ class Oddballs(unittest.TestCase):
         a = datetime.timedelta()
         with self.assertRaises(AttributeError): a.abc = 1
 
+    def test_check_arg_types():
+        import decimal
+        class Number:
+            def __init__(self, value):
+                self.value = value
+            def __int__(self):
+                return self.value
+        i10 = 10
+        d10 = decimal.Decimal(10)
+        d11 = decimal.Decimal('10.9')
+        c10 = Number(10)
+        assert datetime.datetime(i10, i10, i10, i10, i10, i10, i10) == \
+               datetime.datetime(d10, d10, d10, d10, d10, d10, d10) == \
+               datetime.datetime(d11, d11, d11, d11, d11, d11, d11) == \
+               datetime.datetime(c10, c10, c10, c10, c10, c10, c10)
+
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, '10')
+
+        f10 = Number(10.9)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, f10)
+
+        class Float(float):
+            pass
+        s10 = Float(10.9)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, s10)
+
+        with self.assertRaises(TypeError):
+            datetime.datetime(10., 10, 10)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10., 10)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, 10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, 10, 10, 10, 10.)
+        with self.assertRaises(TypeError):
+            datetime.datetime(10, 10, 10, 10, 10, 10, 10.)
+
 def test_main():
     support.run_unittest(__name__)
 
