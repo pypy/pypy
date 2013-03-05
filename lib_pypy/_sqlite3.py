@@ -933,6 +933,10 @@ class Cursor(object):
             self.statement.reset()
             self.statement = None
         self.closed = True
+
+    def __del__(self):
+        if self.statement:
+            self.statement.reset()
         try:
             self.connection.cursors.remove(weakref.ref(self))
         except ValueError:

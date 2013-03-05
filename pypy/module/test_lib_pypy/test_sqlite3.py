@@ -53,6 +53,18 @@ def test_cursor_after_close():
      pytest.raises(_sqlite3.ProgrammingError, "cur.close()")
 
 @pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
+def test_cursor_del():
+    con = _sqlite3.connect(':memory:')
+    cur = con.execute('select 1')
+    stmt = cur.statement
+    cur.close()
+    cur = con.execute('select 1')
+    assert cur.statement is stmt
+    del cur; import gc; gc.collect(); gc.collect()
+    cur = con.execute('select 1')
+    assert cur.statement is stmt
+
+@pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
 def test_connection_del(tmpdir):
     """For issue1325."""
     import gc
