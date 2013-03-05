@@ -22,6 +22,9 @@ import math as _math
 def _cmp(x, y):
     return 0 if x == y else 1 if x > y else -1
 
+def _round(x):
+    return _math.floor(x + 0.5) if x >= 0.0 else _math.ceil(x - 0.5)
+
 MINYEAR = 1
 MAXYEAR = 9999
 _MAXORDINAL = 3652059 # date.max.toordinal()
@@ -379,7 +382,7 @@ class timedelta:
 
         if isinstance(microseconds, float):
             microseconds += usdouble
-            microseconds = round(microseconds, 0)
+            microseconds = float(_round(microseconds))
             seconds, microseconds = divmod(microseconds, 1e6)
             assert microseconds == int(microseconds)
             assert seconds == int(seconds)
@@ -399,7 +402,7 @@ class timedelta:
             assert abs(s) <= 3 * 24 * 3600
             microseconds = float(microseconds)
             microseconds += usdouble
-            microseconds = round(microseconds, 0)
+            microseconds = float(_round(microseconds))
         assert abs(s) <= 3 * 24 * 3600
         assert abs(microseconds) < 3.1e6
 
@@ -1364,7 +1367,7 @@ class datetime(date):
         converter = _time.localtime if tz is None else _time.gmtime
 
         t, frac = divmod(t, 1.0)
-        us = round(frac * 1e6)
+        us = _round(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
@@ -1384,7 +1387,7 @@ class datetime(date):
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
         t, frac = divmod(t, 1.0)
-        us = round(frac * 1e6)
+        us = _round(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
