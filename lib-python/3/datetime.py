@@ -930,6 +930,7 @@ class tzinfo:
     Subclasses must override the name(), utcoffset() and dst() methods.
     """
     __slots__ = ()
+
     def tzname(self, dt):
         "datetime -> string name of time zone."
         raise NotImplementedError("tzinfo subclass must override tzname()")
@@ -1016,6 +1017,7 @@ class time:
     Properties (readonly):
     hour, minute, second, microsecond, tzinfo
     """
+    __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo'
 
     def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None):
         """Constructor.
@@ -1308,10 +1310,8 @@ class datetime(date):
     The year, month and day arguments are required. tzinfo may be None, or an
     instance of a tzinfo subclass. The remaining arguments may be ints or longs.
     """
+    __slots__ = date.__slots__ + time.__slots__
 
-    __slots__ = date.__slots__ + (
-        '_hour', '_minute', '_second',
-        '_microsecond', '_tzinfo')
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
         if isinstance(year, bytes) and len(year) == 10:
