@@ -964,7 +964,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if star.ctx != ast.Store:
             self.error("can use starred expression only as assignment target",
                        star)
-        self.error("starred assignment must be in list or tuple", star)
+        self.error("starred assignment target must be in a list or tuple", star)
 
     def visit_Tuple(self, tup):
         self.update_position(tup.lineno)
