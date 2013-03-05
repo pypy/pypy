@@ -474,7 +474,7 @@ class Assembler386(BaseAssembler):
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.allgcrefs = []
-        clt.frame_info.update_frame_depth(0, 0) # for now
+        clt.frame_info.clear() # for now
 
         if log:
             operations = self._inject_debugging_code(looptoken, operations,
