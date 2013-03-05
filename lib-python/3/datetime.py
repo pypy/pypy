@@ -1028,13 +1028,14 @@ class time:
         second, microsecond (default to zero)
         tzinfo (default to None)
         """
-        self = object.__new__(cls)
         if isinstance(hour, bytes) and len(hour) == 6:
             # Pickle support
+            self = object.__new__(cls)
             self.__setstate(hour, minute or None)
             return self
         _check_tzinfo_arg(tzinfo)
         _check_time_fields(hour, minute, second, microsecond)
+        self = object.__new__(cls)
         self._hour = hour
         self._minute = minute
         self._second = second
@@ -1319,9 +1320,13 @@ class datetime(date):
             self = date.__new__(cls, year[:4])
             self.__setstate(year, month)
             return self
-        _check_tzinfo_arg(tzinfo)
+        _check_date_fields(year, month, day)
         _check_time_fields(hour, minute, second, microsecond)
-        self = date.__new__(cls, year, month, day)
+        _check_tzinfo_arg(tzinfo)
+        self = object.__new__(cls)
+        self._year = year
+        self._month = month
+        self._day = day
         self._hour = hour
         self._minute = minute
         self._second = second
