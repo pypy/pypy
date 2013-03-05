@@ -104,7 +104,8 @@ class W_SRE_Pattern(Wrappable):
         if endpos < pos: endpos = pos
         if space.is_true(space.isinstance(w_string, space.w_unicode)):
             unicodestr = space.unicode_w(w_string)
-            if not space.isinstance_w(self.w_pattern, space.w_unicode):
+            if not (space.is_none(self.w_pattern) or
+                    space.isinstance_w(self.w_pattern, space.w_unicode)):
                 raise OperationError(space.w_TypeError, space.wrap(
                         "can't use a string pattern on a bytes-like object"))
             if pos > len(unicodestr): pos = len(unicodestr)
@@ -113,7 +114,8 @@ class W_SRE_Pattern(Wrappable):
                                                  pos, endpos, self.flags)
         else:
             str = space.bufferstr_w(w_string)
-            if space.isinstance_w(self.w_pattern, space.w_unicode):
+            if (not space.is_none(self.w_pattern) and
+                space.isinstance_w(self.w_pattern, space.w_unicode)):
                 raise OperationError(space.w_TypeError, space.wrap(
                         "can't use a bytes pattern on a string-like object"))
             if pos > len(str): pos = len(str)
@@ -292,6 +294,10 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     w_srepat = space.allocate_instance(W_SRE_Pattern, w_subtype)
     srepat = space.interp_w(W_SRE_Pattern, w_srepat)
     srepat.space = space
+    # Type check
+    if not (space.is_none(w_pattern) or
+            space.isinstance_w(w_pattern, space.w_unicode)):
+        space.bufferstr_w(w_pattern)
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
     srepat.code = code
