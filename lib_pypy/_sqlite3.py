@@ -40,7 +40,7 @@ for name in names:
     except OSError:
         continue
 else:
-    raise ImportError("Could not load C-library, tried: %s" %(names,))
+    raise ImportError("Could not load C-library, tried: %s" % (names,))
 
 # pysqlite version information
 version = "2.6.0"
@@ -158,7 +158,7 @@ sqlite.sqlite3_value_text.restype = c_char_p
 sqlite.sqlite3_value_type.argtypes = [c_void_p]
 sqlite.sqlite3_value_type.restype = c_int
 
-sqlite.sqlite3_bind_blob.argtypes = [c_void_p, c_int, c_void_p, c_int,c_void_p]
+sqlite.sqlite3_bind_blob.argtypes = [c_void_p, c_int, c_void_p, c_int, c_void_p]
 sqlite.sqlite3_bind_blob.restype = c_int
 sqlite.sqlite3_bind_double.argtypes = [c_void_p, c_int, c_double]
 sqlite.sqlite3_bind_double.restype = c_int
@@ -174,7 +174,7 @@ sqlite.sqlite3_bind_parameter_index.argtypes = [c_void_p, c_char_p]
 sqlite.sqlite3_bind_parameter_index.restype = c_int
 sqlite.sqlite3_bind_parameter_name.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_bind_parameter_name.restype = c_char_p
-sqlite.sqlite3_bind_text.argtypes = [c_void_p, c_int, TEXT, c_int,c_void_p]
+sqlite.sqlite3_bind_text.argtypes = [c_void_p, c_int, TEXT, c_int, c_void_p]
 sqlite.sqlite3_bind_text.restype = c_int
 sqlite.sqlite3_busy_timeout.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_busy_timeout.restype = c_int
@@ -311,17 +311,18 @@ class StatementCache(object):
 
 
 class Connection(object):
+    db = None
+
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
         self.db = c_void_p()
         if sqlite.sqlite3_open(database, byref(self.db)) != SQLITE_OK:
             raise OperationalError("Could not open database")
         if timeout is not None:
-            timeout = int(timeout * 1000) # pysqlite2 uses timeout in seconds
+            timeout = int(timeout * 1000)  # pysqlite2 uses timeout in seconds
             sqlite.sqlite3_busy_timeout(self.db, timeout)
 
         self.text_factory = unicode_text_factory
-        self.closed = False
         self.statements = []
         self.statement_counter = 0
         self.row_factory = None
@@ -349,7 +350,11 @@ class Connection(object):
         if check_same_thread:
             self.thread_ident = thread_get_ident()
 
-    def _get_exception(self, error_code = None):
+    def __del__(self):
+        if self.db:
+            sqlite.sqlite3_close(self.db)
+
+    def _get_exception(self, error_code=None):
         if error_code is None:
             error_code = sqlite.sqlite3_errcode(self.db)
         error_message = sqlite.sqlite3_errmsg(self.db)
@@ -362,8 +367,8 @@ class Connection(object):
         elif error_code == SQLITE_NOMEM:
             exc = MemoryError
         elif error_code in (SQLITE_ERROR, SQLITE_PERM, SQLITE_ABORT, SQLITE_BUSY, SQLITE_LOCKED,
-            SQLITE_READONLY, SQLITE_INTERRUPT, SQLITE_IOERR, SQLITE_FULL, SQLITE_CANTOPEN,
-            SQLITE_PROTOCOL, SQLITE_EMPTY, SQLITE_SCHEMA):
+                SQLITE_READONLY, SQLITE_INTERRUPT, SQLITE_IOERR, SQLITE_FULL, SQLITE_CANTOPEN,
+                SQLITE_PROTOCOL, SQLITE_EMPTY, SQLITE_SCHEMA):
             exc = OperationalError
         elif error_code == SQLITE_CORRUPT:
             exc = DatabaseError
@@ -441,6 +446,7 @@ class Connection(object):
 
     def _get_isolation_level(self):
         return self._isolation_level
+
     def _set_isolation_level(self, val):
         if val is None:
             self.commit()
@@ -517,7 +523,9 @@ class Connection(object):
             self._reset_cursors()
 
     def _check_closed(self):
-        if getattr(self, 'closed', True):
+        if self.db is None:
+            raise ProgrammingError("Base Connection.__init__ not called.")
+        if not self.db:
             raise ProgrammingError("Cannot operate on a closed database.")
 
     def __enter__(self):
@@ -530,23 +538,23 @@ class Connection(object):
             self.rollback()
 
     def _get_total_changes(self):
+        self._check_closed()
         return sqlite.sqlite3_total_changes(self.db)
     total_changes = property(_get_total_changes)
 
     def close(self):
         self._check_thread()
-        if self.closed:
-            return
+
         for statement in self.statements:
             obj = statement()
             if obj is not None:
                 obj.finalize()
 
-        self.closed = True
-        ret = sqlite.sqlite3_close(self.db)
-        self._reset_cursors()
-        if ret != SQLITE_OK:
-            raise self._get_exception(ret)
+        if self.db:
+            ret = sqlite.sqlite3_close(self.db)
+            if ret != SQLITE_OK:
+                raise self._get_exception(ret)
+            self.db.value = 0
 
     def create_collation(self, name, callback):
         self._check_thread()
@@ -570,7 +578,6 @@ class Connection(object):
 
             c_collation_callback = COLLATION(collation_callback)
             self._collations[name] = c_collation_callback
-
 
         ret = sqlite.sqlite3_create_collation(self.db, name,
                                               SQLITE_UTF8,
@@ -655,7 +662,7 @@ class Connection(object):
 
                 aggregate_ptr = cast(
                     sqlite.sqlite3_aggregate_context(
-                    context, sizeof(c_ssize_t)),
+                        context, sizeof(c_ssize_t)),
                     POINTER(c_ssize_t))
 
                 if not aggregate_ptr[0]:
@@ -684,7 +691,7 @@ class Connection(object):
 
                 aggregate_ptr = cast(
                     sqlite.sqlite3_aggregate_context(
-                    context, sizeof(c_ssize_t)),
+                        context, sizeof(c_ssize_t)),
                     POINTER(c_ssize_t))
 
                 if aggregate_ptr[0]:
@@ -729,6 +736,7 @@ class Connection(object):
 
 DML, DQL, DDL = range(3)
 
+
 class CursorLock(object):
     def __init__(self, cursor):
         self.cursor = cursor
@@ -743,6 +751,8 @@ class CursorLock(object):
 
 
 class Cursor(object):
+    initialized = False
+
     def __init__(self, con):
         if not isinstance(con, Connection):
             raise TypeError
@@ -757,9 +767,13 @@ class Cursor(object):
         self.statement = None
         self.reset = False
         self.locked = False
+        self.closed = False
+        self.initialized = True
 
     def _check_closed(self):
-        if not getattr(self, 'connection', None):
+        if not self.initialized:
+            raise ProgrammingError("Base Cursor.__init__ not called.")
+        if self.closed:
             raise ProgrammingError("Cannot operate on a closed cursor.")
         self.connection._check_thread()
         self.connection._check_closed()
@@ -915,31 +929,40 @@ class Cursor(object):
         return sqlite.sqlite3_last_insert_rowid(self.connection.db)
 
     def close(self):
-        if not self.connection:
-            return
-        self._check_closed()
+        self.connection._check_thread()
+        self.connection._check_closed()
         if self.statement:
             self.statement.reset()
             self.statement = None
-        self.connection.cursors.remove(weakref.ref(self))
-        self.connection = None
+        self.closed = True
+
+    def __del__(self):
+        if self.initialized:
+            if self.statement:
+                self.statement.reset()
+            try:
+                self.connection.cursors.remove(weakref.ref(self))
+            except ValueError:
+                pass
 
     def setinputsizes(self, *args):
         pass
+
     def setoutputsize(self, *args):
         pass
-
 
     description = property(_getdescription)
     lastrowid = property(_getlastrowid)
 
+
 class Statement(object):
+    statement = None
+
     def __init__(self, connection, sql):
-        self.statement = None
         if not isinstance(sql, str):
             raise ValueError("sql must be a string")
         self.con = connection
-        self.sql = sql # DEBUG ONLY
+        self.sql = sql  # DEBUG ONLY
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
             self.kind = DML
@@ -1141,8 +1164,8 @@ class Statement(object):
         self.in_use = True
 
     def __del__(self):
-        sqlite.sqlite3_finalize(self.statement)
-        self.statement = None
+        if self.statement:
+            sqlite.sqlite3_finalize(self.statement)
 
     def _get_description(self):
         if self.kind == DML:
@@ -1153,6 +1176,7 @@ class Statement(object):
             name = col_name.decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
+
 
 class Row(object):
     def __init__(self, cursor, values):
@@ -1186,6 +1210,7 @@ class Row(object):
 
     def __hash__(self):
         return hash(tuple(self.description)) ^ hash(tuple(self.values))
+
 
 def _check_remaining_sql(s):
     state = "NORMAL"
@@ -1229,8 +1254,9 @@ def _check_remaining_sql(s):
                 return 1
     return 0
 
+
 def _convert_params(con, nargs, params):
-    _params  = []
+    _params = []
     for i in range(nargs):
         typ = sqlite.sqlite3_value_type(params[i])
         if typ == SQLITE_INTEGER:
@@ -1254,6 +1280,7 @@ def _convert_params(con, nargs, params):
         _params.append(val)
     return _params
 
+
 def _convert_result(con, val):
     if val is None:
         sqlite.sqlite3_result_null(con)
@@ -1269,6 +1296,7 @@ def _convert_result(con, val):
         sqlite.sqlite3_result_blob(con, str(val), len(val), SQLITE_TRANSIENT)
     else:
         raise NotImplementedError
+
 
 def function_callback(real_cb, context, nargs, c_params):
     params = _convert_params(context, nargs, c_params)
@@ -1304,14 +1332,18 @@ sqlite.sqlite3_set_authorizer.restype = c_int
 converters = {}
 adapters = {}
 
+
 class PrepareProtocol(object):
     pass
+
 
 def register_adapter(typ, callable):
     adapters[typ, PrepareProtocol] = callable
 
+
 def register_converter(name, callable):
     converters[name.upper()] = callable
+
 
 def register_adapters_and_converters():
     def adapt_date(val):
@@ -1332,15 +1364,14 @@ def register_adapters_and_converters():
             microseconds = int(timepart_full[1])
         else:
             microseconds = 0
-
-        val = datetime.datetime(year, month, day, hours, minutes, seconds, microseconds)
-        return val
-
+        return datetime.datetime(year, month, day,
+                                 hours, minutes, seconds, microseconds)
 
     register_adapter(datetime.date, adapt_date)
     register_adapter(datetime.datetime, adapt_datetime)
     register_converter("date", convert_date)
     register_converter("timestamp", convert_timestamp)
+
 
 def adapt(val, proto=PrepareProtocol):
     # look for an adapter in the registry
@@ -1371,6 +1402,7 @@ def adapt(val, proto=PrepareProtocol):
     return val
 
 register_adapters_and_converters()
+
 
 def OptimizedUnicode(s):
     try:
