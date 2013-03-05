@@ -424,24 +424,15 @@ class Connection(object):
         return cur
 
     def executemany(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
+        cur = self.cursor()
         return cur.executemany(*args)
 
     def execute(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
+        cur = self.cursor()
         return cur.execute(*args)
 
     def executescript(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
+        cur = self.cursor()
         return cur.executescript(*args)
 
     @_check_closed_wrap
