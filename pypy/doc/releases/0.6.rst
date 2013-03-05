@@ -1,5 +1,5 @@
 The PyPy 0.6 release
--------------------- 
+====================
 
 *The PyPy Development Team is happy to announce the first 
 public release of PyPy after two years of spare-time and
