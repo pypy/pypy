@@ -1198,7 +1198,10 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
         tree.walkabout(self)
 
     def _get_code_flags(self):
-        return 0
+        flags = 0
+        if not self.cell_vars and not self.free_vars:
+            flags |= consts.CO_NOFREE
+        return flags
 
 
 class AbstractFunctionCodeGenerator(PythonCodeGenerator):

@@ -10,6 +10,7 @@ class AppTestCodeIntrospection:
 
         cls.w_file = cls.space.wrap(filename)
         cls.w_CO_CONTAINSGLOBALS = cls.space.wrap(consts.CO_CONTAINSGLOBALS)
+        cls.w_CO_NOFREE = cls.space.wrap(consts.CO_NOFREE)
 
     def test_attributes(self):
         def f(): pass
@@ -169,6 +170,8 @@ class AppTestCodeIntrospection:
         assert res.endswith('>')
 
     def test_code_extra(self):
+        assert compile("x = x + 1", 'baz', 'exec').co_flags & self.CO_NOFREE
+
         d = {}
         exec("""if 1:
         def f():
@@ -178,7 +181,7 @@ class AppTestCodeIntrospection:
 """, d)
 
         # check for new flag, CO_NOFREE
-        assert d['f'].__code__.co_flags & 0x40
+        assert d['f'].__code__.co_flags & self.CO_NOFREE
 
         exec("""if 1:
         def f(x):
