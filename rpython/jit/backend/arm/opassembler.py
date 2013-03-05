@@ -1124,7 +1124,11 @@ class ResOpAssembler(BaseAssembler):
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.LDR_ri(r.ip.value, tmploc.value, imm=ofs)
-        self.mc.CMP_ri(r.ip.value, imm=value)
+        if check_imm_arg(value):
+            self.mc.CMP_ri(r.ip.value, imm=value)
+        else:
+            self.mc.gen_load_int(r.lr.value, value)
+            self.mc.CMP_rr(r.ip.value, r.lr.value)
         pos = self.mc.currpos()
         self.mc.BKPT()
         return pos
