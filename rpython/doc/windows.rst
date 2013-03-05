@@ -1,13 +1,13 @@
-===============
-PyPy on Windows
-===============
+==================
+RPython on Windows
+==================
 
-Pypy is supported on Windows platforms, starting with Windows 2000.
-The following text gives some hints about how to translate the PyPy
-interpreter.
+RPython is supported on Windows platforms, starting with Windows 2000.
+The following text gives some hints about how to translate a interpreter
+written in RPython, using PyPy as an example.
 
-To build pypy-c you need a C compiler.  Microsoft Visual Studio is
-preferred, but can also use the mingw32 port of gcc.
+To build an interpreter written in RPython you need a C compiler.
+Microsoft Visual Studio is preferred, but can also use the mingw32 port of gcc.
 
 
 Translating PyPy with Visual Studio
@@ -24,18 +24,18 @@ was used to build the Python interpreter doing the
 translation.  Failing that, they will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
 (32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
-using a 32 bit Python and vice versa. By default pypy is built using the 
-Multi-threaded DLL (/MD) runtime environment.
+using a 32 bit Python and vice versa. By default the interpreter is built using
+the Multi-threaded DLL (/MD) runtime environment.
 
-**Note:** PyPy is currently not supported for 64 bit Windows, and translation
-will fail in this case.
+**Note:** The RPython translator does currently not support 64 bit Windows, and
+translation will fail in this case.
 
 The compiler is all you need to build pypy-c, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
 
-Preping Windows for the Large Build
------------------------------------
+Preparing Windows for the large build
+-------------------------------------
 
 Normally 32bit programs are limited to 2GB of memory on Windows. It is
 possible to raise this limit, to 3GB on Windows 32bit, and almost 4GB
@@ -85,7 +85,7 @@ You may get it at
 http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc-7.1.tar.gz
 
 Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
-pypy. Unpack this folder in the base directory.  Then open a command
+RPython. Unpack this folder in the base directory.  Then open a command
 prompt::
 
     cd gc-7.1
@@ -121,7 +121,7 @@ file ``expat.dsw`` with Visual
 Studio; follow the instruction for converting the project files,
 switch to the "Release" configuration, reconfigure the runtime for 
 Multi-threaded DLL (/MD) and build the solution (the ``expat`` project 
-is actually enough for pypy).
+is actually enough for PyPy).
 
 Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
 your PATH.
@@ -143,14 +143,14 @@ in the base directory. Then compile::
 Using the mingw compiler
 ------------------------
 
-You can compile pypy with the mingw compiler, using the --cc=mingw32 option;
-gcc.exe must be on the PATH. If the -cc flag does not begin with "ming", it should be
-the name of a valid gcc-derivative compiler, i.e. x86_64-w64-mingw32-gcc for the 64 bit
-compiler creating a 64 bit target.
+You can compile an RPython program with the mingw compiler, using the
+--cc=mingw32 option; gcc.exe must be on the PATH. If the -cc flag does not
+begin with "ming", it should be the name of a valid gcc-derivative compiler,
+i.e. x86_64-w64-mingw32-gcc for the 64 bit compiler creating a 64 bit target.
 
-You probably want to set the CPATH, LIBRARY_PATH, and PATH environment variable to
-the header files, lib or dlls, and dlls respectively of the locally installed packages 
-if they are not in the mingw directory heirarchy. 
+You probably want to set the CPATH, LIBRARY_PATH, and PATH environment
+variables to the header files, lib or dlls, and dlls respectively of the
+locally installed packages if they are not in the mingw directory heirarchy. 
 
 libffi for the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
