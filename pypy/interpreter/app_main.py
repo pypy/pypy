@@ -216,10 +216,7 @@ def we_are_translated():
     # app-level, very different from rpython.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
 
-if 'nt' in sys.builtin_module_names:
-    IS_WINDOWS = True
-else:
-    IS_WINDOWS = False
+IS_WINDOWS = 'nt' in sys.builtin_module_names
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os
@@ -473,7 +470,7 @@ def run_command_line(interactive,
                      unbuffered,
                      ignore_environment,
                      **ignored):
-    # with PyPy in top of CPython we can only have around 100 
+    # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
     if '__pypy__' not in sys.builtin_module_names:
         sys.setrecursionlimit(5000)
