@@ -3681,15 +3681,17 @@ class Oddballs(unittest.TestCase):
         self.assertEqual(datetime_sc, as_datetime)
 
     def test_attributes(self):
-        a = datetime.date.today()
+        a = date.today()
         with self.assertRaises(AttributeError): a.abc = 1
-        a = datetime.time()
+        a = time()
         with self.assertRaises(AttributeError): a.abc = 1
-        a = datetime.tzinfo()
+        a = tzinfo()
         with self.assertRaises(AttributeError): a.abc = 1
-        a = datetime.datetime.utcnow()
+        a = datetime.utcnow()
         with self.assertRaises(AttributeError): a.abc = 1
-        a = datetime.timedelta()
+        a = timedelta()
+        with self.assertRaises(AttributeError): a.abc = 1
+        a = timezone(timedelta())
         with self.assertRaises(AttributeError): a.abc = 1
 
     def test_check_arg_types(self):
@@ -3703,38 +3705,38 @@ class Oddballs(unittest.TestCase):
         d10 = decimal.Decimal(10)
         d11 = decimal.Decimal('10.9')
         c10 = Number(10)
-        assert datetime.datetime(i10, i10, i10, i10, i10, i10, i10) == \
-               datetime.datetime(d10, d10, d10, d10, d10, d10, d10) == \
-               datetime.datetime(d11, d11, d11, d11, d11, d11, d11) == \
-               datetime.datetime(c10, c10, c10, c10, c10, c10, c10)
+        assert datetime(i10, i10, i10, i10, i10, i10, i10) == \
+               datetime(d10, d10, d10, d10, d10, d10, d10) == \
+               datetime(d11, d11, d11, d11, d11, d11, d11) == \
+               datetime(c10, c10, c10, c10, c10, c10, c10)
 
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, '10')
+            datetime(10, 10, '10')
 
         f10 = Number(10.9)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, f10)
+            datetime(10, 10, f10)
 
         class Float(float):
             pass
         s10 = Float(10.9)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, s10)
+            datetime(10, 10, s10)
 
         with self.assertRaises(TypeError):
-            datetime.datetime(10., 10, 10)
+            datetime(10., 10, 10)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10., 10)
+            datetime(10, 10., 10)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, 10.)
+            datetime(10, 10, 10.)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, 10, 10.)
+            datetime(10, 10, 10, 10.)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, 10, 10, 10.)
+            datetime(10, 10, 10, 10, 10.)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, 10, 10, 10, 10.)
+            datetime(10, 10, 10, 10, 10, 10.)
         with self.assertRaises(TypeError):
-            datetime.datetime(10, 10, 10, 10, 10, 10, 10.)
+            datetime(10, 10, 10, 10, 10, 10, 10.)
 
 def test_main():
     support.run_unittest(__name__)
