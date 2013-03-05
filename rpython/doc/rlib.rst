@@ -15,8 +15,8 @@ to change at some point.  Usually it is useful to look at the tests in
 :source:`rpython/rlib/test` to get an impression of how to use a module.
 
 
-``listsort``
-============
+listsort
+========
 
 The :source:`rpython/rlib/listsort.py` module contains an implementation of the timsort sorting algorithm
 (the sort method of lists is not RPython). To use it, subclass from the
@@ -27,8 +27,8 @@ argument, which will be sorted in place when the ``sort`` method of the
 be sorted using the ``listsort`` module in one program, otherwise the annotator
 will be confused.
 
-``nonconst``
-============
+nonconst
+========
 
 The :source:`rpython/rlib/nonconst.py` module is useful mostly for tests. The `flow object space`_ and
 the `annotator`_ do quite some constant folding, which is sometimes not desired
@@ -41,8 +41,8 @@ folding will happen.
 .. _`annotator`: translation.html#the-annotation-pass
 
 
-``objectmodel``
-===============
+objectmodel
+===========
 
 The :source:`rpython/rlib/objectmodel.py` module is a mixed bag of various functionality. Some of the
 more useful ones are:
@@ -91,8 +91,8 @@ more useful ones are:
     that have the lowest bit set.
 
 
-``rarithmetic``
-===============
+rarithmetic
+===========
 
 The :source:`rpython/rlib/rarithmetic.py` module contains functionality to handle the small differences
 in the behaviour of arithmetic code in regular Python and RPython code. Most of
@@ -101,8 +101,8 @@ them are already described in the `coding guide`_
 .. _`coding guide`: coding-guide.html
 
 
-``rbigint``
-===========
+rbigint
+=======
 
 The :source:`rpython/rlib/rbigint.py` module contains a full RPython implementation of the Python ``long``
 type (which itself is not supported in RPython). The ``rbigint`` class contains
@@ -115,16 +115,16 @@ these underscores left out for better readability (so ``a.add(b)`` can be used
 to add two rbigint instances).
 
 
-``rrandom``
-===========
+rrandom
+=======
 
 The :source:`rpython/rlib/rrandom.py` module contains an implementation of the mersenne twister random
 number generator. It contains one class ``Random`` which most importantly has a
 ``random`` method which returns a pseudo-random floating point number between
 0.0 and 1.0.
 
-``rsocket``
-===========
+rsocket
+=======
 
 The :source:`rpython/rlib/rsocket.py` module contains an RPython implementation of the functionality of
 the socket standard library with a slightly different interface.  The
@@ -134,8 +134,8 @@ so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
 a hierarchy of Address classes, in a typical static-OO-programming style.
 
 
-``streamio``
-============
+streamio
+========
 
 The :source:`rpython/rlib/streamio.py` contains an RPython stream I/O implementation (which was started
 by Guido van Rossum as `sio.py`_ in the CPython sandbox as a prototype for the
@@ -143,16 +143,16 @@ upcoming new file implementation in Python 3000).
 
 .. _`sio.py`: http://svn.python.org/view/sandbox/trunk/sio/sio.py
 
-``unroll``
-==========
+unroll
+======
 
 The :source:`rpython/rlib/unroll.py` module most importantly contains the function ``unrolling_iterable``
 which wraps an iterator. Looping over the iterator in RPython code will not
 produce a loop in the resulting flow graph but will unroll the loop instead.
 
 
-``parsing``
-===========
+parsing
+=======
 
 The :source:`rpython/rlib/parsing/` module is a still in-development module to generate tokenizers and
 parsers in RPython. It is still highly experimental and only really used by the
