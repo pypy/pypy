@@ -45,6 +45,13 @@ def test_cursor_check_init():
     e = pytest.raises(_sqlite3.ProgrammingError, "cur.execute('select 1')")
     assert '__init__' in e.value.message
 
+def test_cursor_after_close():
+     con = _sqlite3.connect(':memory:')
+     cur = con.execute('select 1')
+     cur.close()
+     con.close()
+     pytest.raises(_sqlite3.ProgrammingError, "cur.close()")
+
 @pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
 def test_connection_del(tmpdir):
     """For issue1325."""

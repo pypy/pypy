@@ -758,12 +758,13 @@ class Cursor(object):
         self.statement = None
         self.reset = False
         self.locked = False
+        self.closed = False
         self.initialized = True
 
     def _check_closed(self):
         if not self.initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
-        if not getattr(self, 'connection', None):
+        if self.closed:
             raise ProgrammingError("Cannot operate on a closed cursor.")
         self.connection._check_thread()
         self.connection._check_closed()
@@ -925,14 +926,16 @@ class Cursor(object):
         return sqlite.sqlite3_last_insert_rowid(self.connection.db)
 
     def close(self):
-        if not self.connection:
-            return
-        self._check_closed()
+        self.connection._check_thread()
+        self.connection._check_closed()
         if self.statement:
             self.statement.reset()
             self.statement = None
-        self.connection.cursors.remove(weakref.ref(self))
-        self.connection = None
+        self.closed = True
+        try:
+            self.connection.cursors.remove(weakref.ref(self))
+        except ValueError:
+            pass
 
     def setinputsizes(self, *args):
         pass
