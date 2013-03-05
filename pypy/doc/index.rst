@@ -401,7 +401,7 @@ Directory                          explanation/links
    jit/overview.rst
    jit/pyjitpl5.rst
 
-   index-of-release-notes.rst
+   releases/index.rst
 
    ctypes-implementation.rst
 
