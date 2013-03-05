@@ -4,10 +4,6 @@ Frequently Asked Questions
 
 .. contents::
 
-
-The RPython translation tool chain
-==================================
-
 ------------------------------------------------
 Can RPython compile normal Python programs to C?
 ------------------------------------------------
