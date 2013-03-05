@@ -278,7 +278,9 @@ def _check_int_field(value):
         else:
             if isinstance(value, (int, long)):
                 return value
-    raise TypeError('an integer is required')
+            raise TypeError('__int__ method should return an integer')
+        raise TypeError('an integer is required')
+    raise TypeError('integer argument expected, got float')
 
 def _check_date_fields(year, month, day):
     year = _check_int_field(year)
@@ -801,11 +803,11 @@ class date(object):
                                    self._year,
                                    self._month,
                                    self._day)
+
     # XXX These shouldn't depend on time.localtime(), because that
     # clips the usable dates to [1970 .. 2038).  At least ctime() is
     # easily done without using strftime() -- that's better too because
     # strftime("%c", ...) is locale specific.
-
 
     def ctime(self):
         "Return ctime() style string."
