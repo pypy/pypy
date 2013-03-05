@@ -1738,6 +1738,8 @@ class TestDateTime(TestDate):
                     self.theclass.utcfromtimestamp]:
             self.assertEqual(fts(0.9999999), fts(1))
             self.assertEqual(fts(0.99999949).microsecond, 999999)
+            self.assertEqual(fts(0.0000005).microsecond, 1)
+            self.assertEqual(fts(0.0000015).microsecond, 2)
 
     def test_insane_fromtimestamp(self):
         # It's possible that some platform maps time_t to double,
