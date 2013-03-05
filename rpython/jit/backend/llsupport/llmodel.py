@@ -86,12 +86,13 @@ class AbstractLLCPU(AbstractCPU):
                 if size > frame.jf_frame_info.jfi_frame_depth:
                     # update the frame_info size, which is for whatever reason
                     # not up to date
-                    frame.jf_frame_info.set_frame_depth(base_ofs, size)
+                    frame.jf_frame_info.update_frame_depth(base_ofs, size)
                 new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
                 frame.jf_forward = new_frame
                 i = 0
                 while i < len(frame.jf_frame):
                     new_frame.jf_frame[i] = frame.jf_frame[i]
+                    frame.jf_frame[i] = 0
                     i += 1
                 new_frame.jf_savedata = frame.jf_savedata
                 new_frame.jf_guard_exc = frame.jf_guard_exc

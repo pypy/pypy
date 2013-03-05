@@ -15,9 +15,10 @@ GCMAP = lltype.Array(lltype.Unsigned)
 NULLGCMAP = lltype.nullptr(GCMAP)
 
 @enforceargs(None, int, int)
-def jitframeinfo_set_depth(jfi, base_ofs, new_depth):
-    jfi.jfi_frame_depth = new_depth
-    jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
+def jitframeinfo_update_depth(jfi, base_ofs, new_depth):
+    if new_depth > jfi.jfi_frame_depth:
+        jfi.jfi_frame_depth = new_depth
+        jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
 
 JITFRAMEINFO_SIZE = 2 * SIZEOFSIGNED # make sure this stays correct
 
@@ -28,7 +29,7 @@ JITFRAMEINFO = lltype.Struct(
     # the total size of the frame, in bytes
     ('jfi_frame_size', lltype.Signed),
     adtmeths = {
-        'set_frame_depth': jitframeinfo_set_depth,
+        'update_frame_depth': jitframeinfo_update_depth,
     },
 )
 
@@ -113,6 +114,9 @@ def jitframe_trace(obj_addr, prev):
         elif fld == -3:
             (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -4
             return obj_addr + getofs('jf_guard_exc')
+        elif fld == -4:
+            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -5
+            return obj_addr + getofs('jf_forward')
         else:
             if not (obj_addr + getofs('jf_gcmap')).address[0]:
                 return llmemory.NULL    # done
