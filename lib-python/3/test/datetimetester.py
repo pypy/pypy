@@ -3681,8 +3681,12 @@ class Oddballs(unittest.TestCase):
         self.assertEqual(datetime_sc, as_datetime)
 
     def test_extra_attributes(self):
-        for x in [date.today(), time(), datetime.utcnow(), timedelta(),
-                  tzinfo(), timezone(timedelta())]:
+        for x in [date.today(),
+                  time(),
+                  datetime.utcnow(),
+                  timedelta(),
+                  tzinfo(),
+                  timezone(timedelta())]:
             with self.assertRaises(AttributeError):
                 x.abc = 1
 
@@ -3694,7 +3698,9 @@ class Oddballs(unittest.TestCase):
             def __int__(self):
                 return self.value
 
-        for xx in [decimal.Decimal(10), decimal.Decimal('10.9'), Number(10)]:
+        for xx in [decimal.Decimal(10),
+                   decimal.Decimal('10.9'),
+                   Number(10)]:
             self.assertEqual(datetime(10, 10, 10, 10, 10, 10, 10),
                              datetime(xx, xx, xx, xx, xx, xx, xx))
 
