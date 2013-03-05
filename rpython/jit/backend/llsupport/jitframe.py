@@ -20,6 +20,10 @@ def jitframeinfo_update_depth(jfi, base_ofs, new_depth):
         jfi.jfi_frame_depth = new_depth
         jfi.jfi_frame_size = base_ofs + new_depth * SIZEOFSIGNED
 
+def jitframeinfo_clear(jfi):
+    jfi.jfi_frame_size = 0
+    jfi.jfi_frame_depth = 0
+
 JITFRAMEINFO_SIZE = 2 * SIZEOFSIGNED # make sure this stays correct
 
 JITFRAMEINFO = lltype.Struct(
@@ -30,6 +34,7 @@ JITFRAMEINFO = lltype.Struct(
     ('jfi_frame_size', lltype.Signed),
     adtmeths = {
         'update_frame_depth': jitframeinfo_update_depth,
+        'clear': jitframeinfo_clear,
     },
 )
 

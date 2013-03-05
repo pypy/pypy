@@ -103,6 +103,10 @@ class AbstractLLCPU(AbstractCPU):
                 print "Unhandled exception", e, "in realloc_frame"
                 return lltype.nullptr(llmemory.GCREF.TO)
 
+        def realloc_frame_crash(frame, size):
+            print "frame", frame, "size", size
+            return lltype.nullptr(llmemory.GCREF.TO)
+
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame)
         else:
@@ -114,6 +118,18 @@ class AbstractLLCPU(AbstractCPU):
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
         self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
+
+        if not translate_support_code:
+            fptr = llhelper(FUNC_TP, realloc_frame_crash)
+        else:
+            FUNC = FUNC_TP.TO
+            args_s = [annmodel.lltype_to_annotation(ARG) for ARG in FUNC.ARGS]
+            s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
+            mixlevelann = MixLevelHelperAnnotator(self.rtyper)
+            graph = mixlevelann.getgraph(realloc_frame_crash, args_s, s_result)
+            fptr = mixlevelann.graph2delayed(graph, FUNC)
+            mixlevelann.finish()
+        self.realloc_frame_crash = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
 
     def _setup_exception_handling_untranslated(self):
         # for running un-translated only, all exceptions occurring in the
