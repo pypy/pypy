@@ -121,8 +121,11 @@ def test_check_arg_types():
         def __int__(self):
             return self.value
 
-    for xx in [10L, decimal.Decimal(10), decimal.Decimal('10.9'),
-                    Number(10), Number(10L)]:
+    for xx in [10L,
+               decimal.Decimal(10),
+               decimal.Decimal('10.9'),
+               Number(10),
+               Number(10L)]:
         assert datetime.datetime(10, 10, 10, 10, 10, 10, 10) == \
                datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
 
