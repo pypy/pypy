@@ -68,15 +68,24 @@ def test_cursor_del():
 def test_connection_del(tmpdir):
     """For issue1325."""
     import gc
+    try:
+        import resource
+    except ImportError:
+        pytest.skip("needs resource module")
 
-    def open_many(cleanup):
-        con = []
-        for i in range(1024):
-            con.append(_sqlite3.connect(str(tmpdir.join('test.db'))))
-            if cleanup:
-                con[i] = None
-                gc.collect(); gc.collect()
+    limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (min(10, limit[0]), limit[1]))
+        def open_many(cleanup):
+            con = []
+            for i in range(20):
+                con.append(_sqlite3.connect(str(tmpdir.join('test.db'))))
+                if cleanup:
+                    con[i] = None
+                    gc.collect(); gc.collect()
 
-    pytest.raises(_sqlite3.OperationalError, open_many, False)
-    gc.collect(); gc.collect()
-    open_many(True)
+        pytest.raises(_sqlite3.OperationalError, open_many, False)
+        gc.collect(); gc.collect()
+        open_many(True)
+    finally:
+        resource.setrlimit(resource.RLIMIT_NOFILE, limit)
