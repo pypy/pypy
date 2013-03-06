@@ -779,7 +779,7 @@ class Cursor(object):
             self.__statement = None
         self.__closed = True
 
-    def _check_closed(self):
+    def __check_cursor(self):
         if not self.__initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
         if self.__closed:
@@ -793,7 +793,7 @@ class Cursor(object):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
 
-        self._check_closed()
+        self.__check_cursor()
         self.__locked = True
         try:
             self.__description = None
@@ -841,7 +841,7 @@ class Cursor(object):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
 
-        self._check_closed()
+        self.__check_cursor()
         self.__locked = True
         try:
             self.__description = None
@@ -877,7 +877,7 @@ class Cursor(object):
         self._reset = False
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
-        self._check_closed()
+        self.__check_cursor()
         statement = c_void_p()
         c_sql = c_char_p(sql)
 
@@ -908,7 +908,7 @@ class Cursor(object):
                 break
         return self
 
-    def _check_reset(self):
+    def __check_reset(self):
         if self._reset:
             raise self.__connection.InterfaceError("Cursor needed to be reset because "
                                                  "of commit/rollback and can "
@@ -916,8 +916,8 @@ class Cursor(object):
 
     # do all statements
     def fetchone(self):
-        self._check_closed()
-        self._check_reset()
+        self.__check_cursor()
+        self.__check_reset()
 
         if self.__statement is None:
             return None
@@ -928,8 +928,8 @@ class Cursor(object):
             return None
 
     def fetchmany(self, size=None):
-        self._check_closed()
-        self._check_reset()
+        self.__check_cursor()
+        self.__check_reset()
         if self.__statement is None:
             return []
         if size is None:
@@ -942,8 +942,8 @@ class Cursor(object):
         return lst
 
     def fetchall(self):
-        self._check_closed()
-        self._check_reset()
+        self.__check_cursor()
+        self.__check_reset()
         if self.__statement is None:
             return []
         return list(self)
