@@ -307,11 +307,13 @@ class StatementCache(object):
 
 class Connection(object):
     __initialized = False
+    _db = None
 
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
         self.__initialized = True
         self._db = c_void_p()
+
         if sqlite.sqlite3_open(database, byref(self._db)) != SQLITE_OK:
             raise OperationalError("Could not open database")
         if timeout is not None:
@@ -349,9 +351,8 @@ class Connection(object):
         self.NotSupportedError = NotSupportedError
 
     def __del__(self):
-        if self.__initialized:
-            if self._db:
-                sqlite.sqlite3_close(self._db)
+        if self._db:
+            sqlite.sqlite3_close(self._db)
 
     def close(self):
         self._check_thread()
@@ -523,7 +524,7 @@ class Connection(object):
         for cursor_ref in self._cursors:
             cursor = cursor_ref()
             if cursor:
-                cursor.reset = True
+                cursor._reset = True
 
         statement = c_void_p()
         next_char = c_char_p()
@@ -744,100 +745,103 @@ class _CursorLock(object):
 
     def __enter__(self):
         self.cursor._check_closed()
-        if self.cursor.locked:
+        if self.cursor._locked:
             raise ProgrammingError("Recursive use of cursors not allowed.")
-        self.cursor.locked = True
+        self.cursor._locked = True
 
     def __exit__(self, *args):
-        self.cursor.locked = False
+        self.cursor._locked = False
 
 
 class Cursor(object):
     __initialized = False
+    __connection = None
+    __statement = None
 
     def __init__(self, con):
+        self.__initialized = True
+        self.__connection = con
+
         if not isinstance(con, Connection):
             raise TypeError
         con._check_thread()
         con._check_closed()
         con._cursors.append(weakref.ref(self))
-        self.connection = con
-        self._description = None
+
         self.arraysize = 1
         self.row_factory = None
-        self.rowcount = -1
-        self.statement = None
-        self.reset = False
-        self.locked = False
-        self.closed = False
-        self.__initialized = True
+        self._locked = False
+        self._reset = False
+        self.__closed = False
+        self.__description = None
+        self.__rowcount = -1
 
     def __del__(self):
-        if self.__initialized:
-            if self.statement:
-                self.statement.reset()
+        if self.__connection:
             try:
-                self.connection._cursors.remove(weakref.ref(self))
+                self.__connection._cursors.remove(weakref.ref(self))
             except ValueError:
                 pass
+        if self.__statement:
+            self.__statement.reset()
 
     def close(self):
-        self.connection._check_thread()
-        self.connection._check_closed()
-        if self.statement:
-            self.statement.reset()
-            self.statement = None
-        self.closed = True
+        self.__connection._check_thread()
+        self.__connection._check_closed()
+        if self.__statement:
+            self.__statement.reset()
+            self.__statement = None
+        self.__closed = True
 
     def _check_closed(self):
         if not self.__initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
-        if self.closed:
+        if self.__closed:
             raise ProgrammingError("Cannot operate on a closed cursor.")
-        self.connection._check_thread()
-        self.connection._check_closed()
+        self.__connection._check_thread()
+        self.__connection._check_closed()
 
     def execute(self, sql, params=None):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
 
         with _CursorLock(self):
-            self._description = None
-            self.reset = False
-            self.statement = self.connection._statement_cache.get(
+            self.__description = None
+            self._reset = False
+            self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
-            if self.connection._isolation_level is not None:
-                if self.statement.kind == _DDL:
-                    if self.connection._in_transaction:
-                        self.connection.commit()
-                elif self.statement.kind == _DML:
-                    if not self.connection._in_transaction:
-                        self.connection._begin()
+            if self.__connection._isolation_level is not None:
+                if self.__statement.kind == _DDL:
+                    if self.__connection._in_transaction:
+                        self.__connection.commit()
+                elif self.__statement.kind == _DML:
+                    if not self.__connection._in_transaction:
+                        self.__connection._begin()
 
-            self.statement.set_params(params)
+            self.__statement.set_params(params)
 
             # Actually execute the SQL statement
-            ret = sqlite.sqlite3_step(self.statement.statement)
+            ret = sqlite.sqlite3_step(self.__statement.statement)
             if ret not in (SQLITE_DONE, SQLITE_ROW):
-                self.statement.reset()
-                self.connection._in_transaction = \
-                        not sqlite.sqlite3_get_autocommit(self.connection._db)
-                raise self.connection._get_exception(ret)
+                self.__statement.reset()
+                self.__connection._in_transaction = \
+                        not sqlite.sqlite3_get_autocommit(self.__connection._db)
+                raise self.__connection._get_exception(ret)
 
-            if self.statement.kind == _DML:
-                self.statement.reset()
+            if self.__statement.kind == _DML:
+                self.__statement.reset()
 
-            if self.statement.kind == _DQL and ret == SQLITE_ROW:
-                self.statement._build_row_cast_map()
-                self.statement._readahead(self)
+            if self.__statement.kind == _DQL and ret == SQLITE_ROW:
+                self.__statement._build_row_cast_map()
+                self.__statement._readahead(self)
             else:
-                self.statement.item = None
-                self.statement.exhausted = True
+                self.__statement.item = None
+                self.__statement.exhausted = True
 
-            self.rowcount = -1
-            if self.statement.kind == _DML:
-                self.rowcount = sqlite.sqlite3_changes(self.connection._db)
+            self.__rowcount = -1
+            if self.__statement.kind == _DML:
+                self.__rowcount = sqlite.sqlite3_changes(self.__connection._db)
 
         return self
 
@@ -846,42 +850,42 @@ class Cursor(object):
             sql = sql.encode("utf-8")
 
         with _CursorLock(self):
-            self._description = None
-            self.reset = False
-            self.statement = self.connection._statement_cache.get(
+            self.__description = None
+            self._reset = False
+            self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
-            if self.statement.kind == _DML:
-                if self.connection._isolation_level is not None:
-                    if not self.connection._in_transaction:
-                        self.connection._begin()
+            if self.__statement.kind == _DML:
+                if self.__connection._isolation_level is not None:
+                    if not self.__connection._in_transaction:
+                        self.__connection._begin()
             else:
                 raise ProgrammingError("executemany is only for DML statements")
 
-            self.rowcount = 0
+            self.__rowcount = 0
             for params in many_params:
-                self.statement.set_params(params)
-                ret = sqlite.sqlite3_step(self.statement.statement)
+                self.__statement.set_params(params)
+                ret = sqlite.sqlite3_step(self.__statement.statement)
                 if ret != SQLITE_DONE:
-                    raise self.connection._get_exception(ret)
-                self.rowcount += sqlite.sqlite3_changes(self.connection._db)
+                    raise self.__connection._get_exception(ret)
+                self.__rowcount += sqlite.sqlite3_changes(self.__connection._db)
 
         return self
 
     def executescript(self, sql):
-        self._description = None
-        self.reset = False
+        self.__description = None
+        self._reset = False
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
         self._check_closed()
         statement = c_void_p()
         c_sql = c_char_p(sql)
 
-        self.connection.commit()
+        self.__connection.commit()
         while True:
-            rc = sqlite.sqlite3_prepare(self.connection._db, c_sql, -1, byref(statement), byref(c_sql))
+            rc = sqlite.sqlite3_prepare(self.__connection._db, c_sql, -1, byref(statement), byref(c_sql))
             if rc != SQLITE_OK:
-                raise self.connection._get_exception(rc)
+                raise self.__connection._get_exception(rc)
 
             rc = SQLITE_ROW
             while rc == SQLITE_ROW:
@@ -895,18 +899,18 @@ class Cursor(object):
                 if rc == SQLITE_OK:
                     return self
                 else:
-                    raise self.connection._get_exception(rc)
+                    raise self.__connection._get_exception(rc)
             rc = sqlite.sqlite3_finalize(statement)
             if rc != SQLITE_OK:
-                raise self.connection._get_exception(rc)
+                raise self.__connection._get_exception(rc)
 
             if not c_sql.value:
                 break
         return self
 
     def _check_reset(self):
-        if self.reset:
-            raise self.connection.InterfaceError("Cursor needed to be reset because "
+        if self._reset:
+            raise self.__connection.InterfaceError("Cursor needed to be reset because "
                                                  "of commit/rollback and can "
                                                  "no longer be fetched from.")
 
@@ -915,18 +919,18 @@ class Cursor(object):
         self._check_closed()
         self._check_reset()
 
-        if self.statement is None:
+        if self.__statement is None:
             return None
 
         try:
-            return self.statement.next(self)
+            return self.__statement.next(self)
         except StopIteration:
             return None
 
     def fetchmany(self, size=None):
         self._check_closed()
         self._check_reset()
-        if self.statement is None:
+        if self.__statement is None:
             return []
         if size is None:
             size = self.arraysize
@@ -940,22 +944,30 @@ class Cursor(object):
     def fetchall(self):
         self._check_closed()
         self._check_reset()
-        if self.statement is None:
+        if self.__statement is None:
             return []
         return list(self)
 
     def __iter__(self):
         return iter(self.fetchone, None)
 
-    def _getdescription(self):
-        if self._description is None:
-            self._description = self.statement._get_description()
-        return self._description
-    description = property(_getdescription)
+    def __get_connection(self):
+        return self.__connection
+    connection = property(__get_connection)
 
-    def _getlastrowid(self):
-        return sqlite.sqlite3_last_insert_rowid(self.connection._db)
-    lastrowid = property(_getlastrowid)
+    def __get_rowcount(self):
+        return self.__rowcount
+    rowcount = property(__get_rowcount)
+
+    def __get_description(self):
+        if self.__description is None:
+            self.__description = self.__statement._get_description()
+        return self.__description
+    description = property(__get_description)
+
+    def __get_lastrowid(self):
+        return sqlite.sqlite3_last_insert_rowid(self.__connection._db)
+    lastrowid = property(__get_lastrowid)
 
     def setinputsizes(self, *args):
         pass
