@@ -741,7 +741,6 @@ class Connection(object):
 
 class Cursor(object):
     __initialized = False
-    __connection = None
     __statement = None
 
     def __init__(self, con):
@@ -763,11 +762,10 @@ class Cursor(object):
         self.__rowcount = -1
 
     def __del__(self):
-        if self.__connection:
-            try:
-                self.__connection._cursors.remove(weakref.ref(self))
-            except ValueError:
-                pass
+        try:
+            self.__connection._cursors.remove(weakref.ref(self))
+        except (AttributeError, ValueError):
+            pass
         if self.__statement:
             self.__statement._reset()
 
@@ -866,8 +864,8 @@ class Cursor(object):
                     self.__connection._in_transaction = \
                             not sqlite.sqlite3_get_autocommit(self.__connection._db)
                     raise self.__connection._get_exception(ret)
+                self.__statement._reset()
                 self.__rowcount += sqlite.sqlite3_changes(self.__connection._db)
-            self.__statement._reset()
         finally:
             self.__locked = False
 
@@ -1097,9 +1095,6 @@ class Statement(object):
                                  str(type(param)))
 
     def _set_params(self, params):
-        ret = sqlite.sqlite3_reset(self._statement)
-        if ret != SQLITE_OK:
-            raise self.__con._get_exception(ret)
         self._in_use = True
 
         num_params_needed = sqlite.sqlite3_bind_parameter_count(self._statement)
