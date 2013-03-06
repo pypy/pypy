@@ -215,7 +215,7 @@ sqlite.sqlite3_libversion.argtypes = []
 sqlite.sqlite3_libversion.restype = c_char_p
 sqlite.sqlite3_open.argtypes = [TEXT, c_void_p]
 sqlite.sqlite3_open.restype = c_int
-sqlite.sqlite3_prepare.argtypes = [c_void_p, TEXT, c_int, c_void_p, POINTER(c_char_p)]
+sqlite.sqlite3_prepare.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare.restype = c_int
 sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, TEXT, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare_v2.restype = c_int
@@ -879,14 +879,15 @@ class Cursor(object):
     def executescript(self, sql):
         self.__description = None
         self._reset = False
+        if type(sql) is str:
+            sql = sql.encode("utf-8")
         self._check_closed()
         statement = c_void_p()
-        next_char = c_char_p()
-        c_sql = sql
+        c_sql = c_char_p(sql)
 
         self.__connection.commit()
         while True:
-            rc = sqlite.sqlite3_prepare(self.__connection._db, c_sql, -1, byref(statement), byref(next_char))
+            rc = sqlite.sqlite3_prepare(self.__connection._db, c_sql, -1, byref(statement), byref(c_sql))
             if rc != SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
@@ -907,7 +908,7 @@ class Cursor(object):
             if rc != SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
-            if not next_char.value:
+            if not c_sql.value:
                 break
         return self
 
@@ -1061,7 +1062,7 @@ class Statement(object):
 
         if param is None:
             sqlite.sqlite3_bind_null(self.statement, idx)
-        elif type(param) in (bool, int, int):
+        elif type(param) in (bool, int):
             if -2147483648 <= param <= 2147483647:
                 sqlite.sqlite3_bind_int(self.statement, idx, param)
             else:
