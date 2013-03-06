@@ -27,6 +27,7 @@ class Buffer(Wrappable):
     """Abstract base class for memory views."""
 
     __slots__ = ('format', 'itemsize')
+    _immutable_fields_ = ('format', 'itemsize')
 
     def getlength(self):
         raise NotImplementedError
