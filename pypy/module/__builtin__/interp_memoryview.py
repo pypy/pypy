@@ -78,9 +78,12 @@ class W_MemoryView(Wrappable):
     def descr_tolist(self, space):
         self._check_released(space)
         buf = self.buf
+        if buf.format != 'B':
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "tolist() only supports byte views"))
         result = []
         for i in range(buf.getlength()):
-            result.append(space.wrap(ord(buf.getitem(i))))
+            result.append(space.wrap(ord(buf.getitem(i)[0])))
         return space.newlist(result)
 
     def descr_getitem(self, space, w_index):
