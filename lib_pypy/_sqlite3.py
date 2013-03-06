@@ -797,7 +797,7 @@ class Cursor(object):
         return wrapper
 
     @__check_cursor_wrap
-    def execute(self, sql, params=None):
+    def execute(self, sql, params=[]):
         self.__locked = True
         try:
             self.__description = None
@@ -1102,34 +1102,30 @@ class Statement(object):
             raise self.__con._get_exception(ret)
         self._in_use = True
 
-        if params is None:
-            if sqlite.sqlite3_bind_parameter_count(self._statement) != 0:
-                raise ProgrammingError("wrong number of arguments")
-            return
-
-        params_type = None
-        if isinstance(params, dict):
-            params_type = dict
+        num_params_needed = sqlite.sqlite3_bind_parameter_count(self._statement)
+        if not isinstance(params, dict):
+            num_params = len(params)
+            if num_params != num_params_needed:
+                raise ProgrammingError("Incorrect number of bindings supplied. "
+                                       "The current statement uses %d, and "
+                                       "there are %d supplied." %
+                                       (num_params_needed, num_params))
+            for i in range(num_params):
+                self.__set_param(i + 1, params[i])
         else:
-            params_type = list
-
-        if params_type == list:
-            if len(params) != sqlite.sqlite3_bind_parameter_count(self._statement):
-                raise ProgrammingError("wrong number of arguments")
-
-            for i in range(len(params)):
-                self.__set_param(i+1, params[i])
-        else:
-            for idx in range(1, sqlite.sqlite3_bind_parameter_count(self._statement) + 1):
-                param_name = sqlite.sqlite3_bind_parameter_name(self._statement, idx)
+            for i in range(1, num_params_needed + 1):
+                param_name = sqlite.sqlite3_bind_parameter_name(self._statement, i)
                 if param_name is None:
-                    raise ProgrammingError("need named parameters")
+                    raise ProgrammingError("Binding %d has no name, but you "
+                                           "supplied a dictionary (which has "
+                                           "only names)." % i)
                 param_name = param_name[1:]
                 try:
                     param = params[param_name]
                 except KeyError:
-                    raise ProgrammingError("missing parameter '%s'" % param)
-                self.__set_param(idx, param)
+                    raise ProgrammingError("You did not supply a value for "
+                                           "binding %d." % i)
+                self.__set_param(i, param)
 
     def _next(self, cursor):
         self.__con._check_closed()
