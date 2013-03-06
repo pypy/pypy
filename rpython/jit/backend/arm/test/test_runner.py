@@ -24,7 +24,9 @@ class TestARM(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     add_loop_instructions = ['ldr', 'mov', 'adds', 'cmp', 'beq', 'b']
-    bridge_loop_instructions = ['movw', 'movt', 'bx']
+    bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
+                                'push', 'mov', 'mov', 'push', 'mov', 'mov',
+                                'blx', 'mov', 'mov', 'bx']
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
