@@ -720,6 +720,10 @@ class Connection(object):
         if ret != SQLITE_OK:
             raise self._get_exception(ret)
 
+    def __get_in_transaction(self):
+        return self._in_transaction
+    in_transaction = property(__get_in_transaction)
+
     def __get_total_changes(self):
         self._check_closed()
         return sqlite.sqlite3_total_changes(self._db)
@@ -879,6 +883,8 @@ class Cursor(object):
     def executescript(self, sql):
         self.__description = None
         self._reset = False
+        if type(sql) is str:
+            sql = sql.encode("utf-8")
         self._check_closed()
         statement = c_void_p()
         c_sql = c_char_p(sql)
@@ -1060,7 +1066,7 @@ class Statement(object):
 
         if param is None:
             sqlite.sqlite3_bind_null(self.statement, idx)
-        elif type(param) in (bool, int, int):
+        elif type(param) in (bool, int):
             if -2147483648 <= param <= 2147483647:
                 sqlite.sqlite3_bind_int(self.statement, idx, param)
             else:
