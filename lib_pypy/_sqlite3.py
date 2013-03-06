@@ -791,8 +791,15 @@ class Cursor(object):
         self.__connection._check_thread()
         self.__connection._check_closed()
 
+    def __check_cursor_wrap(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            self.__check_cursor()
+            return func(self, *args, **kwargs)
+        return wrapper
+
+    @__check_cursor_wrap
     def execute(self, sql, params=None):
-        self.__check_cursor()
         self.__locked = True
         try:
             self.__description = None
@@ -836,8 +843,8 @@ class Cursor(object):
 
         return self
 
+    @__check_cursor_wrap
     def executemany(self, sql, many_params):
-        self.__check_cursor()
         self.__locked = True
         try:
             self.__description = None
