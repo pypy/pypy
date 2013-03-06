@@ -534,7 +534,6 @@ class __extend__(pyframe.PyFrame):
             self.setdictscope(w_locals)
 
     def POP_EXCEPT(self, oparg, next_instr):
-        assert self.space.py3k
         block = self.pop_block()
         block.cleanup(self)
         return
@@ -1327,14 +1326,12 @@ class ExceptBlock(FrameBlock):
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
-        if frame.space.py3k:
-            # this is popped by POP_EXCEPT, which is present only in py3k
-            w_last_exception = W_OperationError(frame.last_exception)
-            w_last_exception = frame.space.wrap(w_last_exception)
-            frame.pushvalue(w_last_exception)
-            block = ExceptHandlerBlock(self.valuestackdepth,
-                                       0, frame.lastblock)
-            frame.lastblock = block
+        # this is popped by POP_EXCEPT, which is present only in py3k
+        w_last_exception = W_OperationError(frame.last_exception)
+        w_last_exception = frame.space.wrap(w_last_exception)
+        frame.pushvalue(w_last_exception)
+        block = ExceptHandlerBlock(self.valuestackdepth, 0, frame.lastblock)
+        frame.lastblock = block
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
