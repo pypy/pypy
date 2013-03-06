@@ -106,3 +106,20 @@ def test_connection_del(tmpdir):
         open_many(True)
     finally:
         resource.setrlimit(resource.RLIMIT_NOFILE, limit)
+
+def test_on_conflict_rollback_executemany():
+    major, minor, micro = _sqlite3.sqlite_version.split('.')
+    if (int(major), int(minor), int(micro)) < (3, 2, 2):
+        pytest.skip("requires sqlite3 version >= 3.2.2")
+    con = _sqlite3.connect(":memory:")
+    con.execute("create table foo(x, unique(x) on conflict rollback)")
+    con.execute("insert into foo(x) values (1)")
+    try:
+        con.executemany("insert into foo(x) values (?)", [[1]])
+    except _sqlite3.DatabaseError:
+        pass
+    con.execute("insert into foo(x) values (2)")
+    try:
+        con.commit()
+    except _sqlite3.OperationalError:
+        pytest.fail("_sqlite3 knew nothing about the implicit ROLLBACK")
