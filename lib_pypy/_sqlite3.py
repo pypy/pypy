@@ -985,9 +985,7 @@ class Statement(object):
     def __init__(self, connection, sql):
         self.__con = connection
 
-        if isinstance(sql, unicode):
-            sql = sql.encode('utf-8')
-        elif not isinstance(sql, str):
+        if not isinstance(sql, str):
             raise ValueError("sql must be a string")
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
