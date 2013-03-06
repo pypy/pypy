@@ -51,7 +51,7 @@ class Assembler386(BaseAssembler):
     _output_loop_log = None
     _second_tmp_reg = ecx
 
-    DEBUG_FRAME_DEPTH = True
+    DEBUG_FRAME_DEPTH = False
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
