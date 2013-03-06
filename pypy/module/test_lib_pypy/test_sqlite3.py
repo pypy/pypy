@@ -63,13 +63,13 @@ def test_cursor_after_close():
 def test_cursor_del():
     con = _sqlite3.connect(':memory:')
     cur = con.execute('select 1')
-    stmt = cur.statement
+    stmt = cur._Cursor__statement
     cur.close()
     cur = con.execute('select 1')
-    assert cur.statement is stmt
+    assert cur._Cursor__statement is stmt
     del cur; import gc; gc.collect(); gc.collect()
     cur = con.execute('select 1')
-    assert cur.statement is stmt
+    assert cur._Cursor__statement is stmt
 
 @pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
 def test_connection_del(tmpdir):

@@ -31,7 +31,7 @@ from functools import wraps
 import datetime
 import sys
 import weakref
-from threading import _get_ident as thread_get_ident
+from threading import _get_ident as _thread_get_ident
 
 names = "sqlite3.dll libsqlite3.so.0 libsqlite3.so libsqlite3.dylib".split()
 for name in names:
@@ -49,8 +49,6 @@ version = "2.6.0"
 # pysqlite constants
 PARSE_COLNAMES = 1
 PARSE_DECLTYPES = 2
-
-DML, DQL, DDL = range(3)
 
 ##########################################
 # BEGIN Wrapped SQLite C API and constants
@@ -241,10 +239,12 @@ sqlite.sqlite3_result_error.restype = None
 sqlite.sqlite3_result_text.argtypes = [c_void_p, TEXT, c_int, c_void_p]
 sqlite.sqlite3_result_text.restype = None
 
-HAS_LOAD_EXTENSION = hasattr(sqlite, "sqlite3_enable_load_extension")
-if HAS_LOAD_EXTENSION:
+_HAS_LOAD_EXTENSION = hasattr(sqlite, "sqlite3_enable_load_extension")
+if _HAS_LOAD_EXTENSION:
     sqlite.sqlite3_enable_load_extension.argtypes = [c_void_p, c_int]
     sqlite.sqlite3_enable_load_extension.restype = c_int
+
+_DML, _DQL, _DDL = range(3)
 
 ##########################################
 # END Wrapped SQLite C API and constants
@@ -313,26 +313,38 @@ class StatementCache(object):
 
 
 class Connection(object):
-    db = None
+    __initialized = False
+    _db = None
 
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
-        self.db = c_void_p()
-        if sqlite.sqlite3_open(database, byref(self.db)) != SQLITE_OK:
+        self.__initialized = True
+        self._db = c_void_p()
+
+        if sqlite.sqlite3_open(database, byref(self._db)) != SQLITE_OK:
             raise OperationalError("Could not open database")
         if timeout is not None:
             timeout = int(timeout * 1000)  # pysqlite2 uses timeout in seconds
-            sqlite.sqlite3_busy_timeout(self.db, timeout)
+            sqlite.sqlite3_busy_timeout(self._db, timeout)
 
-        self.text_factory = unicode_text_factory
-        self.statements = []
-        self.statement_counter = 0
         self.row_factory = None
-        self._isolation_level = isolation_level
-        self.detect_types = detect_types
-        self.statement_cache = StatementCache(self, cached_statements)
+        self.text_factory = unicode_text_factory
 
-        self.cursors = []
+        self._detect_types = detect_types
+        self._in_transaction = False
+        self.isolation_level = isolation_level
+
+        self._cursors = []
+        self.__statements = []
+        self.__statement_counter = 0
+        self._statement_cache = StatementCache(self, cached_statements)
+
+        self.__func_cache = {}
+        self.__aggregates = {}
+        self.__aggregate_instances = {}
+        self.__collations = {}
+        if check_same_thread:
+            self.__thread_ident = _thread_get_ident()
 
         self.Error = Error
         self.Warning = Warning
@@ -345,35 +357,28 @@ class Connection(object):
         self.DataError = DataError
         self.NotSupportedError = NotSupportedError
 
-        self.func_cache = {}
-        self._aggregates = {}
-        self.aggregate_instances = {}
-        self._collations = {}
-        if check_same_thread:
-            self.thread_ident = thread_get_ident()
-
     def __del__(self):
-        if self.db:
-            sqlite.sqlite3_close(self.db)
+        if self._db:
+            sqlite.sqlite3_close(self._db)
 
     def close(self):
         self._check_thread()
 
-        for statement in self.statements:
+        for statement in self.__statements:
             obj = statement()
             if obj is not None:
                 obj.finalize()
 
-        if self.db:
-            ret = sqlite.sqlite3_close(self.db)
+        if self._db:
+            ret = sqlite.sqlite3_close(self._db)
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
-            self.db.value = 0
+            self._db = None
 
     def _check_closed(self):
-        if self.db is None:
+        if not self.__initialized:
             raise ProgrammingError("Base Connection.__init__ not called.")
-        if not self.db:
+        if not self._db:
             raise ProgrammingError("Cannot operate on a closed database.")
 
     def _check_closed_wrap(func):
@@ -384,13 +389,16 @@ class Connection(object):
         return _check_closed_func
 
     def _check_thread(self):
-        if not hasattr(self, 'thread_ident'):
-            return
-        if self.thread_ident != thread_get_ident():
+        try:
+            if self.__thread_ident == _thread_get_ident():
+                return
+        except AttributeError:
+            pass
+        else:
             raise ProgrammingError(
                 "SQLite objects created in a thread can only be used in that same thread."
                 "The object was created in thread id %d and this is thread id %d",
-                self.thread_ident, thread_get_ident())
+                self.__thread_ident, _thread_get_ident())
 
     def _check_thread_wrap(func):
         @wraps(func)
@@ -401,8 +409,8 @@ class Connection(object):
 
     def _get_exception(self, error_code=None):
         if error_code is None:
-            error_code = sqlite.sqlite3_errcode(self.db)
-        error_message = sqlite.sqlite3_errmsg(self.db)
+            error_code = sqlite.sqlite3_errcode(self._db)
+        error_message = sqlite.sqlite3_errmsg(self._db)
         error_message = error_message.decode('utf-8')
 
         if error_code == SQLITE_OK:
@@ -430,18 +438,18 @@ class Connection(object):
         return exc
 
     def _remember_statement(self, statement):
-        self.statements.append(weakref.ref(statement))
-        self.statement_counter += 1
+        self.__statements.append(weakref.ref(statement))
+        self.__statement_counter += 1
 
-        if self.statement_counter % 100 == 0:
-            self.statements = [ref for ref in self.statements if ref() is not None]
+        if self.__statement_counter % 100 == 0:
+            self.__statements = [ref for ref in self.__statements if ref() is not None]
 
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
         if not isinstance(sql, str):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
-        statement = self.statement_cache.get(sql, self.row_factory)
+        statement = self._statement_cache.get(sql, self.row_factory)
         return statement
 
     def cursor(self, factory=None):
@@ -471,72 +479,72 @@ class Connection(object):
         return _iterdump(self)
 
     def _begin(self):
-        if self._isolation_level is None:
-            return
-        if sqlite.sqlite3_get_autocommit(self.db):
-            try:
-                sql = "BEGIN " + self._isolation_level
-                statement = c_void_p()
-                next_char = c_char_p()
-                ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
-                if ret != SQLITE_OK:
-                    raise self._get_exception(ret)
-                ret = sqlite.sqlite3_step(statement)
-                if ret != SQLITE_DONE:
-                    raise self._get_exception(ret)
-            finally:
-                sqlite.sqlite3_finalize(statement)
-
-    def commit(self):
-        self._check_thread()
-        self._check_closed()
-        if sqlite.sqlite3_get_autocommit(self.db):
-            return
-
-        for statement in self.statements:
-            obj = statement()
-            if obj is not None:
-                obj.reset()
-
+        statement = c_void_p()
+        next_char = c_char_p()
+        ret = sqlite.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
+                                        byref(statement), next_char)
         try:
-            sql = "COMMIT"
-            statement = c_void_p()
-            next_char = c_char_p()
-            ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
             ret = sqlite.sqlite3_step(statement)
             if ret != SQLITE_DONE:
                 raise self._get_exception(ret)
+            self._in_transaction = True
+        finally:
+            sqlite.sqlite3_finalize(statement)
+
+    def commit(self):
+        self._check_thread()
+        self._check_closed()
+        if not self._in_transaction:
+            return
+
+        for statement in self.__statements:
+            obj = statement()
+            if obj is not None:
+                obj.reset()
+
+        statement = c_void_p()
+        next_char = c_char_p()
+        ret = sqlite.sqlite3_prepare_v2(self._db, "COMMIT", -1,
+                                        byref(statement), next_char)
+        try:
+            if ret != SQLITE_OK:
+                raise self._get_exception(ret)
+            ret = sqlite.sqlite3_step(statement)
+            if ret != SQLITE_DONE:
+                raise self._get_exception(ret)
+            self._in_transaction = False
         finally:
             sqlite.sqlite3_finalize(statement)
 
     def rollback(self):
         self._check_thread()
         self._check_closed()
-        if sqlite.sqlite3_get_autocommit(self.db):
+        if not self._in_transaction:
             return
 
-        for statement in self.statements:
+        for statement in self.__statements:
             obj = statement()
             if obj is not None:
                 obj.reset()
 
-        for cursor_ref in self.cursors:
+        for cursor_ref in self._cursors:
             cursor = cursor_ref()
             if cursor:
-                cursor.reset = True
+                cursor._reset = True
 
+        statement = c_void_p()
+        next_char = c_char_p()
+        ret = sqlite.sqlite3_prepare_v2(self._db, "ROLLBACK", -1,
+                                        byref(statement), next_char)
         try:
-            sql = "ROLLBACK"
-            statement = c_void_p()
-            next_char = c_char_p()
-            ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
             ret = sqlite.sqlite3_step(statement)
             if ret != SQLITE_DONE:
                 raise self._get_exception(ret)
+            self._in_transaction = False
         finally:
             sqlite.sqlite3_finalize(statement)
 
@@ -553,17 +561,17 @@ class Connection(object):
     @_check_closed_wrap
     def create_function(self, name, num_args, callback):
         try:
-            c_closure, _ = self.func_cache[callback]
+            c_closure, _ = self.__func_cache[callback]
         except KeyError:
             def closure(context, nargs, c_params):
                 function_callback(callback, context, nargs, c_params)
-            c_closure = FUNC(closure)
-            self.func_cache[callback] = c_closure, closure
-        ret = sqlite.sqlite3_create_function(self.db, name, num_args,
+            c_closure = _FUNC(closure)
+            self.__func_cache[callback] = c_closure, closure
+        ret = sqlite.sqlite3_create_function(self._db, name, num_args,
                                              SQLITE_UTF8, None,
                                              c_closure,
-                                             cast(None, STEP),
-                                             cast(None, FINAL))
+                                             cast(None, _STEP),
+                                             cast(None, _FINAL))
         if ret != SQLITE_OK:
             raise self.OperationalError("Error creating function")
 
@@ -571,7 +579,7 @@ class Connection(object):
     @_check_closed_wrap
     def create_aggregate(self, name, num_args, cls):
         try:
-            c_step_callback, c_final_callback, _, _ = self._aggregates[cls]
+            c_step_callback, c_final_callback, _, _ = self.__aggregates[cls]
         except KeyError:
             def step_callback(context, argc, c_params):
 
@@ -589,10 +597,10 @@ class Connection(object):
                         sqlite.sqlite3_result_error(context, msg, len(msg))
                         return
                     aggregate_id = id(aggregate)
-                    self.aggregate_instances[aggregate_id] = aggregate
+                    self.__aggregate_instances[aggregate_id] = aggregate
                     aggregate_ptr[0] = aggregate_id
                 else:
-                    aggregate = self.aggregate_instances[aggregate_ptr[0]]
+                    aggregate = self.__aggregate_instances[aggregate_ptr[0]]
 
                 params = _convert_params(context, argc, c_params)
                 try:
@@ -610,7 +618,7 @@ class Connection(object):
                     POINTER(c_ssize_t))
 
                 if aggregate_ptr[0]:
-                    aggregate = self.aggregate_instances[aggregate_ptr[0]]
+                    aggregate = self.__aggregate_instances[aggregate_ptr[0]]
                     try:
                         val = aggregate.finalize()
                     except Exception:
@@ -620,17 +628,17 @@ class Connection(object):
                     else:
                         _convert_result(context, val)
                     finally:
-                        del self.aggregate_instances[aggregate_ptr[0]]
+                        del self.__aggregate_instances[aggregate_ptr[0]]
 
-            c_step_callback = STEP(step_callback)
-            c_final_callback = FINAL(final_callback)
+            c_step_callback = _STEP(step_callback)
+            c_final_callback = _FINAL(final_callback)
 
-            self._aggregates[cls] = (c_step_callback, c_final_callback,
+            self.__aggregates[cls] = (c_step_callback, c_final_callback,
                                      step_callback, final_callback)
 
-        ret = sqlite.sqlite3_create_function(self.db, name, num_args,
+        ret = sqlite.sqlite3_create_function(self._db, name, num_args,
                                              SQLITE_UTF8, None,
-                                             cast(None, FUNC),
+                                             cast(None, _FUNC),
                                              c_step_callback,
                                              c_final_callback)
         if ret != SQLITE_OK:
@@ -644,8 +652,8 @@ class Connection(object):
             raise ProgrammingError("invalid character in collation name")
 
         if callback is None:
-            del self._collations[name]
-            c_collation_callback = cast(None, COLLATION)
+            del self.__collations[name]
+            c_collation_callback = cast(None, _COLLATION)
         else:
             if not callable(callback):
                 raise TypeError("parameter must be callable")
@@ -656,10 +664,10 @@ class Connection(object):
 
                 return callback(text1, text2)
 
-            c_collation_callback = COLLATION(collation_callback)
-            self._collations[name] = c_collation_callback
+            c_collation_callback = _COLLATION(collation_callback)
+            self.__collations[name] = c_collation_callback
 
-        ret = sqlite.sqlite3_create_collation(self.db, name,
+        ret = sqlite.sqlite3_create_collation(self._db, name,
                                               SQLITE_UTF8,
                                               None,
                                               c_collation_callback)
@@ -670,18 +678,18 @@ class Connection(object):
     @_check_closed_wrap
     def set_authorizer(self, callback):
         try:
-            c_authorizer, _ = self.func_cache[callback]
+            c_authorizer, _ = self.__func_cache[callback]
         except KeyError:
             def authorizer(userdata, action, arg1, arg2, dbname, source):
                 try:
                     return int(callback(action, arg1, arg2, dbname, source))
                 except Exception:
                     return SQLITE_DENY
-            c_authorizer = AUTHORIZER(authorizer)
+            c_authorizer = _AUTHORIZER(authorizer)
 
-            self.func_cache[callback] = c_authorizer, authorizer
+            self.__func_cache[callback] = c_authorizer, authorizer
 
-        ret = sqlite.sqlite3_set_authorizer(self.db,
+        ret = sqlite.sqlite3_set_authorizer(self._db,
                                             c_authorizer,
                                             None)
         if ret != SQLITE_OK:
@@ -691,10 +699,10 @@ class Connection(object):
     @_check_closed_wrap
     def set_progress_handler(self, callable, nsteps):
         if callable is None:
-            c_progress_handler = cast(None, PROGRESS)
+            c_progress_handler = cast(None, _PROGRESS)
         else:
             try:
-                c_progress_handler, _ = self.func_cache[callable]
+                c_progress_handler, _ = self.__func_cache[callable]
             except KeyError:
                 def progress_handler(userdata):
                     try:
@@ -703,156 +711,179 @@ class Connection(object):
                     except Exception:
                         # abort query if error occurred
                         return 1
-                c_progress_handler = PROGRESS(progress_handler)
+                c_progress_handler = _PROGRESS(progress_handler)
 
-                self.func_cache[callable] = c_progress_handler, progress_handler
-        ret = sqlite.sqlite3_progress_handler(self.db, nsteps,
+                self.__func_cache[callable] = c_progress_handler, progress_handler
+        ret = sqlite.sqlite3_progress_handler(self._db, nsteps,
                                               c_progress_handler,
                                               None)
         if ret != SQLITE_OK:
             raise self._get_exception(ret)
 
-    def _get_isolation_level(self):
+    def __get_total_changes(self):
+        self._check_closed()
+        return sqlite.sqlite3_total_changes(self._db)
+    total_changes = property(__get_total_changes)
+
+    def __get_isolation_level(self):
         return self._isolation_level
 
-    def _get_total_changes(self):
-        self._check_closed()
-        return sqlite.sqlite3_total_changes(self.db)
-    total_changes = property(_get_total_changes)
-
-    def _set_isolation_level(self, val):
+    def __set_isolation_level(self, val):
         if val is None:
             self.commit()
+        else:
+            self.__begin_statement = 'BEGIN ' + val
         self._isolation_level = val
-    isolation_level = property(_get_isolation_level, _set_isolation_level)
+    isolation_level = property(__get_isolation_level, __set_isolation_level)
 
-    if HAS_LOAD_EXTENSION:
+    if _HAS_LOAD_EXTENSION:
         @_check_thread_wrap
         @_check_closed_wrap
         def enable_load_extension(self, enabled):
-            rc = sqlite.sqlite3_enable_load_extension(self.db, int(enabled))
+            rc = sqlite.sqlite3_enable_load_extension(self._db, int(enabled))
             if rc != SQLITE_OK:
                 raise OperationalError("Error enabling load extension")
 
 
-class CursorLock(object):
+class _CursorLock(object):
     def __init__(self, cursor):
         self.cursor = cursor
 
     def __enter__(self):
-        if self.cursor.locked:
+        self.cursor._check_closed()
+        if self.cursor._locked:
             raise ProgrammingError("Recursive use of cursors not allowed.")
-        self.cursor.locked = True
+        self.cursor._locked = True
 
     def __exit__(self, *args):
-        self.cursor.locked = False
+        self.cursor._locked = False
 
 
 class Cursor(object):
-    initialized = False
+    __initialized = False
+    __connection = None
+    __statement = None
 
     def __init__(self, con):
+        self.__initialized = True
+        self.__connection = con
+
         if not isinstance(con, Connection):
             raise TypeError
         con._check_thread()
         con._check_closed()
-        con.cursors.append(weakref.ref(self))
-        self.connection = con
-        self._description = None
+        con._cursors.append(weakref.ref(self))
+
         self.arraysize = 1
         self.row_factory = None
-        self.rowcount = -1
-        self.statement = None
-        self.reset = False
-        self.locked = False
-        self.closed = False
-        self.initialized = True
+        self._locked = False
+        self._reset = False
+        self.__closed = False
+        self.__description = None
+        self.__rowcount = -1
+
+    def __del__(self):
+        if self.__connection:
+            try:
+                self.__connection._cursors.remove(weakref.ref(self))
+            except ValueError:
+                pass
+        if self.__statement:
+            self.__statement.reset()
+
+    def close(self):
+        self.__connection._check_thread()
+        self.__connection._check_closed()
+        if self.__statement:
+            self.__statement.reset()
+            self.__statement = None
+        self.__closed = True
 
     def _check_closed(self):
-        if not self.initialized:
+        if not self.__initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
-        if self.closed:
+        if self.__closed:
             raise ProgrammingError("Cannot operate on a closed cursor.")
-        self.connection._check_thread()
-        self.connection._check_closed()
-
-    def _check_and_lock(self):
-        self._check_closed()
-        return CursorLock(self)
+        self.__connection._check_thread()
+        self.__connection._check_closed()
 
     def execute(self, sql, params=None):
-        with self._check_and_lock():
-            self._description = None
-            self.reset = False
-            self.statement = self.connection.statement_cache.get(
+        with _CursorLock(self):
+            self.__description = None
+            self._reset = False
+            self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
-            if self.connection._isolation_level is not None:
-                if self.statement.kind == DDL:
-                    self.connection.commit()
-                elif self.statement.kind == DML:
-                    self.connection._begin()
+            if self.__connection._isolation_level is not None:
+                if self.__statement.kind == _DDL:
+                    if self.__connection._in_transaction:
+                        self.__connection.commit()
+                elif self.__statement.kind == _DML:
+                    if not self.__connection._in_transaction:
+                        self.__connection._begin()
 
-            self.statement.set_params(params)
+            self.__statement.set_params(params)
 
             # Actually execute the SQL statement
-            ret = sqlite.sqlite3_step(self.statement.statement)
+            ret = sqlite.sqlite3_step(self.__statement.statement)
             if ret not in (SQLITE_DONE, SQLITE_ROW):
-                self.statement.reset()
-                raise self.connection._get_exception(ret)
+                self.__statement.reset()
+                self.__connection._in_transaction = \
+                        not sqlite.sqlite3_get_autocommit(self.__connection._db)
+                raise self.__connection._get_exception(ret)
 
-            if self.statement.kind == DML:
-                self.statement.reset()
+            if self.__statement.kind == _DML:
+                self.__statement.reset()
 
-            if self.statement.kind == DQL and ret == SQLITE_ROW:
-                self.statement._build_row_cast_map()
-                self.statement._readahead(self)
+            if self.__statement.kind == _DQL and ret == SQLITE_ROW:
+                self.__statement._build_row_cast_map()
+                self.__statement._readahead(self)
             else:
-                self.statement.item = None
-                self.statement.exhausted = True
+                self.__statement.item = None
+                self.__statement.exhausted = True
 
-            self.rowcount = -1
-            if self.statement.kind == DML:
-                self.rowcount = sqlite.sqlite3_changes(self.connection.db)
+            self.__rowcount = -1
+            if self.__statement.kind == _DML:
+                self.__rowcount = sqlite.sqlite3_changes(self.__connection._db)
 
         return self
 
     def executemany(self, sql, many_params):
-        with self._check_and_lock():
-            self._description = None
-            self.reset = False
-            self.statement = self.connection.statement_cache.get(
+        with _CursorLock(self):
+            self.__description = None
+            self._reset = False
+            self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
-            if self.statement.kind == DML:
-                self.connection._begin()
+            if self.__statement.kind == _DML:
+                if self.__connection._isolation_level is not None:
+                    if not self.__connection._in_transaction:
+                        self.__connection._begin()
             else:
                 raise ProgrammingError("executemany is only for DML statements")
 
-            self.rowcount = 0
+            self.__rowcount = 0
             for params in many_params:
-                self.statement.set_params(params)
-                ret = sqlite.sqlite3_step(self.statement.statement)
+                self.__statement.set_params(params)
+                ret = sqlite.sqlite3_step(self.__statement.statement)
                 if ret != SQLITE_DONE:
-                    raise self.connection._get_exception(ret)
-                self.rowcount += sqlite.sqlite3_changes(self.connection.db)
+                    raise self.__connection._get_exception(ret)
+                self.__rowcount += sqlite.sqlite3_changes(self.__connection._db)
 
         return self
 
     def executescript(self, sql):
-        self._description = None
-        self.reset = False
-        if type(sql) is str:
-            sql = sql.encode("utf-8")
+        self.__description = None
+        self._reset = False
         self._check_closed()
         statement = c_void_p()
         c_sql = c_char_p(sql)
 
-        self.connection.commit()
+        self.__connection.commit()
         while True:
-            rc = sqlite.sqlite3_prepare(self.connection.db, c_sql, -1, byref(statement), byref(c_sql))
+            rc = sqlite.sqlite3_prepare(self.__connection._db, c_sql, -1, byref(statement), byref(c_sql))
             if rc != SQLITE_OK:
-                raise self.connection._get_exception(rc)
+                raise self.__connection._get_exception(rc)
 
             rc = SQLITE_ROW
             while rc == SQLITE_ROW:
@@ -866,21 +897,18 @@ class Cursor(object):
                 if rc == SQLITE_OK:
                     return self
                 else:
-                    raise self.connection._get_exception(rc)
+                    raise self.__connection._get_exception(rc)
             rc = sqlite.sqlite3_finalize(statement)
             if rc != SQLITE_OK:
-                raise self.connection._get_exception(rc)
+                raise self.__connection._get_exception(rc)
 
             if not c_sql.value:
                 break
         return self
 
-    def __iter__(self):
-        return iter(self.fetchone, None)
-
     def _check_reset(self):
-        if self.reset:
-            raise self.connection.InterfaceError("Cursor needed to be reset because "
+        if self._reset:
+            raise self.__connection.InterfaceError("Cursor needed to be reset because "
                                                  "of commit/rollback and can "
                                                  "no longer be fetched from.")
 
@@ -889,18 +917,18 @@ class Cursor(object):
         self._check_closed()
         self._check_reset()
 
-        if self.statement is None:
+        if self.__statement is None:
             return None
 
         try:
-            return self.statement.next(self)
+            return self.__statement.next(self)
         except StopIteration:
             return None
 
     def fetchmany(self, size=None):
         self._check_closed()
         self._check_reset()
-        if self.statement is None:
+        if self.__statement is None:
             return []
         if size is None:
             size = self.arraysize
@@ -914,43 +942,36 @@ class Cursor(object):
     def fetchall(self):
         self._check_closed()
         self._check_reset()
-        if self.statement is None:
+        if self.__statement is None:
             return []
         return list(self)
 
-    def _getdescription(self):
-        if self._description is None:
-            self._description = self.statement._get_description()
-        return self._description
+    def __iter__(self):
+        return iter(self.fetchone, None)
 
-    def _getlastrowid(self):
-        return sqlite.sqlite3_last_insert_rowid(self.connection.db)
+    def __get_connection(self):
+        return self.__connection
+    connection = property(__get_connection)
 
-    def close(self):
-        self.connection._check_thread()
-        self.connection._check_closed()
-        if self.statement:
-            self.statement.reset()
-            self.statement = None
-        self.closed = True
+    def __get_rowcount(self):
+        return self.__rowcount
+    rowcount = property(__get_rowcount)
 
-    def __del__(self):
-        if self.initialized:
-            if self.statement:
-                self.statement.reset()
-            try:
-                self.connection.cursors.remove(weakref.ref(self))
-            except ValueError:
-                pass
+    def __get_description(self):
+        if self.__description is None:
+            self.__description = self.__statement._get_description()
+        return self.__description
+    description = property(__get_description)
+
+    def __get_lastrowid(self):
+        return sqlite.sqlite3_last_insert_rowid(self.__connection._db)
+    lastrowid = property(__get_lastrowid)
 
     def setinputsizes(self, *args):
         pass
 
     def setoutputsize(self, *args):
         pass
-
-    description = property(_getdescription)
-    lastrowid = property(_getlastrowid)
 
 
 class Statement(object):
@@ -963,11 +984,11 @@ class Statement(object):
         self.sql = sql  # DEBUG ONLY
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
-            self.kind = DML
+            self.kind = _DML
         elif first_word in ("SELECT", "PRAGMA"):
-            self.kind = DQL
+            self.kind = _DQL
         else:
-            self.kind = DDL
+            self.kind = _DDL
         self.exhausted = False
         self.in_use = False
         #
@@ -977,11 +998,11 @@ class Statement(object):
         self.statement = c_void_p()
         next_char = c_char_p()
         sql_char = sql
-        ret = sqlite.sqlite3_prepare_v2(self.con.db, sql_char, -1, byref(self.statement), byref(next_char))
+        ret = sqlite.sqlite3_prepare_v2(self.con._db, sql_char, -1, byref(self.statement), byref(next_char))
         if ret == SQLITE_OK and self.statement.value is None:
             # an empty statement, we work around that, as it's the least trouble
-            ret = sqlite.sqlite3_prepare_v2(self.con.db, "select 42", -1, byref(self.statement), byref(next_char))
-            self.kind = DQL
+            ret = sqlite.sqlite3_prepare_v2(self.con._db, "select 42", -1, byref(self.statement), byref(next_char))
+            self.kind = _DQL
 
         if ret != SQLITE_OK:
             raise self.con._get_exception(ret)
@@ -1002,7 +1023,7 @@ class Statement(object):
         for i in range(sqlite.sqlite3_column_count(self.statement)):
             converter = None
 
-            if self.con.detect_types & PARSE_COLNAMES:
+            if self.con._detect_types & PARSE_COLNAMES:
                 colname = sqlite.sqlite3_column_name(self.statement, i)
                 if colname is not None:
                     colname = colname.decode('utf-8')
@@ -1015,7 +1036,7 @@ class Statement(object):
                             key = colname[type_start:pos]
                             converter = converters[key.upper()]
 
-            if converter is None and self.con.detect_types & PARSE_DECLTYPES:
+            if converter is None and self.con._detect_types & PARSE_DECLTYPES:
                 decltype = sqlite.sqlite3_column_decltype(self.statement, i)
                 if decltype is not None:
                     decltype = decltype.split()[0]      # if multiple words, use first, eg. "INTEGER NOT NULL" => "INTEGER"
@@ -1166,7 +1187,7 @@ class Statement(object):
             sqlite.sqlite3_finalize(self.statement)
 
     def _get_description(self):
-        if self.kind == DML:
+        if self.kind == _DML:
             return None
         desc = []
         for i in range(sqlite.sqlite3_column_count(self.statement)):
@@ -1306,25 +1327,25 @@ def function_callback(real_cb, context, nargs, c_params):
     else:
         _convert_result(context, val)
 
-FUNC = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
-STEP = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
-FINAL = CFUNCTYPE(None, c_void_p)
-sqlite.sqlite3_create_function.argtypes = [c_void_p, TEXT, c_int, c_int, c_void_p, FUNC, STEP, FINAL]
+_FUNC = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
+_STEP = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
+_FINAL = CFUNCTYPE(None, c_void_p)
+sqlite.sqlite3_create_function.argtypes = [c_void_p, TEXT, c_int, c_int, c_void_p, _FUNC, _STEP, _FINAL]
 sqlite.sqlite3_create_function.restype = c_int
 
 sqlite.sqlite3_aggregate_context.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_aggregate_context.restype = c_void_p
 
-COLLATION = CFUNCTYPE(c_int, c_void_p, c_int, c_void_p, c_int, c_void_p)
-sqlite.sqlite3_create_collation.argtypes = [c_void_p, TEXT, c_int, c_void_p, COLLATION]
+_COLLATION = CFUNCTYPE(c_int, c_void_p, c_int, c_void_p, c_int, c_void_p)
+sqlite.sqlite3_create_collation.argtypes = [c_void_p, TEXT, c_int, c_void_p, _COLLATION]
 sqlite.sqlite3_create_collation.restype = c_int
 
-PROGRESS = CFUNCTYPE(c_int, c_void_p)
-sqlite.sqlite3_progress_handler.argtypes = [c_void_p, c_int, PROGRESS, c_void_p]
+_PROGRESS = CFUNCTYPE(c_int, c_void_p)
+sqlite.sqlite3_progress_handler.argtypes = [c_void_p, c_int, _PROGRESS, c_void_p]
 sqlite.sqlite3_progress_handler.restype = c_int
 
-AUTHORIZER = CFUNCTYPE(c_int, c_void_p, c_int, c_char_p, c_char_p, c_char_p, c_char_p)
-sqlite.sqlite3_set_authorizer.argtypes = [c_void_p, AUTHORIZER, c_void_p]
+_AUTHORIZER = CFUNCTYPE(c_int, c_void_p, c_int, c_char_p, c_char_p, c_char_p, c_char_p)
+sqlite.sqlite3_set_authorizer.argtypes = [c_void_p, _AUTHORIZER, c_void_p]
 sqlite.sqlite3_set_authorizer.restype = c_int
 
 converters = {}
