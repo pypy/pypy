@@ -772,6 +772,23 @@ class Cursor(object):
         self.closed = False
         self.__initialized = True
 
+    def __del__(self):
+        if self.__initialized:
+            if self.statement:
+                self.statement.reset()
+            try:
+                self.connection._cursors.remove(weakref.ref(self))
+            except ValueError:
+                pass
+
+    def close(self):
+        self.connection._check_thread()
+        self.connection._check_closed()
+        if self.statement:
+            self.statement.reset()
+            self.statement = None
+        self.closed = True
+
     def _check_closed(self):
         if not self.__initialized:
             raise ProgrammingError("Base Cursor.__init__ not called.")
@@ -887,9 +904,6 @@ class Cursor(object):
                 break
         return self
 
-    def __iter__(self):
-        return iter(self.fetchone, None)
-
     def _check_reset(self):
         if self.reset:
             raise self.connection.InterfaceError("Cursor needed to be reset because "
@@ -930,39 +944,24 @@ class Cursor(object):
             return []
         return list(self)
 
+    def __iter__(self):
+        return iter(self.fetchone, None)
+
     def _getdescription(self):
         if self._description is None:
             self._description = self.statement._get_description()
         return self._description
+    description = property(_getdescription)
 
     def _getlastrowid(self):
         return sqlite.sqlite3_last_insert_rowid(self.connection._db)
-
-    def close(self):
-        self.connection._check_thread()
-        self.connection._check_closed()
-        if self.statement:
-            self.statement.reset()
-            self.statement = None
-        self.closed = True
-
-    def __del__(self):
-        if self.__initialized:
-            if self.statement:
-                self.statement.reset()
-            try:
-                self.connection._cursors.remove(weakref.ref(self))
-            except ValueError:
-                pass
+    lastrowid = property(_getlastrowid)
 
     def setinputsizes(self, *args):
         pass
 
     def setoutputsize(self, *args):
         pass
-
-    description = property(_getdescription)
-    lastrowid = property(_getlastrowid)
 
 
 class Statement(object):
