@@ -723,8 +723,6 @@ class Connection(object):
     def _set_isolation_level(self, val):
         if val is None:
             self.commit()
-        if isinstance(val, str):
-            val = str(val)
         self._isolation_level = val
     isolation_level = property(_get_isolation_level, _set_isolation_level)
 
