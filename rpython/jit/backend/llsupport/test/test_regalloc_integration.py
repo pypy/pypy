@@ -95,6 +95,7 @@ class BaseTestRegalloc(object):
 
     def interpret(self, ops, args, run=True):
         loop = self.parse(ops)
+        self.loop = loop
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         arguments = []
