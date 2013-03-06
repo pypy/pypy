@@ -107,7 +107,7 @@ class AbstractARMCPU(AbstractLLCPU):
 
 class CPU_ARM(AbstractARMCPU):
     """ARM v7 uses softfp ABI, requires vfp"""
-    pass
+    backend_name = "arm"
 ArmCPU = CPU_ARM
 
 class CPU_ARMHF(AbstractARMCPU):

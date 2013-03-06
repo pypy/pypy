@@ -2,6 +2,7 @@
 """ Tests for register allocation for common constructs
 """
 
+import re
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
      JitCellToken, BasicFailDescr, AbstractDescr
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
@@ -17,6 +18,12 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.objectmodel import invoke_around_extcall
 
 CPU = getcpuclass()
+
+def getmap(frame):
+    r = ''
+    for elem in frame.jf_gcmap:
+        r += bin(elem)[2:]
+    return r[r.find('1'):]
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
@@ -66,17 +73,21 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, self.deadframe)
         # p0 and p3 should be in registers, p1 not so much
         assert self.getptr(0, lltype.Ptr(self.S)) == s1
-        # this is a fairly CPU specific check
-        assert len(frame.jf_gcmap) == 1
         # the gcmap should contain three things, p0, p1 and p3
         # p3 stays in a register
         # while p0 and p1 are on the frame
-        if self.cpu.IS_64_BIT:
-            nos = [11, 12, 31]
+        b = getmap(frame)
+        nos = [len(b) - 1 - i.start() for i in re.finditer('1', b)]
+        nos.reverse()
+        if self.cpu.backend_name.startswith('x86'):
+            if self.cpu.IS_64_BIT:
+                assert nos == [11, 12, 31]
+            else:
+                assert nos ==  [4, 5, 25]
+        elif self.cpu.backend_name.startswith('arm'):
+            assert nos == []
         else:
-            nos = [4, 5, 25]
-        assert frame.jf_gcmap[0] == ((1 << nos[0]) | (1 << nos[1]) |
-                                     (1 << nos[2]))
+            raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
         assert frame.jf_frame[nos[1]]
         assert frame.jf_frame[nos[2]]
