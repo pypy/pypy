@@ -48,12 +48,10 @@ corresponding Unix manual entries for more information on calls."""
                 'popen3' : 'app_posix.popen3',
                 'popen4' : 'app_posix.popen4',
                 })
-    if hasattr(posix, 'wait'):
-        appleveldefs['wait'] = 'app_posix.wait'
-    if hasattr(posix, 'wait3'):
-        appleveldefs['wait3'] = 'app_posix.wait3'
-    if hasattr(posix, 'wait4'):
-        appleveldefs['wait4'] = 'app_posix.wait4'
+    for name in '''wait wait3 wait4'''.split():
+        symbol = 'HAVE_' + name.upper()
+        if getattr(rposix, symbol):
+            appleveldefs[name] = 'app_posix.%s' % (name,)
         
     # Functions implemented on all platforms
     interpleveldefs = {
@@ -107,7 +105,7 @@ corresponding Unix manual entries for more information on calls."""
             getsid getuid geteuid getgid getegid getpgrp getpgid
             setsid setuid seteuid setgid setegid setpgrp setpgid
             getppid getgroups setreuid setregid
-            wait wait3 wait4 killpg waitpid
+            killpg waitpid
             '''.split():
         symbol = 'HAVE_' + name.upper()
         if getattr(rposix, symbol):
