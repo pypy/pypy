@@ -310,6 +310,7 @@ class Connection(object):
 
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
+        self.__initialized = True
         self._db = c_void_p()
         if sqlite.sqlite3_open(database, byref(self._db)) != SQLITE_OK:
             raise OperationalError("Could not open database")
@@ -321,15 +322,14 @@ class Connection(object):
         self.text_factory = unicode_text_factory
 
         self._detect_types = detect_types
-        self._isolation_level = isolation_level
         self._in_transaction = False
+        self.isolation_level = isolation_level
 
         self._cursors = []
         self.__statements = []
         self.__statement_counter = 0
         self._statement_cache = StatementCache(self, cached_statements)
 
-        self.__initialized = True
         self.__func_cache = {}
         self.__aggregates = {}
         self.__aggregate_instances = {}
@@ -470,10 +470,10 @@ class Connection(object):
         return _iterdump(self)
 
     def _begin(self):
-        sql = "BEGIN " + self._isolation_level
         statement = c_void_p()
         next_char = c_char_p()
-        ret = sqlite.sqlite3_prepare_v2(self._db, sql, -1, byref(statement), next_char)
+        ret = sqlite.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
+                                        byref(statement), next_char)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -495,10 +495,10 @@ class Connection(object):
             if obj is not None:
                 obj.reset()
 
-        sql = "COMMIT"
         statement = c_void_p()
         next_char = c_char_p()
-        ret = sqlite.sqlite3_prepare_v2(self._db, sql, -1, byref(statement), next_char)
+        ret = sqlite.sqlite3_prepare_v2(self._db, "COMMIT", -1,
+                                        byref(statement), next_char)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -525,10 +525,10 @@ class Connection(object):
             if cursor:
                 cursor.reset = True
 
-        sql = "ROLLBACK"
         statement = c_void_p()
         next_char = c_char_p()
-        ret = sqlite.sqlite3_prepare_v2(self._db, sql, -1, byref(statement), next_char)
+        ret = sqlite.sqlite3_prepare_v2(self._db, "ROLLBACK", -1,
+                                        byref(statement), next_char)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -722,8 +722,10 @@ class Connection(object):
     def __set_isolation_level(self, val):
         if val is None:
             self.commit()
-        if isinstance(val, unicode):
-            val = str(val)
+        else:
+            if isinstance(val, unicode):
+                val = str(val)
+            self.__begin_statement = 'BEGIN ' + val
         self._isolation_level = val
     isolation_level = property(__get_isolation_level, __set_isolation_level)
 
