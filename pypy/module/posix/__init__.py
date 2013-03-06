@@ -73,6 +73,7 @@ corresponding Unix manual entries for more information on calls."""
         'access'    : 'interp_posix.access',
         'times'     : 'interp_posix.times',
         'system'    : 'interp_posix.system',
+        'getpid'    : 'interp_posix.getpid',
         'unlink'    : 'interp_posix.unlink',
         'remove'    : 'interp_posix.remove',
         'getcwd'    : 'interp_posix.getcwd',
@@ -84,7 +85,6 @@ corresponding Unix manual entries for more information on calls."""
         'listdir'   : 'interp_posix.listdir',
         'strerror'  : 'interp_posix.strerror',
         'pipe'      : 'interp_posix.pipe',
-        'chmod'     : 'interp_posix.chmod',
         'rename'    : 'interp_posix.rename',
         'umask'     : 'interp_posix.umask',
         '_exit'     : 'interp_posix._exit',
@@ -95,25 +95,33 @@ corresponding Unix manual entries for more information on calls."""
         'urandom'   : 'interp_posix.urandom',
         }
 
+    # XXX Missing functions: chflags lchmod lchflags ctermid fork1
+    #                        plock setgroups initgroups tcgetpgrp
+    #                        tcsetpgrp confstr pathconf
+
     for name in '''
-            wait wait3 wait4 chown lchown ftruncate
-            fsync fdatasync fchdir putenv unsetenv killpg getpid
-            link symlink readlink
-            fork openpty forkpty waitpid execv execve uname sysconf fpathconf
-            ttyname getloadavg makedev major minor mkfifo mknod nice getlogin
+            ttyname chmod fchmod chown lchown fchown chroot link symlink readlink
+            ftruncate getloadavg nice uname execv execve fork spawnv spawnve
+            putenv unsetenv fchdir fsync fdatasync mknod
+            openpty forkpty mkfifo getlogin sysconf fpathconf
             getsid getuid geteuid getgid getegid getpgrp getpgid
             setsid setuid seteuid setgid setegid setpgrp setpgid
-            getppid getgroups setreuid setregid chroot
-            _getfullpathname
+            getppid getgroups setreuid setregid
+            wait wait3 wait4 killpg waitpid
             '''.split():
-        if hasattr(posix, name):
-            interpleveldefs[name] = 'interp_posix.%s' % (name,)
-
-    for name in '''fchmod fchown
-                '''.split():
-        symbol = 'HAS_' + name.upper()
+        symbol = 'HAVE_' + name.upper()
         if getattr(rposix, symbol):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
+
+    if rposix.HAVE_DEVICE_MACROS:
+        interpleveldefs['major']   = 'interp_posix.major'
+        interpleveldefs['minor']   = 'interp_posix.minor'
+        interpleveldefs['makedev'] = 'interp_posix.makedev'
+
+    if os.name == 'nt':
+        interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
+        # On Windows, _cwait() can be used to emulate waitpid
+        interpleveldefs['waitpid'] = 'interp_posix.waitpid'
 
     for constant in '''
             F_OK R_OK W_OK X_OK NGROUPS_MAX TMP_MAX
@@ -138,6 +146,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
 
     # Macros for process exit statuses: WIFEXITED &co
+    # XXX HAVE_SYS_WAIT_H
     for name in RegisterOs.w_star:
         if hasattr(posix, name):
             interpleveldefs[name] = 'interp_posix.' + name

@@ -84,7 +84,8 @@ if os.name == 'nt':
 else:
     separate_module_sources = []
     export_symbols = []
-    includes=['errno.h', 'stdio.h', 'unistd.h', 'sys/stat.h']
+    includes=['errno.h', 'stdio.h', 'stdlib.h', 'unistd.h', 'sys/stat.h',
+              'signal.h', 'pty.h', 'sys/utsname.h', 'sys/wait.h']
 rposix_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
@@ -94,8 +95,20 @@ rposix_eci = ExternalCompilationInfo(
 class CConfig:
     _compilation_info_ = rposix_eci
 
-    HAS_FCHMOD = rffi_platform.Has("fchmod")
-    HAS_FCHOWN = rffi_platform.Has("fchown")
+    HAVE_DEVICE_MACROS = rffi_platform.Has("makedev(major(0),minor(0))")
+
+for name in '''
+        ttyname chmod fchmod chown lchown fchown chroot link symlink readlink
+        ftruncate getloadavg nice uname execv execve fork spawnv spawnve
+        putenv unsetenv fchdir fsync fdatasync mknod
+        openpty forkpty mkfifo getlogin sysconf fpathconf
+        getsid getuid geteuid getgid getegid getpgrp getpgid
+        setsid setuid seteuid setgid setegid setpgrp setpgid
+        getppid getgroups setreuid setregid
+        wait wait3 wait4 killpg waitpid
+        '''.split():
+    symbol = 'HAVE_' + name.upper()
+    setattr(CConfig, symbol, rffi_platform.Has(name))
 
 globals().update(rffi_platform.configure(CConfig))
 

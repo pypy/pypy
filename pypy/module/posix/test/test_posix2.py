@@ -63,25 +63,26 @@ class AppTestPosix:
         except UnicodeDecodeError:
             # filesystem encoding is not good enough
             cls.w_unicode_dir = space.w_None
-        if hasattr(os, 'getuid'):
+        if rposix.HAVE_GETUID:
             cls.w_getuid = space.wrap(os.getuid())
+        if rposix.HAVE_GETEUID:
             cls.w_geteuid = space.wrap(os.geteuid())
-        if hasattr(os, 'getgid'):
+        if rposix.HAVE_GETGID:
             cls.w_getgid = space.wrap(os.getgid())
-        if hasattr(os, 'getgroups'):
+        if rposix.HAVE_GETGROUPS:
             cls.w_getgroups = space.newlist([space.wrap(e) for e in os.getgroups()])
-        if hasattr(os, 'getpgid'):
+        if rposix.HAVE_GETPGID:
             cls.w_getpgid = space.wrap(os.getpgid(os.getpid()))
-        if hasattr(os, 'getsid'):
+        if rposix.HAVE_GETSID:
             cls.w_getsid0 = space.wrap(os.getsid(0))
-        if hasattr(os, 'sysconf'):
+        if rposix.HAVE_SYSCONF:
             sysconf_name = os.sysconf_names.keys()[0]
             cls.w_sysconf_name = space.wrap(sysconf_name)
             cls.w_sysconf_value = space.wrap(os.sysconf_names[sysconf_name])
             cls.w_sysconf_result = space.wrap(os.sysconf(sysconf_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
         cls.w_python = space.wrap(sys.executable)
-        if hasattr(os, 'major'):
+        if rposix.HAVE_DEVICE_MACROS:
             cls.w_expected_major_12345 = space.wrap(os.major(12345))
             cls.w_expected_minor_12345 = space.wrap(os.minor(12345))
         cls.w_udir = space.wrap(str(udir))
@@ -101,6 +102,7 @@ class AppTestPosix:
         if sys.platform.startswith('win32'):
             for name in '''_getfullpathname O_TEXT O_BINARY'''.split():
                 assert name in dir(self.posix)
+        assert 'kill' in dir(self.posix)
 
     def test_some_posix_basic_operation(self):
         path = self.path
@@ -583,7 +585,7 @@ class AppTestPosix:
             assert os.WIFSIGNALED(0) == False
             assert os.WIFSIGNALED(1) == True
 
-    if hasattr(os, 'uname'):
+    if rposix.HAVE_UNAME:
         def test_os_uname(self):
             os = self.posix
             res = os.uname()
@@ -592,47 +594,47 @@ class AppTestPosix:
                 assert isinstance(i, str)
             assert isinstance(res, tuple)
 
-    if hasattr(os, 'getuid'):
+    if rposix.HAVE_GETUID:
         def test_os_getuid(self):
             os = self.posix
             assert os.getuid() == self.getuid
             assert os.geteuid() == self.geteuid
 
-    if hasattr(os, 'setuid'):
+    if rposix.HAVE_SETUID:
         def test_os_setuid_error(self):
             os = self.posix
             raises(OverflowError, os.setuid, -2**31-1)
             raises(OverflowError, os.setuid, 2**32)
 
-    if hasattr(os, 'getgid'):
+    if rposix.HAVE_GETGID:
         def test_os_getgid(self):
             os = self.posix
             assert os.getgid() == self.getgid
 
-    if hasattr(os, 'getgroups'):
+    if rposix.HAVE_GETGROUPS:
         def test_os_getgroups(self):
             os = self.posix
             assert os.getgroups() == self.getgroups
 
-    if hasattr(os, 'getpgid'):
+    if rposix.HAVE_GETPGID:
         def test_os_getpgid(self):
             os = self.posix
             assert os.getpgid(os.getpid()) == self.getpgid
             raises(OSError, os.getpgid, 1234567)
 
-    if hasattr(os, 'setgid'):
+    if rposix.HAVE_SETGID:
         def test_os_setgid_error(self):
             os = self.posix
             raises(OverflowError, os.setgid, -2**31-1)
             raises(OverflowError, os.setgid, 2**32)
 
-    if hasattr(os, 'getsid'):
+    if rposix.HAVE_GETSID:
         def test_os_getsid(self):
             os = self.posix
             assert os.getsid(0) == self.getsid0
             raises(OSError, os.getsid, -100000)
 
-    if hasattr(os, 'sysconf'):
+    if rposix.HAVE_SYSCONF:
         def test_os_sysconf(self):
             os = self.posix
             assert os.sysconf(self.sysconf_value) == self.sysconf_result
@@ -643,14 +645,14 @@ class AppTestPosix:
             os = self.posix
             raises(ValueError, os.sysconf, "!@#$%!#$!@#")
 
-    if hasattr(os, 'fpathconf'):
+    if rposix.HAVE_FPATHCONF:
         def test_os_fpathconf(self):
             os = self.posix
             assert os.fpathconf(1, "PC_PIPE_BUF") >= 128
             raises(OSError, os.fpathconf, -1, "PC_PIPE_BUF")
             raises(ValueError, os.fpathconf, 1, "##")
 
-    if hasattr(os, 'wait'):
+    if rposix.HAVE_WAIT:
         def test_os_wait(self):
             os = self.posix
             exit_status = 0x33
@@ -672,7 +674,7 @@ class AppTestPosix:
                 assert os.WIFEXITED(status)
                 assert os.WEXITSTATUS(status) == exit_status
 
-    if hasattr(os, 'getloadavg'):
+    if rposix.HAVE_GETLOADAVG:
         def test_os_getloadavg(self):
             os = self.posix
             l0, l1, l2 = os.getloadavg()
@@ -680,7 +682,7 @@ class AppTestPosix:
             assert type(l1) is float and l0 >= 0.0
             assert type(l2) is float and l0 >= 0.0
 
-    if hasattr(os, 'major'):
+    if rposix.HAVE_DEVICE_MACROS:
         def test_major_minor(self):
             os = self.posix
             assert os.major(12345) == self.expected_major_12345
@@ -688,7 +690,7 @@ class AppTestPosix:
             assert os.makedev(self.expected_major_12345,
                               self.expected_minor_12345) == 12345
 
-    if hasattr(os, 'fsync'):
+    if rposix.HAVE_FSYNC:
         def test_fsync(self):
             os = self.posix
             f = open(self.path2, "w")
@@ -706,7 +708,7 @@ class AppTestPosix:
                 pass
             raises(ValueError, os.fsync, -1)
 
-    if hasattr(os, 'fdatasync'):
+    if rposix.HAVE_FDATASYNC:
         def test_fdatasync(self):
             os = self.posix
             f = open(self.path2, "w")
@@ -722,7 +724,7 @@ class AppTestPosix:
                 pass
             raises(ValueError, os.fdatasync, -1)
 
-    if hasattr(os, 'fchdir'):
+    if rposix.HAVE_FCHDIR:
         def test_fchdir(self):
             os = self.posix
             localdir = os.getcwd()
@@ -801,8 +803,6 @@ class AppTestPosix:
 
     def test_closerange(self):
         os = self.posix
-        if not hasattr(os, 'closerange'):
-            skip("missing os.closerange()")
         fds = [os.open(self.path + str(i), os.O_CREAT|os.O_WRONLY, 0777)
                for i in range(15)]
         fds.sort()
@@ -816,7 +816,7 @@ class AppTestPosix:
         for fd in range(start, stop):
             raises(OSError, os.fstat, fd)   # should have been closed
 
-    if hasattr(os, 'chown'):
+    if rposix.HAVE_CHOWN:
         def test_chown(self):
             os = self.posix
             os.unlink(self.path)
@@ -826,7 +826,7 @@ class AppTestPosix:
             f.close()
             os.chown(self.path, os.getuid(), os.getgid())
 
-    if hasattr(os, 'lchown'):
+    if rposix.HAVE_LCHOWN:
         def test_lchown(self):
             os = self.posix
             os.unlink(self.path)
@@ -834,14 +834,14 @@ class AppTestPosix:
             os.symlink('foobar', self.path)
             os.lchown(self.path, os.getuid(), os.getgid())
 
-    if rposix.HAS_FCHOWN:
+    if rposix.HAVE_FCHOWN:
         def test_fchown(self):
             os = self.posix
             f = open(self.path, "w")
             os.fchown(f.fileno(), os.getuid(), os.getgid())
             f.close()
 
-    if hasattr(os, 'chmod'):
+    if rposix.HAVE_CHMOD:
         def test_chmod(self):
             import sys
             os = self.posix
@@ -857,7 +857,7 @@ class AppTestPosix:
                 os.chmod(self.path, 0200)
                 assert (os.stat(self.path).st_mode & 0777) == 0200
 
-    if rposix.HAS_FCHMOD:
+    if rposix.HAVE_FCHMOD:
         def test_fchmod(self):
             os = self.posix
             f = open(self.path, "w")
@@ -866,7 +866,7 @@ class AppTestPosix:
             f.close()
             assert (os.stat(self.path).st_mode & 0777) == 0200
 
-    if hasattr(os, 'mkfifo'):
+    if rposix.HAVE_MKFIFO:
         def test_mkfifo(self):
             os = self.posix
             os.mkfifo(self.path2 + 'test_mkfifo', 0666)
@@ -874,7 +874,7 @@ class AppTestPosix:
             import stat
             assert stat.S_ISFIFO(st.st_mode)
 
-    if hasattr(os, 'mknod'):
+    if rposix.HAVE_MKNOD:
         def test_mknod(self):
             import stat
             os = self.posix
@@ -907,7 +907,7 @@ class AppTestPosix:
                     assert stat.S_ISCHR(st.st_mode)
                     assert st.st_rdev == 0x105
 
-    if hasattr(os, 'nice') and hasattr(os, 'fork') and hasattr(os, 'waitpid'):
+    if rposix.HAVE_NICE and rposix.HAVE_FORK and rposix.HAVE_WAITPID:
         def test_nice(self):
             os = self.posix
             myprio = os.nice(0)
@@ -922,7 +922,7 @@ class AppTestPosix:
             assert os.WIFEXITED(status1)
             assert os.WEXITSTATUS(status1) == myprio + 3
 
-    if hasattr(os, 'symlink'):
+    if rposix.HAVE_SYMLINK:
         def test_symlink(self):
             posix = self.posix
             unicode_dir = self.unicode_dir
@@ -1004,10 +1004,6 @@ class AppTestPosix:
             # check that the warning points to the call to os.tmpnam(),
             # not to some code inside app_posix.py
             assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
-
-    def test_has_kill(self):
-        import os
-        assert hasattr(os, 'kill')
 
     def test_pipe_flush(self):
         os = self.posix
