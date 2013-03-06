@@ -739,20 +739,6 @@ class Connection(object):
                 raise OperationalError("Error enabling load extension")
 
 
-class _CursorLock(object):
-    def __init__(self, cursor):
-        self.cursor = cursor
-
-    def __enter__(self):
-        self.cursor._check_closed()
-        if self.cursor._locked:
-            raise ProgrammingError("Recursive use of cursors not allowed.")
-        self.cursor._locked = True
-
-    def __exit__(self, *args):
-        self.cursor._locked = False
-
-
 class Cursor(object):
     __initialized = False
     __connection = None
@@ -770,8 +756,8 @@ class Cursor(object):
 
         self.arraysize = 1
         self.row_factory = None
-        self._locked = False
         self._reset = False
+        self.__locked = False
         self.__closed = False
         self.__description = None
         self.__rowcount = -1
@@ -798,6 +784,8 @@ class Cursor(object):
             raise ProgrammingError("Base Cursor.__init__ not called.")
         if self.__closed:
             raise ProgrammingError("Cannot operate on a closed cursor.")
+        if self.__locked:
+            raise ProgrammingError("Recursive use of cursors not allowed.")
         self.__connection._check_thread()
         self.__connection._check_closed()
 
@@ -805,7 +793,9 @@ class Cursor(object):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
 
-        with _CursorLock(self):
+        self._check_closed()
+        self.__locked = True
+        try:
             self.__description = None
             self._reset = False
             self.__statement = self.__connection._statement_cache.get(
@@ -842,6 +832,8 @@ class Cursor(object):
             self.__rowcount = -1
             if self.__statement.kind == _DML:
                 self.__rowcount = sqlite.sqlite3_changes(self.__connection._db)
+        finally:
+            self.__locked = False
 
         return self
 
@@ -849,7 +841,9 @@ class Cursor(object):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
 
-        with _CursorLock(self):
+        self._check_closed()
+        self.__locked = True
+        try:
             self.__description = None
             self._reset = False
             self.__statement = self.__connection._statement_cache.get(
@@ -873,6 +867,8 @@ class Cursor(object):
                     raise self.__connection._get_exception(ret)
                 self.__rowcount += sqlite.sqlite3_changes(self.__connection._db)
             self.__statement.reset()
+        finally:
+            self.__locked = False
 
         return self
 
