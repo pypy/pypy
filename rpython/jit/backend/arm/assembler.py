@@ -805,12 +805,11 @@ class AssemblerARM(ResOpAssembler):
         #
         mc.BL(self.cpu.realloc_frame)
 
-        # set fp to the new jitframe
-        mc.MOV_rr(r.fp.value, r.r0.value)
-
         # restore a possibly present exception
         self._restore_exception(mc, None, r.fp)
 
+        # set fp to the new jitframe
+        mc.MOV_rr(r.fp.value, r.r0.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
