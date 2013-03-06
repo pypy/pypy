@@ -428,6 +428,7 @@ class Connection(object):
         if self.statement_counter % 100 == 0:
             self.statements = [ref for ref in self.statements if ref() is not None]
 
+    @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
         if not isinstance(sql, (str, unicode)):
@@ -462,7 +463,6 @@ class Connection(object):
         return _iterdump(self)
 
     def _begin(self):
-        self._check_closed()
         if self._isolation_level is None:
             return
         if sqlite.sqlite3_get_autocommit(self.db):
