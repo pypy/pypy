@@ -1,22 +1,7 @@
 Welcome to RPython's documentation!
 ===================================
 
-Contents:
-
-.. toctree::
-   :maxdepth: 2
- 
-   getting-started
-   faq
-   rpython
-   rlib
-   rffi
-   translation
-   rtyper
-   garbage_collection
-   cli-backend
-   windows
-
+* :doc:`contents`
 
 Indices and tables
 ==================
