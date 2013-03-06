@@ -284,13 +284,16 @@ def unicode_text_factory(x):
     return unicode(x, 'utf-8')
 
 
-class StatementCache(object):
+class _StatementCache(object):
     def __init__(self, connection, maxcount):
         self.connection = connection
         self.maxcount = maxcount
         self.cache = OrderedDict()
 
     def get(self, sql, row_factory):
+        if isinstance(sql, unicode):
+            sql = sql.encode('utf-8')
+
         try:
             stat = self.cache[sql]
         except KeyError:
@@ -298,7 +301,7 @@ class StatementCache(object):
             self.cache[sql] = stat
             if len(self.cache) > self.maxcount:
                 self.cache.popitem(0)
-        #
+
         if stat.in_use:
             stat = Statement(self.connection, sql)
         stat.set_row_factory(row_factory)
@@ -330,7 +333,7 @@ class Connection(object):
         self._cursors = []
         self.__statements = []
         self.__statement_counter = 0
-        self._statement_cache = StatementCache(self, cached_statements)
+        self._statement_cache = _StatementCache(self, cached_statements)
 
         self.__func_cache = {}
         self.__aggregates = {}
@@ -376,10 +379,10 @@ class Connection(object):
 
     def _check_closed_wrap(func):
         @wraps(func)
-        def _check_closed_func(self, *args, **kwargs):
+        def wrapper(self, *args, **kwargs):
             self._check_closed()
             return func(self, *args, **kwargs)
-        return _check_closed_func
+        return wrapper
 
     def _check_thread(self):
         try:
@@ -395,10 +398,10 @@ class Connection(object):
 
     def _check_thread_wrap(func):
         @wraps(func)
-        def _check_thread_func(self, *args, **kwargs):
+        def wrapper(self, *args, **kwargs):
             self._check_thread()
             return func(self, *args, **kwargs)
-        return _check_thread_func
+        return wrapper
 
     def _get_exception(self, error_code=None):
         if error_code is None:
@@ -441,8 +444,7 @@ class Connection(object):
     def __call__(self, sql):
         if not isinstance(sql, (str, unicode)):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
-        statement = self._statement_cache.get(sql, self.row_factory)
-        return statement
+        return self._statement_cache.get(sql, self.row_factory)
 
     def cursor(self, factory=None):
         self._check_thread()
@@ -790,9 +792,6 @@ class Cursor(object):
         self.__connection._check_closed()
 
     def execute(self, sql, params=None):
-        if type(sql) is unicode:
-            sql = sql.encode("utf-8")
-
         self.__check_cursor()
         self.__locked = True
         try:
@@ -838,9 +837,6 @@ class Cursor(object):
         return self
 
     def executemany(self, sql, many_params):
-        if type(sql) is unicode:
-            sql = sql.encode("utf-8")
-
         self.__check_cursor()
         self.__locked = True
         try:
@@ -910,9 +906,9 @@ class Cursor(object):
 
     def __check_reset(self):
         if self._reset:
-            raise self.__connection.InterfaceError("Cursor needed to be reset because "
-                                                 "of commit/rollback and can "
-                                                 "no longer be fetched from.")
+            raise self.__connection.InterfaceError(
+                    "Cursor needed to be reset because of commit/rollback "
+                    "and can no longer be fetched from.")
 
     # do all statements
     def fetchone(self):
