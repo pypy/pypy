@@ -22,7 +22,9 @@ CPU = getcpuclass()
 def getmap(frame):
     r = ''
     for elem in frame.jf_gcmap:
-        r = bin(elem)[2:] + r
+        elem = bin(elem)[2:]
+        elem = '0' * (WORD * 8 - len(elem)) + elem
+        r = elem + r
     return r[r.find('1'):]
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
