@@ -83,7 +83,7 @@ array_byteswap = SMM('byteswap', 1)
 
 
 def descr_itemsize(space, self):
-    return space.wrap(self.itemsize)
+    return space.wrap(self.itemsize_)
 
 
 def descr_typecode(space, self):
@@ -157,7 +157,7 @@ class ArrayBuffer(RWBuffer):
     def __init__(self, array):
         self.array = array
         self.format = array.typecode
-        self.itemsize = array.itemsize
+        self.itemsize = array.itemsize_
 
     def getlength(self):
         return self.array.len
@@ -203,7 +203,7 @@ def make_array(mytype):
     W_ArrayBase = globals()['W_ArrayBase']
 
     class W_Array(W_ArrayBase):
-        itemsize = mytype.bytes
+        itemsize_ = mytype.bytes
         typecode = mytype.typecode
 
         @staticmethod
@@ -321,7 +321,7 @@ def make_array(mytype):
             self.setlen(oldlen + i)
 
         def fromstring(self, s):
-            if len(s) % self.itemsize != 0:
+            if len(s) % self.itemsize_ != 0:
                 msg = 'string length not a multiple of item size'
                 raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
             oldlen = self.len
@@ -598,14 +598,14 @@ def make_array(mytype):
         n = space.int_w(w_n)
 
         try:
-            size = ovfcheck(self.itemsize * n)
+            size = ovfcheck(self.itemsize_ * n)
         except OverflowError:
             raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
         item = space.bytes_w(w_item)
         if len(item) < size:
-            n = len(item) % self.itemsize
-            elems = max(0, len(item) - (len(item) % self.itemsize))
+            n = len(item) % self.itemsize_
+            elems = max(0, len(item) - (len(item) % self.itemsize_))
             if n != 0:
                 item = item[0:elems]
             w_item = space.wrapbytes(item)
