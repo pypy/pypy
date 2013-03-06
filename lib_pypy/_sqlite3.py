@@ -867,8 +867,12 @@ class Cursor(object):
                 self.__statement.set_params(params)
                 ret = sqlite.sqlite3_step(self.__statement.statement)
                 if ret != SQLITE_DONE:
+                    self.__statement.reset()
+                    self.__connection._in_transaction = \
+                            not sqlite.sqlite3_get_autocommit(self.__connection._db)
                     raise self.__connection._get_exception(ret)
                 self.__rowcount += sqlite.sqlite3_changes(self.__connection._db)
+            self.__statement.reset()
 
         return self
 
