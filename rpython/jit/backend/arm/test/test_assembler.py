@@ -24,7 +24,7 @@ class TestRunningAssembler(object):
         clt = CompiledLoopToken(cpu, 0)
         clt.allgcrefs = []
         token.compiled_loop_token = clt
-        self.a.setup(token, [])
+        self.a.setup(token)
 
     def test_make_operation_list(self):
         i = rop.INT_ADD
