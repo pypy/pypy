@@ -708,13 +708,13 @@ class Connection(object):
         if ret != SQLITE_OK:
             raise self._get_exception(ret)
 
-    def _get_isolation_level(self):
-        return self._isolation_level
-
     def _get_total_changes(self):
         self._check_closed()
         return sqlite.sqlite3_total_changes(self.db)
     total_changes = property(_get_total_changes)
+
+    def _get_isolation_level(self):
+        return self._isolation_level
 
     def _set_isolation_level(self, val):
         if val is None:
