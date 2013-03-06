@@ -306,7 +306,7 @@ class StatementCache(object):
 
 
 class Connection(object):
-    db = None
+    initialized = False
 
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
@@ -344,10 +344,12 @@ class Connection(object):
         self._collations = {}
         if check_same_thread:
             self.thread_ident = thread_get_ident()
+        self.initialized = True
 
     def __del__(self):
-        if self.db:
-            sqlite.sqlite3_close(self.db)
+        if self.initialized:
+            if self.db:
+                sqlite.sqlite3_close(self.db)
 
     def close(self):
         self._check_thread()
@@ -361,10 +363,10 @@ class Connection(object):
             ret = sqlite.sqlite3_close(self.db)
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
-            self.db.value = 0
+            self.db = None
 
     def _check_closed(self):
-        if self.db is None:
+        if not self.initialized:
             raise ProgrammingError("Base Connection.__init__ not called.")
         if not self.db:
             raise ProgrammingError("Cannot operate on a closed database.")
