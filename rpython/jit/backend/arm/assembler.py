@@ -742,14 +742,14 @@ class AssemblerARM(ResOpAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        mc.LDR_ri(r.r12.value, r.fp.value, imm=ofs)
+        mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         stack_check_cmp_ofs = mc.currpos()
         if expected_size == -1:
             mc.NOP()
             mc.NOP()
         else:
             mc.gen_load_int(r.lr.value, expected_size)
-        mc.CMP_rr(r.lr.value, r.ip.value)
+        mc.CMP_rr(r.ip.value, r.lr.value)
 
         jg_location = mc.currpos()
         mc.BKPT()
@@ -805,11 +805,12 @@ class AssemblerARM(ResOpAssembler):
         #
         mc.BL(self.cpu.realloc_frame)
 
+        # set fp to the new jitframe
+        mc.MOV_rr(r.fp.value, r.r0.value)
+
         # restore a possibly present exception
         self._restore_exception(mc, None, r.fp)
 
-        # set fp to the new jitframe
-        mc.MOV_rr(r.fp.value, r.r0.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
