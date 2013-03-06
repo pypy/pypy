@@ -1018,15 +1018,16 @@ class Statement(object):
             sqlite.sqlite3_finalize(self._statement)
 
     def _finalize(self):
-        sqlite.sqlite3_finalize(self._statement)
-        self._statement = None
+        if self._statement:
+            sqlite.sqlite3_finalize(self._statement)
+            self._statement = None
         self._in_use = False
 
     def _reset(self):
-        ret = sqlite.sqlite3_reset(self._statement)
-        self._in_use = False
+        if self._in_use and self._statement:
+            ret = sqlite.sqlite3_reset(self._statement)
+            self._in_use = False
         self._exhausted = False
-        return ret
 
     def _build_row_cast_map(self):
         self.__row_cast_map = []
