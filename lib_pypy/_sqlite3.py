@@ -215,7 +215,7 @@ sqlite.sqlite3_libversion.argtypes = []
 sqlite.sqlite3_libversion.restype = c_char_p
 sqlite.sqlite3_open.argtypes = [TEXT, c_void_p]
 sqlite.sqlite3_open.restype = c_int
-sqlite.sqlite3_prepare.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
+sqlite.sqlite3_prepare.argtypes = [c_void_p, TEXT, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare.restype = c_int
 sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, TEXT, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare_v2.restype = c_int
@@ -720,6 +720,10 @@ class Connection(object):
         if ret != SQLITE_OK:
             raise self._get_exception(ret)
 
+    def __get_in_transaction(self):
+        return self._in_transaction
+    in_transaction = property(__get_in_transaction)
+
     def __get_total_changes(self):
         self._check_closed()
         return sqlite.sqlite3_total_changes(self._db)
@@ -877,11 +881,12 @@ class Cursor(object):
         self._reset = False
         self._check_closed()
         statement = c_void_p()
-        c_sql = c_char_p(sql)
+        next_char = c_char_p()
+        c_sql = sql
 
         self.__connection.commit()
         while True:
-            rc = sqlite.sqlite3_prepare(self.__connection._db, c_sql, -1, byref(statement), byref(c_sql))
+            rc = sqlite.sqlite3_prepare(self.__connection._db, c_sql, -1, byref(statement), byref(next_char))
             if rc != SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
@@ -902,7 +907,7 @@ class Cursor(object):
             if rc != SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
-            if not c_sql.value:
+            if not next_char.value:
                 break
         return self
 
