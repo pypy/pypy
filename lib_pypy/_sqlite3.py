@@ -468,11 +468,11 @@ class Connection(object):
         if self._isolation_level is None:
             return
         if sqlite.sqlite3_get_autocommit(self.db):
+            sql = "BEGIN " + self._isolation_level
+            statement = c_void_p()
+            next_char = c_char_p()
+            ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
             try:
-                sql = "BEGIN " + self._isolation_level
-                statement = c_void_p()
-                next_char = c_char_p()
-                ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
                 if ret != SQLITE_OK:
                     raise self._get_exception(ret)
                 ret = sqlite.sqlite3_step(statement)
@@ -492,11 +492,11 @@ class Connection(object):
             if obj is not None:
                 obj.reset()
 
+        sql = "COMMIT"
+        statement = c_void_p()
+        next_char = c_char_p()
+        ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
         try:
-            sql = "COMMIT"
-            statement = c_void_p()
-            next_char = c_char_p()
-            ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
             ret = sqlite.sqlite3_step(statement)
@@ -521,11 +521,11 @@ class Connection(object):
             if cursor:
                 cursor.reset = True
 
+        sql = "ROLLBACK"
+        statement = c_void_p()
+        next_char = c_char_p()
+        ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
         try:
-            sql = "ROLLBACK"
-            statement = c_void_p()
-            next_char = c_char_p()
-            ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
             ret = sqlite.sqlite3_step(statement)
