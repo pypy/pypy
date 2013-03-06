@@ -22,7 +22,7 @@ CPU = getcpuclass()
 def getmap(frame):
     r = ''
     for elem in frame.jf_gcmap:
-        r += bin(elem)[2:]
+        r = bin(elem)[2:] + r
     return r[r.find('1'):]
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
@@ -85,7 +85,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             else:
                 assert nos ==  [4, 5, 25]
         elif self.cpu.backend_name.startswith('arm'):
-            assert nos == [15, 25, 26]
+            assert nos == [9, 10, 47]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
