@@ -73,7 +73,7 @@ class StmGCTLS(object):
         free_non_gc_object(self)
 
     def _alloc_nursery(self, nursery_size):
-        nursery = llarena.arena_malloc(nursery_size, 1)
+        nursery = llarena.arena_malloc(nursery_size, 2)
         debug_print("nursery is at", nursery, "size", nursery_size)
         if not nursery:
             raise MemoryError("cannot allocate nursery")
@@ -381,8 +381,9 @@ class StmGCTLS(object):
 
     def trace_and_drag_out_of_nursery(self, obj):
         # This is called to fix the references inside 'obj', to ensure that
-        # they are global.  If necessary, the referenced objects are copied
-        # out of the nursery first.  This is called on the LOCAL copy of
+        # they are not pointing to the nursery any more.  Any non-global,
+        # not-visited-yet object found is added to 'self.pending'.
+        # This is called on the LOCAL copy of
         # the roots, and on the freshly OLD copy of all other reached LOCAL
         # objects.  This only looks inside 'obj': it does not depend on or
         # touch the flags of 'obj'.
