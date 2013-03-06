@@ -467,19 +467,21 @@ class Connection(object):
     def _begin(self):
         if self._isolation_level is None:
             return
-        if sqlite.sqlite3_get_autocommit(self.db):
-            sql = "BEGIN " + self._isolation_level
-            statement = c_void_p()
-            next_char = c_char_p()
-            ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
-            try:
-                if ret != SQLITE_OK:
-                    raise self._get_exception(ret)
-                ret = sqlite.sqlite3_step(statement)
-                if ret != SQLITE_DONE:
-                    raise self._get_exception(ret)
-            finally:
-                sqlite.sqlite3_finalize(statement)
+        if not sqlite.sqlite3_get_autocommit(self.db):
+            return
+
+        sql = "BEGIN " + self._isolation_level
+        statement = c_void_p()
+        next_char = c_char_p()
+        ret = sqlite.sqlite3_prepare_v2(self.db, sql, -1, byref(statement), next_char)
+        try:
+            if ret != SQLITE_OK:
+                raise self._get_exception(ret)
+            ret = sqlite.sqlite3_step(statement)
+            if ret != SQLITE_DONE:
+                raise self._get_exception(ret)
+        finally:
+            sqlite.sqlite3_finalize(statement)
 
     def commit(self):
         self._check_thread()
