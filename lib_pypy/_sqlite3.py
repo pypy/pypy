@@ -321,9 +321,11 @@ class Connection(object):
         self.statements = []
         self.statement_counter = 0
         self.row_factory = None
-        self._isolation_level = isolation_level
         self.detect_types = detect_types
         self.statement_cache = StatementCache(self, cached_statements)
+
+        self._isolation_level = isolation_level
+        self._in_transaction = False
 
         self.cursors = []
 
@@ -465,11 +467,6 @@ class Connection(object):
         return _iterdump(self)
 
     def _begin(self):
-        if self._isolation_level is None:
-            return
-        if not sqlite.sqlite3_get_autocommit(self.db):
-            return
-
         sql = "BEGIN " + self._isolation_level
         statement = c_void_p()
         next_char = c_char_p()
@@ -480,13 +477,14 @@ class Connection(object):
             ret = sqlite.sqlite3_step(statement)
             if ret != SQLITE_DONE:
                 raise self._get_exception(ret)
+            self._in_transaction = True
         finally:
             sqlite.sqlite3_finalize(statement)
 
     def commit(self):
         self._check_thread()
         self._check_closed()
-        if sqlite.sqlite3_get_autocommit(self.db):
+        if not self._in_transaction:
             return
 
         for statement in self.statements:
@@ -504,13 +502,14 @@ class Connection(object):
             ret = sqlite.sqlite3_step(statement)
             if ret != SQLITE_DONE:
                 raise self._get_exception(ret)
+            self._in_transaction = False
         finally:
             sqlite.sqlite3_finalize(statement)
 
     def rollback(self):
         self._check_thread()
         self._check_closed()
-        if sqlite.sqlite3_get_autocommit(self.db):
+        if not self._in_transaction:
             return
 
         for statement in self.statements:
@@ -533,6 +532,7 @@ class Connection(object):
             ret = sqlite.sqlite3_step(statement)
             if ret != SQLITE_DONE:
                 raise self._get_exception(ret)
+            self._in_transaction = False
         finally:
             sqlite.sqlite3_finalize(statement)
 
@@ -790,9 +790,11 @@ class Cursor(object):
 
             if self.connection._isolation_level is not None:
                 if self.statement.kind == DDL:
-                    self.connection.commit()
+                    if self.connection._in_transaction:
+                        self.connection.commit()
                 elif self.statement.kind == DML:
-                    self.connection._begin()
+                    if not self.connection._in_transaction:
+                        self.connection._begin()
 
             self.statement.set_params(params)
 
@@ -800,6 +802,8 @@ class Cursor(object):
             ret = sqlite.sqlite3_step(self.statement.statement)
             if ret not in (SQLITE_DONE, SQLITE_ROW):
                 self.statement.reset()
+                self.connection._in_transaction = \
+                        not sqlite.sqlite3_get_autocommit(self.connection.db)
                 raise self.connection._get_exception(ret)
 
             if self.statement.kind == DML:
@@ -829,7 +833,9 @@ class Cursor(object):
                 sql, self.row_factory)
 
             if self.statement.kind == DML:
-                self.connection._begin()
+                if self.connection._isolation_level is not None:
+                    if not self.connection._in_transaction:
+                        self.connection._begin()
             else:
                 raise ProgrammingError("executemany is only for DML statements")
 
