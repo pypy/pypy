@@ -27,6 +27,7 @@ from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, c_char, cdll
 from ctypes import POINTER, byref, string_at, CFUNCTYPE, cast
 from ctypes import sizeof, c_ssize_t
 from collections import OrderedDict
+from functools import wraps
 import datetime
 import sys
 import weakref
@@ -49,6 +50,7 @@ version = "2.6.0"
 PARSE_COLNAMES = 1
 PARSE_DECLTYPES = 2
 
+DML, DQL, DDL = range(3)
 
 ##########################################
 # BEGIN Wrapped SQLite C API and constants
@@ -354,6 +356,49 @@ class Connection(object):
         if self.db:
             sqlite.sqlite3_close(self.db)
 
+    def close(self):
+        self._check_thread()
+
+        for statement in self.statements:
+            obj = statement()
+            if obj is not None:
+                obj.finalize()
+
+        if self.db:
+            ret = sqlite.sqlite3_close(self.db)
+            if ret != SQLITE_OK:
+                raise self._get_exception(ret)
+            self.db.value = 0
+
+    def _check_closed(self):
+        if self.db is None:
+            raise ProgrammingError("Base Connection.__init__ not called.")
+        if not self.db:
+            raise ProgrammingError("Cannot operate on a closed database.")
+
+    def _check_closed_wrap(func):
+        @wraps(func)
+        def _check_closed_func(self, *args, **kwargs):
+            self._check_closed()
+            return func(self, *args, **kwargs)
+        return _check_closed_func
+
+    def _check_thread(self):
+        if not hasattr(self, 'thread_ident'):
+            return
+        if self.thread_ident != thread_get_ident():
+            raise ProgrammingError(
+                "SQLite objects created in a thread can only be used in that same thread."
+                "The object was created in thread id %d and this is thread id %d",
+                self.thread_ident, thread_get_ident())
+
+    def _check_thread_wrap(func):
+        @wraps(func)
+        def _check_thread_func(self, *args, **kwargs):
+            self._check_thread()
+            return func(self, *args, **kwargs)
+        return _check_thread_func
+
     def _get_exception(self, error_code=None):
         if error_code is None:
             error_code = sqlite.sqlite3_errcode(self.db)
@@ -391,20 +436,13 @@ class Connection(object):
         if self.statement_counter % 100 == 0:
             self.statements = [ref for ref in self.statements if ref() is not None]
 
-    def _check_thread(self):
-        if not hasattr(self, 'thread_ident'):
-            return
-        if self.thread_ident != thread_get_ident():
-            raise ProgrammingError(
-                "SQLite objects created in a thread can only be used in that same thread."
-                "The object was created in thread id %d and this is thread id %d",
-                self.thread_ident, thread_get_ident())
-
-    def _reset_cursors(self):
-        for cursor_ref in self.cursors:
-            cursor = cursor_ref()
-            if cursor:
-                cursor.reset = True
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def __call__(self, sql):
+        if not isinstance(sql, str):
+            raise Warning("SQL is of wrong type. Must be string or unicode.")
+        statement = self.statement_cache.get(sql, self.row_factory)
+        return statement
 
     def cursor(self, factory=None):
         self._check_thread()
@@ -416,47 +454,23 @@ class Connection(object):
             cur.row_factory = self.row_factory
         return cur
 
-    def executemany(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
-        return cur.executemany(*args)
-
     def execute(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
+        cur = self.cursor()
         return cur.execute(*args)
 
+    def executemany(self, *args):
+        cur = self.cursor()
+        return cur.executemany(*args)
+
     def executescript(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
+        cur = self.cursor()
         return cur.executescript(*args)
 
-    def __call__(self, sql):
-        self._check_closed()
-        if not isinstance(sql, str):
-            raise Warning("SQL is of wrong type. Must be string or unicode.")
-        statement = self.statement_cache.get(sql, self.row_factory)
-        return statement
-
-    def _get_isolation_level(self):
-        return self._isolation_level
-
-    def _set_isolation_level(self, val):
-        if val is None:
-            self.commit()
-        if isinstance(val, str):
-            val = str(val)
-        self._isolation_level = val
-    isolation_level = property(_get_isolation_level, _set_isolation_level)
+    def iterdump(self):
+        from sqlite3.dump import _iterdump
+        return _iterdump(self)
 
     def _begin(self):
-        self._check_closed()
         if self._isolation_level is None:
             return
         if sqlite.sqlite3_get_autocommit(self.db):
@@ -508,6 +522,11 @@ class Connection(object):
             if obj is not None:
                 obj.reset()
 
+        for cursor_ref in self.cursors:
+            cursor = cursor_ref()
+            if cursor:
+                cursor.reset = True
+
         try:
             sql = "ROLLBACK"
             statement = c_void_p()
@@ -520,13 +539,6 @@ class Connection(object):
                 raise self._get_exception(ret)
         finally:
             sqlite.sqlite3_finalize(statement)
-            self._reset_cursors()
-
-    def _check_closed(self):
-        if self.db is None:
-            raise ProgrammingError("Base Connection.__init__ not called.")
-        if not self.db:
-            raise ProgrammingError("Cannot operate on a closed database.")
 
     def __enter__(self):
         return self
@@ -537,105 +549,9 @@ class Connection(object):
         else:
             self.rollback()
 
-    def _get_total_changes(self):
-        self._check_closed()
-        return sqlite.sqlite3_total_changes(self.db)
-    total_changes = property(_get_total_changes)
-
-    def close(self):
-        self._check_thread()
-
-        for statement in self.statements:
-            obj = statement()
-            if obj is not None:
-                obj.finalize()
-
-        if self.db:
-            ret = sqlite.sqlite3_close(self.db)
-            if ret != SQLITE_OK:
-                raise self._get_exception(ret)
-            self.db.value = 0
-
-    def create_collation(self, name, callback):
-        self._check_thread()
-        self._check_closed()
-        name = name.upper()
-        if not name.replace('_', '').isalnum():
-            raise ProgrammingError("invalid character in collation name")
-
-        if callback is None:
-            del self._collations[name]
-            c_collation_callback = cast(None, COLLATION)
-        else:
-            if not callable(callback):
-                raise TypeError("parameter must be callable")
-
-            def collation_callback(context, len1, str1, len2, str2):
-                text1 = string_at(str1, len1)
-                text2 = string_at(str2, len2)
-
-                return callback(text1, text2)
-
-            c_collation_callback = COLLATION(collation_callback)
-            self._collations[name] = c_collation_callback
-
-        ret = sqlite.sqlite3_create_collation(self.db, name,
-                                              SQLITE_UTF8,
-                                              None,
-                                              c_collation_callback)
-        if ret != SQLITE_OK:
-            raise self._get_exception(ret)
-
-    def set_progress_handler(self, callable, nsteps):
-        self._check_thread()
-        self._check_closed()
-        if callable is None:
-            c_progress_handler = cast(None, PROGRESS)
-        else:
-            try:
-                c_progress_handler, _ = self.func_cache[callable]
-            except KeyError:
-                def progress_handler(userdata):
-                    try:
-                        ret = callable()
-                        return bool(ret)
-                    except Exception:
-                        # abort query if error occurred
-                        return 1
-                c_progress_handler = PROGRESS(progress_handler)
-
-                self.func_cache[callable] = c_progress_handler, progress_handler
-        ret = sqlite.sqlite3_progress_handler(self.db, nsteps,
-                                              c_progress_handler,
-                                              None)
-        if ret != SQLITE_OK:
-            raise self._get_exception(ret)
-
-    def set_authorizer(self, callback):
-        self._check_thread()
-        self._check_closed()
-
-        try:
-            c_authorizer, _ = self.func_cache[callback]
-        except KeyError:
-            def authorizer(userdata, action, arg1, arg2, dbname, source):
-                try:
-                    return int(callback(action, arg1, arg2, dbname, source))
-                except Exception:
-                    return SQLITE_DENY
-            c_authorizer = AUTHORIZER(authorizer)
-
-            self.func_cache[callback] = c_authorizer, authorizer
-
-        ret = sqlite.sqlite3_set_authorizer(self.db,
-                                            c_authorizer,
-                                            None)
-        if ret != SQLITE_OK:
-            raise self._get_exception(ret)
-
+    @_check_thread_wrap
+    @_check_closed_wrap
     def create_function(self, name, num_args, callback):
-        self._check_thread()
-        self._check_closed()
         try:
             c_closure, _ = self.func_cache[callback]
         except KeyError:
@@ -651,10 +567,9 @@ class Connection(object):
         if ret != SQLITE_OK:
             raise self.OperationalError("Error creating function")
 
+    @_check_thread_wrap
+    @_check_closed_wrap
     def create_aggregate(self, name, num_args, cls):
-        self._check_thread()
-        self._check_closed()
-
         try:
             c_step_callback, c_final_callback, _, _ = self._aggregates[cls]
         except KeyError:
@@ -721,20 +636,105 @@ class Connection(object):
         if ret != SQLITE_OK:
             raise self._get_exception(ret)
 
-    def iterdump(self):
-        from sqlite3.dump import _iterdump
-        return _iterdump(self)
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def create_collation(self, name, callback):
+        name = name.upper()
+        if not name.replace('_', '').isalnum():
+            raise ProgrammingError("invalid character in collation name")
+
+        if callback is None:
+            del self._collations[name]
+            c_collation_callback = cast(None, COLLATION)
+        else:
+            if not callable(callback):
+                raise TypeError("parameter must be callable")
+
+            def collation_callback(context, len1, str1, len2, str2):
+                text1 = string_at(str1, len1)
+                text2 = string_at(str2, len2)
+
+                return callback(text1, text2)
+
+            c_collation_callback = COLLATION(collation_callback)
+            self._collations[name] = c_collation_callback
+
+        ret = sqlite.sqlite3_create_collation(self.db, name,
+                                              SQLITE_UTF8,
+                                              None,
+                                              c_collation_callback)
+        if ret != SQLITE_OK:
+            raise self._get_exception(ret)
+
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def set_authorizer(self, callback):
+        try:
+            c_authorizer, _ = self.func_cache[callback]
+        except KeyError:
+            def authorizer(userdata, action, arg1, arg2, dbname, source):
+                try:
+                    return int(callback(action, arg1, arg2, dbname, source))
+                except Exception:
+                    return SQLITE_DENY
+            c_authorizer = AUTHORIZER(authorizer)
+
+            self.func_cache[callback] = c_authorizer, authorizer
+
+        ret = sqlite.sqlite3_set_authorizer(self.db,
+                                            c_authorizer,
+                                            None)
+        if ret != SQLITE_OK:
+            raise self._get_exception(ret)
+
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def set_progress_handler(self, callable, nsteps):
+        if callable is None:
+            c_progress_handler = cast(None, PROGRESS)
+        else:
+            try:
+                c_progress_handler, _ = self.func_cache[callable]
+            except KeyError:
+                def progress_handler(userdata):
+                    try:
+                        ret = callable()
+                        return bool(ret)
+                    except Exception:
+                        # abort query if error occurred
+                        return 1
+                c_progress_handler = PROGRESS(progress_handler)
+
+                self.func_cache[callable] = c_progress_handler, progress_handler
+        ret = sqlite.sqlite3_progress_handler(self.db, nsteps,
+                                              c_progress_handler,
+                                              None)
+        if ret != SQLITE_OK:
+            raise self._get_exception(ret)
+
+    def _get_isolation_level(self):
+        return self._isolation_level
+
+    def _get_total_changes(self):
+        self._check_closed()
+        return sqlite.sqlite3_total_changes(self.db)
+    total_changes = property(_get_total_changes)
+
+    def _set_isolation_level(self, val):
+        if val is None:
+            self.commit()
+        if isinstance(val, str):
+            val = str(val)
+        self._isolation_level = val
+    isolation_level = property(_get_isolation_level, _set_isolation_level)
 
     if HAS_LOAD_EXTENSION:
+        @_check_thread_wrap
+        @_check_closed_wrap
         def enable_load_extension(self, enabled):
-            self._check_thread()
-            self._check_closed()
-
             rc = sqlite.sqlite3_enable_load_extension(self.db, int(enabled))
             if rc != SQLITE_OK:
                 raise OperationalError("Error enabling load extension")
-
-DML, DQL, DDL = range(3)
 
 
 class CursorLock(object):

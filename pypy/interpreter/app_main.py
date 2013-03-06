@@ -208,10 +208,7 @@ def we_are_translated():
     # app-level, very different from rpython.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
 
-if 'nt' in sys.builtin_module_names:
-    IS_WINDOWS = True
-else:
-    IS_WINDOWS = False
+IS_WINDOWS = 'nt' in sys.builtin_module_names
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os

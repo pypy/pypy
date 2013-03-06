@@ -45,6 +45,13 @@ def test_cursor_check_init():
     e = pytest.raises(_sqlite3.ProgrammingError, "cur.execute('select 1')")
     assert '__init__' in e.value.message
 
+def test_connection_after_close():
+    con = _sqlite3.connect(':memory:')
+    pytest.raises(TypeError, "con()")
+    con.close()
+    # raises ProgrammingError because should check closed before check args
+    pytest.raises(_sqlite3.ProgrammingError, "con()")
+
 def test_cursor_after_close():
      con = _sqlite3.connect(':memory:')
      cur = con.execute('select 1')
@@ -67,6 +74,7 @@ def test_cursor_del():
 @pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
 def test_connection_del(tmpdir):
     """For issue1325."""
+    import os
     import gc
     try:
         import resource
@@ -75,10 +83,19 @@ def test_connection_del(tmpdir):
 
     limit = resource.getrlimit(resource.RLIMIT_NOFILE)
     try:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (min(10, limit[0]), limit[1]))
+        fds = 0
+        while True:
+            fds += 1
+            resource.setrlimit(resource.RLIMIT_NOFILE, (fds, limit[1]))
+            try:
+                for p in os.pipe(): os.close(p)
+            except OSError:
+                assert fds < 100
+            else:
+                break
         def open_many(cleanup):
             con = []
-            for i in range(20):
+            for i in range(3):
                 con.append(_sqlite3.connect(str(tmpdir.join('test.db'))))
                 if cleanup:
                     con[i] = None
