@@ -67,7 +67,7 @@ class AppTestMemoryView:
         assert data == bytearray(eval("b'zbcefg'"))
         v[1:4] = b'123'
         assert data == bytearray(eval("b'z123fg'"))
-        raises((ValueError, TypeError), "v[2] = 'spam'")
+        raises(TypeError, "v[2] = 'spam'")
 
     def test_memoryview_attrs(self):
         v = memoryview(b"a"*100)
