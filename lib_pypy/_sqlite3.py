@@ -131,13 +131,6 @@ SQLITE_FUNCTION                 = 31
 
 # SQLite C API
 
-class TEXT:
-    @classmethod
-    def from_param(cls, value):
-        if isinstance(value, bytes):
-            return value
-        return value.encode('utf-8')
-
 sqlite.sqlite3_value_int.argtypes = [c_void_p]
 sqlite.sqlite3_value_int.restype = c_int
 
@@ -175,7 +168,7 @@ sqlite.sqlite3_bind_parameter_index.argtypes = [c_void_p, c_char_p]
 sqlite.sqlite3_bind_parameter_index.restype = c_int
 sqlite.sqlite3_bind_parameter_name.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_bind_parameter_name.restype = c_char_p
-sqlite.sqlite3_bind_text.argtypes = [c_void_p, c_int, TEXT, c_int, c_void_p]
+sqlite.sqlite3_bind_text.argtypes = [c_void_p, c_int, c_char_p, c_int, c_void_p]
 sqlite.sqlite3_bind_text.restype = c_int
 sqlite.sqlite3_busy_timeout.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_busy_timeout.restype = c_int
@@ -214,11 +207,11 @@ sqlite.sqlite3_last_insert_rowid.argtypes = [c_void_p]
 sqlite.sqlite3_last_insert_rowid.restype = c_int64
 sqlite.sqlite3_libversion.argtypes = []
 sqlite.sqlite3_libversion.restype = c_char_p
-sqlite.sqlite3_open.argtypes = [TEXT, c_void_p]
+sqlite.sqlite3_open.argtypes = [c_char_p, c_void_p]
 sqlite.sqlite3_open.restype = c_int
 sqlite.sqlite3_prepare.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare.restype = c_int
-sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, TEXT, c_int, c_void_p, POINTER(c_char_p)]
+sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare_v2.restype = c_int
 sqlite.sqlite3_step.argtypes = [c_void_p]
 sqlite.sqlite3_step.restype = c_int
@@ -235,9 +228,9 @@ sqlite.sqlite3_result_null.argtypes = [c_void_p]
 sqlite.sqlite3_result_null.restype = None
 sqlite.sqlite3_result_double.argtypes = [c_void_p, c_double]
 sqlite.sqlite3_result_double.restype = None
-sqlite.sqlite3_result_error.argtypes = [c_void_p, TEXT, c_int]
+sqlite.sqlite3_result_error.argtypes = [c_void_p, c_char_p, c_int]
 sqlite.sqlite3_result_error.restype = None
-sqlite.sqlite3_result_text.argtypes = [c_void_p, TEXT, c_int, c_void_p]
+sqlite.sqlite3_result_text.argtypes = [c_void_p, c_char_p, c_int, c_void_p]
 sqlite.sqlite3_result_text.restype = None
 
 _HAS_LOAD_EXTENSION = hasattr(sqlite, "sqlite3_enable_load_extension")
@@ -1333,14 +1326,14 @@ def function_callback(real_cb, context, nargs, c_params):
 _FUNC = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
 _STEP = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
 _FINAL = CFUNCTYPE(None, c_void_p)
-sqlite.sqlite3_create_function.argtypes = [c_void_p, TEXT, c_int, c_int, c_void_p, _FUNC, _STEP, _FINAL]
+sqlite.sqlite3_create_function.argtypes = [c_void_p, c_char_p, c_int, c_int, c_void_p, _FUNC, _STEP, _FINAL]
 sqlite.sqlite3_create_function.restype = c_int
 
 sqlite.sqlite3_aggregate_context.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_aggregate_context.restype = c_void_p
 
 _COLLATION = CFUNCTYPE(c_int, c_void_p, c_int, c_void_p, c_int, c_void_p)
-sqlite.sqlite3_create_collation.argtypes = [c_void_p, TEXT, c_int, c_void_p, _COLLATION]
+sqlite.sqlite3_create_collation.argtypes = [c_void_p, c_char_p, c_int, c_void_p, _COLLATION]
 sqlite.sqlite3_create_collation.restype = c_int
 
 _PROGRESS = CFUNCTYPE(c_int, c_void_p)
@@ -1426,9 +1419,4 @@ def adapt(val, proto=PrepareProtocol):
 register_adapters_and_converters()
 
 
-def OptimizedUnicode(s):
-    try:
-        val = str(s, "ascii").encode("ascii")
-    except UnicodeDecodeError:
-        val = str(s, "utf-8")
-    return val
+OptimizedUnicode = unicode_text_factory
