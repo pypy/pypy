@@ -345,6 +345,69 @@ class AppTestRange:
             assert b not in x
             raises(OverflowError, len, x)
             assert _range_len(x) == expected_len
+            assert x[0] == a
+            idx = sys.maxsize + 1
+            assert x[idx] == a + idx
+            assert a[idx:idx + 1][0] == a + idx
+            try:
+                x[-expected_len - 1]
+            except IndexError:
+                pass
+            else:
+                assert False, 'Expected IndexError'
+            try:
+                x[expected_len]
+            except IndexError:
+                pass
+            else:
+                assert False, 'Expected IndexError'
+
+    def test_range_index(self):
+        u = range(2)
+        assert u.index(0) == 0
+        assert u.index(1) == 1
+        raises(ValueError, u.index, 2)
+        raises(ValueError, u.index, object())
+        raises(TypeError, u.index)
+
+        assert range(1, 10, 3).index(4) == 1
+        assert range(1, -10, -3).index(-5) == 2
+
+        assert range(10**20).index(1) == 1
+        assert range(10**20).index(10**20 - 1) == 10**20 - 1
+
+        raises(ValueError, range(1, 2**100, 2).index, 2**87)
+        assert range(1, 2**100, 2).index(2**87+1) == 2**86
+
+        class AlwaysEqual(object):
+            def __eq__(self, other):
+                return True
+        always_equal = AlwaysEqual()
+        assert range(10).index(always_equal) == 0
+
+    def test_range_types(self):
+        assert 1.0 in range(3)
+        assert True in range(3)
+        assert 1+0j in range(3)
+
+        class C1:
+            def __eq__(self, other): return True
+        assert C1() in range(3)
+
+        # Objects are never coerced into other types for comparison.
+        class C2:
+            def __int__(self): return 1
+            def __index__(self): return 1
+        assert C2() not in range(3)
+        # ..except if explicitly told so.
+        assert int(C2()) in range(3)
+
+        # Check that the range.__contains__ optimization is only
+        # used for ints, not for instances of subclasses of int.
+        class C3(int):
+            def __eq__(self, other): return True
+        assert C3(11) in range(10)
+        assert C3(11) in list(range(10))
 
     def test_range_reduce(self):
         x = range(2, 9, 3)

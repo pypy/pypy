@@ -4,7 +4,7 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit
@@ -422,24 +422,31 @@ class W_Range(Wrappable):
         return True
 
     def descr_contains(self, space, w_item):
-        try:
-            int_value = space.int_w(w_item)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            return space.sequence_contains(self, w_item)
-        else:
+        w_type = space.type(w_item)
+        if space.is_w(w_type, space.w_int) or space.is_w(w_type, space.w_bool):
             return space.newbool(self._contains_long(space, w_item))
+        else:
+            return space.sequence_contains(self, w_item)
 
     def descr_count(self, space, w_item):
-        try:
-            int_value = space.int_w(w_item)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            return space.sequence_count(self, w_item)
-        else:
+        w_type = space.type(w_item)
+        if space.is_w(w_type, space.w_int) or space.is_w(w_type, space.w_bool):
             return space.newint(self._contains_long(space, w_item))
+        else:
+            return space.sequence_count(self, w_item)
+
+    def descr_index(self, space, w_item):
+        w_type = space.type(w_item)
+        if not (space.is_w(w_type, space.w_int) or
+                space.is_w(w_type, space.w_bool)):
+            return space.sequence_index(self, w_item)
+
+        if not self._contains_long(space, w_item):
+            item_repr = space.unicode_w(space.repr(w_item))
+            raise operationerrfmt(space.w_ValueError, u"%s is not in range",
+                                  item_repr)
+        w_index = space.sub(w_item, self.w_start)
+        return space.floordiv(w_index, self.w_step)
 
 
 W_Range.typedef = TypeDef("range",
@@ -452,6 +459,7 @@ W_Range.typedef = TypeDef("range",
     __reduce__       = interp2app(W_Range.descr_reduce),
     __contains__     = interp2app(W_Range.descr_contains),
     count            = interp2app(W_Range.descr_count),
+    index            = interp2app(W_Range.descr_index),
 )
 
 class W_RangeIterator(Wrappable):

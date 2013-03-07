@@ -439,6 +439,21 @@ class DescrOperation(object):
             if space.eq_w(w_next, w_item):
                 count += 1
 
+    def sequence_index(space, w_container, w_item):
+        w_iter = space.iter(w_container)
+        index = 0
+        while 1:
+            try:
+                w_next = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                msg = "sequence.index(x): x not in sequence"
+                raise OperationError(space.w_ValueError, space.wrap(msg))
+            if space.eq_w(w_next, w_item):
+                return space.wrap(index)
+            index += 1
+
     def hash(space, w_obj):
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
