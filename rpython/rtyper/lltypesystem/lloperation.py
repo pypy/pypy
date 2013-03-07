@@ -596,6 +596,12 @@ LL_OPERATIONS = {
     'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
     'ooparse_float':        LLOp(oo=True, canraise=(ValueError,)),
     'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),
+
+    # __________ for llvm.gcroot() support __________
+    'llvm_gcmap':           LLOp(sideeffects=False),
+    'llvm_store_gcroot':    LLOp(),
+    'llvm_load_gcroot':     LLOp(sideeffects=False),
+    'llvm_stack_malloc':    LLOp(sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****
 

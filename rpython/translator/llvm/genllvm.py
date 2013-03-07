@@ -9,6 +9,11 @@ from py.process import cmdexec
 from rpython.annotator import model as annmodel
 from rpython.conftest import cdir
 from rpython.flowspace.model import mkentrymap, Constant, Variable
+from rpython.memory.gctransform.llvmgcroot import (
+     LLVMGcRootFrameworkGCTransformer)
+from rpython.memory.gctransform.refcounting import RefcountingGCTransformer
+from rpython.memory.gctransform.shadowstack import (
+     ShadowStackFrameworkGCTransformer)
 from rpython.rlib import exports
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
@@ -18,10 +23,7 @@ from rpython.rtyper.lltypesystem import (llarena, llgroup, llmemory, lltype,
      rffi)
 from rpython.rtyper.lltypesystem.ll2ctypes import (_llvm_needs_header,
      _array_mixin)
-from rpython.memory.gctransform.refcounting import (
-     RefcountingGCTransformer)
-from rpython.memory.gctransform.shadowstack import (
-     ShadowStackFrameworkGCTransformer)
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.removenoops import remove_same_as
 from rpython.translator.backendopt.ssa import SSI_to_SSA
@@ -689,7 +691,7 @@ class FuncType(Type):
             ptr_type.refs[obj] = name
             if hasattr(obj, 'graph'):
                 writer = FunctionWriter()
-                writer.write_graph(name, obj.graph,
+                writer.write_graph(ptr_type, name, obj.graph,
                                    obj in database.genllvm.entrypoints)
                 database.f.writelines(writer.lines)
 
@@ -736,6 +738,7 @@ class Database(object):
         self.types = PRIMITIVES.copy()
         self.external_declared = {}
         self.hashes = []
+        self.stack_bottoms = []
 
     def get_type(self, type_):
         try:
@@ -888,9 +891,10 @@ class FunctionWriter(object):
     def w(self, line, indent='    '):
         self.lines.append('{}{}\n'.format(indent, line))
 
-    def write_graph(self, name, graph, export):
+    def write_graph(self, ptr_type, name, graph, export):
         genllvm = database.genllvm
         genllvm.gcpolicy.gctransformer.inline_helpers(graph)
+        gcrootscount = 0
         # the 'gc_reload_possibly_moved' operations make the graph not
         # really SSA.  Fix them now.
         for block in graph.iterblocks():
@@ -907,6 +911,12 @@ class FunctionWriter(object):
                     op.args = [v_newaddr]
                     op.result = v_newptr
                     rename[v_targetvar] = v_newptr
+                elif op.opname == 'llvm_store_gcroot':
+                    index = op.args[0].value
+                    gcrootscount = max(gcrootscount, index+1)
+                elif op.opname == 'gc_stack_bottom':
+                    database.stack_bottoms.append(
+                            '{} {}'.format(ptr_type.repr_type(), name))
             if rename:
                 block.exitswitch = rename.get(block.exitswitch,
                                               block.exitswitch)
@@ -918,12 +928,24 @@ class FunctionWriter(object):
         remove_same_as(graph)
         SSI_to_SSA(graph)
 
-        self.w('define {linkage}{retvar.T} {name}({a}) {{'.format(
+        llvmgcroot = genllvm.translator.config.translation.gcrootfinder == \
+                'llvmgcroot'
+        if llvmgcroot:
+            try:
+                prevent_inline = graph.func._gctransformer_hint_close_stack_
+            except AttributeError:
+                prevent_inline = (name == '@rpy_walk_stack_roots' or
+                                  name.startswith('@rpy_stack_check'))
+        else:
+            prevent_inline = False
+        self.w('define {linkage}{retvar.T} {name}({a}){add}{gc} {{'.format(
                        linkage='' if export else 'internal ',
                        retvar=get_repr(graph.getreturnvar()),
                        name=name,
                        a=', '.join(get_repr(arg).TV for arg in graph.getargs()
-                                   if arg.concretetype is not lltype.Void)),
+                                   if arg.concretetype is not lltype.Void),
+                       add=' noinline' if prevent_inline else '',
+                       gc=' gc "pypy"' if llvmgcroot else ''),
                '')
 
         self.entrymap = mkentrymap(graph)
@@ -933,7 +955,12 @@ class FunctionWriter(object):
 
         for block in graph.iterblocks():
             self.w(self.block_to_name[block] + ':', '  ')
-            if block is not graph.startblock:
+            if block is graph.startblock:
+                for i in xrange(gcrootscount):
+                    self.w('%gcroot{} = alloca i8*'.format(i))
+                    self.w('call void @llvm.gcroot(i8** %gcroot{}, i8* null)'.format(i))
+                    self.w('store i8* null, i8** %gcroot{}'.format(i))
+            else:
                 self.write_phi_nodes(block)
             self.write_operations(block)
             self.write_branches(block)
@@ -1006,6 +1033,22 @@ class FunctionWriter(object):
                         pass
                 else:
                     raise NotImplementedError(op)
+
+    def op_llvm_gcmap(self, result):
+        self.w('{result.V} = bitcast i8* @__gcmap to {result.T}'
+                .format(**locals()))
+
+    def op_llvm_store_gcroot(self, result, index, value):
+        self.w('store {value.TV}, {value.T}* %gcroot{index.V}'
+                .format(**locals()))
+
+    def op_llvm_load_gcroot(self, result, index):
+        self.w('{result.V} = load {result.T}* %gcroot{index.V}'
+                .format(**locals()))
+
+    def op_llvm_stack_malloc(self, result):
+        type_ = result.type_.to.repr_type()
+        self.w('{result.V} = alloca {type_}'.format(**locals()))
 
     def _tmp(self, type_=None):
         return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
@@ -1381,10 +1424,13 @@ class FunctionWriter(object):
         self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
 
     def op_stack_current(self, result):
-        t = self._tmp(LLVMAddress)
-        self.op_direct_call(t, get_repr(llvm_frameaddress), null_int)
-        self.w('{result.V} = ptrtoint {t.TV} to {result.T}'
-                .format(**locals()))
+        if result.type_ is LLVMAddress:
+            self.op_direct_call(result, get_repr(llvm_frameaddress), null_int)
+        else:
+            t = self._tmp(LLVMAddress)
+            self.op_direct_call(t, get_repr(llvm_frameaddress), null_int)
+            self.w('{result.V} = ptrtoint {t.TV} to {result.T}'
+                    .format(**locals()))
 
     def op_hint(self, result, var, hints):
         self._cast(result, var)
@@ -1505,7 +1551,11 @@ class FrameworkGCPolicy(GCPolicy):
 
     def __init__(self, genllvm):
         GCPolicy.__init__(self, genllvm)
-        self.gctransformer = ShadowStackFrameworkGCTransformer(genllvm.translator)
+        self.gctransformer = {
+            'llvmgcroot': LLVMGcRootFrameworkGCTransformer,
+            'shadowstack': ShadowStackFrameworkGCTransformer
+        }[genllvm.translator.config.translation.gcrootfinder](
+                genllvm.translator)
 
     def get_setup_ptr(self):
         return self.gctransformer.frameworkgc_setup_ptr.value
@@ -1610,6 +1660,7 @@ class GenLLVM(object):
         if callable(entrypoint):
             setup_ptr = self.gcpolicy.get_setup_ptr()
             def main(argc, argv):
+	        llop.gc_stack_bottom(lltype.Void)
                 try:
                     if setup_ptr is not None:
                         setup_ptr()
@@ -1647,6 +1698,8 @@ class GenLLVM(object):
 
     def _write_special_declarations(self, f):
         f.write('declare void @abort() noreturn nounwind\n')
+        f.write('declare void @llvm.gcroot(i8** %ptrloc, i8* %metadata)\n')
+        f.write('@__gcmap = external constant i8\n')
         for op in ('sadd', 'ssub', 'smul'):
             f.write('declare {{{T}, i1}} @llvm.{op}.with.overflow.{T}('
                     '{T} %a, {T} %b)\n'.format(op=op, T=SIGNED_TYPE))
@@ -1687,6 +1740,12 @@ class GenLLVM(object):
                 f.write('@llvm.used = appending global [{} x i8*] [ {} ], '
                         'section "llvm.metadata"\n'
                         .format(len(database.hashes), ', '.join(items)))
+            if database.stack_bottoms:
+                items = ('i8* bitcast({} to i8*)'
+                        .format(ref) for ref in database.stack_bottoms)
+                f.write('@gc_stack_bottoms = global [{} x i8*] [ {} ], '
+                        'section "llvm.metadata"\n'
+                        .format(len(database.stack_bottoms), ', '.join(items)))
 
         exports.clear()
 
@@ -1724,8 +1783,18 @@ class GenLLVM(object):
             output_file = object_file.new(ext=self.translator.platform.exe_ext)
         cmdexec('llvm-link {} -o {}'.format(' '.join(ll_files), linked_bc))
         cmdexec('opt -O3 {} -o {}'.format(linked_bc, optimized_bc))
-        cmdexec('llc -O3 -filetype=obj {}{} -o {}'
-                .format(llc_add_opts, optimized_bc, object_file))
+        if database.stack_bottoms:
+            this_file = local(__file__)
+            gc_cpp = this_file.new(basename='PyPyGC.cpp')
+            gc_lib = this_file.new(purebasename='PyPyGC',
+                                   ext=self.translator.platform.so_ext)
+            cflags = cmdexec('llvm-config --cxxflags').strip()
+            cmdexec('clang {} -shared {} -o {}'.format(cflags, gc_cpp, gc_lib))
+            cmdexec('llc -O3 -filetype=obj -load {} {}{} -o {}'
+                    .format(gc_lib, llc_add_opts, optimized_bc, object_file))
+        else:
+            cmdexec('llc -O3 -filetype=obj {}{} -o {}'
+                    .format(llc_add_opts, optimized_bc, object_file))
         cmdexec('clang -O3 -pthread {}{} {}{}{}-o {}'
                 .format(link_add_opts, object_file,
                         ''.join('-L{} '.format(ld) for ld in eci.library_dirs),

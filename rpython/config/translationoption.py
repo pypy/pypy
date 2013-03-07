@@ -49,6 +49,9 @@ translation_optiondescription = OptionDescription(
                      "cli":    [("translation.type_system", "ootype")],
                      "jvm":    [("translation.type_system", "ootype")],
                      },
+                 #suggests={
+                 #    "llvm":   [("translation.gcrootfinder", "llvmgcroot")]
+                 #    },
                  cmdline="-b --backend"),
 
     BoolOption("shared", "Build as a shared library",
@@ -90,13 +93,15 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack", "asmgcc"],
+                 ["n/a", "shadowstack", "asmgcc", "llvmgcroot"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
                      "shadowstack": [("translation.gctransformer", "framework")],
                      "asmgcc": [("translation.gctransformer", "framework"),
                                 ("translation.backend", "c")],
+                     "llvmgcroot": [("translation.gctransformer", "framework"),
+                                    ("translation.backend", "llvm")],
                     }),
 
     # other noticeable options

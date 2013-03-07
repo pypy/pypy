@@ -405,7 +405,7 @@ class TestSpecialCases(_LLVMMixin):
         startblock.exits[1].llexitcase = 1
         graph = FunctionGraph('test', startblock, var)
         writer = genllvm_mod.FunctionWriter()
-        writer.write_graph('@test', graph, False)
+        writer.write_graph(None, '@test', graph, False)
         assert [line.strip() for line in writer.lines[-4:-1]] == [
                 'badswitch:', 'call void @abort() noreturn nounwind',
                 'unreachable']
@@ -727,6 +727,12 @@ class TestMiniMarkGCLLVM(test_newgc.TestMiniMarkGC):
     @classmethod
     def _set_backend(cls, t):
         t.ensure_backend('llvm')
+
+class TestMiniMarkGCLLVMGCRoot(test_newgc.TestMiniMarkGC):
+    @classmethod
+    def _set_backend(cls, t):
+        t.ensure_backend('llvm')
+        t.ensure_opt('gcrootfinder', 'llvmgcroot')
 
 class TestMiniMarkGCMostCompactLLVM(test_newgc.TestMiniMarkGCMostCompact):
     @classmethod
