@@ -1065,10 +1065,10 @@ def ge(space, w_left, w_right):
 
 
 def repr__DictViewKeys(space, w_dictview):
+    typename = space.type(w_dictview).getname(space).decode('utf-8')
     w_seq = space.call_function(space.w_list, w_dictview)
-    w_repr = space.repr(w_seq)
-    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space),
-                                  space.str_w(w_repr)))
+    seq_repr = space.unicode_w(space.repr(w_seq))
+    return space.wrap(u"%s(%s)" % (typename, seq_repr))
 repr__DictViewItems  = repr__DictViewKeys
 repr__DictViewValues = repr__DictViewKeys
 
