@@ -2497,6 +2497,7 @@ if sys.version_info >= (3,):
         pass   # win32
 
 def test_FILE():
+    """FILE is not supported natively any more."""
     if sys.platform == "win32":
         py.test.skip("testing FILE not implemented")
     #
@@ -2506,82 +2507,16 @@ def test_FILE():
     BCharP = new_pointer_type(BChar)
     BInt = new_primitive_type("int")
     BFunc = new_function_type((BCharP, BFILEP), BInt, False)
-    BFunc2 = new_function_type((BFILEP, BCharP), BInt, True)
     ll = find_and_load_library('c')
     fputs = ll.load_function(BFunc, "fputs")
-    fscanf = ll.load_function(BFunc2, "fscanf")
     #
     import posix
     fdr, fdw = posix.pipe()
     fr1 = posix.fdopen(fdr, 'rb', 256)
     fw1 = posix.fdopen(fdw, 'wb', 256)
-    #
-    fw1.write(b"X")
-    res = fputs(b"hello world\n", fw1)
-    assert res >= 0
-    fw1.flush()     # should not be needed
-    #
-    p = newp(new_array_type(BCharP, 100), None)
-    res = fscanf(fr1, b"%s\n", p)
-    assert res == 1
-    assert string(p) == b"Xhello"
+    py.test.raises(TypeError, fputs, b"hello world\n", fw1)
     fr1.close()
     fw1.close()
-
-def test_FILE_only_for_FILE_arg():
-    if sys.platform == "win32":
-        py.test.skip("testing FILE not implemented")
-    #
-    B_NOT_FILE = new_struct_type("NOT_FILE")
-    B_NOT_FILEP = new_pointer_type(B_NOT_FILE)
-    BChar = new_primitive_type("char")
-    BCharP = new_pointer_type(BChar)
-    BInt = new_primitive_type("int")
-    BFunc = new_function_type((BCharP, B_NOT_FILEP), BInt, False)
-    ll = find_and_load_library('c')
-    fputs = ll.load_function(BFunc, "fputs")
-    #
-    import posix
-    fdr, fdw = posix.pipe()
-    fr1 = posix.fdopen(fdr, 'r')
-    fw1 = posix.fdopen(fdw, 'w')
-    #
-    e = py.test.raises(TypeError, fputs, b"hello world\n", fw1)
-    assert str(e.value).startswith(
-        "initializer for ctype 'struct NOT_FILE *' must "
-        "be a cdata pointer, not ")
-
-def test_FILE_object():
-    if sys.platform == "win32":
-        py.test.skip("testing FILE not implemented")
-    #
-    BFILE = new_struct_type("$FILE")
-    BFILEP = new_pointer_type(BFILE)
-    BChar = new_primitive_type("char")
-    BCharP = new_pointer_type(BChar)
-    BInt = new_primitive_type("int")
-    BFunc = new_function_type((BCharP, BFILEP), BInt, False)
-    BFunc2 = new_function_type((BFILEP,), BInt, False)
-    ll = find_and_load_library('c')
-    fputs = ll.load_function(BFunc, "fputs")
-    fileno = ll.load_function(BFunc2, "fileno")
-    #
-    import posix
-    fdr, fdw = posix.pipe()
-    fw1 = posix.fdopen(fdw, 'wb', 256)
-    #
-    fw1p = cast(BFILEP, fw1)
-    fw1.write(b"X")
-    fw1.flush()
-    res = fputs(b"hello\n", fw1p)
-    assert res >= 0
-    res = fileno(fw1p)
-    assert (res == fdw) == (sys.version_info < (3,))
-    fw1.close()
-    #
-    data = posix.read(fdr, 256)
-    assert data == b"Xhello\n"
-    posix.close(fdr)
 
 def test_GetLastError():
     if sys.platform != "win32":
