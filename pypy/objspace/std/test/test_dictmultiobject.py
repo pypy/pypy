@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 import sys
 from pypy.interpreter.error import OperationError
@@ -719,6 +720,8 @@ class AppTestDictViews:
         assert isinstance(r, str)
         assert (r == "dict_values(['ABC', 10])" or
                 r == "dict_values([10, 'ABC'])")
+        d = {'日本': '日本国'}
+        assert repr(d.items()) == "dict_items([('日本', '日本国')])"
 
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}
