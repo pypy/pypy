@@ -243,7 +243,7 @@ if _HAS_LOAD_EXTENSION:
 ##########################################
 
 # SQLite version information
-sqlite_version = sqlite.sqlite3_libversion().decode('utf-8')
+sqlite_version = sqlite.sqlite3_libversion().decode('ascii')
 
 class Error(Exception):
     pass
@@ -471,9 +471,8 @@ class Connection(object):
 
     def _begin(self):
         statement = c_void_p()
-        next_char = c_char_p()
         ret = sqlite.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
-                                        byref(statement), next_char)
+                                        byref(statement), None)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -496,9 +495,8 @@ class Connection(object):
                 obj._reset()
 
         statement = c_void_p()
-        next_char = c_char_p()
         ret = sqlite.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
-                                        byref(statement), next_char)
+                                        byref(statement), None)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -526,9 +524,8 @@ class Connection(object):
                 cursor._reset = True
 
         statement = c_void_p()
-        next_char = c_char_p()
         ret = sqlite.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
-                                        byref(statement), next_char)
+                                        byref(statement), None)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -1094,8 +1091,11 @@ class Statement(object):
         num_params_needed = sqlite.sqlite3_bind_parameter_count(self._statement)
         if isinstance(params, (tuple, list)) or \
                 not isinstance(params, dict) and \
-                hasattr(params, '__len__') and hasattr(params, '__getitem__'):
-            num_params = len(params)
+                hasattr(params, '__getitem__'):
+            try:
+                num_params = len(params)
+            except TypeError:
+                num_params = -1
             if num_params != num_params_needed:
                 raise ProgrammingError("Incorrect number of bindings supplied. "
                                        "The current statement uses %d, and "
@@ -1190,7 +1190,8 @@ class Statement(object):
         desc = []
         for i in range(sqlite.sqlite3_column_count(self._statement)):
             name = sqlite.sqlite3_column_name(self._statement, i)
-            name = name.decode('utf-8').split("[")[0].strip()
+            if name is not None:
+                name = name.decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 

@@ -138,6 +138,9 @@ def test_statement_param_checking():
         def __getitem__(self, key):
             return 2
     con.execute('insert into foo(x) values (?)', seq())
+    del seq.__len__
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.execute('insert into foo(x) values (?)', seq())
     with pytest.raises(_sqlite3.ProgrammingError):
         con.execute('insert into foo(x) values (?)', {2:2})
     with pytest.raises(ValueError) as e:
