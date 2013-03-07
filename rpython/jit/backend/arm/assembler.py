@@ -352,7 +352,7 @@ class AssemblerARM(ResOpAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_malloc_slowpath(self):
-        return # XXX fix me
+        XXX
         mc = ARMv7Builder()
         if self.cpu.supports_floats:
             vfp_regs = r.all_vfp_regs
@@ -1262,7 +1262,7 @@ class AssemblerARM(ResOpAssembler):
         else:
             raise AssertionError('Trying to pop to an invalid location')
 
-    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
+    def malloc_cond(self, gcmap, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
 
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
@@ -1291,14 +1291,11 @@ class AssemblerARM(ResOpAssembler):
         self.mc.gen_load_int(r.ip.value, nursery_free_adr)
         self.mc.STR_ri(r.r1.value, r.ip.value)
 
-    def push_gcmap(self, mc, gcmap, push=False, mov=False, store=False):
+    def push_gcmap(self, mc, gcmap, push=False, store=False):
         ptr = rffi.cast(lltype.Signed, gcmap)
         if push:
             mc.gen_load_int(r.ip.value, ptr)
             mc.PUSH([r.ip.value])
-        elif mov:
-            assert 0
-            mc.MOV(RawEspLoc(0, REF), ptr)
         else:
             assert store
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')

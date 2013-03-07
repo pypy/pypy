@@ -1293,7 +1293,9 @@ class ResOpAssembler(BaseAssembler):
         assert len(arglocs) == 1
         size = arglocs[0].value
         gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = regalloc.get_gcmap([r.r0, r.r1])
         self.malloc_cond(
+            gcmap,
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             size
