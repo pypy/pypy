@@ -800,6 +800,8 @@ class Cursor(object):
         try:
             self.__description = None
             self._reset = False
+            if not isinstance(sql, str):
+                raise ValueError("operation parameter must be str or unicode")
             self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
@@ -845,6 +847,8 @@ class Cursor(object):
         try:
             self.__description = None
             self._reset = False
+            if not isinstance(sql, str):
+                raise ValueError("operation parameter must be str or unicode")
             self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
@@ -876,7 +880,10 @@ class Cursor(object):
         self._reset = False
         self.__check_cursor()
         statement = c_void_p()
-        sql = sql.encode('utf-8')
+        if isinstance(sql, str):
+            sql = sql.encode('utf-8')
+        else:
+            raise ValueError("script argument must be unicode or string.")
         c_sql = c_char_p(sql)
 
         self.__connection.commit()
