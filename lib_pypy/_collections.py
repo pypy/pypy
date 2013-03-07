@@ -5,6 +5,9 @@
 #   (nondist/sandbox/collections/pydeque.py rev 1.1, Raymond Hettinger)
 #
 
+# Note that PyPy also contains a built-in module '_collections' which will hide
+# this one if compiled in.
+
 import operator
 try:
     from thread import get_ident as _thread_ident
