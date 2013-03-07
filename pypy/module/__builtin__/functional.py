@@ -443,8 +443,8 @@ class W_Range(Wrappable):
 
         if not self._contains_long(space, w_item):
             item_repr = space.unicode_w(space.repr(w_item))
-            raise operationerrfmt(space.w_ValueError, u"%s is not in range",
-                                  item_repr)
+            msg = u"%s is not in range" % item_repr
+            raise OperationError(space.w_ValueError, space.wrap(msg))
         w_index = space.sub(w_item, self.w_start)
         return space.floordiv(w_index, self.w_step)
 
