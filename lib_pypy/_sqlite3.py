@@ -1070,7 +1070,7 @@ class Statement(object):
     def __set_param(self, idx, param):
         cvt = converters.get(type(param))
         if cvt is not None:
-            cvt = param = cvt(param)
+            param = cvt(param)
 
         param = adapt(param)
 
@@ -1124,8 +1124,6 @@ class Statement(object):
                 self.__set_param(i, param)
 
     def _next(self, cursor):
-        self.__con._check_closed()
-        self.__con._check_thread()
         if self._exhausted:
             raise StopIteration
         item = self._item
