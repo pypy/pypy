@@ -61,17 +61,14 @@ def _days_in_month(year, month):
 
 def _days_before_month(year, month):
     "year, month -> number of days in year preceeding first day of month."
-    if not 1 <= month <= 12:
-        raise ValueError('month must be in 1..12', month)
+    assert 1 <= month <= 12, 'month must be in 1..12'
     return _DAYS_BEFORE_MONTH[month] + (month > 2 and _is_leap(year))
 
 def _ymd2ord(year, month, day):
     "year, month, day -> ordinal, considering 01-Jan-0001 as day 1."
-    if not 1 <= month <= 12:
-        raise ValueError('month must be in 1..12', month)
+    assert 1 <= month <= 12, 'month must be in 1..12'
     dim = _days_in_month(year, month)
-    if not 1 <= day <= dim:
-        raise ValueError('day must be in 1..%d' % dim, day)
+    assert 1 <= day <= dim, ('day must be in 1..%d' % dim)
     return (_days_before_year(year) +
             _days_before_month(year, month) +
             day)
@@ -281,7 +278,9 @@ def _check_int_field(value):
         else:
             if isinstance(value, (int, long)):
                 return value
-    raise TypeError('an integer is required')
+            raise TypeError('__int__ method should return an integer')
+        raise TypeError('an integer is required')
+    raise TypeError('integer argument expected, got float')
 
 def _check_date_fields(year, month, day):
     year = _check_int_field(year)
@@ -352,8 +351,6 @@ def _cmperror(x, y):
 # second-guess timezones or DST.  Instead fold whatever adjustments you want
 # into the minutes argument (and the constructor will normalize).
 
-_ORD1970 = _ymd2ord(1970, 1, 1) # base ordinal for UNIX epoch
-
 class tmxxx:
 
     ordinal = None
@@ -415,32 +412,6 @@ class tmxxx:
         self.hour, self.minute, self.second = hour, minute, second
         self.microsecond = microsecond
 
-    def toordinal(self):
-        """Return proleptic Gregorian ordinal for the year, month and day.
-
-        January 1 of year 1 is day 1.  Only the year, month and day values
-        contribute to the result.
-        """
-        if self.ordinal is None:
-            self.ordinal = _ymd2ord(self.year, self.month, self.day)
-        return self.ordinal
-
-    def time(self):
-        "Return Unixish timestamp, as a float (assuming UTC)."
-        days = self.toordinal() - _ORD1970   # convert to UNIX epoch
-        seconds = ((days * 24. + self.hour)*60. + self.minute)*60.
-        return seconds + self.second + self.microsecond / 1e6
-
-    def ctime(self):
-        "Return ctime() style string."
-        weekday = self.toordinal() % 7 or 7
-        return "%s %s %2d %02d:%02d:%02d %04d" % (
-            _DAYNAMES[weekday],
-            _MONTHNAMES[self.month],
-            self.day,
-            self.hour, self.minute, self.second,
-            self.year)
-
 class timedelta(object):
     """Represent the difference between two datetime objects.
 
@@ -458,11 +429,9 @@ class timedelta(object):
     Representation: (days, seconds, microseconds).  Why?  Because I
     felt like it.
     """
-
     __slots__ = '_days', '_seconds', '_microseconds'
 
     def __new__(cls, days=0, seconds=0, microseconds=0,
-                # XXX The following should only be used as keyword args:
                 milliseconds=0, minutes=0, hours=0, weeks=0):
         # Doing this efficiently and accurately in C is going to be difficult
         # and error-prone, due to ubiquitous overflow possibilities, and that
@@ -601,8 +570,8 @@ class timedelta(object):
 
     def total_seconds(self):
         """Total seconds in the duration."""
-        return ((self.days * 86400 + self.seconds) * 10**6
-                + self.microseconds) / 1e6
+        return ((self.days * 86400 + self.seconds) * 10**6 +
+                self.microseconds) / 1e6
 
     # Read-only field accessors
     @property
@@ -772,7 +741,6 @@ class date(object):
     Properties (readonly):
     year, month, day
     """
-
     __slots__ = '_year', '_month', '_day'
 
     def __new__(cls, year, month=None, day=None):
@@ -835,6 +803,7 @@ class date(object):
                                    self._year,
                                    self._month,
                                    self._day)
+
     # XXX These shouldn't depend on time.localtime(), because that
     # clips the usable dates to [1970 .. 2038).  At least ctime() is
     # easily done without using strftime() -- that's better too because
@@ -842,7 +811,11 @@ class date(object):
 
     def ctime(self):
         "Return ctime() style string."
-        return tmxxx(self._year, self._month, self._day).ctime()
+        weekday = self.toordinal() % 7 or 7
+        return "%s %s %2d 00:00:00 %04d" % (
+            _DAYNAMES[weekday],
+            _MONTHNAMES[self._month],
+            self._day, self._year)
 
     def strftime(self, fmt):
         "Format using strftime()."
@@ -850,7 +823,7 @@ class date(object):
 
     def __format__(self, fmt):
         if not isinstance(fmt, (str, unicode)):
-            raise ValueError("__format__ excepts str or unicode, not %s" %
+            raise ValueError("__format__ expects str or unicode, not %s" %
                              fmt.__class__.__name__)
         if len(fmt) != 0:
             return self.strftime(fmt)
@@ -1065,7 +1038,6 @@ class tzinfo(object):
 
     Subclasses must override the name(), utcoffset() and dst() methods.
     """
-
     __slots__ = ()
 
     def tzname(self, dt):
@@ -1132,7 +1104,7 @@ class tzinfo(object):
         else:
             return (self.__class__, args, state)
 
-_tzinfo_class = tzinfo  # so functions w/ args named "tzinfo" can get at the class
+_tzinfo_class = tzinfo
 
 class time(object):
     """Time with time zone.
@@ -1157,7 +1129,6 @@ class time(object):
     Properties (readonly):
     hour, minute, second, microsecond, tzinfo
     """
-
     __slots__ = '_hour', '_minute', '_second', '_microsecond', '_tzinfo'
 
     def __new__(cls, hour=0, minute=0, second=0, microsecond=0, tzinfo=None):
@@ -1344,7 +1315,7 @@ class time(object):
 
     def __format__(self, fmt):
         if not isinstance(fmt, (str, unicode)):
-            raise ValueError("__format__ excepts str or unicode, not %s" %
+            raise ValueError("__format__ expects str or unicode, not %s" %
                              fmt.__class__.__name__)
         if len(fmt) != 0:
             return self.strftime(fmt)
@@ -1458,7 +1429,6 @@ class datetime(date):
     The year, month and day arguments are required. tzinfo may be None, or an
     instance of a tzinfo subclass. The remaining arguments may be ints or longs.
     """
-
     __slots__ = date.__slots__ + time.__slots__
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
@@ -1665,9 +1635,13 @@ class datetime(date):
 
     def ctime(self):
         "Return ctime() style string."
-        t = tmxxx(self._year, self._month, self._day, self._hour,
-                  self._minute, self._second)
-        return t.ctime()
+        weekday = self.toordinal() % 7 or 7
+        return "%s %s %2d %02d:%02d:%02d %04d" % (
+            _DAYNAMES[weekday],
+            _MONTHNAMES[self._month],
+            self._day,
+            self._hour, self._minute, self._second,
+            self._year)
 
     def isoformat(self, sep='T'):
         """Return the time formatted according to ISO.
