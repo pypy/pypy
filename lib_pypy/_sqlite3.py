@@ -1099,7 +1099,9 @@ class Statement(object):
         self._in_use = True
 
         num_params_needed = sqlite.sqlite3_bind_parameter_count(self._statement)
-        if not isinstance(params, dict):
+        if isinstance(params, (tuple, list)) or \
+                not isinstance(params, dict) and \
+                hasattr(params, '__len__') and hasattr(params, '__getitem__'):
             num_params = len(params)
             if num_params != num_params_needed:
                 raise ProgrammingError("Incorrect number of bindings supplied. "
@@ -1111,7 +1113,7 @@ class Statement(object):
                 if rc != SQLITE_OK:
                     raise InterfaceError("Error binding parameter %d - "
                                          "probably unsupported type." % i)
-        else:
+        elif isinstance(params, dict):
             for i in range(1, num_params_needed + 1):
                 param_name = sqlite.sqlite3_bind_parameter_name(self._statement, i)
                 if param_name is None:
@@ -1129,6 +1131,8 @@ class Statement(object):
                     raise InterfaceError("Error binding parameter :%s - "
                                          "probably unsupported type." %
                                          param_name)
+        else:
+            raise ValueError("parameters are of unsupported type")
 
     def _next(self, cursor):
         if self._exhausted:
