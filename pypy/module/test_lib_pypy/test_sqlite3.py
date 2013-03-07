@@ -127,6 +127,21 @@ def test_on_conflict_rollback_executemany():
     except _sqlite3.OperationalError:
         pytest.fail("_sqlite3 knew nothing about the implicit ROLLBACK")
 
+def test_statement_arg_checking():
+    con = _sqlite3.connect(':memory:')
+    with pytest.raises(_sqlite3.Warning) as e:
+        con(123)
+    assert str(e.value) == 'SQL is of wrong type. Must be string or unicode.'
+    with pytest.raises(ValueError) as e:
+        con.execute(123)
+    assert str(e.value) == 'operation parameter must be str or unicode'
+    with pytest.raises(ValueError) as e:
+        con.executemany(123, 123)
+    assert str(e.value) == 'operation parameter must be str or unicode'
+    with pytest.raises(ValueError) as e:
+        con.executescript(123)
+    assert str(e.value) == 'script argument must be unicode or string.'
+
 def test_statement_param_checking():
     con = _sqlite3.connect(':memory:')
     con.execute('create table foo(x)')
