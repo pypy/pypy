@@ -17,7 +17,7 @@ class Module(MixedModule):
 
     appleveldefs = {} 
     
-    app_names = ['countOf', 'indexOf',
+    app_names = ['countOf',
                  'attrgetter', 'itemgetter', 'methodcaller',
              ]
 
@@ -34,7 +34,8 @@ class Module(MixedModule):
                     'sub', 'truediv', 'truth', 'xor',
                     'iadd', 'iand', 'iconcat', 'ifloordiv',
                     'ilshift', 'imod', 'imul', 'ior', 'ipow',
-                    'irshift', 'isub', 'itruediv', 'ixor', '_length_hint']
+                    'irshift', 'isub', 'itruediv', 'ixor', '_length_hint',
+                    'indexOf']
 
     interpleveldefs = {}
 
