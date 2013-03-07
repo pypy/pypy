@@ -243,7 +243,7 @@ if _HAS_LOAD_EXTENSION:
 ##########################################
 
 # SQLite version information
-sqlite_version = sqlite.sqlite3_libversion().decode('utf-8')
+sqlite_version = sqlite.sqlite3_libversion()
 
 class Error(StandardError):
     pass
@@ -1206,7 +1206,8 @@ class Statement(object):
         desc = []
         for i in xrange(sqlite.sqlite3_column_count(self._statement)):
             name = sqlite.sqlite3_column_name(self._statement, i)
-            name = name.decode('utf-8').split("[")[0].strip()
+            if name is not None:
+                name = name.decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 
