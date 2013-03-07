@@ -4,13 +4,12 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib.rbigint import rbigint
 
 
 def get_len_of_range(lo, hi, step):
