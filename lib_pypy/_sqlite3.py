@@ -1110,8 +1110,11 @@ class Statement(object):
         num_params_needed = sqlite.sqlite3_bind_parameter_count(self._statement)
         if isinstance(params, (tuple, list)) or \
                 not isinstance(params, dict) and \
-                hasattr(params, '__len__') and hasattr(params, '__getitem__'):
-            num_params = len(params)
+                hasattr(params, '__getitem__'):
+            try:
+                num_params = len(params)
+            except TypeError:
+                num_params = -1
             if num_params != num_params_needed:
                 raise ProgrammingError("Incorrect number of bindings supplied. "
                                        "The current statement uses %d, and "
