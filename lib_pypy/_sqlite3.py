@@ -1075,25 +1075,25 @@ class Statement(object):
         param = adapt(param)
 
         if param is None:
-            sqlite.sqlite3_bind_null(self._statement, idx)
+            rc = sqlite.sqlite3_bind_null(self._statement, idx)
         elif type(param) in (bool, int, long):
             if -2147483648 <= param <= 2147483647:
-                sqlite.sqlite3_bind_int(self._statement, idx, param)
+                rc = sqlite.sqlite3_bind_int(self._statement, idx, param)
             else:
-                sqlite.sqlite3_bind_int64(self._statement, idx, param)
+                rc = sqlite.sqlite3_bind_int64(self._statement, idx, param)
         elif type(param) is float:
-            sqlite.sqlite3_bind_double(self._statement, idx, param)
+            rc = sqlite.sqlite3_bind_double(self._statement, idx, param)
         elif isinstance(param, str):
             self.__check_decodable(param)
-            sqlite.sqlite3_bind_text(self._statement, idx, param, len(param), SQLITE_TRANSIENT)
+            rc = sqlite.sqlite3_bind_text(self._statement, idx, param, len(param), SQLITE_TRANSIENT)
         elif isinstance(param, unicode):
             param = param.encode("utf-8")
-            sqlite.sqlite3_bind_text(self._statement, idx, param, len(param), SQLITE_TRANSIENT)
+            rc = sqlite.sqlite3_bind_text(self._statement, idx, param, len(param), SQLITE_TRANSIENT)
         elif type(param) is buffer:
-            sqlite.sqlite3_bind_blob(self._statement, idx, str(param), len(param), SQLITE_TRANSIENT)
+            rc = sqlite.sqlite3_bind_blob(self._statement, idx, str(param), len(param), SQLITE_TRANSIENT)
         else:
-            raise InterfaceError("parameter type %s is not supported" %
-                                 str(type(param)))
+            rc = -1
+        return rc
 
     def _set_params(self, params):
         self._in_use = True
@@ -1107,7 +1107,10 @@ class Statement(object):
                                        "there are %d supplied." %
                                        (num_params_needed, num_params))
             for i in range(num_params):
-                self.__set_param(i + 1, params[i])
+                rc = self.__set_param(i + 1, params[i])
+                if rc != SQLITE_OK:
+                    raise InterfaceError("Error binding parameter %d - "
+                                         "probably unsupported type." % i)
         else:
             for i in range(1, num_params_needed + 1):
                 param_name = sqlite.sqlite3_bind_parameter_name(self._statement, i)
@@ -1121,7 +1124,11 @@ class Statement(object):
                 except KeyError:
                     raise ProgrammingError("You did not supply a value for "
                                            "binding %d." % i)
-                self.__set_param(i, param)
+                rc = self.__set_param(i, param)
+                if rc != SQLITE_OK:
+                    raise InterfaceError("Error binding parameter :%s - "
+                                         "probably unsupported type." %
+                                         param_name)
 
     def _next(self, cursor):
         if self._exhausted:
