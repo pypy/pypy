@@ -52,6 +52,16 @@ def test_connection_after_close():
     # raises ProgrammingError because should check closed before check args
     pytest.raises(_sqlite3.ProgrammingError, "con()")
 
+def test_cursor_iter():
+    con = _sqlite3.connect(':memory:')
+    cur = con.cursor()
+    with pytest.raises(StopIteration):
+        next(cur)
+    cur = con.execute('select 1')
+    next(cur)
+    with pytest.raises(StopIteration):
+        next(cur)
+
 def test_cursor_after_close():
      con = _sqlite3.connect(':memory:')
      cur = con.execute('select 1')

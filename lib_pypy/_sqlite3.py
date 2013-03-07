@@ -919,24 +919,24 @@ class Cursor(object):
                     "Cursor needed to be reset because of commit/rollback "
                     "and can no longer be fetched from.")
 
-    # do all statements
-    def fetchone(self):
+    def __iter__(self):
+        return self
+
+    def __next__(self):
         self.__check_cursor()
         self.__check_reset()
+        if not self.__statement:
+            raise StopIteration
+        return self.__statement._next(self)
 
-        if self.__statement is None:
-            return None
+    if sys.version_info[0] < 3:
+        next = __next__
+        del __next__
 
-        try:
-            return self.__statement._next(self)
-        except StopIteration:
-            return None
+    def fetchone(self):
+        return next(self, None)
 
     def fetchmany(self, size=None):
-        self.__check_cursor()
-        self.__check_reset()
-        if self.__statement is None:
-            return []
         if size is None:
             size = self.arraysize
         lst = []
@@ -947,14 +947,7 @@ class Cursor(object):
         return lst
 
     def fetchall(self):
-        self.__check_cursor()
-        self.__check_reset()
-        if self.__statement is None:
-            return []
         return list(self)
-
-    def __iter__(self):
-        return iter(self.fetchone, None)
 
     def __get_connection(self):
         return self.__connection
