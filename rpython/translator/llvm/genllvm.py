@@ -1471,8 +1471,8 @@ class GCPolicy(object):
             if p:
                 self._consider_constant(lltype.typeOf(p), p)
 
-    def add_startup_code(self):
-        pass
+    def get_setup_ptr(self):
+        return None
 
     def get_gc_fields_lltype(self):
         return [(self.gctransformer.HDR, '_gc_header')]
@@ -1507,11 +1507,8 @@ class FrameworkGCPolicy(GCPolicy):
         GCPolicy.__init__(self, genllvm)
         self.gctransformer = ShadowStackFrameworkGCTransformer(genllvm.translator)
 
-    def add_startup_code(self):
-        database.f.write('%ctor = type { i32, void ()* }\n')
-        sr = get_repr(self.gctransformer.frameworkgc_setup_ptr)
-        database.f.write('@llvm.global_ctors = appending global [1 x %ctor] '
-                '[%ctor {{ i32 65535, void ()* @{} }}]\n'.format(sr.V[1:]))
+    def get_setup_ptr(self):
+        return self.gctransformer.frameworkgc_setup_ptr.value
 
     def get_gc_field_values(self, obj):
         obj = lltype.top_container(obj)
@@ -1611,8 +1608,11 @@ class GenLLVM(object):
 
     def prepare(self, entrypoint, secondary_entrypoints):
         if callable(entrypoint):
+            setup_ptr = self.gcpolicy.get_setup_ptr()
             def main(argc, argv):
                 try:
+                    if setup_ptr is not None:
+                        setup_ptr()
                     args = [rffi.charp2str(argv[i]) for i in range(argc)]
                     return entrypoint(args)
                 except Exception, exc:
@@ -1678,7 +1678,6 @@ class GenLLVM(object):
             database = Database(self, f)
             self._write_special_declarations(f)
 
-            self.gcpolicy.add_startup_code()
             for export in self.entrypoints:
                 get_repr(export._as_ptr()).V
 

@@ -258,6 +258,11 @@ class CTypesFuncWrapper(object):
         self.rtyper = genllvm.translator.rtyper
         self.convert = True
         cdll = ctypes.CDLL(path)
+        setup_ptr = genllvm.gcpolicy.get_setup_ptr()
+        if setup_ptr is not None:
+            self.setup_func = self._func(cdll, setup_ptr)
+        else:
+            self.setup_func = None
         self.entry_point = self._func(
                 cdll, getfunctionptr(self.graph))
         self.rpyexc_clear = self._func(
@@ -282,6 +287,8 @@ class CTypesFuncWrapper(object):
             getrepr = self.rtyper.bindingrepr
             args = [self._Repr2lltype(getrepr(var), arg)
                     for var, arg in zip(self.graph.getargs(), args)]
+        if self.setup_func:
+            self.setup_func()
         self.rpyexc_clear()
         ret = self.entry_point(*args)
         if self.rpyexc_occured():
@@ -344,7 +351,8 @@ class _LLVMMixin(object):
 
         genllvm = self.genllvm = genllvm_mod.GenLLVM(t)
         graph = a.bookkeeper.getdesc(func).getuniquegraph()
-        genllvm.prepare(None, [
+        setup = genllvm.gcpolicy.get_setup_ptr()
+        genllvm.prepare(None, ([setup] if setup is not None else []) + [
                 getfunctionptr(graph),
                 genllvm.exctransformer.rpyexc_clear_ptr.value,
                 genllvm.exctransformer.rpyexc_occured_ptr.value,
