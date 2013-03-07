@@ -132,9 +132,9 @@ corresponding Unix manual entries for more information on calls."""
             EX_OK EX_USAGE EX_DATAERR EX_NOINPUT EX_NOUSER EX_NOHOST
             EX_UNAVAILABLE EX_SOFTWARE EX_OSERR EX_OSFILE EX_CANTCREAT
             EX_IOERR EX_TEMPFAIL EX_PROTOCOL EX_NOPERM EX_CONFIG EX_NOTFOUND
-            '''.split():
-        if hasattr(posix, constant):
-            value = getattr(posix, constant)
+            '''.split():  # XXX find a way to avoid duplicating the full list
+        value = getattr(rposix, constant)
+        if value is not None:
             interpleveldefs[constant] = "space.wrap(%s)" % value
 
     # XXX don't use the os module here

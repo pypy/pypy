@@ -85,7 +85,8 @@ else:
     separate_module_sources = []
     export_symbols = []
     includes=['errno.h', 'stdio.h', 'stdlib.h', 'unistd.h', 'sys/stat.h',
-              'signal.h', 'pty.h', 'sys/utsname.h', 'sys/wait.h']
+              'fcntl.h', 'signal.h', 'pty.h', 'sys/utsname.h', 'sys/wait.h',
+              'sysexits.h', 'limits.h']
 rposix_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
@@ -109,6 +110,20 @@ for name in '''
         '''.split():
     symbol = 'HAVE_' + name.upper()
     setattr(CConfig, symbol, rffi_platform.Has(name))
+
+for name in '''
+        F_OK R_OK W_OK X_OK NGROUPS_MAX TMP_MAX
+        WNOHANG WCONTINUED WUNTRACED
+        O_RDONLY O_WRONLY O_RDWR O_NDELAY O_NONBLOCK O_APPEND
+        O_DSYNC O_RSYNC O_SYNC O_NOCTTY O_CREAT O_EXCL O_TRUNC
+        O_BINARY O_TEXT O_LARGEFILE O_SHLOCK O_EXLOCK
+        O_NOINHERIT O_TEMPORARY O_RANDOM O_SEQUENTIAL
+        O_ASYNC O_DIRECT O_DIRECTORY O_NOFOLLOW O_NOATIME 
+        EX_OK EX_USAGE EX_DATAERR EX_NOINPUT EX_NOUSER EX_NOHOST
+        EX_UNAVAILABLE EX_SOFTWARE EX_OSERR EX_OSFILE EX_CANTCREAT
+        EX_IOERR EX_TEMPFAIL EX_PROTOCOL EX_NOPERM EX_CONFIG EX_NOTFOUND
+        '''.split():
+    setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
 
 globals().update(rffi_platform.configure(CConfig))
 
