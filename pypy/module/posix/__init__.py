@@ -1,10 +1,8 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.rlib import rposix
 
 import os, sys
-exec 'import %s as posix' % os.name
 
 # this is the list of function which is *not* present in the posix module of
 # IronPython 2.6, and that we want to ignore for now
@@ -144,9 +142,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
 
     # Macros for process exit statuses: WIFEXITED &co
-    # XXX HAVE_SYS_WAIT_H
-    for name in RegisterOs.w_star:
-        if hasattr(posix, name):
+    if rposix.HAVE_WAIT:
+        for name in rposix.wait_macros:
             interpleveldefs[name] = 'interp_posix.' + name
 
     def __init__(self, space, w_name):

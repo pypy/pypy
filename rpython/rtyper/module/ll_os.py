@@ -211,29 +211,6 @@ class RegisterOs(BaseLazyRegistering):
                 '#include <unistd.h>',
                 [])
 
-        # we need an indirection via c functions to get macro calls working on llvm XXX still?
-        if hasattr(os, 'WCOREDUMP'):
-            decl_snippet = """
-            %(ret_type)s pypy_macro_wrapper_%(name)s (int status);
-            """
-            def_snippet = """
-            %(ret_type)s pypy_macro_wrapper_%(name)s (int status) {
-            return %(name)s(status);
-            }
-            """
-            decls = []
-            defs = []
-            for name in self.w_star:
-                data = {'ret_type': 'int', 'name': name}
-                decls.append((decl_snippet % data).strip())
-                defs.append((def_snippet % data).strip())
-
-            self.compilation_info = self.compilation_info.merge(
-                ExternalCompilationInfo(
-                post_include_bits = decls,
-                separate_module_sources = ["\n".join(defs)]
-            ))
-
     # a simple, yet useful factory
     def extdef_for_os_function_returning_int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
@@ -1741,45 +1718,6 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_lstat(self, traits):
         from rpython.rtyper.module import ll_os_stat
         return ll_os_stat.register_stat_variant('lstat', traits)
-
-    # ------------------------------- os.W* ---------------------------------
-
-    w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
-              'WIFSIGNALED', 'WIFEXITED', 'WEXITSTATUS',
-              'WSTOPSIG', 'WTERMSIG']
-    # last 3 are returning int
-    w_star_returning_int = dict.fromkeys(w_star[-3:])
-
-
-
-    def declare_new_w_star(self, name):
-        """ stupid workaround for the python late-binding
-        'feature'
-        """
-
-        def fake(status):
-            return int(getattr(os, name)(status))
-        fake.func_name = 'fake_' + name
-
-        os_c_func = self.llexternal("pypy_macro_wrapper_" + name,
-                                    [lltype.Signed], lltype.Signed,
-                                    _callable=fake)
-    
-        if name in self.w_star_returning_int:
-            def llimpl(status):
-                return os_c_func(status)
-            resulttype = int
-        else:
-            def llimpl(status):
-                return bool(os_c_func(status))
-            resulttype = bool
-        llimpl.func_name = name + '_llimpl'
-        return extdef([int], resulttype, "ll_os." + name,
-                      llimpl=llimpl)
-
-    for name in w_star:
-        locals()['register_w_' + name] = registering_if(os, name)(
-            lambda self, xname=name : self.declare_new_w_star(xname))
 
     @registering_if(os, 'ttyname')
     def register_os_ttyname(self):

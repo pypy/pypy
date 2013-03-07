@@ -1,6 +1,6 @@
 import os
 from rpython.rtyper.lltypesystem.rffi import CConstant, CExternVariable, INT
-from rpython.rtyper.lltypesystem import ll2ctypes, rffi
+from rpython.rtyper.lltypesystem import ll2ctypes, lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
@@ -166,12 +166,22 @@ def closerange(fd_low, fd_high):
             pass
 
 # Expose posix functions
-def external(name, args, result):
-    return rffi.llexternal(name, args, result,
-                           compilation_info=CConfig._compilation_info_)
+def external(name, args, result, **kwargs):
+    return rffi.llexternal(
+        name, args, result,
+        compilation_info=CConfig._compilation_info_, **kwargs)
 
 c_fchmod = external('fchmod', [rffi.INT, rffi.MODE_T], rffi.INT)
 c_fchown = external('fchown', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
+
+if HAVE_WAIT:
+    wait_macros_returning_int = ['WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']
+    wait_macros_returning_bool = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+                                 'WIFSIGNALED', 'WIFEXITED']
+    wait_macros = wait_macros_returning_int + wait_macros_returning_bool
+    for name in wait_macros:
+        globals()[name] = external(name, [lltype.Signed], lltype.Signed,
+                                   macro=True)
 
 
 #___________________________________________________________________

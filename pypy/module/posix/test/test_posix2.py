@@ -7,7 +7,6 @@ from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.conftest import pypydir
 from rpython.rlib import rposix
-from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 import os
 import py
@@ -566,7 +565,7 @@ class AppTestPosix:
         raises(TypeError, "os.utime('xxx', 3)")
         raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
 
-    for name in RegisterOs.w_star:
+    for name in rposix.wait_macros:
         if hasattr(os, name):
             values = [0, 1, 127, 128, 255]
             code = py.code.Source("""

@@ -3,9 +3,9 @@ from rpython.rlib import rposix, objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.tool.sourcetools import func_renamer
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.interpreter.error import operationerrfmt
-from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.rtyper.module import ll_os_stat
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -1079,23 +1079,21 @@ def setsid(space):
         raise wrap_oserror(space, e)
     return space.w_None
 
-def declare_new_w_star(name):
-    if name in RegisterOs.w_star_returning_int:
-        @unwrap_spec(status=c_int)
-        def WSTAR(space, status):
-            return space.wrap(getattr(os, name)(status))
-    else:
-        @unwrap_spec(status=c_int)
-        def WSTAR(space, status):
-            return space.newbool(getattr(os, name)(status))
-    WSTAR.__doc__ = getattr(os, name).__doc__
-    WSTAR.func_name = name
-    return WSTAR
+def declare_wait_macro(name, return_bool=False):
+    @unwrap_spec(status=c_int)
+    @func_renamer(name)
+    def wait_macro(space, status):
+        result = getattr(rposix, name)(status)
+        if return_bool:
+            return space.newbool(result)
+        else:
+            return space.wrap(result)
+    return wait_macro
 
-for name in RegisterOs.w_star:
-    if hasattr(os, name):
-        func = declare_new_w_star(name)
-        globals()[name] = func
+for name in rposix.wait_macros_returning_int:
+    globals()[name] = declare_wait_macro(name)
+for name in rposix.wait_macros_returning_bool:
+    globals()[name] = declare_wait_macro(name, return_bool=True)
 
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
