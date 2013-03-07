@@ -472,9 +472,8 @@ class Connection(object):
 
     def _begin(self):
         statement = c_void_p()
-        next_char = c_char_p()
         ret = sqlite.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
-                                        byref(statement), next_char)
+                                        byref(statement), None)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -497,9 +496,8 @@ class Connection(object):
                 obj._reset()
 
         statement = c_void_p()
-        next_char = c_char_p()
         ret = sqlite.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
-                                        byref(statement), next_char)
+                                        byref(statement), None)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
@@ -527,9 +525,8 @@ class Connection(object):
                 cursor._reset = True
 
         statement = c_void_p()
-        next_char = c_char_p()
         ret = sqlite.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
-                                        byref(statement), next_char)
+                                        byref(statement), None)
         try:
             if ret != SQLITE_OK:
                 raise self._get_exception(ret)
