@@ -29,7 +29,7 @@ def _round(x):
 MINYEAR = 1
 MAXYEAR = 9999
 _MINYEARFMT = 1000
-_MAXORDINAL = 3652059 # date.max.toordinal()
+_MAXORDINAL = 3652059  # date.max.toordinal()
 
 # Utility functions, adapted from Python's Demo/classes/Dates.py, which
 # also assumes the current Gregorian calendar indefinitely extended in
@@ -183,9 +183,9 @@ def _wrap_strftime(object, format, timetuple):
                          "methods require year >= %d" %
                          (year, _MINYEARFMT, _MINYEARFMT))
     # Don't call utcoffset() or tzname() unless actually needed.
-    freplace = None # the string to use for %f
-    zreplace = None # the string to use for %z
-    Zreplace = None # the string to use for %Z
+    freplace = None  # the string to use for %f
+    zreplace = None  # the string to use for %z
+    Zreplace = None  # the string to use for %Z
 
     # Scan format for %z and %Z escapes, replacing as needed.
     newformat = []
@@ -266,9 +266,9 @@ def _check_utc_offset(name, offset):
         raise ValueError("tzinfo.%s() must return a whole number "
                          "of minutes, got %s" % (name, offset))
     if not -timedelta(1) < offset < timedelta(1):
-        raise ValueError("%s()=%s, must be must be strictly between"
-                         " -timedelta(hours=24) and timedelta(hours=24)"
-                         % (name, offset))
+        raise ValueError("%s()=%s, must be must be strictly between "
+                         "-timedelta(hours=24) and timedelta(hours=24)" %
+                         (name, offset))
 
 def _check_int_field(value):
     if isinstance(value, int):
@@ -1158,7 +1158,7 @@ class time(object):
     def __hash__(self):
         """Hash."""
         tzoff = self.utcoffset()
-        if not tzoff: # zero or None
+        if not tzoff:  # zero or None
             return hash(self._getstate()[0])
         h, m = divmod(timedelta(hours=self.hour, minutes=self.minute) - tzoff,
                       timedelta(hours=1))
@@ -1220,7 +1220,7 @@ class time(object):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
         """
-        # The year must be >= 1000 else Python's strftime implementation
+        # The year must be >= _MINYEARFMT else Python's strftime implementation
         # can raise a bogus exception.
         timetuple = (1900, 1, 1,
                      self._hour, self._minute, self._second,
@@ -1467,7 +1467,7 @@ class datetime(date):
     def utctimetuple(self):
         "Return UTC time tuple compatible with time.gmtime()."
         offset = self.utcoffset()
-        if offset:
+        if offset:  # neither None nor 0
             self -= offset
         y, m, d = self.year, self.month, self.day
         hh, mm, ss = self.hour, self.minute, self.second
@@ -1508,8 +1508,8 @@ class datetime(date):
         year, month, day = _check_date_fields(year, month, day)
         hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        return datetime(year, month, day, hour, minute, second,
-                          microsecond, tzinfo)
+        return datetime(year, month, day, hour, minute, second, microsecond,
+                        tzinfo)
 
     def astimezone(self, tz):
         if not isinstance(tz, tzinfo):
@@ -1555,10 +1555,9 @@ class datetime(date):
         Optional argument sep specifies the separator between date and
         time, default 'T'.
         """
-        s = ("%04d-%02d-%02d%c" % (self._year, self._month, self._day,
-                                  sep) +
-                _format_time(self._hour, self._minute, self._second,
-                             self._microsecond))
+        s = ("%04d-%02d-%02d%c" % (self._year, self._month, self._day, sep) +
+             _format_time(self._hour, self._minute, self._second,
+                          self._microsecond))
         off = self.utcoffset()
         if off is not None:
             if off.days < 0:
@@ -1574,7 +1573,7 @@ class datetime(date):
 
     def __repr__(self):
         """Convert to formal string, for repr()."""
-        L = [self._year, self._month, self._day, # These are never zero
+        L = [self._year, self._month, self._day,  # These are never zero
              self._hour, self._minute, self._second, self._microsecond]
         if L[-1] == 0:
             del L[-1]
@@ -1803,7 +1802,7 @@ def _isoweek1monday(year):
     # XXX This could be done more efficiently
     THURSDAY = 3
     firstday = _ymd2ord(year, 1, 1)
-    firstweekday = (firstday + 6) % 7 # See weekday() above
+    firstweekday = (firstday + 6) % 7  # See weekday() above
     week1monday = firstday - firstweekday
     if firstweekday > THURSDAY:
         week1monday += 7
@@ -1824,13 +1823,12 @@ class timezone(tzinfo):
         elif not isinstance(name, str):
             raise TypeError("name must be a string")
         if not cls._minoffset <= offset <= cls._maxoffset:
-            raise ValueError("offset must be a timedelta"
-                             " strictly between -timedelta(hours=24) and"
-                             " timedelta(hours=24).")
-        if (offset.microseconds != 0 or
-            offset.seconds % 60 != 0):
-            raise ValueError("offset must be a timedelta"
-                             " representing a whole number of minutes")
+            raise ValueError("offset must be a timedelta "
+                             "strictly between -timedelta(hours=24) and "
+                             "timedelta(hours=24).")
+        if (offset.microseconds != 0 or offset.seconds % 60 != 0):
+            raise ValueError("offset must be a timedelta "
+                             "representing a whole number of minutes")
         return cls._create(offset, name)
 
     @classmethod
