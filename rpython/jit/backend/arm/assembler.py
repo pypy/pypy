@@ -352,7 +352,6 @@ class AssemblerARM(ResOpAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_malloc_slowpath(self):
-        XXX
         mc = ARMv7Builder()
         if self.cpu.supports_floats:
             vfp_regs = r.all_vfp_regs
@@ -1286,6 +1285,8 @@ class AssemblerARM(ResOpAssembler):
         # malloc_slowpath in case we called malloc_slowpath, which returns the
         # new value of nursery_free_adr in r1 and the adr of the new object in
         # r0.
+        XXX # push gcmap
+        
         self.mc.BL(self.malloc_slowpath, c=c.HI)
 
         self.mc.gen_load_int(r.ip.value, nursery_free_adr)

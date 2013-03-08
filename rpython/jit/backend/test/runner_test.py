@@ -3813,7 +3813,7 @@ class LLtypeBackendTest(BaseBackendTest):
         def raising():
             bridge = parse("""
             [i1, i2]
-            guard_exception(ConstClass(xtp), descr=faildescr2) [i1, i2]
+            px = guard_exception(ConstClass(xtp), descr=faildescr2) [i1, i2]
             i3 = int_add(i1, i2)
             i4 = int_add(i1, i3)
             i5 = int_add(i1, i4)
