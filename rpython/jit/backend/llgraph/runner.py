@@ -22,7 +22,6 @@ class LLTrace(object):
         # We need to clone the list of operations because the
         # front-end will mutate them under our feet again.  We also
         # need to make sure things get freed.
-        self.alldescrs = []
         def mapping(box, _cache={}):
             if isinstance(box, Const) or box is None:
                 return box
@@ -36,9 +35,10 @@ class LLTrace(object):
         self.operations = []
         for op in operations:
             if op.getdescr() is not None:
-                # XXX is this hack needed any more?
-                self.alldescrs.append(op.getdescr())
-                newdescr = WeakrefDescr(op.getdescr())
+                if op.is_guard():
+                    newdescr = op.getdescr()
+                else:
+                    newdescr = WeakrefDescr(op.getdescr())
             else:
                 newdescr = None
             newop = op.copy_and_change(op.getopnum(),
@@ -939,7 +939,7 @@ class LLFrame(object):
 
 def _getdescr(op):
     d = op.getdescr()
-    if d is not None:
+    if d is not None and isinstance(d, WeakrefDescr):
         d = d.realdescrref()
         assert d is not None, "the descr disappeared: %r" % (op,)
     return d
