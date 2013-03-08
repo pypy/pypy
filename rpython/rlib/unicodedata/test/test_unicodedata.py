@@ -1,3 +1,4 @@
+# encoding: utf-8
 import random
 import unicodedata
 
@@ -51,6 +52,8 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.isxidcontinue(ord('_'))
         assert unicodedb_5_2_0.isxidcontinue(ord('0'))
         assert not unicodedb_5_2_0.isxidcontinue(ord('('))
+        oc = ord(u'日')
+        assert unicodedb_5_2_0.isxidstart(oc)
 
     def test_compare_functions(self):
         def getX(fun, code):
