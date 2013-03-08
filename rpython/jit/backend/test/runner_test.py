@@ -3861,3 +3861,4 @@ class LLtypeBackendTest(BaseBackendTest):
         frame = self.cpu.execute_token(looptoken, 1, 2, 3)
         descr = self.cpu.get_latest_descr(frame)
         assert descr.identifier == 42
+        assert not self.cpu.grab_exc_value(frame)
