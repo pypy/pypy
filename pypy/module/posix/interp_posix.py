@@ -1085,7 +1085,7 @@ def declare_wait_macro(name, return_bool=False):
     def wait_macro(space, status):
         result = getattr(rposix, name)(status)
         if return_bool:
-            return space.newbool(result)
+            return space.newbool(bool(result))
         else:
             return space.wrap(result)
     return wait_macro
