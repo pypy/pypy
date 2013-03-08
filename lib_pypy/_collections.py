@@ -10,7 +10,7 @@
 
 import operator
 try:
-    from _thread import get_ident as _thread_ident
+    from threading import _get_ident as _thread_ident
 except ImportError:
     def _thread_ident():
         return -1
@@ -432,5 +432,5 @@ class defaultdict(dict):
 
            This API is used by pickle.py and copy.py.
         """
-        return (type(self), (self.default_factory,), None, None, iter(self.items()))
+        return (type(self), (self.default_factory,), None, None, self.items())
 
