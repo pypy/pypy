@@ -169,6 +169,13 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         else:
             table[int(code, 16)].east_asian_width = width
 
+    # Expand ranges
+    for (first, last), char in ranges.iteritems():
+        for code in range(first, last + 1):
+            assert table[code] is None, 'Multiply defined character %04X' % code
+
+            table[code] = char
+
     # Read Derived Core Properties:
     for line in derived_core_properties_file:
         line = line.split('#', 1)[0].strip()
@@ -189,13 +196,6 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
                 # apply to unassigned code points; ignore them
                 continue
             table[char].properties += (p,)
-
-    # Expand ranges
-    for (first, last), char in ranges.iteritems():
-        for code in range(first, last + 1):
-            assert table[code] is None, 'Multiply defined character %04X' % code
-
-            table[code] = char
 
     defaultChar = Unicodechar(['0000', None, 'Cn'] + [''] * 12)
     for code in range(len(table)):
