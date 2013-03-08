@@ -18,6 +18,7 @@ Thanks to Tim Peters for suggesting using it.
 
 import time as _time
 import math as _math
+import struct as _struct
 
 def _cmp(x, y):
     return 0 if x == y else 1 if x > y else -1
@@ -1021,7 +1022,7 @@ class date(object):
 
     def _getstate(self):
         yhi, ylo = divmod(self._year, 256)
-        return ("%c%c%c%c" % (yhi, ylo, self._month, self._day), )
+        return (_struct.pack('4B', yhi, ylo, self._month, self._day),)
 
     def __setstate(self, string):
         if len(string) != 4 or not (1 <= ord(string[2]) <= 12):
@@ -1404,8 +1405,8 @@ class time(object):
     def _getstate(self):
         us2, us3 = divmod(self._microsecond, 256)
         us1, us2 = divmod(us2, 256)
-        basestate = ("%c" * 6) % (self._hour, self._minute, self._second,
-                                  us1, us2, us3)
+        basestate = _struct.pack('6B', self._hour, self._minute, self._second,
+                                       us1, us2, us3)
         if self._tzinfo is None:
             return (basestate,)
         else:
@@ -1889,9 +1890,9 @@ class datetime(date):
         yhi, ylo = divmod(self._year, 256)
         us2, us3 = divmod(self._microsecond, 256)
         us1, us2 = divmod(us2, 256)
-        basestate = ("%c" * 10) % (yhi, ylo, self._month, self._day,
-                                   self._hour, self._minute, self._second,
-                                   us1, us2, us3)
+        basestate = _struct.pack('10B', yhi, ylo, self._month, self._day,
+                                        self._hour, self._minute, self._second,
+                                        us1, us2, us3)
         if self._tzinfo is None:
             return (basestate,)
         else:
