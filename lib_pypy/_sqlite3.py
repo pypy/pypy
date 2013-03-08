@@ -24,10 +24,22 @@
 # Note: This software has been modified for use in PyPy.
 
 from collections import OrderedDict
+from functools import wraps
 import datetime
+import string
 import sys
 import weakref
-from threading import _get_ident as thread_get_ident
+from threading import _get_ident as _thread_get_ident
+
+if sys.version_info[0] >= 3:
+    StandardError = Exception
+    long = int
+    xrange = range
+    basestring = unicode = str
+    buffer = memoryview
+    _BLOB_TYPE = bytes
+else:
+    _BLOB_TYPE = buffer
 
 from cffi import FFI
 
@@ -346,11 +358,21 @@ def connect(database, **kwargs):
     return factory(database, **kwargs)
 
 
-def unicode_text_factory(x):
+def _unicode_text_factory(x):
     return unicode(x, 'utf-8')
 
+if sys.version_info[0] < 3:
+    def OptimizedUnicode(s):
+        try:
+            val = unicode(s, "ascii").encode("ascii")
+        except UnicodeDecodeError:
+            val = unicode(s, "utf-8")
+        return val
+else:
+    OptimizedUnicode = _unicode_text_factory
 
-class StatementCache(object):
+
+class _StatementCache(object):
     def __init__(self, connection, maxcount):
         self.connection = connection
         self.maxcount = maxcount
@@ -364,7 +386,7 @@ class StatementCache(object):
             self.cache[sql] = stat
             if len(self.cache) > self.maxcount:
                 self.cache.popitem(0)
-        #
+
         if stat.in_use:
             stat = Statement(self.connection, sql)
         stat.set_row_factory(row_factory)
@@ -377,7 +399,7 @@ class Connection(object):
                  cached_statements=100):
         db_star = ffi.new('sqlite3 **')
         if isinstance(database, unicode):
-            database = database.encode("utf-8")
+            database = database.encode('utf-8')
         if lib.sqlite3_open(database, db_star) != lib.SQLITE_OK:
             raise OperationalError("Could not open database")
         self.db = db_star[0]
@@ -385,14 +407,14 @@ class Connection(object):
             timeout = int(timeout * 1000)  # pysqlite2 uses timeout in seconds
             lib.sqlite3_busy_timeout(self.db, timeout)
 
-        self.text_factory = unicode_text_factory
+        self.text_factory = _unicode_text_factory
         self.closed = False
         self.statements = []
         self.statement_counter = 0
         self.row_factory = None
         self._isolation_level = isolation_level
         self.detect_types = detect_types
-        self.statement_cache = StatementCache(self, cached_statements)
+        self.statement_cache = _StatementCache(self, cached_statements)
 
         self.cursors = []
 
@@ -412,7 +434,49 @@ class Connection(object):
         self.aggregate_instances = {}
         self._collations = {}
         if check_same_thread:
-            self.thread_ident = thread_get_ident()
+            self.thread_ident = _thread_get_ident()
+
+    def close(self):
+        self._check_thread()
+        if self.closed:
+            return
+        for statement in self.statements:
+            obj = statement()
+            if obj is not None:
+                obj.finalize()
+
+        self.closed = True
+        ret = lib.sqlite3_close(self.db)
+        self._reset_cursors()
+        if ret != lib.SQLITE_OK:
+            raise self._get_exception(ret)
+
+    def _check_closed(self):
+        if getattr(self, 'closed', True):
+            raise ProgrammingError("Cannot operate on a closed database.")
+
+    def _check_closed_wrap(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            self._check_closed()
+            return func(self, *args, **kwargs)
+        return wrapper
+
+    def _check_thread(self):
+        if not hasattr(self, 'thread_ident'):
+            return
+        if self.thread_ident != _thread_get_ident():
+            raise ProgrammingError(
+                "SQLite objects created in a thread can only be used in that "
+                "same thread. The object was created in thread id %d and this "
+                "is thread id %d", self.thread_ident, _thread_get_ident())
+
+    def _check_thread_wrap(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            self._check_thread()
+            return func(self, *args, **kwargs)
+        return wrapper
 
     def _get_exception(self, error_code=None):
         if error_code is None:
@@ -454,20 +518,18 @@ class Connection(object):
             self.statements = [ref for ref in self.statements
                                if ref() is not None]
 
-    def _check_thread(self):
-        if not hasattr(self, 'thread_ident'):
-            return
-        if self.thread_ident != thread_get_ident():
-            raise ProgrammingError(
-                "SQLite objects created in a thread can only be used in that "
-                "same thread. The object was created in thread id %d and this "
-                "is thread id %d", self.thread_ident, thread_get_ident())
-
     def _reset_cursors(self):
         for cursor_ref in self.cursors:
             cursor = cursor_ref()
             if cursor:
                 cursor.reset = True
+
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def __call__(self, sql):
+        if not isinstance(sql, basestring):
+            raise Warning("SQL is of wrong type. Must be string or unicode.")
+        return self.statement_cache.get(sql, self.row_factory)
 
     def cursor(self, factory=None):
         self._check_thread()
@@ -479,63 +541,41 @@ class Connection(object):
             cur.row_factory = self.row_factory
         return cur
 
-    def executemany(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
-        return cur.executemany(*args)
-
     def execute(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
+        cur = self.cursor()
         return cur.execute(*args)
 
+    def executemany(self, *args):
+        cur = self.cursor()
+        return cur.executemany(*args)
+
     def executescript(self, *args):
-        self._check_closed()
-        cur = Cursor(self)
-        if self.row_factory is not None:
-            cur.row_factory = self.row_factory
+        cur = self.cursor()
         return cur.executescript(*args)
 
-    def __call__(self, sql):
-        self._check_closed()
-        if not isinstance(sql, (str, unicode)):
-            raise Warning("SQL is of wrong type. Must be string or unicode.")
-        statement = self.statement_cache.get(sql, self.row_factory)
-        return statement
-
-    def _get_isolation_level(self):
-        return self._isolation_level
-
-    def _set_isolation_level(self, val):
-        if val is None:
-            self.commit()
-        if isinstance(val, unicode):
-            val = str(val)
-        self._isolation_level = val
-    isolation_level = property(_get_isolation_level, _set_isolation_level)
+    def iterdump(self):
+        from sqlite3.dump import _iterdump
+        return _iterdump(self)
 
     def _begin(self):
         self._check_closed()
         if self._isolation_level is None:
             return
-        if lib.sqlite3_get_autocommit(self.db):
-            sql = "BEGIN " + self._isolation_level
-            statement_star = ffi.new('sqlite3_stmt **')
-            next_char = ffi.new('char **')
-            ret = lib.sqlite3_prepare_v2(self.db, sql, -1, statement_star,
-                                         next_char)
-            try:
-                if ret != lib.SQLITE_OK:
-                    raise self._get_exception(ret)
-                ret = lib.sqlite3_step(statement_star[0])
-                if ret != lib.SQLITE_DONE:
-                    raise self._get_exception(ret)
-            finally:
-                lib.sqlite3_finalize(statement_star[0])
+        if not lib.sqlite3_get_autocommit(self.db):
+            return
+        sql = "BEGIN " + self._isolation_level
+        statement_star = ffi.new('sqlite3_stmt **')
+        next_char = ffi.new('char **')
+        ret = lib.sqlite3_prepare_v2(self.db, sql, -1, statement_star,
+                                     next_char)
+        try:
+            if ret != lib.SQLITE_OK:
+                raise self._get_exception(ret)
+            ret = lib.sqlite3_step(statement_star[0])
+            if ret != lib.SQLITE_DONE:
+                raise self._get_exception(ret)
+        finally:
+            lib.sqlite3_finalize(statement_star[0])
 
     def commit(self):
         self._check_thread()
@@ -548,10 +588,9 @@ class Connection(object):
             if obj is not None:
                 obj.reset()
 
-        sql = "COMMIT"
         statement_star = ffi.new('sqlite3_stmt **')
         next_char = ffi.new('char **')
-        ret = lib.sqlite3_prepare_v2(self.db, sql, -1, statement_star,
+        ret = lib.sqlite3_prepare_v2(self.db, b"COMMIT", -1, statement_star,
                                      next_char)
         try:
             if ret != lib.SQLITE_OK:
@@ -573,10 +612,9 @@ class Connection(object):
             if obj is not None:
                 obj.reset()
 
-        sql = "ROLLBACK"
         statement_star = ffi.new('sqlite3_stmt **')
         next_char = ffi.new('char **')
-        ret = lib.sqlite3_prepare_v2(self.db, sql, -1, statement_star,
+        ret = lib.sqlite3_prepare_v2(self.db, b"ROLLBACK", -1, statement_star,
                                      next_char)
         try:
             if ret != lib.SQLITE_OK:
@@ -588,10 +626,6 @@ class Connection(object):
             lib.sqlite3_finalize(statement_star[0])
             self._reset_cursors()
 
-    def _check_closed(self):
-        if getattr(self, 'closed', True):
-            raise ProgrammingError("Cannot operate on a closed database.")
-
     def __enter__(self):
         return self
 
@@ -601,30 +635,88 @@ class Connection(object):
         else:
             self.rollback()
 
-    def _get_total_changes(self):
-        return lib.sqlite3_total_changes(self.db)
-    total_changes = property(_get_total_changes)
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def create_function(self, name, num_args, callback):
+        try:
+            closure = self.func_cache[callback]
+        except KeyError:
+            @ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
+            def closure(context, nargs, c_params):
+                _function_callback(callback, context, nargs, c_params)
+            self.func_cache[callback] = closure
+        ret = lib.sqlite3_create_function(self.db, name, num_args,
+                                          lib.SQLITE_UTF8, ffi.NULL,
+                                          closure, ffi.NULL, ffi.NULL)
+        if ret != lib.SQLITE_OK:
+            raise self.OperationalError("Error creating function")
 
-    def close(self):
-        self._check_thread()
-        if self.closed:
-            return
-        for statement in self.statements:
-            obj = statement()
-            if obj is not None:
-                obj.finalize()
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def create_aggregate(self, name, num_args, cls):
+        try:
+            step_callback, final_callback = self._aggregates[cls]
+        except KeyError:
+            @ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
+            def step_callback(context, argc, c_params):
+                res = lib.sqlite3_aggregate_context(context,
+                                                    ffi.sizeof("size_t"))
+                aggregate_ptr = ffi.cast("size_t[1]", res)
 
-        self.closed = True
-        ret = lib.sqlite3_close(self.db)
-        self._reset_cursors()
+                if not aggregate_ptr[0]:
+                    try:
+                        aggregate = cls()
+                    except Exception:
+                        msg = (b"user-defined aggregate's '__init__' "
+                               b"method raised error")
+                        lib.sqlite3_result_error(context, msg, len(msg))
+                        return
+                    aggregate_id = id(aggregate)
+                    self.aggregate_instances[aggregate_id] = aggregate
+                    aggregate_ptr[0] = aggregate_id
+                else:
+                    aggregate = self.aggregate_instances[aggregate_ptr[0]]
+
+                params = _convert_params(context, argc, c_params)
+                try:
+                    aggregate.step(*params)
+                except Exception:
+                    msg = (b"user-defined aggregate's 'step' "
+                           b"method raised error")
+                    lib.sqlite3_result_error(context, msg, len(msg))
+
+            @ffi.callback("void(sqlite3_context*)")
+            def final_callback(context):
+                res = lib.sqlite3_aggregate_context(context,
+                                                    ffi.sizeof("size_t"))
+                aggregate_ptr = ffi.cast("size_t[1]", res)
+
+                if aggregate_ptr[0]:
+                    aggregate = self.aggregate_instances[aggregate_ptr[0]]
+                    try:
+                        val = aggregate.finalize()
+                    except Exception:
+                        msg = (b"user-defined aggregate's 'finalize' "
+                               b"method raised error")
+                        lib.sqlite3_result_error(context, msg, len(msg))
+                    else:
+                        _convert_result(context, val)
+                    finally:
+                        del self.aggregate_instances[aggregate_ptr[0]]
+
+            self._aggregates[cls] = step_callback, final_callback
+
+        ret = lib.sqlite3_create_function(self.db, name, num_args,
+                                          lib.SQLITE_UTF8, ffi.NULL, ffi.NULL,
+                                          step_callback, final_callback)
         if ret != lib.SQLITE_OK:
             raise self._get_exception(ret)
 
+    @_check_thread_wrap
+    @_check_closed_wrap
     def create_collation(self, name, callback):
-        self._check_thread()
-        self._check_closed()
         name = name.upper()
-        if not name.replace('_', '').isalnum():
+        if not all(c in string.ascii_uppercase + string.digits + '_' for c in name):
             raise ProgrammingError("invalid character in collation name")
 
         if callback is None:
@@ -648,9 +740,28 @@ class Connection(object):
         if ret != lib.SQLITE_OK:
             raise self._get_exception(ret)
 
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def set_authorizer(self, callback):
+        try:
+            authorizer = self.func_cache[callback]
+        except KeyError:
+            @ffi.callback("int(void*, int, const char*, const char*, "
+                          "const char*, const char*)")
+            def authorizer(userdata, action, arg1, arg2, dbname, source):
+                try:
+                    return int(callback(action, arg1, arg2, dbname, source))
+                except Exception:
+                    return lib.SQLITE_DENY
+            self.func_cache[callback] = authorizer
+
+        ret = lib.sqlite3_set_authorizer(self.db, authorizer, ffi.NULL)
+        if ret != lib.SQLITE_OK:
+            raise self._get_exception(ret)
+
+    @_check_thread_wrap
+    @_check_closed_wrap
     def set_progress_handler(self, callable, nsteps):
-        self._check_thread()
-        self._check_closed()
         if callable is None:
             progress_handler = ffi.NULL
         else:
@@ -670,113 +781,26 @@ class Connection(object):
         lib.sqlite3_progress_handler(self.db, nsteps, progress_handler,
                                      ffi.NULL)
 
-    def set_authorizer(self, callback):
-        self._check_thread()
+    def __get_total_changes(self):
         self._check_closed()
+        return lib.sqlite3_total_changes(self.db)
+    total_changes = property(__get_total_changes)
 
-        try:
-            authorizer = self.func_cache[callback]
-        except KeyError:
-            @ffi.callback("int(void*, int, const char*, const char*, "
-                          "const char*, const char*)")
-            def authorizer(userdata, action, arg1, arg2, dbname, source):
-                try:
-                    return int(callback(action, arg1, arg2, dbname, source))
-                except Exception:
-                    return lib.SQLITE_DENY
-            self.func_cache[callback] = authorizer
+    def __get_isolation_level(self):
+        return self._isolation_level
 
-        ret = lib.sqlite3_set_authorizer(self.db, authorizer, ffi.NULL)
-        if ret != lib.SQLITE_OK:
-            raise self._get_exception(ret)
-
-    def create_function(self, name, num_args, callback):
-        self._check_thread()
-        self._check_closed()
-        try:
-            closure = self.func_cache[callback]
-        except KeyError:
-            @ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
-            def closure(context, nargs, c_params):
-                function_callback(callback, context, nargs, c_params)
-            self.func_cache[callback] = closure
-        ret = lib.sqlite3_create_function(self.db, name, num_args,
-                                          lib.SQLITE_UTF8, ffi.NULL,
-                                          closure, ffi.NULL, ffi.NULL)
-        if ret != lib.SQLITE_OK:
-            raise self.OperationalError("Error creating function")
-
-    def create_aggregate(self, name, num_args, cls):
-        self._check_thread()
-        self._check_closed()
-
-        try:
-            step_callback, final_callback = self._aggregates[cls]
-        except KeyError:
-            @ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
-            def step_callback(context, argc, c_params):
-                res = lib.sqlite3_aggregate_context(context,
-                                                    ffi.sizeof("size_t"))
-                aggregate_ptr = ffi.cast("size_t[1]", res)
-
-                if not aggregate_ptr[0]:
-                    try:
-                        aggregate = cls()
-                    except Exception:
-                        msg = ("user-defined aggregate's '__init__' "
-                               "method raised error")
-                        lib.sqlite3_result_error(context, msg, len(msg))
-                        return
-                    aggregate_id = id(aggregate)
-                    self.aggregate_instances[aggregate_id] = aggregate
-                    aggregate_ptr[0] = aggregate_id
-                else:
-                    aggregate = self.aggregate_instances[aggregate_ptr[0]]
-
-                params = _convert_params(context, argc, c_params)
-                try:
-                    aggregate.step(*params)
-                except Exception:
-                    msg = ("user-defined aggregate's 'step' "
-                           "method raised error")
-                    lib.sqlite3_result_error(context, msg, len(msg))
-
-            @ffi.callback("void(sqlite3_context*)")
-            def final_callback(context):
-                res = lib.sqlite3_aggregate_context(context,
-                                                    ffi.sizeof("size_t"))
-                aggregate_ptr = ffi.cast("size_t[1]", res)
-
-                if aggregate_ptr[0]:
-                    aggregate = self.aggregate_instances[aggregate_ptr[0]]
-                    try:
-                        val = aggregate.finalize()
-                    except Exception:
-                        msg = ("user-defined aggregate's 'finalize' "
-                               "method raised error")
-                        lib.sqlite3_result_error(context, msg, len(msg))
-                    else:
-                        _convert_result(context, val)
-                    finally:
-                        del self.aggregate_instances[aggregate_ptr[0]]
-
-            self._aggregates[cls] = step_callback, final_callback
-
-        ret = lib.sqlite3_create_function(self.db, name, num_args,
-                                          lib.SQLITE_UTF8, ffi.NULL, ffi.NULL,
-                                          step_callback, final_callback)
-        if ret != lib.SQLITE_OK:
-            raise self._get_exception(ret)
-
-    def iterdump(self):
-        from sqlite3.dump import _iterdump
-        return _iterdump(self)
+    def __set_isolation_level(self, val):
+        if val is None:
+            self.commit()
+        if isinstance(val, unicode):
+            val = str(val)
+        self._isolation_level = val
+    isolation_level = property(__get_isolation_level, __set_isolation_level)
 
     if hasattr(lib, 'sqlite3_enable_load_extension'):
+        @_check_thread_wrap
+        @_check_closed_wrap
         def enable_load_extension(self, enabled):
-            self._check_thread()
-            self._check_closed()
-
             rc = lib.sqlite3_enable_load_extension(self.db, int(enabled))
             if rc != lib.SQLITE_OK:
                 raise OperationalError("Error enabling load extension")
@@ -1074,43 +1098,44 @@ class Statement(object):
 
             self.row_cast_map.append(converter)
 
-    def _check_decodable(self, param):
-        if self.con.text_factory in (unicode, OptimizedUnicode,
-                                     unicode_text_factory):
-            for c in param:
-                if ord(c) & 0x80 != 0:
-                    raise self.con.ProgrammingError(
+    if sys.version_info[0] < 3:
+        def __check_decodable(self, param):
+            if self.con.text_factory in (unicode, OptimizedUnicode,
+                                         _unicode_text_factory):
+                for c in param:
+                    if ord(c) & 0x80 != 0:
+                        raise self.con.ProgrammingError(
                             "You must not use 8-bit bytestrings unless "
                             "you use a text_factory that can interpret "
                             "8-bit bytestrings (like text_factory = str). "
                             "It is highly recommended that you instead "
                             "just switch your application to Unicode strings.")
 
-    def set_param(self, idx, param):
+    def __set_param(self, idx, param):
         cvt = converters.get(type(param))
         if cvt is not None:
-            cvt = param = cvt(param)
+            param = cvt(param)
 
         param = adapt(param)
 
         if param is None:
             lib.sqlite3_bind_null(self.statement, idx)
-        elif type(param) in (bool, int, long):
+        elif isinstance(param, (bool, int, long)):
             if -2147483648 <= param <= 2147483647:
                 lib.sqlite3_bind_int(self.statement, idx, param)
             else:
                 lib.sqlite3_bind_int64(self.statement, idx, param)
-        elif type(param) is float:
+        elif isinstance(param, float):
             lib.sqlite3_bind_double(self.statement, idx, param)
-        elif isinstance(param, str):
-            self._check_decodable(param)
-            lib.sqlite3_bind_text(self.statement, idx, param, len(param),
-                                  _SQLITE_TRANSIENT)
         elif isinstance(param, unicode):
             param = param.encode("utf-8")
             lib.sqlite3_bind_text(self.statement, idx, param, len(param),
                                   _SQLITE_TRANSIENT)
-        elif type(param) is buffer:
+        elif isinstance(param, str):
+            self.__check_decodable(param)
+            lib.sqlite3_bind_text(self.statement, idx, param, len(param),
+                                  _SQLITE_TRANSIENT)
+        elif isinstance(param, (buffer, bytes)):
             lib.sqlite3_bind_blob(self.statement, idx, str(param), len(param),
                                   _SQLITE_TRANSIENT)
         else:
@@ -1139,7 +1164,7 @@ class Statement(object):
                 raise ProgrammingError("wrong number of arguments")
 
             for i in range(len(params)):
-                self.set_param(i + 1, params[i])
+                self.__set_param(i + 1, params[i])
         else:
             param_count = lib.sqlite3_bind_parameter_count(self.statement)
             for idx in range(1, param_count + 1):
@@ -1152,7 +1177,7 @@ class Statement(object):
                     param = params[param_name]
                 except KeyError:
                     raise ProgrammingError("missing parameter '%s'" % param)
-                self.set_param(idx, param)
+                self.__set_param(idx, param)
 
     def next(self, cursor):
         self.con._check_closed()
@@ -1181,23 +1206,21 @@ class Statement(object):
 
             converter = self.row_cast_map[i]
             if converter is None:
-                if typ == lib.SQLITE_INTEGER:
+                if typ == lib.SQLITE_NULL:
+                    val = None
+                elif typ == lib.SQLITE_INTEGER:
                     val = lib.sqlite3_column_int64(self.statement, i)
-                    if -sys.maxint - 1 <= val <= sys.maxint:
-                        val = int(val)
                 elif typ == lib.SQLITE_FLOAT:
                     val = lib.sqlite3_column_double(self.statement, i)
-                elif typ == lib.SQLITE_BLOB:
-                    blob_len = lib.sqlite3_column_bytes(self.statement, i)
-                    blob = lib.sqlite3_column_blob(self.statement, i)
-                    val = buffer(ffi.buffer(blob, blob_len))
-                elif typ == lib.SQLITE_NULL:
-                    val = None
                 elif typ == lib.SQLITE_TEXT:
-                    text_len = lib.sqlite3_column_bytes(self.statement, i)
                     text = lib.sqlite3_column_text(self.statement, i)
+                    text_len = lib.sqlite3_column_bytes(self.statement, i)
                     val = ffi.buffer(text, text_len)[:]
                     val = self.con.text_factory(val)
+                elif typ == lib.SQLITE_BLOB:
+                    blob = lib.sqlite3_column_blob(self.statement, i)
+                    blob_len = lib.sqlite3_column_bytes(self.statement, i)
+                    val = _BLOB_TYPE(ffi.buffer(blob, blob_len))
             else:
                 blob = lib.sqlite3_column_blob(self.statement, i)
                 if not blob:
@@ -1324,22 +1347,19 @@ def _convert_params(con, nargs, params):
     _params = []
     for i in range(nargs):
         typ = lib.sqlite3_value_type(params[i])
-        if typ == lib.SQLITE_INTEGER:
+        if typ == lib.SQLITE_NULL:
+            val = None
+        elif typ == lib.SQLITE_INTEGER:
             val = lib.sqlite3_value_int64(params[i])
-            if -sys.maxint - 1 <= val <= sys.maxint:
-                val = int(val)
         elif typ == lib.SQLITE_FLOAT:
             val = lib.sqlite3_value_double(params[i])
-        elif typ == lib.SQLITE_BLOB:
-            blob_len = lib.sqlite3_value_bytes(params[i])
-            blob = lib.sqlite3_value_blob(params[i])
-            val = buffer(ffi.buffer(blob, blob_len))
-        elif typ == lib.SQLITE_NULL:
-            val = None
         elif typ == lib.SQLITE_TEXT:
             val = lib.sqlite3_value_text(params[i])
-            # XXX changed from con.text_factory
             val = unicode(ffi.string(val), 'utf-8')
+        elif typ == lib.SQLITE_BLOB:
+            blob = lib.sqlite3_value_blob(params[i])
+            blob_len = lib.sqlite3_value_bytes(params[i])
+            val = _BLOB_TYPE(ffi.buffer(blob, blob_len))
         else:
             raise NotImplementedError
         _params.append(val)
@@ -1351,26 +1371,25 @@ def _convert_result(con, val):
         lib.sqlite3_result_null(con)
     elif isinstance(val, (bool, int, long)):
         lib.sqlite3_result_int64(con, int(val))
-    elif isinstance(val, str):
-        # XXX ignoring unicode issue
-        lib.sqlite3_result_text(con, val, len(val), _SQLITE_TRANSIENT)
+    elif isinstance(val, float):
+        lib.sqlite3_result_double(con, val)
     elif isinstance(val, unicode):
         val = val.encode('utf-8')
         lib.sqlite3_result_text(con, val, len(val), _SQLITE_TRANSIENT)
-    elif isinstance(val, float):
-        lib.sqlite3_result_double(con, val)
-    elif isinstance(val, buffer):
+    elif isinstance(val, str):
+        lib.sqlite3_result_text(con, val, len(val), _SQLITE_TRANSIENT)
+    elif isinstance(val, (buffer, bytes)):
         lib.sqlite3_result_blob(con, str(val), len(val), _SQLITE_TRANSIENT)
     else:
         raise NotImplementedError
 
 
-def function_callback(real_cb, context, nargs, c_params):
+def _function_callback(real_cb, context, nargs, c_params):
     params = _convert_params(context, nargs, c_params)
     try:
         val = real_cb(*params)
     except Exception:
-        msg = "user-defined function raised exception"
+        msg = b"user-defined function raised exception"
         lib.sqlite3_result_error(context, msg, len(msg))
     else:
         _convert_result(context, val)
@@ -1411,10 +1430,8 @@ def register_adapters_and_converters():
             microseconds = int(timepart_full[1])
         else:
             microseconds = 0
-
-        val = datetime.datetime(year, month, day, hours, minutes, seconds,
-                                microseconds)
-        return val
+        return datetime.datetime(year, month, day, hours, minutes, seconds,
+                                 microseconds)
 
     register_adapter(datetime.date, adapt_date)
     register_adapter(datetime.datetime, adapt_datetime)
@@ -1451,11 +1468,3 @@ def adapt(val, proto=PrepareProtocol):
     return val
 
 register_adapters_and_converters()
-
-
-def OptimizedUnicode(s):
-    try:
-        val = unicode(s, "ascii").encode("ascii")
-    except UnicodeDecodeError:
-        val = unicode(s, "utf-8")
-    return val
