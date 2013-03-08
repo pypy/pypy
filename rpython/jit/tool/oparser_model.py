@@ -48,9 +48,11 @@ def get_mock_model():
 
         class BasicFailDescr(object):
             I_am_a_descr = True
+            final_descr = False
 
         class BasicFinalDescr(object):
             I_am_a_descr = True
+            final_descr = True
 
         class Box(object):
             _counter = 0
