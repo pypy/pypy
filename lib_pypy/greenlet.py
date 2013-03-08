@@ -111,7 +111,7 @@ class greenlet(_continulet):
 # Internal stuff
 
 try:
-    from thread import _local
+    from threading import local as _local
 except ImportError:
     class _local(object):    # assume no threads
         pass
