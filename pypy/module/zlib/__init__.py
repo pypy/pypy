@@ -4,7 +4,7 @@ Mixed-module definition for the zlib module.
 """
 
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import rzlib
+from rpython.rlib import rzlib
 
 
 class Module(MixedModule):

@@ -5,7 +5,7 @@ from pypy.objspace.std.dictmultiobject import DictStrategy
 from pypy.objspace.std.typeobject import unwrap_cell
 from pypy.interpreter.error import OperationError, operationerrfmt
 
-from pypy.rlib import rerased
+from rpython.rlib import rerased
 
 
 class DictProxyStrategy(DictStrategy):

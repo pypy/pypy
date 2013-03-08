@@ -15,6 +15,7 @@ from pypy.objspace.std.stringtype import (
     str_splitlines, str_translate)
 from pypy.objspace.std.listtype import (
     list_append, list_extend)
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint
 
 
 bytearray_insert  = SMM('insert', 3,
@@ -87,8 +88,10 @@ def makebytearraydata_w(space, w_source):
         return [c for c in string]
 
     # sequence of bytes
-    data = []
     w_iter = space.iter(w_source)
+    length_hint = space.length_hint(w_source, 0)
+    data = newlist_hint(length_hint)
+    extended = 0
     while True:
         try:
             w_item = space.next(w_iter)
@@ -98,6 +101,9 @@ def makebytearraydata_w(space, w_source):
             break
         value = getbytevalue(space, w_item)
         data.append(value)
+        extended += 1
+    if extended < length_hint:
+        resizelist_hint(data, extended)
     return data
 
 def descr_bytearray__reduce__(space, w_self):

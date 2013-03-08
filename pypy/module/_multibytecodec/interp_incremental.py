@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module._multibytecodec import c_codecs
 from pypy.module._multibytecodec.interp_multibytecodec import (
     MultibyteCodec, wrap_unicodedecodeerror, wrap_runtimeerror,

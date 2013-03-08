@@ -6,7 +6,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator
-from pypy.rlib.objectmodel import instantiate
+from rpython.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
 

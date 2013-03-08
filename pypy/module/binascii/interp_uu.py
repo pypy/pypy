@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder
 from pypy.module.binascii.interp_binascii import raise_Error
 
 # ____________________________________________________________

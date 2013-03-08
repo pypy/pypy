@@ -5,17 +5,20 @@ from pypy.module.sys.initpath import (compute_stdlib_path, find_executable, find
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 
 def build_hierarchy(prefix):
-    dirname = '%d.%d' % CPYTHON_VERSION[:2]
+    dirname = '%d' % CPYTHON_VERSION[0]
     a = prefix.join('lib_pypy').ensure(dir=1)
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b
 
-def test_find_stdlib(tmpdir):
+def test_find_stdlib(tmpdir, monkeypatch):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy').ensure(file=True)
     build_hierarchy(tmpdir)
     path, prefix = find_stdlib(None, str(pypy))
     assert prefix == tmpdir
+    # shouldn't find stdlib if executable == '' even if parent dir has a stdlib
+    monkeypatch.chdir(tmpdir.join('bin'))
+    assert find_stdlib(None, '') == (None, None)
 
 @py.test.mark.skipif('not hasattr(os, "symlink")')
 def test_find_stdlib_follow_symlink(tmpdir):
@@ -26,7 +29,6 @@ def test_find_stdlib_follow_symlink(tmpdir):
     os.symlink(str(pypy), str(pypy_sym))
     path, prefix = find_stdlib(None, str(pypy_sym))
     assert prefix == pypydir
-
 
 def test_compute_stdlib_path(tmpdir):
     dirs = build_hierarchy(tmpdir)
@@ -39,7 +41,6 @@ def test_include_libtk(tmpdir):
     lib_tk = lib_python.join('lib-tk')
     path = compute_stdlib_path(None, str(tmpdir))
     assert lib_tk in path
-
 
 def test_find_executable(tmpdir, monkeypatch):
     from pypy.module.sys import initpath
@@ -86,6 +87,7 @@ def test_find_executable(tmpdir, monkeypatch):
     assert find_executable('pypy') == a.join('pypy.exe')
 
 def test_resolvedirof(tmpdir):
+    assert resolvedirof('') == os.path.abspath(os.path.join(os.getcwd(), '..'))
     foo = tmpdir.join('foo').ensure(dir=True)
     bar = tmpdir.join('bar').ensure(dir=True)
     myfile = foo.join('myfile').ensure(file=True)

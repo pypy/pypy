@@ -1,6 +1,6 @@
 
 import py
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, os, sys
@@ -15,7 +15,7 @@ def test_dir_structure(test='test'):
         basename = 'pypy-c'
         rename_pypy_c = 'pypy'
         exe_name_in_archive = 'bin/pypy'
-    pypy_c = py.path.local(pypydir).join('translator', 'goal', basename)
+    pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
         os.system("echo faked_pypy_c> %s" % (pypy_c,))
         pypy_c.chmod(0755)
@@ -26,7 +26,7 @@ def test_dir_structure(test='test'):
         builddir = package.package(py.path.local(pypydir).dirpath(), test,
                                    rename_pypy_c)
         prefix = builddir.join(test)
-        cpyver = '%d.%d' % CPYTHON_VERSION[:2]
+        cpyver = '%d' % CPYTHON_VERSION[0]
         assert prefix.join('lib-python', cpyver, 'test').check()
         assert prefix.join(exe_name_in_archive).check()
         assert prefix.join('lib_pypy', 'syslog.py').check()

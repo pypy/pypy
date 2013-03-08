@@ -23,6 +23,7 @@ except ImportError:
         def __init__(self, name, command_class):
             pass
 
+MAX_DISPLAY_LENGTH = 100 # maximum number of characters displayed in rpy_string
 
 def find_field_with_suffix(val, suffix):
     """
@@ -152,7 +153,15 @@ class RPyStringPrinter(object):
         chars = self.val['rs_chars']
         length = int(chars['length'])
         items = chars['items']
-        res = [chr(items[i]) for i in range(length)]
+        res = []
+        for i in range(min(length, MAX_DISPLAY_LENGTH)):
+            try:
+                res.append(chr(items[i]))
+            except ValueError:
+                # it's a gdb.Value so it has "121 'y'" as repr
+                res.append(chr(int(str(items[0]).split(" ")[0])))
+        if length > MAX_DISPLAY_LENGTH:
+            res.append('...')
         string = ''.join(res)
         return 'r' + repr(string)
 

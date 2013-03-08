@@ -1,6 +1,6 @@
+from resource import _struct_rusage, struct_rusage
 from ctypes import CDLL, c_int, POINTER, byref
 from ctypes.util import find_library
-from resource import _struct_rusage, struct_rusage
 
 __all__ = ["wait3", "wait4"]
 

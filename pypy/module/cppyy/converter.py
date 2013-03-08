@@ -2,9 +2,9 @@ import sys
 
 from pypy.interpreter.error import OperationError
 
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.rarithmetic import r_singlefloat
-from pypy.rlib import jit_libffi, rfloat
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib import jit_libffi, rfloat
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array

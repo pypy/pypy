@@ -77,7 +77,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rwin32
+from rpython.rlib import rwin32
 
 def readwrite_attrproperty_w(name, cls):
     def fget(space, obj):
@@ -176,8 +176,8 @@ class W_BaseException(Wrappable):
         if self.w_message is None:
             raise OperationError(space.w_AttributeError,
                                  space.wrap("message was deleted"))
-        space.warn("BaseException.message has been deprecated as of Python 2.6",
-                   space.w_DeprecationWarning)
+        msg = "BaseException.message has been deprecated as of Python 2.6"
+        space.warn(space.wrap(msg), space.w_DeprecationWarning)
         return self.w_message
 
     def descr_message_set(self, space, w_new):

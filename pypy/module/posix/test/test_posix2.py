@@ -3,10 +3,11 @@
 
 from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.tool.autopath import pypydir
-from pypy.rpython.module.ll_os import RegisterOs
+from pypy.conftest import pypydir
+from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.translator.c.test.test_extfunc import need_sparse_files
 import os
 import py
 import sys
@@ -42,11 +43,7 @@ def setup_module(mod):
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
-def need_sparse_files():
-    if sys.platform == 'darwin':
-        py.test.skip("no sparse files on default Mac OS X file system")
-    if os.name == 'nt':
-        py.test.skip("no sparse files on Windows")
+
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
@@ -516,6 +513,16 @@ class AppTestPosix:
             res = fp.read()
             assert res == '1\n'
 
+    def test_popen_child_fds(self):
+        import os
+        with open(os.path.join(self.pdir, 'file1'), 'r') as fd:
+            with self.posix.popen('%s -c "import os; print os.read(%d, 10)" 2>&1' % (self.python, fd.fileno())) as stream:
+                res = stream.read()
+                if os.name == 'nt':
+                    assert '\nOSError: [Errno 9]' in res
+                else:
+                    assert res == 'test1\n'
+
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
             # nt specific
@@ -826,14 +833,19 @@ class AppTestPosix:
 
     if hasattr(os, 'chmod'):
         def test_chmod(self):
+            import sys
             os = self.posix
             os.unlink(self.path)
             raises(OSError, os.chmod, self.path, 0600)
             f = open(self.path, "w")
             f.write("this is a test")
             f.close()
-            os.chmod(self.path, 0200)
-            assert (os.stat(self.path).st_mode & 0777) == 0200
+            if sys.platform == 'win32':
+                os.chmod(self.path, 0400)
+                assert (os.stat(self.path).st_mode & 0600) == 0400
+            else:
+                os.chmod(self.path, 0200)
+                assert (os.stat(self.path).st_mode & 0777) == 0200
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
@@ -1127,7 +1139,7 @@ class TestPexpect(object):
         return child
 
     def spawn(self, argv):
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         return self._spawn(sys.executable, [str(py_py)] + argv)
 
     def test_ttyname(self):

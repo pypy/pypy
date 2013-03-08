@@ -7,17 +7,17 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 import dis, imp, struct, types, new, sys
 
 from pypy.interpreter import eval
-from pypy.interpreter.argument import Signature
+from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import compute_hash
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import compute_hash
 
 
 class BytecodeCorruption(Exception):
@@ -53,16 +53,17 @@ def cpython_code_signature(code):
         kwargname = None
     return Signature(argnames, varargname, kwargname)
 
+
 class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]"]
+                          "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
-                     hidden_applevel=False, magic = default_magic):
+                     hidden_applevel=False, magic=default_magic):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space
@@ -89,8 +90,6 @@ class PyCode(eval.Code):
 
     def _initialize(self):
         self._init_flags()
-        # Precompute what arguments need to be copied into cellvars
-        self._args_as_cellvars = []
 
         if self.co_cellvars:
             argcount = self.co_argcount
@@ -108,16 +107,22 @@ class PyCode(eval.Code):
             # produced by CPython are loaded by PyPy.  Note that CPython
             # contains the following bad-looking nested loops at *every*
             # function call!
-            argvars  = self.co_varnames
+
+            # Precompute what arguments need to be copied into cellvars
+            args_as_cellvars = []
+            argvars = self.co_varnames
             cellvars = self.co_cellvars
             for i in range(len(cellvars)):
                 cellname = cellvars[i]
                 for j in range(argcount):
                     if cellname == argvars[j]:
                         # argument j has the same name as the cell var i
-                        while len(self._args_as_cellvars) <= i:
-                            self._args_as_cellvars.append(-1)   # pad
-                        self._args_as_cellvars[i] = j
+                        while len(args_as_cellvars) <= i:
+                            args_as_cellvars.append(-1)   # pad
+                        args_as_cellvars[i] = j
+            self._args_as_cellvars = args_as_cellvars[:]
+        else:
+            self._args_as_cellvars = []
 
         self._compute_flatcall()
 

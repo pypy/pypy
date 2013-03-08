@@ -86,8 +86,8 @@ the version you have is not 4.2 or you will run into `this bug`_.
 
 4. Run::
 
-     cd pypy/translator/goal
-     python translate.py --opt=jit targetpypystandalone.py
+     cd pypy/goal
+     python ../../rpython/bin/rpython --opt=jit targetpypystandalone.py
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want to include the JIT
@@ -241,19 +241,19 @@ and then attempt to continue normally.  If the default path is usable,
 most code will be fine.  However, the ``sys.prefix`` will be unset
 and some existing libraries assume that this is never the case.
 
-.. _`py.py interpreter`:
+.. _`pyinteractive.py interpreter`:
 
 Running the Python Interpreter Without Translation
 ---------------------------------------------------
 
-The py.py interpreter
+The pyinteractive.py interpreter
 +++++++++++++++++++++
 
 To start interpreting Python with PyPy, install a C compiler that is
 supported by distutils and use Python 2.5 or greater to run PyPy::
 
     cd pypy
-    python bin/py.py
+    python bin/pyinteractive.py
 
 After a few seconds (remember: this is running on top of CPython), 
 you should be at the PyPy prompt, which is the same as the Python 
@@ -273,24 +273,24 @@ default is 50000, which is far too many to run in a non-translated
 PyPy version (i.e. when PyPy's interpreter itself is being interpreted 
 by CPython).
 
-py.py options
+pyinteractive.py options
 +++++++++++++
 
 To list the PyPy interpreter command line options, type::
 
     cd pypy
-    python bin/py.py --help
+    python bin/pyinteractive.py --help
 
-py.py supports most of the options that CPython supports too (in addition to a
-large amount of options that can be used to customize py.py).
+pyinteractive.py supports most of the options that CPython supports too (in addition to a
+large amount of options that can be used to customize pyinteractive.py).
 As an example of using PyPy from the command line, you could type::
 
-    python py.py -c "from test import pystone; pystone.main(10)"
+    python pyinteractive.py -c "from test import pystone; pystone.main(10)"
 
 Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
-    python py.py ../../lib-python/2.7/test/pystone.py 10
+    python pyinteractive.py ../../lib-python/2.7/test/pystone.py 10
 
 See our  `configuration sections`_ for details about what all the commandline
 options do.

@@ -5,11 +5,11 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib.rfloat import (
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
-from pypy.rlib import jit, rcomplex
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib import jit, rcomplex
+from rpython.rlib.rarithmetic import intmask
 
 import math
 
@@ -18,7 +18,7 @@ class W_AbstractComplexObject(W_Object):
     __slots__ = ()
 
     def is_w(self, space, w_other):
-        from pypy.rlib.longlong2float import float2longlong
+        from rpython.rlib.longlong2float import float2longlong
         if not isinstance(w_other, W_AbstractComplexObject):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
@@ -36,7 +36,7 @@ class W_AbstractComplexObject(W_Object):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        from pypy.rlib.longlong2float import float2longlong
+        from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.model import IDTAG_COMPLEX as tag
         real = space.float_w(space.getattr(self, space.wrap("real")))
         imag = space.float_w(space.getattr(self, space.wrap("imag")))
@@ -80,10 +80,8 @@ class W_ComplexObject(W_AbstractComplexObject):
         return W_ComplexObject(rr, ir)
 
     def divmod(self, space, other):
-        space.warn(
-            "complex divmod(), // and % are deprecated",
-            space.w_DeprecationWarning
-        )
+        space.warn(space.wrap("complex divmod(), // and % are deprecated"),
+                   space.w_DeprecationWarning)
         w_div = self.div(other)
         div = math.floor(w_div.realval)
         w_mod = self.sub(

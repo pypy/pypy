@@ -6,7 +6,7 @@ to app-level with apropriate interface
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception, _MS_WINDOWS
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
@@ -14,8 +14,8 @@ from pypy.module._rawffi.interp_rawffi import wrap_value, unwrap_value
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import size_alignment, LL_TYPEMAP
 from pypy.module._rawffi.interp_rawffi import unroll_letters_for_numbers
-from pypy.rlib import clibffi
-from pypy.rlib.rarithmetic import intmask, r_uint, signedtype, widen
+from rpython.rlib import clibffi
+from rpython.rlib.rarithmetic import intmask, r_uint, signedtype, widen
 
 def unpack_fields(space, w_fields):
     fields_w = space.unpackiterable(w_fields)

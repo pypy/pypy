@@ -1,9 +1,9 @@
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.rstruct.error import StructError
-from pypy.rlib.rstruct.formatiterator import FormatIterator
-from pypy.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.rstruct.formatiterator import FormatIterator
+from rpython.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
 from pypy.interpreter.error import OperationError
 
 
@@ -84,11 +84,10 @@ class PackFormatIterator(FormatIterator):
         def _maybe_float(self, w_obj):
             space = self.space
             if space.is_true(space.isinstance(w_obj, space.w_float)):
-                space.warn("struct: integer argument expected, got float",
-                           space.w_DeprecationWarning)
+                msg = "struct: integer argument expected, got float"
             else:
-                space.warn("integer argument expected, got non-integer",
-                           space.w_DeprecationWarning)
+                msg = "integer argument expected, got non-integer"
+            space.warn(space.wrap(msg), space.w_DeprecationWarning)
             return space.int(w_obj)   # wrapped float -> wrapped int or long
 
     else:

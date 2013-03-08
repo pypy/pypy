@@ -1,7 +1,7 @@
 ## ----------------------------------------------------------------------------
 ## dict strategy (see dictmultiobject.py)
 
-from pypy.rlib import rerased, jit
+from rpython.rlib import rerased, jit
 from pypy.objspace.std.dictmultiobject import (DictStrategy,
                                                create_iterator_classes,
                                                EmptyDictStrategy,

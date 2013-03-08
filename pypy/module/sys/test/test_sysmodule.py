@@ -613,14 +613,14 @@ class AppTestSysExcInfoDirect:
             vm.exc_info_with_tb = exc_info_with_tb
             vm.exc_info_without_tb = exc_info_without_tb
             #
-            from pypy.rlib import jit
+            from rpython.rlib import jit
             self.old2 = [jit.we_are_jitted]
             jit.we_are_jitted = lambda: True
 
     def teardown_method(self, meth):
         if self.checking:
             from pypy.module.sys import vm
-            from pypy.rlib import jit
+            from rpython.rlib import jit
             vm.exc_info_with_tb = self.old[0]
             vm.exc_info_without_tb = self.old[1]
             jit.we_are_jitted = self.old2[0]

@@ -2,15 +2,15 @@
 Pointers.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import wrap_oserror
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib import rposix
+from pypy.interpreter.error import OperationError, operationerrfmt, wrap_oserror
 
-from pypy.module._cffi_backend.ctypeobj import W_CType
+from rpython.rlib import rposix
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rtyper.lltypesystem import lltype, rffi
+
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
+from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypePtrOrArray(W_CType):
@@ -174,9 +174,10 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = ['is_file']
-    _immutable_fields_ = ['is_file']
+    _attrs_ = ['cache_array_type']
+    _immutable_fields_ = ['cache_array_type?']
     kind = "pointer"
+    cache_array_type = None
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -185,7 +186,6 @@ class W_CTypePointer(W_CTypePtrBase):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
-        self.is_file = (ctitem.name == "struct _IO_FILE")
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):
@@ -224,6 +224,9 @@ class W_CTypePointer(W_CTypePtrBase):
                                       self.name)
         return self
 
+    def _check_slice_index(self, w_cdata, start, stop):
+        return self
+
     def add(self, cdata, i):
         space = self.space
         ctitem = self.ctitem
@@ -234,22 +237,6 @@ class W_CTypePointer(W_CTypePtrBase):
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(space, p, self)
 
-    def cast(self, w_ob):
-        if self.is_file:
-            value = self.prepare_file(w_ob)
-            if value:
-                return cdataobj.W_CData(self.space, value, self)
-        return W_CTypePtrBase.cast(self, w_ob)
-
-    def prepare_file(self, w_ob):
-        from pypy.module._file.interp_file import W_File
-        from pypy.module._cffi_backend import ctypefunc
-        ob = self.space.interpclass_w(w_ob)
-        if isinstance(ob, W_File):
-            return prepare_file_argument(self.space, ob)
-        else:
-            return lltype.nullptr(rffi.CCHARP.TO)
-
     def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
         if (space.isinstance_w(w_init, space.w_list) or
@@ -258,20 +245,14 @@ class W_CTypePointer(W_CTypePtrBase):
         elif space.isinstance_w(w_init, space.w_basestring):
             # from a string, we add the null terminator
             length = space.int_w(space.len(w_init)) + 1
-        elif self.is_file:
-            result = self.prepare_file(w_init)
-            if result:
-                rffi.cast(rffi.CCHARPP, cdata)[0] = result
-                return 2
-            return 0
         else:
-            return 0
+            return False
         itemsize = self.ctitem.size
         if itemsize <= 0:
             if isinstance(self.ctitem, ctypevoid.W_CTypeVoid):
                 itemsize = 1
             else:
-                return 0
+                return False
         try:
             datasize = ovfcheck(length * itemsize)
         except OverflowError:
@@ -285,7 +266,7 @@ class W_CTypePointer(W_CTypePtrBase):
             lltype.free(result, flavor='raw')
             raise
         rffi.cast(rffi.CCHARPP, cdata)[0] = result
-        return 1
+        return True
 
     def convert_argument_from_object(self, cdata, w_ob):
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
@@ -293,7 +274,7 @@ class W_CTypePointer(W_CTypePtrBase):
         ob = space.interpclass_w(w_ob)
         result = (not isinstance(ob, cdataobj.W_CData) and
                   self._prepare_pointer_call_argument(w_ob, cdata))
-        if result == 0:
+        if not result:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
         return result
@@ -323,33 +304,3 @@ class W_CTypePointer(W_CTypePtrBase):
         if attrchar == 'i':     # item
             return self.space.wrap(self.ctitem)
         return W_CTypePtrBase._fget(self, attrchar)
-
-# ____________________________________________________________
-
-
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
-rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP,rffi.CCHARP], lltype.Void)
-rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
-
-class CffiFileObj(object):
-    _immutable_ = True
-    def __init__(self, fd, mode):
-        self.llf = rffi_fdopen(fd, mode)
-        if not self.llf:
-            raise OSError(rposix.get_errno(), "fdopen failed")
-        rffi_setbuf(self.llf, lltype.nullptr(rffi.CCHARP.TO))
-    def close(self):
-        rffi_fclose(self.llf)
-
-def prepare_file_argument(space, fileobj):
-    fileobj.direct_flush()
-    if fileobj.cffi_fileobj is None:
-        fd = fileobj.direct_fileno()
-        if fd < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("file has no OS file descriptor"))
-        try:
-            fileobj.cffi_fileobj = CffiFileObj(fd, fileobj.mode)
-        except OSError, e:
-            raise wrap_oserror(space, e)
-    return fileobj.cffi_fileobj.llf

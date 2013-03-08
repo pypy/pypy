@@ -1,7 +1,7 @@
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._socket.interp_socket import converted_error, W_RSocket
-from pypy.rlib import rsocket
-from pypy.rlib.rsocket import SocketError, INVALID_SOCKET
+from pypy.module._socket.interp_socket import converted_error, W_RSocket, addr_as_object, ipaddr_from_object
+from rpython.rlib import rsocket
+from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
 from pypy.interpreter.error import OperationError
 
 def gethostname(space):
@@ -120,7 +120,7 @@ def getnameinfo(space, w_sockaddr, flags):
 
     Get host and port for a sockaddr."""
     try:
-        addr = rsocket.ipaddr_from_object(space, w_sockaddr)
+        addr = ipaddr_from_object(space, w_sockaddr)
         host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError, e:
         raise converted_error(space, e)
@@ -284,7 +284,7 @@ def getaddrinfo(space, w_host, w_port,
                             space.wrap(socktype),
                             space.wrap(protocol),
                             space.wrap(canonname),
-                            addr.as_object(INVALID_SOCKET, space)]) # -1 as per cpython
+                            addr_as_object(addr, INVALID_SOCKET, space)]) # -1 as per cpython
             for (family, socktype, protocol, canonname, addr) in lst]
     return space.newlist(lst1)
 

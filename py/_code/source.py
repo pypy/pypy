@@ -141,6 +141,8 @@ class Source(object):
                 trysource = self[start:end]
                 if trysource.isparseable():
                     return start, end
+                if end == start + 100:   # XXX otherwise, it takes forever
+                    break                # XXX
         if end is None:
             raise IndexError("no valid source range around line %d " % (lineno,))
         return start, end
