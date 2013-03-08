@@ -210,9 +210,7 @@ neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
 
 def is_zero(space, w_ob):
-    return ((space.isinstance_w(w_ob, space.w_int) or
-             space.isinstance_w(w_ob, space.w_long))
-            and not space.is_true(w_ob))
+    return space.isinstance_w(w_ob, space.w_int) and not space.is_true(w_ob)
 
 # ____________________________________________________________
 
