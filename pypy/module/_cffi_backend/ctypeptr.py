@@ -252,7 +252,6 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def prepare_file(self, w_ob):
         from pypy.module._file.interp_file import W_File
-        from pypy.module._cffi_backend import ctypefunc
         ob = self.space.interpclass_w(w_ob)
         if isinstance(ob, W_File):
             return prepare_file_argument(self.space, ob)
