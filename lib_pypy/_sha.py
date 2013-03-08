@@ -38,12 +38,12 @@ def _long2bytesBigEndian(n, blocksize=0):
     s = ''
     pack = struct.pack
     while n > 0:
-        s = pack('>I', n & 0xffffffffL) + s
+        s = pack('>I', n & 0xffffffff) + s
         n = n >> 32
 
     # Strip off leading zeros.
     for i in range(len(s)):
-        if s[i] <> '\000':
+        if s[i] != '\000':
             break
     else:
         # Only happens when n == 0.
@@ -63,16 +63,16 @@ def _long2bytesBigEndian(n, blocksize=0):
 def _bytelist2longBigEndian(list):
     "Transform a list of characters into a list of longs."
 
-    imax = len(list)/4
-    hl = [0L] * imax
+    imax = len(list) // 4
+    hl = [0] * imax
 
     j = 0
     i = 0
     while i < imax:
-        b0 = long(ord(list[j])) << 24
-        b1 = long(ord(list[j+1])) << 16
-        b2 = long(ord(list[j+2])) << 8
-        b3 = long(ord(list[j+3]))
+        b0 = ord(list[j]) << 24
+        b1 = ord(list[j+1]) << 16
+        b2 = ord(list[j+2]) << 8
+        b3 = ord(list[j+3])
         hl[i] = b0 | b1 | b2 | b3
         i = i+1
         j = j+4
@@ -108,10 +108,10 @@ f = [f0_19, f20_39, f40_59, f60_79]
 
 # Constants to be used
 K = [
-    0x5A827999L, # ( 0 <= t <= 19)
-    0x6ED9EBA1L, # (20 <= t <= 39)
-    0x8F1BBCDCL, # (40 <= t <= 59)
-    0xCA62C1D6L  # (60 <= t <= 79)
+    0x5A827999, # ( 0 <= t <= 19)
+    0x6ED9EBA1, # (20 <= t <= 39)
+    0x8F1BBCDC, # (40 <= t <= 59)
+    0xCA62C1D6  # (60 <= t <= 79)
     ]
 
 class sha:
@@ -124,7 +124,7 @@ class sha:
         "Initialisation."
         
         # Initial message length in bits(!).
-        self.length = 0L
+        self.length = 0
         self.count = [0, 0]
 
         # Initial empty message as a sequence of bytes (8 bit characters).
@@ -138,21 +138,21 @@ class sha:
     def init(self):
         "Initialize the message-digest and set all fields to zero."
 
-        self.length = 0L
+        self.length = 0
         self.input = []
 
         # Initial 160 bit message digest (5 times 32 bit).
-        self.H0 = 0x67452301L
-        self.H1 = 0xEFCDAB89L
-        self.H2 = 0x98BADCFEL
-        self.H3 = 0x10325476L
-        self.H4 = 0xC3D2E1F0L
+        self.H0 = 0x67452301
+        self.H1 = 0xEFCDAB89
+        self.H2 = 0x98BADCFE
+        self.H3 = 0x10325476
+        self.H4 = 0xC3D2E1F0
 
     def _transform(self, W):
 
         for t in range(16, 80):
             W.append(_rotateLeft(
-                W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16], 1) & 0xffffffffL)
+                W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16], 1) & 0xffffffff)
 
         A = self.H0
         B = self.H1
@@ -166,49 +166,49 @@ class sha:
             TEMP = _rotateLeft(A, 5) + f[t/20] + E + W[t] + K[t/20]
             E = D
             D = C
-            C = _rotateLeft(B, 30) & 0xffffffffL
+            C = _rotateLeft(B, 30) & 0xffffffff
             B = A
-            A = TEMP & 0xffffffffL
+            A = TEMP & 0xffffffff
         """
 
         for t in range(0, 20):
             TEMP = _rotateLeft(A, 5) + ((B & C) | ((~ B) & D)) + E + W[t] + K[0]
             E = D
             D = C
-            C = _rotateLeft(B, 30) & 0xffffffffL
+            C = _rotateLeft(B, 30) & 0xffffffff
             B = A
-            A = TEMP & 0xffffffffL
+            A = TEMP & 0xffffffff
 
         for t in range(20, 40):
             TEMP = _rotateLeft(A, 5) + (B ^ C ^ D) + E + W[t] + K[1]
             E = D
             D = C
-            C = _rotateLeft(B, 30) & 0xffffffffL
+            C = _rotateLeft(B, 30) & 0xffffffff
             B = A
-            A = TEMP & 0xffffffffL
+            A = TEMP & 0xffffffff
 
         for t in range(40, 60):
             TEMP = _rotateLeft(A, 5) + ((B & C) | (B & D) | (C & D)) + E + W[t] + K[2]
             E = D
             D = C
-            C = _rotateLeft(B, 30) & 0xffffffffL
+            C = _rotateLeft(B, 30) & 0xffffffff
             B = A
-            A = TEMP & 0xffffffffL
+            A = TEMP & 0xffffffff
 
         for t in range(60, 80):
             TEMP = _rotateLeft(A, 5) + (B ^ C ^ D)  + E + W[t] + K[3]
             E = D
             D = C
-            C = _rotateLeft(B, 30) & 0xffffffffL
+            C = _rotateLeft(B, 30) & 0xffffffff
             B = A
-            A = TEMP & 0xffffffffL
+            A = TEMP & 0xffffffff
 
 
-        self.H0 = (self.H0 + A) & 0xffffffffL
-        self.H1 = (self.H1 + B) & 0xffffffffL
-        self.H2 = (self.H2 + C) & 0xffffffffL
-        self.H3 = (self.H3 + D) & 0xffffffffL
-        self.H4 = (self.H4 + E) & 0xffffffffL
+        self.H0 = (self.H0 + A) & 0xffffffff
+        self.H1 = (self.H1 + B) & 0xffffffff
+        self.H2 = (self.H2 + C) & 0xffffffff
+        self.H3 = (self.H3 + D) & 0xffffffff
+        self.H4 = (self.H4 + E) & 0xffffffff
     
 
     # Down from here all methods follow the Python Standard Library
@@ -230,10 +230,10 @@ class sha:
         to the hashed string.
         """
 
-        leninBuf = long(len(inBuf))
+        leninBuf = len(inBuf)
 
         # Compute number of bytes mod 64.
-        index = (self.count[1] >> 3) & 0x3FL
+        index = (self.count[1] >> 3) & 0x3F
 
         # Update number of bits.
         self.count[1] = self.count[1] + (leninBuf << 3)
@@ -273,7 +273,7 @@ class sha:
         input = [] + self.input
         count = [] + self.count
 
-        index = (self.count[1] >> 3) & 0x3fL
+        index = (self.count[1] >> 3) & 0x3f
 
         if index < 56:
             padLen = 56 - index
