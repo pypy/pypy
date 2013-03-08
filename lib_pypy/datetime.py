@@ -756,7 +756,8 @@ class date(object):
 
         year, month, day (required, base 1)
         """
-        if isinstance(year, bytes) and len(year) == 4:
+        if month is None and isinstance(year, bytes) and len(year) == 4 and \
+                1 <= ord(year[2]) <= 12:
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(year)
@@ -1025,8 +1026,6 @@ class date(object):
         return (_struct.pack('4B', yhi, ylo, self._month, self._day),)
 
     def __setstate(self, string):
-        if len(string) != 4 or not (1 <= ord(string[2]) <= 12):
-            raise TypeError("not enough arguments")
         yhi, ylo, self._month, self._day = (ord(string[0]), ord(string[1]),
                                             ord(string[2]), ord(string[3]))
         self._year = yhi * 256 + ylo
@@ -1147,7 +1146,7 @@ class time(object):
         second, microsecond (default to zero)
         tzinfo (default to None)
         """
-        if isinstance(hour, bytes) and len(hour) == 6:
+        if isinstance(hour, bytes) and len(hour) == 6 and ord(hour[0]) < 24:
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(hour, minute or None)
@@ -1413,8 +1412,6 @@ class time(object):
             return (basestate, self._tzinfo)
 
     def __setstate(self, string, tzinfo):
-        if len(string) != 6 or ord(string[0]) >= 24:
-            raise TypeError("an integer is required")
         self._hour, self._minute, self._second, us1, us2, us3 = (
             ord(string[0]), ord(string[1]), ord(string[2]),
             ord(string[3]), ord(string[4]), ord(string[5]))
@@ -1440,7 +1437,8 @@ class datetime(date):
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
-        if isinstance(year, bytes) and len(year) == 10:
+        if isinstance(year, bytes) and len(year) == 10 and \
+                1 <= ord(year[2]) <= 12:
             # Pickle support
             self = date.__new__(cls, year[:4])
             self.__setstate(year, month)
