@@ -106,6 +106,8 @@ class FakeTracker(object):
     pass
 
 class BaseFakeCPU(object):
+    JITFRAME_FIXED_SIZE = 0
+    
     def __init__(self):
         self.tracker = FakeTracker()
         self._cache = {}
