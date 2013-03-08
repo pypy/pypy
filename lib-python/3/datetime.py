@@ -691,8 +691,8 @@ class date(object):
 
         year, month, day (required, base 1)
         """
-        if (isinstance(year, bytes) and len(year) == 4 and
-            1 <= year[2] <= 12 and month is None):  # Month is sane
+        if month is None and isinstance(year, bytes) and len(year) == 4 and \
+                1 <= year[2] <= 12:
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(year)
@@ -933,8 +933,6 @@ class date(object):
         return (_struct.pack('4B', yhi, ylo, self._month, self._day),)
 
     def __setstate(self, string):
-        if len(string) != 4 or not (1 <= string[2] <= 12):
-            raise TypeError("not enough arguments")
         yhi, ylo, self._month, self._day = string
         self._year = yhi * 256 + ylo
 
@@ -1051,7 +1049,7 @@ class time(object):
         second, microsecond (default to zero)
         tzinfo (default to None)
         """
-        if isinstance(hour, bytes) and len(hour) == 6:
+        if isinstance(hour, bytes) and len(hour) == 6 and hour[0] < 24:
             # Pickle support
             self = object.__new__(cls)
             self.__setstate(hour, minute or None)
@@ -1309,8 +1307,6 @@ class time(object):
             return (basestate, self._tzinfo)
 
     def __setstate(self, string, tzinfo):
-        if len(string) != 6 or string[0] >= 24:
-            raise TypeError("an integer is required")
         self._hour, self._minute, self._second, us1, us2, us3 = string
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
         if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
@@ -1337,7 +1333,7 @@ class datetime(date):
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
-        if isinstance(year, bytes) and len(year) == 10:
+        if isinstance(year, bytes) and len(year) == 10 and 1 <= year[2] <= 12:
             # Pickle support
             self = date.__new__(cls, year[:4])
             self.__setstate(year, month)
