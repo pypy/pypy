@@ -8,7 +8,11 @@ This module contains functions that can read and write Python values in a binary
 
 import types
 from _codecs import utf_8_decode, utf_8_encode
-import sys
+
+try:
+    intern
+except NameError:
+    from sys import intern
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -295,10 +299,10 @@ class _Unmarshaller:
         b = ord(self._read(1))
         c = ord(self._read(1))
         d = ord(self._read(1))
-        e = int(ord(self._read(1)))
-        f = int(ord(self._read(1)))
-        g = int(ord(self._read(1)))
-        h = int(ord(self._read(1)))
+        e = ord(self._read(1))
+        f = ord(self._read(1))
+        g = ord(self._read(1))
+        h = ord(self._read(1))
         x = a | (b<<8) | (c<<16) | (d<<24)
         x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
         if h & 0x80 and x > 0:
@@ -369,7 +373,7 @@ class _Unmarshaller:
 
     def load_interned(self):
         n = self.r_long()
-        ret = sys.intern(self._read(n))
+        ret = intern(self._read(n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned
@@ -484,10 +488,10 @@ def _r_long64(self):
     b = ord(_read1(self))
     c = ord(_read1(self))
     d = ord(_read1(self))
-    e = int(ord(_read1(self)))
-    f = int(ord(_read1(self)))
-    g = int(ord(_read1(self)))
-    h = int(ord(_read1(self)))
+    e = ord(_read1(self))
+    f = ord(_read1(self))
+    g = ord(_read1(self))
+    h = ord(_read1(self))
     x = a | (b<<8) | (c<<16) | (d<<24)
     x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
     if h & 0x80 and x > 0:
@@ -585,7 +589,7 @@ class _FastUnmarshaller:
 
     def load_interned(self):
         n = _r_long(self)
-        ret = sys.intern(_read(self, n))
+        ret = intern(_read(self, n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned
