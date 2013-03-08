@@ -426,9 +426,9 @@ class Connection(object):
             pass
         else:
             raise ProgrammingError(
-                "SQLite objects created in a thread can only be used in that same thread."
-                "The object was created in thread id %d and this is thread id %d",
-                self.__thread_ident, _thread_get_ident())
+                "SQLite objects created in a thread can only be used in that "
+                "same thread. The object was created in thread id %d and this "
+                "is thread id %d", self.__thread_ident, _thread_get_ident())
 
     def _check_thread_wrap(func):
         @wraps(func)
@@ -474,7 +474,8 @@ class Connection(object):
         self.__statement_counter += 1
 
         if self.__statement_counter % 100 == 0:
-            self.__statements = [ref for ref in self.__statements if ref() is not None]
+            self.__statements = [ref for ref in self.__statements
+                                 if ref() is not None]
 
     @_check_thread_wrap
     @_check_closed_wrap
@@ -864,7 +865,7 @@ class Cursor(object):
             if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
                 self.__statement._reset()
                 self.__connection._in_transaction = \
-                        not _lib.sqlite3_get_autocommit(self.__connection._db)
+                    not _lib.sqlite3_get_autocommit(self.__connection._db)
                 raise self.__connection._get_exception(ret)
 
             if self.__statement._kind == Statement._DML:
@@ -901,7 +902,8 @@ class Cursor(object):
                     if not self.__connection._in_transaction:
                         self.__connection._begin()
             else:
-                raise ProgrammingError("executemany is only for DML statements")
+                raise ProgrammingError(
+                    "executemany is only for DML statements")
 
             self.__rowcount = 0
             for params in many_params:
@@ -910,7 +912,7 @@ class Cursor(object):
                 if ret != _lib.SQLITE_DONE:
                     self.__statement._reset()
                     self.__connection._in_transaction = \
-                            not _lib.sqlite3_get_autocommit(self.__connection._db)
+                        not _lib.sqlite3_get_autocommit(self.__connection._db)
                     raise self.__connection._get_exception(ret)
                 self.__statement._reset()
                 self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
