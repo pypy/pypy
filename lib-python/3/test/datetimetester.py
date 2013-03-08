@@ -49,6 +49,17 @@ class TestModule(unittest.TestCase):
         self.assertEqual(datetime.MINYEAR, 1)
         self.assertEqual(datetime.MAXYEAR, 9999)
 
+    def test_name_cleanup(self):
+        if not '_Fast' in str(type(self)):
+            return
+        datetime = datetime_module
+        names = set(name for name in dir(datetime)
+                    if not name.startswith('__') and not name.endswith('__'))
+        allowed = set(['MAXYEAR', 'MINYEAR', 'date', 'datetime',
+                       'datetime_CAPI', 'time', 'timedelta', 'timezone',
+                       'tzinfo'])
+        self.assertEqual(names - allowed, set([]))
+
 #############################################################################
 # tzinfo tests
 
