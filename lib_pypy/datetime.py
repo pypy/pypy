@@ -1425,7 +1425,10 @@ class time(object):
             ord(string[0]), ord(string[1]), ord(string[2]),
             ord(string[3]), ord(string[4]), ord(string[5]))
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
-        self._tzinfo = tzinfo
+        if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
+            self._tzinfo = tzinfo
+        else:
+            raise TypeError("bad tzinfo state arg")
 
     def __reduce__(self):
         return (time, self._getstate())
@@ -1922,7 +1925,10 @@ class datetime(date):
                 ord(string[7]), ord(string[8]), ord(string[9]))
         self._year = yhi * 256 + ylo
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
-        self._tzinfo = tzinfo
+        if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
+            self._tzinfo = tzinfo
+        else:
+            raise TypeError("bad tzinfo state arg")
 
     def __reduce__(self):
         return (self.__class__, self._getstate())
