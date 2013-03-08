@@ -238,11 +238,6 @@ def _wrap_strftime(object, format, timetuple):
     newformat = "".join(newformat)
     return _time.strftime(newformat, timetuple)
 
-def _call_tzinfo_method(tzinfo, methname, tzinfoarg):
-    if tzinfo is None:
-        return None
-    return getattr(tzinfo, methname)(tzinfoarg)
-
 # Just raise TypeError if the arg isn't None or a string.
 def _check_tzname(name):
     if name is not None and not isinstance(name, str):
@@ -1612,7 +1607,9 @@ class datetime(date):
         it mean anything in particular. For example, "GMT", "UTC", "-500",
         "-5:00", "EDT", "US/Eastern", "America/New York" are all valid replies.
         """
-        name = _call_tzinfo_method(self._tzinfo, "tzname", self)
+        if self._tzinfo is None:
+            return None
+        name = self._tzinfo.tzname(self)
         _check_tzname(name)
         return name
 
@@ -2123,7 +2120,7 @@ else:
     # Clean up unused names
     del (_DAYNAMES, _DAYS_BEFORE_MONTH, _DAYS_IN_MONTH,
          _DI100Y, _DI400Y, _DI4Y, _MAXORDINAL, _MONTHNAMES,
-         _build_struct_time, _call_tzinfo_method, _check_date_fields,
+         _build_struct_time, _check_date_fields,
          _check_time_fields, _check_tzinfo_arg, _check_tzname,
          _check_utc_offset, _cmp, _cmperror, _date_class, _days_before_month,
          _days_before_year, _days_in_month, _format_time, _is_leap,
