@@ -35,7 +35,7 @@ def _long2bytesBigEndian(n, blocksize=0):
     """
 
     # After much testing, this algorithm was deemed to be the fastest.
-    s = ''
+    s = b''
     pack = struct.pack
     while n > 0:
         s = pack('>I', n & 0xffffffff) + s
