@@ -160,9 +160,9 @@ class Assembler386(BaseAssembler):
         self._store_and_reset_exception(mc, None, ebx, ecx)
 
         mc.CALL(imm(self.cpu.realloc_frame))
+        mc.MOV_rr(ebp.value, eax.value)
         self._restore_exception(mc, None, ebx, ecx)
         mc.ADD_ri(esp.value, (align - 1) * WORD)
-        mc.MOV_rr(ebp.value, eax.value)
         mc.MOV_bi(extra_ofs, 0)
 
 
