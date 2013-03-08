@@ -1380,9 +1380,10 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         for month_byte in b'9', b'\0', b'\r', b'\xff':
             self.assertRaises(TypeError, self.theclass,
                                          base[:2] + month_byte + base[3:])
-        # Good bytes, but bad tzinfo:
-        self.assertRaises(TypeError, self.theclass,
-                          bytes([1] * len(base)), 'EST')
+        if issubclass(self.theclass, datetime):
+            # Good bytes, but bad tzinfo:
+            with self.assertRaisesRegex(TypeError, '^bad tzinfo state arg$'):
+                self.theclass(bytes([1] * len(base)), 'EST')
 
         for ord_byte in range(1, 13):
             # This shouldn't blow up because of the month byte alone.  If
@@ -2275,6 +2276,9 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
         for hour_byte in ' ', '9', chr(24), '\xff':
             self.assertRaises(TypeError, self.theclass,
                                          hour_byte + base[1:])
+        # Good bytes, but bad tzinfo:
+        with self.assertRaisesRegex(TypeError, '^bad tzinfo state arg$'):
+            self.theclass(bytes([1] * len(base)), 'EST')
 
 # A mixin for classes with a tzinfo= argument.  Subclasses must define
 # theclass as a class atribute, and theclass(1, 1, 1, tzinfo=whatever)
