@@ -47,6 +47,9 @@ class FakeDict(object):
         return c_func, lltype.Signed
 
 class FakeCPU:
+    class tracker:
+        pass
+    
     def __init__(self, rtyper):
         rtyper._builtin_func_for_spec_cache = FakeDict()
         self.rtyper = rtyper
