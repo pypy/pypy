@@ -16,6 +16,7 @@ This was originally copied from the sandbox of the CPython CVS repository.
 Thanks to Tim Peters for suggesting using it.
 """
 
+from __future__ import division
 import time as _time
 import math as _math
 import struct as _struct
@@ -182,9 +183,9 @@ def _wrap_strftime(object, format, timetuple):
                          "methods require year >= %d" %
                          (year, _MINYEARFMT, _MINYEARFMT))
     # Don't call utcoffset() or tzname() unless actually needed.
-    freplace = None # the string to use for %f
-    zreplace = None # the string to use for %z
-    Zreplace = None # the string to use for %Z
+    freplace = None  # the string to use for %f
+    zreplace = None  # the string to use for %z
+    Zreplace = None  # the string to use for %Z
 
     # Scan format for %z and %Z escapes, replacing as needed.
     newformat = []
@@ -577,7 +578,7 @@ class timedelta(object):
     def total_seconds(self):
         """Total seconds in the duration."""
         return ((self.days * 86400 + self.seconds) * 10**6 +
-                self.microseconds) / 1e6
+                self.microseconds) / 10**6
 
     # Read-only field accessors
     @property
@@ -647,12 +648,15 @@ class timedelta(object):
 
     __rmul__ = __mul__
 
+    def _to_microseconds(self):
+        return ((self._days * (24*3600) + self._seconds) * 1000000 +
+                self._microseconds)
+
     def __div__(self, other):
-        if isinstance(other, (int, long)):
-            usec = ((self._days * (24*3600L) + self._seconds) * 1000000 +
-                    self._microseconds)
-            return timedelta(0, 0, usec // other)
-        return NotImplemented
+        if not isinstance(other, (int, long)):
+            return NotImplemented
+        usec = self._to_microseconds()
+        return timedelta(0, 0, usec // other)
 
     __floordiv__ = __div__
 
@@ -1255,7 +1259,7 @@ class time(object):
     def __hash__(self):
         """Hash."""
         tzoff = self._utcoffset()
-        if not tzoff: # zero or None
+        if not tzoff:  # zero or None
             return hash(self._getstate()[0])
         h, m = divmod(self.hour * 60 + self.minute - tzoff, 60)
         if 0 <= h < 24:
@@ -1312,7 +1316,7 @@ class time(object):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
         """
-        # The year must be >= 1900 else Python's strftime implementation
+        # The year must be >= _MINYEARFMT else Python's strftime implementation
         # can raise a bogus exception.
         timetuple = (1900, 1, 1,
                      self._hour, self._minute, self._second,
@@ -1395,9 +1399,9 @@ class time(object):
 
     def __nonzero__(self):
         if self.second or self.microsecond:
-            return 1
+            return True
         offset = self._utcoffset() or 0
-        return self.hour * 60 + self.minute - offset != 0
+        return self.hour * 60 + self.minute != offset
 
     # Pickle support.
 
@@ -1613,8 +1617,8 @@ class datetime(date):
         year, month, day = _check_date_fields(year, month, day)
         hour, minute, second, microsecond = _check_time_fields(hour, minute, second, microsecond)
         _check_tzinfo_arg(tzinfo)
-        return datetime(year, month, day, hour, minute, second,
-                          microsecond, tzinfo)
+        return datetime(year, month, day, hour, minute, second, microsecond,
+                        tzinfo)
 
     def astimezone(self, tz):
         if not isinstance(tz, tzinfo):
@@ -1660,10 +1664,9 @@ class datetime(date):
         Optional argument sep specifies the separator between date and
         time, default 'T'.
         """
-        s = ("%04d-%02d-%02d%c" % (self._year, self._month, self._day,
-                                  sep) +
-                _format_time(self._hour, self._minute, self._second,
-                             self._microsecond))
+        s = ("%04d-%02d-%02d%c" % (self._year, self._month, self._day, sep) +
+             _format_time(self._hour, self._minute, self._second,
+                          self._microsecond))
         off = self._utcoffset()
         if off is not None:
             if off < 0:
@@ -1677,7 +1680,7 @@ class datetime(date):
 
     def __repr__(self):
         """Convert to formal string, for repr()."""
-        L = [self._year, self._month, self._day, # These are never zero
+        L = [self._year, self._month, self._day,  # These are never zero
              self._hour, self._minute, self._second, self._microsecond]
         if L[-1] == 0:
             del L[-1]
@@ -1920,7 +1923,7 @@ def _isoweek1monday(year):
     # XXX This could be done more efficiently
     THURSDAY = 3
     firstday = _ymd2ord(year, 1, 1)
-    firstweekday = (firstday + 6) % 7 # See weekday() above
+    firstweekday = (firstday + 6) % 7  # See weekday() above
     week1monday = firstday - firstweekday
     if firstweekday > THURSDAY:
         week1monday += 7
