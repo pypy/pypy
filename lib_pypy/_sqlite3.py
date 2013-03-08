@@ -1219,6 +1219,7 @@ class Statement(object):
                     val = None
                 elif typ == _lib.SQLITE_INTEGER:
                     val = _lib.sqlite3_column_int64(self._statement, i)
+                    val = int(val)
                 elif typ == _lib.SQLITE_FLOAT:
                     val = _lib.sqlite3_column_double(self._statement, i)
                 elif typ == _lib.SQLITE_TEXT:
@@ -1342,6 +1343,7 @@ def _convert_params(con, nargs, params):
             val = None
         elif typ == _lib.SQLITE_INTEGER:
             val = _lib.sqlite3_value_int64(params[i])
+            val = int(val)
         elif typ == _lib.SQLITE_FLOAT:
             val = _lib.sqlite3_value_double(params[i])
         elif typ == _lib.SQLITE_TEXT:
