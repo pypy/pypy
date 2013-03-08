@@ -27,6 +27,7 @@ def _round(x):
 
 MINYEAR = 1
 MAXYEAR = 9999
+_MINYEARFMT = 1000
 _MAXORDINAL = 3652059 # date.max.toordinal()
 
 # Utility functions, adapted from Python's Demo/classes/Dates.py, which
@@ -176,9 +177,10 @@ def _format_time(hh, mm, ss, us):
 # Correctly substitute for %z and %Z escapes in strftime formats.
 def _wrap_strftime(object, format, timetuple):
     year = timetuple[0]
-    if year < 1000:
-        raise ValueError("year=%d is before 1000; the datetime strftime() "
-                         "methods require year >= 1000" % year)
+    if year < _MINYEARFMT:
+        raise ValueError("year=%d is before %d; the datetime strftime() "
+                         "methods require year >= %d" %
+                         (year, _MINYEARFMT, _MINYEARFMT))
     # Don't call utcoffset() or tzname() unless actually needed.
     freplace = None # the string to use for %f
     zreplace = None # the string to use for %z
@@ -318,7 +320,7 @@ def _cmperror(x, y):
     raise TypeError("can't compare '%s' to '%s'" % (
                     type(x).__name__, type(y).__name__))
 
-class timedelta:
+class timedelta(object):
     """Represent the difference between two datetime objects.
 
     Supported operators:
@@ -651,7 +653,7 @@ timedelta.max = timedelta(days=999999999, hours=23, minutes=59, seconds=59,
                           microseconds=999999)
 timedelta.resolution = timedelta(microseconds=1)
 
-class date:
+class date(object):
     """Concrete date type.
 
     Constructors:
@@ -944,7 +946,7 @@ date.min = date(1, 1, 1)
 date.max = date(9999, 12, 31)
 date.resolution = timedelta(days=1)
 
-class tzinfo:
+class tzinfo(object):
     """Abstract base class for time zone info classes.
 
     Subclasses must override the name(), utcoffset() and dst() methods.
@@ -1014,7 +1016,7 @@ class tzinfo:
 
 _tzinfo_class = tzinfo
 
-class time:
+class time(object):
     """Time with time zone.
 
     Constructors:
@@ -1145,8 +1147,8 @@ class time:
         if base_compare:
             return _cmp((self._hour, self._minute, self._second,
                          self._microsecond),
-                       (other._hour, other._minute, other._second,
-                        other._microsecond))
+                        (other._hour, other._minute, other._second,
+                         other._microsecond))
         if myoff is None or otoff is None:
             raise TypeError("cannot compare naive and aware times")
         myhhmm = self._hour * 60 + self._minute - myoff//timedelta(minutes=1)
@@ -1308,8 +1310,7 @@ class time:
     def __setstate(self, string, tzinfo):
         if len(string) != 6 or string[0] >= 24:
             raise TypeError("an integer is required")
-        (self._hour, self._minute, self._second,
-         us1, us2, us3) = string
+        self._hour, self._minute, self._second, us1, us2, us3 = string
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
         if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
             self._tzinfo = tzinfo
@@ -1703,9 +1704,9 @@ class datetime(date):
             return _cmp((self._year, self._month, self._day,
                          self._hour, self._minute, self._second,
                          self._microsecond),
-                       (other._year, other._month, other._day,
-                        other._hour, other._minute, other._second,
-                        other._microsecond))
+                        (other._year, other._month, other._day,
+                         other._hour, other._minute, other._second,
+                         other._microsecond))
         if myoff is None or otoff is None:
             raise TypeError("cannot compare naive and aware datetimes")
         # XXX What follows could be done more efficiently...
@@ -1783,7 +1784,7 @@ class datetime(date):
 
     def __setstate(self, string, tzinfo):
         (yhi, ylo, self._month, self._day, self._hour,
-         self._minute, self._second, us1, us2, us3) = string
+            self._minute, self._second, us1, us2, us3) = string
         self._year = yhi * 256 + ylo
         self._microsecond = (((us1 << 8) | us2) << 8) | us3
         if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
