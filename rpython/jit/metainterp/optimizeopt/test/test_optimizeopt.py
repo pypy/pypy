@@ -4281,6 +4281,35 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_add_sub_ovf_second_operation_regular(self):
+	py.test.skip("Smalltalk would like this to pass")
+	# This situation occurs in Smalltalk because it uses 1-based indexing.
+	# The below code is equivalent to a loop over an array.
+        ops = """
+        [i1]
+        i2 = int_sub(i1, 1)
+        escape(i2)
+        i3 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        jump(i3)
+        """
+        preamble = """
+        [i1]
+        i2 = int_sub(i1, 1)
+        escape(i2)
+        i3 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        jump(i3, i1)
+        """
+        expected = """
+        [i1, i2]
+        escape(i2)
+        i3 = int_add_ovf(i1, 1)
+        guard_no_overflow() []
+        jump(i3, i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_add_sub_ovf_virtual_unroll(self):
         ops = """
         [p15]
