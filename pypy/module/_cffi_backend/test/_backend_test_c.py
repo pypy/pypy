@@ -2644,17 +2644,6 @@ def test_setslice_array():
     c[1:3] = d
     assert list(c) == [0, 40, 50, 30, 0]
 
-def test_FILE_forbidden():
-    BFILE = new_struct_type("_IO_FILE")
-    BFILEP = new_pointer_type(BFILE)
-    BFunc = new_function_type((BFILEP,), BFILEP, False)
-    func = cast(BFunc, 0)
-    with open(__file__, "rb") as f:
-        e = py.test.raises(TypeError, func, f)
-    if '__pypy__' not in sys.builtin_module_names:
-        assert ('note that you cannot pass Python files directly '
-                'any more since CFFI 0.6') in str(e.value)
-
 def test_version():
     # this test is here mostly for PyPy
     assert __version__ == "0.6"
