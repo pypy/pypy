@@ -192,12 +192,15 @@ class RPythonAnnotator(object):
             if not self.annotated[block]:
                 self.pendingblocks[block] = graph
 
+    def complete_pending_blocks(self):
+        while self.pendingblocks:
+            block, graph = self.pendingblocks.popitem()
+            self.processblock(graph, block)
+
     def complete(self):
         """Process pending blocks until none is left."""
         while True:
-            while self.pendingblocks:
-                block, graph = self.pendingblocks.popitem()
-                self.processblock(graph, block)
+            self.complete_pending_blocks()
             self.policy.no_more_blocks_to_annotate(self)
             if not self.pendingblocks:
                 break   # finished

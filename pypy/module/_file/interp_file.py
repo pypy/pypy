@@ -32,7 +32,6 @@ class W_File(W_AbstractStream):
     encoding = None
     errors   = None
     fd       = -1
-    cffi_fileobj = None    # pypy/module/_cffi_backend
 
     newlines = 0     # Updated when the stream is closed
 
@@ -149,14 +148,8 @@ class W_File(W_AbstractStream):
                 del openstreams[stream]
             except KeyError:
                 pass
-            # close the stream.  If cffi_fileobj is None, we close the
-            # underlying fileno too.  Otherwise, we leave that to
-            # cffi_fileobj.close().
-            cffifo = self.cffi_fileobj
-            self.cffi_fileobj = None
-            stream.close1(cffifo is None)
-            if cffifo is not None:
-                cffifo.close()
+            # close the stream.
+            stream.close1(True)
 
     def direct_fileno(self):
         self.getstream()    # check if the file is still open

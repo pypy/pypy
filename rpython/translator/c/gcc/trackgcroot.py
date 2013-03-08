@@ -1099,6 +1099,7 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
         '___assert_rtn': None,
         'L___assert_rtn$stub': None,
         'L___eprintf$stub': None,
+        '__stack_chk_fail': None,
         }
     for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
         FUNCTIONS_NOT_RETURNING[_name] = None
@@ -1160,6 +1161,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
         '___assert_rtn': None,
         'L___assert_rtn$stub': None,
         'L___eprintf$stub': None,
+        '__stack_chk_fail': None,
         }
     for _name in FunctionGcRootTracker.BASE_FUNCTIONS_NOT_RETURNING:
         FUNCTIONS_NOT_RETURNING[_name] = None

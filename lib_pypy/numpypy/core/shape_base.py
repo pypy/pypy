@@ -1,4 +1,6 @@
-import _numpypy
+__all__ = ['atleast_1d', 'atleast_2d', 'atleast_3d', 'vstack', 'hstack']
+
+import numeric as _nx
 from numeric import array, asanyarray, newaxis
 
 def atleast_1d(*arys):
@@ -221,7 +223,7 @@ def vstack(tup):
            [4]])
 
     """
-    return _numpypy.concatenate(map(atleast_2d,tup),0)
+    return _nx.concatenate(map(atleast_2d,tup),0)
 
 def hstack(tup):
     """
@@ -268,56 +270,6 @@ def hstack(tup):
     arrs = map(atleast_1d,tup)
     # As a special case, dimension 0 of 1-dimensional arrays is "horizontal"
     if arrs[0].ndim == 1:
-        return _numpypy.concatenate(arrs, 0)
+        return _nx.concatenate(arrs, 0)
     else:
-        return _numpypy.concatenate(arrs, 1)
-
-def dstack(tup):
-    """
-    Stack arrays in sequence depth wise (along third axis).
-
-    Takes a sequence of arrays and stack them along the third axis
-    to make a single array. Rebuilds arrays divided by `dsplit`.
-    This is a simple way to stack 2D arrays (images) into a single
-    3D array for processing.
-
-    Parameters
-    ----------
-    tup : sequence of arrays
-        Arrays to stack. All of them must have the same shape along all
-        but the third axis.
-
-    Returns
-    -------
-    stacked : ndarray
-        The array formed by stacking the given arrays.
-
-    See Also
-    --------
-    vstack : Stack along first axis.
-    hstack : Stack along second axis.
-    concatenate : Join arrays.
-    dsplit : Split array along third axis.
-
-    Notes
-    -----
-    Equivalent to ``np.concatenate(tup, axis=2)``.
-
-    Examples
-    --------
-    >>> a = np.array((1,2,3))
-    >>> b = np.array((2,3,4))
-    >>> np.dstack((a,b))
-    array([[[1, 2],
-            [2, 3],
-            [3, 4]]])
-
-    >>> a = np.array([[1],[2],[3]])
-    >>> b = np.array([[2],[3],[4]])
-    >>> np.dstack((a,b))
-    array([[[1, 2]],
-           [[2, 3]],
-           [[3, 4]]])
-
-    """
-    return _numpypy.concatenate(map(atleast_3d,tup),2)
+        return _nx.concatenate(arrs, 1)

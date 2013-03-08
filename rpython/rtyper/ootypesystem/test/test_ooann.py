@@ -1,7 +1,6 @@
 import py
 from rpython.rtyper.ootypesystem.ootype import *
 from rpython.annotator import model as annmodel
-from rpython.flowspace.objspace import FlowObjSpace
 from rpython.annotator.annrpython import RPythonAnnotator
 import exceptions
 from rpython.rtyper.ootypesystem import ooregistry # side effects
@@ -9,7 +8,7 @@ from rpython.rtyper.ootypesystem import ooregistry # side effects
 
 def test_simple_new():
     C = Instance("test", ROOT, {'a': Signed})
-    
+
     def oof():
         c = new(C)
         c.a = 5
@@ -23,7 +22,7 @@ def test_simple_new():
 
 def test_simple_instanceof():
     C = Instance("test", ROOT, {'a': Signed})
-    
+
     def oof():
         c = new(C)
         return instanceof(c, C)
@@ -36,7 +35,7 @@ def test_simple_instanceof():
 
 def test_simple_null():
     I = Instance("test", ROOT, {'a': Signed})
-    
+
     def oof():
         i = null(I)
         return i
@@ -49,7 +48,7 @@ def test_simple_null():
 
 def test_simple_classof():
     I = Instance("test", ROOT, {'a': Signed})
-    
+
     def oof():
         i = new(I)
         return classof(i)
@@ -62,8 +61,8 @@ def test_simple_classof():
 
 def test_subclassof():
     I = Instance("test", ROOT, {'a': Signed})
-    I1 = Instance("test1", I) 
-    
+    I1 = Instance("test1", I)
+
     def oof():
         i = new(I)
         i1 = new(I1)
@@ -77,7 +76,7 @@ def test_subclassof():
 
 def test_simple_runtimenew():
     I = Instance("test", ROOT, {'a': Signed})
-    
+
     def oof():
         i = new(I)
         c = classof(i)
@@ -94,7 +93,7 @@ def test_complex_runtimenew():
     I = Instance("test", ROOT, {'a': Signed})
     J = Instance("test2", I, {'b': Signed})
     K = Instance("test2", I, {'b': Signed})
-    
+
     def oof(x):
         k = new(K)
         j = new(J)
@@ -124,7 +123,7 @@ def test_method():
     def oof():
         c = new(C)
         return c.m(c)
-    
+
     a = RPythonAnnotator()
     s = a.build_types(oof, [])
     # a.translator.view()
@@ -152,7 +151,7 @@ def test_unionof():
 def test_record():
     R = Record({'foo': Signed})
     r = new(R)
-    
+
     def oof():
         return r
 
@@ -184,7 +183,7 @@ def test_null_static_method():
 
     a = RPythonAnnotator()
     s = a.build_types(oof, [])
-    
+
     assert s == annmodel.SomeOOStaticMeth(F)
 
 def test_truth_value():
@@ -285,7 +284,7 @@ def test_overload_reannotate():
         return a
     a = RPythonAnnotator()
     assert isinstance(a.build_types(f, []), annmodel.SomeFloat)
-    
+
 def test_overload_reannotate_unrelated():
     py.test.skip("Maybe we want this to work")
     # this test fails because the result type of c.foo(mylist[0])

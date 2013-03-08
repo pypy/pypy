@@ -1,11 +1,13 @@
 import operator
-from pypy.interpreter.error import OperationError, operationerrfmt
+
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
+
 from rpython.rlib import objectmodel, rgc
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.module._cffi_backend import misc
@@ -98,7 +100,7 @@ class W_CData(Wrappable):
                 if (isinstance(self.ctype, W_CTypePrimitive) or
                     isinstance(other.ctype, W_CTypePrimitive)):
                     raise OperationError(space.w_TypeError,
-                        space.wrap("cannot do comparison on a primitive cdata"))
+                       space.wrap("cannot do comparison on a primitive cdata"))
                 cdata1 = rffi.cast(lltype.Unsigned, cdata1)
                 cdata2 = rffi.cast(lltype.Unsigned, cdata2)
             return space.newbool(op(cdata1, cdata2))

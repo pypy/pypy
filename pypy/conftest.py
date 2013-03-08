@@ -23,7 +23,7 @@ def braindead_deindent(self):
 py.code.Source.deindent = braindead_deindent
 
 def pytest_report_header():
-    return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
+    return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
 def pytest_addhooks(pluginmanager):
     from rpython.conftest import LeakFinder
