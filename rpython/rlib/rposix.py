@@ -125,6 +125,13 @@ for name in '''
         '''.split():
     setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
 
+wait_macros_returning_int = ['WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']
+wait_macros_returning_bool = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+                              'WIFSIGNALED', 'WIFEXITED']
+wait_macros = wait_macros_returning_int + wait_macros_returning_bool
+for name in wait_macros:
+    setattr(CConfig, 'HAVE_' + name, rffi_platform.Defined(name))
+
 globals().update(rffi_platform.configure(CConfig))
 
 
@@ -174,14 +181,9 @@ def external(name, args, result, **kwargs):
 c_fchmod = external('fchmod', [rffi.INT, rffi.MODE_T], rffi.INT)
 c_fchown = external('fchown', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
 
-if HAVE_WAIT:
-    wait_macros_returning_int = ['WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG']
-    wait_macros_returning_bool = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
-                                 'WIFSIGNALED', 'WIFEXITED']
-    wait_macros = wait_macros_returning_int + wait_macros_returning_bool
-    for name in wait_macros:
-        globals()[name] = external(name, [lltype.Signed], lltype.Signed,
-                                   macro=True)
+for name in wait_macros:
+    globals()[name] = external(name, [lltype.Signed], lltype.Signed,
+                               macro=True)
 
 
 #___________________________________________________________________

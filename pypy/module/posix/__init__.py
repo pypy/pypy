@@ -142,8 +142,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
 
     # Macros for process exit statuses: WIFEXITED &co
-    if rposix.HAVE_WAIT:
-        for name in rposix.wait_macros:
+    for name in rposix.wait_macros:
+        if getattr(rposix, 'HAVE_' + name):
             interpleveldefs[name] = 'interp_posix.' + name
 
     def __init__(self, space, w_name):
