@@ -1307,7 +1307,7 @@ class time(object):
         if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
             self._tzinfo = tzinfo
         else:
-            raise TypeError("bad tzinfo state arg %r" % tzinfo)
+            raise TypeError("bad tzinfo state arg")
 
     def __reduce__(self):
         return (time, self._getstate())
@@ -1783,7 +1783,7 @@ class datetime(date):
         if tzinfo is None or isinstance(tzinfo, _tzinfo_class):
             self._tzinfo = tzinfo
         else:
-            raise TypeError("bad tzinfo state arg %r" % tzinfo)
+            raise TypeError("bad tzinfo state arg")
 
     def __reduce__(self):
         return (self.__class__, self._getstate())
