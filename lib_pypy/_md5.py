@@ -319,7 +319,7 @@ class md5:
         else:
             padLen = 120 - index
 
-        padding = [0o200] + [0] * 63
+        padding = [b'\200'] + [b'\000'] * 63
         self.update(padding[:padLen])
 
         # Append length (before padding).
