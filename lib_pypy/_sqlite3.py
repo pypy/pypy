@@ -1077,37 +1077,6 @@ class Statement(object):
             self._in_use = False
         self._exhausted = False
 
-    def _build_row_cast_map(self):
-        if not self.__con._detect_types:
-            return
-        self.__row_cast_map = []
-        for i in xrange(_lib.sqlite3_column_count(self._statement)):
-            converter = None
-
-            if self.__con._detect_types & PARSE_COLNAMES:
-                colname = _lib.sqlite3_column_name(self._statement, i)
-                if colname is not None:
-                    colname = colname.decode('utf-8')
-                    type_start = -1
-                    key = None
-                    for pos in range(len(colname)):
-                        if colname[pos] == '[':
-                            type_start = pos + 1
-                        elif colname[pos] == ']' and type_start != -1:
-                            key = colname[type_start:pos]
-                            converter = converters[key.upper()]
-
-            if converter is None and self.__con._detect_types & PARSE_DECLTYPES:
-                decltype = _lib.sqlite3_column_decltype(self._statement, i)
-                if decltype is not None:
-                    decltype = decltype.decode('utf-8')
-                    decltype = decltype.split()[0]      # if multiple words, use first, eg. "INTEGER NOT NULL" => "INTEGER"
-                    if '(' in decltype:
-                        decltype = decltype[:decltype.index('(')]
-                    converter = converters.get(decltype.upper(), None)
-
-            self.__row_cast_map.append(converter)
-
     if sys.version_info[0] < 3:
         def __check_decodable(self, param):
             if self.__con.text_factory in (unicode, OptimizedUnicode,
@@ -1192,22 +1161,36 @@ class Statement(object):
         else:
             raise ValueError("parameters are of unsupported type")
 
-    def _next(self, cursor):
-        if self._exhausted:
-            raise StopIteration
-        item = self._item
+    def _build_row_cast_map(self):
+        if not self.__con._detect_types:
+            return
+        self.__row_cast_map = []
+        for i in xrange(_lib.sqlite3_column_count(self._statement)):
+            converter = None
 
-        ret = _lib.sqlite3_step(self._statement)
-        if ret == _lib.SQLITE_DONE:
-            self._exhausted = True
-            self._item = None
-        elif ret != _lib.SQLITE_ROW:
-            exc = self.__con._get_exception(ret)
-            _lib.sqlite3_reset(self._statement)
-            raise exc
+            if self.__con._detect_types & PARSE_COLNAMES:
+                colname = _lib.sqlite3_column_name(self._statement, i)
+                if colname is not None:
+                    colname = colname.decode('utf-8')
+                    type_start = -1
+                    key = None
+                    for pos in range(len(colname)):
+                        if colname[pos] == '[':
+                            type_start = pos + 1
+                        elif colname[pos] == ']' and type_start != -1:
+                            key = colname[type_start:pos]
+                            converter = converters[key.upper()]
 
-        self._readahead(cursor)
-        return item
+            if converter is None and self.__con._detect_types & PARSE_DECLTYPES:
+                decltype = _lib.sqlite3_column_decltype(self._statement, i)
+                if decltype is not None:
+                    decltype = decltype.decode('utf-8')
+                    decltype = decltype.split()[0]      # if multiple words, use first, eg. "INTEGER NOT NULL" => "INTEGER"
+                    if '(' in decltype:
+                        decltype = decltype[:decltype.index('(')]
+                    converter = converters.get(decltype.upper(), None)
+
+            self.__row_cast_map.append(converter)
 
     def _readahead(self, cursor):
         self.column_count = _lib.sqlite3_column_count(self._statement)
@@ -1218,7 +1201,15 @@ class Statement(object):
             else:
                 converter = None
 
-            if converter is None:
+            if converter is not None:
+                blob = _lib.sqlite3_column_blob(self._statement, i)
+                if not blob:
+                    val = None
+                else:
+                    blob_len = _lib.sqlite3_column_bytes(self._statement, i)
+                    val = bytes(string_at(blob, blob_len))
+                    val = converter(val)
+            else:
                 typ = _lib.sqlite3_column_type(self._statement, i)
                 if typ == _lib.SQLITE_NULL:
                     val = None
@@ -1236,20 +1227,29 @@ class Statement(object):
                     blob = _lib.sqlite3_column_blob(self._statement, i)
                     blob_len = _lib.sqlite3_column_bytes(self._statement, i)
                     val = _BLOB_TYPE(string_at(blob, blob_len))
-            else:
-                blob = _lib.sqlite3_column_blob(self._statement, i)
-                if not blob:
-                    val = None
-                else:
-                    blob_len = _lib.sqlite3_column_bytes(self._statement, i)
-                    val = bytes(string_at(blob, blob_len))
-                    val = converter(val)
             row.append(val)
 
         row = tuple(row)
         if self._row_factory is not None:
             row = self._row_factory(cursor, row)
         self._item = row
+
+    def _next(self, cursor):
+        if self._exhausted:
+            raise StopIteration
+        item = self._item
+
+        ret = _lib.sqlite3_step(self._statement)
+        if ret == _lib.SQLITE_DONE:
+            self._exhausted = True
+            self._item = None
+        elif ret != _lib.SQLITE_ROW:
+            exc = self.__con._get_exception(ret)
+            _lib.sqlite3_reset(self._statement)
+            raise exc
+
+        self._readahead(cursor)
+        return item
 
     def _get_description(self):
         if self._kind == Statement._DML:
