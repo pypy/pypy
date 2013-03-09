@@ -1540,11 +1540,6 @@ class datetime(date):
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
         return cls(y, m, d, hh, mm, ss, us)
 
-    # XXX This is supposed to do better than we *can* do by using time.time(),
-    # XXX if the platform supports a more accurate way.  The C implementation
-    # XXX uses gettimeofday on platforms that have it, but that isn't
-    # XXX available from Python.  So now() may return different results
-    # XXX across the implementations.
     @classmethod
     def now(cls, tz=None):
         "Construct a datetime from time.time() and optional time zone info."
