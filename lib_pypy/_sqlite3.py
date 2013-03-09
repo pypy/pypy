@@ -1078,6 +1078,8 @@ class Statement(object):
         self._exhausted = False
 
     def _build_row_cast_map(self):
+        if not self.__con._detect_types:
+            return
         self.__row_cast_map = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             converter = None
@@ -1211,10 +1213,13 @@ class Statement(object):
         self.column_count = _lib.sqlite3_column_count(self._statement)
         row = []
         for i in xrange(self.column_count):
-            typ = _lib.sqlite3_column_type(self._statement, i)
+            if self.__con._detect_types:
+                converter = self.__row_cast_map[i]
+            else:
+                converter = None
 
-            converter = self.__row_cast_map[i]
             if converter is None:
+                typ = _lib.sqlite3_column_type(self._statement, i)
                 if typ == _lib.SQLITE_NULL:
                     val = None
                 elif typ == _lib.SQLITE_INTEGER:
