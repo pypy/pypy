@@ -498,37 +498,28 @@ class timedelta(object):
 
         if isinstance(microseconds, float):
             microseconds += usdouble
-            microseconds = _round(microseconds)
-            seconds, microseconds = divmod(microseconds, 1e6)
-            assert microseconds == int(microseconds)
-            assert seconds == int(seconds)
-            days, seconds = divmod(seconds, 24.*3600.)
-            assert days == int(days)
-            assert seconds == int(seconds)
-            d += int(days)
-            s += int(seconds)   # can't overflow
-            assert isinstance(s, int)
-            assert abs(s) <= 3 * 24 * 3600
-        else:
+            microseconds = int(_round(microseconds))
             seconds, microseconds = divmod(microseconds, 1000000)
             days, seconds = divmod(seconds, 24*3600)
             d += days
-            s += int(seconds)    # can't overflow
-            assert isinstance(s, int)
-            assert abs(s) <= 3 * 24 * 3600
-            microseconds = float(microseconds)
+            s += int(seconds)
+            microseconds = int(microseconds)
+        else:
+            microseconds = int(microseconds)
+            seconds, microseconds = divmod(microseconds, 1000000)
+            days, seconds = divmod(seconds, 24*3600)
+            d += days
+            s += int(seconds)
             microseconds += usdouble
-            microseconds = _round(microseconds)
+            microseconds = int(_round(microseconds))
+        assert isinstance(s, int)
+        assert isinstance(microseconds, int)
         assert abs(s) <= 3 * 24 * 3600
         assert abs(microseconds) < 3.1e6
 
         # Just a little bit of carrying possible for microseconds and seconds.
-        assert isinstance(microseconds, float)
-        assert int(microseconds) == microseconds
-        us = int(microseconds)
-        seconds, us = divmod(us, 1000000)
-        s += seconds    # cant't overflow
-        assert isinstance(s, int)
+        seconds, us = divmod(microseconds, 1000000)
+        s += seconds
         days, s = divmod(s, 24*3600)
         d += days
 
