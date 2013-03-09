@@ -353,7 +353,7 @@ def _cmperror(x, y):
 # second-guess timezones or DST.  Instead fold whatever adjustments you want
 # into the minutes argument (and the constructor will normalize).
 
-class tmxxx:
+class _tmxxx:
 
     ordinal = None
 
@@ -960,7 +960,7 @@ class date(object):
     def __add__(self, other):
         "Add a date to a timedelta."
         if isinstance(other, timedelta):
-            t = tmxxx(self._year,
+            t = _tmxxx(self._year,
                       self._month,
                       self._day + other.days)
             self._checkOverflow(t.year)
@@ -1585,7 +1585,7 @@ class datetime(date):
         hh, mm, ss = self.hour, self.minute, self.second
         offset = self._utcoffset()
         if offset:  # neither None nor 0
-            tm = tmxxx(y, m, d, hh, mm - offset)
+            tm = _tmxxx(y, m, d, hh, mm - offset)
             y, m, d = tm.year, tm.month, tm.day
             hh, mm = tm.hour, tm.minute
         return _build_struct_time(y, m, d, hh, mm, ss, 0)
@@ -1856,7 +1856,7 @@ class datetime(date):
         "Add a datetime and a timedelta."
         if not isinstance(other, timedelta):
             return NotImplemented
-        t = tmxxx(self._year,
+        t = _tmxxx(self._year,
                   self._month,
                   self._day + other.days,
                   self._hour,
