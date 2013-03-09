@@ -1193,9 +1193,9 @@ class Statement(object):
             self.__row_cast_map.append(converter)
 
     def _readahead(self, cursor):
-        self.column_count = _lib.sqlite3_column_count(self._statement)
         row = []
-        for i in xrange(self.column_count):
+        num_cols = _lib.sqlite3_column_count(self._statement)
+        for i in xrange(num_cols):
             if self.__con._detect_types:
                 converter = self.__row_cast_map[i]
             else:
