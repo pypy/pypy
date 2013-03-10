@@ -44,7 +44,7 @@ class __extend__(annmodel.SomeBuiltin):
 
 def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
-    from rpython.flowspace.argument import ArgumentsForTranslation
+    from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             None, hop.args_s[1].const, # shape
             range(hop.nb_args-2))

@@ -1296,7 +1296,7 @@ class MIFrame(object):
             self.make_result_of_lastop(resbox)
             # ^^^ this is done before handle_possible_exception() because we
             # need the box to show up in get_list_of_active_boxes()
-        if pure and self.metainterp.last_exc_value_box is None:
+        if pure and self.metainterp.last_exc_value_box is None and resbox:
             resbox = self.metainterp.record_result_of_call_pure(resbox)
             exc = exc and not isinstance(resbox, Const)
         if exc:

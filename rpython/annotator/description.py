@@ -3,7 +3,7 @@ import types, py
 from rpython.annotator.signature import enforce_signature_args, enforce_signature_return
 from rpython.flowspace.model import Constant, FunctionGraph
 from rpython.flowspace.bytecode import cpython_code_signature
-from rpython.flowspace.argument import rawshape, ArgErr
+from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
 
@@ -351,6 +351,7 @@ class FunctionDesc(Desc):
                 row[desc.rowkey()] = graph
                 return s_ImpossibleValue   # meaningless
             desc.pycall(enlist, args, s_ImpossibleValue, op)
+            assert row
         return row
     row_to_consider = staticmethod(row_to_consider)
 

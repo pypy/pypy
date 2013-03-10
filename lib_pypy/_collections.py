@@ -5,9 +5,12 @@
 #   (nondist/sandbox/collections/pydeque.py rev 1.1, Raymond Hettinger)
 #
 
+# Note that PyPy also contains a built-in module '_collections' which will hide
+# this one if compiled in.
+
 import operator
 try:
-    from thread import get_ident as _thread_ident
+    from threading import _get_ident as _thread_ident
 except ImportError:
     def _thread_ident():
         return -1
@@ -94,7 +97,7 @@ class deque(object):
 
     def pop(self):
         if self.left is self.right and self.leftndx > self.rightndx:
-            raise IndexError, "pop from an empty deque"
+            raise IndexError("pop from an empty deque")
         x = self.right[self.rightndx]
         self.right[self.rightndx] = None
         self.length -= 1
@@ -115,7 +118,7 @@ class deque(object):
 
     def popleft(self):
         if self.left is self.right and self.leftndx > self.rightndx:
-            raise IndexError, "pop from an empty deque"
+            raise IndexError("pop from an empty deque")
         x = self.left[self.leftndx]
         self.left[self.leftndx] = None
         self.length -= 1
@@ -319,7 +322,7 @@ class deque(object):
         return type(self), (list(self), self.maxlen)
 
     def __hash__(self):
-        raise TypeError, "deque objects are unhashable"
+        raise TypeError("deque objects are unhashable")
 
     def __copy__(self):
         return self.__class__(self, self.maxlen)
@@ -371,11 +374,11 @@ class deque_iterator(object):
         self.counter = len(deq)
         def giveup():
             self.counter = 0
-            raise RuntimeError, "deque mutated during iteration"
+            raise RuntimeError("deque mutated during iteration")
         self._gen = itergen(deq.state, giveup)
 
     def next(self):
-        res =  self._gen.next()
+        res = next(self._gen)
         self.counter -= 1
         return res
 

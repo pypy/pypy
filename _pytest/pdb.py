@@ -72,13 +72,10 @@ class PdbInvoke:
         tw.sep(">", "entering PDB")
         # A doctest.UnexpectedException is not useful for post_mortem.
         # Use the underlying exception instead:
-        try:
-            if isinstance(call.excinfo.value, py.std.doctest.UnexpectedException):
-                tb = call.excinfo.value.exc_info[2]
-            else:
-                tb = call.excinfo._excinfo[2]
-        except (ImportError, AttributeError):
-            tb = call.excinfo._excinfo[2]
+        #if isinstance(call.excinfo.value, py.std.doctest.UnexpectedException):
+        #    tb = call.excinfo.value.exc_info[2]
+        #else:
+        tb = call.excinfo._excinfo[2]
         post_mortem(tb)
         rep._pdbshown = True
         return rep

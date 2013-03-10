@@ -53,3 +53,10 @@ class AppTestNumpy(BaseNumpyAppTest):
         import numpypy
         assert numpypy.set_string_function is not \
                numpypy.core.multiarray.set_string_function
+
+    def test_constants(self):
+        import math
+        import numpypy
+        assert numpypy.PZERO == numpypy.NZERO == 0.0
+        assert math.isinf(numpypy.inf)
+        assert math.isnan(numpypy.nan)

@@ -140,7 +140,8 @@ class TestFlatten:
         if liveness:
             from rpython.jit.codewriter.liveness import compute_liveness
             compute_liveness(ssarepr)
-        assert_format(ssarepr, expected)
+        if expected is not None:
+            assert_format(ssarepr, expected)
 
     def test_simple(self):
         def f(n):
@@ -324,6 +325,15 @@ class TestFlatten:
             L6:
             int_return $54
         """)
+
+    def test_switch_longlong(self):
+        def f(n):
+            n = r_longlong(n)
+            if n == r_longlong(-5):  return 12
+            elif n == r_longlong(2): return 51
+            elif n == r_longlong(7): return 1212
+            else:                    return 42
+        self.encoding_test(f, [65], None)
 
     def test_exc_exitswitch(self):
         def g(i):

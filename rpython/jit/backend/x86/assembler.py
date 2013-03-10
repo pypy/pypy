@@ -2191,7 +2191,7 @@ class Assembler386(BaseAssembler):
             # Call the closestack() function (also releasing the GIL)
             args = [reg]
         #
-        self._emit_call(imm(self.releasegil_addr), args)
+        self._emit_call(imm(self.releasegil_addr), args, can_collect=False)
 
     def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result (eax/xmm0) into the stack temporarily.
@@ -2213,7 +2213,7 @@ class Assembler386(BaseAssembler):
                 reg = edi
             self.mc.LEA_rs(reg.value, css)
             args = [reg]
-        self._emit_call(imm(self.reacqgil_addr), args)
+        self._emit_call(imm(self.reacqgil_addr), args, can_collect=False)
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)

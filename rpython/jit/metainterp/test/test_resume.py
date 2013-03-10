@@ -1,5 +1,6 @@
 from __future__ import with_statement
 import py
+import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue
 from rpython.jit.metainterp.optimizeopt.virtualize import VirtualValue, VArrayValue

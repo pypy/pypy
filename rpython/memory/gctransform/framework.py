@@ -7,8 +7,7 @@ from rpython.memory import gctypelayout
 from rpython.memory.gctransform.log import log
 from rpython.memory.gctransform.support import get_rtti, ll_call_destructor
 from rpython.memory.gctransform.transform import GCTransformer
-from rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, \
-     WEAKREFPTR
+from rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, WEAKREFPTR
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.backendopt import graphanalyze
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
@@ -317,7 +316,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             malloc_fast = func_with_new_name(
                 malloc_fast_meth,
                 "malloc_fast")
-            s_False = annmodel.SomeBool(); s_False.const = False
+            s_False = annmodel.SomeBool()
+            s_False.const = False
             self.malloc_fast_ptr = getfn(
                 malloc_fast,
                 [s_gc, s_typeid16,
@@ -335,7 +335,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             malloc_varsize_clear_fast = func_with_new_name(
                 GCClass.malloc_varsize_clear.im_func,
                 "malloc_varsize_clear_fast")
-            s_False = annmodel.SomeBool(); s_False.const = False
+            s_False = annmodel.SomeBool()
+            s_False.const = False
             self.malloc_varsize_clear_fast_ptr = getfn(
                 malloc_varsize_clear_fast,
                 [s_gc, s_typeid16,
@@ -610,7 +611,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             if self.collect_analyzer.analyze_direct_call(graph):
                 raise Exception("'no_collect' function can trigger collection:"
                                 " %s" % func)
-            
+
         if self.write_barrier_ptr:
             self.clean_sets = (
                 find_initializing_stores(self.collect_analyzer, graph))
@@ -1162,7 +1163,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if self.gcdata.gc.moving_gc and not keep_current_args:
             # moving GCs don't borrow, so the caller does not need to keep
             # the arguments alive
-            livevars = [var for var in hop.livevars_after_op()]
+            livevars = hop.livevars_after_op()
         else:
             livevars = hop.livevars_after_op() + hop.current_op_keeps_alive()
         return livevars
