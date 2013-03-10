@@ -46,8 +46,7 @@ class AppTestZipimport(BaseImportTest):
 def get_name():
     return __name__
 def get_file():
-    return __file__
-        """
+    return __file__"""
         space = cls.space
         w = space.wrap
         w_co = space.call_method(space.builtin, 'compile',
