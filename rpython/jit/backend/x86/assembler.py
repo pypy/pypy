@@ -1125,8 +1125,7 @@ class Assembler386(BaseAssembler):
                     stack_depth += 1
             stack_depth += loc.get_width() // WORD
         if stack_depth > stack_max:
-            stack_depth = align_stack_words(stack_depth)
-            align = (stack_depth - stack_max)
+            align = align_stack_words(stack_depth - stack_max)
             self.mc.SUB_ri(esp.value, align * WORD)
             if can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
@@ -1202,8 +1201,7 @@ class Assembler386(BaseAssembler):
                        max(floats - len(unused_xmm), 0))
         align = 0
         if stack_depth > stack_max:
-            stack_depth = align_stack_words(stack_depth)
-            align = (stack_depth - stack_max)
+            align = align_stack_words(stack_depth - stack_max)
             if can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, align * WORD)
