@@ -978,11 +978,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         elif kind == REF:
             box = BoxPtr(self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-<<<<<<< local
-            box = BoxFloat(self.cpu.get_float_value(self.deadframe,num))
-=======
-            box = BoxFloat(self.cpu.get_latest_value_float(self.deadframe, num))
->>>>>>> other
+            box = BoxFloat(self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
