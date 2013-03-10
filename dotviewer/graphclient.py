@@ -128,7 +128,14 @@ def spawn_handler():
 
 def spawn_local_handler():
     if hasattr(sys, 'pypy_objspaceclass'):
-        python = '/usr/bin/python'
+        # if 'python' is actually PyPy, e.g. in a virtualenv, then
+        # try hard to find a real CPython
+        for python in ['/usr/local/bin/python', '/usr/bin/python']:
+            if os.path.exists(python):
+                break
+        else:
+            # did not work, fall back to 'python'
+            python = 'python'
     else:
         python = sys.executable
     args = [python, '-u', GRAPHSERVER, '--stdio']
