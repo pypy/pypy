@@ -1159,6 +1159,10 @@ class Assembler386(BaseAssembler):
             gcmap = self._regalloc.get_gcmap([eax], noregs=noregs)
             self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(x)
+        if callconv != FFI_DEFAULT_ABI:
+            self._fix_stdcall(callconv, p - align * WORD)
+        elif align:
+            self.mc.ADD_ri(esp.value, align * WORD)
         if can_collect:
             self._reload_frame_if_necessary(self.mc, can_collect=can_collect)
             if align and can_collect == 1:
@@ -1166,10 +1170,6 @@ class Assembler386(BaseAssembler):
                 self.mc.MOV_bi(ofs, 0)
             self.pop_gcmap(self.mc)
         #
-        if callconv != FFI_DEFAULT_ABI:
-            self._fix_stdcall(callconv, p - align * WORD)
-        elif align:
-            self.mc.ADD_ri(esp.value, align * WORD)
 
     def _fix_stdcall(self, callconv, p):
         from rpython.rlib.clibffi import FFI_STDCALL
