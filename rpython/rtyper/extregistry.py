@@ -41,24 +41,13 @@ class ClassFamily(object):
 
     def __init__(self):
         self.default = None
-        self.conditionals = []
 
     def add(self, cls, cond=None):
-        if cond is None:
-            assert self.default is None, (
-                "duplicate extregistry entry %r" % (cls,))
-            self.default = cls
-        else:
-            self.conditionals.append((cls, cond))
+        assert self.default is None, (
+            "duplicate extregistry entry %r" % (cls,))
+        self.default = cls
 
     def match(self, config):
-        if config is not None:
-            matches = [cls for cls, cond in self.conditionals
-                           if cond(config)]
-            if matches:
-                assert len(matches) == 1, (
-                    "multiple extregistry matches: %r" % (matches,))
-                return matches[0]
         if self.default:
             return self.default
         raise KeyError("no default extregistry entry")
