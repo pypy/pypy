@@ -85,6 +85,8 @@ class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
                                    'itertools', 'rctime', 'binascii'])
+    spaceconfig['std.withmethodcache'] = True
+
     enable_leak_checking = True
 
     @staticmethod

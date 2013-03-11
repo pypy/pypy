@@ -54,10 +54,11 @@ class DictProxyStrategy(DictStrategy):
                 raise
             if not w_type.is_cpytype():
                 raise
-            # xxx obscure workaround: allow cpyext to write to type->tp_dict
-            # xxx even in the case of a builtin type.
-            # xxx like CPython, we assume that this is only done early after
-            # xxx the type is created, and we don't invalidate any cache.
+            # Allow cpyext to write to type->tp_dict even in the case
+            # of a builtin type.
+            # Like CPython, we assume that this is only done early
+            # after the type is created, and we don't invalidate any
+            # cache.  User code shoud call PyType_Modified().
             w_type.dict_w[key] = w_value
 
     def setdefault(self, w_dict, w_key, w_default):
