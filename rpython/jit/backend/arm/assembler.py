@@ -240,11 +240,16 @@ class AssemblerARM(ResOpAssembler):
             assert excvalloc.is_reg()
             self.store_reg(mc, excvalloc, r.ip)
         else:
+            assert exctploc is not r.fp
             # load exc_value from JITFRAME and put it in pos_exc_value
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             self.load_reg(mc, tmpreg, r.fp, ofs)
             self.store_reg(mc, tmpreg, r.ip)
+            # reset exc_value in the JITFRAME
+            mc.gen_load_int(tmpreg.value, 0)
+            self.store_reg(mc, tmpreg, r.fp, ofs)
 
+        # restore pos_exception from exctploc register
         mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
         self.store_reg(mc, exctploc, r.ip)
 
@@ -796,7 +801,7 @@ class AssemblerARM(ResOpAssembler):
 
         # store a possibly present exception
         # we use a callee saved reg here as a tmp for the exc.
-        self._store_and_reset_exception(mc, None, r.fp, on_frame=True)
+        self._store_and_reset_exception(mc, None, r.r4, on_frame=True)
 
         # call realloc_frame, it takes two arguments
         # arg0: the old jitframe
@@ -804,11 +809,11 @@ class AssemblerARM(ResOpAssembler):
         #
         mc.BL(self.cpu.realloc_frame)
 
-        # restore a possibly present exception
-        self._restore_exception(mc, None, r.fp)
-
-        # set fp to the new jitframe
+        # set fp to the new jitframe returned from the previous call
         mc.MOV_rr(r.fp.value, r.r0.value)
+
+        # restore a possibly present exception
+        self._restore_exception(mc, None, r.r4)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
