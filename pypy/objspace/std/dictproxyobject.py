@@ -82,7 +82,7 @@ class DictProxyStrategy(DictStrategy):
     def length(self, w_dict):
         return len(self.unerase(w_dict.dstorage).dict_w)
 
-    def keys(self, w_dict):
+    def w_keys(self, w_dict):
         space = self.space
         return space.newlist_str(self.unerase(w_dict.dstorage).dict_w.keys())
 
