@@ -22,11 +22,9 @@ class AutoRegisteringType(type):
             for k in key:
                 selfcls._register(dict, k)
         else:
-            try:
-                family = dict[key]
-            except KeyError:
-                family = dict[key] = ClassFamily()
-            family.add(selfcls)
+            if key in dict:
+                raise ValueError("duplicate extregistry entry %r" % (selfcls,))
+            dict[key] = selfcls
 
     def _register_value(selfcls, key):
         selfcls._register(EXT_REGISTRY_BY_VALUE, key)
@@ -36,21 +34,6 @@ class AutoRegisteringType(type):
 
     def _register_metatype(selfcls, key):
         selfcls._register(EXT_REGISTRY_BY_METATYPE, key)
-
-class ClassFamily(object):
-
-    def __init__(self):
-        self.default = None
-
-    def add(self, cls, cond=None):
-        assert self.default is None, (
-            "duplicate extregistry entry %r" % (cls,))
-        self.default = cls
-
-    def match(self, config):
-        if self.default:
-            return self.default
-        raise KeyError("no default extregistry entry")
 
 
 class ExtRegistryEntry(object):
@@ -144,9 +127,9 @@ EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 
 def _lookup_type_cls(tp, config):
     try:
-        return EXT_REGISTRY_BY_TYPE[tp].match(config)
+        return EXT_REGISTRY_BY_TYPE[tp]
     except (KeyError, TypeError):
-        return EXT_REGISTRY_BY_METATYPE[type(tp)].match(config)
+        return EXT_REGISTRY_BY_METATYPE[type(tp)]
 
 def lookup_type(tp, config=None):
     Entry = _lookup_type_cls(tp, config)
@@ -161,7 +144,7 @@ def is_registered_type(tp, config=None):
 
 def _lookup_cls(instance, config):
     try:
-        return EXT_REGISTRY_BY_VALUE[instance].match(config)
+        return EXT_REGISTRY_BY_VALUE[instance]
     except (KeyError, TypeError):
         return _lookup_type_cls(type(instance), config)
 
