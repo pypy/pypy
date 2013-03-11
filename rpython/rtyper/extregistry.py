@@ -22,17 +22,11 @@ class AutoRegisteringType(type):
             for k in key:
                 selfcls._register(dict, k)
         else:
-            for basecls in selfcls.__mro__:
-                if '_condition_' in basecls.__dict__:
-                    cond = basecls.__dict__['_condition_']
-                    break
-            else:
-                cond = None
             try:
                 family = dict[key]
             except KeyError:
                 family = dict[key] = ClassFamily()
-            family.add(selfcls, cond)
+            family.add(selfcls)
 
     def _register_value(selfcls, key):
         selfcls._register(EXT_REGISTRY_BY_VALUE, key)
