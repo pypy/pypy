@@ -1012,7 +1012,6 @@ from rpython.rtyper import rint, rbool, rfloat
 from rpython.rtyper import rrange
 from rpython.rtyper import rstr, rdict, rlist, rbytearray
 from rpython.rtyper import rclass, rbuiltin, rpbc
-from rpython.rtyper import rexternalobj
 from rpython.rtyper import rptr
 from rpython.rtyper import rgeneric
 from rpython.rtyper import rweakref

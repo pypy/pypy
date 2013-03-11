@@ -9,7 +9,7 @@ from rpython.annotator.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
      SomeDict, SomeTuple, SomeImpossibleValue, SomeUnicodeCodePoint, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
-     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, SomeType, \
+     SomeTypedAddressAccess, SomeAddress, SomeType, \
      s_ImpossibleValue, s_Bool, s_None, \
      unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
      SomeGenericCallable, SomeWeakRef, SomeUnicodeString
@@ -366,7 +366,7 @@ class __extend__(SomeDict):
         s_value = dct.dictdef.read_value()
         return (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue))
-        
+
     def len(dct):
         if dct._is_empty():
             return immutablevalue(0)
@@ -746,28 +746,8 @@ class __extend__(SomeGenericCallable):
         bookkeeper = getbookkeeper()
         for arg, expected in zip(args.unpack()[0], self.args_s):
             assert expected.contains(arg)
-        
-        return self.s_result
 
-class __extend__(SomeExternalObject):
-    def getattr(p, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            entry = extregistry.lookup_type(p.knowntype)
-            s_value = entry.get_field_annotation(p.knowntype, attr)
-            return s_value
-        else:
-            return SomeObject()
-    getattr.can_only_throw = []
-    
-    def setattr(p, s_attr, s_value):
-        assert s_attr.is_constant()
-        attr = s_attr.const
-        entry = extregistry.lookup_type(p.knowntype)
-        entry.set_field_annotation(p.knowntype, attr, s_value)
-    
-    def is_true(p):
-        return s_Bool
+        return self.s_result
 
 # annotation of low-level types
 from rpython.annotator.model import SomePtr, SomeLLADTMeth
@@ -835,7 +815,7 @@ class __extend__(SomeOOInstance):
             return SomeOOBoundMeth(r.ootype, s_attr.const)
         return ll_to_annotation(v)
 
-    def setattr(r, s_attr, s_value): 
+    def setattr(r, s_attr, s_value):
         assert s_attr.is_constant(), "setattr on ref %r with non-constant field-name" % r.ootype
         v = annotation_to_lltype(s_value)
         example = r.ootype._example()
