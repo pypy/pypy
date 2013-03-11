@@ -480,8 +480,6 @@ class Connection(object):
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
-        if not isinstance(sql, basestring):
-            raise Warning("SQL is of wrong type. Must be string or unicode.")
         return self._statement_cache.get(sql, self.row_factory)
 
     def cursor(self, factory=None):
@@ -1007,7 +1005,7 @@ class Statement(object):
         self.__con = connection
 
         if not isinstance(sql, basestring):
-            raise ValueError("sql must be a string")
+            raise Warning("SQL is of wrong type. Must be string or unicode.")
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
             self._kind = Statement._DML
