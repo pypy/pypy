@@ -131,8 +131,8 @@ def spawn_local_handler():
         # if 'python' is actually PyPy, e.g. in a virtualenv, then
         # try hard to find a real CPython
         try:
-            python = subprocess.check_output(['env', '-i', 'which', 'python'])
-            python = python.strip()
+            python = subprocess.check_output(
+                'env -i $SHELL -l -c "which python"', shell=True).strip()
         except subprocess.CalledProcessError:
             # did not work, fall back to 'python'
             python = 'python'
