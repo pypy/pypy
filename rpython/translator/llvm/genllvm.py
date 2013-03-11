@@ -34,6 +34,10 @@ from rpython.translator.unsimplify import (remove_double_links,
 from rpython.tool.udir import udir
 
 
+database = None
+align = None
+
+
 class Type(object):
     varsize = False
     is_gc = False
