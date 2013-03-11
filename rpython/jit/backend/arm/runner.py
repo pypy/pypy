@@ -114,3 +114,4 @@ class CPU_ARMHF(AbstractARMCPU):
     """ARM v7 uses hardfp ABI, requires vfp"""
     use_hf_abi = True
     supports_floats = False
+    supports_singlefloats = False
