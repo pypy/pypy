@@ -82,8 +82,8 @@ def annotationoftype(t, bookkeeper=False):
         return SomeUnicodeString()
     elif t is types.NoneType:
         return s_None
-    elif bookkeeper and extregistry.is_registered_type(t, bookkeeper.policy):
-        entry = extregistry.lookup_type(t, bookkeeper.policy)
+    elif bookkeeper and extregistry.is_registered_type(t):
+        entry = extregistry.lookup_type(t)
         return entry.compute_annotation_bk(bookkeeper)
     elif t is type:
         return SomeType()
@@ -97,7 +97,7 @@ class Sig(object):
 
     def __init__(self, *argtypes):
         self.argtypes = argtypes
-        
+
     def __call__(self, funcdesc, inputcells):
         from rpython.rtyper.lltypesystem import lltype
         args_s = []

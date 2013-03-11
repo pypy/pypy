@@ -131,11 +131,11 @@ def _lookup_type_cls(tp):
     except (KeyError, TypeError):
         return EXT_REGISTRY_BY_METATYPE[type(tp)]
 
-def lookup_type(tp, _ignored=None):
+def lookup_type(tp):
     Entry = _lookup_type_cls(tp)
     return Entry(tp)
 
-def is_registered_type(tp, _ignored=None):
+def is_registered_type(tp):
     try:
         _lookup_type_cls(tp)
     except KeyError:
@@ -148,11 +148,11 @@ def _lookup_cls(instance):
     except (KeyError, TypeError):
         return _lookup_type_cls(type(instance))
 
-def lookup(instance, _ignored=None):
+def lookup(instance):
     Entry = _lookup_cls(instance)
     return Entry(type(instance), instance)
 
-def is_registered(instance, _ignored=None):
+def is_registered(instance):
     try:
         _lookup_cls(instance)
     except KeyError:
