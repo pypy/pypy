@@ -219,8 +219,15 @@ class Bootstrapper(object):
         # run!
         try:
             args.run()
-        finally:
-            rthread.gc_thread_die()
+        except Exception, e:
+            # argh
+            try:
+                print "Got an exception from bootstrap()"
+                if not we_are_translated():
+                    print e.__class__.__name__, e
+            except Exception:
+                pass
+        rthread.gc_thread_die()
 
     @staticmethod
     def acquire(args):

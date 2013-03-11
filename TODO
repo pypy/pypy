@@ -3,10 +3,6 @@ RPyAssert(i < len(lst)): if lst is global this turns into tons of code
 
 ------------------------------------------------------------
 
-after an abort, keep old global_to_local and access it using special code
-
-------------------------------------------------------------
-
 GC: major collections; call __del__()
 
 ------------------------------------------------------------

@@ -37,17 +37,21 @@ class StmGCTLS(object):
         self.AddressStack = self.gc.AddressStack
         self.AddressDict = self.gc.AddressDict
         #
-        # --- current position and end of nursery, or NULL when
-        #     mallocs are forbidden
+        # --- current position, or NULL when mallocs are forbidden
         self.nursery_free = NULL
-        self.nursery_top  = NULL
         self.nursery_pending_clear = 0
         # --- the start and size of the nursery belonging to this thread.
         #     never changes.
-        self.nursery_size  = self.gc.nursery_size
-        self.nursery_start = self._alloc_nursery(self.nursery_size)
-        self.extra_threshold = 0
-        self.set_extra_threshold(self.gc.maximum_extra_threshold)
+        self.nursery_size  = self.gc.nursery_size                    # fixed
+        self.nursery_start = self._alloc_nursery(self.nursery_size)  # fixed
+        self.nursery_stop  = self.nursery_start + self.nursery_size  # fixed
+        #self.extra_threshold = 0
+        #self.set_extra_threshold(self.gc.maximum_extra_threshold)
+        #
+        # --- current nursery top: usually equal to nursery_stop, except
+        #     when doing a major collection, when the thread that initiates
+        #     it changes all nursery_top of other threads
+        self.nursery_top  = self.nursery_stop
         #
         # --- a thread-local allocator for the shared area
         from rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
@@ -111,19 +115,18 @@ class StmGCTLS(object):
         ll_assert(bool(self.nursery_free), "disable_mallocs: already disabled")
         self.nursery_pending_clear = self.nursery_free - self.nursery_start
         self.nursery_free = NULL
-        self.nursery_top  = NULL
 
     # ----------
     # set_extra_threshold support
 
-    def set_extra_threshold(self, reserved_size):
-        diff = reserved_size - self.extra_threshold
-        if self.nursery_top != NULL:
-            if diff > 0 and self.nursery_free + diff > self.nursery_top:
-                self.local_collection()
-            self.nursery_top -= diff
-        self.nursery_size -= diff
-        self.extra_threshold += diff
+##    def set_extra_threshold(self, reserved_size):
+##        diff = reserved_size - self.extra_threshold
+##        if self.nursery_top != NULL:
+##            if diff > 0 and self.nursery_free + diff > self.nursery_top:
+##                self.local_collection()
+##            self.nursery_top -= diff
+##        self.nursery_size -= diff
+##        self.extra_threshold += diff
 
     # ------------------------------------------------------------
 
@@ -144,7 +147,6 @@ class StmGCTLS(object):
         if clear_size > 0:
             llarena.arena_reset(self.nursery_start, clear_size, 2)
         self.nursery_free = self.nursery_start
-        self.nursery_top  = self.nursery_start + self.nursery_size
         # At this point, all visible objects are GLOBAL, but newly
         # malloced objects will be LOCAL.
         if self.gc.DEBUG:
@@ -275,7 +277,7 @@ class StmGCTLS(object):
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
                   "odd-valued (i.e. tagged) pointer unexpected here")
-        return self.nursery_start <= addr < self.nursery_top
+        return self.nursery_start <= addr < self.nursery_stop
 
     def fresh_new_weakref(self, obj):
         self.local_weakrefs.append(obj)
@@ -621,7 +623,7 @@ class StmGCTLS(object):
             ll_assert(bool(pointing_to), "weakref to NULL in local_weakrefs")
             cat = self.categorize_object(pointing_to, can_be_in_nursery=True)
             if cat == 0:
-                # the weakref points to a dying object; no need to rememeber it
+                # the weakref points to a dying object; no need to remember it
                 (obj + offset).address[0] = llmemory.NULL
             else:
                 # the weakref points to an object that stays alive
