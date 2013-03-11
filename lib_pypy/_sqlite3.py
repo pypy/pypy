@@ -513,7 +513,7 @@ class Connection(object):
     def _begin(self):
         statement = c_void_p()
         ret = _lib.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
-                                        byref(statement), None)
+                                      byref(statement), None)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -537,7 +537,7 @@ class Connection(object):
 
         statement = c_void_p()
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
-                                        byref(statement), None)
+                                      byref(statement), None)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -566,7 +566,7 @@ class Connection(object):
 
         statement = c_void_p()
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
-                                        byref(statement), None)
+                                      byref(statement), None)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -600,10 +600,10 @@ class Connection(object):
         if isinstance(name, unicode):
             name = name.encode('utf-8')
         ret = _lib.sqlite3_create_function(self._db, name, num_args,
-                                             _lib.SQLITE_UTF8, None,
-                                             c_closure,
-                                             cast(None, _STEP),
-                                             cast(None, _FINAL))
+                                           _lib.SQLITE_UTF8, None,
+                                           c_closure,
+                                           cast(None, _STEP),
+                                           cast(None, _FINAL))
         if ret != _lib.SQLITE_OK:
             raise self.OperationalError("Error creating function")
 
@@ -669,10 +669,10 @@ class Connection(object):
         if isinstance(name, unicode):
             name = name.encode('utf-8')
         ret = _lib.sqlite3_create_function(self._db, name, num_args,
-                                             _lib.SQLITE_UTF8, None,
-                                             cast(None, _FUNC),
-                                             c_step_callback,
-                                             c_final_callback)
+                                           _lib.SQLITE_UTF8, None,
+                                           cast(None, _FUNC),
+                                           c_step_callback,
+                                           c_final_callback)
         if ret != _lib.SQLITE_OK:
             raise self._get_exception(ret)
 
@@ -842,10 +842,10 @@ class Cursor(object):
     def __execute(self, multiple, sql, many_params):
         self.__locked = True
         try:
-            self.__description = None
             self._reset = False
             if not isinstance(sql, basestring):
                 raise ValueError("operation parameter must be str or unicode")
+            self.__description = None
             self.__rowcount = -1
             self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
@@ -900,19 +900,19 @@ class Cursor(object):
         return self.__execute(True, sql, many_params)
 
     def executescript(self, sql):
-        self.__description = None
-        self._reset = False
         self.__check_cursor()
-        statement = c_void_p()
+        self._reset = False
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
         elif not isinstance(sql, str):
             raise ValueError("script argument must be unicode or string.")
-        c_sql = c_char_p(sql)
+        sql = c_char_p(sql)
+        statement = c_void_p()
 
         self.__connection.commit()
         while True:
-            rc = _lib.sqlite3_prepare(self.__connection._db, c_sql, -1, byref(statement), byref(c_sql))
+            rc = _lib.sqlite3_prepare(self.__connection._db, sql, -1,
+                                      byref(statement), byref(sql))
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
@@ -933,7 +933,7 @@ class Cursor(object):
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
-            if not c_sql.value:
+            if not sql.value:
                 break
         return self
 
@@ -1020,24 +1020,26 @@ class Statement(object):
         self._exhausted = False
         self._row_factory = None
 
-        self._statement = c_void_p()
-        next_char = c_char_p()
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
+        sql = c_char_p(sql)
+        self._statement = c_void_p()
 
-        ret = _lib.sqlite3_prepare_v2(self.__con._db, sql, -1, byref(self._statement), byref(next_char))
+        ret = _lib.sqlite3_prepare_v2(self.__con._db, sql, -1,
+                                      byref(self._statement), byref(sql))
         if ret == _lib.SQLITE_OK and self._statement.value is None:
-            # an empty statement, we work around that, as it's the least trouble
-            ret = _lib.sqlite3_prepare_v2(self.__con._db, b"select 42", -1, byref(self._statement), byref(next_char))
+            # an empty statement, work around that, as it's the least trouble
+            sql = c_char_p(b"select 42")
+            ret = _lib.sqlite3_prepare_v2(self.__con._db, sql, -1,
+                                          byref(self._statement), byref(sql))
             self._kind = Statement._DQL
 
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
         self.__con._remember_statement(self)
-        next_char = next_char.value.decode('utf-8')
-        if _check_remaining_sql(next_char):
-            raise Warning("One and only one statement required: %r" %
-                          next_char)
+        sql = sql.value.decode('utf-8')
+        if _check_remaining_sql(sql):
+            raise Warning("You can only execute one statement at a time.")
 
     def __del__(self):
         if self._statement:
@@ -1086,13 +1088,16 @@ class Statement(object):
             rc = _lib.sqlite3_bind_double(self._statement, idx, param)
         elif isinstance(param, unicode):
             param = param.encode("utf-8")
-            rc = _lib.sqlite3_bind_text(self._statement, idx, param, len(param), _lib.SQLITE_TRANSIENT)
+            rc = _lib.sqlite3_bind_text(self._statement, idx, param,
+                                        len(param), _lib.SQLITE_TRANSIENT)
         elif isinstance(param, str):
             self.__check_decodable(param)
-            rc = _lib.sqlite3_bind_text(self._statement, idx, param, len(param), _lib.SQLITE_TRANSIENT)
+            rc = _lib.sqlite3_bind_text(self._statement, idx, param,
+                                        len(param), _lib.SQLITE_TRANSIENT)
         elif isinstance(param, (buffer, bytes)):
             param = bytes(param)
-            rc = _lib.sqlite3_bind_blob(self._statement, idx, param, len(param), _lib.SQLITE_TRANSIENT)
+            rc = _lib.sqlite3_bind_blob(self._statement, idx, param,
+                                        len(param), _lib.SQLITE_TRANSIENT)
         else:
             rc = -1
         return rc
@@ -1163,7 +1168,9 @@ class Statement(object):
                 decltype = _lib.sqlite3_column_decltype(self._statement, i)
                 if decltype is not None:
                     decltype = decltype.decode('utf-8')
-                    decltype = decltype.split()[0]      # if multiple words, use first, eg. "INTEGER NOT NULL" => "INTEGER"
+                    # if multiple words, use first, eg.
+                    # "INTEGER NOT NULL" => "INTEGER"
+                    decltype = decltype.split()[0]
                     if '(' in decltype:
                         decltype = decltype[:decltype.index('(')]
                     converter = converters.get(decltype.upper(), None)
