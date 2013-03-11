@@ -125,36 +125,36 @@ EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 # ____________________________________________________________
 # Public interface to access the registry
 
-def _lookup_type_cls(tp, config):
+def _lookup_type_cls(tp):
     try:
         return EXT_REGISTRY_BY_TYPE[tp]
     except (KeyError, TypeError):
         return EXT_REGISTRY_BY_METATYPE[type(tp)]
 
-def lookup_type(tp, config=None):
-    Entry = _lookup_type_cls(tp, config)
+def lookup_type(tp, _ignored=None):
+    Entry = _lookup_type_cls(tp)
     return Entry(tp)
 
-def is_registered_type(tp, config=None):
+def is_registered_type(tp, _ignored=None):
     try:
-        _lookup_type_cls(tp, config)
+        _lookup_type_cls(tp)
     except KeyError:
         return False
     return True
 
-def _lookup_cls(instance, config):
+def _lookup_cls(instance):
     try:
         return EXT_REGISTRY_BY_VALUE[instance]
     except (KeyError, TypeError):
-        return _lookup_type_cls(type(instance), config)
+        return _lookup_type_cls(type(instance))
 
-def lookup(instance, config=None):
-    Entry = _lookup_cls(instance, config)
+def lookup(instance, _ignored=None):
+    Entry = _lookup_cls(instance)
     return Entry(type(instance), instance)
 
-def is_registered(instance, config=None):
+def is_registered(instance, _ignored=None):
     try:
-        _lookup_cls(instance, config)
+        _lookup_cls(instance)
     except KeyError:
         return False
     return True
