@@ -839,14 +839,14 @@ class Cursor(object):
             return func(self, *args, **kwargs)
         return wrapper
 
-    @__check_cursor_wrap
-    def execute(self, sql, params=[]):
+    def __execute(self, multiple, sql, many_params):
         self.__locked = True
         try:
             self.__description = None
             self._reset = False
             if not isinstance(sql, basestring):
                 raise ValueError("operation parameter must be str or unicode")
+            self.__rowcount = -1
             self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
@@ -858,68 +858,46 @@ class Cursor(object):
                     if not self.__connection._in_transaction:
                         self.__connection._begin()
 
-            self.__statement._set_params(params)
+            if multiple and self.__statement._kind != Statement._DML:
+                raise ProgrammingError("executemany is only for DML statements")
 
-            # Actually execute the SQL statement
-            ret = _lib.sqlite3_step(self.__statement._statement)
-            if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
-                self.__statement._reset()
-                self.__connection._in_transaction = \
-                    not _lib.sqlite3_get_autocommit(self.__connection._db)
-                raise self.__connection._get_exception(ret)
+            for params in many_params:
+                self.__statement._set_params(params)
 
-            if self.__statement._kind == Statement._DML:
-                self.__statement._reset()
+                # Actually execute the SQL statement
+                ret = _lib.sqlite3_step(self.__statement._statement)
+                if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
+                    self.__statement._reset()
+                    self.__connection._in_transaction = \
+                        not _lib.sqlite3_get_autocommit(self.__connection._db)
+                    raise self.__connection._get_exception(ret)
 
-            if self.__statement._kind == Statement._DQL and ret == _lib.SQLITE_ROW:
-                self.__statement._build_row_cast_map()
-                self.__statement._readahead(self)
-            else:
-                self.__statement._item = None
-                self.__statement._exhausted = True
+                if self.__statement._kind == Statement._DML:
+                    self.__statement._reset()
 
-            self.__rowcount = -1
-            if self.__statement._kind == Statement._DML:
-                self.__rowcount = _lib.sqlite3_changes(self.__connection._db)
+                if self.__statement._kind == Statement._DQL and ret == _lib.SQLITE_ROW:
+                    self.__statement._build_row_cast_map()
+                    self.__statement._readahead(self)
+                else:
+                    self.__statement._item = None
+                    self.__statement._exhausted = True
+
+                if self.__statement._kind == Statement._DML:
+                    if self.__rowcount == -1:
+                        self.__rowcount = 0
+                    self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
         finally:
             self.__locked = False
 
         return self
 
     @__check_cursor_wrap
+    def execute(self, sql, params=[]):
+        return self.__execute(False, sql, [params])
+
+    @__check_cursor_wrap
     def executemany(self, sql, many_params):
-        self.__locked = True
-        try:
-            self.__description = None
-            self._reset = False
-            if not isinstance(sql, basestring):
-                raise ValueError("operation parameter must be str or unicode")
-            self.__statement = self.__connection._statement_cache.get(
-                sql, self.row_factory)
-
-            if self.__statement._kind == Statement._DML:
-                if self.__connection._isolation_level is not None:
-                    if not self.__connection._in_transaction:
-                        self.__connection._begin()
-            else:
-                raise ProgrammingError(
-                    "executemany is only for DML statements")
-
-            self.__rowcount = 0
-            for params in many_params:
-                self.__statement._set_params(params)
-                ret = _lib.sqlite3_step(self.__statement._statement)
-                if ret != _lib.SQLITE_DONE:
-                    self.__statement._reset()
-                    self.__connection._in_transaction = \
-                        not _lib.sqlite3_get_autocommit(self.__connection._db)
-                    raise self.__connection._get_exception(ret)
-                self.__statement._reset()
-                self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
-        finally:
-            self.__locked = False
-
-        return self
+        return self.__execute(True, sql, many_params)
 
     def executescript(self, sql):
         self.__description = None
