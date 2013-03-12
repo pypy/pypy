@@ -2,6 +2,7 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
+import time
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
@@ -16,6 +17,7 @@ from rpython.rlib.rarithmetic import r_longlong, ovfcheck
 LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
 TIMEOUT_MAX = LONGLONG_MAX
 
+RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
 ##import sys
 ##def debug(msg, n):
@@ -51,6 +53,23 @@ def parse_acquire_args(space, blocking, timeout):
     return microseconds
 
 
+def acquire_timed(lock, microseconds):
+    """Helper to acquire an interruptible lock with a timeout."""
+    endtime = (time.time() * 1000000) + microseconds
+    while True:
+        result = lock.acquire_timed(microseconds)
+        if result == RPY_LOCK_INTR:
+            if microseconds >= 0:
+                microseconds = r_longlong(endtime - (time.time() * 1000000))
+                # Check for negative values, since those mean block
+                # forever
+                if microseconds <= 0:
+                    result = RPY_LOCK_FAILURE
+        if result != RPY_LOCK_INTR:
+            break
+    return result
+
+
 class Lock(Wrappable):
     "A wrappable box around an interp-level lock object."
 
@@ -70,10 +89,8 @@ With an argument, this will only block if the argument is true,
 and the return value reflects whether the lock is acquired.
 The blocking operation is interruptible."""
         microseconds = parse_acquire_args(space, blocking, timeout)
-        mylock = self.lock
-        result = mylock.acquire_timed(microseconds)
-        result = (result == 1)    # XXX handle RPY_LOCK_INTR (see e80549fefb75)
-        return space.newbool(result)
+        result = acquire_timed(self.lock, microseconds)
+        return space.newbool(result == RPY_LOCK_ACQUIRED)
 
     def descr_lock_release(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
@@ -184,8 +201,8 @@ class W_RLock(Wrappable):
         if self.rlock_count > 0 or not self.lock.acquire(False):
             if not blocking:
                 return space.w_False
-            r = self.lock.acquire_timed(microseconds)
-            r = (r == 1)    # XXX handle RPY_LOCK_INTR (see e80549fefb75)
+            r = acquire_timed(self.lock, microseconds)
+            r = (r == RPY_LOCK_ACQUIRED)
         if r:
             assert self.rlock_count == 0
             self.rlock_owner = tid
