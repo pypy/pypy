@@ -438,6 +438,10 @@ class AppExposeVisitor(ASDLVisitor):
             self.emit("return %s_to_class[w_self.%s - 1]()" % config, 1)
         elif field.type.value in ("object", "string"):
             self.emit("return w_self.%s" % (field.name,), 1)
+        elif field.type.value == 'identifier':
+            self.emit("if w_self.%s is None:" % (field.name,), 1)
+            self.emit("return space.w_None", 2)
+            self.emit("return space.wrap(w_self.%s.decode('utf-8'))" % (field.name,), 1)
         else:
             self.emit("return space.wrap(w_self.%s)" % (field.name,), 1)
         self.emit("")

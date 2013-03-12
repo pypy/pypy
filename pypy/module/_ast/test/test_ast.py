@@ -86,9 +86,28 @@ class AppTestAST:
         name.id = "hi"
         assert name.id == "hi"
 
-    def test_unicode_identifier(self):
+    def test_name_pep3131(self):
         name = self.get_ast("日本", "eval").body
+        assert isinstance(name, self.ast.Name)
         assert name.id == "日本"
+
+    def test_function_pep3131(self):
+        fn = self.get_ast("def µ(µ='foo'): pass").body[0]
+        assert isinstance(fn, self.ast.FunctionDef)
+        # µ normalized to NFKC
+        expected = '\u03bc'
+        assert fn.name == expected
+        assert fn.args.args[0].arg == expected
+
+    def test_import_pep3131(self):
+        ast = self.ast
+        im = self.get_ast("from packageµ import modµ as µ").body[0]
+        assert isinstance(im, ast.ImportFrom)
+        expected = '\u03bc'
+        assert im.module == 'package' + expected
+        alias = im.names[0]
+        assert alias.name == 'mod' + expected
+        assert alias.asname == expected
 
     @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_object(self):
