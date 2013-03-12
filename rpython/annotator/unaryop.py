@@ -496,7 +496,11 @@ class __extend__(SomeString,
 
     def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
-        s_item = str.basestringclass(no_nul=str.no_nul)
+        if patt.is_constant() and patt.const == "\0":
+            no_nul = True
+        else:
+            no_nul = str.no_nul
+        s_item = str.basestringclass(no_nul=no_nul)
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(str, patt, max=-1):
