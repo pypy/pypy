@@ -74,15 +74,19 @@ class DictProxyStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         space = self.space
-        return space.newlist_str(self.unerase(w_dict.dstorage).dict_w.keys())
+        w_type = self.unerase(w_dict.dstorage)
+        return space.newlist([_wrapkey(space, key)
+                              for key in w_type.dict_w.iterkeys()])
 
     def values(self, w_dict):
         return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
 
     def items(self, w_dict):
         space = self.space
-        return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
-                    for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
+        w_type = self.unerase(w_dict.dstorage)
+        return [space.newtuple([_wrapkey(space, key),
+                                unwrap_cell(space, w_value)])
+                for (key, w_value) in w_type.dict_w.iteritems()]
 
     def clear(self, w_dict):
         space = self.space
@@ -100,8 +104,12 @@ class DictProxyStrategy(DictStrategy):
     def getiteritems(self, w_dict):
         return self.unerase(w_dict.dstorage).dict_w.iteritems()
     def wrapkey(space, key):
-        return space.wrap(key)
+        return _wrapkey(space, key)
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
+
+def _wrapkey(space, key):
+    # keys are utf-8 encoded identifiers from type's dict_w
+    return space.wrap(key.decode('utf-8'))
 
 create_iterator_classes(DictProxyStrategy)
