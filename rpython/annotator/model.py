@@ -233,6 +233,9 @@ class SomeStringOrUnicode(SomeObject):
     def nonnoneify(self):
         return self.__class__(can_be_None=False, no_nul=self.no_nul)
 
+    def nonnulify(self):
+        return self.__class__(can_be_None=self.can_be_None, no_nul=True)
+
 class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str

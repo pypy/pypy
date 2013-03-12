@@ -3762,6 +3762,19 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_None
 
+    def test_contains_no_nul(self):
+        def f(i):
+            if "\0" in i:
+                return None
+            else:
+                return i
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeString(no_nul=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+        assert s.no_nul
+
     def test_no___call__(self):
         class X(object):
             def __call__(self):

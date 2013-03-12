@@ -512,6 +512,20 @@ class __extend__(SomeString,
         result = str.basestringclass(no_nul=str.no_nul)
         return result
 
+    def op_contains(str, s_element):
+        if s_element.is_constant() and s_element.const == "\0":
+            r = SomeBool()
+            bk = getbookkeeper()
+            op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=str)
+            knowntypedata = {}
+            add_knowntypedata(knowntypedata, False, [op.args[0]], str.nonnulify())
+            r.set_knowntypedata(knowntypedata)
+            return r
+        else:
+            return SomeObject.op_contains(str, s_element)
+    op_contains.can_only_throw = []
+
+
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):
         if not s_enc.is_constant():
