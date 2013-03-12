@@ -609,7 +609,6 @@ class AssemblerARM(ResOpAssembler):
                                                      'e', looptoken.number)
 
         self._call_header_with_stack_check()
-        #sp_patch_location = self._prepare_sp_patch_position()
 
         regalloc = Regalloc(assembler=self)
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
@@ -623,7 +622,6 @@ class AssemblerARM(ResOpAssembler):
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
 
-        #self._patch_sp_offset(sp_patch_location, frame_depth)
         self.write_pending_failure_recoveries()
 
         rawstart = self.materialize_loop(looptoken)
@@ -889,47 +887,6 @@ class AssemblerARM(ResOpAssembler):
         if clt.asmmemmgr_blocks is None:
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
-
-    def _prepare_sp_patch_position(self):
-        """Generate NOPs as placeholder to patch the instruction(s) to update
-        the sp according to the number of spilled variables"""
-        size = (self.mc.size_of_gen_load_int + WORD)
-        l = self.mc.currpos()
-        for _ in range(size // WORD):
-            self.mc.NOP()
-        return l
-
-    def _patch_sp_offset(self, pos, frame_depth):
-        cb = OverwritingBuilder(self.mc, pos,
-                                OverwritingBuilder.size_of_gen_load_int + WORD)
-        n = frame_depth * WORD
-
-        # ensure the sp is 8 byte aligned when patching it
-        if n % 8 != 0:
-            n += WORD
-        assert n % 8 == 0
-
-        self._adjust_sp(n, cb, base_reg=r.fp)
-
-    def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):
-        if cb is None:
-            cb = self.mc
-        if n < 0:
-            n = -n
-            rev = True
-        else:
-            rev = False
-        if n <= 0xFF and fcond == c.AL:
-            if rev:
-                cb.ADD_ri(r.sp.value, base_reg.value, n)
-            else:
-                cb.SUB_ri(r.sp.value, base_reg.value, n)
-        else:
-            cb.gen_load_int(r.ip.value, n, cond=fcond)
-            if rev:
-                cb.ADD_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
-            else:
-                cb.SUB_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
 
     def _walk_operations(self, inputargs, operations, regalloc):
         fcond = c.AL

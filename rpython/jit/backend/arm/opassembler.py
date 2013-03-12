@@ -392,6 +392,27 @@ class ResOpAssembler(BaseAssembler):
             self._adjust_sp(-n, fcond=fcond)
             assert n % 8 == 0  # sanity check
 
+    def _adjust_sp(self, n, cb=None, fcond=c.AL, base_reg=r.sp):
+        if cb is None:
+            cb = self.mc
+        if n < 0:
+            n = -n
+            rev = True
+        else:
+            rev = False
+        if n <= 0xFF and fcond == c.AL:
+            if rev:
+                cb.ADD_ri(r.sp.value, base_reg.value, n)
+            else:
+                cb.SUB_ri(r.sp.value, base_reg.value, n)
+        else:
+            cb.gen_load_int(r.ip.value, n, cond=fcond)
+            if rev:
+                cb.ADD_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
+            else:
+                cb.SUB_rr(r.sp.value, base_reg.value, r.ip.value, cond=fcond)
+
+
     def _collect_stack_args_sf(self, arglocs):
         n_args = len(arglocs)
         reg_args = count_reg_args(arglocs)
