@@ -1316,10 +1316,10 @@ class ResOpAssembler(BaseAssembler):
         gc_ll_descr = self.cpu.gc_ll_descr
         gcmap = regalloc.get_gcmap([r.r0, r.r1])
         self.malloc_cond(
-            gcmap,
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size
+            size,
+            gcmap
             )
         self._alignment_check()
         return fcond

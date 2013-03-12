@@ -180,7 +180,6 @@ class AssemblerARM(ResOpAssembler):
         if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
         #
-        #
         mc = ARMv7Builder()
         self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
@@ -358,34 +357,59 @@ class AssemblerARM(ResOpAssembler):
 
     def _build_malloc_slowpath(self):
         mc = ARMv7Builder()
-        if self.cpu.supports_floats:
-            vfp_regs = r.all_vfp_regs
-        else:
-            vfp_regs = []
+        self._push_all_regs_to_jitframe(mc, [r.r0, r.r1], self.cpu.supports_floats)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        # store the gc pattern
+        mc.POP([r.r2.value])
+        self.store_reg(mc, r.r2, r.fp, ofs)
         # We need to push two registers here because we are going to make a
         # call an therefore the stack needs to be 8-byte aligned
         mc.PUSH([r.ip.value, r.lr.value])
-        with saved_registers(mc, [], vfp_regs):
-            # At this point we know that the values we need to compute the size
-            # are stored in r0 and r1.
-            mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value)
-            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-            for reg, ofs in CoreRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.STR_ri(reg.value, r.fp.value, imm=ofs)
-            mc.BL(addr)
-            for reg, ofs in CoreRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
+        # At this point we know that the values we need to compute the size
+        # are stored in r0 and r1.
+        mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value) # compute the size we want
 
+        if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+            mc.MOV_rr(r.r1.value, r.fp.value)
+
+        addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        mc.BL(addr)
+
+        #
+        # If the slowpath malloc failed, we raise a MemoryError that
+        # always interrupts the current loop, as a "good enough"
+        # approximation.
         mc.CMP_ri(r.r0.value, 0)
         mc.B(self.propagate_exception_path, c=c.EQ)
+        #
+        self._reload_frame_if_necessary(mc, align_stack=True)
+        self._pop_all_regs_from_jitframe(mc, [r.r0, r.r1], self.cpu.supports_floats)
+        #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.gen_load_int(r.r1.value, nursery_free_adr)
         mc.LDR_ri(r.r1.value, r.r1.value)
-        # see above
+        # clear the gc pattern
+        mc.gen_load_int(r.ip.value, 0)
+        self.store_reg(mc, r.ip, r.fp, ofs)
+        # return
         mc.POP([r.ip.value, r.pc.value])
 
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath = rawstart
+
+    def _reload_frame_if_necessary(self, mc, align_stack=False, can_collect=0):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            import pdb; pdb.set_trace()
+            rst = gcrootmap.get_root_stack_top_addr()
+            mc.MOV(ecx, heap(rst))
+            mc.MOV(ebp, mem(ecx, -WORD))
+        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+        if gcrootmap and wbdescr:
+            # frame never uses card marking, so we enforce this is not
+            # an array
+            self._write_barrier_fastpath(mc, wbdescr, [r.fp], array=False,
+                                         is_frame=True)#, align_stack=align_stack)
 
     def propagate_memoryerror_if_r0_is_null(self):
         # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
@@ -1223,7 +1247,7 @@ class AssemblerARM(ResOpAssembler):
         else:
             raise AssertionError('Trying to pop to an invalid location')
 
-    def malloc_cond(self, gcmap, nursery_free_adr, nursery_top_adr, size):
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned
 
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
@@ -1247,23 +1271,23 @@ class AssemblerARM(ResOpAssembler):
         # malloc_slowpath in case we called malloc_slowpath, which returns the
         # new value of nursery_free_adr in r1 and the adr of the new object in
         # r0.
-        XXX # push gcmap
-        
+        self.push_gcmap(self.mc, gcmap, push=True, cond=c.HI)
+
         self.mc.BL(self.malloc_slowpath, c=c.HI)
 
         self.mc.gen_load_int(r.ip.value, nursery_free_adr)
         self.mc.STR_ri(r.r1.value, r.ip.value)
 
-    def push_gcmap(self, mc, gcmap, push=False, store=False):
+    def push_gcmap(self, mc, gcmap, push=False, store=False, cond=c.AL):
         ptr = rffi.cast(lltype.Signed, gcmap)
         if push:
-            mc.gen_load_int(r.ip.value, ptr)
-            mc.PUSH([r.ip.value])
+            mc.gen_load_int(r.ip.value, ptr, cond=cond)
+            mc.PUSH([r.ip.value], cond=cond)
         else:
             assert store
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-            mc.gen_load_int(r.ip.value, ptr)
-            mc.STR_ri(r.ip.value, r.fp.value, imm=ofs)
+            mc.gen_load_int(r.ip.value, ptr, cond=cond)
+            mc.STR_ri(r.ip.value, r.fp.value, imm=ofs, cond=cond)
 
     def pop_gcmap(self, mc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
