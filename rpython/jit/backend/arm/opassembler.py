@@ -1312,17 +1312,19 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_call_malloc_nursery(self, op, arglocs, regalloc, fcond):
         # registers r0 and r1 are allocated for this call
         assert len(arglocs) == 1
-        size = arglocs[0].value
+        sizeloc = arglocs[0]
         gc_ll_descr = self.cpu.gc_ll_descr
         gcmap = regalloc.get_gcmap([r.r0, r.r1])
         self.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size,
+            sizeloc,
             gcmap
             )
         self._alignment_check()
         return fcond
+    emit_op_call_malloc_nursery_varsize_small = emit_op_call_malloc_nursery
+
 
     def _alignment_check(self):
         if not self.debug:

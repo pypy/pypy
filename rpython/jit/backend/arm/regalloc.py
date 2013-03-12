@@ -1004,7 +1004,6 @@ class Regalloc(BaseRegalloc):
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
-        self.possibly_free_var(op.result)
         self.possibly_free_var(t)
         return [imm(size)]
 
@@ -1016,9 +1015,10 @@ class Regalloc(BaseRegalloc):
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
-        self.possibly_free_var(op.result)
+        argloc = self.make_sure_var_in_reg(size_box,
+                                            forbidden_vars=[op.result, t])
         self.possibly_free_var(t)
-        return [imm(size)]
+        return [argloc]
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void

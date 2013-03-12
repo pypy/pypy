@@ -1247,17 +1247,21 @@ class AssemblerARM(ResOpAssembler):
         else:
             raise AssertionError('Trying to pop to an invalid location')
 
-    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
-        assert size & (WORD-1) == 0     # must be correctly aligned
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, sizeloc, gcmap):
+        if sizeloc.is_imm():     # must be correctly aligned
+            assert sizeloc.value & (WORD-1) == 0
 
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
         self.mc.LDR_ri(r.r0.value, r.r0.value)
 
-        if check_imm_arg(size):
-            self.mc.ADD_ri(r.r1.value, r.r0.value, size)
+        if sizeloc.is_imm():
+            if check_imm_arg(sizeloc.value):
+                self.mc.ADD_ri(r.r1.value, r.r0.value, sizeloc.value)
+            else:
+                self.mc.gen_load_int(r.r1.value, sizeloc.value)
+                self.mc.ADD_rr(r.r1.value, r.r0.value, r.r1.value)
         else:
-            self.mc.gen_load_int(r.r1.value, size)
-            self.mc.ADD_rr(r.r1.value, r.r0.value, r.r1.value)
+            self.mc.ADD_rr(r.r1.value, r.r0.value, sizeloc.value)
 
         self.mc.gen_load_int(r.ip.value, nursery_top_adr)
         self.mc.LDR_ri(r.ip.value, r.ip.value)
