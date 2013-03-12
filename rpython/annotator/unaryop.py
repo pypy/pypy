@@ -43,12 +43,7 @@ class __extend__(SomeObject):
             raise Exception, 'type() called with more than one argument'
         r = SomeType()
         bk = getbookkeeper()
-        fn, block, i = bk.position_key
-        annotator = bk.annotator
-        op = block.operations[i]
-        assert op.opname == "type"
-        assert len(op.args) == 1
-        assert annotator.binding(op.args[0]) == obj
+        op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=obj)
         r.is_type_of = [op.args[0]]
         return r
 
@@ -79,10 +74,7 @@ class __extend__(SomeObject):
 
         bk = getbookkeeper()
         knowntypedata = {}
-        fn, block, i = bk.position_key
-        op = block.operations[i]
-        assert op.opname == "is_true" or op.opname == "nonzero"
-        assert len(op.args) == 1
+        op = bk._find_current_op(opname=("is_true", "nonzero"), arity=1)
         arg = op.args[0]
         s_nonnone_obj = s_obj
         if s_obj.can_be_none():
