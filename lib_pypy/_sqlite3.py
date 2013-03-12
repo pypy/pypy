@@ -1227,11 +1227,11 @@ class Statement(object):
             self._exhausted = True
             self._item = None
         elif ret != _lib.SQLITE_ROW:
-            exc = self.__con._get_exception(ret)
             _lib.sqlite3_reset(self._statement)
-            raise exc
+            raise self.__con._get_exception(ret)
+        else:
+            self._readahead(cursor)
 
-        self._readahead(cursor)
         return item
 
     def _get_description(self):
