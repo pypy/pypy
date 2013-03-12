@@ -799,6 +799,24 @@ class AppTestCompiler:
         s = '\udcff'
         raises(UnicodeEncodeError, compile, s, 'foo', 'exec')
 
+    def test_pep3131(self):
+        r"""
+        # XXX: the 4th name is currently mishandled by narrow builds
+        class T:
+            ä = 1
+            µ = 2 # this is a compatibility character
+            蟒 = 3
+            #x󠄀 = 4
+        assert getattr(T, '\xe4') == 1
+        assert getattr(T, '\u03bc') == 2
+        assert getattr(T, '\u87d2') == 3
+        #assert getattr(T, 'x\U000E0100') == 4
+        expected = ("['__dict__', '__doc__', '__module__', '__weakref__', "
+        #            "x󠄀", "'ä', 'μ', '蟒']")
+                    "'ä', 'μ', '蟒']")
+        assert expected in str(sorted(T.__dict__.keys()))
+        """
+
     def test_unicode_identifier(self):
         c = compile("# coding=latin-1\n\u00c6 = '\u00c6'", "dummy", "exec")
         d = {}

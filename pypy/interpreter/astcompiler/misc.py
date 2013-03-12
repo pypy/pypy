@@ -120,3 +120,18 @@ def mangle(name, klass):
             klass = klass[:end]
 
     return "_%s%s" % (klass, name)
+
+
+def new_identifier(space, name):
+    # Check whether there are non-ASCII characters in the identifier; if
+    # so, normalize to NFKC
+    for c in name:
+        if ord(c) > 0x80:
+            break
+    else:
+        return name
+
+    from pypy.module.unicodedata.interp_ucd import ucd
+    w_name = space.wrap(name.decode('utf-8'))
+    w_id = space.call_method(ucd, 'normalize', space.wrap('NFKC'), w_name)
+    return space.unicode_w(w_id).encode('utf-8')
