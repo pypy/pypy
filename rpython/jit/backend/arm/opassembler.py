@@ -349,14 +349,19 @@ class ResOpAssembler(BaseAssembler):
         return cond
 
     def _emit_call(self, adr, arglocs, fcond=c.AL, resloc=None,
-                                            result_info=(-1, -1)):
+                                            result_info=(-1, -1),
+                                            can_collect=1):
         if self.cpu.use_hf_abi:
-            stack_args, adr = self._setup_call_hf(adr,
-                                        arglocs, fcond, resloc, result_info)
+            stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
+                                            resloc, result_info)
         else:
-            stack_args, adr = self._setup_call_sf(adr,
-                                        arglocs, fcond, resloc, result_info)
+            stack_args, adr = self._setup_call_sf(adr, arglocs, fcond,
+                                            resloc, result_info)
 
+        if can_collect:
+            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
+            self.push_gcmap(self.mc, gcmap, store=True)
         #the actual call
         #self.mc.BKPT()
         if adr.is_imm():
@@ -378,6 +383,9 @@ class ResOpAssembler(BaseAssembler):
             elif resloc.is_reg() and result_info != (-1, -1):
                 self._ensure_result_bit_extension(resloc, result_info[0],
                                                           result_info[1])
+        if can_collect:
+            self._reload_frame_if_necessary(self.mc, can_collect=can_collect)
+            self.pop_gcmap(self.mc)
         return fcond
 
     def _restore_sp(self, stack_args, fcond):
@@ -573,7 +581,7 @@ class ResOpAssembler(BaseAssembler):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
                                                         fcond, array=True)
 
-    def _write_barrier_fastpath(self, mc, descr, arglocs, fcond, array=False,
+    def _write_barrier_fastpath(self, mc, descr, arglocs, fcond=c.AL, array=False,
                                                             is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
@@ -596,22 +604,21 @@ class ResOpAssembler(BaseAssembler):
         loc_base = arglocs[0]
         if is_frame:
             assert loc_base is r.fp
-        else:
-            self.mc.LDRB_ri(r.ip.value, loc_base.value,
-                                        imm=descr.jit_wb_if_flag_byteofs)
+        mc.LDRB_ri(r.ip.value, loc_base.value,
+                                    imm=descr.jit_wb_if_flag_byteofs)
         mask &= 0xFF
-        self.mc.TST_ri(r.ip.value, imm=mask)
-        jz_location = self.mc.currpos()
-        self.mc.BKPT()
+        mc.TST_ri(r.ip.value, imm=mask)
+        jz_location = mc.currpos()
+        mc.BKPT()
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
             # GCFLAG_CARDS_SET is in this byte at 0x80
-            self.mc.TST_ri(r.ip.value, imm=0x80)
+            mc.TST_ri(r.ip.value, imm=0x80)
 
-            js_location = self.mc.currpos()
-            self.mc.BKPT()
+            js_location = mc.currpos()
+            mc.BKPT()
         else:
             js_location = 0
 
@@ -619,7 +626,7 @@ class ResOpAssembler(BaseAssembler):
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
         helper_num = card_marking
-        if self._regalloc.vfprm.reg_bindings:
+        if self._regalloc is not None and self._regalloc.vfprm.reg_bindings:
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
@@ -628,24 +635,24 @@ class ResOpAssembler(BaseAssembler):
                                     bool(self._regalloc.vfprm.reg_bindings))
             assert self.wb_slowpath[helper_num] != 0
         #
-        if loc_base is not r.r0:
+        if not is_frame and loc_base is not r.r0:
             # push two registers to keep stack aligned
-            self.mc.PUSH([r.r0.value, loc_base.value])
+            mc.PUSH([r.r0.value, loc_base.value])
             remap_frame_layout(self, [loc_base], [r.r0], r.ip)
-        self.mc.BL(self.wb_slowpath[helper_num])
-        if loc_base is not r.r0:
-            self.mc.POP([r.r0.value, loc_base.value])
+        mc.BL(self.wb_slowpath[helper_num])
+        if not is_frame and loc_base is not r.r0:
+            mc.POP([r.r0.value, loc_base.value])
 
         if card_marking:
             # The helper ends again with a check of the flag in the object.  So
             # here, we can simply write again a conditional jump, which will be
             # taken if GCFLAG_CARDS_SET is still not set.
-            jns_location = self.mc.currpos()
-            self.mc.BKPT()
+            jns_location = mc.currpos()
+            mc.BKPT()
             #
             # patch the JS above
-            offset = self.mc.currpos()
-            pmc = OverwritingBuilder(self.mc, js_location, WORD)
+            offset = mc.currpos()
+            pmc = OverwritingBuilder(mc, js_location, WORD)
             pmc.B_offs(offset, c.NE)  # We want to jump if the z flag isn't set
             #
             # case GCFLAG_CARDS_SET: emit a few instructions to do
@@ -653,36 +660,36 @@ class ResOpAssembler(BaseAssembler):
             loc_index = arglocs[1]
             assert loc_index.is_reg()
             # must save the register loc_index before it is mutated
-            self.mc.PUSH([loc_index.value])
+            mc.PUSH([loc_index.value])
             tmp1 = loc_index
             tmp2 = arglocs[-1]  # the last item is a preallocated tmp
             # lr = byteofs
             s = 3 + descr.jit_wb_card_page_shift
-            self.mc.MVN_rr(r.lr.value, loc_index.value,
+            mc.MVN_rr(r.lr.value, loc_index.value,
                                        imm=s, shifttype=shift.LSR)
 
             # tmp1 = byte_index
-            self.mc.MOV_ri(r.ip.value, imm=7)
-            self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
+            mc.MOV_ri(r.ip.value, imm=7)
+            mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
             imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
 
             # set the bit
-            self.mc.MOV_ri(tmp2.value, imm=1)
-            self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
-            self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
+            mc.MOV_ri(tmp2.value, imm=1)
+            mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
+            mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
                                           tmp1.value, shifttype=shift.LSL)
-            self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
+            mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
             # done
-            self.mc.POP([loc_index.value])
+            mc.POP([loc_index.value])
             #
             #
             # patch the JNS above
-            offset = self.mc.currpos()
-            pmc = OverwritingBuilder(self.mc, jns_location, WORD)
+            offset = mc.currpos()
+            pmc = OverwritingBuilder(mc, jns_location, WORD)
             pmc.B_offs(offset, c.EQ)  # We want to jump if the z flag is set
 
-        offset = self.mc.currpos()
-        pmc = OverwritingBuilder(self.mc, jz_location, WORD)
+        offset = mc.currpos()
+        pmc = OverwritingBuilder(mc, jz_location, WORD)
         pmc.B_offs(offset, c.EQ)
         return fcond
 
@@ -1044,7 +1051,8 @@ class ResOpAssembler(BaseAssembler):
         # call memcpy()
         regalloc.before_call()
         self._emit_call(imm(self.memcpy_addr),
-                            [dstaddr_loc, srcaddr_loc, length_loc])
+                            [dstaddr_loc, srcaddr_loc, length_loc],
+                            can_collect=False)
 
         regalloc.possibly_free_var(length_box)
         regalloc.possibly_free_var(dstaddr_box)

@@ -552,6 +552,9 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             gcmap = unpack_gcmap(frame)
             if self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
+            elif self.cpu.backend_name.startswith('arm'):
+                assert gcmap == [44, 45, 46]
+                pass
             else:
                 assert gcmap == [22, 23, 24]
             for item, s in zip(gcmap, new_items):

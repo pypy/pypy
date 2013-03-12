@@ -52,7 +52,7 @@ class AssemblerARM(ResOpAssembler):
         self._exit_code_addr = 0
         self.current_clt = None
         self.malloc_slowpath = 0
-        self.wb_slowpath = [0, 0, 0, 0]
+        self.wb_slowpath = [0, 0, 0, 0, 0]
         self._regalloc = None
         self.datablockwrapper = None
         self.propagate_exception_path = 0
@@ -400,10 +400,10 @@ class AssemblerARM(ResOpAssembler):
     def _reload_frame_if_necessary(self, mc, align_stack=False, can_collect=0):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            import pdb; pdb.set_trace()
             rst = gcrootmap.get_root_stack_top_addr()
-            mc.MOV(ecx, heap(rst))
-            mc.MOV(ebp, mem(ecx, -WORD))
+            mc.gen_load_int(r.ip.value, rst)
+            self.load_reg(mc, r.ip, r.ip)
+            self.load_reg(mc, r.fp, r.ip, ofs=-WORD)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
@@ -558,25 +558,24 @@ class AssemblerARM(ResOpAssembler):
     def gen_shadowstack_header(self, gcrootmap):
         # we need to put two words into the shadowstack: the MARKER_FRAME
         # and the address of the frame (fp, actually)
+        # lr = rst addr
+        # ip = *lr
         rst = gcrootmap.get_root_stack_top_addr()
-        self.mc.gen_load_int(r.ip.value, rst)
-        self.mc.LDR_ri(r.r4.value, r.ip.value)  # LDR r4, [rootstacktop]
+        self.mc.gen_load_int(r.lr.value, rst)
+        self.load_reg(self.mc, r.ip, r.lr)
+        # *ip = r.fp
+        self.store_reg(self.mc, r.fp, r.ip)
         #
-        MARKER = gcrootmap.MARKER_FRAME
-        self.mc.ADD_ri(r.r5.value, r.r4.value,
-                                    imm=2 * WORD)  # ADD r5, r4 [2*WORD]
-        self.mc.gen_load_int(r.r6.value, MARKER)
-        self.mc.STR_ri(r.r6.value, r.r4.value, WORD)  # STR MARKER, r4 [WORD]
-        self.mc.STR_ri(r.fp.value, r.r4.value)  # STR fp, r4
-        #
-        self.mc.STR_ri(r.r5.value, r.ip.value)  # STR r5 [rootstacktop]
+        self.mc.ADD_ri(r.ip.value, r.ip.value, WORD)
+        # *lr = ip + WORD
+        self.store_reg(self.mc, r.ip, r.lr)
 
     def gen_footer_shadowstack(self, gcrootmap, mc):
         rst = gcrootmap.get_root_stack_top_addr()
         mc.gen_load_int(r.ip.value, rst)
-        mc.LDR_ri(r.r4.value, r.ip.value)  # LDR r4, [rootstacktop]
-        mc.SUB_ri(r.r5.value, r.r4.value, imm=2 * WORD)  # ADD r5, r4 [2*WORD]
-        mc.STR_ri(r.r5.value, r.ip.value)
+        self.load_reg(mc, r.r4, r.ip)
+        mc.SUB_ri(r.r4.value, r.r4.value, WORD)
+        self.store_reg(mc, r.r4, r.ip)
 
     def _dump(self, ops, type='loop'):
         debug_start('jit-backend-ops')
@@ -854,8 +853,8 @@ class AssemblerARM(ResOpAssembler):
 
     def _load_shadowstack_top(self, mc, reg, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
-        self.mc.gen_load_int(reg.value, rst)
-        self.mc.gen_load_int(reg.value, reg.value)
+        mc.gen_load_int(reg.value, rst)
+        mc.gen_load_int(reg.value, reg.value)
         return rst
 
     def fixup_target_tokens(self, rawstart):
@@ -1012,7 +1011,7 @@ class AssemblerARM(ResOpAssembler):
             mc.VLDR(target.value, helper.value, cond=cond)
 
     def _load_core_reg(self, mc, target, base, ofs, cond=c.AL, helper=r.ip):
-        if check_imm_arg(ofs):
+        if check_imm_arg(abs(ofs)):
             mc.LDR_ri(target.value, base.value, imm=ofs, cond=cond)
         else:
             mc.gen_load_int(helper.value, ofs, cond=cond)
@@ -1295,7 +1294,9 @@ class AssemblerARM(ResOpAssembler):
 
     def pop_gcmap(self, mc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.MOV_bi(ofs, 0)
+        assert check_imm_arg(ofs)
+        mc.gen_load_int(r.ip.value, 0)
+        self.store_reg(mc, r.ip, r.fp, ofs)
 
 
 

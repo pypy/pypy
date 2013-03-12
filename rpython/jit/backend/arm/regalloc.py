@@ -349,7 +349,7 @@ class Regalloc(BaseRegalloc):
         for box, loc in self.fm.bindings.iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert loc.is_stack()
-                val = loc.value // WORD
+                val = loc.position + JITFRAME_FIXED_SIZE
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
