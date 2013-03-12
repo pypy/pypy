@@ -449,13 +449,21 @@ class TestAnnotateTestCase:
     def test_str_split_nul(self):
         def f(n):
             return n.split('\0')[0]
-
         a = self.RPythonAnnotator()
         a.translator.config.translation.check_str_without_nul = True
         s = a.build_types(f, [annmodel.SomeString(no_nul=False, can_be_None=False)])
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_None
         assert s.no_nul
+
+        def g(n):
+            return n.split('\0', 1)[0]
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(g, [annmodel.SomeString(no_nul=False, can_be_None=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
+        assert not s.no_nul
 
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()

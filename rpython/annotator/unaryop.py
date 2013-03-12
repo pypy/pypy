@@ -496,7 +496,7 @@ class __extend__(SomeString,
 
     def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
-        if patt.is_constant() and patt.const == "\0":
+        if max == -1 and patt.is_constant() and patt.const == "\0":
             no_nul = True
         else:
             no_nul = str.no_nul
