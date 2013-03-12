@@ -1135,6 +1135,11 @@ class TestAstBuilder:
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(japan))
 
+    def test_pep3131(self):
+        assign = self.get_first_stmt("日本 = 32").targets[0]
+        assert isinstance(assign, ast.Name)
+        assert assign.id == u"日本".encode('utf-8')
+
     def test_issue3574(self):
         space = self.space
         source = u'# coding: Latin-1\nu = "Ç"\n'

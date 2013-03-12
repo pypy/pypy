@@ -1,3 +1,4 @@
+# encoding: utf-8
 import __future__
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
@@ -797,6 +798,29 @@ class AppTestCompiler:
     def test_surrogate(self):
         s = '\udcff'
         raises(UnicodeEncodeError, compile, s, 'foo', 'exec')
+
+    def test_unicode_identifier(self):
+        c = compile("# coding=latin-1\n\u00c6 = '\u00c6'", "dummy", "exec")
+        d = {}
+        exec(c, d)
+        assert d['\xc6'] == '\xc6'
+        c = compile("日本 = 8; 日本2 = 日本 + 1; del 日本;", "dummy", "exec")
+        exec(c, d)
+        assert '日本2' in d
+        assert d['日本2'] == 9
+        assert '日本' not in d
+
+        raises(SyntaxError, eval, b'\xff\x20')
+        raises(SyntaxError, eval, b'\xef\xbb\x20')
+
+    def test_cpython_issue2301(self):
+        skip('XXX')
+        try:
+            compile(b"# coding: utf7\nprint '+XnQ-'", "dummy", "exec")
+        except SyntaxError as v:
+            assert v.text ==  "print '\u5e74'\n"
+        else:
+            assert False, "Expected SyntaxError"
 
     def test_ast_equality(self):
         import _ast

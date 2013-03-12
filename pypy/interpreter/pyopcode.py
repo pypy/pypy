@@ -575,9 +575,9 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
-        varname = self.getname_u(varindex)
+        w_varname = self.getname_w(varindex)
         w_newvalue = self.popvalue()
-        self.space.setitem_str(self.w_locals, varname, w_newvalue)
+        self.space.setitem(self.w_locals, w_varname, w_newvalue)
 
     def DELETE_NAME(self, varindex, next_instr):
         w_varname = self.getname_w(varindex)
@@ -656,31 +656,33 @@ class __extend__(pyframe.PyFrame):
                 self.pushvalue(w_value)
                 return
         # fall-back
-        varname = self.space.str_w(w_varname)
-        w_value = self._load_global(varname)
+        w_value = self._load_global(w_varname)
         if w_value is None:
-            message = "name '%s' is not defined"
-            raise operationerrfmt(self.space.w_NameError, message, varname)
+            message = "name '%8' is not defined"
+            raise operationerrfmt(self.space.w_NameError, message,
+                                  self.space.identifier_w(w_varname))
         self.pushvalue(w_value)
 
-    def _load_global(self, varname):
-        w_value = self.space.finditem_str(self.w_globals, varname)
+    def _load_global(self, w_varname):
+        w_value = self.space.finditem(self.w_globals, w_varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
-            w_value = self.get_builtin().getdictvalue(self.space, varname)
+            w_value = self.get_builtin().getdictvalue(
+                self.space, self.space.identifier_w(w_varname))
         return w_value
     _load_global._always_inline_ = True
 
-    def _load_global_failed(self, varname):
-        message = "global name '%s' is not defined"
-        raise operationerrfmt(self.space.w_NameError, message, varname)
+    def _load_global_failed(self, w_varname):
+        message = "global name '%8' is not defined"
+        raise operationerrfmt(self.space.w_NameError, message,
+                              self.space.identifier_w(w_varname))
     _load_global_failed._dont_inline_ = True
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
-        w_value = self._load_global(varname)
+        w_varname = self.getname_w(nameindex)
+        w_value = self._load_global(w_varname)
         if w_value is None:
-            self._load_global_failed(varname)
+            self._load_global_failed(w_varname)
         self.pushvalue(w_value)
     LOAD_GLOBAL._always_inline_ = True
 

@@ -302,9 +302,11 @@ def unicode_istitle__Unicode(space, w_unicode):
     return space.newbool(cased)
 
 def unicode_isidentifier__Unicode(space, w_unicode):
-    v = w_unicode._value
-    if len(v) == 0:
-        return space.w_False
+    return space.newbool(_isidentifier(w_unicode._value))
+
+def _isidentifier(u):
+    if not u:
+        return False
 
     # PEP 3131 says that the first character must be in XID_Start and
     # subsequent characters in XID_Continue, and for the ASCII range,
@@ -313,14 +315,14 @@ def unicode_isidentifier__Unicode(space, w_unicode):
     # current definition of XID_Start and XID_Continue, it is
     # sufficient to check just for these, except that _ must be
     # allowed as starting an identifier.
-    first = v[0]
+    first = u[0]
     if not (unicodedb.isxidstart(ord(first)) or first == u'_'):
-        return space.w_False
+        return False
 
-    for i in range(1, len(v)):
-        if not unicodedb.isxidcontinue(ord(v[i])):
-            return space.w_False
-    return space.w_True
+    for i in range(1, len(u)):
+        if not unicodedb.isxidcontinue(ord(u[i])):
+            return False
+    return True
 
 def unicode_isprintable__Unicode(space, w_unicode):
     for uchar in w_unicode._value:

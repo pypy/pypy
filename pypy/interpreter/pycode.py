@@ -90,7 +90,9 @@ class PyCode(eval.Code):
         self.co_flags = flags
         self.co_code = code
         self.co_consts_w = consts
-        self.co_names_w = [space.new_interned_str(aname) for aname in names]
+        self.co_names_w = [
+            space.new_interned_w_str(space.wrap(aname.decode('utf-8')))
+            for aname in names]
         self.co_varnames = varnames
         self.co_freevars = freevars
         self.co_cellvars = cellvars

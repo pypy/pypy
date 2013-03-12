@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 
 
@@ -84,6 +85,10 @@ class AppTestAST:
         assert name.id == "name_word"
         name.id = "hi"
         assert name.id == "hi"
+
+    def test_unicode_identifier(self):
+        name = self.get_ast("日本", "eval").body
+        assert name.id == "日本"
 
     @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_object(self):
