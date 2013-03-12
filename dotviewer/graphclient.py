@@ -130,10 +130,10 @@ def spawn_local_handler():
     if hasattr(sys, 'pypy_objspaceclass'):
         # if 'python' is actually PyPy, e.g. in a virtualenv, then
         # try hard to find a real CPython
-        for python in ['/usr/local/bin/python', '/usr/bin/python']:
-            if os.path.exists(python):
-                break
-        else:
+        try:
+            python = subprocess.check_output(
+                'env -i $SHELL -l -c "which python"', shell=True).strip()
+        except subprocess.CalledProcessError:
             # did not work, fall back to 'python'
             python = 'python'
     else:

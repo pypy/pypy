@@ -106,24 +106,19 @@ class W_DictMultiObject(W_Object):
         for w_k, w_v in list_pairs_w:
             w_self.setitem(w_k, w_v)
 
-    def view_as_kwargs(self):
-        return self.strategy.view_as_kwargs(self)
-
 def _add_indirections():
     dict_methods = "setitem setitem_str getitem \
                     getitem_str delitem length \
                     clear w_keys values \
                     items iterkeys itervalues iteritems setdefault \
-                    popitem listview_str listview_unicode listview_int".split()
+                    popitem listview_str listview_unicode listview_int \
+                    view_as_kwargs".split()
 
     def make_method(method):
         def f(self, *args):
             return getattr(self.strategy, method)(self, *args)
         f.func_name = method
         return f
-
-    def view_as_kwargs(self):
-        return self.strategy.view_as_kwargs(self)
 
     for method in dict_methods:
         setattr(W_DictMultiObject, method, make_method(method))

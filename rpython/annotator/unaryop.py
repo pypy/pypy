@@ -43,12 +43,7 @@ class __extend__(SomeObject):
             raise Exception, 'type() called with more than one argument'
         r = SomeType()
         bk = getbookkeeper()
-        fn, block, i = bk.position_key
-        annotator = bk.annotator
-        op = block.operations[i]
-        assert op.opname == "type"
-        assert len(op.args) == 1
-        assert annotator.binding(op.args[0]) == obj
+        op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=obj)
         r.is_type_of = [op.args[0]]
         return r
 
@@ -79,10 +74,7 @@ class __extend__(SomeObject):
 
         bk = getbookkeeper()
         knowntypedata = {}
-        fn, block, i = bk.position_key
-        op = block.operations[i]
-        assert op.opname == "is_true" or op.opname == "nonzero"
-        assert len(op.args) == 1
+        op = bk._find_current_op(opname=("is_true", "nonzero"), arity=1)
         arg = op.args[0]
         s_nonnone_obj = s_obj
         if s_obj.can_be_none():
@@ -504,7 +496,11 @@ class __extend__(SomeString,
 
     def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
-        s_item = str.basestringclass(no_nul=str.no_nul)
+        if max == -1 and patt.is_constant() and patt.const == "\0":
+            no_nul = True
+        else:
+            no_nul = str.no_nul
+        s_item = str.basestringclass(no_nul=no_nul)
         return getbookkeeper().newlist(s_item)
 
     def method_rsplit(str, patt, max=-1):
@@ -519,6 +515,20 @@ class __extend__(SomeString,
         check_negative_slice(s_start, s_stop)
         result = str.basestringclass(no_nul=str.no_nul)
         return result
+
+    def op_contains(str, s_element):
+        if s_element.is_constant() and s_element.const == "\0":
+            r = SomeBool()
+            bk = getbookkeeper()
+            op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=str)
+            knowntypedata = {}
+            add_knowntypedata(knowntypedata, False, [op.args[0]], str.nonnulify())
+            r.set_knowntypedata(knowntypedata)
+            return r
+        else:
+            return SomeObject.op_contains(str, s_element)
+    op_contains.can_only_throw = []
+
 
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):

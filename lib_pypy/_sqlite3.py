@@ -480,8 +480,6 @@ class Connection(object):
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
-        if not isinstance(sql, basestring):
-            raise Warning("SQL is of wrong type. Must be string or unicode.")
         return self._statement_cache.get(sql, self.row_factory)
 
     def cursor(self, factory=None):
@@ -878,9 +876,6 @@ class Cursor(object):
                 if self.__statement._kind == Statement._DQL and ret == _lib.SQLITE_ROW:
                     self.__statement._build_row_cast_map()
                     self.__statement._readahead(self)
-                else:
-                    self.__statement._item = None
-                    self.__statement._exhausted = True
 
                 if self.__statement._kind == Statement._DML:
                     if self.__rowcount == -1:
@@ -1007,7 +1002,7 @@ class Statement(object):
         self.__con = connection
 
         if not isinstance(sql, basestring):
-            raise ValueError("sql must be a string")
+            raise Warning("SQL is of wrong type. Must be string or unicode.")
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
             self._kind = Statement._DML
@@ -1017,7 +1012,6 @@ class Statement(object):
             self._kind = Statement._DDL
 
         self._in_use = False
-        self._exhausted = False
         self._row_factory = None
 
         if isinstance(sql, unicode):
@@ -1055,7 +1049,6 @@ class Statement(object):
         if self._in_use and self._statement:
             _lib.sqlite3_reset(self._statement)
             self._in_use = False
-        self._exhausted = False
 
     if sys.version_info[0] < 3:
         def __check_decodable(self, param):
@@ -1220,20 +1213,19 @@ class Statement(object):
         self._item = row
 
     def _next(self, cursor):
-        if self._exhausted:
+        try:
+            item = self._item
+        except AttributeError:
             raise StopIteration
-        item = self._item
+        del self._item
 
         ret = _lib.sqlite3_step(self._statement)
-        if ret == _lib.SQLITE_DONE:
-            self._exhausted = True
-            self._item = None
-        elif ret != _lib.SQLITE_ROW:
-            exc = self.__con._get_exception(ret)
+        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
             _lib.sqlite3_reset(self._statement)
-            raise exc
+            raise self.__con._get_exception(ret)
+        elif ret == _lib.SQLITE_ROW:
+            self._readahead(cursor)
 
-        self._readahead(cursor)
         return item
 
     def _get_description(self):

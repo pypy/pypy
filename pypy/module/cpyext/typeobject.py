@@ -729,6 +729,9 @@ def PyType_Modified(space, w_obj):
     subtypes.  This function must be called after any manual
     modification of the attributes or base classes of the type.
     """
-    # PyPy already takes care of direct modifications to type.__dict__
-    # (which is a W_DictProxyObject).
-    pass
+    # Invalidate the type cache in case of a builtin type.
+    if not isinstance(w_obj, W_TypeObject):
+        return
+    if w_obj.is_cpytype():
+        w_obj.mutated(None)
+    

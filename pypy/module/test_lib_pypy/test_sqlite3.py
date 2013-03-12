@@ -57,8 +57,31 @@ def test_cursor_iter():
     cur = con.cursor()
     with pytest.raises(StopIteration):
         next(cur)
-    cur = con.execute('select 1')
+
+    cur.execute('select 1')
     next(cur)
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    con.commit()
+    next(cur)
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    with pytest.raises(_sqlite3.ProgrammingError):
+        cur.executemany('select 1', [])
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    cur.execute('create table test(ing)')
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    cur.execute('insert into test values(1)')
+    con.commit()
     with pytest.raises(StopIteration):
         next(cur)
 
