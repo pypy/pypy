@@ -113,4 +113,5 @@ ArmCPU = CPU_ARM
 class CPU_ARMHF(AbstractARMCPU):
     """ARM v7 uses hardfp ABI, requires vfp"""
     use_hf_abi = True
+    backend_name = "armhf"
     supports_floats = False

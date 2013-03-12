@@ -241,16 +241,22 @@ class TestMallocFastpath(BaseTestRegalloc):
         gc_ll_descr.check_nothing_in_nursery()
         assert gc_ll_descr.addrs[0] == nurs_adr + 64
         # slowpath never called
-        assert gc_ll_descr.calls == []       
+        assert gc_ll_descr.calls == []
 
     def test_malloc_slowpath(self):
         def check(frame):
-            assert len(frame.jf_gcmap) == 1
+            expected_size = 1
+            idx = 0
+            if self.cpu.backend_name.startswith('arm'):
+                # jitframe fixed part is larger here
+                expected_size = 2
+                idx = 1
+            assert len(frame.jf_gcmap) == expected_size
             if self.cpu.IS_64_BIT:
-                assert frame.jf_gcmap[0] == (1<<29) | (1 << 30)
+                assert frame.jf_gcmap[idx] == (1<<29) | (1 << 30)
             else:
-                assert frame.jf_gcmap[0] == (1<<24) | (1 << 23)
-        
+                assert frame.jf_gcmap[idx] == (1<<24) | (1 << 23)
+
         self.cpu = self.getcpu(check)
         ops = '''
         [i0]
