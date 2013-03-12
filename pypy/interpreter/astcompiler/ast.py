@@ -6190,8 +6190,7 @@ def Name_get_id(space, w_self):
     if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'id')
-    id_ = w_self.id.decode('utf-8')
-    return space.wrap(id_)
+    return space.wrap(w_self.id)
 
 def Name_set_id(space, w_self, w_new_value):
     try:
