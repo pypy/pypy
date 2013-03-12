@@ -115,3 +115,4 @@ class CPU_ARMHF(AbstractARMCPU):
     use_hf_abi = True
     backend_name = "armhf"
     supports_floats = False
+    supports_singlefloats = False
