@@ -15,6 +15,7 @@ from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 
 from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter import longlong
 from rpython.rlib.objectmodel import invoke_around_extcall
 
 CPU = getcpuclass()
@@ -510,6 +511,8 @@ def unpack_gcmap(frame):
     val = 0
     for i in range(len(frame.jf_gcmap)):
         item = frame.jf_gcmap[i]
+        if item == 0:
+            val += WORD * 8
         while item != 0:
             if item & 1:
                 res.append(val)
@@ -623,9 +626,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr.init_nursery(20)
         cpu.setup_once()
         cpu.compile_loop(loop.inputargs, loop.operations, token)
-        frame = cpu.execute_token(token, 2.3)
+        arg = longlong.getfloatstorage(2.3)
+        frame = cpu.execute_token(token, arg)
         ofs = cpu.get_baseofs_of_frame_field()
         f = cpu.read_float_at_mem(frame, ofs)
+        f = longlong.getrealfloat(f)
         assert f == 2.3 + 1.2
 
     def test_malloc_1(self):
