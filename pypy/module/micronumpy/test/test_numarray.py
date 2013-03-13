@@ -1646,6 +1646,8 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
+        a = array([1, 2, 3.14156]).astype('S3').dtype
+        assert a.itemsize == 3
 
     def test_base(self):
         from numpypy import array
