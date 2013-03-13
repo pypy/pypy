@@ -55,12 +55,12 @@ def parse_acquire_args(space, blocking, timeout):
 
 def acquire_timed(lock, microseconds):
     """Helper to acquire an interruptible lock with a timeout."""
-    endtime = (time.time() * 1000000) + microseconds
+    endtime = (time.time() * 1e6) + microseconds
     while True:
         result = lock.acquire_timed(microseconds)
         if result == RPY_LOCK_INTR:
             if microseconds >= 0:
-                microseconds = r_longlong(endtime - (time.time() * 1000000))
+                microseconds = r_longlong(endtime - (time.time() * 1e6))
                 # Check for negative values, since those mean block
                 # forever
                 if microseconds <= 0:
