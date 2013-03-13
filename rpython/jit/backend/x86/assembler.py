@@ -1118,11 +1118,6 @@ class Assembler386(BaseAssembler):
         n = len(arglocs)
         for i in range(start, n):
             loc = arglocs[i]
-            if isinstance(loc, RegLoc):
-                if loc.is_xmm:
-                    stack_depth += 2
-                else:
-                    stack_depth += 1
             stack_depth += loc.get_width() // WORD
         if stack_depth > stack_max:
             align = align_stack_words(stack_depth - stack_max)
