@@ -53,12 +53,14 @@ def parse_acquire_args(space, blocking, timeout):
     return microseconds
 
 
-def acquire_timed(lock, microseconds):
+def acquire_timed(space, lock, microseconds):
     """Helper to acquire an interruptible lock with a timeout."""
     endtime = (time.time() * 1e6) + microseconds
     while True:
         result = lock.acquire_timed(microseconds)
         if result == RPY_LOCK_INTR:
+            # Run signal handlers if we were interrupted
+            space.getexecutioncontext().checksignals()
             if microseconds >= 0:
                 microseconds = r_longlong(endtime - (time.time() * 1e6))
                 # Check for negative values, since those mean block
@@ -89,7 +91,7 @@ With an argument, this will only block if the argument is true,
 and the return value reflects whether the lock is acquired.
 The blocking operation is interruptible."""
         microseconds = parse_acquire_args(space, blocking, timeout)
-        result = acquire_timed(self.lock, microseconds)
+        result = acquire_timed(space, self.lock, microseconds)
         return space.newbool(result == RPY_LOCK_ACQUIRED)
 
     def descr_lock_release(self, space):
@@ -201,7 +203,7 @@ class W_RLock(Wrappable):
         if self.rlock_count > 0 or not self.lock.acquire(False):
             if not blocking:
                 return space.w_False
-            r = acquire_timed(self.lock, microseconds)
+            r = acquire_timed(space, self.lock, microseconds)
             r = (r == RPY_LOCK_ACQUIRED)
         if r:
             assert self.rlock_count == 0
