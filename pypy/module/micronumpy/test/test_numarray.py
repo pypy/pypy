@@ -1470,12 +1470,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert str(exc.value) == \
                 "all the input arrays must have same number of dimensions"
 
-        if 0: # XXX too pedantic
-            g1 = array([0,1,2])
-            g2 = array([[3,4,5]])
-            exc = raises(ValueError, concatenate, (g1, g2), axis=2)
-            assert str(exc.value) == \
-                    "all the input arrays must have same number of dimensions"
+        g1 = array([0,1,2])
+        g2 = array([[3,4,5]])
+        exc = raises(ValueError, concatenate, (g1, g2), axis=2)
+        assert str(exc.value) == \
+                "all the input arrays must have same number of dimensions"
 
         a = array([1, 2, 3, 4, 5, 6])
         a = (a + a)[::2]
