@@ -449,16 +449,6 @@ class SomePBC(SomeObject):
         else:
             return kt.__name__
 
-class SomeGenericCallable(SomeObject):
-    """ Stands for external callable with known signature
-    """
-    def __init__(self, args, result):
-        self.args_s = args
-        self.s_result = result
-
-    def can_be_None(self):
-        return True
-
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
     knowntype = BuiltinFunctionType  # == BuiltinMethodType

@@ -18,7 +18,6 @@ from rpython.annotator.model import unionof, UnionError, missing_operation
 from rpython.annotator.model import TLS
 from rpython.annotator.model import read_can_only_throw
 from rpython.annotator.model import add_knowntypedata, merge_knowntypedata
-from rpython.annotator.model import SomeGenericCallable
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.rlib import rarithmetic
@@ -811,20 +810,6 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                 else:
                     s.const = False    # no common desc in the two sets
         return s
-
-class __extend__(pairtype(SomeGenericCallable, SomePBC)):
-    def union((gencall, pbc)):
-        for desc in pbc.descriptions:
-            unique_key = desc
-            bk = desc.bookkeeper
-            s_result = bk.emulate_pbc_call(unique_key, pbc, gencall.args_s)
-            s_result = unionof(s_result, gencall.s_result)
-            assert gencall.s_result.contains(s_result)
-        return gencall
-
-class __extend__(pairtype(SomePBC, SomeGenericCallable)):
-    def union((pbc, gencall)):
-        return pair(gencall, pbc).union()
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):

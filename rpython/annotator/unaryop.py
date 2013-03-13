@@ -12,7 +12,7 @@ from rpython.annotator.model import \
      SomeTypedAddressAccess, SomeAddress, SomeType, \
      s_ImpossibleValue, s_Bool, s_None, \
      unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
-     SomeGenericCallable, SomeWeakRef, SomeUnicodeString
+     SomeWeakRef, SomeUnicodeString
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -740,14 +740,6 @@ class __extend__(SomePBC):
             return immutablevalue(0)
         else:
             return SomeObject()    # len() on a pbc? no chance
-
-class __extend__(SomeGenericCallable):
-    def call(self, args):
-        bookkeeper = getbookkeeper()
-        for arg, expected in zip(args.unpack()[0], self.args_s):
-            assert expected.contains(arg)
-
-        return self.s_result
 
 # annotation of low-level types
 from rpython.annotator.model import SomePtr, SomeLLADTMeth
