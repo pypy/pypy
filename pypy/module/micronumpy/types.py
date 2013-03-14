@@ -1634,7 +1634,7 @@ class StringType(BaseType, BaseStringType):
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
         arg = space.str_w(space.str(w_item))
-        arr = interp_boxes.VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
+        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
