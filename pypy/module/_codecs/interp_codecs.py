@@ -288,7 +288,7 @@ def surrogatepass_errors(space, w_exc):
                 raise OperationError(space.type(w_exc), w_exc)
             res += chr(0xe0 | (ch >> 12))
             res += chr(0x80 | ((ch >> 6) & 0x3f))
-            res += chr(0x80 | (ch >> 0x3f))
+            res += chr(0x80 | (ch & 0x3f))
         return space.newtuple([space.wrapbytes(res), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))

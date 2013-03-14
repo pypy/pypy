@@ -515,6 +515,10 @@ class AppTestPartialEvaluation:
                 b"abc\xed\xa0\x80def")
         assert (b"abc\xed\xa0\x80def".decode("utf-8", "surrogatepass") ==
                 "abc\ud800def")
+        assert ('surrogate:\udcff'.encode("utf-8", "surrogatepass") ==
+                b'surrogate:\xed\xb3\xbf')
+        assert (b'surrogate:\xed\xb3\xbf'.decode("utf-8", "surrogatepass") ==
+                'surrogate:\udcff')
         raises(UnicodeDecodeError, b"abc\xed\xa0".decode, "utf-8",
                "surrogatepass")
         raises(UnicodeDecodeError, b"abc\xed\xa0z".decode, "utf-8",
