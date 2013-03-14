@@ -1480,6 +1480,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = (a + a)[::2]
         b = concatenate((a[:3], a[-3:]))
         assert (b == [2, 6, 10, 2, 6, 10]).all()
+        a = concatenate((array([]), array(['abc'])))
+        assert a[0] == 'abc'
 
     def test_std(self):
         from numpypy import array
