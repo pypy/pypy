@@ -277,6 +277,10 @@ class W_VoidBox(W_FlexibleBox):
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
+    def convert_to(self, dtype):
+        assert dtype.fields == self.dtype.fields
+        return self
+
 class W_CharacterBox(W_FlexibleBox):
     pass
 

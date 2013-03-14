@@ -1484,6 +1484,22 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dtype == 'S3'
         a = concatenate((array([]), array(['abc'])))
         assert a[0] == 'abc'
+    
+    def test_record_concatenate(self):
+        # only an exact match can succeed
+        from numpypy import zeros, concatenate
+        a = concatenate((zeros((2,),dtype=[('x', int), ('y', float)]),
+                         zeros((2,),dtype=[('x', int), ('y', float)])))
+        assert a.shape == (4,)
+        raises(TypeError, concatenate, 
+                            (zeros((2,), dtype=[('x', int), ('y', float)]),
+                            (zeros((2,), dtype=[('x', float), ('y', float)]))))
+        raises(TypeError, concatenate, ([1], zeros((2,),
+                                            dtype=[('x', int), ('y', float)])))
+        raises(TypeError, concatenate, (['abc'], zeros((2,),
+                                            dtype=[('x', int), ('y', float)])))
+
+
 
     def test_std(self):
         from numpypy import array
