@@ -47,6 +47,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         if impl.is_scalar():
             self.fill(impl.get_scalar_value())
             return
+        if self.dtype.is_str_or_unicode():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "concatenate(%s) not implemented yet" % self.dtype))
         shape = shape_agreement(space, self.get_shape(), arr)
         if impl.storage == self.storage:
             impl = impl.copy()
@@ -276,7 +279,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return ArrayBuffer(self)
 
     def astype(self, space, dtype):
-        if dtype.is_flexible_type():
+        if dtype.is_str_or_unicode():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "astype(%s) not implemented yet" % dtype))
         new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
