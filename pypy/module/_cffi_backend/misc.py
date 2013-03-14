@@ -203,6 +203,11 @@ def as_unsigned_long(space, w_ob, strict):
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
 
+def is_zero(space, w_ob):
+    return ((space.isinstance_w(w_ob, space.w_int) or
+             space.isinstance_w(w_ob, space.w_long))
+            and not space.is_true(w_ob))
+
 # ____________________________________________________________
 
 class _NotStandardObject(Exception):

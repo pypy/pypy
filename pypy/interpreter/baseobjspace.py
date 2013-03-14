@@ -1665,6 +1665,8 @@ ObjSpace.ExceptionTable = [
     'UnicodeTranslateError',
     'ValueError',
     'ZeroDivisionError',
+    'RuntimeWarning',
+    'PendingDeprecationWarning',
     ]
 
 if sys.platform.startswith("win"):

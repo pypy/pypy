@@ -9,6 +9,7 @@ from distutils.errors import DistutilsPlatformError
 
 
 PREFIX = os.path.normpath(sys.prefix)
+EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
 project_base = os.path.dirname(os.path.abspath(sys.executable))
 python_build = False
 
@@ -22,7 +23,7 @@ def get_python_version():
     leaving off the patchlevel.  Sample return values could be '1.5'
     or '2.2'.
     """
-    return sys.version[:3]
+    return sys.version[0]
 
 
 def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):

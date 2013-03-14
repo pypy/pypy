@@ -59,6 +59,12 @@ libc.getgrnam.restype = POINTER(GroupStruct)
 libc.getgrent.argtypes = []
 libc.getgrent.restype = POINTER(GroupStruct)
 
+libc.setgrent.argtypes = []
+libc.setgrent.restype = None
+
+libc.endgrent.argtypes = []
+libc.endgrent.restype = None
+
 def _group_from_gstruct(res):
     i = 0
     mem = []

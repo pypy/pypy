@@ -2204,6 +2204,20 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[array([0, 2]), slice(0, 2)] = [[10, 11], [12, 13]]
         assert (a == [[10, 11], [3, 4], [12, 13]]).all()
 
+    def test_slice_vector_index(self):
+        from numpypy import arange
+        b = arange(145)
+        a = b[slice(25, 125, None)]
+        assert (a == range(25, 125)).all()
+        a = b[[slice(25, 125, None)]]
+        assert a.shape == (100,)
+        # a is a view into b
+        a[10] = 200
+        assert b[35] == 200
+        b[[slice(25, 30)]] = range(5)
+        assert all(a[:5] == range(5))
+        raises(TypeError, 'b[[[slice(25, 125)]]]')
+
     def test_cumsum(self):
         from numpypy import arange
         a = arange(6).reshape(3, 2)

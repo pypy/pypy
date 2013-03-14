@@ -224,9 +224,10 @@ class RegisterOs(BaseLazyRegistering):
             decls = []
             defs = []
             for name in self.w_star:
-                data = {'ret_type': 'int', 'name': name}
-                decls.append((decl_snippet % data).strip())
-                defs.append((def_snippet % data).strip())
+                if hasattr(os, name):
+                    data = {'ret_type': 'int', 'name': name}
+                    decls.append((decl_snippet % data).strip())
+                    defs.append((def_snippet % data).strip())
 
             self.compilation_info = self.compilation_info.merge(
                 ExternalCompilationInfo(

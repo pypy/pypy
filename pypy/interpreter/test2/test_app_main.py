@@ -700,6 +700,10 @@ class TestNonInteractive:
         assert 'hello world\n' in data
         assert '42\n' in data
 
+    def test_option_S_copyright(self):
+        data = self.run('-S -i', expect_prompt=True, expect_banner=True)
+        assert 'copyright' not in data
+
     def test_non_interactive_stdout_fully_buffered(self):
         path = getscript(r"""
             import sys, time
@@ -885,7 +889,7 @@ class AppTestAppMain:
         # setup code for test_setup_bootstrap_path
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        cpy_ver = '%d' % CPYTHON_VERSION[0]
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and

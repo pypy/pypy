@@ -1,20 +1,9 @@
 from pypy.conftest import option
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from rpython.rlib.rcomplex import c_pow
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
-    def setup_class(cls):
-        import os
-        BaseNumpyAppTest.setup_class.im_func(cls)
-
-        def cls_c_pow(space, args_w):
-            return space.wrap(c_pow(*map(space.unwrap, args_w)))
-        cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
-        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
-        cls.w_isWindows = cls.space.wrap(os.name == 'nt')
-
     def test_ufunc_instance(self):
         from numpypy import add, ufunc
 
@@ -81,6 +70,42 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinstance(min_c_b, ndarray)
         for i in range(3):
             assert min_c_b[i] == min(b[i], c)
+
+    def test_scalar(self):
+        # tests that by calling all available ufuncs on scalars, none will
+        # raise uncaught interp-level exceptions, (and crash the test)
+        # and those that are uncallable can be accounted for.
+        # test on the four base-class dtypes: int, bool, float, complex
+        # We need this test since they have no common base class.
+        import numpypy as np
+        def find_uncallable_ufuncs(dtype):
+            uncallable = set()
+            array = np.array(1, dtype)
+            for s in dir(np):
+                u = getattr(np, s)
+                if isinstance(u, np.ufunc):
+                    try:
+                        u(* [array] * u.nin)
+                    except TypeError:
+                        assert s not in uncallable
+                        uncallable.add(s)
+            return uncallable
+        assert find_uncallable_ufuncs('int') == set()
+        assert find_uncallable_ufuncs('bool') == set()
+        assert find_uncallable_ufuncs('float') == set(
+                ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
+                 'left_shift', 'right_shift', 'invert'])
+        assert find_uncallable_ufuncs('complex') == set(
+                ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
+                 'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
+                 'fabs', 'fmod', 'invert', 'isneginf', 'isposinf',
+                 'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
+                 'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
+
+    def test_int_only(self):
+        from numpypy import bitwise_and, array
+        a = array(1.0)
+        raises(TypeError, bitwise_and, a, a)
 
     def test_negative(self):
         from numpypy import array, negative
@@ -249,12 +274,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a == ref).all()
 
     def test_signbit(self):
-        from numpypy import signbit
+        from numpypy import signbit, add
 
         assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
             [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
             [False,  True,  True,  True,  True]).all()
+
+        a = add.identity
+        assert signbit(a) == False
 
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
@@ -270,6 +298,20 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = reciprocal(a)
         for i in range(4):
             assert b[i] == reference[i]
+
+        for dtype in ['int8', 'int16', 'int32', 'int64',
+                      'uint8', 'uint16', 'uint32', 'uint64']:
+            reference = [0, -1, 0, 1, 0]
+            if dtype[0] == 'u':
+                reference[1] = 0
+            # XXX need to fix specialization issue in types.py first
+            #elif dtype == 'int32':
+            #        reference[2] = -2147483648
+            #elif dtype == 'int64':
+            #        reference[2] = -9223372036854775808
+            a = array([-2, -1, 0, 1, 2], dtype)
+            b = reciprocal(a)
+            assert (b == reference).all()
 
     def test_subtract(self):
         from numpypy import array, subtract
@@ -625,10 +667,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (invert(a) == ~a).all()
 
     def test_shift(self):
-        from numpypy import left_shift, right_shift
+        from numpypy import left_shift, right_shift, bool
 
         assert (left_shift([5, 1], [2, 13]) == [20, 2**13]).all()
         assert (right_shift(10, range(5)) == [10, 5, 2, 1, 0]).all()
+        assert left_shift(bool(1), 3) == left_shift(1, 3)
+        assert right_shift(bool(1), 3) == right_shift(1, 3)
 
     def test_comparisons(self):
         import operator
@@ -811,7 +855,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = floor_divide(a, 2.5)
         for i in range(len(a)):
             assert b[i] == a[i] // 2.5
-        
+
         a = array([10+10j, -15-100j, 0+10j], dtype=complex)
         b = floor_divide(a, 2.5)
         for i in range(len(a)):

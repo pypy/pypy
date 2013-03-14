@@ -154,6 +154,10 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
         space = self.space
         ob = space.interpclass_w(w_ob)
         if not isinstance(ob, cdataobj.W_CData):
+            if misc.is_zero(space, w_ob):
+                NULL = lltype.nullptr(rffi.CCHARP.TO)
+                rffi.cast(rffi.CCHARPP, cdata)[0] = NULL
+                return
             raise self._convert_error("cdata pointer", w_ob)
         other = ob.ctype
         if not isinstance(other, W_CTypePtrBase):
@@ -248,7 +252,6 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def prepare_file(self, w_ob):
         from pypy.module._file.interp_file import W_File
-        from pypy.module._cffi_backend import ctypefunc
         ob = self.space.interpclass_w(w_ob)
         if isinstance(ob, W_File):
             return prepare_file_argument(self.space, ob)
@@ -257,7 +260,12 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if space.is_w(w_init, space.w_None):
+        if misc.is_zero(space, w_init):
+            # Convert 0 to NULL.  Note that passing 0 is not ambigous,
+            # despite the potential confusion: as a 'T*' argument, 0 means
+            # NULL, but as a 'T[]' argument it would mean "array of size 0"
+            # --- except that we specifically refuse to interpret numbers
+            # as the array size when passing arguments.
             rffi.cast(rffi.CCHARPP, cdata)[0] = lltype.nullptr(rffi.CCHARP.TO)
             return 3
         elif (space.isinstance_w(w_init, space.w_list) or

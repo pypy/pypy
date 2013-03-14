@@ -225,10 +225,7 @@ class Unpickler(object):
         elif data == TRUE[1:]:
             val = True
         else:
-            try:
-                val = int(data)
-            except ValueError:
-                val = long(data)
+            val = int(data)
         self.append(val)
     dispatch[INT] = load_int
 

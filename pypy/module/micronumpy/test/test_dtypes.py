@@ -62,8 +62,12 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert dtype('int64').num == 7
             assert dtype('uint64').num == 8
         assert dtype(int).num == 7
+        assert dtype('int').num == 7
+        assert dtype('uint').num == 8
         assert dtype(long).num == 9
         assert dtype(float).num == 12
+        assert dtype('float').num == 12
+        assert dtype('complex').num == 15
 
     def test_array_dtype_attr(self):
         from numpypy import array, dtype

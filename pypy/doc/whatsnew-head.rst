@@ -39,6 +39,7 @@ Rudimentary support for bytearray in RPython
 .. branch: task-decorator
 .. branch: fix-e4fa0b2
 .. branch: win32-fixes
+.. branch: numpy-unify-methods
 .. branch: fix-version-tool
 .. branch: popen2-removal
 
@@ -78,3 +79,9 @@ Support enumerate() over rstr types.
 
 .. branch: cleanup-numpypy-namespace
 Cleanup _numpypy and numpypy namespaces to more closely resemble numpy.
+
+.. branch: kill-flowobjspace
+Random cleanups to hide FlowObjSpace from public view.
+
+.. branch: vendor-rename
+Remove minor verison number from lib-python dirs to simplify stdlib upgrades.

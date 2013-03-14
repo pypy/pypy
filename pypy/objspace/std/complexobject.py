@@ -9,7 +9,7 @@ from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 from rpython.rlib import jit, rcomplex
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_ulonglong
 
 import math
 
@@ -41,7 +41,7 @@ class W_AbstractComplexObject(W_Object):
         real = space.float_w(space.getattr(self, space.wrap("real")))
         imag = space.float_w(space.getattr(self, space.wrap("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
-        imag_b = rbigint.fromrarith_int(float2longlong(imag))
+        imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
         val = real_b.lshift(64).or_(imag_b).lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(val)
 

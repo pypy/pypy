@@ -38,9 +38,10 @@ def test_merge1():
         return 4
     do_test_merge(merge_int, range(4))
     do_test_merge(merge_int, [r_uint(i) for i in range(4)])
-    if r_longlong is not r_int:
-        do_test_merge(merge_int, [r_longlong(i) for i in range(4)])
-    do_test_merge(merge_int, [r_ulonglong(i) for i in range(4)])
+    # this has been disabled:
+    #if r_longlong is not r_int:
+    #    do_test_merge(merge_int, [r_longlong(i) for i in range(4)])
+    #do_test_merge(merge_int, [r_ulonglong(i) for i in range(4)])
 
     def merge_chr(n):
         c = chr(n + 1)
