@@ -19,7 +19,8 @@ def constfloat(x):
 
 class FakeStats(object):
     pass
-class TestCallingConv(Runner):
+
+class CallingConvTests(Runner):
     type_system = 'lltype'
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
@@ -371,3 +372,57 @@ class TestCallingConv(Runner):
                                          'float', descr=calldescr)
             expected = func(*argvalues)
             assert abs(res.getfloat() - expected) < 0.0001
+
+
+    def make_function_returning_stack_pointer(self):
+        raise NotImplementedError
+
+    def get_alignment_requirements(self):
+        raise NotImplementedError
+
+    def test_call_aligned_explicit_check(self):
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip('requires floats')
+
+        func_addr = self.make_function_returning_stack_pointer()
+
+        F = lltype.Float
+        I = lltype.Signed
+        floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
+        ints = [7, 11, 23, 13, -42, 1111, 95, 1]
+        for case in range(256):
+            args = []
+            funcargs = []
+            float_count = 0
+            int_count = 0
+            for i in range(8):
+                if case & (1<<i):
+                    args.append('f%d' % float_count)
+                    float_count += 1
+                    funcargs.append(F)
+                else:
+                    args.append('i%d' % int_count)
+                    int_count += 1
+                    funcargs.append(I)
+
+            arguments = ', '.join(args)
+
+            FUNC = self.FuncType(funcargs, I)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
+
+            ops = '[%s]\n' % arguments
+            ops += 'i99 = call(%d, %s, descr=calldescr)\n' % (func_addr,
+                                                              arguments)
+            ops += 'finish(i99)\n'
+
+            loop = parse(ops, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            argvals, expected_result = self._prepare_args(args, floats, ints)
+
+            deadframe = self.cpu.execute_token(looptoken, *argvals)
+            x = cpu.get_int_value(deadframe, 0)
+            align_req = self.get_alignment_requirements()
+            assert x % align_req == 0

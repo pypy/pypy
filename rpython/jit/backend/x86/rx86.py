@@ -599,6 +599,9 @@ class AbstractX86CodeBuilder(object):
     # reserved as an illegal instruction
     UD2 = insn('\x0F\x0B')
 
+    # a breakpoint
+    INT3 = insn('\xCC')
+
     # ------------------------------ SSE2 ------------------------------
 
     # Conversion
