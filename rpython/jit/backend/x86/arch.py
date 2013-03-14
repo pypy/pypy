@@ -30,9 +30,9 @@ else:
 # start of every frame: the saved value of some registers
 
 if WORD == 4:
-    # ebp + ebx + esi + edi + 12 extra words + return address = 17 words
-    FRAME_FIXED_SIZE = 17
-    PASS_ON_MY_FRAME = 12
+    # ebp + ebx + esi + edi + 14 extra words + return address = 19 words
+    FRAME_FIXED_SIZE = 19
+    PASS_ON_MY_FRAME = 14
     JITFRAME_FIXED_SIZE = 6 + 8 * 2 # 6 GPR + 8 XMM * 2 WORDS/float
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + 12 extra words + return address = 19
