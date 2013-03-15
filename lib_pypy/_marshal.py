@@ -167,8 +167,8 @@ class _Marshaller:
     def dump_unicode(self, x):
         self._write(TYPE_UNICODE)
         #s = x.encode('utf8')
-        s, len_s = utf_8_encode(x)
-        self.w_long(len_s)
+        s = utf_8_encode(x)[0]
+        self.w_long(len(s))
         self._write(s)
     try:
         unicode
@@ -387,7 +387,7 @@ class _Unmarshaller:
         n = self.r_long()
         s = self._read(n)
         #ret = s.decode('utf8')
-        ret, len_ret = utf_8_decode(s)
+        ret = utf_8_decode(s)[0]
         return ret
     dispatch[TYPE_UNICODE] = load_unicode
 

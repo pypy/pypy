@@ -145,3 +145,8 @@ def dump_to_cpython(case):
 def test_load_truncated_string():
     s = '(\x02\x00\x00\x00i\x03\x00\x00\x00sB\xf9\x00\x00\nabcd'
     py.test.raises(EOFError, marshal.loads, s)
+
+def test_dump_unicode_length():
+    s = u'123\xe9'
+    r = marshal.dumps(s)
+    assert r == b'u\x05\x00\x00\x00123\xc3\xa9'
