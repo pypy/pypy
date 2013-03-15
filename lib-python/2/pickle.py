@@ -1421,7 +1421,7 @@ class StringBuilderFile(object):
 
     def write(self, data):
         for x in data:
-            self.builder.append(data)
+            self.builder.append(x)
 
     def getvalue(self):
         return self.builder.build()
