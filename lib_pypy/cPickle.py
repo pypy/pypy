@@ -2,7 +2,7 @@
 # Reimplementation of cPickle, mostly as a copy of pickle.py
 #
 
-from pickle import Pickler, dump, dumps, PickleError, PicklingError, UnpicklingError, _EmptyClass
+from pickle import Pickler, dump, dumps, PickleError, PicklingError, UnpicklingError, _EmptyClass, StringBuilderFile
 from pickle import __doc__, __version__, format_version, compatible_formats
 from types import *
 from copy_reg import dispatch_table
@@ -120,7 +120,7 @@ def dump(obj, file, protocol=None):
 
 @builtinify
 def dumps(obj, protocol=None):
-    file = StringIO()
+    file = StringBuilderFile()
     Pickler(file, protocol).dump(obj)
     return file.getvalue()
 
