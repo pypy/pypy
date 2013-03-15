@@ -1418,9 +1418,7 @@ class StringBuilderFile(object):
     '''
     def __init__(self):
         self.builder = StringBuilder()
-
-    def write(self, data):
-        self.builder.append(data)
+        self.write = self.builder.append
 
     def getvalue(self):
         return self.builder.build()
