@@ -147,6 +147,6 @@ def test_load_truncated_string():
     py.test.raises(EOFError, marshal.loads, s)
 
 def test_dump_unicode_length():
-    s = u'123\xe9'
+    s = b'123\xe9'.decode('latin-1')
     r = marshal.dumps(s)
     assert r == b'u\x05\x00\x00\x00123\xc3\xa9'
