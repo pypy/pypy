@@ -42,6 +42,7 @@ Rudimentary support for bytearray in RPython
 .. branch: numpy-unify-methods
 .. branch: fix-version-tool
 .. branch: popen2-removal
+.. branch: pickle-dumps
 
 .. branch: release-2.0-beta1
 
