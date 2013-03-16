@@ -44,7 +44,6 @@ rlock = RLock()
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
-_LINUX = "linux" in sys.platform
 _64BIT = "64bit" in host_platform.architecture()[0]
 
 
@@ -70,7 +69,7 @@ def allocate_ctypes(ctype):
         return ctype()
 
 def do_allocation_in_far_regions():
-    """On 32 bits: this reserves 1.25GB of address space, or 2.5GB on Linux,
+    """On 32 bits: this reserves 1.25GB of address space, or 2.5GB on POSIX,
        which helps test this module for address values that are signed or
        unsigned.
 
@@ -87,18 +86,20 @@ def do_allocation_in_far_regions():
         if _64BIT:
             PIECESIZE = 0x80000000
         else:
-            if _LINUX:
+            if _POSIX:
                 PIECESIZE = 0x10000000
             else:
                 PIECESIZE = 0x08000000
         PIECES = 10
         flags = (0,)
-        if _LINUX:
+        if _POSIX:
             flags = (rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
                      rmmap.PROT_READ|rmmap.PROT_WRITE)
-        if _MS_WINDOWS:
+        elif _MS_WINDOWS:
             flags = (rmmap.MEM_RESERVE,)
             # XXX seems not to work
+        else:
+            assert False  # should always generate flags
         m = rmmap.mmap(-1, PIECES * PIECESIZE, *flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
