@@ -22,6 +22,7 @@ PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'lastblock',
                             'is_being_profiled',
                             'w_globals',
+                            'w_f_trace',
                             ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
@@ -37,9 +38,6 @@ def get_jitcell_at(next_instr, is_being_profiled, bytecode):
 def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
     bytecode.jit_cells[next_instr, is_being_profiled] = newcell
 
-def confirm_enter_jit(next_instr, is_being_profiled, bytecode, frame, ec):
-    return (frame.w_f_trace is None and
-            ec.w_tracefunc is None)
 
 def can_never_inline(next_instr, is_being_profiled, bytecode):
     return False
@@ -55,7 +53,6 @@ class PyPyJitDriver(JitDriver):
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
-                              confirm_enter_jit = confirm_enter_jit,
                               can_never_inline = can_never_inline,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
