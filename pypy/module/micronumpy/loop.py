@@ -458,18 +458,6 @@ def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr,
                           val_arr.descr_getitem(space, w_idx))
         iter.next()
 
-copy_from_to_driver = jit.JitDriver(greens = ['dtype'],
-                                    reds = 'auto')
-
-def copy_from_to(from_, to, dtype):
-    from_iter = from_.create_iter()
-    to_iter = to.create_iter()
-    while not from_iter.done():
-        copy_from_to_driver.jit_merge_point(dtype=dtype)
-        to_iter.setitem(from_iter.getitem().convert_to(dtype))
-        to_iter.next()
-        from_iter.next()
-
 byteswap_driver = jit.JitDriver(greens = ['dtype'],
                                     reds = 'auto')
 

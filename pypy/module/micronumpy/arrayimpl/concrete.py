@@ -279,11 +279,12 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return ArrayBuffer(self)
 
     def astype(self, space, dtype):
+        new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
         if dtype.is_str_or_unicode():
             raise OperationError(space.w_NotImplementedError, space.wrap(
-                "astype(%s) not implemented yet" % dtype))
-        new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
-        loop.copy_from_to(self, new_arr.implementation, dtype)
+                "astype(%s) not implemented yet" % self.dtype))
+        else:    
+            loop.setslice(new_arr.get_shape(), new_arr.implementation, self)
         return new_arr
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
