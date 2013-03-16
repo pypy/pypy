@@ -13,7 +13,6 @@ import stat
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
-_DARWIN = sys.platform == "darwin"
 _64BIT = "64bit" in platform.architecture()[0]
 _ARM = platform.machine().startswith('arm')
 _PPC = platform.machine().startswith('ppc')
@@ -680,9 +679,6 @@ if _POSIX:
 
         else:
             m.fd = os.dup(fd)
-
-        if _DARWIN and not flags & MAP_SHARED:
-            flags |= MAP_PRIVATE
 
         # XXX if we use hintp below in alloc, the NonConstant
         #     is necessary since we want a general version of c_mmap
