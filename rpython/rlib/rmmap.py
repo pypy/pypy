@@ -680,6 +680,9 @@ if _POSIX:
         else:
             m.fd = os.dup(fd)
 
+        if sys.platform == "darwin" and not flags & MAP_SHARED:
+            flags |= MAP_PRIVATE
+
         # XXX if we use hintp below in alloc, the NonConstant
         #     is necessary since we want a general version of c_mmap
         #     to be annotated with a non-constant pointer.
