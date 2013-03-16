@@ -386,10 +386,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
                                              annmodel.SomeAddress())
-        if getattr(GCClass, 'set_extra_threshold', False):
-            self.setextrathreshold_ptr = getfn(
-                GCClass.set_extra_threshold.im_func,
-                [s_gc, annmodel.SomeInteger()], annmodel.s_None)
 
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
@@ -650,11 +646,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_type_id = rmodel.inputconst(TYPE_ID, type_id)
         info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
-        kind_and_fptr = self.special_funcptr_for_type(TYPE)
-        has_finalizer = (kind_and_fptr is not None and
-                         kind_and_fptr[0] == "finalizer")
-        has_light_finalizer = (kind_and_fptr is not None and
-                               kind_and_fptr[0] == "light_finalizer")
+        fptrs = self.special_funcptr_for_type(TYPE)
+        has_finalizer = "finalizer" in fptrs
+        has_light_finalizer = "light_finalizer" in fptrs
         if has_light_finalizer:
             has_finalizer = True
         c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
@@ -802,11 +796,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.root_walker.gc_shadowstackref_context_ptr, op.args[0]],
                   resultvar=op.result)
-
-    def gct_gc_shadowstackref_destroy(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_shadowstackref_destroy_ptr, op.args[0]])
 
     def gct_gc_save_current_state_away(self, hop):
         op = hop.spaceop
@@ -958,13 +947,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.obtainfreespace_ptr, self.c_const_gc, v_number],
                   resultvar=hop.spaceop.result)
-        self.pop_roots(hop, livevars)
-
-    def gct_gc_set_extra_threshold(self, hop):
-        livevars = self.push_roots(hop)
-        [v_size] = hop.spaceop.args
-        hop.genop("direct_call",
-                  [self.setextrathreshold_ptr, self.c_const_gc, v_size])
         self.pop_roots(hop, livevars)
 
     def gct_gc_set_max_heap_size(self, hop):
@@ -1225,8 +1207,8 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
                                             None)
 
     def has_light_finalizer(self, TYPE):
-        special = self.special_funcptr_for_type(TYPE)
-        return special is not None and special[0] == 'light_finalizer'
+        fptrs = self.special_funcptr_for_type(TYPE)
+        return "light_finalizer" in fptrs
 
     def has_custom_trace(self, TYPE):
         rtti = get_rtti(TYPE)
@@ -1240,14 +1222,16 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         destrptr = rtti._obj.destructor_funcptr
         DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
         typename = TYPE.__name__
-        def ll_finalizer(addr, ignored):
+        def ll_finalizer(addr):
             v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
             ll_call_destructor(destrptr, v, typename)
-            return llmemory.NULL
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
-                [llmemory.Address, llmemory.Address], llmemory.Address)
-        g = destrptr._obj.graph
-        light = not FinalizerAnalyzer(self.translator).analyze_light_finalizer(g)
+                [llmemory.Address], lltype.Void)
+        try:
+            g = destrptr._obj.graph
+            light = not FinalizerAnalyzer(self.translator).analyze_light_finalizer(g)
+        except lltype.DelayedPointer:
+            light = False    # XXX bah, too bad
         return fptr, light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):

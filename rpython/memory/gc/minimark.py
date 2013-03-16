@@ -2,41 +2,45 @@
 
 Environment variables can be used to fine-tune the following parameters:
 
- PYPY_GC_NURSERY        The nursery size.  Defaults to '4MB'.  Small values
-                        (like 1 or 1KB) are useful for debugging.
+ PYPY_GC_NURSERY         The nursery size.  Defaults to '4MB'.  Small values
+                         (like 1 or 1KB) are useful for debugging.
 
- PYPY_GC_MAJOR_COLLECT  Major collection memory factor.  Default is '1.82',
-                        which means trigger a major collection when the
-                        memory consumed equals 1.82 times the memory
-                        really used at the end of the previous major
-                        collection.
+ PYPY_GC_NURSERY_CLEANUP The interval at which nursery is cleaned up. Must
+                         be smaller than the nursery size and bigger than the
+                         biggest object we can allotate in the nursery.
 
- PYPY_GC_GROWTH         Major collection threshold's max growth rate.
-                        Default is '1.4'.  Useful to collect more often
-                        than normally on sudden memory growth, e.g. when
-                        there is a temporary peak in memory usage.
+ PYPY_GC_MAJOR_COLLECT   Major collection memory factor.  Default is '1.82',
+                         which means trigger a major collection when the
+                         memory consumed equals 1.82 times the memory
+                         really used at the end of the previous major
+                         collection.
 
- PYPY_GC_MAX            The max heap size.  If coming near this limit, it
-                        will first collect more often, then raise an
-                        RPython MemoryError, and if that is not enough,
-                        crash the program with a fatal error.  Try values
-                        like '1.6GB'.
+ PYPY_GC_GROWTH          Major collection threshold's max growth rate.
+                         Default is '1.4'.  Useful to collect more often
+                         than normally on sudden memory growth, e.g. when
+                         there is a temporary peak in memory usage.
 
- PYPY_GC_MAX_DELTA      The major collection threshold will never be set
-                        to more than PYPY_GC_MAX_DELTA the amount really
-                        used after a collection.  Defaults to 1/8th of the
-                        total RAM size (which is constrained to be at most
-                        2/3/4GB on 32-bit systems).  Try values like '200MB'.
+ PYPY_GC_MAX             The max heap size.  If coming near this limit, it
+                         will first collect more often, then raise an
+                         RPython MemoryError, and if that is not enough,
+                         crash the program with a fatal error.  Try values
+                         like '1.6GB'.
 
- PYPY_GC_MIN            Don't collect while the memory size is below this
-                        limit.  Useful to avoid spending all the time in
-                        the GC in very small programs.  Defaults to 8
-                        times the nursery.
+ PYPY_GC_MAX_DELTA       The major collection threshold will never be set
+                         to more than PYPY_GC_MAX_DELTA the amount really
+                         used after a collection.  Defaults to 1/8th of the
+                         total RAM size (which is constrained to be at most
+                         2/3/4GB on 32-bit systems).  Try values like '200MB'.
 
- PYPY_GC_DEBUG          Enable extra checks around collections that are
-                        too slow for normal use.  Values are 0 (off),
-                        1 (on major collections) or 2 (also on minor
-                        collections).
+ PYPY_GC_MIN             Don't collect while the memory size is below this
+                         limit.  Useful to avoid spending all the time in
+                         the GC in very small programs.  Defaults to 8
+                         times the nursery.
+
+ PYPY_GC_DEBUG           Enable extra checks around collections that are
+                         too slow for normal use.  Values are 0 (off),
+                         1 (on major collections) or 2 (also on minor
+                         collections).
 """
 # XXX Should find a way to bound the major collection threshold by the
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
@@ -208,11 +212,18 @@ class MiniMarkGC(MovingGCBase):
         # minimal allocated size of the nursery is 2x the following
         # number (by default, at least 132KB on 32-bit and 264KB on 64-bit).
         "large_object": (16384+512)*WORD,
+
+        # This is the chunk that we cleanup in the nursery. The point is
+        # to avoid having to trash all the caches just to zero the nursery,
+        # so we trade it by cleaning it bit-by-bit, as we progress through
+        # nursery. Has to fit at least one large object
+        "nursery_cleanup": 32768 * WORD,
         }
 
     def __init__(self, config,
                  read_from_env=False,
                  nursery_size=32*WORD,
+                 nursery_cleanup=9*WORD,
                  page_size=16*WORD,
                  arena_size=64*WORD,
                  small_request_threshold=5*WORD,
@@ -226,6 +237,7 @@ class MiniMarkGC(MovingGCBase):
         assert small_request_threshold % WORD == 0
         self.read_from_env = read_from_env
         self.nursery_size = nursery_size
+        self.nursery_cleanup = nursery_cleanup
         self.small_request_threshold = small_request_threshold
         self.major_collection_threshold = major_collection_threshold
         self.growth_rate_max = growth_rate_max
@@ -248,6 +260,7 @@ class MiniMarkGC(MovingGCBase):
         self.nursery      = NULL
         self.nursery_free = NULL
         self.nursery_top  = NULL
+        self.nursery_real_top = NULL
         self.debug_tiny_nursery = -1
         self.debug_rotating_nurseries = None
         self.extra_threshold = 0
@@ -342,6 +355,10 @@ class MiniMarkGC(MovingGCBase):
             if newsize < minsize:
                 self.debug_tiny_nursery = newsize & ~(WORD-1)
                 newsize = minsize
+
+            nurs_cleanup = env.read_from_env('PYPY_GC_NURSERY_CLEANUP')
+            if nurs_cleanup > 0:
+                self.nursery_cleanup = nurs_cleanup
             #
             major_coll = env.read_float_from_env('PYPY_GC_MAJOR_COLLECT')
             if major_coll > 1.0:
@@ -372,7 +389,17 @@ class MiniMarkGC(MovingGCBase):
             llarena.arena_free(self.nursery)
             self.nursery_size = newsize
             self.allocate_nursery()
-
+        #
+        if self.nursery_cleanup < self.nonlarge_max + 1:
+            self.nursery_cleanup = self.nonlarge_max + 1
+        # We need exactly initial_cleanup + N*nursery_cleanup = nursery_size.
+        # We choose the value of initial_cleanup to be between 1x and 2x the
+        # value of nursery_cleanup.
+        self.initial_cleanup = self.nursery_cleanup + (
+                self.nursery_size % self.nursery_cleanup)
+        if (r_uint(self.initial_cleanup) > r_uint(self.nursery_size) or
+            self.debug_tiny_nursery >= 0):
+            self.initial_cleanup = self.nursery_size
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
@@ -396,6 +423,7 @@ class MiniMarkGC(MovingGCBase):
         self.nursery_free = self.nursery
         # the end of the nursery:
         self.nursery_top = self.nursery + self.nursery_size
+        self.nursery_real_top = self.nursery_top
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
                                               self.major_collection_threshold)
@@ -407,6 +435,7 @@ class MiniMarkGC(MovingGCBase):
         self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
         ll_assert(self.extra_threshold == 0, "extra_threshold set too early")
+        self.initial_cleanup = self.nursery_size
         debug_stop("gc-set-nursery-size")
 
 
@@ -459,7 +488,8 @@ class MiniMarkGC(MovingGCBase):
             newnurs = self.debug_rotating_nurseries.pop(0)
             llarena.arena_protect(newnurs, self._nursery_memory_size(), False)
             self.nursery = newnurs
-            self.nursery_top = self.nursery + self.nursery_size
+            self.nursery_top = self.nursery + self.initial_cleanup
+            self.nursery_real_top = self.nursery + self.nursery_size
             debug_print("switching from nursery", oldnurs,
                         "to nursery", self.nursery,
                         "size", self.nursery_size)
@@ -502,7 +532,7 @@ class MiniMarkGC(MovingGCBase):
             result = self.nursery_free
             self.nursery_free = result + totalsize
             if self.nursery_free > self.nursery_top:
-                result = self.collect_and_reserve(totalsize)
+                result = self.collect_and_reserve(result, totalsize)
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
@@ -561,7 +591,7 @@ class MiniMarkGC(MovingGCBase):
             result = self.nursery_free
             self.nursery_free = result + totalsize
             if self.nursery_free > self.nursery_top:
-                result = self.collect_and_reserve(totalsize)
+                result = self.collect_and_reserve(result, totalsize)
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
@@ -580,12 +610,28 @@ class MiniMarkGC(MovingGCBase):
         if gen > 0:
             self.major_collection()
 
-    def collect_and_reserve(self, totalsize):
+    def move_nursery_top(self, totalsize):
+        size = self.nursery_cleanup
+        ll_assert(self.nursery_real_top - self.nursery_top >= size,
+            "nursery_cleanup not a divisor of nursery_size - initial_cleanup")
+        ll_assert(llmemory.raw_malloc_usage(totalsize) <= size,
+            "totalsize > nursery_cleanup")
+        llarena.arena_reset(self.nursery_top, size, 2)
+        self.nursery_top += size
+    move_nursery_top._always_inline_ = True
+
+    def collect_and_reserve(self, prev_result, totalsize):
         """To call when nursery_free overflows nursery_top.
+        First check if the nursery_top is the real top, otherwise we
+        can just move the top of one cleanup and continue
+        
         Do a minor collection, and possibly also a major collection,
         and finally reserve 'totalsize' bytes at the start of the
         now-empty nursery.
         """
+        if self.nursery_top < self.nursery_real_top:
+            self.move_nursery_top(totalsize)
+            return prev_result
         self.minor_collection()
         #
         if self.get_total_memory_used() > self.next_major_collection_threshold:
@@ -595,7 +641,13 @@ class MiniMarkGC(MovingGCBase):
             # execute_finalizers().  If it is almost full again,
             # we need to fix it with another call to minor_collection().
             if self.nursery_free + totalsize > self.nursery_top:
-                self.minor_collection()
+                #
+                if self.nursery_free + totalsize > self.nursery_real_top:
+                    self.minor_collection()
+                    # then the nursery is empty
+                else:
+                    # we just need to clean up a bit more of the nursery
+                    self.move_nursery_top(totalsize)
         #
         result = self.nursery_free
         self.nursery_free = result + totalsize
@@ -757,7 +809,8 @@ class MiniMarkGC(MovingGCBase):
         if self.next_major_collection_threshold < 0:
             # cannot trigger a full collection now, but we can ensure
             # that one will occur very soon
-            self.nursery_free = self.nursery_top
+            self.nursery_top = self.nursery_real_top
+            self.nursery_free = self.nursery_real_top
 
     def can_malloc_nonmovable(self):
         return True
@@ -837,7 +890,7 @@ class MiniMarkGC(MovingGCBase):
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
                   "odd-valued (i.e. tagged) pointer unexpected here")
-        return self.nursery <= addr < self.nursery_top
+        return self.nursery <= addr < self.nursery_real_top
 
     def appears_to_be_young(self, addr):
         # "is a valid addr to a young object?"
@@ -857,7 +910,7 @@ class MiniMarkGC(MovingGCBase):
             if not self.is_valid_gc_object(addr):
                 return False
 
-        if self.nursery <= addr < self.nursery_top:
+        if self.nursery <= addr < self.nursery_real_top:
             return True      # addr is in the nursery
         #
         # Else, it may be in the set 'young_rawmalloced_objects'
@@ -886,6 +939,11 @@ class MiniMarkGC(MovingGCBase):
 
     def get_forwarding_address(self, obj):
         return llmemory.cast_adr_to_ptr(obj, FORWARDSTUBPTR).forw
+
+    def get_possibly_forwarded_type_id(self, obj):
+        if self.is_in_nursery(obj) and self.is_forwarded(obj):
+            obj = self.get_forwarding_address(obj)
+        return self.get_type_id(obj)
 
     def get_total_memory_used(self):
         """Return the total memory used, not counting any object in the
@@ -1264,10 +1322,13 @@ class MiniMarkGC(MovingGCBase):
             self.free_young_rawmalloced_objects()
         #
         # All live nursery objects are out, and the rest dies.  Fill
-        # the whole nursery with zero and reset the current nursery pointer.
-        llarena.arena_reset(self.nursery, self.nursery_size, 2)
+        # the nursery up to the cleanup point with zeros
+        llarena.arena_reset(self.nursery, self.nursery_size, 0)
+        llarena.arena_reset(self.nursery, self.initial_cleanup, 2)
         self.debug_rotate_nursery()
         self.nursery_free = self.nursery
+        self.nursery_top = self.nursery + self.initial_cleanup
+        self.nursery_real_top = self.nursery + self.nursery_size
         #
         debug_print("minor collect, total memory used:",
                     self.get_total_memory_used())
@@ -1821,20 +1882,6 @@ class MiniMarkGC(MovingGCBase):
         return self.id_or_identityhash(gcobj, True)
 
     # ----------
-    # set_extra_threshold support
-
-    def set_extra_threshold(self, reserved_size):
-        ll_assert(reserved_size <= self.nonlarge_max,
-                  "set_extra_threshold: too big!")
-        diff = reserved_size - self.extra_threshold
-        if diff > 0 and self.nursery_free + diff > self.nursery_top:
-            self.minor_collection()
-        self.nursery_size -= diff
-        self.nursery_top -= diff
-        self.extra_threshold += diff
-
-
-    # ----------
     # Finalizers
 
     def deal_with_young_objects_with_finalizers(self):
@@ -1848,7 +1895,7 @@ class MiniMarkGC(MovingGCBase):
             if not self.is_forwarded(obj):
                 finalizer = self.getlightfinalizer(self.get_type_id(obj))
                 ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj, llmemory.NULL)
+                finalizer(obj)
             else:
                 obj = self.get_forwarding_address(obj)
                 self.old_objects_with_light_finalizers.append(obj)
@@ -1869,7 +1916,7 @@ class MiniMarkGC(MovingGCBase):
                 # dying
                 finalizer = self.getlightfinalizer(self.get_type_id(obj))
                 ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj, llmemory.NULL)
+                finalizer(obj)
         self.old_objects_with_light_finalizers.delete()
         self.old_objects_with_light_finalizers = new_objects
 

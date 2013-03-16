@@ -2954,7 +2954,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p1]
-        i0 = force_token()
+        p0 = force_token()
         jump(p1)
         """
         self.optimize_loop(ops, expected)
@@ -2969,12 +2969,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p1]
-        i0 = force_token()
+        p0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, i0, descr=virtualtokendescr)
+        setfield_gc(p2, p0, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualtokendescr)
         jump(p1)
         """
         # XXX we should optimize a bit more the case of a nonvirtual.
@@ -3000,10 +3000,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p0, i1]
-        i3 = force_token()
+        p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, i3, descr=virtualtokendescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3015,7 +3015,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualtokendescr)
         jump(p0, i1)
         """
         self.optimize_loop(ops, expected)
@@ -3039,10 +3039,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p0, i1]
-        i3 = force_token()
+        p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, i3, descr=virtualtokendescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
@@ -3054,7 +3054,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualtokendescr)
         jump(p0, i1)
         """
         # the point of this test is that 'i1' should show up in the fail_args
@@ -3084,21 +3084,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p0, i1]
-        i3 = force_token()
+        p3 = force_token()
         call(i1, descr=nonwritedescr)
-        guard_no_exception(descr=fdescr) [i3, i1, p0]
+        guard_no_exception(descr=fdescr) [p3, i1, p0]
         setfield_gc(p0, NULL, descr=refdescr)
         jump(p0, i1)
         """
         self.optimize_loop(ops, expected)
-        # the fail_args contain [i3, i1, p0]:
-        #  - i3 is from the virtual expansion of p2
+        # the fail_args contain [p3, i1, p0]:
+        #  - p3 is from the virtual expansion of p2
         #  - i1 is from the virtual expansion of p1
         #  - p0 is from the extra pendingfields
         self.loop.inputargs[0].value = self.nodeobjvalue
         self.check_expanded_fail_descr('''p2, p1
             p0.refdescr = p2
-            where p2 is a jit_virtual_ref_vtable, virtualtokendescr=i3
+            where p2 is a jit_virtual_ref_vtable, virtualtokendescr=p3
             where p1 is a node_vtable, nextdescr=p1b
             where p1b is a node_vtable, valuedescr=i1
             ''', rop.GUARD_NO_EXCEPTION)
@@ -3116,13 +3116,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i1]
-        i3 = force_token()
+        p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, i3, descr=virtualtokendescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualtokendescr)
         call_may_force(i1, descr=mayforcevirtdescr)
         guard_not_forced() []
         jump(i1)
@@ -3141,12 +3141,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i1, p1]
-        i3 = force_token()
+        p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, i3, descr=virtualtokendescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, -3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualtokendescr)
         call_may_force(i1, descr=mayforcevirtdescr)
         guard_not_forced() [i1]
         jump(i1, p1)
@@ -3671,7 +3671,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i5 = int_gt(i4, i22)
         guard_false(i5) []
         i6 = int_add(i4, 1)
-        i331 = force_token()
+        p331 = force_token()
         i7 = int_sub(i6, 1)
         setfield_gc(p0, i7, descr=valuedescr)
         jump(p0, i22)
@@ -3682,7 +3682,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = int_gt(i1, i22)
         guard_false(i2) []
         i3 = int_add(i1, 1)
-        i331 = force_token()
+        p331 = force_token()
         jump(p0, i22)
         """
         self.optimize_loop(ops, expected)

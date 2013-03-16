@@ -1,7 +1,6 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
-from rpython.flowspace.model import Constant, Variable
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib import rstack
@@ -309,7 +308,8 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, -2)
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
+    assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log)
 
@@ -368,7 +368,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
-    n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
     if not we_are_translated():
         show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)
@@ -377,7 +376,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         hooks = metainterp_sd.warmrunnerdesc.hooks
         debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
                                   original_loop_token, operations, 'bridge',
-                                  fail_descr_no=n)
+                                  fail_descr=faildescr)
         hooks.before_compile_bridge(debug_info)
     else:
         hooks = None
@@ -403,7 +402,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,
+                                        ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests
     #    metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
@@ -412,7 +412,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
 # ____________________________________________________________
 
 class _DoneWithThisFrameDescr(AbstractFailDescr):
-    pass
+    final_descr = True
 
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
@@ -422,26 +422,26 @@ class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
-        result = metainterp_sd.cpu.get_latest_value_int(deadframe, 0)
+        result = metainterp_sd.cpu.get_int_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameInt(result)
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
-        result = cpu.get_latest_value_ref(deadframe, 0)
+        result = cpu.get_ref_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
-        result = metainterp_sd.cpu.get_latest_value_float(deadframe, 0)
+        result = metainterp_sd.cpu.get_float_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameFloat(result)
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
-        value = cpu.get_latest_value_ref(deadframe, 0)
+        value = cpu.get_ref_value(deadframe, 0)
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
@@ -459,7 +459,7 @@ def make_done_loop_tokens():
     exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
 
     # pseudo loop tokens to make the life of optimize.py easier
-    return {'loop_tokens_done_with_this_frame_int': [
+    d = {'loop_tokens_done_with_this_frame_int': [
                 TerminatingLoopToken(1, done_with_this_frame_descr_int)
                 ],
             'loop_tokens_done_with_this_frame_ref': [
@@ -474,7 +474,9 @@ def make_done_loop_tokens():
             'loop_tokens_exit_frame_with_exception_ref': [
                 TerminatingLoopToken(1, exit_frame_with_exception_descr_ref)
                 ],
-            }
+    }
+    d.update(locals())
+    return d
 
 class ResumeDescr(AbstractFailDescr):
     pass
@@ -484,9 +486,13 @@ class ResumeGuardDescr(ResumeDescr):
     _counters = None    # they get stored in _counters then.
 
     # this class also gets the following attributes stored by resume.py code
+    
+    # XXX move all of unused stuff to guard_op, now that we can have
+    #     a separate class, so it does not survive that long
     rd_snapshot = None
     rd_frame_info_list = None
     rd_numb = lltype.nullptr(NUMBERING)
+    rd_count = 0
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
@@ -501,6 +507,7 @@ class ResumeGuardDescr(ResumeDescr):
 
     def store_final_boxes(self, guard_op, boxes):
         guard_op.setfailargs(boxes)
+        self.rd_count = len(boxes)
         self.guard_opnum = guard_op.getopnum()
 
     def make_a_counter_per_value(self, guard_value_op):
@@ -568,7 +575,7 @@ class ResumeGuardDescr(ResumeDescr):
             typetag = self._counter & self.CNT_TYPE_MASK
             counters = self._counters
             if typetag == self.CNT_INT:
-                intvalue = metainterp_sd.cpu.get_latest_value_int(
+                intvalue = metainterp_sd.cpu.get_int_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersInt()
@@ -576,7 +583,7 @@ class ResumeGuardDescr(ResumeDescr):
                     assert isinstance(counters, ResumeGuardCountersInt)
                 counter = counters.see_int(intvalue)
             elif typetag == self.CNT_REF:
-                refvalue = metainterp_sd.cpu.get_latest_value_ref(
+                refvalue = metainterp_sd.cpu.get_ref_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersRef()
@@ -584,7 +591,7 @@ class ResumeGuardDescr(ResumeDescr):
                     assert isinstance(counters, ResumeGuardCountersRef)
                 counter = counters.see_ref(refvalue)
             elif typetag == self.CNT_FLOAT:
-                floatvalue = metainterp_sd.cpu.get_latest_value_float(
+                floatvalue = metainterp_sd.cpu.get_float_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersFloat()
@@ -630,6 +637,7 @@ class ResumeGuardDescr(ResumeDescr):
         res.rd_consts = self.rd_consts
         res.rd_virtuals = self.rd_virtuals
         res.rd_pendingfields = self.rd_pendingfields
+        res.rd_count = self.rd_count
 
     def _clone_if_mutable(self):
         res = ResumeGuardDescr()
@@ -852,10 +860,14 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
 
 # ____________________________________________________________
 
+memory_error = MemoryError()
+
 class PropagateExceptionDescr(AbstractFailDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         exception = cpu.grab_exc_value(deadframe)
+        if not exception:
+            exception = cast_instance_to_gcref(memory_error)
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
