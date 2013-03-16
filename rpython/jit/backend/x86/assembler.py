@@ -240,7 +240,7 @@ class Assembler386(BaseAssembler):
         propagate_exception_descr = rffi.cast(lltype.Signed,
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        self.mc.MOV_bi(ofs, propagate_exception_descr)
+        self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
         self.mc.MOV_rr(eax.value, ebp.value)
         #
         self._call_footer()
