@@ -394,10 +394,7 @@ class Connection(object):
     def close(self):
         self._check_thread()
 
-        for statement in self.__statements:
-            obj = statement()
-            if obj is not None:
-                obj._finalize()
+        self.__do_all_statements(Statement._finalize, True)
 
         if self._db:
             ret = _lib.sqlite3_close(self._db)
@@ -477,6 +474,18 @@ class Connection(object):
             self.__statements = [ref for ref in self.__statements
                                  if ref() is not None]
 
+    def __do_all_statements(self, action, reset_cursors):
+        for weakref in self.__statements:
+            statement = weakref()
+            if statement is not None:
+                action(statement)
+
+        if reset_cursors:
+            for weakref in self._cursors:
+                cursor = weakref()
+                if cursor is not None:
+                    cursor._reset = True
+
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
@@ -528,10 +537,7 @@ class Connection(object):
         if not self._in_transaction:
             return
 
-        for statement in self.__statements:
-            obj = statement()
-            if obj is not None:
-                obj._reset()
+        self.__do_all_statements(Statement._reset, False)
 
         statement = c_void_p()
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
@@ -552,15 +558,7 @@ class Connection(object):
         if not self._in_transaction:
             return
 
-        for statement in self.__statements:
-            obj = statement()
-            if obj is not None:
-                obj._reset()
-
-        for cursor_ref in self._cursors:
-            cursor = cursor_ref()
-            if cursor:
-                cursor._reset = True
+        self.__do_all_statements(Statement._reset, True)
 
         statement = c_void_p()
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
@@ -883,7 +881,6 @@ class Cursor(object):
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
         finally:
             self.__locked = False
-
         return self
 
     @__check_cursor_wrap
@@ -921,9 +918,10 @@ class Cursor(object):
             if rc != _lib.SQLITE_DONE:
                 _lib.sqlite3_finalize(statement)
                 if rc == _lib.SQLITE_OK:
-                    return self
+                    break
                 else:
                     raise self.__connection._get_exception(rc)
+
             rc = _lib.sqlite3_finalize(statement)
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
