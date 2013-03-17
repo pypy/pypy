@@ -278,7 +278,7 @@ class W_VoidBox(W_FlexibleBox):
                              dtype.coerce(space, w_value))
 
     def convert_to(self, dtype):
-        assert dtype.fields == self.dtype.fields
+        # TODO actually perform the conversion, this requires a space arg
         return self
 
 class W_CharacterBox(W_FlexibleBox):

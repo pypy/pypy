@@ -414,7 +414,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
-    if dt1.kind == dt2.kind and dt1.fields == dt2.fields:
+    if dt1.kind == dt2.kind and dt2.is_flexible_type():
         return dt2
 
     # Everything promotes to float, and bool promotes to everything.
@@ -438,18 +438,16 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         # For those operations that get here (concatenate, stack),
         # flexible types take precedence over numeric type
         if dt2.is_record_type():
-            if dt1.fields == dt2.fields:
-                #record types require an exact match
-                return dt2
-            return None
+            #TODO record types require an exact match
+            return dt2
         if dt1.is_str_or_unicode():
             if dt2.num == 18:
                 size = max(dt2.itemtype.get_element_size(), 
                            dt1.itemtype.get_element_size())
-                return interp_dtype.new_string_type(size)
+                return interp_dtype.new_string_dtype(space, size)
             size = max(dt2.itemtype.get_element_size(), 
                        dt1.itemtype.get_element_size())
-            return interp_dtype.new_unitype_type(size)
+            return interp_dtype.new_unicode_dtype(space, size)
         return dt2
     else:    
         # increase to the next signed type
