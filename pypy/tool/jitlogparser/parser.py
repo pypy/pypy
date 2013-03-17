@@ -364,15 +364,16 @@ def adjust_bridges(loop, bridges):
 
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
+    hex_re = '0x([\da-f]+)'
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
-        m = re.search('bootstrap ([-\da-f]+)', entry)
+        m = re.search('bootstrap ' + hex_re, entry)
         if not m:
             # a bridge
-            m = re.search('has address ([-\da-f]+)', entry)
+            m = re.search('has address ' + hex_re, entry)
             addr = int(m.group(1), 16)
             entry = entry.lower()
-            m = re.search('guard [\da-f]+', entry)
+            m = re.search('guard ' + hex_re, entry)
             name = m.group(0)
         else:
             name = entry[:entry.find('(') - 1].lower()
