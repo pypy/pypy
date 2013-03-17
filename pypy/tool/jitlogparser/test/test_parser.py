@@ -339,7 +339,7 @@ def test_parse_log_counts():
     bridge.comment = 'bridge out of Guard af with 1 ops'
     loop.comment = 'Loop 0'
     loops = split_trace(loop) + split_trace(bridge)
-    input = ['grrr:123\nasb:12\nbridge af:1234']
+    input = ['grrr:123\nasb:12\nbridge 175:1234']
     parse_log_counts(input, loops)
     assert loops[-1].count == 1234
     assert loops[1].count == 123
