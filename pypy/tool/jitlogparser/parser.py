@@ -374,7 +374,7 @@ def import_log(logname, ParserCls=SimpleParser):
             addr = int(m.group(1), 16)
             entry = entry.lower()
             m = re.search('guard ' + hex_re, entry)
-            name = m.group(0)
+            name = 'guard ' + m.group(1)
         else:
             name = entry[:entry.find('(') - 1].lower()
             addr = int(m.group(1), 16)
