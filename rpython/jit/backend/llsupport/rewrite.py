@@ -1,12 +1,12 @@
-from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.jit.metainterp import history
-from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
-from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.codewriter import heaptracker
-from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
-from rpython.jit.metainterp.history import JitCellToken
+from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.codewriter import heaptracker
+from rpython.jit.metainterp import history
+from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, ConstPtr, JitCellToken
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+
 
 class GcRewriterAssembler(object):
     # This class performs the following rewrites on the list of operations:
@@ -34,16 +34,19 @@ class GcRewriterAssembler(object):
         self.known_lengths = {}
         self.recent_mallocs = {}     # set of variables
 
-    def rewrite(self, operations):
+    def rewrite(self, operations, looptoken, tp, number):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
         # one, both for performance and to reduce the number of write
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
+        self._append_debugging_code(looptoken, tp, number)
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
+            if op.getopnum() == rop.LABEL:
+                self._append_debugging_code(looptoken, 'l', number)
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
             if op.is_malloc():
                 self.handle_malloc_operation(op)
@@ -72,7 +75,18 @@ class GcRewriterAssembler(object):
             self.newops.append(op)
         return self.newops
 
-    # ----------
+    def _append_debugging_code(self, token, tp, number):
+        if self.debug:
+            counter = self._register_counter(tp, number, token)
+            c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
+            box = BoxInt()
+            box2 = BoxInt()
+            ops = [
+                ResOperation(rop.GETFIELD_RAW, [c_adr], box, descr=self.debug_counter_descr),
+                ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
+                ResOperation(rop.SETFIELD_RAW, [c_adr, box2], None, descr=self.debug_counter_descr)
+            ]
+            self.newops.extend(ops)
 
     def handle_malloc_operation(self, op):
         opnum = op.getopnum()

@@ -88,9 +88,9 @@ class AbstractX86CPU(AbstractLLCPU):
         lines = machine_code_dump(data, addr, self.backend_name, label_list)
         print ''.join(lines)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, looptoken, name=''):
         return self.assembler.assemble_loop(name, inputargs, operations,
-                                            looptoken, log=log)
+                                            looptoken)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True):

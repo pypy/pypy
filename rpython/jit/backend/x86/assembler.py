@@ -22,7 +22,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, FrameLoc, ConstFloatLoc, ImmedLoc, AddressLoc, imm,
     imm0, imm1, FloatImmedLoc, RawEbpLoc, RawEspLoc)
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.x86 import rx86, codebuf
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.x86 import support
@@ -447,10 +447,10 @@ class Assembler386(BaseAssembler):
                                        self._release_gil_asmgcc)
             reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
                                      self._reacquire_gil_asmgcc)
-        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
+        self.releasegil_addr = self.cpu.cast_ptr_to_int(releasegil_func)
         self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
-    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
+    def assemble_loop(self, loopname, inputargs, operations, looptoken):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -474,10 +474,6 @@ class Assembler386(BaseAssembler):
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
-
-        if log:
-            operations = self._inject_debugging_code(looptoken, operations,
-                                                     'e', looptoken.number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
@@ -745,24 +741,6 @@ class Assembler386(BaseAssembler):
         for targettoken in self.target_tokens_currently_compiling:
             targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
-
-    @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug:
-            s = 0
-            for op in operations:
-                s += op.getopnum()
-
-            newoperations = []
-            self._append_debugging_code(newoperations, tp, number,
-                                        None)
-            for op in operations:
-                newoperations.append(op)
-                if op.getopnum() == rop.LABEL:
-                    self._append_debugging_code(newoperations, 'l', number,
-                                                op.getdescr())
-            operations = newoperations
-        return operations
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc

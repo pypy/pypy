@@ -1,9 +1,7 @@
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt)
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.history import INT, REF, FLOAT, JitCellToken
 from rpython.rlib import rgc
 from rpython.rlib.debug import debug_start, debug_stop, have_debug_prints
 from rpython.rlib.rarithmetic import r_uint
@@ -212,15 +210,3 @@ class BaseAssembler(object):
         # XXX here should be emitted guard_not_forced, but due
         #     to incompatibilities in how it's done, we leave it for the
         #     caller to deal with
-
-    def _append_debugging_code(self, operations, tp, number, token):
-        counter = self._register_counter(tp, number, token)
-        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
-        box = BoxInt()
-        box2 = BoxInt()
-        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                            box, descr=self.debug_counter_descr),
-               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                            None, descr=self.debug_counter_descr)]
-        operations.extend(ops)

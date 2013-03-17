@@ -106,9 +106,9 @@ class GcLLDescription(GcCache):
             rgc._make_sure_does_not_move(llref)
             gcrefs_output_list.append(llref)
 
-    def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
+    def rewrite_assembler(self, cpu, operations, looptoken, tp, number, gcrefs_output_list):
         rewriter = GcRewriterAssembler(self, cpu)
-        newops = rewriter.rewrite(operations)
+        newops = rewriter.rewrite(operations, looptoken, tp, number)
         # record all GCREFs, because the GC (or Boehm) cannot see them and
         # keep them alive if they end up as constants in the assembler
         for op in newops:

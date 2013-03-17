@@ -132,8 +132,8 @@ gpr_reg_mgr_cls.all_reg_indexes = [-1] * WORD * 2 # eh, happens to be true
 for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
 
-class RegAlloc(BaseRegalloc):
 
+class RegAlloc(BaseRegalloc):
     def __init__(self, assembler, translate_support_code=False):
         assert isinstance(translate_support_code, bool)
         # variables that have place in register
@@ -143,25 +143,25 @@ class RegAlloc(BaseRegalloc):
         self.jump_target_descr = None
         self.final_jump_op = None
 
-    def _prepare(self, inputargs, operations, allgcrefs):
+    def _prepare(self, inputargs, operations, allgcrefs, tp, number):
         cpu = self.assembler.cpu
         self.fm = X86FrameManager(cpu.get_baseofs_of_frame_field())
-        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
-                                                       allgcrefs)
+        operations = cpu.gc_ll_descr.rewrite_assembler(
+            cpu, operations, self.assembler.current_clt, tp, number, allgcrefs
+        )
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity, last_real_usage = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.last_real_usage = last_real_usage
         self.rm = gpr_reg_mgr_cls(self.longevity,
-                                  frame_manager = self.fm,
-                                  assembler = self.assembler)
-        self.xrm = xmm_reg_mgr_cls(self.longevity, frame_manager = self.fm,
-                                   assembler = self.assembler)
+                                  frame_manager=self.fm,
+                                  assembler=self.assembler)
+        self.xrm = xmm_reg_mgr_cls(self.longevity, frame_manager=self.fm,
+                                   assembler=self.assembler)
         return operations
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
+        operations = self._prepare(inputargs, operations, allgcrefs, 'e', looptoken.number)
         self._set_initial_bindings(inputargs, looptoken)
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
