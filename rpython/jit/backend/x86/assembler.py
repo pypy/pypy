@@ -2234,7 +2234,7 @@ class Assembler386(BaseAssembler):
 
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        self.mc.CMP_mi((eax.value, ofs), value)
+        self.mc.CMP(mem(eax, ofs), imm(value))
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
         return self.mc.get_relative_pos()

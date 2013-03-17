@@ -29,11 +29,11 @@ def getmap(frame):
     return r[r.find('1'):]
 
 class TestRegallocGcIntegration(BaseTestRegalloc):
-    
+
     cpu = CPU(None, None)
     cpu.gc_ll_descr = GcLLDescr_boehm(None, None, None)
     cpu.setup_once()
-    
+
     S = lltype.GcForwardReference()
     S.become(lltype.GcStruct('S', ('field', lltype.Ptr(S)),
                              ('int', lltype.Signed)))
@@ -229,7 +229,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         p1 = call_malloc_nursery_varsize_small(i1)
         p2 = call_malloc_nursery_varsize_small(i2)
         guard_true(i0) [p0, p1, p2]
-        ''' 
+        '''
         self.interpret(ops, [16, 32, 16])
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -292,7 +292,7 @@ class TestMallocFastpath(BaseTestRegalloc):
                 s = bin(x[0]).count('1') + bin(x[1]).count('1')
                 assert s == 16
             # all but two registers + some stuff on stack
-        
+
         self.cpu = self.getcpu(check)
         S1 = lltype.GcStruct('S1')
         S2 = lltype.GcStruct('S2', ('s0', lltype.Ptr(S1)),
@@ -358,7 +358,7 @@ class TestMallocFastpath(BaseTestRegalloc):
 
 class MockShadowStackRootMap(object):
     is_shadow_stack = True
-    
+
     def __init__(self):
         TP = rffi.CArray(lltype.Signed)
         self.stack = lltype.malloc(TP, 10, flavor='raw')
@@ -367,7 +367,7 @@ class MockShadowStackRootMap(object):
         self.stack_addr[0] = rffi.cast(lltype.Signed, self.stack)
 
     def __del__(self):
-        lltype.free(self.stack_addr, flavor='raw')        
+        lltype.free(self.stack_addr, flavor='raw')
         lltype.free(self.stack, flavor='raw')
 
     def register_asm_addr(self, start, mark):
@@ -379,7 +379,7 @@ class MockShadowStackRootMap(object):
 class WriteBarrierDescr(AbstractDescr):
     jit_wb_cards_set = 0
     jit_wb_if_flag_singlebyte = 1
-    
+
     def __init__(self, gc_ll_descr):
         def write_barrier(frame):
             gc_ll_descr.write_barrier_on_frame_called = frame
@@ -505,7 +505,7 @@ class GCDescrShadowstackDirect(GcLLDescr_framework):
         for nursery in self.all_nurseries:
             lltype.free(nursery, flavor='raw', track_allocation=False)
         lltype.free(self.nursery_ptrs, flavor='raw')
-    
+
 def unpack_gcmap(frame):
     res = []
     val = 0
@@ -538,10 +538,10 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
     def test_shadowstack_call(self):
         cpu = self.cpu
         cpu.gc_ll_descr.init_nursery(100)
-        cpu.setup_once() 
+        cpu.setup_once()
         S = self.S
         frames = []
-        
+
         def check(i):
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == i
             frame = rffi.cast(JITFRAMEPTR, i)
@@ -664,6 +664,9 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
         assert rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.write_barrier_on_frame_called) == frame
 
+    def test_malloc_nursery_varsize(self):
+        xxx
+
     def test_call_release_gil(self):
         # note that we can't test floats here because when untranslated
         # people actually wreck xmm registers
@@ -683,11 +686,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             assert bin(frame.jf_gcmap[0]).count('1') == 7
             assert x == 1
             return 2
-        
+
         FUNC = lltype.FuncType([JITFRAMEPTR, lltype.Signed], lltype.Signed)
         fptr = llhelper(lltype.Ptr(FUNC), f)
         calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                    EffectInfo.MOST_GENERAL)        
+                                    EffectInfo.MOST_GENERAL)
         loop = self.parse("""
         [i0, p1, p2, p3, p4, p5, p6, p7]
         p0 = force_token()
@@ -709,7 +712,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_call_may_force_gcmap(self):
         cpu = self.cpu
-        
+
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
@@ -753,7 +756,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_call_gcmap_no_guard(self):
         cpu = self.cpu
-        
+
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
