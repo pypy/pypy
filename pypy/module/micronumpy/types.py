@@ -1627,6 +1627,7 @@ class BaseStringType(object):
     def get_size(self):
         return self.size
 
+
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
@@ -1642,7 +1643,7 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        for k in range(min(self.size, box.arr.size-offset)):
+        for k in range(min(self.size - i, box.arr.size-offset)):
             arr.storage[k + i] = box.arr.storage[k + offset]
 
     def read(self, arr, i, offset, dtype=None):
@@ -1675,6 +1676,20 @@ class StringType(BaseType, BaseStringType):
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
 
+    def convert_from(self, space, mydtype, box):
+        if box.get_dtype(space).is_str_or_unicode():
+            arg = box.get_dtype(space).itemtype.to_str(box)
+        else:
+            w_arg = box.descr_str(space)
+            arg = space.str_w(space.str(w_arg))
+        arr = VoidBoxStorage(self.size, mydtype)
+        i = 0
+        for i in range(min(len(arg), self.size)):
+            arr.storage[i] = arg[i]
+        for j in range(i + 1, self.size):
+            arr.storage[j] = '\x00'
+        return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+        
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 

@@ -65,26 +65,32 @@ def call1(shape, func, calc_dtype, res_dtype, w_obj, out):
         obj_iter.next()
     return out
 
-setslice_driver = jit.JitDriver(name='numpy_setslice',
+setslice_driver1 = jit.JitDriver(name='numpy_setslice1',
                                 greens = ['shapelen', 'dtype'],
-                                reds = ['target', 'source', 'target_iter',
-                                        'source_iter'])
+                                reds = 'auto')
+setslice_driver2 = jit.JitDriver(name='numpy_setslice2',
+                                greens = ['shapelen', 'dtype'],
+                                reds = 'auto')
 
-def setslice(shape, target, source):
+def setslice(space, shape, target, source):
     # note that unlike everything else, target and source here are
     # array implementations, not arrays
     target_iter = target.create_iter(shape)
     source_iter = source.create_iter(shape)
     dtype = target.dtype
     shapelen = len(shape)
-    while not target_iter.done():
-        setslice_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
-                                        target=target, source=source,
-                                        target_iter=target_iter,
-                                        source_iter=source_iter)
-        target_iter.setitem(source_iter.getitem().convert_to(dtype))
-        target_iter.next()
-        source_iter.next()
+    if dtype.is_str_or_unicode():
+        while not target_iter.done():
+            setslice_driver1.jit_merge_point(shapelen=shapelen, dtype=dtype)
+            target_iter.setitem(dtype.convert_from(space, source_iter.getitem()))
+            target_iter.next()
+            source_iter.next()
+    else:
+        while not target_iter.done():
+            setslice_driver2.jit_merge_point(shapelen=shapelen, dtype=dtype)
+            target_iter.setitem(source_iter.getitem().convert_to(dtype))
+            target_iter.next()
+            source_iter.next()
     return target
 
 reduce_driver = jit.JitDriver(name='numpy_reduce',

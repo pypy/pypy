@@ -1480,13 +1480,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = (a + a)[::2]
         b = concatenate((a[:3], a[-3:]))
         assert (b == [2, 6, 10, 2, 6, 10]).all()
-        try:
-            a = concatenate((array([1]), array(['abc'])))
-            assert a.dtype == 'S3'
-            a = concatenate((array([]), array(['abc'])))
-            assert a[0] == 'abc'
-        except NotImplementedError:
-            skip('cannot concatenate numeric with string')
+        a = concatenate((array([1]), array(['abc'])))
+        assert str(a.dtype) == '|S3'
+        a = concatenate((array([]), array(['abc'])))
+        assert a[0] == 'abc'
     
     def test_record_concatenate(self):
         # only an exact match can succeed
