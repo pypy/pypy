@@ -414,7 +414,8 @@ def import_log(logname, ParserCls=SimpleParser):
 def split_trace(trace):
     labels = [0]
     if trace.comment and 'Guard' in trace.comment:
-        descrs = ['bridge ' + re.search('Guard ([\da-f]+)', trace.comment).group(1)]
+        descrs = ['bridge %d' % int(
+            re.search('Guard ([\da-f]+)', trace.comment).group(1), 16)]
     else:
         descrs = ['entry ' + re.search('Loop (\d+)', trace.comment).group(1)]
     for i, op in enumerate(trace.operations):
