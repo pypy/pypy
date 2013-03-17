@@ -63,3 +63,10 @@ class SelfTypeMarker(object):
 
 def self():
     return SelfTypeMarker()
+
+
+class AnyTypeMarker(object):
+    pass
+
+def any():
+    return AnyTypeMarker()
