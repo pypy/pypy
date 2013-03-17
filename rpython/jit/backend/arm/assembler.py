@@ -17,8 +17,8 @@ from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT, BoxInt, ConstInt
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
@@ -107,18 +107,6 @@ class AssemblerARM(ResOpAssembler):
             struct.number = compute_unique_id(token)
         self.loop_run_counters.append(struct)
         return struct
-
-    def _append_debugging_code(self, operations, tp, number, token):
-        counter = self._register_counter(tp, number, token)
-        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
-        box = BoxInt()
-        box2 = BoxInt()
-        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                            box, descr=self.debug_counter_descr),
-               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                            None, descr=self.debug_counter_descr)]
-        operations.extend(ops)
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
