@@ -85,6 +85,7 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
+        tzdescr = None # noone cares
         #
         namespace.update(locals())
         #
@@ -107,7 +108,7 @@ class FakeTracker(object):
 
 class BaseFakeCPU(object):
     JITFRAME_FIXED_SIZE = 0
-    
+
     def __init__(self):
         self.tracker = FakeTracker()
         self._cache = {}
@@ -121,7 +122,7 @@ class BaseFakeCPU(object):
 
     def unpack_arraydescr_size(self, d):
         return 0, d.itemsize, 0
-    
+
     def arraydescrof(self, ARRAY):
         try:
             return self._cache[ARRAY]
@@ -129,7 +130,7 @@ class BaseFakeCPU(object):
             r = ArrayDescr(1, 2, FieldDescr('len', 0, 0, 0), 0)
             self._cache[ARRAY] = r
             return r
-        
+
     def fielddescrof(self, STRUCT, fname):
         key = (STRUCT, fname)
         try:
@@ -407,9 +408,9 @@ class TestFramework(RewriteTests):
             jump(i0)
         """, """
             [i0]
-            p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
-                                %(bdescr.tid)d, i0,           \
-                                descr=malloc_array_descr)
+            p0 = call_malloc_nursery_varsize(1, i0)
+            setfield_gc(p0, %(bdescr.tid)d, descr=tiddescr)
+            setfield_gc(p0, i0, descr=blendescr)
             jump(i0)
         """)
 
