@@ -203,3 +203,12 @@ class BaseAssembler(object):
         # XXX here should be emitted guard_not_forced, but due
         #     to incompatibilities in how it's done, we leave it for the
         #     caller to deal with
+
+
+def debug_bridge(descr_number, rawstart, codeendpos):
+    debug_start("jit-backend-addr")
+    debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                (r_uint(descr_number), r_uint(rawstart),
+                    r_uint(rawstart + codeendpos)))
+    debug_stop("jit-backend-addr")
+
