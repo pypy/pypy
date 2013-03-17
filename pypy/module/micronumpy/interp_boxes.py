@@ -278,7 +278,7 @@ class W_VoidBox(W_FlexibleBox):
                              dtype.coerce(space, w_value))
 
     def convert_to(self, dtype):
-        # TODO actually perform the conversion, this requires a space arg
+        # if we reach here, the record fields are guarenteed to match.
         return self
 
 class W_CharacterBox(W_FlexibleBox):

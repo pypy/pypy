@@ -438,7 +438,6 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         # For those operations that get here (concatenate, stack),
         # flexible types take precedence over numeric type
         if dt2.is_record_type():
-            #TODO record types require an exact match
             return dt2
         if dt1.is_str_or_unicode():
             if dt2.num == 18:
