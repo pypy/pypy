@@ -414,7 +414,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
-    if dt1.kind == dt2.kind and dt2.is_flexible_type():
+    if dt1.kind == dt2.kind and not dt2.is_flexible_type():
         return dt2
 
     # Everything promotes to float, and bool promotes to everything.
