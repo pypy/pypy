@@ -1,7 +1,8 @@
+import sys
+import os
 
-import sys, os
 from rpython.jit.backend.llsupport import symbolic, jitframe
-from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
+from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler, DEBUG_COUNTER
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import Const, Box, BoxInt, ConstInt
@@ -34,17 +35,15 @@ from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 
+
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
 CALL_ALIGN = 16 // WORD
 
+
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
-DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
-                              ('type', lltype.Char), # 'b'ridge, 'l'abel or
-                                                     # 'e'ntry point
-                              ('number', lltype.Signed))
 
 class Assembler386(BaseAssembler):
     _regalloc = None

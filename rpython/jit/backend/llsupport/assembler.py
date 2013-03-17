@@ -1,4 +1,3 @@
-
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.symbolic import WORD
@@ -7,8 +6,16 @@ from rpython.jit.metainterp.history import INT, REF, FLOAT, JitCellToken
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn
-from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
-                                have_debug_prints)
+from rpython.rlib.debug import debug_start, debug_stop, have_debug_prints
+
+
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
+    # 'b'ridge, 'l'abel or # 'e'ntry point
+    ('i', lltype.Signed),
+    ('type', lltype.Char),
+    ('number', lltype.Signed)
+)
+
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,

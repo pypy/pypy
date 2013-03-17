@@ -1,43 +1,30 @@
 from __future__ import with_statement
+
 import os
-from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.arm.helper.assembler import saved_registers
-from rpython.jit.backend.arm import conditions as c
-from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
-                                    N_REGISTERS_SAVED_BY_MALLOC, \
-                                    JITFRAME_FIXED_SIZE
+
+from rpython.jit.backend.arm import conditions as c, registers as r
+from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD, FUNC_ALIGN,
+    JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
-from rpython.jit.backend.arm.locations import get_fp_offset, imm, StackLocation
-from rpython.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
-                    CoreRegisterManager, check_imm_arg,
-                    VFPRegisterManager,
-                    operations as regalloc_operations,
-                    operations_with_guard as regalloc_operations_with_guard)
+from rpython.jit.backend.arm.locations import imm, StackLocation
+from rpython.jit.backend.arm.opassembler import ResOpAssembler
+from rpython.jit.backend.arm.regalloc import (Regalloc,
+    CoreRegisterManager, check_imm_arg, VFPRegisterManager,
+    operations as regalloc_operations,
+    operations_with_guard as regalloc_operations_with_guard)
+from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
-from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
-from rpython.jit.metainterp.history import BoxInt, ConstInt
+from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT, BoxInt, ConstInt
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
-from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
-from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.jit.backend.arm.opassembler import ResOpAssembler
-from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
-                             have_debug_prints, fatalerror)
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
-from rpython.rlib.objectmodel import compute_unique_id
-from rpython.rlib.rarithmetic import intmask, r_uint
-
-
-DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
-                              ('type', lltype.Char),  # 'b'ridge, 'l'abel or
-                                                      # 'e'ntry point
-                              ('number', lltype.Signed))
+from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class AssemblerARM(ResOpAssembler):
@@ -278,7 +265,7 @@ class AssemblerARM(ResOpAssembler):
         mc.gen_load_int(r.r0.value, self.cpu.pos_exception())
         mc.LDR_ri(r.r0.value, r.r0.value)
         mc.TST_rr(r.r0.value, r.r0.value)
-        # restore registers and return 
+        # restore registers and return
         # We check for c.EQ here, meaning all bits zero in this case
         mc.POP([reg.value for reg in r.argument_regs] + [r.pc.value], cond=c.EQ)
         #
@@ -602,7 +589,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.LDR_ri(r.lr.value, r.lr.value)             # ldr lr, *lengh
             # calculate ofs
             self.mc.SUB_rr(r.ip.value, r.ip.value, r.sp.value) # SUB ip, current
-            # if ofs 
+            # if ofs
             self.mc.CMP_rr(r.ip.value, r.lr.value)             # CMP ip, lr
             self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
             #
@@ -757,7 +744,6 @@ class AssemblerARM(ResOpAssembler):
         expected_size = target_token._arm_clt.frame_info.jfi_frame_depth
         self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
                                 expected_size=expected_size)
-
 
     def _check_frame_depth(self, mc, gcmap, expected_size=-1):
         """ check if the frame is of enough depth to follow this bridge.
@@ -952,7 +938,7 @@ class AssemblerARM(ResOpAssembler):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         asm_llong_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
-        return fcond 
+        return fcond
 
     def regalloc_emit_math(self, op, arglocs, fcond, regalloc):
         effectinfo = op.getdescr().get_extra_info()
@@ -1075,7 +1061,6 @@ class AssemblerARM(ResOpAssembler):
             assert 0, 'unsupported case'
 
     def _mov_stack_to_loc(self, prev_loc, loc, cond=c.AL):
-        pushed = False
         if loc.is_reg():
             assert prev_loc.type != FLOAT, 'trying to load from an \
                 incompatible location into a core register'
@@ -1297,7 +1282,6 @@ class AssemblerARM(ResOpAssembler):
         assert check_imm_arg(ofs)
         mc.gen_load_int(r.ip.value, 0)
         self.store_reg(mc, r.ip, r.fp, ofs)
-
 
 
 def not_implemented(msg):
