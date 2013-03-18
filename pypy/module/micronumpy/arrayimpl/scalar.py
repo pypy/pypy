@@ -69,7 +69,7 @@ class Scalar(base.BaseArrayImplementation):
     def descr_setitem(self, space, _, w_idx, w_val):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
-        
+
     def setitem_index(self, space, idx, w_val):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
@@ -86,7 +86,7 @@ class Scalar(base.BaseArrayImplementation):
 
     def reshape(self, space, orig_array, new_shape):
         return self.set_shape(space, orig_array, new_shape)
-        
+
     def create_axis_iter(self, shape, dim, cum):
         raise Exception("axis iter should not happen on scalar")
 

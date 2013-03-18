@@ -15,6 +15,7 @@ from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
 from pypy.module.micronumpy.interp_arrayops import repeat, choose
+from pypy.module.micronumpy.arrayimpl import scalar
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -767,6 +768,15 @@ class __extend__(W_NDimArray):
     descr_argmax = _reduce_argmax_argmin_impl("max")
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
+    def descr_int(self, space):
+        shape = self.get_shape()
+        if len(shape) == 0:
+            assert isinstance(self.implementation, scalar.Scalar)
+            return space.wrap(self.implementation.get_scalar_value())
+        if shape == [1]:
+            return self.descr_getitem(space, space.wrap(0))
+        raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
+
 
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
@@ -807,6 +817,7 @@ W_NDimArray.typedef = TypeDef(
 
     __repr__ = interp2app(W_NDimArray.descr_repr),
     __str__ = interp2app(W_NDimArray.descr_str),
+    __int__ = interp2app(W_NDimArray.descr_int),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
     __neg__ = interp2app(W_NDimArray.descr_neg),
