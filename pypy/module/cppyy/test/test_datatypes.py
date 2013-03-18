@@ -127,7 +127,7 @@ class AppTestDATATYPES:
         c.m_bool = 0;      assert c.get_bool() == False
         c.set_bool(0);     assert c.m_bool     == False
 
-        raises(TypeError, 'c.set_bool(10)')
+        raises(ValueError, 'c.set_bool(10)')
 
         # char types through functions
         c.set_char('c');   assert c.get_char()  == 'c'
@@ -143,10 +143,10 @@ class AppTestDATATYPES:
         c.set_uchar('e');  assert c.m_uchar     ==     'e'
         c.set_uchar(43);   assert c.m_uchar     == chr(43)
 
-        raises(TypeError, 'c.set_char("string")')
-        raises(TypeError, 'c.set_char(500)')
-        raises(TypeError, 'c.set_uchar("string")')
-# TODO: raises(TypeError, 'c.set_uchar(-1)')
+        raises(ValueError, 'c.set_char("string")')
+        raises(ValueError, 'c.set_char(500)')
+        raises(ValueError, 'c.set_uchar("string")')
+        raises(ValueError, 'c.set_uchar(-1)')
 
         # integer types
         names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']

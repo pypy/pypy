@@ -23,6 +23,7 @@ public:
 class D {
 public:
     virtual int check() { return (int)'D'; }
+    virtual int check(int, int) { return (int)'D'; }
     void overload() {}
     void overload(no_such_class*) {}
     void overload(char, int i = 0) {}  // Reflex requires a named arg
