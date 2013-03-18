@@ -79,12 +79,10 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
         size = loop.count_all_true(arr)
-        print 'size',size
         if len(arr.get_shape()) == 1:
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
-        print 'res_shape',res_shape
         res = W_NDimArray.from_shape(res_shape, self.get_dtype())
         return loop.getitem_filter(res, self, arr)
 
@@ -369,8 +367,11 @@ class __extend__(W_NDimArray):
         if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for compress"))
+            arr = self
+        else:
+            arr = self.descr_reshape(space, [space.wrap(-1)])
         index = convert_to_array(space, w_obj)
-        return self.getitem_filter(space, index)
+        return arr.getitem_filter(space, index)
 
     def descr_flatten(self, space, w_order=None):
         if self.is_scalar():
