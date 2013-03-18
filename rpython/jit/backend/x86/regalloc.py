@@ -870,6 +870,28 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)
 
+    def consider_call_malloc_nursery_varsize(self, op):
+        length_box = op.getarg(1)
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # looking at the result
+        self.rm.force_allocate_reg(op.result, selected_reg=eax)
+        #
+        # We need edx as a temporary, but otherwise don't save any more
+        # register.  See comments in _build_malloc_slowpath().
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
+        lengthloc = self.rm.make_sure_var_in_reg(length_box, [op.result, tmp_box])
+        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        itemsize = op.getarg(0).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap)
+
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
         gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)

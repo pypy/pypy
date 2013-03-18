@@ -2460,6 +2460,31 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
 
+    def malloc_cond_varsize(self, nursery_free_adr, nursery_top_adr,
+                            lengthloc, itemsize, maxlength, gcmap):
+        self.mc.CMP(lengthloc, imm(maxlength))
+        self.mc.J_il8(rx86.Conditions['L'], 0) # patched later
+        jmp_adr0 = self.mc.get_relative_pos()
+        self.mc.MOV(edi, heap(nursery_free_adr))
+        self.mc.MOV(eax, edi)
+        self.mc.MOV(edi, lengthloc)
+        self.mc.IMUL(edi, imm(itemsize))
+        self.mc.ADD(edi, eax)
+        self.mc.ADD(edi, imm(WORD * 2))
+        self.mc.CMP(edi, heap(nursery_top_adr))
+        self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
+        jmp_adr1 = self.mc.get_relative_pos()
+        offset = self.mc.get_relative_pos() - jmp_adr0
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_adr0-1, chr(offset))
+        # save the gcmap
+        self.push_gcmap(self.mc, gcmap, mov=True)
+        self.mc.CALL(imm(0))
+        offset = self.mc.get_relative_pos() - jmp_adr1
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_adr1-1, chr(offset))
+        self.mc.MOV(heap(nursery_free_adr), edi)
+
     def force_token(self, reg):
         # XXX kill me
         assert isinstance(reg, RegLoc)

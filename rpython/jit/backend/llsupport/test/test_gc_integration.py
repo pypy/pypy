@@ -145,6 +145,7 @@ class GCDescrFastpathMalloc(GcLLDescription):
     gcrootmap = None
     passes_frame = True
     write_barrier_descr = None
+    max_size_of_young_obj = 50
 
     def __init__(self, callback):
         GcLLDescription.__init__(self, None)
@@ -238,6 +239,29 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 16
         assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 48
+        # check the nursery content and state
+        gc_ll_descr.check_nothing_in_nursery()
+        assert gc_ll_descr.addrs[0] == nurs_adr + 64
+        # slowpath never called
+        assert gc_ll_descr.calls == []
+
+    def test_malloc_nursery_varsize(self):
+        self.cpu = self.getcpu(None)
+        ops = '''
+        [i0, i1, i2]
+        p0 = call_malloc_nursery_varsize(8, i0)
+        p1 = call_malloc_nursery_varsize(5, i1)
+        p2 = call_malloc_nursery_varsize(7, i2)
+        guard_true(i0) [p0, p1, p2]
+        '''
+        self.interpret(ops, [1, 2, 3])
+        # check the returned pointers
+        gc_ll_descr = self.cpu.gc_ll_descr
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
+        assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
+        assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 2*WORD + 8*1
+        assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 2*WORD + 8*1 + 2*WORD + 5*2
         # check the nursery content and state
         gc_ll_descr.check_nothing_in_nursery()
         assert gc_ll_descr.addrs[0] == nurs_adr + 64
@@ -663,9 +687,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert thing == rffi.cast(lltype.Signed, cpu.gc_ll_descr.nursery)
         assert cpu.gc_ll_descr.nursery_ptrs[0] == thing + sizeof.size
         assert rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.write_barrier_on_frame_called) == frame
-
-    def test_malloc_nursery_varsize(self):
-        xxx
 
     def test_call_release_gil(self):
         # note that we can't test floats here because when untranslated
