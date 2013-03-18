@@ -1643,7 +1643,7 @@ class StringType(BaseType, BaseStringType):
     @jit.unroll_safe
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        for k in range(min(self.size - i, box.arr.size-offset)):
+        for k in range(min(self.size, box.arr.size-offset)):
             arr.storage[k + i] = box.arr.storage[k + offset]
 
     def read(self, arr, i, offset, dtype=None):

@@ -79,18 +79,11 @@ def setslice(space, shape, target, source):
     source_iter = source.create_iter(shape)
     dtype = target.dtype
     shapelen = len(shape)
-    if dtype.is_str_or_unicode():
-        while not target_iter.done():
-            setslice_driver1.jit_merge_point(shapelen=shapelen, dtype=dtype)
-            target_iter.setitem(dtype.convert_from(space, source_iter.getitem()))
-            target_iter.next()
-            source_iter.next()
-    else:
-        while not target_iter.done():
-            setslice_driver2.jit_merge_point(shapelen=shapelen, dtype=dtype)
-            target_iter.setitem(source_iter.getitem().convert_to(dtype))
-            target_iter.next()
-            source_iter.next()
+    while not target_iter.done():
+        setslice_driver2.jit_merge_point(shapelen=shapelen, dtype=dtype)
+        target_iter.setitem(source_iter.getitem().convert_to(dtype))
+        target_iter.next()
+        source_iter.next()
     return target
 
 reduce_driver = jit.JitDriver(name='numpy_reduce',
