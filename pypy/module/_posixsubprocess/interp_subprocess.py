@@ -44,8 +44,8 @@ class PreexecCallback:
             try:
                 self.space.call_function(self.w_preexec_fn)
             except OperationError:
-                return 0
-        return 1
+                return rffi.cast(rffi.INT, 0)
+        return rffi.cast(rffi.INT, 1)
 preexec = PreexecCallback()
 
 
