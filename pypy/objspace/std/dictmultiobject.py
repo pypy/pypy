@@ -565,6 +565,12 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
     def w_keys(self, w_dict):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
+    def setitem_str(self, w_dict, s, w_value):
+        self.setitem(w_dict, self.space.wrap(s), w_value)
+
+    def switch_to_object_strategy(self, w_dict):
+        assert 0, "should be unreachable"
+
 create_iterator_classes(ObjectDictStrategy)
 
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
