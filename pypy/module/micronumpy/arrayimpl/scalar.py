@@ -38,7 +38,7 @@ class Scalar(base.BaseArrayImplementation):
     def get_strides(self):
         return []
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         return ScalarIterator(self)
 
     def get_scalar_value(self):

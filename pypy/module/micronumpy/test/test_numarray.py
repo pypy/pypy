@@ -1595,7 +1595,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (zeros(1)[[]] == []).all()
 
     def test_int_array_index_setitem(self):
-        from numpypy import arange, zeros
+        from numpypy import arange, zeros, array
         a = arange(10)
         a[[3, 2, 1, 5]] = zeros(4, dtype=int)
         assert (a == [0, 0, 0, 0, 4, 0, 6, 7, 8, 9]).all()
@@ -2155,15 +2155,26 @@ class AppTestMultiDim(BaseNumpyAppTest):
     def test_compress(self):
         from numpypy import arange, array
         a = arange(10)
+        print 0
         assert (a.compress([True, False, True]) == [0, 2]).all()
+        print 1
         assert (a.compress([1, 0, 13]) == [0, 2]).all()
+        print 2
+        assert (a.compress([1, 0, 13]) == [0, 2]).all()
+        print '2a'
         assert (a.compress([1, 0, 13.5]) == [0, 2]).all()
+        print 3
         assert (a.compress(array([1, 0, 13.5], dtype='>f4')) == [0, 2]).all()
+        print 4
         assert (a.compress(array([1, 0, 13.5], dtype='<f4')) == [0, 2]).all()
+        print 5
         assert (a.compress([1, -0-0j, 1.3+13.5j]) == [0, 2]).all()
+        print 6
         a = arange(10).reshape(2, 5)
         assert (a.compress([True, False, True]) == [0, 2]).all()
+        print 7
         raises((IndexError, ValueError), "a.compress([1] * 100)")
+        print 8
 
     def test_item(self):
         from numpypy import array
