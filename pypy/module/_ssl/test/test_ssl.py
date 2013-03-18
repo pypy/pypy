@@ -199,6 +199,11 @@ class AppTestContext:
         ctx.load_verify_locations(self.keycert)
         ctx.load_verify_locations(cafile=self.keycert, capath=None)
 
+    def test_constructor(self):
+        import _ssl
+        raises(ValueError, _ssl._SSLContext, -1)
+        raises(ValueError, _ssl._SSLContext, 42)
+
 
 SSL_CERTIFICATE = """
 -----BEGIN CERTIFICATE-----
