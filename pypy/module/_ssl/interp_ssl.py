@@ -116,7 +116,8 @@ class SSLContext(Wrappable):
         elif protocol == PY_SSL_VERSION_SSL23:
             method = libssl_SSLv23_method()
         else:
-            raise ssl_error(space, "invalid SSL protocol version")
+            raise OperationError(
+                space.w_ValueError, space.wrap("invalid protocol version"))
         self.__init__(method)
         if not self.ctx:
             raise ssl_error(space, "failed to allocate SSL context")
