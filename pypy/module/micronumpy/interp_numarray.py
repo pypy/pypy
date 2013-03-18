@@ -79,7 +79,8 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
         size = loop.count_all_true(arr)
-        res = W_NDimArray.from_shape([size], self.get_dtype())
+        res_shape = [size] + self.get_shape()[1:]
+        res = W_NDimArray.from_shape(res_shape, self.get_dtype())
         return loop.getitem_filter(res, self, arr)
 
     def setitem_filter(self, space, idx, val):

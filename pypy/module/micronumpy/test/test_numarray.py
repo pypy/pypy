@@ -1595,7 +1595,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (zeros(1)[[]] == []).all()
 
     def test_int_array_index_setitem(self):
-        from numpypy import array, arange, zeros
+        from numpypy import arange, zeros
         a = arange(10)
         a[[3, 2, 1, 5]] = zeros(4, dtype=int)
         assert (a == [0, 0, 0, 0, 4, 0, 6, 7, 8, 9]).all()
@@ -1610,6 +1610,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[array([True, False, True])] == [0, 2]).all()
         raises(ValueError, "array([1, 2])[array([True, True, True])]")
         raises(ValueError, "b[array([[True, False], [True, False]])]")
+        a = array([[1,2,3],[4,5,6],[7,8,9]],int)
+        c = array([True,False,True],bool)
+        b = a[c]
+        assert (a[c] == [[1, 2, 3], [7, 8, 9]]).all()
 
     def test_bool_array_index_setitem(self):
         from numpypy import arange, array
