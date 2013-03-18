@@ -212,6 +212,12 @@ class AppTestContext:
         raises(ValueError, _ssl._SSLContext, -1)
         raises(ValueError, _ssl._SSLContext, 42)
 
+    def test_options(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        assert _ssl.OP_ALL == ctx.options
+
+
 
 SSL_CERTIFICATE = """
 -----BEGIN CERTIFICATE-----

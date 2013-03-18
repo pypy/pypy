@@ -219,8 +219,8 @@ ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)
 ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT)
 ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT)
-ssl_external('SSL_CTX_get_options', [SSL_CTX], rffi.INT, macro=True)
-ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.INT], rffi.INT, macro=True)
+ssl_external('SSL_CTX_get_options', [SSL_CTX], rffi.UINT, macro=True)
+ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.INT], rffi.UINT, macro=True)
 if HAVE_SSL_CTX_CLEAR_OPTIONS:
     ssl_external('SSL_CTX_clear_options', [SSL_CTX, rffi.INT], rffi.INT,
                  macro=True)
