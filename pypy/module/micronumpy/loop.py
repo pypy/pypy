@@ -300,9 +300,9 @@ getitem_filter_driver = jit.JitDriver(name = 'numpy_getitem_bool',
 
 def getitem_filter(res, arr, index):
     res_iter = res.create_iter()
-    print 'xxx'
-    index_iter = index.create_iter(arr.get_shape(), backward_broadcast=False)
-    print 'yyy'
+    print 'index.size', index.get_size()
+    print 'res.size', res.get_size()
+    index_iter = index.create_iter(arr.get_shape(), backward_broadcast=True)
     arr_iter = arr.create_iter()
     shapelen = len(arr.get_shape())
     arr_dtype = arr.get_dtype()
