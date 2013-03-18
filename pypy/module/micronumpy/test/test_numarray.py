@@ -1612,9 +1612,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(ValueError, "b[array([[True, False], [True, False]])]")
         a = array([[1,2,3],[4,5,6],[7,8,9]],int)
         c = array([True,False,True],bool)
-        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         b = a[c]
-        print 'yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
         assert (a[c] == [[1, 2, 3], [7, 8, 9]]).all()
 
     def test_bool_array_index_setitem(self):

@@ -294,12 +294,12 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         if shape is None or shape == self.get_shape():
             return iter.ConcreteArrayIterator(self)
         r = calculate_broadcast_strides(self.get_strides(),
                                         self.get_backstrides(),
-                                        self.get_shape(), shape)
+                                        self.get_shape(), shape, backward_broadcast)
         return iter.MultiDimViewIterator(self, self.dtype, 0, r[0], r[1], shape)
 
     def fill(self, box):
@@ -362,11 +362,12 @@ class SliceArray(BaseConcreteArray):
     def fill(self, box):
         loop.fill(self, box.convert_to(self.dtype))
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         if shape is not None and shape != self.get_shape():
             r = calculate_broadcast_strides(self.get_strides(),
                                             self.get_backstrides(),
-                                            self.get_shape(), shape)
+                                            self.get_shape(), shape,
+                                            backward_broadcast)
             return iter.MultiDimViewIterator(self.parent, self.dtype,
                                              self.start, r[0], r[1], shape)
         if len(self.get_shape()) == 1:

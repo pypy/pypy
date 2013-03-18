@@ -224,9 +224,10 @@ class __extend__(W_NDimArray):
         s.append('])')
         return s.build()
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         assert isinstance(self.implementation, BaseArrayImplementation)
-        return self.implementation.create_iter(shape)
+        return self.implementation.create_iter(shape,
+                                   backward_broadcast=backward_broadcast)
 
     def create_axis_iter(self, shape, dim, cum):
         return self.implementation.create_axis_iter(shape, dim, cum)

@@ -300,14 +300,13 @@ getitem_filter_driver = jit.JitDriver(name = 'numpy_getitem_bool',
 
 def getitem_filter(res, arr, index):
     res_iter = res.create_iter()
-    index_iter = index.create_iter(arr.get_shape())
+    index_iter = index.create_iter(arr.get_shape(), backward_broadcast=True)
     arr_iter = arr.create_iter()
     shapelen = len(arr.get_shape())
     arr_dtype = arr.get_dtype()
     index_dtype = index.get_dtype()
     # XXX length of shape of index as well?
     while not index_iter.done():
-        print 'res,arr,index', res_iter.offset, arr_iter.offset, index_iter.offset, index_iter.getitem_bool()
         getitem_filter_driver.jit_merge_point(shapelen=shapelen,
                                               index_dtype=index_dtype,
                                               arr_dtype=arr_dtype,
