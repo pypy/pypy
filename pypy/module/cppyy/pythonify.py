@@ -336,8 +336,19 @@ def _pythonize(pyclass):
                 return self.c_str() == other.c_str()
             else:
                 return self.c_str() == other
-        pyclass.__eq__ = eq
+        pyclass.__eq__  = eq
         pyclass.__str__ = pyclass.c_str
+
+    # std::pair unpacking through iteration
+    if 'std::pair' in pyclass.__name__:
+        def getitem(self, idx):
+            if idx == 0: return self.first
+            if idx == 1: return self.second
+            raise IndexError("out of bounds")
+        def return2(self):
+            return 2
+        pyclass.__getitem__ = getitem
+        pyclass.__len__     = return2
 
 _loaded_dictionaries = {}
 def load_reflection_info(name):
