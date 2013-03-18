@@ -61,6 +61,7 @@ def _init_posix():
     g['SO'] = _get_so_extension() or ".so"
     g['SOABI'] = g['SO'].rsplit('.')[0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
+    g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
 
     global _config_vars
     _config_vars = g
