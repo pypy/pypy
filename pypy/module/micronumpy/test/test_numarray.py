@@ -1736,6 +1736,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert int(array(1)) == 1
         assert int(array([1])) == 1
         assert raises(TypeError, "int(array([1, 2]))")
+        assert int(array([1.5])) == 1
 
 
 class AppTestMultiDim(BaseNumpyAppTest):

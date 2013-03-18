@@ -772,9 +772,9 @@ class __extend__(W_NDimArray):
         shape = self.get_shape()
         if len(shape) == 0:
             assert isinstance(self.implementation, scalar.Scalar)
-            return space.wrap(self.implementation.get_scalar_value())
+            return space.int(space.wrap(self.implementation.get_scalar_value()))
         if shape == [1]:
-            return self.descr_getitem(space, space.wrap(0))
+            return space.int(self.descr_getitem(space, space.wrap(0)))
         raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
 
 
