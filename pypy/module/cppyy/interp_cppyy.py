@@ -467,9 +467,14 @@ class W_CPPOverload(Wrappable):
             try:
                 return cppyyfunc.call(cppthis, args_w)
             except OperationError, e:
+                # special case if there's just one function, to prevent clogging the error message
+                if len(self.functions) == 1:
+                    raise
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
                 errmsg += '    '+e.errorstr(self.space)
             except Exception, e:
+                # can not special case this for non-overloaded functions as we anyway need an
+                # OperationError error down from here
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
                 errmsg += '    Exception: '+str(e)
 

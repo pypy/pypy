@@ -342,7 +342,7 @@ class AppTestSTLMAP:
         cls.w_N = cls.space.wrap(13)
         cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
-            import cppyy, math
+            import cppyy, math, sys
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_builtin_map_type(self):
@@ -383,8 +383,6 @@ class AppTestSTLMAP:
         a = std.map(std.string, int)()
         for i in range(self.N):
             a[str(i)] = i
-            import pdb
-            pdb.set_trace()
             assert a[str(i)] == i
 
         assert len(a) == self.N
@@ -402,7 +400,7 @@ class AppTestSTLMAP:
     def test04_unsignedvalue_typemap_types(self):
         """Test assignability of maps with unsigned value types"""
 
-        import cppyy, math
+        import cppyy, math, sys
         std = cppyy.gbl.std
 
         mui = std.map(str, 'unsigned int')()
@@ -418,8 +416,8 @@ class AppTestSTLMAP:
         mul = std.map(str, 'unsigned long')()
         mul['two'] = 2
         assert mul['two'] == 2
-        mul['maxint'] = maxvalue + 3
-        assert mul['maxint'] == maxvalue + 3
+        mul['maxint'] = sys.maxint + 3
+        assert mul['maxint'] == sys.maxint + 3
 
         raises(ValueError, mul.__setitem__, 'minus two', -2)
 

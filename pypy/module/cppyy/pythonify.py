@@ -35,7 +35,9 @@ class CppyyTemplateType(object):
         self._name = name
 
     def _arg_to_str(self, arg):
-        if type(arg) != str:
+        if arg == str:
+            arg = 'std::basic_string<char>'
+        elif type(arg) != str:
             arg = arg.__name__
         return arg
 
@@ -322,7 +324,8 @@ def _pythonize(pyclass):
         pyclass.__iter__ = __iter__
 
     # combine __getitem__ and __len__ to make a pythonized __getitem__
-    if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
+    if not 'std::map' in pyclass.__name__ and\
+            '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
         pyclass._getitem__unchecked = pyclass.__getitem__
         if '__setitem__' in pyclass.__dict__ and '__iadd__' in pyclass.__dict__:
             pyclass.__getitem__ = python_style_sliceable_getitem
