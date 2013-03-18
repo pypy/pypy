@@ -1,16 +1,17 @@
-import sys
+
+import re
 from rpython.rlib import debug
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp import logger
 from rpython.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr
+from rpython.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr
 from rpython.jit.backend.model import AbstractCPU
 
 
 class Descr(AbstractDescr):
-    pass
+    final_descr = False
 
 def capturing(func, *args, **kwds):
     log_stream = StringIO()
@@ -92,7 +93,7 @@ class TestLogger(object):
         [p0]
         setfield_gc(p0, 3, descr=somedescr)
         '''
-        somedescr = Descr()
+        Descr()
         self.reparse(inp, namespace=locals())
 
     def test_guard(self):
@@ -108,9 +109,10 @@ class TestLogger(object):
         inp = '''
         []
         guard_not_invalidated(descr=descr) []
-        finish()
+        finish(descr=finaldescr)
         '''
-        loop = pure_parse(inp, namespace={'descr': Descr()})
+        loop = pure_parse(inp, namespace={'descr': Descr(),
+                                          'finaldescr': BasicFinalDescr()})
         logger = Logger(self.make_metainterp_sd())
         output = logger.log_loop(loop, {'descr': Descr()})
         assert 'guard_not_invalidated(descr=' in output
@@ -164,7 +166,7 @@ class TestLogger(object):
         loop = pure_parse(inp, namespace=namespace)
         logger = Logger(self.make_metainterp_sd(), guard_number=True)
         output = logger.log_loop(loop)
-        assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard0>) [i0]"
+        assert re.match("guard_true\(i0, descr=<Guard[\da-f]+>\) \[i0\]", output.splitlines()[-1])
         pure_parse(output)
 
         logger = Logger(self.make_metainterp_sd(), guard_number=False)
@@ -198,7 +200,8 @@ class TestLogger(object):
     def test_intro_bridge(self):
         bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_bridge, [], [], 3)
-        assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
+        assert re.match("# bridge out of Guard [\da-f]+ with 0 ops",
+                        output.splitlines()[0])
         pure_parse(output)
 
     def test_repr_single_op(self):

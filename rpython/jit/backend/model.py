@@ -1,8 +1,16 @@
+import weakref
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.jit.metainterp import history
 from rpython.rtyper.lltypesystem import lltype
 
+class CPUTotalTracker(object):
+    total_compiled_loops = 0
+    total_compiled_bridges = 0
+    total_freed_loops = 0
+    total_freed_bridges = 0    
+
+    # for heaptracker
+    # _all_size_descrs_with_vtable = None
+    _vtable_to_descr_dict = None
 
 class AbstractCPU(object):
     supports_floats = False
@@ -12,52 +20,13 @@ class AbstractCPU(object):
     # Boxes and Consts are BoxFloats and ConstFloats.
     supports_singlefloats = False
 
-    done_with_this_frame_void_v = -1
-    done_with_this_frame_int_v = -1
-    done_with_this_frame_ref_v = -1
-    done_with_this_frame_float_v = -1
-    propagate_exception_v = -1
-    total_compiled_loops = 0
-    total_compiled_bridges = 0
-    total_freed_loops = 0
-    total_freed_bridges = 0
-
-    # for heaptracker
-    # _all_size_descrs_with_vtable = None
-    _vtable_to_descr_dict = None
-
+    propagate_exception_descr = None
 
     def __init__(self):
-        self.fail_descr_list = []
-        self.fail_descr_free_list = []
+        self.tracker = CPUTotalTracker()
 
-    def reserve_some_free_fail_descr_number(self):
-        lst = self.fail_descr_list
-        if len(self.fail_descr_free_list) > 0:
-            n = self.fail_descr_free_list.pop()
-            assert lst[n] is None
-        else:
-            n = len(lst)
-            lst.append(None)
-        return n
-
-    def get_fail_descr_number(self, descr):
-        assert isinstance(descr, history.AbstractFailDescr)
-        if not we_are_translated():
-            if not hasattr(descr, '_cpu'):
-                assert descr.index == -1, "descr.index is already >= 0??"
-                descr._cpu = self
-            assert descr._cpu is self,"another CPU has already seen the descr!"
-        #
-        n = descr.index
-        if n < 0:
-            n = self.reserve_some_free_fail_descr_number()
-            self.fail_descr_list[n] = descr
-            descr.index = n
-        return n
-
-    def get_fail_descr_from_number(self, n):
-        return self.fail_descr_list[n]
+    def _freeze_(self):
+        return True
 
     def setup_once(self):
         """Called once by the front-end when the program starts."""
@@ -132,28 +101,22 @@ class AbstractCPU(object):
         """Returns the Descr for the last operation executed by the frame."""
         raise NotImplementedError
 
-    def get_latest_value_int(self, deadframe, index):
+    def get_int_value(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns an int."""
         raise NotImplementedError
 
-    def get_latest_value_float(self, deadframe, index):
+    def get_float_value(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns a FLOATSTORAGE."""
         raise NotImplementedError
 
-    def get_latest_value_ref(self, deadframe, index):
+    def get_ref_value(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns a GCREF."""
-        raise NotImplementedError
-
-    def get_latest_value_count(self, deadframe):
-        """Return how many values are ready to be returned by
-        get_latest_value_xxx().  Only after a guard failure; not
-        necessarily correct after a FINISH."""
         raise NotImplementedError
 
     def grab_exc_value(self, deadframe):
@@ -202,19 +165,7 @@ class AbstractCPU(object):
         guarantees that at the point of the call to free_code_group(),
         none of the corresponding assembler is currently running.
         """
-        # The base class provides a limited implementation: freeing the
-        # resume descrs.  This is already quite helpful, because the
-        # resume descrs are the largest consumers of memory (about 3x
-        # more than the assembler, in the case of the x86 backend).
-        lst = self.fail_descr_list
-        # We expect 'compiled_loop_token' to be itself garbage-collected soon,
-        # but better safe than sorry: be ready to handle several calls to
-        # free_loop_and_bridges() for the same compiled_loop_token.
-        faildescr_indices = compiled_loop_token.faildescr_indices
-        compiled_loop_token.faildescr_indices = []
-        for n in faildescr_indices:
-            lst[n] = None
-        self.fail_descr_free_list.extend(faildescr_indices)
+        pass
 
     def sizeof(self, S):
         raise NotImplementedError
@@ -339,41 +290,45 @@ class CompiledLoopToken(object):
     asmmemmgr_gcroots = 0
 
     def __init__(self, cpu, number):
-        cpu.total_compiled_loops += 1
+        cpu.tracker.total_compiled_loops += 1
         self.cpu = cpu
         self.number = number
         self.bridges_count = 0
-        # This growing list gives the 'descr_number' of all fail descrs
-        # that belong to this loop or to a bridge attached to it.
-        # Filled by the frontend calling record_faildescr_index().
-        self.faildescr_indices = []
         self.invalidate_positions = []
+        # a list of weakrefs to looptokens that has been redirected to
+        # this one
+        self.looptokens_redirected_to = []
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")
 
-    def record_faildescr_index(self, n):
-        self.faildescr_indices.append(n)
-
-    def reserve_and_record_some_faildescr_index(self):
-        # like record_faildescr_index(), but invent and return a new,
-        # unused faildescr index
-        n = self.cpu.reserve_some_free_fail_descr_number()
-        self.record_faildescr_index(n)
-        return n
-
     def compiling_a_bridge(self):
-        self.cpu.total_compiled_bridges += 1
+        self.cpu.tracker.total_compiled_bridges += 1
         self.bridges_count += 1
         debug_start("jit-mem-looptoken-alloc")
         debug_print("allocating Bridge #", self.bridges_count, "of Loop #", self.number)
         debug_stop("jit-mem-looptoken-alloc")
 
+    def update_frame_info(self, oldlooptoken, baseofs):
+        new_fi = self.frame_info
+        new_loop_tokens = []
+        for ref in oldlooptoken.looptokens_redirected_to:
+            looptoken = ref()
+            if looptoken:
+                looptoken.frame_info.update_frame_depth(baseofs,
+                                                     new_fi.jfi_frame_depth)
+                new_loop_tokens.append(ref)
+        oldlooptoken.frame_info.update_frame_depth(baseofs,
+                                                   new_fi.jfi_frame_depth)
+        assert oldlooptoken is not None
+        new_loop_tokens.append(weakref.ref(oldlooptoken))
+        self.looptokens_redirected_to = new_loop_tokens
+
     def __del__(self):
-        debug_start("jit-mem-looptoken-free")
-        debug_print("freeing Loop #", self.number, 'with',
-                    self.bridges_count, 'attached bridges')
+        #debug_start("jit-mem-looptoken-free")
+        #debug_print("freeing Loop #", self.number, 'with',
+        #            self.bridges_count, 'attached bridges')
         self.cpu.free_loop_and_bridges(self)
-        self.cpu.total_freed_loops += 1
-        self.cpu.total_freed_bridges += self.bridges_count
-        debug_stop("jit-mem-looptoken-free")
+        self.cpu.tracker.total_freed_loops += 1
+        self.cpu.tracker.total_freed_bridges += self.bridges_count
+        #debug_stop("jit-mem-looptoken-free")

@@ -136,6 +136,10 @@ class __extend__(W_NDimArray):
     def getitem_array_int(self, space, w_index):
         prefix, res_shape, iter_shape, indexes = \
                 self._prepare_array_index(space, w_index)
+        if iter_shape is None:
+            # w_index is a list of slices, return a view
+            chunks = self.implementation._prepare_slice_args(space, w_index)
+            return chunks.apply(self)
         shape = res_shape + self.get_shape()[len(indexes):]
         res = W_NDimArray.from_shape(shape, self.get_dtype(), self.get_order())
         if not res.get_size():
@@ -147,8 +151,15 @@ class __extend__(W_NDimArray):
         val_arr = convert_to_array(space, w_value)
         prefix, _, iter_shape, indexes = \
                 self._prepare_array_index(space, w_index)
-        return loop.setitem_array_int(space, self, iter_shape, indexes, val_arr,
-                                      prefix)
+        if iter_shape is None:
+            # w_index is a list of slices
+            w_value = convert_to_array(space, w_value)
+            chunks = self.implementation._prepare_slice_args(space, w_index)
+            view = chunks.apply(self)
+            view.implementation.setslice(space, w_value)
+            return
+        loop.setitem_array_int(space, self, iter_shape, indexes, val_arr,
+                               prefix)
 
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, W_NDimArray) and
@@ -169,9 +180,9 @@ class __extend__(W_NDimArray):
 
     def descr_setitem(self, space, w_idx, w_value):
         if (isinstance(w_idx, W_NDimArray) and
-            w_idx.get_dtype().is_bool_type()):
-            return self.setitem_filter(space, w_idx,
-                                       convert_to_array(space, w_value))
+                w_idx.get_dtype().is_bool_type()):
+            self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
+            return
         try:
             self.implementation.descr_setitem(space, self, w_idx, w_value)
         except ArrayArgumentException:

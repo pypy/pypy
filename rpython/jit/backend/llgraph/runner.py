@@ -35,7 +35,10 @@ class LLTrace(object):
         self.operations = []
         for op in operations:
             if op.getdescr() is not None:
-                newdescr = WeakrefDescr(op.getdescr())
+                if op.is_guard():
+                    newdescr = op.getdescr()
+                else:
+                    newdescr = WeakrefDescr(op.getdescr())
             else:
                 newdescr = None
             newop = op.copy_and_change(op.getopnum(),
@@ -49,6 +52,7 @@ class LLTrace(object):
 class WeakrefDescr(AbstractDescr):
     def __init__(self, realdescr):
         self.realdescrref = weakref.ref(realdescr)
+        self.final_descr = getattr(realdescr, 'final_descr', False)
 
 class ExecutionFinished(Exception):
     def __init__(self, deadframe):
@@ -232,26 +236,23 @@ class LLGraphCPU(model.AbstractCPU):
         except ExecutionFinished, e:
             return e.deadframe
 
-    def get_latest_value_int(self, deadframe, index):
+    def get_int_value(self, deadframe, index):
         v = deadframe._values[index]
         assert lltype.typeOf(v) == lltype.Signed
         return v
 
-    def get_latest_value_ref(self, deadframe, index):
+    def get_ref_value(self, deadframe, index):
         v = deadframe._values[index]
         assert lltype.typeOf(v) == llmemory.GCREF
         return v
 
-    def get_latest_value_float(self, deadframe, index):
+    def get_float_value(self, deadframe, index):
         v = deadframe._values[index]
         assert lltype.typeOf(v) == longlong.FLOATSTORAGE
         return v
 
     def get_latest_descr(self, deadframe):
         return deadframe._latest_descr
-
-    def get_latest_value_count(self, deadframe):
-        return len(deadframe._values)
 
     def grab_exc_value(self, deadframe):
         if deadframe._last_exception is not None:
@@ -565,6 +566,9 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_read_timestamp(self):
         return read_timestamp()
 
+    def store_fail_descr(self, deadframe, descr):
+        pass # I *think*
+
 
 class LLDeadFrame(object):
     _TYPE = llmemory.GCREF
@@ -578,7 +582,7 @@ class LLDeadFrame(object):
 
 
 class LLFrame(object):
-    _TYPE = lltype.Signed
+    _TYPE = llmemory.GCREF
 
     forced_deadframe = None
     overflow_flag = False
@@ -590,6 +594,22 @@ class LLFrame(object):
         assert len(argboxes) == len(args)
         for box, arg in zip(argboxes, args):
             self.setenv(box, arg)
+
+    def __eq__(self, other):
+        # this is here to avoid crashes in 'token == TOKEN_TRACING_RESCALL'
+        from rpython.jit.metainterp.virtualizable import TOKEN_NONE
+        from rpython.jit.metainterp.virtualizable import TOKEN_TRACING_RESCALL
+        if isinstance(other, LLFrame):
+            return self is other
+        if other == TOKEN_NONE or other == TOKEN_TRACING_RESCALL:
+            return False
+        assert 0
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def _identityhash(self):
+        return hash(self)
 
     def setenv(self, box, arg):
         if box.type == INT:
@@ -859,19 +879,19 @@ class LLFrame(object):
         def reset_vable(jd, vable):
             if jd.index_of_virtualizable != -1:
                 fielddescr = jd.vable_token_descr
-                self.cpu.bh_setfield_gc(vable, 0, fielddescr)
+                NULL = lltype.nullptr(llmemory.GCREF.TO)
+                self.cpu.bh_setfield_gc(vable, NULL, fielddescr)
         faildescr = self.cpu.get_latest_descr(pframe)
-        failindex = self.cpu.get_fail_descr_number(faildescr)
-        if failindex == self.cpu.done_with_this_frame_int_v:
+        if faildescr == self.cpu.done_with_this_frame_descr_int:
             reset_vable(jd, vable)
-            return self.cpu.get_latest_value_int(pframe, 0)
-        if failindex == self.cpu.done_with_this_frame_ref_v:
+            return self.cpu.get_int_value(pframe, 0)
+        elif faildescr == self.cpu.done_with_this_frame_descr_ref:
             reset_vable(jd, vable)
-            return self.cpu.get_latest_value_ref(pframe, 0)
-        if failindex == self.cpu.done_with_this_frame_float_v:
+            return self.cpu.get_ref_value(pframe, 0)
+        elif faildescr == self.cpu.done_with_this_frame_descr_float:
             reset_vable(jd, vable)
-            return self.cpu.get_latest_value_float(pframe, 0)
-        if failindex == self.cpu.done_with_this_frame_void_v:
+            return self.cpu.get_float_value(pframe, 0)
+        elif faildescr == self.cpu.done_with_this_frame_descr_void:
             reset_vable(jd, vable)
             return None
         #
@@ -916,9 +936,10 @@ class LLFrame(object):
     def execute_keepalive(self, descr, x):
         pass
 
+
 def _getdescr(op):
     d = op.getdescr()
-    if d is not None:
+    if d is not None and isinstance(d, WeakrefDescr):
         d = d.realdescrref()
         assert d is not None, "the descr disappeared: %r" % (op,)
     return d

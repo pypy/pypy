@@ -1,6 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import rgc
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -226,10 +227,6 @@ class ShadowStackRootWalker(BaseRootWalker):
             ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
             return ssref.context
 
-        def gc_shadowstackref_destroy(gcref):
-            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
-            shadow_stack_pool.destroy(ssref)
-
         def gc_save_current_state_away(gcref, ncontext):
             ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
             shadow_stack_pool.save_current_state_away(ssref, ncontext)
@@ -252,9 +249,6 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.gc_shadowstackref_context_ptr = getfn(gc_shadowstackref_context,
                                                    [s_gcref], s_addr,
                                                    inline=True)
-        self.gc_shadowstackref_destroy_ptr = getfn(gc_shadowstackref_destroy,
-                                                   [s_gcref], annmodel.s_None,
-                                                   inline=True)
         self.gc_save_current_state_away_ptr = getfn(gc_save_current_state_away,
                                                     [s_gcref, s_addr],
                                                     annmodel.s_None,
@@ -268,12 +262,6 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.gc_start_fresh_new_state_ptr = getfn(gc_start_fresh_new_state,
                                                   [], annmodel.s_None,
                                                   inline=True)
-        # fish...
-        translator = gctransformer.translator
-        if hasattr(translator, '_jit2gc'):
-            from rpython.rlib._rffi_stacklet import _translate_pointer
-            root_iterator = translator._jit2gc['root_iterator']
-            root_iterator.translateptr = _translate_pointer
 
 # ____________________________________________________________
 
@@ -346,10 +334,6 @@ class ShadowStackPool(object):
         self.gcdata.root_stack_top  = self.unused_full_stack
         self.unused_full_stack = llmemory.NULL
 
-    def destroy(self, shadowstackref):
-        llmemory.raw_free(shadowstackref.base)
-        self._cleanup(shadowstackref)
-
     def _cleanup(self, shadowstackref):
         shadowstackref.base = llmemory.NULL
         shadowstackref.top = llmemory.NULL
@@ -366,23 +350,18 @@ class ShadowStackPool(object):
 def get_root_iterator(gctransformer):
     if hasattr(gctransformer, '_root_iterator'):
         return gctransformer._root_iterator     # if already built
-    translator = gctransformer.translator
-    if (hasattr(translator, '_jit2gc') and
-            'root_iterator' in translator._jit2gc):
-        result = translator._jit2gc['root_iterator']
-    else:
-        class RootIterator(object):
-            def _freeze_(self):
-                return True
-            def setcontext(self, context):
-                pass
-            def nextleft(self, gc, start, addr):
-                while addr != start:
-                    addr -= sizeofaddr
-                    if gc.points_to_valid_gc_object(addr):
-                        return addr
-                return llmemory.NULL
-        result = RootIterator()
+    class RootIterator(object):
+        def _freeze_(self):
+            return True
+        def setcontext(self, context):
+            pass
+        def nextleft(self, gc, start, addr):
+            while addr != start:
+                addr -= sizeofaddr
+                if gc.points_to_valid_gc_object(addr):
+                    return addr
+            return llmemory.NULL
+    result = RootIterator()
     gctransformer._root_iterator = result
     return result
 
@@ -413,7 +392,20 @@ def get_shadowstackref(gctransformer):
     CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                       llmemory.Address)
     customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-    lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr)
+
+    def shadowstack_destructor(shadowstackref):
+        from rpython.rlib import _rffi_stacklet as _c
+        h = shadowstackref.context
+        h = llmemory.cast_adr_to_ptr(h, _c.handle)
+        llmemory.raw_free(shadowstackref.base)
+        if h:
+            _c.destroy(h)
+
+    destrptr = gctransformer.annotate_helper(shadowstack_destructor,
+                                             [SHADOWSTACKREFPTR], lltype.Void)
+
+    lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr,
+                                 destrptr=destrptr)
 
     gctransformer._SHADOWSTACKREF = SHADOWSTACKREF
     return SHADOWSTACKREF

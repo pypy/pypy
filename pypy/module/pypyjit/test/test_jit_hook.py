@@ -2,7 +2,8 @@
 import py
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pycode import PyCode
-from rpython.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr
+from rpython.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr,\
+     BasicFailDescr
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.logger import Logger
 from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
@@ -69,7 +70,7 @@ class AppTestJitHook(object):
                                         oplist, 'loop', greenkey)
         di_loop.asminfo = AsmInfo(offset, 0, 0)
         di_bridge = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
-                                 oplist, 'bridge', fail_descr_no=0)
+                                 oplist, 'bridge', fail_descr=BasicFailDescr())
         di_bridge.asminfo = AsmInfo(offset, 0, 0)
 
         def interp_on_compile():

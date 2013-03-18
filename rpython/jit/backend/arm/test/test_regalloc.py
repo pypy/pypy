@@ -121,8 +121,8 @@ class BaseTestRegalloc(object):
     fdescr3 = BasicFailDescr(3)
 
     def setup_method(self, meth):
-        self.targettoken._arm_loop_code = 0
-        self.targettoken2._arm_loop_code = 0
+        self.targettoken._ll_loop_code = 0
+        self.targettoken2._ll_loop_code = 0
 
     def f1(x):
         return x + 1
@@ -791,7 +791,7 @@ class TestJumps(BaseTestRegalloc):
         large = self.interpret(loop1, range(11), run=False)
         large._jitcelltoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.namespace['looptoken'] = large._jitcelltoken
-        assert self.namespace['looptoken']._arm_func_addr != 0
+        assert self.namespace['looptoken']._ll_function_addr != 0
         loop2 = """
         [i0]
         i1 = force_token()

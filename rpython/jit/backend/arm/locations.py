@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import INT, FLOAT
-from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD
+from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
 
 
 class AssemblerLocation(object):
@@ -21,9 +21,14 @@ class AssemblerLocation(object):
     def is_imm_float(self):
         return False
 
+    def is_float(self):
+        return False
+
     def as_key(self):
         raise NotImplementedError
 
+    def get_position(self):
+        raise NotImplementedError # only for stack
 
 class RegisterLocation(AssemblerLocation):
     _immutable_ = True
@@ -62,6 +67,9 @@ class VFPRegisterLocation(RegisterLocation):
 
     def as_key(self):
         return self.value + 20
+
+    def is_float(self):
+        return True
 
 
 class ImmLocation(AssemblerLocation):
@@ -103,6 +111,8 @@ class ConstFloatLoc(AssemblerLocation):
     def as_key(self):
         return self.value
 
+    def is_float(self):
+        return True
 
 class StackLocation(AssemblerLocation):
     _immutable_ = True
@@ -122,6 +132,9 @@ class StackLocation(AssemblerLocation):
     def location_code(self):
         return 'b'
 
+    def get_position(self):
+        return self.position
+
     def assembler(self):
         return repr(self)
 
@@ -131,14 +144,13 @@ class StackLocation(AssemblerLocation):
     def as_key(self):
         return self.position + 10000
 
+    def is_float(self):
+        return type == FLOAT
+
 
 def imm(i):
     return ImmLocation(i)
 
 
-def get_fp_offset(i):
-    if i >= 0:
-        # Take the FORCE_TOKEN into account
-        return (1 + i) * WORD
-    else:
-        return i * WORD
+def get_fp_offset(base_ofs, position):
+    return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)

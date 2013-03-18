@@ -57,8 +57,31 @@ def test_cursor_iter():
     cur = con.cursor()
     with pytest.raises(StopIteration):
         next(cur)
-    cur = con.execute('select 1')
+
+    cur.execute('select 1')
     next(cur)
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    con.commit()
+    next(cur)
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    with pytest.raises(_sqlite3.ProgrammingError):
+        cur.executemany('select 1', [])
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    cur.execute('create table test(ing)')
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    cur.execute('insert into test values(1)')
+    con.commit()
     with pytest.raises(StopIteration):
         next(cur)
 
@@ -136,6 +159,7 @@ def test_on_conflict_rollback_executemany():
         con.commit()
     except _sqlite3.OperationalError:
         pytest.fail("_sqlite3 knew nothing about the implicit ROLLBACK")
+    con.close()
 
 def test_statement_arg_checking():
     con = _sqlite3.connect(':memory:')
@@ -171,3 +195,4 @@ def test_statement_param_checking():
     with pytest.raises(ValueError) as e:
         con.execute('insert into foo(x) values (?)', 2)
     assert str(e.value) == 'parameters are of unsupported type'
+    con.close()

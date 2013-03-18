@@ -1,6 +1,6 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.arch import arm_int_div
+from rpython.jit.backend.arm.support import arm_int_div
 from rpython.jit.backend.arm.assembler import AssemblerARM
 from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.arm.test.support import run_asm
@@ -24,7 +24,7 @@ class TestRunningAssembler(object):
         clt = CompiledLoopToken(cpu, 0)
         clt.allgcrefs = []
         token.compiled_loop_token = clt
-        self.a.setup(token, [])
+        self.a.setup(token)
 
     def test_make_operation_list(self):
         i = rop.INT_ADD

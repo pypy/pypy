@@ -42,6 +42,7 @@ Rudimentary support for bytearray in RPython
 .. branch: numpy-unify-methods
 .. branch: fix-version-tool
 .. branch: popen2-removal
+.. branch: pickle-dumps
 
 .. branch: release-2.0-beta1
 
@@ -85,3 +86,8 @@ Random cleanups to hide FlowObjSpace from public view.
 
 .. branch: vendor-rename
 Remove minor verison number from lib-python dirs to simplify stdlib upgrades.
+
+.. branch: jitframe-on-heap
+Moves optimized JIT frames from stack to heap. As a side effect it enables
+stackless to work well with the JIT on PyPy. Also removes a bunch of code from
+the GC which fixes cannot find gc roots.

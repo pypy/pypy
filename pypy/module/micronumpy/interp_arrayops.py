@@ -109,19 +109,19 @@ def concatenate(space, w_args, axis=0):
     _axis = axis
     if axis < 0:
         _axis = len(shape) + axis
-    if _axis < 0 or len(shape) <= _axis:
-        raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
     for arr in args_w[1:]:
-        dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
-                                                      arr.get_dtype())
-        if _axis < 0 or len(arr.get_shape()) <= _axis:
-            raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
         for i, axis_size in enumerate(arr.get_shape()):
             if len(arr.get_shape()) != len(shape) or (i != _axis and axis_size != shape[i]):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "all the input arrays must have same number of dimensions"))
             elif i == _axis:
                 shape[i] += axis_size
+        dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
+                                                      arr.get_dtype())
+        if _axis < 0 or len(arr.get_shape()) <= _axis:
+            raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
+    if _axis < 0 or len(shape) <= _axis:
+        raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
     res = W_NDimArray.from_shape(shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
