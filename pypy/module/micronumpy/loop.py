@@ -307,7 +307,7 @@ def getitem_filter(res, arr, index):
     index_dtype = index.get_dtype()
     # XXX length of shape of index as well?
     while not index_iter.done():
-        print 'res,arr,index', res_iter.get_index(), arr.get_index(), index.get_index()
+        print 'res,arr,index', res_iter.offset, arr_iter.offset, index_iter.offset, index_iter.getitem_bool()
         getitem_filter_driver.jit_merge_point(shapelen=shapelen,
                                               index_dtype=index_dtype,
                                               arr_dtype=arr_dtype,

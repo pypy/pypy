@@ -1612,7 +1612,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(ValueError, "b[array([[True, False], [True, False]])]")
         a = array([[1,2,3],[4,5,6],[7,8,9]],int)
         c = array([True,False,True],bool)
+        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         b = a[c]
+        print 'yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
         assert (a[c] == [[1, 2, 3], [7, 8, 9]]).all()
 
     def test_bool_array_index_setitem(self):
@@ -2064,7 +2066,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert isinstance(i['data'][0], int)
 
     def test_array_indexing_one_elem(self):
-        skip("not yet")
         from numpypy import array, arange
         raises(IndexError, 'arange(3)[array([3.5])]')
         a = arange(3)[array([1])]
