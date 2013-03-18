@@ -19,7 +19,7 @@ endif
 
 PLATFORM := $(shell uname -s)
 ifeq ($(PLATFORM),Darwin)
-  cppflags+=-dynamiclib -single_module -arch x86_64
+  cppflags+=-dynamiclib -single_module -arch x86_64 -undefined dynamic_lookup
 endif
 
 ifeq ($(CINT),)
