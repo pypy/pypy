@@ -42,6 +42,12 @@ c_cloexec_pipe = rffi.llexternal(
     [rffi.CArrayPtr(rffi.INT)], rffi.INT,
     compilation_info=CConfig._compilation_info_,
     threadsafe=True)
+c_init = rffi.llexternal(
+    'pypy_subprocess_init',
+    [], lltype.Void,
+    compilation_info=CConfig._compilation_info_,
+    threadsafe=True)
+
 
 class PreexecCallback:
     def __init__(self):
@@ -211,3 +217,5 @@ def cloexec_pipe(space):
         return space.newtuple([space.wrap(fds[0]),
                                space.wrap(fds[1]),
                                ])
+
+c_init()
