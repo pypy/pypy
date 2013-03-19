@@ -24,6 +24,9 @@ dtypes using ENABLED_LONG_DOUBLE = False
 .. branch: numpypy-real-as-view
 Convert real, imag from ufuncs to views. This involves the beginning of
 view() functionality
+.. branch: indexing-by-array
+Adds indexing by scalar, adds int conversion from scalar and single element array,
+fixes compress, indexing by an array with a smaller shape and the indexed object.
 
 .. branch: signatures
 Improved RPython typing
