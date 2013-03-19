@@ -524,6 +524,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array(complex(3.0, 4.0))
         b = a.real
         assert b.dtype == dtype(float)
+        a = array(4.0)
+        b = a.imag
+        assert b.dtype == dtype(float)
         for complex_ in complex_dtypes:
 
             O = complex(0, 0)
