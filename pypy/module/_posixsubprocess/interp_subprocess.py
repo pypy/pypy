@@ -219,5 +219,3 @@ def cloexec_pipe(space):
         return space.newtuple([space.wrap(fds[0]),
                                space.wrap(fds[1]),
                                ])
-
-c_init()
