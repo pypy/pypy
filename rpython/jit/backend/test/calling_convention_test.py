@@ -10,6 +10,7 @@ from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.runner_test import Runner
 import py
+import sys
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
