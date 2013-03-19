@@ -73,6 +73,25 @@ setslice_driver2 = jit.JitDriver(name='numpy_setslice2',
                                 reds = 'auto')
 
 def setslice(space, shape, target, source):
+    if target.dtype.is_str_or_unicode():
+        return setslice_from(space, shape, target, source)
+    return setslice_to(space, shape, target, source)
+
+def setslice_to(space, shape, target, source):
+    # note that unlike everything else, target and source here are
+    # array implementations, not arrays
+    target_iter = target.create_iter(shape)
+    source_iter = source.create_iter(shape)
+    dtype = target.dtype
+    shapelen = len(shape)
+    while not target_iter.done():
+        setslice_driver1.jit_merge_point(shapelen=shapelen, dtype=dtype)
+        target_iter.setitem(source_iter.getitem().convert_to(dtype))
+        target_iter.next()
+        source_iter.next()
+    return target
+
+def setslice_from(space, shape, target, source):
     # note that unlike everything else, target and source here are
     # array implementations, not arrays
     target_iter = target.create_iter(shape)
@@ -81,7 +100,7 @@ def setslice(space, shape, target, source):
     shapelen = len(shape)
     while not target_iter.done():
         setslice_driver2.jit_merge_point(shapelen=shapelen, dtype=dtype)
-        target_iter.setitem(source_iter.getitem().convert_to(dtype))
+        target_iter.setitem(dtype.convert_from(space, source_iter.getitem()))
         target_iter.next()
         source_iter.next()
     return target
