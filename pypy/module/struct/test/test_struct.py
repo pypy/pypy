@@ -61,17 +61,6 @@ class AppTestStruct(object):
         assert self.struct.unpack("i", self.struct.pack("i", X()))[0] == 3
 
 
-    def test_deprecation_warning(self):
-        import warnings
-        for code in 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q':
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                raises(TypeError, self.struct.pack, code, 3j)
-            assert len(w) == 1
-            assert str(w[0].message) == "integer argument expected, got non-integer"
-            assert w[0].category is DeprecationWarning
-
-
     def test_pack_standard_little(self):
         """
         Check packing with the '<' format specifier.
@@ -412,7 +401,26 @@ class AppTestStruct(object):
                           b'spam and eggs')
         raises(self.struct.error, self.struct.unpack_from, '14s42', store, 0)
 
-
+    def test_1530559(self):
+        # Native 'q' packing isn't available on systems that don't have the C
+        # long long type.
+        try:
+            self.struct.pack('q', 5)
+        except self.struct.error:
+            HAVE_LONG_LONG = False
+        else:
+            HAVE_LONG_LONG = True
+        integer_codes = ('b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q')
+        for byteorder in '', '@', '=', '<', '>', '!':
+            for code in integer_codes:
+                if (byteorder in ('', '@') and code in ('q', 'Q') and
+                    not HAVE_LONG_LONG):
+                    continue
+                format = byteorder + code
+                raises(self.struct.error, self.struct.pack, format, 1.0)
+                raises(self.struct.error, self.struct.pack, format, 1.5)
+        raises(self.struct.error, self.struct.pack, 'P', 1.0)
+        raises(self.struct.error, self.struct.pack, 'P', 1.5)
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])
