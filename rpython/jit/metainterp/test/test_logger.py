@@ -166,7 +166,7 @@ class TestLogger(object):
         loop = pure_parse(inp, namespace=namespace)
         logger = Logger(self.make_metainterp_sd(), guard_number=True)
         output = logger.log_loop(loop)
-        assert re.match("guard_true\(i0, descr=<Guard[\da-f]+>\) \[i0\]", output.splitlines()[-1])
+        assert re.match("guard_true\(i0, descr=<Guard0x[\da-f]+>\) \[i0\]", output.splitlines()[-1])
         pure_parse(output)
 
         logger = Logger(self.make_metainterp_sd(), guard_number=False)
@@ -200,7 +200,7 @@ class TestLogger(object):
     def test_intro_bridge(self):
         bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_bridge, [], [], 3)
-        assert re.match("# bridge out of Guard [\da-f]+ with 0 ops",
+        assert re.match("# bridge out of Guard 0x[\da-f]+ with 0 ops",
                         output.splitlines()[0])
         pure_parse(output)
 
