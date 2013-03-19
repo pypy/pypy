@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rpoll, rsocket
 from rpython.rlib.ropenssl import *
-from rpython.rlib.rposix import get_errno
+from rpython.rlib.rposix import get_errno, set_errno
 
 from pypy.module._socket import interp_socket
 import weakref
@@ -185,6 +185,8 @@ class SSLContext(Wrappable):
         else:
             keyfile = space.str_w(w_keyfile)
 
+        set_errno(0)
+
         ret = libssl_SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
         if ret != 1:
             errno = get_errno()
@@ -222,6 +224,7 @@ class SSLContext(Wrappable):
         if cafile is None and capath is None:
             raise OperationError(space.w_TypeError, space.wrap(
                     "cafile and capath cannot be both omitted"))
+        set_errno(0)
         ret = libssl_SSL_CTX_load_verify_locations(
             self.ctx, cafile, capath)
         if ret != 1:
