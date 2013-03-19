@@ -416,7 +416,7 @@ def split_trace(trace):
     labels = [0]
     if trace.comment and 'Guard' in trace.comment:
         descrs = ['bridge %d' % int(
-            re.search('Guard 0x([\da-f]+)', trace.comment).group(1), 16)]
+            re.search('Guard ([\da-f]+)', trace.comment).group(1), 16)]
     else:
         descrs = ['entry ' + re.search('Loop (\d+)', trace.comment).group(1)]
     for i, op in enumerate(trace.operations):
