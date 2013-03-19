@@ -1,13 +1,13 @@
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.history import JitCellToken
-from rpython.jit.backend.test.calling_convention_test import TestCallingConv, parse
+from rpython.jit.backend.test.calling_convention_test import CallingConvTests, parse
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.jit.backend.arm.test.support import skip_unless_run_slow_tests
 skip_unless_run_slow_tests()
 
-class TestARMCallingConvention(TestCallingConv):
+class TestARMCallingConvention(CallingConvTests):
     # ../../test/calling_convention_test.py
 
     def test_call_argument_spilling(self):
