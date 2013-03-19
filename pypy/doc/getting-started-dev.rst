@@ -144,7 +144,7 @@ There are several environment variables you can find useful while playing with t
     dirs. The default value for this variable is the system's temporary dir.
 
 ``PYPY_USESSION_KEEP``
-    By default RPython keeps only last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``. 
+    By default RPython keeps only the last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``. 
     Increase this value if you want to preserve C files longer (useful when producing lots of lldebug builds).
 
 .. _`your own interpreters`: faq.html#how-do-i-compile-my-own-interpreters
