@@ -152,6 +152,12 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         for char in range(first, last+1):
             table[char].linebreak = True
 
+    # Expand ranges
+    for (first, last), char in ranges.iteritems():
+        for code in range(first, last + 1):
+            assert table[code] is None, 'Multiply defined character %04X' % code
+            table[code] = char
+
     # Read east asian width
     for line in east_asian_width_file:
         line = line.split('#', 1)[0].strip()
@@ -160,21 +166,14 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         code, width = line.split(';')
         if '..' in code:
             first, last = map(lambda x:int(x,16), code.split('..'))
-            try:
-                ranges[(first, last)].east_asian_width = width
-            except KeyError:
-                ch = Unicodechar(['0000', None, 'Cn'] + [''] * 12)
-                ch.east_asian_width = width
-                ranges[(first, last)] = ch
+            for code in range(first, last + 1):
+                uc = table[code]
+                if uc is None:
+                    uc = table[code] = Unicodechar(['0000', None,
+                                                    'Cn'] + [''] * 12)
+                uc.east_asian_width = width
         else:
             table[int(code, 16)].east_asian_width = width
-
-    # Expand ranges
-    for (first, last), char in ranges.iteritems():
-        for code in range(first, last + 1):
-            assert table[code] is None, 'Multiply defined character %04X' % code
-
-            table[code] = char
 
     # Read Derived Core Properties:
     for line in derived_core_properties_file:
@@ -446,11 +445,17 @@ def writeUnicodedata(version, table, outfile, base):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FBB or"
                         " 0x20000 <= code <= 0x2A6D6)")
-    else:
+    elif version < "6":
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCB or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734)")
+    else:
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FCB or"
+                        " 0x20000 <= code <= 0x2A6D6 or"
+                        " 0x2A700 <= code <= 0x2B734 or"
+                        " 0x2B740 <= code <= 0x2B81D)")
 
     write_character_names(outfile, table, base_mod)
 
