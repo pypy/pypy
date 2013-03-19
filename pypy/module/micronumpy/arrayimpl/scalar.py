@@ -63,12 +63,16 @@ class Scalar(base.BaseArrayImplementation):
 
     def get_real(self, orig_array):
         if self.dtype.is_complex_type():
-            return Scalar(self.dtype.float_type, self.value.real)
+            scalar = Scalar(self.dtype.float_type)
+            scalar.value = self.value.convert_real_to(scalar.dtype)
+            return scalar
         return self
 
     def get_imag(self, orig_array):
         if self.dtype.is_complex_type():
-            return Scalar(self.dtype, self.value.imag)
+            scalar = Scalar(self.dtype.float_type)
+            scalar.value = self.value.convert_real_to(scalar.dtype)
+            return scalar
         return Scalar(self.dtype)
 
     def descr_getitem(self, space, _, w_idx):
