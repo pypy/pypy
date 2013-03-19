@@ -71,7 +71,7 @@ class Scalar(base.BaseArrayImplementation):
     def get_imag(self, orig_array):
         if self.dtype.is_complex_type():
             scalar = Scalar(self.dtype.float_type)
-            scalar.value = self.value.convert_real_to(scalar.dtype)
+            scalar.value = self.value.convert_imag_to(scalar.dtype)
             return scalar
         return Scalar(self.dtype)
 

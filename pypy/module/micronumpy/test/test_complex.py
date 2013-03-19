@@ -140,25 +140,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_fmax(self):
         from numpypy import fmax, array
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
-        a = array((complex(ninf, 10), complex(10, ninf), 
+        a = array((complex(ninf, 10), complex(10, ninf),
                    complex( inf, 10), complex(10,  inf),
                    5+5j, 5-5j, -5+5j, -5-5j,
                    0+5j, 0-5j, 5, -5,
                    complex(nan, 0), complex(0, nan)), dtype = complex)
         b = [ninf]*a.size
-        res = [a[0 ], a[1 ], a[2 ], a[3 ], 
+        res = [a[0 ], a[1 ], a[2 ], a[3 ],
                a[4 ], a[5 ], a[6 ], a[7 ],
                a[8 ], a[9 ], a[10], a[11],
                b[12], b[13]]
         assert (fmax(a, b) == res).all()
         b = [inf]*a.size
-        res = [b[0 ], b[1 ], a[2 ], b[3 ], 
+        res = [b[0 ], b[1 ], a[2 ], b[3 ],
                b[4 ], b[5 ], b[6 ], b[7 ],
                b[8 ], b[9 ], b[10], b[11],
                b[12], b[13]]
         assert (fmax(a, b) == res).all()
         b = [0]*a.size
-        res = [b[0 ], a[1 ], a[2 ], a[3 ], 
+        res = [b[0 ], a[1 ], a[2 ], a[3 ],
                a[4 ], a[5 ], b[6 ], b[7 ],
                a[8 ], b[9 ], a[10], b[11],
                b[12], b[13]]
@@ -167,25 +167,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_fmin(self):
         from numpypy import fmin, array
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
-        a = array((complex(ninf, 10), complex(10, ninf), 
+        a = array((complex(ninf, 10), complex(10, ninf),
                    complex( inf, 10), complex(10,  inf),
                    5+5j, 5-5j, -5+5j, -5-5j,
                    0+5j, 0-5j, 5, -5,
                    complex(nan, 0), complex(0, nan)), dtype = complex)
         b = [inf]*a.size
-        res = [a[0 ], a[1 ], b[2 ], a[3 ], 
+        res = [a[0 ], a[1 ], b[2 ], a[3 ],
                a[4 ], a[5 ], a[6 ], a[7 ],
                a[8 ], a[9 ], a[10], a[11],
                b[12], b[13]]
         assert (fmin(a, b) == res).all()
         b = [ninf]*a.size
-        res = [b[0 ], b[1 ], b[2 ], b[3 ], 
+        res = [b[0 ], b[1 ], b[2 ], b[3 ],
                b[4 ], b[5 ], b[6 ], b[7 ],
                b[8 ], b[9 ], b[10], b[11],
                b[12], b[13]]
         assert (fmin(a, b) == res).all()
         b = [0]*a.size
-        res = [a[0 ], b[1 ], b[2 ], b[3 ], 
+        res = [a[0 ], b[1 ], b[2 ], b[3 ],
                b[4 ], b[5 ], a[6 ], a[7 ],
                b[8 ], a[9 ], b[10], a[11],
                b[12], b[13]]
@@ -205,17 +205,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
             pass # no longdouble yet
         inf = float('inf')
         nan = float('nan')
-        #complex    
-        orig = [2.+4.j, -2.+4.j, 2.-4.j, -2.-4.j, 
-                complex(inf, 3), complex(inf, -3), complex(inf, -inf), 
+        #complex
+        orig = [2.+4.j, -2.+4.j, 2.-4.j, -2.-4.j,
+                complex(inf, 3), complex(inf, -3), complex(inf, -inf),
                 complex(nan, 3), 0+0j, 0-0j]
         a2 = 2.**2 + 4.**2
         r = 2. / a2
         i = 4. / a2
         cnan = complex(nan, nan)
-        expected = [complex(r, -i), complex(-r, -i), complex(r, i), 
-                    complex(-r, i), 
-                    -0j, 0j, cnan, 
+        expected = [complex(r, -i), complex(-r, -i), complex(r, i),
+                    complex(-r, i),
+                    -0j, 0j, cnan,
                     cnan, cnan, cnan]
         for c, rel_err in c_and_relerr:
             actual = reciprocal(array([orig], dtype=c))
@@ -225,7 +225,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_floorceiltrunc(self):
         from numpypy import array, floor, ceil, trunc
-        a = array([ complex(-1.4, -1.4), complex(-1.5, -1.5)]) 
+        a = array([ complex(-1.4, -1.4), complex(-1.5, -1.5)])
         raises(TypeError, floor, a)
         raises(TypeError, ceil, a)
         raises(TypeError, trunc, a)
@@ -270,11 +270,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res[0])        
-                t2 = float(b[i].real)        
+                t1 = float(res[0])
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res[1])        
-                t2 = float(b[i].imag)        
+                t1 = float(res[1])
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_expm1(self):
@@ -310,11 +310,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res.real)        
-                t2 = float(b[i].real)        
+                t1 = float(res.real)
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res.imag)        
-                t2 = float(b[i].imag)        
+                t1 = float(res.imag)
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_not_complex(self):
@@ -330,16 +330,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, logaddexp, complex(1, 1), complex(3, 3))
         raises(TypeError, logaddexp2, complex(1, 1), complex(3, 3))
         raises(TypeError, arctan2, complex(1, 1), complex(3, 3))
-        raises (TypeError, fmod, complex(90,90), 3) 
+        raises (TypeError, fmod, complex(90,90), 3)
 
     def test_isnan_isinf(self):
         from numpypy import isnan, isinf, array
-        assert (isnan(array([0.2+2j, complex(float('inf'),0), 
+        assert (isnan(array([0.2+2j, complex(float('inf'),0),
                 complex(0,float('inf')), complex(0,float('nan')),
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, False, False, True, True]).all()
 
-        assert (isinf(array([0.2+2j, complex(float('inf'),0), 
+        assert (isinf(array([0.2+2j, complex(float('inf'),0),
                 complex(0,float('inf')), complex(0,float('nan')),
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, True, True, False, False]).all()
@@ -374,7 +374,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 b = power(a, p)
                 for i in range(len(a)):
                     try:
-                        r = self.c_pow((float(a[i].real), float(a[i].imag)), 
+                        r = self.c_pow((float(a[i].real), float(a[i].imag)),
                                 (float(p.real), float(p.imag)))
                     except ZeroDivisionError:
                         r = (nan, nan)
@@ -384,10 +384,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         r = (nan, nan)
                     msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
                             (c,a[i], p, b[i], r)
-                    t1 = float(r[0])        
-                    t2 = float(b[i].real)        
+                    t1 = float(r[0])
+                    t2 = float(b[i].real)
                     self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(r[1])        
+                    t1 = float(r[1])
                     t2 = float(b[i].imag)
                     self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
@@ -445,11 +445,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res.real)        
-                t2 = float(b[i].real)        
+                t1 = float(res.real)
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res.imag)        
-                t2 = float(b[i].imag)        
+                t1 = float(res.imag)
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
         for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             b = log1p(array(a,dtype=c))
@@ -465,11 +465,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res.real)        
-                t2 = float(b[i].real)        
+                t1 = float(res.real)
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res.imag)        
-                t2 = float(b[i].imag)        
+                t1 = float(res.imag)
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_logical_ops(self):
@@ -523,9 +523,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert b.dtype == dtype(float)
         a = array(complex(3.0, 4.0))
         b = a.real
+        assert b == array(3)
+        assert a.imag == array(4)
         assert b.dtype == dtype(float)
         a = array(4.0)
         b = a.imag
+        assert b == 0
         assert b.dtype == dtype(float)
         for complex_ in complex_dtypes:
 
@@ -553,12 +556,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
             assert add(c1, c2) == complex_(complex(4, 6))
             assert add(c1, c2) == complex(4, 6)
-            
+
             assert sub(c0, c0) == sub(c1, c1) == 0
             assert sub(c1, c2) == complex(-2, -2)
             assert negative(complex(1,1)) == complex(-1, -1)
             assert negative(complex(0, 0)) == 0
-            
+
 
             assert multiply(1, c1) == c1
             assert multiply(2, c2) == complex(6, 8)
@@ -616,7 +619,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         for complex_, abs_err, testcases in (\
                  (np.complex128, 5e-323, self.testcases128),
-                 # (np.complex64,  5e-32,  self.testcases64), 
+                 # (np.complex64,  5e-32,  self.testcases64),
                 ):
             for id, fn, ar, ai, er, ei, flags in testcases:
                 arg = complex_(complex(ar, ai))
@@ -654,7 +657,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     ) % (id, fn, complex_, ar, ai,
                          expected[0], expected[1],
                          actual[0], actual[1])
-    
+
                 # since rAlmostEqual is a wrapped function,
                 # convert arguments to avoid boxed values
                 rAlmostEqual(float(expected[0]), float(actual[0]),
