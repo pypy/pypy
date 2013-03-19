@@ -150,7 +150,7 @@ def test_reassign_loops():
     ''')
     main.count = 10
     bridge = parse('''
-    # bridge out of Guard 18 with 13 ops
+    # bridge out of Guard 0x18 with 13 ops
     [i0, i1]
     int_add(i0, i1)
     ''')
@@ -172,7 +172,7 @@ def test_adjust_bridges():
     guard_true(v0, descr=<Guard5>)
     ''')
     bridge = parse('''
-    # bridge out of Guard 1a
+    # bridge out of Guard 0x1a
     []
     int_add(0, 1)
     ''')
@@ -329,12 +329,12 @@ def test_parse_log_counts():
     i113 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
     ''')
     bridge = parse('''
-    # bridge out of Guard af with 1 ops
+    # bridge out of Guard 0xaf with 1 ops
     []
     i0 = int_lt(1, 2)
     finish(i0)
     ''')
-    bridge.comment = 'bridge out of Guard af with 1 ops'
+    bridge.comment = 'bridge out of Guard 0xaf with 1 ops'
     loop.comment = 'Loop 0'
     loops = split_trace(loop) + split_trace(bridge)
     input = ['grrr:123\nasb:12\nbridge 175:1234']
