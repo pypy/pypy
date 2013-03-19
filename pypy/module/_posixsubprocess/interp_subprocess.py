@@ -12,20 +12,22 @@ thisdir = py.path.local(__file__).dirpath()
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
-        separate_module_files=[thisdir.join('_posixsubprocess.c')],
-        export_symbols=['pypy_subprocess_child_exec',
-                        'pypy_subprocess_cloexec_pipe',
-                        'pypy_subprocess_init',
-                        ],
         includes=['unistd.h', 'sys/syscall.h'])
     HAVE_SYS_SYSCALL_H = platform.Has("syscall")
 
 config = platform.configure(CConfig)
 
+eci = ExternalCompilationInfo(
+    separate_module_files=[thisdir.join('_posixsubprocess.c')],
+    export_symbols=['pypy_subprocess_child_exec',
+                    'pypy_subprocess_cloexec_pipe',
+                    'pypy_subprocess_init',
+                    ])
+
 if config['HAVE_SYS_SYSCALL_H']:
-    eci = CConfig._compilation_info_.merge(ExternalCompilationInfo(compile_extra=["-DHAVE_SYS_SYSCALL_H"]))
-    class CConfig:
-        _compilation_info_ = eci
+    eci = eci.merge(
+        ExternalCompilationInfo(
+            compile_extra=["-DHAVE_SYS_SYSCALL_H"]))
 
 c_child_exec = rffi.llexternal(
     'pypy_subprocess_child_exec',
@@ -35,17 +37,17 @@ c_child_exec = rffi.llexternal(
      rffi.CArrayPtr(rffi.LONG), lltype.Signed,
      lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT)), rffi.VOIDP],
     lltype.Void,
-    compilation_info=CConfig._compilation_info_,
+    compilation_info=eci,
     threadsafe=True)
 c_cloexec_pipe = rffi.llexternal(
     'pypy_subprocess_cloexec_pipe',
     [rffi.CArrayPtr(rffi.INT)], rffi.INT,
-    compilation_info=CConfig._compilation_info_,
+    compilation_info=eci,
     threadsafe=True)
 c_init = rffi.llexternal(
     'pypy_subprocess_init',
     [], lltype.Void,
-    compilation_info=CConfig._compilation_info_,
+    compilation_info=eci,
     threadsafe=True)
 
 
