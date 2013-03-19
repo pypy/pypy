@@ -106,13 +106,13 @@ def test_lineno():
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse('''
     [i0, i1]
-    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #0 LOAD_FAST")
-    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #3 LOAD_FAST")
-    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #6 BINARY_ADD")
-    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #7 RETURN_VALUE")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 5> #0 LOAD_FAST")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 5> #3 LOAD_FAST")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 5> #6 BINARY_ADD")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 5> #7 RETURN_VALUE")
     ''' % locals())
     res = Function.from_operations(ops.operations, LoopStorage())
-    assert res.chunks[1].lineno == 3
+    assert res.chunks[1].lineno == 6
 
 def test_linerange():
     if sys.version_info > (2, 6):
@@ -150,7 +150,7 @@ def test_reassign_loops():
     ''')
     main.count = 10
     bridge = parse('''
-    # bridge out of Guard 18 with 13 ops
+    # bridge out of Guard 0x18 with 13 ops
     [i0, i1]
     int_add(i0, i1)
     ''')
@@ -172,7 +172,7 @@ def test_adjust_bridges():
     guard_true(v0, descr=<Guard5>)
     ''')
     bridge = parse('''
-    # bridge out of Guard 1a
+    # bridge out of Guard 0x1a
     []
     int_add(0, 1)
     ''')
@@ -287,9 +287,7 @@ def test_import_log_2():
                                                            'logtest2.log')))
     for loop in loops:
         loop.force_asm()
-    assert 'cmp' in loops[1].operations[1].asm
-    # bridge
-    assert 'jo' in loops[3].operations[3].asm
+    assert 'cmp' in loops[1].operations[2].asm
 
 def test_Op_repr_is_pure():
     op = Op('foobar', ['a', 'b'], 'c', 'mydescr')
@@ -331,12 +329,12 @@ def test_parse_log_counts():
     i113 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
     ''')
     bridge = parse('''
-    # bridge out of Guard 2 with 1 ops
+    # bridge out of Guard 0xaf with 1 ops
     []
     i0 = int_lt(1, 2)
     finish(i0)
     ''')
-    bridge.comment = 'bridge out of Guard af with 1 ops'
+    bridge.comment = 'bridge out of Guard 0xaf with 1 ops'
     loop.comment = 'Loop 0'
     loops = split_trace(loop) + split_trace(bridge)
     input = ['grrr:123\nasb:12\nbridge 175:1234']
@@ -349,10 +347,8 @@ def test_parse_nonpython():
     loop = parse("""
     []
     debug_merge_point(0, 0, 'random')
-    debug_merge_point(0, 0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
-    assert f.chunks[-1].filename == 'x.py'
     assert f.filename is None
 
 def test_parse_2_levels_up():

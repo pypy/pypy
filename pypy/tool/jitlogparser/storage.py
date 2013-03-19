@@ -70,7 +70,7 @@ class LoopStorage(object):
                 if 'entry bridge' in comment:
                     pass
                 elif comment.startswith('# bridge out of'):
-                    no = int(comment[len('# bridge out of Guard '):].split(' ', 1)[0], 16)
+                    no = int(comment[len('# bridge out of Guard 0x'):].split(' ', 1)[0], 16)
                     op, parent = guard_dict[no]
                     op.bridge = loop
                     op.percentage = ((getattr(loop, 'count', 1) * 100) /
