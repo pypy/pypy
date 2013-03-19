@@ -422,6 +422,35 @@ class AppTestStruct(object):
         raises(self.struct.error, self.struct.pack, 'P', 1.0)
         raises(self.struct.error, self.struct.pack, 'P', 1.5)
 
+    def test_integers(self):
+        # Native 'q' packing isn't available on systems that don't have the C
+        # long long type.
+        try:
+            self.struct.pack('q', 5)
+        except self.struct.error:
+            HAVE_LONG_LONG = False
+        else:
+            HAVE_LONG_LONG = True
+
+        integer_codes = ('b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q')
+        byteorders = '', '@', '=', '<', '>', '!'
+
+        def run_not_int_test(format):
+            class NotAnInt:
+                def __int__(self):
+                    return 42
+            raises((TypeError, self.struct.error),
+                   self.struct.pack, format,
+                   NotAnInt())
+
+        for code in integer_codes:
+            for byteorder in byteorders:
+                if (byteorder in ('', '@') and code in ('q', 'Q') and
+                    not HAVE_LONG_LONG):
+                    continue
+                format = byteorder+code
+                t = run_not_int_test(format)
+
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])
 
