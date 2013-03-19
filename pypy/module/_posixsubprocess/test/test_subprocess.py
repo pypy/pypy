@@ -1,23 +1,11 @@
-import sys
-import os
 from os.path import dirname
-from pypy.tool.pytest.objspace import gettestobjspace
-
-def setup_module(mod):
-    usemodules = ['_posixsubprocess', 'signal']
-    # py3k os.open uses subprocess, requiring the following per platform
-    if os.name != 'nt':
-        usemodules += ['fcntl', 'select']
-    else:
-        usemodules += ['_rawffi', 'thread']
-    mod.space = gettestobjspace(usemodules=usemodules)
 
 class AppTestSubprocess:
+    spaceconfig = dict(usemodules=('_posixsubprocess', 'signal', 'fcntl', 'select'))
     # XXX write more tests
 
     def setup_class(cls):
-        cls.space = space
-        cls.w_dir = space.wrap(dirname(__file__))
+        cls.w_dir = cls.space.wrap(dirname(__file__))
 
     def test_cloexec_pipe(self):
         import _posixsubprocess, os
