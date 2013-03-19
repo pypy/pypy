@@ -82,6 +82,9 @@ def template_byname(space, name):
 
     return None
 
+def std_string_name(space):
+    return space.wrap(capi.std_string_name)
+
 @unwrap_spec(w_callback=W_Root)
 def set_class_generator(space, w_callback):
     state = space.fromcache(State)

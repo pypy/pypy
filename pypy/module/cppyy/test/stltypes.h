@@ -74,7 +74,9 @@ namespace {
 
     struct _CppyyMapInstances {
 
+#ifndef __CINT__
         STLTYPE_INSTANTIATION2(map, int,         int,           1);
+#endif
         STLTYPE_INSTANTIATION2(map, std::string, int,           2);
         STLTYPE_INSTANTIATION2(map, std::string, unsigned int,  3);
         STLTYPE_INSTANTIATION2(map, std::string, unsigned long, 4);

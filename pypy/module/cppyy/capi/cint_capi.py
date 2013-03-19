@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import libffi, rdynload
 
 
-__all__ = ['identify', 'eci', 'c_load_dictionary']
+__all__ = ['identify', 'std_string_name', 'eci', 'c_load_dictionary']
 
 pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
@@ -36,6 +36,8 @@ ts_reflect = False
 ts_call    = False
 ts_memory  = False
 ts_helper  = False
+
+std_string_name = 'string'
 
 # force loading in global mode of core libraries, rather than linking with
 # them as PyPy uses various version of dlopen in various places; note that

@@ -10,6 +10,7 @@ class Module(MixedModule):
         '_resolve_name'          : 'interp_cppyy.resolve_name',
         '_scope_byname'          : 'interp_cppyy.scope_byname',
         '_template_byname'       : 'interp_cppyy.template_byname',
+        '_std_string_name'       : 'interp_cppyy.std_string_name',
         '_set_class_generator'   : 'interp_cppyy.set_class_generator',
         '_register_class'        : 'interp_cppyy.register_class',
         '_is_static'             : 'interp_cppyy.is_static',

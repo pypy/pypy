@@ -310,6 +310,10 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
     if (!G__defined_templateclass((char*)template_name))
         return (cppyy_type_t)NULL;
 
+    // #include for specific, pre-compiled STL classes
+    if (strcmp(template_name, "std::map") == 0)
+        gROOT->ProcessLine("#include <map>");
+
     // the following yields a dummy TClassRef, but its name can be queried
     ClassRefs_t::size_type sz = g_classrefs.size();
     g_classref_indices[template_name] = sz;

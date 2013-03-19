@@ -36,7 +36,7 @@ class CppyyTemplateType(object):
 
     def _arg_to_str(self, arg):
         if arg == str:
-            arg = 'std::basic_string<char>'
+            arg = cppyy._std_string_name()
         elif type(arg) != str:
             arg = arg.__name__
         return arg
@@ -336,8 +336,8 @@ def _pythonize(pyclass):
         else:
             pyclass.__getitem__ = python_style_getitem
 
-    # string comparisons (note: CINT backend requires the simple name 'string')
-    if pyclass.__name__ == 'std::basic_string<char>' or pyclass.__name__ == 'string':
+    # string comparisons
+    if pyclass.__name__ == cppyy._std_string_name():
         def eq(self, other):
             if type(other) == pyclass:
                 return self.c_str() == other.c_str()
@@ -347,7 +347,7 @@ def _pythonize(pyclass):
         pyclass.__str__ = pyclass.c_str
 
     # std::pair unpacking through iteration
-    if 'std::pair' in pyclass.__name__:
+    if 'std::pair' == pyclass.__name__[:9] or 'pair' == pyclass.__name__[:4]:
         def getitem(self, idx):
             if idx == 0: return self.first
             if idx == 1: return self.second
