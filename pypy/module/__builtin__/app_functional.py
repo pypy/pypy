@@ -14,7 +14,7 @@ def apply(function, args=(), kwds={}):
 
 # ____________________________________________________________
 
-def sorted(lst, cmp=None, key=None, reverse=None):
+def sorted(lst, cmp=None, key=None, reverse=False):
     "sorted(iterable, cmp=None, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(lst)
     sorted_lst.sort(cmp, key, reverse)

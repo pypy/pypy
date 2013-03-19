@@ -9,8 +9,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import check_annotation
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import get_positive_index
-from pypy.objspace.std.listtype import get_list_index
+from pypy.objspace.std.listobject import get_positive_index, get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.strutil import ParseStringError

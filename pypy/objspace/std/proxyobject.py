@@ -97,17 +97,3 @@ class W_TransparentFrame(W_Transparent):
 
 class W_TransparentGenerator(W_Transparent):
     typedef = GeneratorIterator.typedef
-
-class W_TransparentList(W_TransparentObject):
-    from pypy.objspace.std.listobject import W_ListObject as original
-    from pypy.objspace.std.listtype import list_typedef as typedef
-
-class W_TransparentDict(W_TransparentObject):
-    from pypy.objspace.std.dictmultiobject import W_DictMultiObject as original
-    from pypy.objspace.std.dicttype import dict_typedef as typedef
-
-registerimplementation(W_TransparentList)
-registerimplementation(W_TransparentDict)
-
-register_type(W_TransparentList)
-register_type(W_TransparentDict)

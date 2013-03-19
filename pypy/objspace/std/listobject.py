@@ -4,7 +4,6 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
@@ -14,6 +13,8 @@ from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib import rerased, jit, debug
 from rpython.tool.sourcetools import func_with_new_name
+from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from sys import maxint
 
 UNROLL_CUTOFF = 5
 
@@ -122,8 +123,6 @@ def is_W_FloatObject(w_object):
     return type(w_object) is W_FloatObject
 
 class W_ListObject(W_AbstractListObject):
-    from pypy.objspace.std.listtype import list_typedef as typedef
-
     def __init__(w_self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
         w_self.space = space
@@ -323,6 +322,80 @@ class W_ListObject(W_AbstractListObject):
         """Sorts the list ascending or descending depending on
         argument reverse. Argument must be unwrapped."""
         self.strategy.sort(self, reverse)
+
+    @gateway.unwrap_spec(reverse=bool)
+    def descr_sort(self, space, w_cmp=None, w_key=None, reverse=False):
+        """ L.sort(cmp=None, key=None, reverse=False) -- stable
+        sort *IN PLACE*;
+        cmp(x, y) -> -1, 0, 1"""
+        has_cmp = not space.is_none(w_cmp)
+        has_key = not space.is_none(w_key)
+
+        # create and setup a TimSort instance
+        if has_cmp:
+            if has_key:
+                sorterclass = CustomKeyCompareSort
+            else:
+                sorterclass = CustomCompareSort
+        else:
+            if has_key:
+                sorterclass = CustomKeySort
+            else:
+                if self.strategy is space.fromcache(ObjectListStrategy):
+                    sorterclass = SimpleSort
+                else:
+                    self.sort(reverse)
+                    return space.w_None
+
+        sorter = sorterclass(self.getitems(), self.length())
+        sorter.space = space
+        sorter.w_cmp = w_cmp
+
+        try:
+            # The list is temporarily made empty, so that mutations performed
+            # by comparison functions can't affect the slice of memory we're
+            # sorting (allowing mutations during sorting is an IndexError or
+            # core-dump factory, since the storage may change).
+            self.__init__(space, [])
+
+            # wrap each item in a KeyContainer if needed
+            if has_key:
+                for i in range(sorter.listlength):
+                    w_item = sorter.list[i]
+                    w_keyitem = space.call_function(w_key, w_item)
+                    sorter.list[i] = KeyContainer(w_keyitem, w_item)
+
+            # Reverse sort stability achieved by initially reversing the list,
+            # applying a stable forward sort, then reversing the final result.
+            if reverse:
+                sorter.list.reverse()
+
+            # perform the sort
+            sorter.sort()
+
+            # reverse again
+            if reverse:
+                sorter.list.reverse()
+
+        finally:
+            # unwrap each item if needed
+            if has_key:
+                for i in range(sorter.listlength):
+                    w_obj = sorter.list[i]
+                    if isinstance(w_obj, KeyContainer):
+                        sorter.list[i] = w_obj.w_item
+
+            # check if the user mucked with the list during the sort
+            mucked = self.length() > 0
+
+            # put the items back into the list
+            self.__init__(space, sorter.list)
+
+        if mucked:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("list modified during sort"))
+
+        return space.w_None
 
 registerimplementation(W_ListObject)
 
@@ -1560,78 +1633,57 @@ class CustomKeyCompareSort(CustomCompareSort):
         assert isinstance(b, KeyContainer)
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
-def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
+def list_reversed__ANY(space, w_list):
+    from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
+    return W_ReverseSeqIterObject(space, w_list, -1)
 
-    has_cmp = not space.is_w(w_cmp, space.w_None)
-    has_key = not space.is_w(w_keyfunc, space.w_None)
-    has_reverse = space.is_true(w_reverse)
+# ____________________________________________________________
 
-    # create and setup a TimSort instance
-    if has_cmp:
-        if has_key:
-            sorterclass = CustomKeyCompareSort
-        else:
-            sorterclass = CustomCompareSort
-    else:
-        if has_key:
-            sorterclass = CustomKeySort
-        else:
-            if w_list.strategy is space.fromcache(ObjectListStrategy):
-                sorterclass = SimpleSort
-            else:
-                w_list.sort(has_reverse)
-                return space.w_None
+def descr_new(space, w_listtype, __args__):
+    w_obj = space.allocate_instance(W_ListObject, w_listtype)
+    w_obj.clear(space)
+    return w_obj
 
-    sorter = sorterclass(w_list.getitems(), w_list.length())
-    sorter.space = space
-    sorter.w_cmp = w_cmp
+# ____________________________________________________________
 
-    try:
-        # The list is temporarily made empty, so that mutations performed
-        # by comparison functions can't affect the slice of memory we're
-        # sorting (allowing mutations during sorting is an IndexError or
-        # core-dump factory, since the storage may change).
-        w_list.__init__(space, [])
+# ____________________________________________________________
 
-        # wrap each item in a KeyContainer if needed
-        if has_key:
-            for i in range(sorter.listlength):
-                w_item = sorter.list[i]
-                w_key = space.call_function(w_keyfunc, w_item)
-                sorter.list[i] = KeyContainer(w_key, w_item)
+def get_list_index(space, w_index):
+    return space.getindex_w(w_index, space.w_IndexError, "list index")
 
-        # Reverse sort stability achieved by initially reversing the list,
-        # applying a stable forward sort, then reversing the final result.
-        if has_reverse:
-            sorter.list.reverse()
+list_append   = SMM('append', 2,
+                doc='L.append(object) -- append object to end')
+list_insert   = SMM('insert', 3,
+                    doc='L.insert(index, object) -- insert object before index')
+list_extend   = SMM('extend', 2,
+                    doc='L.extend(iterable) -- extend list by appending'
+                        ' elements from the iterable')
+list_pop      = SMM('pop',    2, defaults=(None,),
+                    doc='L.pop([index]) -> item -- remove and return item at'
+                        ' index (default last)')
+list_remove   = SMM('remove', 2,
+                    doc='L.remove(value) -- remove first occurrence of value')
+list_index    = SMM('index',  4, defaults=(0,maxint),
+                    doc='L.index(value, [start, [stop]]) -> integer -- return'
+                        ' first index of value')
+list_count    = SMM('count',  2,
+                    doc='L.count(value) -> integer -- return number of'
+                        ' occurrences of value')
+list_reverse  = SMM('reverse',1,
+                    doc='L.reverse() -- reverse *IN PLACE*')
+list_reversed = SMM('__reversed__', 1,
+                    doc='L.__reversed__() -- return a reverse iterator over'
+                        ' the list')
 
-        # perform the sort
-        sorter.sort()
+register_all(vars(), globals())
 
-        # reverse again
-        if has_reverse:
-            sorter.list.reverse()
+W_ListObject.typedef = StdTypeDef("list",
+    __doc__ = """list() -> new list
+list(sequence) -> new list initialized from sequence's items""",
+    __new__ = gateway.interp2app(descr_new),
+    __hash__ = None,
+    sort = gateway.interp2app(W_ListObject.descr_sort),
+    )
+W_ListObject.typedef.registermethods(globals())
 
-    finally:
-        # unwrap each item if needed
-        if has_key:
-            for i in range(sorter.listlength):
-                w_obj = sorter.list[i]
-                if isinstance(w_obj, KeyContainer):
-                    sorter.list[i] = w_obj.w_item
-
-        # check if the user mucked with the list during the sort
-        mucked = w_list.length() > 0
-
-        # put the items back into the list
-        w_list.__init__(space, sorter.list)
-
-    if mucked:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("list modified during sort"))
-
-    return space.w_None
-
-
-from pypy.objspace.std import listtype
-register_all(vars(), listtype)
+list_typedef = W_ListObject.typedef

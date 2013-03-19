@@ -39,10 +39,6 @@ completely controlled by the controller."""
         raise OperationError(space.w_TypeError, space.wrap("controller should be function"))
     
     if isinstance(w_type, W_TypeObject):
-        if space.is_true(space.issubtype(w_type, space.w_list)):
-            return W_TransparentList(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.w_dict)):
-            return W_TransparentDict(space, w_type, w_controller)
         if space.is_true(space.issubtype(w_type, space.gettypeobject(Function.typedef))):
             return W_TransparentFunction(space, w_type, w_controller)
         if space.is_true(space.issubtype(w_type, space.gettypeobject(PyTraceback.typedef))):

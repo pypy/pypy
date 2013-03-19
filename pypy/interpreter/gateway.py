@@ -159,8 +159,13 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.orig_arg()
 
     def visit__W_Root(self, el, app_sig):
-        assert el is W_Root, "%s is not W_Root (forgotten to put .im_func in interp2app argument?)" % (el,)
         argname = self.orig_arg()
+        if argname == 'self':
+            # for W_ListObject and similar to be possible to have
+            # unwrap_spec in methods
+            app_sig.append(argname)
+            return
+        assert el is W_Root, "%s is not W_Root (forgotten to put .im_func in interp2app argument?)" % (el,)
         assert argname.startswith('w_'), (
             "argument %s of built-in function %r should "
             "start with 'w_'" % (argname, self.func))
