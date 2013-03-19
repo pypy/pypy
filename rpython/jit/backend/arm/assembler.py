@@ -13,7 +13,7 @@ from rpython.jit.backend.arm.regalloc import (Regalloc,
     operations as regalloc_operations,
     operations_with_guard as regalloc_operations_with_guard)
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER
+from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, debug_bridge
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -709,11 +709,7 @@ class AssemblerARM(ResOpAssembler):
         self.update_frame_depth(frame_depth)
         self.teardown()
 
-        debug_start("jit-backend-addr")
-        debug_print("bridge out of Guard %d has address 0x%x to 0x%x" %
-                    (descr_number, r_uint(rawstart),
-                     r_uint(rawstart + codeendpos)))
-        debug_stop("jit-backend-addr")
+        debug_bridge(descr_number, rawstart, codeendpos)
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
