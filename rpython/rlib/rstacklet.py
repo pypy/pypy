@@ -47,6 +47,10 @@ class StackletThread(object):
     def get_null_handle(self):
         return self._gcrootfinder.get_null_handle()
 
+    def _freeze_(self):
+        raise Exception("StackletThread instances must not be seen during"
+                        " translation.")
+
 
 class StackletThreadDeleter(object):
     # quick hack: the __del__ is on another object, so that
