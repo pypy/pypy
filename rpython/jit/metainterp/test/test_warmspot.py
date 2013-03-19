@@ -611,6 +611,9 @@ class TestWarmspotDirect(object):
             translate_support_code = False
             stats = "stats"
 
+            class tracker:
+                pass
+
             def get_latest_descr(self, deadframe):
                 assert isinstance(deadframe, FakeDeadFrame)
                 return self.get_fail_descr_from_number(deadframe._no)

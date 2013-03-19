@@ -364,9 +364,10 @@ class Connection(object):
         self._in_transaction = False
         self.isolation_level = isolation_level
 
-        self._cursors = []
+        self.__cursors = []
+        self.__cursors_counter = 0
         self.__statements = []
-        self.__statement_counter = 0
+        self.__statements_counter = 0
         self._statement_cache = _StatementCache(self, cached_statements)
 
         self.__func_cache = {}
@@ -394,10 +395,7 @@ class Connection(object):
     def close(self):
         self._check_thread()
 
-        for statement in self.__statements:
-            obj = statement()
-            if obj is not None:
-                obj._finalize()
+        self.__do_all_statements(Statement._finalize, True)
 
         if self._db:
             ret = _lib.sqlite3_close(self._db)
@@ -469,19 +467,37 @@ class Connection(object):
         exc.error_code = error_code
         return exc
 
+    def _remember_cursor(self, cursor):
+        self.__cursors.append(weakref.ref(cursor))
+        self.__cursors_counter += 1
+        if self.__cursors_counter < 200:
+            return
+        self.__cursors_counter = 0
+        self.__cursors = [r for r in self.__cursors if r() is not None]
+
     def _remember_statement(self, statement):
         self.__statements.append(weakref.ref(statement))
-        self.__statement_counter += 1
+        self.__statements_counter += 1
+        if self.__statements_counter < 200:
+            return
+        self.__statements_counter = 0
+        self.__statements = [r for r in self.__statements if r() is not None]
 
-        if self.__statement_counter % 100 == 0:
-            self.__statements = [ref for ref in self.__statements
-                                 if ref() is not None]
+    def __do_all_statements(self, action, reset_cursors):
+        for weakref in self.__statements:
+            statement = weakref()
+            if statement is not None:
+                action(statement)
+
+        if reset_cursors:
+            for weakref in self.__cursors:
+                cursor = weakref()
+                if cursor is not None:
+                    cursor._reset = True
 
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
-        if not isinstance(sql, basestring):
-            raise Warning("SQL is of wrong type. Must be string or unicode.")
         return self._statement_cache.get(sql, self.row_factory)
 
     def cursor(self, factory=None):
@@ -530,10 +546,7 @@ class Connection(object):
         if not self._in_transaction:
             return
 
-        for statement in self.__statements:
-            obj = statement()
-            if obj is not None:
-                obj._reset()
+        self.__do_all_statements(Statement._reset, False)
 
         statement = c_void_p()
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
@@ -554,15 +567,7 @@ class Connection(object):
         if not self._in_transaction:
             return
 
-        for statement in self.__statements:
-            obj = statement()
-            if obj is not None:
-                obj._reset()
-
-        for cursor_ref in self._cursors:
-            cursor = cursor_ref()
-            if cursor:
-                cursor._reset = True
+        self.__do_all_statements(Statement._reset, True)
 
         statement = c_void_p()
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
@@ -789,14 +794,9 @@ class Cursor(object):
     __statement = None
 
     def __init__(self, con):
-        self.__initialized = True
-        self.__connection = con
-
         if not isinstance(con, Connection):
             raise TypeError
-        con._check_thread()
-        con._check_closed()
-        con._cursors.append(weakref.ref(self))
+        self.__connection = con
 
         self.arraysize = 1
         self.row_factory = None
@@ -806,11 +806,12 @@ class Cursor(object):
         self.__description = None
         self.__rowcount = -1
 
+        con._check_thread()
+        con._remember_cursor(self)
+
+        self.__initialized = True
+
     def __del__(self):
-        try:
-            self.__connection._cursors.remove(weakref.ref(self))
-        except (AttributeError, ValueError):
-            pass
         if self.__statement:
             self.__statement._reset()
 
@@ -878,9 +879,6 @@ class Cursor(object):
                 if self.__statement._kind == Statement._DQL and ret == _lib.SQLITE_ROW:
                     self.__statement._build_row_cast_map()
                     self.__statement._readahead(self)
-                else:
-                    self.__statement._item = None
-                    self.__statement._exhausted = True
 
                 if self.__statement._kind == Statement._DML:
                     if self.__rowcount == -1:
@@ -888,7 +886,6 @@ class Cursor(object):
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
         finally:
             self.__locked = False
-
         return self
 
     @__check_cursor_wrap
@@ -926,9 +923,10 @@ class Cursor(object):
             if rc != _lib.SQLITE_DONE:
                 _lib.sqlite3_finalize(statement)
                 if rc == _lib.SQLITE_OK:
-                    return self
+                    break
                 else:
                     raise self.__connection._get_exception(rc)
+
             rc = _lib.sqlite3_finalize(statement)
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
@@ -1005,9 +1003,10 @@ class Statement(object):
 
     def __init__(self, connection, sql):
         self.__con = connection
+        self.__con._remember_statement(self)
 
         if not isinstance(sql, basestring):
-            raise ValueError("sql must be a string")
+            raise Warning("SQL is of wrong type. Must be string or unicode.")
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
             self._kind = Statement._DML
@@ -1017,7 +1016,6 @@ class Statement(object):
             self._kind = Statement._DDL
 
         self._in_use = False
-        self._exhausted = False
         self._row_factory = None
 
         if isinstance(sql, unicode):
@@ -1033,10 +1031,9 @@ class Statement(object):
             ret = _lib.sqlite3_prepare_v2(self.__con._db, sql, -1,
                                           byref(self._statement), byref(sql))
             self._kind = Statement._DQL
-
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
-        self.__con._remember_statement(self)
+
         sql = sql.value.decode('utf-8')
         if _check_remaining_sql(sql):
             raise Warning("You can only execute one statement at a time.")
@@ -1055,7 +1052,6 @@ class Statement(object):
         if self._in_use and self._statement:
             _lib.sqlite3_reset(self._statement)
             self._in_use = False
-        self._exhausted = False
 
     if sys.version_info[0] < 3:
         def __check_decodable(self, param):
@@ -1220,20 +1216,19 @@ class Statement(object):
         self._item = row
 
     def _next(self, cursor):
-        if self._exhausted:
+        try:
+            item = self._item
+        except AttributeError:
             raise StopIteration
-        item = self._item
+        del self._item
 
         ret = _lib.sqlite3_step(self._statement)
-        if ret == _lib.SQLITE_DONE:
-            self._exhausted = True
-            self._item = None
-        elif ret != _lib.SQLITE_ROW:
-            exc = self.__con._get_exception(ret)
+        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
             _lib.sqlite3_reset(self._statement)
-            raise exc
+            raise self.__con._get_exception(ret)
+        elif ret == _lib.SQLITE_ROW:
+            self._readahead(cursor)
 
-        self._readahead(cursor)
         return item
 
     def _get_description(self):

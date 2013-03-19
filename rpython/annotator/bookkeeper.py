@@ -693,6 +693,20 @@ class Bookkeeper(object):
             if emulate_enter:
                 self.leave()
 
+    def _find_current_op(self, opname=None, arity=None, pos=None, s_type=None):
+        """ Find operation that is currently being annotated. Do some
+        sanity checks to see whether the correct op was found."""
+        # XXX XXX HACK HACK HACK
+        fn, block, i = self.position_key
+        op = block.operations[i]
+        if opname is not None:
+            assert op.opname == opname or op.opname in opname
+        if arity is not None:
+            assert len(op.args) == arity
+        if pos is not None:
+            assert self.annotator.binding(op.args[pos]) == s_type
+        return op
+
     def build_args(self, op, args_s):
         space = RPythonCallsSpace()
         if op == "simple_call":

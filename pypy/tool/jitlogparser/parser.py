@@ -34,7 +34,7 @@ class Op(object):
         self.descr = descr
         self._is_guard = name.startswith('guard_')
         if self._is_guard:
-            self.guard_no = int(self.descr[len('<Guard'):-1])
+            self.guard_no = int(self.descr[len('<Guard'):-1], 16)
 
     def setfailargs(self, failargs):
         self.failargs = failargs
@@ -350,7 +350,7 @@ def adjust_bridges(loop, bridges):
     i = 0
     while i < len(ops):
         op = ops[i]
-        if op.is_guard() and bridges.get('loop-' + str(op.guard_no), None):
+        if op.is_guard() and bridges.get('loop-' + hex(op.guard_no)[2:], None):
             res.append(op)
             i = 0
             if hasattr(op.bridge, 'force_asm'):
@@ -364,16 +364,17 @@ def adjust_bridges(loop, bridges):
 
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
+    hex_re = '0x([\da-f]+)'
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
-        m = re.search('bootstrap ([-\da-f]+)', entry)
+        m = re.search('bootstrap ' + hex_re, entry)
         if not m:
             # a bridge
-            m = re.search('has address ([-\da-f]+)', entry)
+            m = re.search('has address ' + hex_re, entry)
             addr = int(m.group(1), 16)
             entry = entry.lower()
-            m = re.search('guard \d+', entry)
-            name = m.group(0)
+            m = re.search('guard ' + hex_re, entry)
+            name = 'guard ' + m.group(1)
         else:
             name = entry[:entry.find('(') - 1].lower()
             addr = int(m.group(1), 16)
@@ -395,8 +396,8 @@ def import_log(logname, ParserCls=SimpleParser):
         comm = loop.comment
         comm = comm.lower()
         if comm.startswith('# bridge'):
-            m = re.search('guard \d+', comm)
-            name = m.group(0)
+            m = re.search('guard ([\da-f]+)', comm)
+            name = 'guard ' + m.group(1)
         elif "(" in comm:
             name = comm[2:comm.find('(')-1]
         else:
@@ -414,7 +415,8 @@ def import_log(logname, ParserCls=SimpleParser):
 def split_trace(trace):
     labels = [0]
     if trace.comment and 'Guard' in trace.comment:
-        descrs = ['bridge ' + re.search('Guard (\d+)', trace.comment).group(1)]
+        descrs = ['bridge %d' % int(
+            re.search('Guard ([\da-f]+)', trace.comment).group(1), 16)]
     else:
         descrs = ['entry ' + re.search('Loop (\d+)', trace.comment).group(1)]
     for i, op in enumerate(trace.operations):
@@ -444,3 +446,7 @@ def parse_log_counts(input, loops):
         if line:
             num, count = line.split(':', 2)
             mapping[num].count = int(count)
+
+if __name__ == '__main__':
+    import_log(sys.argv[1])
+    

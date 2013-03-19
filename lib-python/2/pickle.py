@@ -34,6 +34,8 @@ import sys
 import struct
 import re
 
+from __pypy__.builders import StringBuilder
+
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
 
@@ -1409,11 +1411,24 @@ try:
 except ImportError:
     from StringIO import StringIO
 
+
+class StringBuilderFile(object):
+    ''' pickle uses only file.write - provide this method, 
+    use StringBuilder for speed
+    '''
+    def __init__(self):
+        self.builder = StringBuilder()
+        self.write = self.builder.append
+
+    def getvalue(self):
+        return self.builder.build()
+
+
 def dump(obj, file, protocol=None):
     Pickler(file, protocol).dump(obj)
 
 def dumps(obj, protocol=None):
-    file = StringIO()
+    file = StringBuilderFile()
     Pickler(file, protocol).dump(obj)
     return file.getvalue()
 
