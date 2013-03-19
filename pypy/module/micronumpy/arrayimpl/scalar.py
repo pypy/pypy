@@ -73,7 +73,12 @@ class Scalar(base.BaseArrayImplementation):
             scalar = Scalar(self.dtype.float_type)
             scalar.value = self.value.convert_imag_to(scalar.dtype)
             return scalar
-        return Scalar(self.dtype)
+        scalar = Scalar(self.dtype)
+        if self.dtype.is_flexible_type():
+            scalar.value = self.value
+        else:
+            scalar.value = scalar.dtype.itemtype.box(0)
+        return scalar
 
     def descr_getitem(self, space, _, w_idx):
         raise OperationError(space.w_IndexError,

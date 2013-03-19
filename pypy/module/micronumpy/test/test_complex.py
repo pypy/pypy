@@ -530,6 +530,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = a.imag
         assert b == 0
         assert b.dtype == dtype(float)
+        a = array('abc')
+        assert str(a.real) == 'abc'
+        # numpy imag for flexible types returns self
+        assert str(a.imag) == 'abc'
         for complex_ in complex_dtypes:
 
             O = complex(0, 0)
