@@ -94,3 +94,6 @@ Remove minor verison number from lib-python dirs to simplify stdlib upgrades.
 Moves optimized JIT frames from stack to heap. As a side effect it enables
 stackless to work well with the JIT on PyPy. Also removes a bunch of code from
 the GC which fixes cannot find gc roots.
+
+.. branch: pycon2013-doc-fixes
+Documentation fixes after going through the docs at PyCon 2013 sprint.
