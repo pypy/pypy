@@ -45,8 +45,11 @@ def test_dir_structure(test='test'):
             assert exe.mode == 0755
             assert exe.uname == ''
             assert exe.gname == ''
-            assert exe.uid == 0
-            assert exe.gid == 0
+            # The tar program on MacOSX or the FreeBSDs does not support
+            # setting the numeric uid and gid when creating a tar file.
+            if not(sys.platform == 'darwin' or sys.platform.startswith('freebsd')):
+                assert exe.uid == 0
+                assert exe.gid == 0
 
         # the headers file could be not there, because they are copied into
         # trunk/include only during translation
