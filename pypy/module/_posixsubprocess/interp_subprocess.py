@@ -192,13 +192,13 @@ def fork_exec(space, w_process_args, w_executable_list,
         preexec.w_preexec_fn = None
 
         if l_cwd:
-            lltype.free(l_cwd, flavor='raw')
+            rffi.free_charp(l_cwd)
         if l_envp:
-            lltype.free(l_envp, flavor='raw')
+            rffi.free_charpp(l_envp)
         if l_argv:
-            lltype.free(l_argv, flavor='raw')
+            rffi.free_charpp(l_argv)
         if l_exec_array:
-            lltype.free(l_exec_array, flavor='raw')
+            rffi.free_charpp(l_exec_array)
         if l_fds_to_keep:
             lltype.free(l_fds_to_keep, flavor='raw')
 
