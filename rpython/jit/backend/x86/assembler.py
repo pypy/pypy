@@ -60,6 +60,7 @@ class Assembler386(BaseAssembler):
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
         self.malloc_slowpath = 0
+        self.malloc_slowpath_varsize = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.setup_failure_recovery()
         self._debug = False
@@ -176,7 +177,7 @@ class Assembler386(BaseAssembler):
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _build_malloc_slowpath(self):
+    def _build_malloc_slowpath(self, varsize):
         """ While arriving on slowpath, we have a gcpattern on stack,
         nursery_head in eax and the size in edi - eax
         """
@@ -190,13 +191,16 @@ class Assembler386(BaseAssembler):
         mc.SUB_rr(edi.value, eax.value)       # compute the size we want
         # the arg is already in edi
         mc.SUB_ri(esp.value, 16 - WORD)
-        if IS_X86_32:
-            mc.MOV_sr(0, edi.value)
-            if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-                mc.MOV_sr(WORD, ebp.value)
-        elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-            # for tests only
-            mc.MOV_rr(esi.value, ebp.value)
+        if not varsize:
+            if IS_X86_32:
+                mc.MOV_sr(0, edi.value)
+                if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                    mc.MOV_sr(WORD, ebp.value)
+            elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                # for tests only
+                mc.MOV_rr(esi.value, ebp.value)
+        else:
+            return 0
         extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
         mc.MOV_bi(extra_ofs, 16)
         mc.CALL(imm(addr))
@@ -224,7 +228,7 @@ class Assembler386(BaseAssembler):
         mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_slowpath = rawstart
+        return rawstart
 
     def _build_propagate_exception_path(self):
         if not self.cpu.propagate_exception_descr:
@@ -651,7 +655,7 @@ class Assembler386(BaseAssembler):
         if expected_size == -1:
             mc.MOV_si(WORD, 0xffffff)
         else:
-            mc.MOV_si(WORD, expected_size)            
+            mc.MOV_si(WORD, expected_size)
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._frame_realloc_slowpath))
@@ -689,7 +693,7 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
-    
+
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
         if clt.asmmemmgr_blocks is None:
@@ -718,7 +722,7 @@ class Assembler386(BaseAssembler):
             struct.number = compute_unique_id(token)
         self.loop_run_counters.append(struct)
         return struct
- 
+
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
         assert adr_jump_offset != 0
@@ -946,7 +950,7 @@ class Assembler386(BaseAssembler):
         else:
             assert isinstance(to_loc, RawEspLoc)
             self.mc.MOV32_si(to_loc.value,     low_part)
-            self.mc.MOV32_si(to_loc.value + 4, high_part)                
+            self.mc.MOV32_si(to_loc.value + 4, high_part)
 
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.getopnum()](self, op, arglocs, resloc)
@@ -1792,7 +1796,7 @@ class Assembler386(BaseAssembler):
         if exctploc is not None:
             assert exctploc.is_reg()
             mc.MOV(exctploc, heap(self.cpu.pos_exception()))
-                
+
         mc.MOV(heap(self.cpu.pos_exception()), imm0)
         mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
 
@@ -2461,15 +2465,16 @@ class Assembler386(BaseAssembler):
         self.mc.MOV(heap(nursery_free_adr), edi)
 
     def malloc_cond_varsize(self, nursery_free_adr, nursery_top_adr,
-                            lengthloc, itemsize, maxlength, gcmap):
+                            lengthloc, itemsize, maxlength, gcmap,
+                            arraydescr):
         self.mc.CMP(lengthloc, imm(maxlength))
-        self.mc.J_il8(rx86.Conditions['L'], 0) # patched later
+        self.mc.J_il8(rx86.Conditions['G'], 0) # patched later
         jmp_adr0 = self.mc.get_relative_pos()
         self.mc.MOV(edi, heap(nursery_free_adr))
         self.mc.MOV(eax, edi)
         self.mc.MOV(edi, lengthloc)
         self.mc.IMUL(edi, imm(itemsize))
-        self.mc.ADD(edi, eax)
+        self.mc.ADD(edi, heap(nursery_free_adr))
         self.mc.ADD(edi, imm(WORD * 2))
         self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
@@ -2479,7 +2484,7 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_adr0-1, chr(offset))
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, mov=True)
-        self.mc.CALL(imm(0))
+        self.mc.CALL(imm(self.malloc_slowpath_varsize))
         offset = self.mc.get_relative_pos() - jmp_adr1
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr1-1, chr(offset))

@@ -54,7 +54,7 @@ class X86RegisterManager(RegisterManager):
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
-    
+
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
@@ -103,7 +103,7 @@ class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
         FrameManager.__init__(self)
         self.base_ofs = base_ofs
-    
+
     def frame_pos(self, i, box_type):
         return FrameLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
 
@@ -872,6 +872,7 @@ class RegAlloc(BaseRegalloc):
 
     def consider_call_malloc_nursery_varsize(self, op):
         length_box = op.getarg(1)
+        arraydescr = op.getdescr()
         assert isinstance(length_box, BoxInt) # we cannot have a const here!
         # looking at the result
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
@@ -890,7 +891,7 @@ class RegAlloc(BaseRegalloc):
         self.assembler.malloc_cond_varsize(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            lengthloc, itemsize, maxlength, gcmap)
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
@@ -1335,7 +1336,7 @@ class RegAlloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
-        
+
 
     def consider_keepalive(self, op):
         pass

@@ -247,24 +247,48 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_malloc_nursery_varsize(self):
         self.cpu = self.getcpu(None)
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        arraydescr.tid = 15
         ops = '''
         [i0, i1, i2]
-        p0 = call_malloc_nursery_varsize(8, i0)
-        p1 = call_malloc_nursery_varsize(5, i1)
-        p2 = call_malloc_nursery_varsize(7, i2)
-        guard_true(i0) [p0, p1, p2]
+        p0 = call_malloc_nursery_varsize(8, i0, descr=arraydescr)
+        p1 = call_malloc_nursery_varsize(5, i1, descr=arraydescr)
+        guard_true(i0) [p0, p1]
         '''
-        self.interpret(ops, [1, 2, 3])
+        self.interpret(ops, [1, 2, 3],
+                       namespace={'arraydescr': arraydescr})
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
         nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
         ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 2*WORD + 8*1
-        assert rffi.cast(lltype.Signed, ref(2)) == nurs_adr + 2*WORD + 8*1 + 2*WORD + 5*2
+        # check the nursery content and state
+        assert gc_ll_descr.nursery[0] == 15
+        assert gc_ll_descr.nursery[2 + 8 / WORD] == 15
+        assert gc_ll_descr.addrs[0] == nurs_adr + 4 * WORD + 8*1 + 5*2
+        # slowpath never called
+        assert gc_ll_descr.calls == []
+
+    def test_malloc_nursery_varsize_slowpath(self):
+        self.cpu = self.getcpu(None)
+        ops = '''
+        [i0, i1, i2]
+        p0 = call_malloc_nursery_varsize(8, i0)
+        p1 = call_malloc_nursery_varsize(5, i1)
+        guard_true(i0) [p0, p1]
+        '''
+        self.interpret(ops, [10, 2, 3])
+        # check the returned pointers
+        gc_ll_descr = self.cpu.gc_ll_descr
+        nurs_adr = rffi.cast(lltype.Signed, gc_ll_descr.nursery)
+        ref = lambda n: self.cpu.get_ref_value(self.deadframe, n)
+        assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
+        assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 2*WORD + 8*1
         # check the nursery content and state
         gc_ll_descr.check_nothing_in_nursery()
-        assert gc_ll_descr.addrs[0] == nurs_adr + 64
+        assert gc_ll_descr.addrs[0] == nurs_adr + 4 * WORD + 8*1 + 5*2
         # slowpath never called
         assert gc_ll_descr.calls == []
 

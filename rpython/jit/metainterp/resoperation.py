@@ -529,7 +529,7 @@ _oplist = [
     'CALL_PURE/*d',             # removed before it's passed to the backend
     'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
-    'CALL_MALLOC_NURSERY_VARSIZE/2',
+    'CALL_MALLOC_NURSERY_VARSIZE/2d',
     'CALL_MALLOC_NURSERY_VARSIZE_SMALL/1',
     # nursery malloc, non-const number of bytes, zeroed
     # note that the number of bytes must be well known to be small enough

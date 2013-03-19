@@ -128,7 +128,6 @@ class GcRewriterAssembler(object):
         elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
               self.gen_malloc_nursery_varsize(arraydescr.itemsize,
               v_length, op.result, arraydescr)):
-            self.gen_initialize_tid(op.result, arraydescr.tid)
             self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
             return
         if (total_size >= 0 and
@@ -304,9 +303,8 @@ class GcRewriterAssembler(object):
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
                           [ConstInt(itemsize), v_length],
-                          v_result)
+                          v_result, descr=arraydescr)
         self.newops.append(op)
-        self.recent_mallocs[v_result] = None
         return True
 
     def gen_malloc_nursery_varsize_small(self, sizebox, v_result):

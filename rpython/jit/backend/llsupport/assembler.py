@@ -72,7 +72,8 @@ class BaseAssembler(object):
             self._build_wb_slowpath(True, withfloats=True)
         self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
-            self._build_malloc_slowpath()
+            self.malloc_slowpath = self._build_malloc_slowpath(varsize=False)
+            self.malloc_slowpath_varsize = self._build_malloc_slowpath(varsize=True)
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
             self._build_release_gil(gc_ll_descr.gcrootmap)

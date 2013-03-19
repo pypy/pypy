@@ -408,8 +408,7 @@ class TestFramework(RewriteTests):
             jump(i0)
         """, """
             [i0]
-            p0 = call_malloc_nursery_varsize(1, i0)
-            setfield_gc(p0, %(bdescr.tid)d, descr=tiddescr)
+            p0 = call_malloc_nursery_varsize(1, i0, descr=bdescr)
             setfield_gc(p0, i0, descr=blendescr)
             jump(i0)
         """)
