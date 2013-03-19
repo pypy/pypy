@@ -38,6 +38,9 @@ class Scalar(base.BaseArrayImplementation):
     def get_strides(self):
         return []
 
+    def get_backstrides(self):
+        return []
+
     def create_iter(self, shape=None, backward_broadcast=False):
         return ScalarIterator(self)
 
@@ -57,6 +60,16 @@ class Scalar(base.BaseArrayImplementation):
 
     def transpose(self, _):
         return self
+
+    def get_real(self, orig_array):
+        if self.dtype.is_complex_type():
+            return Scalar(self.dtype.float_type, self.value.real)
+        return self
+
+    def get_imag(self, orig_array):
+        if self.dtype.is_complex_type():
+            return Scalar(self.dtype, self.value.imag)
+        return Scalar(self.dtype)
 
     def descr_getitem(self, space, _, w_idx):
         raise OperationError(space.w_IndexError,
