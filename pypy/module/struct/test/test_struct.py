@@ -7,7 +7,7 @@ from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
 class AppTestStruct(object):
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = dict(usemodules=['struct', 'array'])
 
     def setup_class(cls):
         """
@@ -385,6 +385,33 @@ class AppTestStruct(object):
         b = memoryview(self.struct.pack("ii", 62, 12))
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
+
+    def test_trailing_counter(self):
+        import array
+        store = array.array('b', b' '*100)
+
+        # format lists containing only count spec should result in an error
+        raises(self.struct.error, self.struct.pack, '12345')
+        raises(self.struct.error, self.struct.unpack, '12345', b'')
+        raises(self.struct.error, self.struct.pack_into, '12345', store, 0)
+        raises(self.struct.error, self.struct.unpack_from, '12345', store, 0)
+
+        # Format lists with trailing count spec should result in an error
+        raises(self.struct.error, self.struct.pack, 'c12345', b'x')
+        raises(self.struct.error, self.struct.unpack, 'c12345', b'x')
+        raises(self.struct.error, self.struct.pack_into, 'c12345', store, 0,
+                           b'x')
+        raises(self.struct.error, self.struct.unpack_from, 'c12345', store,
+                           0)
+
+        # Mixed format tests
+        raises(self.struct.error, self.struct.pack, '14s42', b'spam and eggs')
+        raises(self.struct.error, self.struct.unpack, '14s42',
+                          b'spam and eggs')
+        raises(self.struct.error, self.struct.pack_into, '14s42', store, 0,
+                          b'spam and eggs')
+        raises(self.struct.error, self.struct.unpack_from, '14s42', store, 0)
+
 
 
 class AppTestStructBuffer(object):
