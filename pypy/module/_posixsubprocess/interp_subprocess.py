@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from rpython.rtyper.tool import rffi_platform as platform
 from pypy.module.posix.interp_posix import run_fork_hooks
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import (
@@ -9,12 +10,23 @@ import os
 
 thisdir = py.path.local(__file__).dirpath()
 
-eci = ExternalCompilationInfo(
-    separate_module_files=[thisdir.join('_posixsubprocess.c')],
-    export_symbols=['pypy_subprocess_child_exec',
-                    'pypy_subprocess_cloexec_pipe',
-                    'pypy_subprocess_init',
-                    ])
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        separate_module_files=[thisdir.join('_posixsubprocess.c')],
+        export_symbols=['pypy_subprocess_child_exec',
+                        'pypy_subprocess_cloexec_pipe',
+                        'pypy_subprocess_init',
+                        ],
+        includes=['unistd.h', 'sys/syscall.h'])
+    HAVE_SYS_SYSCALL_H = platform.Has("syscall")
+
+config = platform.configure(CConfig)
+
+if config['HAVE_SYS_SYSCALL_H']:
+    eci = CConfig._compilation_info_.merge(ExternalCompilationInfo(compile_extra=["-DHAVE_SYS_SYSCALL_H"]))
+    class CConfig:
+        _compilation_info_ = eci
+
 c_child_exec = rffi.llexternal(
     'pypy_subprocess_child_exec',
     [rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARP,
@@ -23,14 +35,13 @@ c_child_exec = rffi.llexternal(
      rffi.CArrayPtr(rffi.LONG), lltype.Signed,
      lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT)), rffi.VOIDP],
     lltype.Void,
-    compilation_info=eci,
+    compilation_info=CConfig._compilation_info_,
     threadsafe=True)
 c_cloexec_pipe = rffi.llexternal(
     'pypy_subprocess_cloexec_pipe',
     [rffi.CArrayPtr(rffi.INT)], rffi.INT,
-    compilation_info=eci,
-    threadsafe=True)     
-    
+    compilation_info=CConfig._compilation_info_,
+    threadsafe=True)
 
 class PreexecCallback:
     def __init__(self):
