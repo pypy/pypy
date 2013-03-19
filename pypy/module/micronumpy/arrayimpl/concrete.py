@@ -82,6 +82,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array)
 
+    def set_real(self, space, orig_array, w_value):    
+        tmp = self.get_real(orig_array)
+        tmp.setslice(space, convert_to_array(space, w_value))
+
     def get_imag(self, orig_array):
         strides = self.get_strides()
         backstrides = self.get_backstrides()
@@ -97,6 +101,10 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                              backstrides)
         impl.fill(self.dtype.box(0))
         return impl
+
+    def set_imag(self, space, orig_array, w_value):    
+        tmp = self.get_imag(orig_array)
+        tmp.setslice(space, convert_to_array(space, w_value))
 
     # -------------------- applevel get/setitem -----------------------
 

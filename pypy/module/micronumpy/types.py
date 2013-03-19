@@ -1150,6 +1150,14 @@ class ComplexFloating(object):
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
 
+    @specialize.argtype(1)
+    def composite(self, v1, v2):
+        assert isinstance(v1, self.ComponentBoxType)
+        assert isinstance(v2, self.ComponentBoxType)
+        real = v1.value
+        imag = v2.value
+        return self.box_complex(real, imag)
+
     @complex_unary_op
     def pos(self, v):
         return v

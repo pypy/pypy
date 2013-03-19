@@ -520,16 +520,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert imag(0.0) == 0.0
         a = array([complex(3.0, 4.0)])
         b = a.real
+        b[0] = 1024
+        assert a[0].real == 1024
         assert b.dtype == dtype(float)
         a = array(complex(3.0, 4.0))
         b = a.real
         assert b == array(3)
+        a.real = 1024
+        assert a.real == 1024 
         assert a.imag == array(4)
         assert b.dtype == dtype(float)
         a = array(4.0)
         b = a.imag
         assert b == 0
         assert b.dtype == dtype(float)
+        raises(TypeError, 'a.imag = 1024')
+        raises(ValueError, 'a.real = [1, 3]')
         a = array('abc')
         assert str(a.real) == 'abc'
         # numpy imag for flexible types returns self
