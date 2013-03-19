@@ -421,3 +421,12 @@ class AppTestSTLMAP:
 
         raises(ValueError, mul.__setitem__, 'minus two', -2)
 
+    def test05_STL_like_class_indexing_overloads(self):
+        """Test overloading of operator[] in STL like class"""
+
+        import cppyy
+        stl_like_class = cppyy.gbl.stl_like_class
+
+        a = stl_like_class(int)()
+        assert a["some string" ] == 'string'
+        assert a[3.1415] == 'double'

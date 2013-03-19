@@ -270,11 +270,16 @@ def get_pycppclass(name):
 # pythonization by decoration (move to their own file?)
 def python_style_getitem(self, idx):
     # python-style indexing: check for size and allow indexing from the back
-    sz = len(self)
-    if idx < 0: idx = sz + idx
-    if idx < sz:
-        return self._getitem__unchecked(idx)
-    raise IndexError('index out of range: %d requested for %s of size %d' % (idx, str(self), sz))
+    try:
+        sz = len(self)
+        if idx < 0: idx = sz + idx
+        if idx < sz:
+            return self._getitem__unchecked(idx)
+        raise IndexError(
+            'index out of range: %d requested for %s of size %d' % (idx, str(self), sz))
+    except TypeError:
+        pass
+    return self._getitem__unchecked(idx)
 
 def python_style_sliceable_getitem(self, slice_or_idx):
     if type(slice_or_idx) == types.SliceType:
@@ -324,8 +329,7 @@ def _pythonize(pyclass):
         pyclass.__iter__ = __iter__
 
     # combine __getitem__ and __len__ to make a pythonized __getitem__
-    if not 'std::map' in pyclass.__name__ and\
-            '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
+    if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
         pyclass._getitem__unchecked = pyclass.__getitem__
         if '__setitem__' in pyclass.__dict__ and '__iadd__' in pyclass.__dict__:
             pyclass.__getitem__ = python_style_sliceable_getitem

@@ -26,5 +26,6 @@
 
   <class name="std::string" />
   <class name="stringy_class" />
+  <class pattern="stl_like_class<*>" />
 
 </lcgdict>
