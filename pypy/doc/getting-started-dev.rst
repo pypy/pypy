@@ -141,11 +141,11 @@ There are several environment variables you can find useful while playing with t
 ``PYPY_USESSION_DIR``
     RPython uses temporary session directories to store files that are generated during the 
     translation process(e.g., translated C files). ``PYPY_USESSION_DIR`` serves as a base directory for these session
-    dirs. The default value for this variable is the systems temporary dir.
+    dirs. The default value for this variable is the system's temporary dir.
 
 ``PYPY_USESSION_KEEP``
     By default RPython keeps only last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``. 
-    Increase this value if you want your C files to preserve (useful when producing lots of lldebug builds)
+    Increase this value if you want to preserve C files longer (useful when producing lots of lldebug builds).
 
 .. _`your own interpreters`: faq.html#how-do-i-compile-my-own-interpreters
 
