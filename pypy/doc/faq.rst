@@ -57,7 +57,8 @@ the need to emulate refcounting.  It is often faster to take out your
 CPython extension and replace it with a pure python version that the
 JIT can see.
 
-We fully support ctypes-based extensions.
+We fully support ctypes-based extensions. But for best performance, we
+recommend that you use the cffi_ module to interface with C code.
 
 For information on which third party extensions work (or do not work) 
 with PyPy see the `compatibility wiki`_.
@@ -65,7 +66,9 @@ with PyPy see the `compatibility wiki`_.
 
 .. _`extension modules`: cpython_differences.html#extension-modules
 .. _`cpython differences`: cpython_differences.html
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _`compatibility wiki`:
+.. https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _cffi: http://cffi.readthedocs.org/
 
 ---------------------------------
 On which platforms does PyPy run?
@@ -77,6 +80,7 @@ extensively). PyPy needs a CPython running on the target platform to
 bootstrap, as cross compilation is not really meant to work yet.
 At the moment you need CPython 2.5 - 2.7
 for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
+(There has also been good progress on getting the JIT working for ARMv7.)
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?
@@ -389,8 +393,7 @@ No, you have to rebuild the entire interpreter.  This means two things:
 * Second, and perhaps most important: do you have a really good reason
   for writing the module in RPython in the first place?  Nowadays you
   should really look at alternatives, like writing it in pure Python,
-  using ctypes if it needs to call C code.  Other alternatives are being
-  developed too (as of summer 2011), like a Cython binding.
+  using cffi_ if it needs to call C code.
 
 In this context it is not that important to be able to translate
 RPython modules independently of translating the complete interpreter.

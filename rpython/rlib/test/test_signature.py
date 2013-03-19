@@ -248,3 +248,39 @@ def test_self_error():
     exc = py.test.raises(Exception, annotate_at, C.incomplete_sig_meth).value
     assert 'incomplete_sig_meth' in repr(exc.args)
     assert 'finishsigs' in repr(exc.args)
+
+def test_any_as_argument():
+    @signature(types.any(), types.int(), returns=types.float())
+    def f(x, y):
+        return x + y
+    @signature(types.int(), returns=types.float())
+    def g(x):
+        return f(x, x)
+    sig = getsig(g)
+    assert sig == [model.SomeInteger(), model.SomeFloat()]
+
+    @signature(types.float(), returns=types.float())
+    def g(x):
+        return f(x, 4)
+    sig = getsig(g)
+    assert sig == [model.SomeFloat(), model.SomeFloat()]
+
+    @signature(types.str(), returns=types.int())
+    def cannot_add_string(x):
+        return f(x, 2)
+    exc = py.test.raises(Exception, annotate_at, cannot_add_string).value
+    assert 'Blocked block' in repr(exc.args)
+
+def test_return_any():
+    @signature(types.int(), returns=types.any())
+    def f(x):
+        return x
+    sig = getsig(f)
+    assert sig == [model.SomeInteger(), model.SomeInteger()]
+
+    @signature(types.str(), returns=types.any())
+    def cannot_add_string(x):
+        return f(3) + x
+    exc = py.test.raises(Exception, annotate_at, cannot_add_string).value
+    assert 'Blocked block' in repr(exc.args)
+    assert 'cannot_add_string' in repr(exc.args)

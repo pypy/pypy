@@ -35,7 +35,7 @@ class LLTrace(object):
         self.operations = []
         for op in operations:
             if op.getdescr() is not None:
-                if op.is_guard():
+                if op.is_guard() or op.getopnum() == rop.FINISH:
                     newdescr = op.getdescr()
                 else:
                     newdescr = WeakrefDescr(op.getdescr())

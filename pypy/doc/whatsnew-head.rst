@@ -24,6 +24,9 @@ dtypes using ENABLED_LONG_DOUBLE = False
 .. branch: numpypy-real-as-view
 Convert real, imag from ufuncs to views. This involves the beginning of
 view() functionality
+.. branch: indexing-by-array
+Adds indexing by scalar, adds int conversion from scalar and single element array,
+fixes compress, indexing by an array with a smaller shape and the indexed object.
 
 .. branch: signatures
 Improved RPython typing
@@ -91,3 +94,6 @@ Remove minor verison number from lib-python dirs to simplify stdlib upgrades.
 Moves optimized JIT frames from stack to heap. As a side effect it enables
 stackless to work well with the JIT on PyPy. Also removes a bunch of code from
 the GC which fixes cannot find gc roots.
+
+.. branch: pycon2013-doc-fixes
+Documentation fixes after going through the docs at PyCon 2013 sprint.

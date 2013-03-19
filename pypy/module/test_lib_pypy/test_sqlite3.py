@@ -159,6 +159,7 @@ def test_on_conflict_rollback_executemany():
         con.commit()
     except _sqlite3.OperationalError:
         pytest.fail("_sqlite3 knew nothing about the implicit ROLLBACK")
+    con.close()
 
 def test_statement_arg_checking():
     con = _sqlite3.connect(':memory:')
@@ -194,3 +195,4 @@ def test_statement_param_checking():
     with pytest.raises(ValueError) as e:
         con.execute('insert into foo(x) values (?)', 2)
     assert str(e.value) == 'parameters are of unsupported type'
+    con.close()

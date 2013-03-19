@@ -381,6 +381,8 @@ class CallingConvTests(Runner):
         raise NotImplementedError
 
     def test_call_aligned_explicit_check(self):
+        if sys.maxint == 2 ** 31 - 1:
+            py.test.skip("libffi on 32bit is broken")
         cpu = self.cpu
         if not cpu.supports_floats:
             py.test.skip('requires floats')
