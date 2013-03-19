@@ -1970,7 +1970,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.transpose() == b).all()
 
     def test_flatiter(self):
-        from numpypy import array, flatiter, arange
+        from numpypy import array, flatiter, arange, zeros
         a = array([[10, 30], [40, 60]])
         f_iter = a.flat
         assert f_iter.next() == 10
@@ -1986,6 +1986,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(10).reshape(5, 2)
         raises(IndexError, 'a.flat[(1, 2)]')
         assert a.flat.base is a
+        m = zeros((2,2), dtype='S3')
+        m.flat[1] = 1
+        assert m[0,1] == '1'
 
     def test_flatiter_array_conv(self):
         from numpypy import array, dot

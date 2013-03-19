@@ -1676,7 +1676,7 @@ class StringType(BaseType, BaseStringType):
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
 
-    def convert_from(self, space, mydtype, box):
+    def build_and_convert(self, space, mydtype, box):
         if box.get_dtype(space).is_str_or_unicode():
             arg = box.get_dtype(space).itemtype.to_str(box)
         else:

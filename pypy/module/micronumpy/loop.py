@@ -74,7 +74,7 @@ setslice_driver2 = jit.JitDriver(name='numpy_setslice2',
 
 def setslice(space, shape, target, source):
     if target.dtype.is_str_or_unicode():
-        return setslice_from(space, shape, target, source)
+        return setslice_build_and_convert(space, shape, target, source)
     return setslice_to(space, shape, target, source)
 
 def setslice_to(space, shape, target, source):
@@ -91,7 +91,7 @@ def setslice_to(space, shape, target, source):
         source_iter.next()
     return target
 
-def setslice_from(space, shape, target, source):
+def setslice_build_and_convert(space, shape, target, source):
     # note that unlike everything else, target and source here are
     # array implementations, not arrays
     target_iter = target.create_iter(shape)
@@ -100,7 +100,7 @@ def setslice_from(space, shape, target, source):
     shapelen = len(shape)
     while not target_iter.done():
         setslice_driver2.jit_merge_point(shapelen=shapelen, dtype=dtype)
-        target_iter.setitem(dtype.convert_from(space, source_iter.getitem()))
+        target_iter.setitem(dtype.build_and_convert(space, source_iter.getitem()))
         target_iter.next()
         source_iter.next()
     return target
@@ -373,18 +373,43 @@ def flatiter_getitem(res, base_iter, step):
         ri.next()
     return res
 
-flatiter_setitem_driver = jit.JitDriver(name = 'numpy_flatiter_setitem',
+flatiter_setitem_driver1 = jit.JitDriver(name = 'numpy_flatiter_setitem1',
                                         greens = ['dtype'],
                                         reds = 'auto')
 
-def flatiter_setitem(arr, val, start, step, length):
+flatiter_setitem_driver2 = jit.JitDriver(name = 'numpy_flatiter_setitem2',
+                                        greens = ['dtype'],
+                                        reds = 'auto')
+
+def flatiter_setitem(space, arr, val, start, step, length):
+    dtype = arr.get_dtype()
+    if dtype.is_str_or_unicode():
+        return flatiter_setitem_build_and_convert(space, arr, val, start, step, length)
+    return flatiter_setitem_to(space, arr, val, start, step, length)
+
+def flatiter_setitem_to(space, arr, val, start, step, length):
     dtype = arr.get_dtype()
     arr_iter = arr.create_iter()
     val_iter = val.create_iter()
     arr_iter.next_skip_x(start)
     while length > 0:
-        flatiter_setitem_driver.jit_merge_point(dtype=dtype)
+        flatiter_setitem_driver1.jit_merge_point(dtype=dtype)
         arr_iter.setitem(val_iter.getitem().convert_to(dtype))
+        # need to repeat i_nput values until all assignments are done
+        arr_iter.next_skip_x(step)
+        length -= 1
+        val_iter.next()
+        # WTF numpy?
+        val_iter.reset()
+
+def flatiter_setitem_build_and_convert(space, arr, val, start, step, length):
+    dtype = arr.get_dtype()
+    arr_iter = arr.create_iter()
+    val_iter = val.create_iter()
+    arr_iter.next_skip_x(start)
+    while length > 0:
+        flatiter_setitem_driver2.jit_merge_point(dtype=dtype)
+        arr_iter.setitem(dtype.build_and_convert(space, val_iter.getitem()))
         # need to repeat i_nput values until all assignments are done
         arr_iter.next_skip_x(step)
         length -= 1
