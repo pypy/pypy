@@ -2,6 +2,8 @@
 
   <class pattern="cppyy_test_*" />
 
+  <enum name="fruit" />
+
   <function pattern="get_*" />
   <function pattern="set_*" />
   <function pattern="is_*" />

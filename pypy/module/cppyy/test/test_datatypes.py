@@ -454,6 +454,11 @@ class AppTestDATATYPES:
         assert c.s_enum == cppyy_test_data.kSomething
         assert cppyy_test_data.s_enum == cppyy_test_data.kSomething
 
+        # global enums
+        assert gbl.kApple  == 78
+        assert gbl.kBanana == 29
+        assert gbl.kCitrus == 34
+
     def test12_object_returns(self):
         """Test access to and return of PODs"""
 
