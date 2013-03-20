@@ -12,7 +12,7 @@
 #
 #    $PYPY_USESSION_DIR/usession-$PYPY_USESSION_BASENAME-$USER
 #
-# The default value for $PYPY_USESSION_DIR is the system tmp.
+# The default value for $PYPY_USESSION_DIR is the system's tmp.
 # The default value for $PYPY_USESSION_BASENAME is the name
 # of the current Mercurial branch.
 #

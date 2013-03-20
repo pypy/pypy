@@ -27,7 +27,6 @@ import sys
 import math
 import time
 
-import autopath
 from rpython.rlib import rrandom
 
 PRINT_IT = True
