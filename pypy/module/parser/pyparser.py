@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
@@ -8,8 +8,7 @@ from pypy.interpreter.astcompiler.codegen import compile_ast
 from rpython.rlib.objectmodel import specialize
 
 
-class STType(Wrappable):
-
+class STType(W_Root):
     def __init__(self, tree, mode):
         self.tree = tree
         self.mode = mode

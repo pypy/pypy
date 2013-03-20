@@ -3,7 +3,7 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib.streamio import Stream
@@ -512,7 +512,7 @@ def descr_compressor__new__(space, w_subtype, compresslevel=9):
     W_BZ2Compressor.__init__(x, space, compresslevel)
     return space.wrap(x)
 
-class W_BZ2Compressor(Wrappable):
+class W_BZ2Compressor(W_Root):
     """BZ2Compressor([compresslevel=9]) -> compressor object
 
     Create a new compressor object. This object may be used to compress
@@ -616,7 +616,8 @@ def descr_decompressor__new__(space, w_subtype):
     W_BZ2Decompressor.__init__(x, space)
     return space.wrap(x)
 
-class W_BZ2Decompressor(Wrappable):
+
+class W_BZ2Decompressor(W_Root):
     """BZ2Decompressor() -> decompressor object
 
     Create a new decompressor object. This object may be used to decompress

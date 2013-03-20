@@ -1,6 +1,6 @@
 from __future__ import with_statement
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
@@ -12,7 +12,7 @@ from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
-class W_Library(Wrappable):
+class W_Library(W_Root):
     _immutable_ = True
     handle = rffi.cast(DLLHANDLE, 0)
 

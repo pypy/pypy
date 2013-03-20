@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -64,7 +64,8 @@ class ComplexBox(object):
     def convert_imag_to(self, dtype):
         return dtype.box(self.imag)
 
-class W_GenericBox(Wrappable):
+
+class W_GenericBox(W_Root):
     _attrs_ = ()
 
     def descr__new__(space, w_subtype, __args__):

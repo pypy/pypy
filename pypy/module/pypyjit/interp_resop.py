@@ -1,7 +1,7 @@
 
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
      interp_attrproperty, interp_attrproperty_w)
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
@@ -114,7 +114,8 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
                                  logops.repr_of_resop(op)))
     return l_w
 
-class WrappedBox(Wrappable):
+
+class WrappedBox(W_Root):
     """ A class representing a single box
     """
     def __init__(self, llbox):
@@ -155,7 +156,8 @@ def descr_new_dmp(space, w_tp, w_args, repr, jd_name, call_depth, call_id,
                            jit_hooks.resop_new(num, args, jit_hooks.emptyval()),
                            repr, jd_name, call_depth, call_id, w_greenkey)
 
-class WrappedOp(Wrappable):
+
+class WrappedOp(W_Root):
     """ A class representing a single ResOperation, wrapped nicely
     """
     def __init__(self, op, offset, repr_of_resop):
@@ -191,7 +193,7 @@ class DebugMergePoint(WrappedOp):
     """ A class representing Debug Merge Point - the entry point
     to a jitted loop.
     """
-    
+
     def __init__(self, space, op, repr_of_resop, jd_name, call_depth, call_id,
         w_greenkey):
 
@@ -249,15 +251,16 @@ DebugMergePoint.typedef = TypeDef(
 )
 DebugMergePoint.acceptable_as_base_class = False
 
-class W_JitLoopInfo(Wrappable):
+
+class W_JitLoopInfo(W_Root):
     """ Loop debug information
     """
-    
+
     w_green_key = None
     bridge_no   = 0
     asmaddr     = 0
     asmlen      = 0
-    
+
     def __init__(self, space, debug_info, is_bridge=False):
         logops = debug_info.logger._make_log_operations()
         if debug_info.asminfo is not None:
@@ -266,7 +269,7 @@ class W_JitLoopInfo(Wrappable):
             ofs = {}
         self.w_ops = space.newlist(
             wrap_oplist(space, logops, debug_info.operations, ofs))
-        
+
         self.jd_name = debug_info.get_jitdriver().name
         self.type = debug_info.type
         if is_bridge:
@@ -337,7 +340,8 @@ W_JitLoopInfo.typedef = TypeDef(
 )
 W_JitLoopInfo.acceptable_as_base_class = False
 
-class W_JitInfoSnapshot(Wrappable):
+
+class W_JitInfoSnapshot(W_Root):
     def __init__(self, space, w_times, w_counters, w_counter_times):
         self.w_loop_run_times = w_times
         self.w_counters = w_counters

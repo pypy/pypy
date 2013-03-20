@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import GetSetProperty
@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import interp2app
 QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONNUMERIC, QUOTE_NONE = range(4)
 
 
-class W_Dialect(Wrappable):
+class W_Dialect(W_Root):
     _immutable_fields_ = [
         "dialect",
         "delimiter",
@@ -19,7 +19,7 @@ class W_Dialect(Wrappable):
         "quoting",
         "skipinitialspace",
         "strict",
-        ]
+    ]
 
 def _fetch(space, w_dialect, name):
     return space.findattr(w_dialect, space.wrap(name))

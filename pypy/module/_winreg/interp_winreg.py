@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, wrap_windowserror
@@ -13,7 +13,7 @@ def raiseWindowsError(space, errcode, context):
                          space.newtuple([space.wrap(errcode),
                                          space.wrap(message)]))
 
-class W_HKEY(Wrappable):
+class W_HKEY(W_Root):
     def __init__(self, hkey):
         self.hkey = hkey
 

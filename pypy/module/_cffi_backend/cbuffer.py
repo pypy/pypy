@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
@@ -38,8 +38,8 @@ class LLBuffer(RWBuffer):
             raw_cdata[i] = string[i]
 
 
-class MiniBuffer(Wrappable):
-    # a different subclass of Wrappable for the MiniBuffer, because we
+class MiniBuffer(W_Root):
+    # a different subclass of W_Root for the MiniBuffer, because we
     # want a slightly different (simplified) API at the level of Python.
 
     def __init__(self, buffer, keepalive=None):

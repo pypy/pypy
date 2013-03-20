@@ -25,7 +25,7 @@ class TestBuiltinCode:
         def d(self, w_boo):
             pass
         code = gateway.BuiltinCode(d, unwrap_spec= ['self',
-                                                   gateway.W_Root], self_type=gateway.Wrappable)
+                                                   gateway.W_Root], self_type=gateway.W_Root)
         assert code.signature() == Signature(['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass
@@ -167,7 +167,7 @@ class TestGateway:
                                space.wrap(True))
 
     def test_caching_methods(self):
-        class Base(gateway.Wrappable):
+        class Base(gateway.W_Root):
             def f(self):
                 return 1
 

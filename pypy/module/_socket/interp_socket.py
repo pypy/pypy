@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -131,7 +131,7 @@ def ipaddr_from_object(space, w_sockaddr):
     return addr
 
 
-class W_RSocket(Wrappable, RSocket):
+class W_RSocket(W_Root, RSocket):
     def __del__(self):
         self.clear_all_weakrefs()
         RSocket.__del__(self)

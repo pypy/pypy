@@ -4,7 +4,7 @@ Python locks, based on true threading locks provided by the OS.
 
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 
@@ -23,8 +23,8 @@ from pypy.interpreter.typedef import TypeDef
 ##    sys.stderr.write(msg)
 
 
-class Lock(Wrappable):
-    "A wrappable box around an interp-level lock object."
+class Lock(W_Root):
+    "A box around an interp-level lock object."
 
     def __init__(self, space):
         self.space = space
