@@ -4,7 +4,8 @@ import unicodedata
 
 import py
 
-from rpython.rlib.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
+from rpython.rlib.unicodedata import (
+    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0)
 
 
 class TestUnicodeData(object):
@@ -98,3 +99,32 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
         py.test.raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
         py.test.raises(KeyError, unicodedb_3_2_0.name, 9187)
+
+
+class TestUnicodeData600(object):
+    def setup_class(cls):
+        # XXX: this can only be tested on Python3!
+        if unicodedata.unidata_version != '6.0.0':
+            py.test.skip('Needs python with unicode 6.0.0 database.')
+
+        seed = random.getrandbits(32)
+        print("random seed: ", seed)
+        random.seed(seed)
+        cls.charlist = charlist = []
+        cls.nocharlist = nocharlist = []
+        while len(charlist) < 1000 or len(nocharlist) < 1000:
+            chr = unichr(random.randrange(65536))
+            try:
+                charlist.append((chr, unicodedata.name(chr)))
+            except ValueError:
+                nocharlist.append(chr)
+
+    def test_random_charnames(self):
+        for chr, name in self.charlist:
+            assert unicodedb_6_0_0.name(ord(chr)) == name
+            assert unicodedb_6_0_0.lookup(name) == ord(chr)
+
+    def test_random_missing_chars(self):
+        for chr in self.nocharlist:
+            py.test.raises(KeyError, unicodedb_6_0_0.name, ord(chr))
+
