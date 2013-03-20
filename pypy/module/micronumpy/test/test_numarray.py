@@ -1494,13 +1494,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = concatenate((zeros((2,),dtype=[('x', int), ('y', float)]),
                          zeros((2,),dtype=[('x', int), ('y', float)])))
         assert a.shape == (4,)
-        raises(TypeError, concatenate, 
+        exc = raises(TypeError, concatenate, 
                             (zeros((2,), dtype=[('x', int), ('y', float)]),
                             (zeros((2,), dtype=[('x', float), ('y', float)]))))
-        raises(TypeError, concatenate, ([1], zeros((2,),
+        assert str(exc.value).startswith('record type mismatch')
+        exc = raises(TypeError, concatenate, ([1], zeros((2,),
                                             dtype=[('x', int), ('y', float)])))
-        raises(TypeError, concatenate, (['abc'], zeros((2,),
+        assert str(exc.value).startswith('invalid type promotion')
+        exc = raises(TypeError, concatenate, (['abc'], zeros((2,),
                                             dtype=[('x', int), ('y', float)])))
+        assert str(exc.value).startswith('invalid type promotion')
 
 
 
