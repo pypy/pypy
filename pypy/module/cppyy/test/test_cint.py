@@ -507,3 +507,19 @@ class AppTestSURPLUS:
         gROOT.SetDirLevel(3)
         assert 3 == TROOT.GetDirLevel()
         TROOT.SetDirLevel(old)
+
+    def test07_macro(self):
+        """Test access to cpp macro's"""
+
+        from cppyy import gbl
+
+        assert gbl.NULL == 0
+
+        gbl.gROOT.ProcessLine('#define aap "aap"')
+        gbl.gROOT.ProcessLine('#define noot 1')
+        gbl.gROOT.ProcessLine('#define mies 2.0')
+
+        # TODO: macro's assumed to always be of long type ...
+        #assert gbl.aap  == "aap"
+        assert gbl.noot == 1
+        #assert gbl.mies == 2.0

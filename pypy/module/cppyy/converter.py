@@ -581,6 +581,14 @@ class PyObjectConverter(TypeConverter):
         Py_DecRef(space, rffi.cast(PyObject, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 
+class MacroConverter(TypeConverter):
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        # TODO: get the actual type info from somewhere ...
+        address = self._get_raw_address(space, w_obj, offset)
+        longptr = rffi.cast(rffi.LONGP, address)
+        return space.wrap(longptr[0])
+
+
 _converters = {}         # builtin and custom types
 _a_converters = {}       # array and ptr versions of above
 def get_converter(space, name, default):
@@ -659,6 +667,8 @@ _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
 
 _converters["PyObject*"]                         = PyObjectConverter
+
+_converters["#define"]                           = MacroConverter
 
 # add basic (builtin) converters
 def _build_basic_converters():
