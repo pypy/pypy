@@ -560,14 +560,14 @@ def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
 # __________________________________________________________
 # Mutability methods
 
-def list_append__Bytearray_ANY(space, w_bytearray, w_item):
+def bytearray_append__Bytearray_ANY(space, w_bytearray, w_item):
     from pypy.objspace.std.bytearraytype import getbytevalue
     w_bytearray.data.append(getbytevalue(space, w_item))
 
-def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
+def bytearray_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
 
-def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
+def bytearray_extend__Bytearray_ANY(space, w_bytearray, w_other):
     w_bytearray.data += makebytearraydata_w(space, w_other)
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):

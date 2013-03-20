@@ -214,9 +214,9 @@ class W_ListObject(W_AbstractListObject):
         in the list."""
         return self.strategy.contains(self, w_obj)
 
-    def append(w_list, w_item):
-        """Appends the wrapped item to the end of the list."""
-        w_list.strategy.append(w_list, w_item)
+    def append(self, w_item):
+        'L.append(object) -- append object to end'
+        self.strategy.append(self, w_item)
 
     def length(self):
         return self.strategy.length(self)
@@ -312,9 +312,10 @@ class W_ListObject(W_AbstractListObject):
         index not."""
         self.strategy.insert(self, index, w_item)
 
-    def extend(self, w_any):
-        """Appends the given list of wrapped items."""
-        self.strategy.extend(self, w_any)
+    def extend(self, w_iterable):
+        '''L.extend(iterable) -- extend list by appending
+        elements from the iterable'''
+        self.strategy.extend(self, w_iterable)
 
     def reverse(self):
         """Reverses the list."""
@@ -324,6 +325,68 @@ class W_ListObject(W_AbstractListObject):
         """Sorts the list ascending or descending depending on
         argument reverse. Argument must be unwrapped."""
         self.strategy.sort(self, reverse)
+
+    def descr_reversed(self, space):
+        'L.__reversed__() -- return a reverse iterator over the list'
+        from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
+        return W_ReverseSeqIterObject(space, self, -1)
+
+    def descr_reverse(self, space):
+        'L.reverse() -- reverse *IN PLACE*'
+        self.reverse()
+        return space.w_None
+
+    def descr_count(self, space, w_value):
+        '''L.count(value) -> integer -- return number of
+        occurrences of value'''
+        # needs to be safe against eq_w() mutating the w_list behind our back
+        count = 0
+        i = 0
+        while i < self.length():
+            if space.eq_w(self.getitem(i), w_value):
+                count += 1
+            i += 1
+        return space.wrap(count)
+
+    @unwrap_spec(index=int)
+    def descr_insert(self, space, index, w_value):
+        'L.insert(index, object) -- insert object before index'
+        length = self.length()
+        index = get_positive_index(index, length)
+        self.insert(index, w_value)
+        return space.w_None
+
+    @unwrap_spec(index=int)
+    def descr_pop(self, space, index=-1):
+        '''L.pop([index]) -> item -- remove and return item at
+        index (default last)'''
+        length = self.length()
+        if length == 0:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("pop from empty list"))
+        # clearly differentiate between list.pop() and list.pop(index)
+        if index == -1:
+            return self.pop_end() # cannot raise because list is not empty
+        if index < 0:
+            index += length
+        try:
+            return self.pop(index)
+        except IndexError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("pop index out of range"))
+
+    def descr_remove(self, space, w_value):
+        'L.remove(value) -- remove first occurrence of value'
+        # needs to be safe against eq_w() mutating the w_list behind our back
+        i = 0
+        while i < self.length():
+            if space.eq_w(self.getitem(i), w_value):
+                if i < self.length(): # if this is wrong the list was changed
+                    self.pop(i)
+                return space.w_None
+            i += 1
+        raise OperationError(space.w_ValueError,
+                             space.wrap("list.remove(x): x not in list"))
 
     @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(maxint))
     def descr_index(self, space, w_value, w_start, w_stop):
@@ -339,7 +402,6 @@ class W_ListObject(W_AbstractListObject):
             i += 1
         raise OperationError(space.w_ValueError,
                              space.wrap("list.index(x): x not in list"))
-
 
     @unwrap_spec(reverse=bool)
     def descr_sort(self, space, w_cmp=None, w_key=None, reverse=False):
@@ -1359,7 +1421,7 @@ def add__List_List(space, w_list1, w_list2):
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):
     try:
-        list_extend__List_ANY(space, w_list1, w_iterable2)
+        w_list1.extend(w_iterable2)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
@@ -1367,7 +1429,7 @@ def inplace_add__List_ANY(space, w_list1, w_iterable2):
     return w_list1
 
 def inplace_add__List_List(space, w_list1, w_list2):
-    list_extend__List_ANY(space, w_list1, w_list2)
+    w_list1.extend(w_list2)
     return w_list1
 
 def mul_list_times(space, w_list, w_times):
@@ -1497,13 +1559,6 @@ def repr__List(space, w_list):
         w_currently_in_repr = ec._py_repr = space.newdict()
     return listrepr(space, w_currently_in_repr, w_list)
 
-def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
-    where = space.int_w(w_where)
-    length = w_list.length()
-    index = get_positive_index(where, length)
-    w_list.insert(index, w_any)
-    return space.w_None
-
 def get_positive_index(where, length):
     if where < 0:
         where += length
@@ -1513,62 +1568,6 @@ def get_positive_index(where, length):
         where = length
     assert where >= 0
     return where
-
-def list_append__List_ANY(space, w_list, w_any):
-    w_list.append(w_any)
-    return space.w_None
-
-def list_extend__List_ANY(space, w_list, w_any):
-    w_list.extend(w_any)
-    return space.w_None
-
-# default of w_idx is space.w_None (see listtype.py)
-def list_pop__List_ANY(space, w_list, w_idx):
-    length = w_list.length()
-    if length == 0:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("pop from empty list"))
-    # clearly differentiate between list.pop() and list.pop(index)
-    if space.is_w(w_idx, space.w_None):
-        return w_list.pop_end() # cannot raise because list is not empty
-    if space.isinstance_w(w_idx, space.w_float):
-        raise OperationError(space.w_TypeError,
-            space.wrap("integer argument expected, got float")
-        )
-    idx = space.int_w(space.int(w_idx))
-    if idx < 0:
-        idx += length
-    try:
-        return w_list.pop(idx)
-    except IndexError:
-        raise OperationError(space.w_IndexError,
-                             space.wrap("pop index out of range"))
-
-def list_remove__List_ANY(space, w_list, w_any):
-    # needs to be safe against eq_w() mutating the w_list behind our back
-    i = 0
-    while i < w_list.length():
-        if space.eq_w(w_list.getitem(i), w_any):
-            if i < w_list.length(): # if this is wrong the list was changed
-                w_list.pop(i)
-            return space.w_None
-        i += 1
-    raise OperationError(space.w_ValueError,
-                         space.wrap("list.remove(x): x not in list"))
-
-def list_count__List_ANY(space, w_list, w_any):
-    # needs to be safe against eq_w() mutating the w_list behind our back
-    count = 0
-    i = 0
-    while i < w_list.length():
-        if space.eq_w(w_list.getitem(i), w_any):
-            count += 1
-        i += 1
-    return space.wrap(count)
-
-def list_reverse__List(space, w_list):
-    w_list.reverse()
-    return space.w_None
 
 # ____________________________________________________________
 # Sorting
@@ -1639,10 +1638,6 @@ class CustomKeyCompareSort(CustomCompareSort):
         assert isinstance(b, KeyContainer)
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
-def list_reversed__ANY(space, w_list):
-    from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
-    return W_ReverseSeqIterObject(space, w_list, -1)
-
 # ____________________________________________________________
 
 def descr_new(space, w_listtype, __args__):
@@ -1657,27 +1652,6 @@ def descr_new(space, w_listtype, __args__):
 def get_list_index(space, w_index):
     return space.getindex_w(w_index, space.w_IndexError, "list index")
 
-list_append   = SMM('append', 2,
-                doc='L.append(object) -- append object to end')
-list_insert   = SMM('insert', 3,
-                    doc='L.insert(index, object) -- insert object before index')
-list_extend   = SMM('extend', 2,
-                    doc='L.extend(iterable) -- extend list by appending'
-                        ' elements from the iterable')
-list_pop      = SMM('pop',    2, defaults=(None,),
-                    doc='L.pop([index]) -> item -- remove and return item at'
-                        ' index (default last)')
-list_remove   = SMM('remove', 2,
-                    doc='L.remove(value) -- remove first occurrence of value')
-list_count    = SMM('count',  2,
-                    doc='L.count(value) -> integer -- return number of'
-                        ' occurrences of value')
-list_reverse  = SMM('reverse',1,
-                    doc='L.reverse() -- reverse *IN PLACE*')
-list_reversed = SMM('__reversed__', 1,
-                    doc='L.__reversed__() -- return a reverse iterator over'
-                        ' the list')
-
 register_all(vars(), globals())
 
 W_ListObject.typedef = StdTypeDef("list",
@@ -1687,6 +1661,14 @@ list(sequence) -> new list initialized from sequence's items""",
     __hash__ = None,
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
+    append = interp2app(W_ListObject.append),
+    reverse = interp2app(W_ListObject.descr_reverse),
+    __reversed__ = interp2app(W_ListObject.descr_reversed),
+    count = interp2app(W_ListObject.descr_count),
+    pop = interp2app(W_ListObject.descr_pop),
+    extend = interp2app(W_ListObject.extend),
+    insert = interp2app(W_ListObject.descr_insert),
+    remove = interp2app(W_ListObject.descr_remove),
     )
 W_ListObject.typedef.registermethods(globals())
 
