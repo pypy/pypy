@@ -177,6 +177,36 @@ class W_Dtype(Wrappable):
     def get_size(self):
         return self.itemtype.get_element_size()
 
+    def descr_reduce(self, space):
+        w_class = space.type(self)
+
+        kind = self.kind
+        elemsize = self.itemtype.get_element_size()
+        builder_args = space.newtuple([space.wrap("%s%d" % (kind, elemsize)), space.wrap(0), space.wrap(1)])
+
+        version = space.wrap(3)
+        order = space.wrap(byteorder_prefix if self.native else nonnative_byteorder_prefix)
+        names = self.descr_get_names(space)
+        values = self.descr_get_fields(space)
+        #TODO: Change this when alignment is implemented :
+        if self.fields:
+            #TODO: Implement this when subarrays are implemented
+            subdescr = space.w_None
+            size = 0
+            for key in self.fields:
+                size += self.fields[key].get_size()
+            w_size = space.wrap(size)
+            alignment = space.wrap(1)
+        else:
+            subdescr = space.w_None
+            w_size = space.wrap(-1)
+            alignment = space.wrap(-1)
+        flags = space.wrap(0)
+
+        data = space.newtuple([version, order, subdescr, names, values, w_size, alignment, flags])
+
+        return space.newtuple([w_class, builder_args, data])
+
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
@@ -249,7 +279,7 @@ def variable_dtype(space, name):
 
 def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
-            "dtype from spec"))    
+            "dtype from spec"))
 
 def descr__new__(space, w_subtype, w_dtype):
     cache = get_dtype_cache(space)
@@ -290,6 +320,8 @@ W_Dtype.typedef = TypeDef("dtype",
     __eq__ = interp2app(W_Dtype.descr_eq),
     __ne__ = interp2app(W_Dtype.descr_ne),
     __getitem__ = interp2app(W_Dtype.descr_getitem),
+
+    __reduce__ = interp2app(W_Dtype.descr_reduce),
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),

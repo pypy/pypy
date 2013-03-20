@@ -14,7 +14,7 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
             from rpython.rtyper.lltypesystem import rffi
             ptr_size = rffi.sizeof(rffi.CCHARP)
         cls.w_ptr_size = cls.space.wrap(ptr_size)
-    
+
 class AppTestDtypes(BaseAppTestDtypes):
     def test_dtype(self):
         from numpypy import dtype
@@ -148,7 +148,7 @@ class AppTestDtypes(BaseAppTestDtypes):
     def test_bool_binop_types(self):
         from numpypy import array, dtype
         types = [
-            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 
+            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd',
             'e'
         ]
         a = array([True], '?')
@@ -269,6 +269,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         ]:
             assert hash(tp(value)) == hash(value)
 
+    def test_pickle(self):
+        from numpypy import array, dtype
+        assert array([1,2,3]).dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
+
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -339,7 +343,7 @@ class AppTestTypes(BaseAppTestDtypes):
         import numpypy as numpy
 
         assert numpy.int8.mro() == [numpy.int8, numpy.signedinteger,
-                                    numpy.integer, numpy.number, 
+                                    numpy.integer, numpy.number,
                                     numpy.generic, object]
 
         a = numpy.array([1, 2, 3], numpy.int8)
@@ -362,8 +366,8 @@ class AppTestTypes(BaseAppTestDtypes):
     def test_uint8(self):
         import numpypy as numpy
 
-        assert numpy.uint8.mro() == [numpy.uint8, numpy.unsignedinteger, 
-                                     numpy.integer, numpy.number, 
+        assert numpy.uint8.mro() == [numpy.uint8, numpy.unsignedinteger,
+                                     numpy.integer, numpy.number,
                                      numpy.generic, object]
 
         a = numpy.array([1, 2, 3], numpy.uint8)
@@ -434,8 +438,8 @@ class AppTestTypes(BaseAppTestDtypes):
         import numpypy as numpy
 
         assert numpy.int_ is numpy.dtype(int).type
-        assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger, 
-                                    numpy.integer, numpy.number, 
+        assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger,
+                                    numpy.integer, numpy.number,
                                     numpy.generic, int, object]
 
     def test_int64(self):
@@ -443,12 +447,12 @@ class AppTestTypes(BaseAppTestDtypes):
         import numpypy as numpy
 
         if sys.maxint == 2 ** 63 -1:
-            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, 
-                                         numpy.integer, numpy.number, 
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger,
+                                         numpy.integer, numpy.number,
                                          numpy.generic, int, object]
         else:
-            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, 
-                                         numpy.integer, numpy.number, 
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger,
+                                         numpy.integer, numpy.number,
                                          numpy.generic, object]
 
         assert numpy.dtype(numpy.int64).type is numpy.int64
@@ -464,8 +468,8 @@ class AppTestTypes(BaseAppTestDtypes):
         import sys
         import numpypy as numpy
 
-        assert numpy.uint64.mro() == [numpy.uint64, numpy.unsignedinteger, 
-                                      numpy.integer, numpy.number, 
+        assert numpy.uint64.mro() == [numpy.uint64, numpy.unsignedinteger,
+                                      numpy.integer, numpy.number,
                                       numpy.generic, object]
 
         assert numpy.dtype(numpy.uint64).type is numpy.uint64
@@ -480,8 +484,8 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_float16(self):
         import numpypy as numpy
-        assert numpy.float16.mro() == [numpy.float16, numpy.floating, 
-                                       numpy.inexact, numpy.number, 
+        assert numpy.float16.mro() == [numpy.float16, numpy.floating,
+                                       numpy.inexact, numpy.number,
                                        numpy.generic, object]
 
         assert numpy.float16(12) == numpy.float64(12)
@@ -492,8 +496,8 @@ class AppTestTypes(BaseAppTestDtypes):
     def test_float32(self):
         import numpypy as numpy
 
-        assert numpy.float32.mro() == [numpy.float32, numpy.floating, 
-                                       numpy.inexact, numpy.number, 
+        assert numpy.float32.mro() == [numpy.float32, numpy.floating,
+                                       numpy.inexact, numpy.number,
                                        numpy.generic, object]
 
         assert numpy.float32(12) == numpy.float64(12)
@@ -503,8 +507,8 @@ class AppTestTypes(BaseAppTestDtypes):
     def test_float64(self):
         import numpypy as numpy
 
-        assert numpy.float64.mro() == [numpy.float64, numpy.floating, 
-                                       numpy.inexact, numpy.number, 
+        assert numpy.float64.mro() == [numpy.float64, numpy.floating,
+                                       numpy.inexact, numpy.number,
                                        numpy.generic, float, object]
 
         a = numpy.array([1, 2, 3], numpy.float64)
@@ -829,7 +833,7 @@ class AppTestLongDoubleDtypes(BaseNumpyAppTest):
         # it can be float96 or float128
         if numpy.longfloat != numpy.float64:
             assert numpy.longfloat.mro()[1:] == [numpy.floating,
-                                       numpy.inexact, numpy.number, 
+                                       numpy.inexact, numpy.number,
                                        numpy.generic, object]
         a = numpy.array([1, 2, 3], numpy.longdouble)
         assert type(a[1]) is numpy.longdouble
@@ -871,3 +875,4 @@ class AppTestLongDoubleDtypes(BaseNumpyAppTest):
         a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
         assert a[0] == 1
         assert (a + a)[1] == 4
+
