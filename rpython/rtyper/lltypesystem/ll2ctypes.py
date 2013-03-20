@@ -84,12 +84,16 @@ def do_allocation_in_far_regions():
     if not far_regions:
         from rpython.rlib import rmmap
         if _64BIT:
-            PIECESIZE = 0x80000000
+            PIECE_STRIDE = 0x80000000
         else:
             if _POSIX:
-                PIECESIZE = 0x10000000
+                PIECE_STRIDE = 0x10000000
             else:
-                PIECESIZE = 0x08000000
+                PIECE_STRIDE = 0x08000000
+        if _POSIX:
+            PIECE_SIZE = 0x04000000
+        else:
+            PIECE_SIZE = PIECE_STRIDE
         PIECES = 10
         flags = (0,)
         if _POSIX:
@@ -100,12 +104,16 @@ def do_allocation_in_far_regions():
             # XXX seems not to work
         else:
             assert False  # should always generate flags
-        m = rmmap.mmap(-1, PIECES * PIECESIZE, *flags)
+
+        m = rmmap.mmap(-1, PIECES * PIECE_STRIDE, *flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
         m._ll2ctypes_pieces = []
         for i in range(PIECES):
-            m._ll2ctypes_pieces.append((i * PIECESIZE, (i+1) * PIECESIZE))
+            start = i * PIECE_STRIDE
+            m._ll2ctypes_pieces.append((start, start + PIECE_SIZE))
+            if _POSIX:
+                m.unmap_range(start + PIECE_SIZE, PIECE_STRIDE - PIECE_SIZE)
         far_regions = m
 
 # ____________________________________________________________
