@@ -11,6 +11,8 @@ Split rpython and pypy into seperate directories
 .. branch: callback-jit
 Callbacks from C are now better JITted
 
+.. branch: fix-jit-logs
+
 .. branch: remove-globals-in-jit
 
 .. branch: length-hint

@@ -5,7 +5,8 @@ from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, BoxInt)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
-from rpython.rlib.debug import debug_start, debug_stop, have_debug_prints
+from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
+                                debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -224,3 +225,12 @@ class BaseAssembler(object):
                ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
                             None, descr=self.debug_counter_descr)]
         operations.extend(ops)
+
+
+def debug_bridge(descr_number, rawstart, codeendpos):
+    debug_start("jit-backend-addr")
+    debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                (r_uint(descr_number), r_uint(rawstart),
+                    r_uint(rawstart + codeendpos)))
+    debug_stop("jit-backend-addr")
+

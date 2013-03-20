@@ -43,7 +43,7 @@ class Logger(object):
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard",
-                        "%x" % compute_unique_id(descr),
+                        "0x%x" % compute_unique_id(descr),
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")
@@ -134,7 +134,7 @@ class LogOperations(object):
             descr = op.getdescr()
             if is_guard and self.guard_number:
                 hash = compute_unique_id(descr)
-                r = "<Guard%x>" % hash
+                r = "<Guard0x%x>" % hash
             else:
                 r = self.repr_of_descr(descr)
             if args:

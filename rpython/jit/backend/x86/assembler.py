@@ -2,7 +2,8 @@ import sys
 import os
 
 from rpython.jit.backend.llsupport import symbolic, jitframe
-from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler, DEBUG_COUNTER
+from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
+                                                DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import Const, Box
@@ -553,11 +554,7 @@ class Assembler386(BaseAssembler):
         rawstart = self.materialize_loop(original_loop_token)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
-        debug_start("jit-backend-addr")
-        debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
-                    (r_uint(descr_number), r_uint(rawstart),
-                     r_uint(rawstart + codeendpos)))
-        debug_stop("jit-backend-addr")
+        debug_bridge(descr_number, rawstart, codeendpos)
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
