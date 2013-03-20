@@ -259,7 +259,7 @@ def get_executor(space, name):
         pass
 
     #   2) drop '&': by-ref is pretty much the same as by-value, python-wise
-    if compound and compound[len(compound)-1] == "&":
+    if compound and compound[len(compound)-1] == '&':
         # TODO: this does not actually work with Reflex (?)
         try:
             return _executors[clean_name](space, None)
@@ -273,17 +273,18 @@ def get_executor(space, name):
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPClass
         cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
-        if compound == "":
+        if compound == '':
             return InstanceExecutor(space, cppclass)
-        elif compound == "*" or compound == "&":
+        elif compound == '*' or compound == '&':
             return InstancePtrExecutor(space, cppclass)
-        elif compound == "**" or compound == "*&":
+        elif compound == '**' or compound == '*&':
             return InstancePtrPtrExecutor(space, cppclass)
     elif capi.c_is_enum(clean_name):
         return _executors['unsigned int'](space, None)
 
     # 4) additional special cases
-    # ... none for now
+    if compound == '*':
+        return _executors['void*'](space, None)  # allow at least passing of the pointer
 
     # currently used until proper lazy instantiation available in interp_cppyy
     return FunctionExecutor(space, None)

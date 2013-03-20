@@ -431,8 +431,20 @@ class AppTestSTLMAP:
         assert a["some string" ] == 'string'
         assert a[3.1415] == 'double'
 
+    def test06_STL_like_class_iterators(self):
+        """Test the iterator protocol mapping for an STL like class"""
 
-class AppTestSTLMAP:
+        import cppyy
+        stl_like_class = cppyy.gbl.stl_like_class
+
+        a = stl_like_class(int)()
+        for i in a:
+            pass
+
+        assert i == 3
+
+
+class AppTestSTLITERATOR:
     spaceconfig = dict(usemodules=['cppyy', 'itertools'])
 
     def setup_class(cls):

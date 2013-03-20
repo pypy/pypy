@@ -318,15 +318,17 @@ def _pythonize(pyclass):
     # global == and != for its iterators are reflected, which is a hassle ...
     if not 'vector' in pyclass.__name__[:11] and \
             ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
-        # TODO: check return type of begin() and end() for existence
-        def __iter__(self):
-            iter = self.begin()
-            while iter != self.end():
-                yield iter.__deref__()
-                iter.__preinc__()
-            iter.destruct()
-            raise StopIteration
-        pyclass.__iter__ = __iter__
+        if cppyy._scope_byname(pyclass.__name__+'::iterator') or \
+                cppyy._scope_byname(pyclass.__name__+'::const_iterator'):
+            def __iter__(self):
+                i = self.begin()
+                while i != self.end():
+                    yield i.__deref__()
+                    i.__preinc__()
+                i.destruct()
+                raise StopIteration
+            pyclass.__iter__ = __iter__
+        # else: rely on numbered iteration
 
     # combine __getitem__ and __len__ to make a pythonized __getitem__
     if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
