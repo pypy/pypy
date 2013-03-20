@@ -7,7 +7,7 @@ from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
 class AppTestStruct(object):
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = dict(usemodules=['struct', 'array'])
 
     def setup_class(cls):
         """
@@ -59,17 +59,6 @@ class AppTestStruct(object):
             def __index__(self):
                 return 3
         assert self.struct.unpack("i", self.struct.pack("i", X()))[0] == 3
-
-
-    def test_deprecation_warning(self):
-        import warnings
-        for code in 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q':
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                raises(TypeError, self.struct.pack, code, 3j)
-            assert len(w) == 1
-            assert str(w[0].message) == "integer argument expected, got non-integer"
-            assert w[0].category is DeprecationWarning
 
 
     def test_pack_standard_little(self):
@@ -386,6 +375,81 @@ class AppTestStruct(object):
         assert self.struct.unpack("ii", b) == (62, 12)
         raises(self.struct.error, self.struct.unpack, "i", b)
 
+    def test_trailing_counter(self):
+        import array
+        store = array.array('b', b' '*100)
+
+        # format lists containing only count spec should result in an error
+        raises(self.struct.error, self.struct.pack, '12345')
+        raises(self.struct.error, self.struct.unpack, '12345', b'')
+        raises(self.struct.error, self.struct.pack_into, '12345', store, 0)
+        raises(self.struct.error, self.struct.unpack_from, '12345', store, 0)
+
+        # Format lists with trailing count spec should result in an error
+        raises(self.struct.error, self.struct.pack, 'c12345', b'x')
+        raises(self.struct.error, self.struct.unpack, 'c12345', b'x')
+        raises(self.struct.error, self.struct.pack_into, 'c12345', store, 0,
+                           b'x')
+        raises(self.struct.error, self.struct.unpack_from, 'c12345', store,
+                           0)
+
+        # Mixed format tests
+        raises(self.struct.error, self.struct.pack, '14s42', b'spam and eggs')
+        raises(self.struct.error, self.struct.unpack, '14s42',
+                          b'spam and eggs')
+        raises(self.struct.error, self.struct.pack_into, '14s42', store, 0,
+                          b'spam and eggs')
+        raises(self.struct.error, self.struct.unpack_from, '14s42', store, 0)
+
+    def test_1530559(self):
+        # Native 'q' packing isn't available on systems that don't have the C
+        # long long type.
+        try:
+            self.struct.pack('q', 5)
+        except self.struct.error:
+            HAVE_LONG_LONG = False
+        else:
+            HAVE_LONG_LONG = True
+        integer_codes = ('b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q')
+        for byteorder in '', '@', '=', '<', '>', '!':
+            for code in integer_codes:
+                if (byteorder in ('', '@') and code in ('q', 'Q') and
+                    not HAVE_LONG_LONG):
+                    continue
+                format = byteorder + code
+                raises(self.struct.error, self.struct.pack, format, 1.0)
+                raises(self.struct.error, self.struct.pack, format, 1.5)
+        raises(self.struct.error, self.struct.pack, 'P', 1.0)
+        raises(self.struct.error, self.struct.pack, 'P', 1.5)
+
+    def test_integers(self):
+        # Native 'q' packing isn't available on systems that don't have the C
+        # long long type.
+        try:
+            self.struct.pack('q', 5)
+        except self.struct.error:
+            HAVE_LONG_LONG = False
+        else:
+            HAVE_LONG_LONG = True
+
+        integer_codes = ('b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q')
+        byteorders = '', '@', '=', '<', '>', '!'
+
+        def run_not_int_test(format):
+            class NotAnInt:
+                def __int__(self):
+                    return 42
+            raises((TypeError, self.struct.error),
+                   self.struct.pack, format,
+                   NotAnInt())
+
+        for code in integer_codes:
+            for byteorder in byteorders:
+                if (byteorder in ('', '@') and code in ('q', 'Q') and
+                    not HAVE_LONG_LONG):
+                    continue
+                format = byteorder+code
+                t = run_not_int_test(format)
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])
