@@ -105,6 +105,12 @@ def do_allocation_in_far_regions():
         else:
             assert False  # should always generate flags
 
+        # Map and unmap something just to exercise unmap so that we (lazily)
+        # build the ctypes callable.  Otherwise, when we reach unmap below
+        # we may already have a giant map and be unable to fork, as for the
+        # /sbin/ldconfig call inside ctypes.util.find_library().
+        rmmap.mmap(-1, 4096, *flags).close()
+
         m = rmmap.mmap(-1, PIECES * PIECE_STRIDE, *flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
