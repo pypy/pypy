@@ -3,7 +3,12 @@ from rpython.rlib import rstring
 
 #- type name manipulations --------------------------------------------------
 def _remove_const(name):
-    return "".join(rstring.split(name, "const")) # poor man's replace
+    tmplt_start = name.find("<")
+    if 0 <= tmplt_start:
+        # only replace const within the class name, not in the template parameters
+        return "".join(rstring.split(name[:tmplt_start], "const"))+name[tmplt_start:]
+    else:
+        return "".join(rstring.split(name, "const"))
 
 def remove_const(name):
     return _remove_const(name).strip(' ')
