@@ -527,7 +527,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = a.real
         assert b == array(3)
         a.real = 1024
-        assert a.real == 1024 
+        a.imag = 2048
+        assert a.real == 1024 and a.imag == 2048
         assert a.imag == array(4)
         assert b.dtype == dtype(float)
         a = array(4.0)
