@@ -526,16 +526,20 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array(complex(3.0, 4.0))
         b = a.real
         assert b == array(3)
-        a.real = 1024
-        assert a.real == 1024 
         assert a.imag == array(4)
+        a.real = 1024
+        a.imag = 2048
+        assert a.real == 1024 and a.imag == 2048
         assert b.dtype == dtype(float)
         a = array(4.0)
         b = a.imag
         assert b == 0
         assert b.dtype == dtype(float)
-        raises(TypeError, 'a.imag = 1024')
-        raises(ValueError, 'a.real = [1, 3]')
+        exc = raises(TypeError, 'a.imag = 1024')
+        assert str(exc.value).startswith("array does not have imaginary")
+        exc = raises(ValueError, 'a.real = [1, 3]')
+        assert str(exc.value) == \
+            "could not broadcast input array from shape (2) into shape ()"
         a = array('abc')
         assert str(a.real) == 'abc'
         # numpy imag for flexible types returns self
@@ -609,8 +613,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
             # numpy actually raises an AttributeError,
             # but numpypy raises a TypeError
-            raises((TypeError, AttributeError), 'c2.real = 10.')
-            raises((TypeError, AttributeError), 'c2.imag = 10.')
+            exc = raises((TypeError, AttributeError), 'c2.real = 10.')
+            assert str(exc.value) == "readonly attribute"
+            exc = raises((TypeError, AttributeError), 'c2.imag = 10.')
+            assert str(exc.value) == "readonly attribute"
             assert(real(c2) == 3.0)
             assert(imag(c2) == 4.0)
 
