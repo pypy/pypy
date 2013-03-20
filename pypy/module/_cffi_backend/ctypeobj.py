@@ -80,12 +80,11 @@ class W_CType(Wrappable):
 
     def _convert_error(self, expected, w_got):
         space = self.space
-        ob = space.interpclass_w(w_got)
-        if isinstance(ob, cdataobj.W_CData):
+        if isinstance(w_got, cdataobj.W_CData):
             return operationerrfmt(space.w_TypeError,
                                    "initializer for ctype '%s' must be a %s, "
                                    "not cdata '%s'", self.name, expected,
-                                   ob.ctype.name)
+                                   w_got.ctype.name)
         else:
             return operationerrfmt(space.w_TypeError,
                                    "initializer for ctype '%s' must be a %s, "

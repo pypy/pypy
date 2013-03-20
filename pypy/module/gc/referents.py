@@ -34,9 +34,8 @@ def wrap(space, gcref):
     return w_obj
 
 def unwrap(space, w_obj):
-    gcrefobj = space.interpclass_w(w_obj)
-    if isinstance(gcrefobj, W_GcRef):
-        gcref = gcrefobj.gcref
+    if isinstance(w_obj, W_GcRef):
+        gcref = w_obj.gcref
     else:
         gcref = rgc.cast_instance_to_gcref(w_obj)
     return gcref

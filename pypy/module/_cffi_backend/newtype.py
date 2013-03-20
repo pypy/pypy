@@ -305,13 +305,12 @@ def new_function_type(space, w_fargs, fresult, ellipsis=0):
     from pypy.module._cffi_backend import ctypefunc
     fargs = []
     for w_farg in space.fixedview(w_fargs):
-        farg = space.interpclass_w(w_farg)
-        if not isinstance(farg, ctypeobj.W_CType):
+        if not isinstance(w_farg, ctypeobj.W_CType):
             raise OperationError(space.w_TypeError,
                 space.wrap("first arg must be a tuple of ctype objects"))
-        if isinstance(farg, ctypearray.W_CTypeArray):
-            farg = farg.ctptr
-        fargs.append(farg)
+        if isinstance(w_farg, ctypearray.W_CTypeArray):
+            w_farg = w_farg.ctptr
+        fargs.append(w_farg)
     #
     if ((fresult.size < 0 and not isinstance(fresult, ctypevoid.W_CTypeVoid))
             or isinstance(fresult, ctypearray.W_CTypeArray)):

@@ -80,11 +80,10 @@ class W_CTypeStructOrUnion(W_CType):
 
     def _copy_from_same(self, cdata, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            if ob.ctype is self and self.size >= 0:
-                misc._raw_memcopy(ob._cdata, cdata, self.size)
-                keepalive_until_here(ob)
+        if isinstance(w_ob, cdataobj.W_CData):
+            if w_ob.ctype is self and self.size >= 0:
+                misc._raw_memcopy(w_ob._cdata, cdata, self.size)
+                keepalive_until_here(w_ob)
                 return True
         return False
 

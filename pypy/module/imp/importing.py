@@ -992,11 +992,10 @@ def read_compiled_module(space, cpathname, strbuf):
 
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
-    pycode = space.interpclass_w(w_code)
-    if pycode is None or not isinstance(pycode, Code):
+    if not isinstance(w_code, Code):
         raise operationerrfmt(space.w_ImportError,
                               "Non-code object in %s", cpathname)
-    return pycode
+    return w_code
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,

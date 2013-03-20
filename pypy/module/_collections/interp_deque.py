@@ -322,7 +322,7 @@ class W_Deque(Wrappable):
 
     def compare(self, w_other, op):
         space = self.space
-        if not isinstance(space.interpclass_w(w_other), W_Deque):
+        if not isinstance(w_other, W_Deque):
             return space.w_NotImplemented
         return space.compare_by_iteration(space.wrap(self), w_other, op)
     compare._annspecialcase_ = 'specialize:arg(2)'

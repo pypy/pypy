@@ -93,12 +93,11 @@ class Buffer(Wrappable):
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
-            other = space.interpclass_w(w_other)
-            if not isinstance(other, Buffer):
+            if not isinstance(w_other, Buffer):
                 return space.w_NotImplemented
             # xxx not the most efficient implementation
             str1 = self.as_str()
-            str2 = other.as_str()
+            str2 = w_other.as_str()
             return space.wrap(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp

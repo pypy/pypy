@@ -22,11 +22,10 @@ class W_MemoryView(Wrappable):
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
-            other = space.interpclass_w(w_other)
-            if isinstance(other, W_MemoryView):
+            if isinstance(w_other, W_MemoryView):
                 # xxx not the most efficient implementation
                 str1 = self.as_str()
-                str2 = other.as_str()
+                str2 = w_other.as_str()
                 return space.wrap(getattr(operator, name)(str1, str2))
 
             try:

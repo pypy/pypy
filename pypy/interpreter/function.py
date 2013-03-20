@@ -550,18 +550,17 @@ class Method(Wrappable):
 
     def descr_method_eq(self, w_other):
         space = self.space
-        other = space.interpclass_w(w_other)
-        if not isinstance(other, Method):
+        if not isinstance(w_other, Method):
             return space.w_NotImplemented
         if self.w_instance is None:
-            if other.w_instance is not None:
+            if w_other.w_instance is not None:
                 return space.w_False
         else:
-            if other.w_instance is None:
+            if w_other.w_instance is None:
                 return space.w_False
-            if not space.eq_w(self.w_instance, other.w_instance):
+            if not space.eq_w(self.w_instance, w_other.w_instance):
                 return space.w_False
-        return space.eq(self.w_function, other.w_function)
+        return space.eq(self.w_function, w_other.w_function)
 
     def descr_method_hash(self):
         space = self.space
@@ -578,13 +577,14 @@ class Method(Wrappable):
         new_inst = mod.get('method_new')
         w        = space.wrap
         w_instance = self.w_instance or space.w_None
-        function = space.interpclass_w(self.w_function)
-        if isinstance(function, Function) and isinstance(function.code, BuiltinCode):
+        w_function = self.w_function
+        if (isinstance(w_function, Function) and
+                isinstance(w_function.code, BuiltinCode)):
             new_inst = mod.get('builtin_method_new')
             if space.is_w(w_instance, space.w_None):
-                tup = [self.w_class, space.wrap(function.name)]
+                tup = [self.w_class, space.wrap(w_function.name)]
             else:
-                tup = [w_instance, space.wrap(function.name)]
+                tup = [w_instance, space.wrap(w_function.name)]
         elif space.is_w( self.w_class, space.w_None ):
             tup = [self.w_function, w_instance]
         else:

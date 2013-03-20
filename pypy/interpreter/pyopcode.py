@@ -607,16 +607,15 @@ class __extend__(pyframe.PyFrame):
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
             return None
-        unroller = self.space.interpclass_w(w_top)
-        if isinstance(unroller, SuspendedUnroller):
+        if isinstance(w_top, SuspendedUnroller):
             # case of a finally: block with a suspended unroller
-            return unroller
+            return w_top
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
-            unroller = self.space.interpclass_w(self.popvalue())
-            assert unroller is not None
-            return unroller
+            w_unroller = self.popvalue()
+            assert w_unroller is not None
+            return w_unroller
 
     def BUILD_CLASS(self, oparg, next_instr):
         w_methodsdict = self.popvalue()
@@ -944,11 +943,9 @@ class __extend__(pyframe.PyFrame):
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
         self.pushvalue(w_unroller)
-        unroller = self.space.interpclass_w(w_unroller)
-        is_app_exc = (unroller is not None and
-                      isinstance(unroller, SApplicationException))
-        if is_app_exc:
-            operr = unroller.operr
+        if isinstance(w_unroller, SApplicationException):
+            # app-level exception
+            operr = w_unroller.operr
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(

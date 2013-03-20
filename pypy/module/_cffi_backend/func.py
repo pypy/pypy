@@ -31,15 +31,14 @@ def typeof(space, cdata):
 # ____________________________________________________________
 
 def sizeof(space, w_obj):
-    ob = space.interpclass_w(w_obj)
-    if isinstance(ob, cdataobj.W_CData):
-        size = ob._sizeof()
-    elif isinstance(ob, ctypeobj.W_CType):
-        size = ob.size
+    if isinstance(w_obj, cdataobj.W_CData):
+        size = w_obj._sizeof()
+    elif isinstance(w_obj, ctypeobj.W_CType):
+        size = w_obj.size
         if size < 0:
             raise operationerrfmt(space.w_ValueError,
                                   "ctype '%s' is of unknown size",
-                                  ob.name)
+                                  w_obj.name)
     else:
         raise OperationError(space.w_TypeError,
                             space.wrap("expected a 'cdata' or 'ctype' object"))

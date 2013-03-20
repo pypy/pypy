@@ -290,29 +290,28 @@ class PyCode(eval.Code):
 
     def descr_code__eq__(self, w_other):
         space = self.space
-        other = space.interpclass_w(w_other)
-        if not isinstance(other, PyCode):
+        if not isinstance(w_other, PyCode):
             return space.w_False
-        areEqual = (self.co_name == other.co_name and
-                    self.co_argcount == other.co_argcount and
-                    self.co_nlocals == other.co_nlocals and
-                    self.co_flags == other.co_flags and
-                    self.co_firstlineno == other.co_firstlineno and
-                    self.co_code == other.co_code and
-                    len(self.co_consts_w) == len(other.co_consts_w) and
-                    len(self.co_names_w) == len(other.co_names_w) and
-                    self.co_varnames == other.co_varnames and
-                    self.co_freevars == other.co_freevars and
-                    self.co_cellvars == other.co_cellvars)
+        areEqual = (self.co_name == w_other.co_name and
+                    self.co_argcount == w_other.co_argcount and
+                    self.co_nlocals == w_other.co_nlocals and
+                    self.co_flags == w_other.co_flags and
+                    self.co_firstlineno == w_other.co_firstlineno and
+                    self.co_code == w_other.co_code and
+                    len(self.co_consts_w) == len(w_other.co_consts_w) and
+                    len(self.co_names_w) == len(w_other.co_names_w) and
+                    self.co_varnames == w_other.co_varnames and
+                    self.co_freevars == w_other.co_freevars and
+                    self.co_cellvars == w_other.co_cellvars)
         if not areEqual:
             return space.w_False
 
         for i in range(len(self.co_names_w)):
-            if not space.eq_w(self.co_names_w[i], other.co_names_w[i]):
+            if not space.eq_w(self.co_names_w[i], w_other.co_names_w[i]):
                 return space.w_False
 
         for i in range(len(self.co_consts_w)):
-            if not space.eq_w(self.co_consts_w[i], other.co_consts_w[i]):
+            if not space.eq_w(self.co_consts_w[i], w_other.co_consts_w[i]):
                 return space.w_False
 
         return space.w_True

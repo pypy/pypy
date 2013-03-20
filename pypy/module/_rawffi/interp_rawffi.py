@@ -321,9 +321,8 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     w = space.wrap
     if letter in TYPEMAP_PTR_LETTERS:
         # check for NULL ptr
-        datainstance = space.interpclass_w(w_arg)
-        if isinstance(datainstance, W_DataInstance):
-            ptr = datainstance.ll_buffer
+        if isinstance(w_arg, W_DataInstance):
+            ptr = w_arg.ll_buffer
         else:
             ptr = unwrap_truncate_int(rffi.VOIDP, space, w_arg)
         push_func(add_arg, argdesc, ptr)

@@ -823,10 +823,9 @@ def tee(space, w_iterable, n=2):
     if n < 0:
         raise OperationError(space.w_ValueError, space.wrap("n must be >= 0"))
 
-    myiter = space.interpclass_w(w_iterable)
-    if isinstance(myiter, W_TeeIterable):     # optimization only
-        chained_list = myiter.chained_list
-        w_iterator = myiter.w_iterator
+    if isinstance(w_iterable, W_TeeIterable):     # optimization only
+        chained_list = w_iterable.chained_list
+        w_iterator = w_iterable.w_iterator
         iterators_w = [w_iterable] * n
         for i in range(1, n):
             iterators_w[i] = space.wrap(W_TeeIterable(space, w_iterator,

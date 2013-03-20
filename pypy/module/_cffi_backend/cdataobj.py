@@ -90,15 +90,14 @@ class W_CData(Wrappable):
             from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
             space = self.space
             cdata1 = self._cdata
-            other = space.interpclass_w(w_other)
-            if isinstance(other, W_CData):
+            if isinstance(w_other, W_CData):
                 if requires_ordering:
                     if (isinstance(self.ctype, W_CTypePrimitive) or
-                        isinstance(other.ctype, W_CTypePrimitive)):
+                        isinstance(w_other.ctype, W_CTypePrimitive)):
                         raise OperationError(space.w_TypeError,
                             space.wrap("cannot do comparison on a "
                                        "primitive cdata"))
-                cdata2 = other._cdata
+                cdata2 = w_other._cdata
             elif (misc.is_zero(space, w_other) and
                      not isinstance(self.ctype, W_CTypePrimitive)):
                 cdata2 = lltype.nullptr(rffi.CCHARP.TO)
@@ -246,10 +245,9 @@ class W_CData(Wrappable):
 
     def sub(self, w_other):
         space = self.space
-        ob = space.interpclass_w(w_other)
-        if isinstance(ob, W_CData):
+        if isinstance(w_other, W_CData):
             from pypy.module._cffi_backend import ctypeptr, ctypearray
-            ct = ob.ctype
+            ct = w_other.ctype
             if isinstance(ct, ctypearray.W_CTypeArray):
                 ct = ct.ctptr
             #
@@ -261,7 +259,7 @@ class W_CData(Wrappable):
                     self.ctype.name, ct.name)
             #
             diff = (rffi.cast(lltype.Signed, self._cdata) -
-                    rffi.cast(lltype.Signed, ob._cdata)) // ct.ctitem.size
+                    rffi.cast(lltype.Signed, w_other._cdata)) // ct.ctitem.size
             return space.wrap(diff)
         #
         return self._add_or_sub(w_other, -1)

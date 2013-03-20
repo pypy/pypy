@@ -256,11 +256,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def unwrap(self, w_obj):
         """NOT_RPYTHON"""
-        if isinstance(w_obj, Wrappable):
-            return w_obj
         if isinstance(w_obj, model.W_Object):
             return w_obj.unwrap(self)
-        raise model.UnwrapError, "cannot unwrap: %r" % w_obj
+        if isinstance(w_obj, W_Root):
+            return w_obj
+        raise model.UnwrapError("cannot unwrap: %r" % w_obj)
 
     def newint(self, intval):
         return wrapint(self, intval)
