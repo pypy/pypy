@@ -1484,6 +1484,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert str(a.dtype) == '|S3'
         a = concatenate((array([]), array(['abc'])))
         assert a[0] == 'abc'
+        a = concatenate((['abcdef'], ['abc']))
+        assert a[0] == 'abcdef'
+        assert str(a.dtype) == '|S6'
     
     def test_record_concatenate(self):
         # only an exact match can succeed

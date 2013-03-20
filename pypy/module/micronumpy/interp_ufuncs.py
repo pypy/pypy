@@ -441,12 +441,14 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             return dt2
         if dt1.is_str_or_unicode():
             if dt2.num == 18:
-                size = max(dt2.itemtype.get_element_size(), 
-                           dt1.itemtype.get_element_size())
-                return interp_dtype.new_string_dtype(space, size)
-            size = max(dt2.itemtype.get_element_size(), 
-                       dt1.itemtype.get_element_size())
-            return interp_dtype.new_unicode_dtype(space, size)
+                if dt2.itemtype.get_element_size() >= \
+                           dt1.itemtype.get_element_size():
+                    return dt2
+                return dt1
+            if dt2.itemtype.get_element_size() >= \
+                       dt1.itemtype.get_element_size():
+                return dt2
+            return dt1
         return dt2
     else:    
         # increase to the next signed type

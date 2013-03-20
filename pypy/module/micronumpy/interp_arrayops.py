@@ -133,9 +133,6 @@ def concatenate(space, w_args, axis=0):
             raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
     if _axis < 0 or len(shape) <= _axis:
         raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
-    if dtype is None:
-        raise OperationError(space.w_TypeError, space.wrap(
-                'invalid type promotion'))
     res = W_NDimArray.from_shape(shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
