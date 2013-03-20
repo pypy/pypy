@@ -1,6 +1,7 @@
 from rpython.tool.udir import udir
 import os, sys, py
 from rpython.rtyper.test.test_llinterp import interpret
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rmmap as mmap
 from rpython.rlib.rmmap import RTypeError, RValueError, alloc, free
@@ -64,6 +65,29 @@ class TestMMap:
         
         f.close()
 
+    def test_unmap(self):
+        f = open(self.tmpname + "-unmap", "w+")
+        left, right, size = 100, 200, 500  # in pages
+
+        f.write(size*4096*"c")
+        f.flush()
+
+        def func(no):
+            m = mmap.mmap(no, size*4096)
+            m.unmap_range(left*4096, (right-left)*4096)
+            m.read(1)
+            m.seek(right*4096)
+            m.read(1)
+
+            def in_map(m, offset):
+                return rffi.ptradd(m.data, offset)
+            def as_num(ptr):
+                return rffi.cast(lltype.Unsigned, ptr)
+            res = mmap.alloc_hinted(in_map(m, (left+right)/2 * 4096), 4096)
+            assert as_num(in_map(m, left*4096)) <= as_num(res) < as_num(in_map(m, right*4096))
+        interpret(func, [f.fileno()])
+        f.close()
+
     def test_close(self):
         f = open(self.tmpname + "c", "w+")
         
@@ -80,6 +104,7 @@ class TestMMap:
             else:
                 raise Exception("Did not raise")
         interpret(func, [f.fileno()])
+        f.close()
 
     def test_read_byte(self):
         f = open(self.tmpname + "d", "w+")
