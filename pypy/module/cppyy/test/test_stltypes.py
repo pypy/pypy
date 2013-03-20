@@ -430,3 +430,40 @@ class AppTestSTLMAP:
         a = stl_like_class(int)()
         assert a["some string" ] == 'string'
         assert a[3.1415] == 'double'
+
+
+class AppTestSTLMAP:
+    spaceconfig = dict(usemodules=['cppyy', 'itertools'])
+
+    def setup_class(cls):
+        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_stlstring = cls.space.appexec([], """():
+            import cppyy, sys
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+
+    def test01_builtin_vector_iterators(self):
+        """Test iterator comparison with operator== reflected"""
+
+        import cppyy
+        from cppyy.gbl import std
+
+        v = std.vector(int)()
+        v.resize(1)
+
+        b1, e1 = v.begin(), v.end()
+        b2, e2 = v.begin(), v.end()
+
+        assert b1 == b2
+        assert not b1 != b2
+
+        assert e1 == e2
+        assert not e1 != e2
+
+        assert not b1 == e1
+        assert b1 != e1
+
+        b1.__preinc__()
+        assert not b1 == b2
+        assert b1 == e2
+        assert b1 != b2
+        assert b1 == e2
