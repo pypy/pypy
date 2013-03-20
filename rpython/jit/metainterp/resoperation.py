@@ -6,6 +6,10 @@ def ResOperation(opnum, args, result, descr=None):
     op.initarglist(args)
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
+        if opnum == rop.FINISH:
+            assert descr.final_descr
+        elif op.is_guard():
+            assert not descr.final_descr
         op.setdescr(descr)
     return op
 
@@ -525,6 +529,10 @@ _oplist = [
     'CALL_PURE/*d',             # removed before it's passed to the backend
     'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
+    'CALL_MALLOC_NURSERY_VARSIZE_SMALL/1',
+    # nursery malloc, non-const number of bytes, zeroed
+    # note that the number of bytes must be well known to be small enough
+    # to fulfill allocating in the nursery rules (and no card markings)
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 

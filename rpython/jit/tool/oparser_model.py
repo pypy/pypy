@@ -6,7 +6,7 @@ def get_real_model():
         from rpython.jit.metainterp.history import TreeLoop, JitCellToken
         from rpython.jit.metainterp.history import Box, BoxInt, BoxFloat
         from rpython.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
-        from rpython.jit.metainterp.history import BasicFailDescr, TargetToken
+        from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr, TargetToken
         from rpython.jit.metainterp.typesystem import llhelper
 
         from rpython.jit.metainterp.history import get_const_ptr_for_string
@@ -48,6 +48,11 @@ def get_mock_model():
 
         class BasicFailDescr(object):
             I_am_a_descr = True
+            final_descr = False
+
+        class BasicFinalDescr(object):
+            I_am_a_descr = True
+            final_descr = True
 
         class Box(object):
             _counter = 0

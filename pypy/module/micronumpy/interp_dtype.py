@@ -73,7 +73,6 @@ class W_Dtype(Wrappable):
 
     def build_and_convert(self, space, box):
         return self.itemtype.build_and_convert(space, self, box)
-
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 

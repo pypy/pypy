@@ -43,7 +43,6 @@ class KwargsDictStrategy(DictStrategy):
         return self.space.newlist([self.space.wrap(key) for key in self.unerase(w_dict.dstorage)[0]])
 
     def setitem(self, w_dict, w_key, w_value):
-        space = self.space
         if self.is_correct_type(w_key):
             self.setitem_str(w_dict, self.unwrap(w_key), w_value)
             return

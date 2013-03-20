@@ -7,7 +7,7 @@ ROOTSYS := ${ROOTSYS}
 
 ifeq ($(ROOTSYS),)
   genreflex=genreflex
-  cppflags=
+  cppflags=-I$(shell root-config --incdir) -L$(shell root-config --libdir)
 else
   genreflex=$(ROOTSYS)/bin/genreflex
   ifeq ($(wildcard $(ROOTSYS)/include),)     # standard locations used?

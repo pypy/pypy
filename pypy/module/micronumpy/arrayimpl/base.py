@@ -6,7 +6,7 @@ class BaseArrayImplementation(object):
     def base(self):
         raise NotImplementedError
 
-    def create_iter(self, shape=None):
+    def create_iter(self, shape=None, backward_broadcast=False):
         raise NotImplementedError
 
 class BaseArrayIterator(object):

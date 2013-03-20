@@ -350,7 +350,11 @@ class AutoFlusher(object):
     def remove(self, w_iobase):
         holder = w_iobase.streamholder
         if holder is not None:
-            del self.streams[holder]
+            try:
+                del self.streams[holder]
+            except KeyError:
+                # this can happen in daemon threads
+                pass
 
     def flush_all(self, space):
         while self.streams:

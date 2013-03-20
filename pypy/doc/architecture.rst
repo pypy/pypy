@@ -20,7 +20,7 @@ We aim to provide:
 
  * a compliant, flexible and fast implementation of the Python_ Language 
    which uses the above toolchain to enable new advanced high-level features 
-   without having to encode the low-level details.
+   without having to encode the low-level details.  We call this PyPy.
 
 By separating concerns in this way, our implementation
 of Python - and other dynamic languages - is able to automatically
@@ -34,7 +34,7 @@ including whether or not to have a JIT in the first place.
 High Level Goals
 =============================
 
-PyPy - the Translation Framework 
+RPython - the Translation Toolchain
 -----------------------------------------------
 
 Traditionally, language interpreters are written in a target platform language
@@ -83,7 +83,7 @@ This is an area of language implementation that is commonly considered
 very challenging because of the involved complexity.
 
 
-PyPy - the Python Interpreter 
+PyPy - the Python Interpreter
 --------------------------------------------
 
 Our main motivation for developing the translation framework is to
@@ -113,11 +113,11 @@ As you would expect from a project implemented using ideas from the world
 of `Extreme Programming`_, the architecture of PyPy has evolved over time
 and continues to evolve.  Nevertheless, the high level architecture is 
 stable. As described above, there are two rather independent basic
-subsystems: the `Python Interpreter`_ and the `Translation Framework`_.
+subsystems: the `PyPy Python Interpreter`_ and the `RPython Translation Toolchain`_.
 
 .. _`translation framework`:
 
-The Translation Framework
+RPython Translation Toolchain
 -------------------------
 
 The job of the RPython toolchain is to translate RPython_ programs
@@ -153,7 +153,7 @@ The steps of the translation process can be summarized as follows:
 
 * Optionally, `various transformations`_ can then be applied which, for
   example, perform optimizations such as inlining, add capabilities
-  such as stackless-style concurrency (deprecated), or insert code for the
+  such as stackless-style concurrency, or insert code for the
   `garbage collector`_.
 
 * Then, the graphs are converted to source code for the target platform
@@ -174,7 +174,7 @@ implementations`_.
 .. _`standard interpreter`: 
 .. _`python interpreter`: 
 
-The Python Interpreter
+PyPy Python Interpreter
 -------------------------------------
 
 PyPy's *Python Interpreter* is written in RPython and implements the

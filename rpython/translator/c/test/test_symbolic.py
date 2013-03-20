@@ -19,6 +19,29 @@ def test_offsetof():
     res = fn()
     assert res == 12
 
+def test_offsetof_nogc():
+    ARR = lltype.Array(lltype.Signed)
+    offsetx = llmemory.arraylengthoffset(ARR)
+    offsety = llmemory.itemoffsetof(ARR, 0)
+    ARR2 = lltype.GcArray(lltype.Signed)
+    offsetx2 = llmemory.arraylengthoffset(ARR2)
+    offsety2 = llmemory.itemoffsetof(ARR2, 0)
+
+    def f():
+        a = lltype.malloc(ARR, 5, flavor='raw')
+        a2 = lltype.malloc(ARR2, 6, flavor='raw')
+        a2[0] = 1
+        a[0] = 3
+        adr = llmemory.cast_ptr_to_adr(a)
+        adr2 = llmemory.cast_ptr_to_adr(a2)
+        return ((adr + offsetx).signed[0] * 1000 +
+                (adr + offsety).signed[0] * 100 +
+                (adr2 + offsetx2).signed[0] * 10 + (adr2 + offsety2).signed[0])
+
+    fn = compile(f, [])
+    res = fn()
+    assert res == 5361
+
 def test_sizeof_array_with_no_length():
     A = lltype.Array(lltype.Signed, hints={'nolength': True})
     arraysize = llmemory.sizeof(A, 10)

@@ -106,8 +106,15 @@ class W_DictMultiObject(W_Object):
         for w_k, w_v in list_pairs_w:
             w_self.setitem(w_k, w_v)
 
+    def setitem(self, w_key, w_value):
+        self.strategy.setitem(self, w_key, w_value)
+
+    def setitem_str(self, key, w_value):
+        self.strategy.setitem_str(self, key, w_value)
+
+
 def _add_indirections():
-    dict_methods = "setitem setitem_str getitem \
+    dict_methods = "getitem \
                     getitem_str delitem length \
                     clear w_keys values \
                     items iterkeys itervalues iteritems setdefault \
@@ -564,6 +571,12 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def w_keys(self, w_dict):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
+
+    def setitem_str(self, w_dict, s, w_value):
+        self.setitem(w_dict, self.space.wrap(s), w_value)
+
+    def switch_to_object_strategy(self, w_dict):
+        assert 0, "should be unreachable"
 
 create_iterator_classes(ObjectDictStrategy)
 

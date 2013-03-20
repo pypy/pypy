@@ -306,8 +306,10 @@ class FunctionDesc(Desc):
             result = schedule(graph, inputcells)
             signature = getattr(self.pyobj, '_signature_', None)
             if signature:
-                result = enforce_signature_return(self, signature[1], result)
-                self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [result])
+                sigresult = enforce_signature_return(self, signature[1], result)
+                if sigresult is not None:
+                    self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [sigresult])
+                    result = sigresult
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:

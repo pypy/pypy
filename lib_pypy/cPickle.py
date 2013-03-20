@@ -96,6 +96,11 @@ _tuplesize2code = [EMPTY_TUPLE, TUPLE1, TUPLE2, TUPLE3]
 #     closer to the ones produced by cPickle in CPython
 
 from pickle import StringIO
+try:
+    from pickle import StringBuilderFile
+except ImportError:
+    assert '__pypy__' not in sys.builtin_module_names
+    from pickle import StringIO as StringBuilderFile
 
 PythonPickler = Pickler
 class Pickler(PythonPickler):
@@ -120,7 +125,7 @@ def dump(obj, file, protocol=None):
 
 @builtinify
 def dumps(obj, protocol=None):
-    file = StringIO()
+    file = StringBuilderFile()
     Pickler(file, protocol).dump(obj)
     return file.getvalue()
 
