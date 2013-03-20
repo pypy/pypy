@@ -1,6 +1,6 @@
 
 from pypy.module.micronumpy.arrayimpl import base
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import support
 from pypy.interpreter.error import OperationError
 
@@ -38,6 +38,9 @@ class Scalar(base.BaseArrayImplementation):
     def get_strides(self):
         return []
 
+    def get_backstrides(self):
+        return []
+
     def create_iter(self, shape=None, backward_broadcast=False):
         return ScalarIterator(self)
 
@@ -57,6 +60,62 @@ class Scalar(base.BaseArrayImplementation):
 
     def transpose(self, _):
         return self
+
+    def get_real(self, orig_array):
+        if self.dtype.is_complex_type():
+            scalar = Scalar(self.dtype.float_type)
+            scalar.value = self.value.convert_real_to(scalar.dtype)
+            return scalar
+        return self
+
+    def set_real(self, space, orig_array, w_val):
+        w_arr = convert_to_array(space, w_val)
+        dtype = self.dtype.float_type or self.dtype
+        if len(w_arr.get_shape()) > 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "could not broadcast input array from shape " + 
+                "(%s) into shape ()" % (
+                    ','.join([str(x) for x in w_arr.get_shape()],))))
+        if self.dtype.is_complex_type():
+            #imag = dtype.itemtype.unbox(self.value.convert_imag_to(dtype))
+            #val = dtype.itemtype.unbox(w_arr.get_scalar_value().
+            #                                           convert_to(dtype))
+            #self.value = self.dtype.box_complex(val, imag)
+            self.value = self.dtype.itemtype.composite(w_arr.get_scalar_value().convert_to(dtype),
+                                    self.value.convert_imag_to(dtype))
+        else:
+            self.value = w_arr.get_scalar_value()
+
+    def get_imag(self, orig_array):
+        if self.dtype.is_complex_type():
+            scalar = Scalar(self.dtype.float_type)
+            scalar.value = self.value.convert_imag_to(scalar.dtype)
+            return scalar
+        scalar = Scalar(self.dtype)
+        if self.dtype.is_flexible_type():
+            scalar.value = self.value
+        else:
+            scalar.value = scalar.dtype.itemtype.box(0)
+        return scalar
+
+    def set_imag(self, space, orig_array, w_val):
+        #Only called on complex dtype
+        assert self.dtype.is_complex_type()
+        w_arr = convert_to_array(space, w_val)
+        dtype = self.dtype.float_type
+        if len(w_arr.get_shape()) > 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "could not broadcast input array from shape " + 
+                "(%s) into shape ()" % (
+                    ','.join([str(x) for x in w_arr.get_shape()],))))
+        #real = dtype.itemtype.unbox(self.value.convert_real_to(dtype))
+        #val = dtype.itemtype.unbox(w_arr.get_scalar_value().
+        #                                              convert_to(dtype))
+        #self.value = self.dtype.box_complex(real, val)
+        self.value = self.dtype.itemtype.composite(
+                            self.value.convert_real_to(dtype),
+                            w_arr.get_scalar_value(),
+                            )
 
     def descr_getitem(self, space, _, w_idx):
         raise OperationError(space.w_IndexError,
