@@ -470,3 +470,40 @@ class AppTestSURPLUS:
 
         assert not t2
 
+    def test05_element_access(self):
+        """Test access to elements in matrix and array objects."""
+
+        from cppyy import gbl
+
+        N = 3
+        v = gbl.TVectorF(N)
+        m = gbl.TMatrixD(N, N)
+
+        for i in range(N):
+            assert v[i] == 0.0
+
+            for j in range(N):
+                assert m[i][j] == 0.0
+
+    def test06_static_function_call( self ):
+        """Test call to static function."""
+
+        import cppyy
+        TROOT, gROOT = cppyy.gbl.TROOT, cppyy.gbl.gROOT
+
+        c1 = TROOT.Class()
+        assert not not c1
+
+        c2 = gROOT.Class()
+
+        assert c1 == c2
+
+        old = gROOT.GetDirLevel()
+        TROOT.SetDirLevel(2)
+        assert 2 == gROOT.GetDirLevel()
+        gROOT.SetDirLevel(old)
+
+        old = TROOT.GetDirLevel()
+        gROOT.SetDirLevel(3)
+        assert 3 == TROOT.GetDirLevel()
+        TROOT.SetDirLevel(old)
