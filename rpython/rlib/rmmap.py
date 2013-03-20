@@ -303,10 +303,10 @@ class MMap(object):
             c_munmap_safe(self.getptr(offset), size)
 
     def close(self):
-        if self.size > 0:
-            self.unmap()
-            self.setdata(NODATA, 0)
         if _MS_WINDOWS:
+            if self.size > 0:
+                self.unmap()
+                self.setdata(NODATA, 0)
             if self.map_handle != INVALID_HANDLE:
                 rwin32.CloseHandle(self.map_handle)
                 self.map_handle = INVALID_HANDLE
@@ -321,6 +321,9 @@ class MMap(object):
                 #     underlaying close error code
                 os.close(self.fd)
                 self.fd = -1
+            if self.size > 0:
+                self.unmap()
+                self.setdata(NODATA, 0)
 
     def __del__(self):
         self.close()
