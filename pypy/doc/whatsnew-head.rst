@@ -48,6 +48,7 @@ Rudimentary support for bytearray in RPython
 .. branch: fix-version-tool
 .. branch: popen2-removal
 .. branch: pickle-dumps
+.. branch: scalar_get_set
 
 .. branch: release-2.0-beta1
 
