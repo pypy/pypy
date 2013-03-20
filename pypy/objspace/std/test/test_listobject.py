@@ -1290,6 +1290,9 @@ class AppTestW_ListObject(object):
         l1[:] = l2
         assert len(l1) == 0
 
+    def test_use_method_for_wrong_object(self):
+        raises(TypeError, list.append.im_func, 1, 2)
+
 
 class AppTestForRangeLists(AppTestW_ListObject):
     spaceconfig = {"objspace.std.withrangelist": True}
