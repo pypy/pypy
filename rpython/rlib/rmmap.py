@@ -287,20 +287,26 @@ class MMap(object):
         self.data = data
         self.size = size
 
-    def unmap_range(self, offset, size):
-        """Unmap (a portion of) the mapped range.  POSIX only.
+    def unmap(self):
+        if _MS_WINDOWS:
+            UnmapViewOfFile(self.getptr(0))
+        elif _POSIX:
+            self.unmap_range(0, self.size)
 
-        Per munmap(1), the offset must be a multiple of the page size,
-        and the size will be rounded up to a multiple of the page size.
-        """
-        assert _POSIX
-        return c_munmap_safe(self.getptr(offset), size)
+    if _POSIX:
+        def unmap_range(self, offset, size):
+            """Unmap (a portion of) the mapped range.
+
+            Per munmap(1), the offset must be a multiple of the page size,
+            and the size will be rounded up to a multiple of the page size.
+            """
+            c_munmap_safe(self.getptr(offset), size)
 
     def close(self):
+        if self.size > 0:
+            self.unmap()
+            self.setdata(NODATA, 0)
         if _MS_WINDOWS:
-            if self.size > 0:
-                self.unmapview()
-                self.setdata(NODATA, 0)
             if self.map_handle != INVALID_HANDLE:
                 rwin32.CloseHandle(self.map_handle)
                 self.map_handle = INVALID_HANDLE
@@ -315,15 +321,9 @@ class MMap(object):
                 #     underlaying close error code
                 os.close(self.fd)
                 self.fd = -1
-            if self.size > 0:
-                self.unmap_range(0, self.size)
-                self.setdata(NODATA, 0)
 
     def __del__(self):
         self.close()
-
-    def unmapview(self):
-        UnmapViewOfFile(self.getptr(0))
 
     def read_byte(self):
         self.check_valid()
@@ -536,7 +536,7 @@ class MMap(object):
             self.setdata(newdata, newsize)
         elif _MS_WINDOWS:
             # disconnect the mapping
-            self.unmapview()
+            self.unmap()
             rwin32.CloseHandle(self.map_handle)
 
             # move to the desired EOF position

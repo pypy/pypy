@@ -65,8 +65,9 @@ class TestMMap:
         
         f.close()
 
-    def test_unmap(self):
-        f = open(self.tmpname + "-unmap", "w+")
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_unmap_range(self):
+        f = open(self.tmpname + "-unmap-range", "w+")
         left, right, size = 100, 200, 500  # in pages
 
         f.write(size*4096*"c")
