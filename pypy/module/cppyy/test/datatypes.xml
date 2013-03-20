@@ -1,6 +1,7 @@
 <lcgdict>
 
   <class pattern="cppyy_test_*" />
+  <class name="four_vector" />
 
   <enum name="fruit" />
 

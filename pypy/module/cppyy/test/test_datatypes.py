@@ -459,7 +459,23 @@ class AppTestDATATYPES:
         assert gbl.kBanana == 29
         assert gbl.kCitrus == 34
 
-    def test12_object_returns(self):
+    def test12_copy_contructor(self):
+        """Test copy constructor"""
+
+        import cppyy
+        four_vector = cppyy.gbl.four_vector
+        
+        t1 = four_vector(1., 2., 3., -4.)
+        t2 = four_vector(0., 0., 0.,  0.)
+        t3 = four_vector(t1)
+  
+        assert t1 == t3
+        assert t1 != t2
+        
+        for i in range(4):
+            assert t1[i] == t3[i]
+
+    def test13_object_returns(self):
         """Test access to and return of PODs"""
 
         import cppyy
@@ -486,7 +502,7 @@ class AppTestDATATYPES:
         assert c.get_pod_ptrref().m_int == 666
         assert c.get_pod_ptrref().m_double == 3.14
 
-    def test13_object_arguments(self):
+    def test14_object_arguments(self):
         """Test setting and returning of a POD through arguments"""
 
         import cppyy
@@ -554,7 +570,7 @@ class AppTestDATATYPES:
         assert p.m_int == 888
         assert p.m_double == 3.14
 
-    def test14_respect_privacy(self):
+    def test15_respect_privacy(self):
         """Test that privacy settings are respected"""
 
         import cppyy
@@ -567,7 +583,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test15_buffer_reshaping(self):
+    def test16_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
         import cppyy

@@ -6,6 +6,7 @@
 
 #pragma link C++ struct cppyy_test_pod;
 #pragma link C++ class cppyy_test_data;
+#pragma link C++ class four_vector;
 
 #pragma link C++ enum fruit;
 
