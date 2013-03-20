@@ -116,12 +116,21 @@ def concatenate(space, w_args, axis=0):
                     "all the input arrays must have same number of dimensions"))
             elif i == _axis:
                 shape[i] += axis_size
+        a_dt = arr.get_dtype()
+        if dtype.is_record_type() and a_dt.is_record_type():
+            #Record types must match
+            for f in dtype.fields:
+                if f not in a_dt.fields or \
+                             dtype.fields[f] != a_dt.fields[f]:
+                    raise OperationError(space.w_TypeError, 
+                               space.wrap("record type mismatch"))
+        elif dtype.is_record_type() or a_dt.is_record_type():
+            raise OperationError(space.w_TypeError, 
+                        space.wrap("invalid type promotion"))
         dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
         if _axis < 0 or len(arr.get_shape()) <= _axis:
             raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
-    if _axis < 0 or len(shape) <= _axis:
-        raise operationerrfmt(space.w_IndexError, "axis %d out of bounds [0, %d)", axis, len(shape))
     res = W_NDimArray.from_shape(shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0

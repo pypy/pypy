@@ -20,15 +20,21 @@ Implement __lenght_hint__ according to PEP 424
 
 .. branch: numpypy-longdouble
 Long double support for numpypy
+
 .. branch: numpypy-disable-longdouble
 Since r_longdouble support is missing, disable all longdouble and derivative
 dtypes using ENABLED_LONG_DOUBLE = False
+
 .. branch: numpypy-real-as-view
 Convert real, imag from ufuncs to views. This involves the beginning of
 view() functionality
+
 .. branch: indexing-by-array
 Adds indexing by scalar, adds int conversion from scalar and single element array,
 fixes compress, indexing by an array with a smaller shape and the indexed object.
+
+.. branch: str-dtype-improvement
+Allow concatenation of str and numeric arrays
 
 .. branch: signatures
 Improved RPython typing
@@ -48,6 +54,7 @@ Rudimentary support for bytearray in RPython
 .. branch: fix-version-tool
 .. branch: popen2-removal
 .. branch: pickle-dumps
+.. branch: scalar_get_set
 
 .. branch: release-2.0-beta1
 

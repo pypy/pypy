@@ -72,9 +72,17 @@ class KwargsDictStrategy(DictStrategy):
                 values_w.append(w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
-        # XXX could do better, but is it worth it?
-        self.switch_to_object_strategy(w_dict)
-        return w_dict.setdefault(w_key, w_default)
+        space = self.space
+        if self.is_correct_type(w_key):
+            key = self.unwrap(w_key)
+            w_result = self.getitem_str(w_dict, key)
+            if w_result is not None:
+                return w_result
+            self.setitem_str(w_dict, key, w_default)
+            return w_default
+        else:
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.setdefault(w_key, w_default)
 
     def delitem(self, w_dict, w_key):
         # XXX could do better, but is it worth it?
