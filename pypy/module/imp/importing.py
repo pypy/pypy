@@ -8,7 +8,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
@@ -440,7 +440,7 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
             return w_loader
 
 
-class W_NullImporter(Wrappable):
+class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 

@@ -3,12 +3,12 @@ from rpython.tool.uid import uid
 
 from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.astcompiler import consts
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.mixedmodule import MixedModule
 
 
-class Cell(Wrappable):
+class Cell(W_Root):
     "A simple container for a wrapped value."
 
     def __init__(self, w_value=None):

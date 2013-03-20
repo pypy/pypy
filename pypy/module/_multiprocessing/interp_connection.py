@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import (
@@ -25,7 +25,8 @@ def BufferTooShort(space, w_data):
 def w_handle(space, handle):
     return space.wrap(rffi.cast(rffi.INTPTR_T, handle))
 
-class W_BaseConnection(Wrappable):
+
+class W_BaseConnection(W_Root):
     BUFFER_SIZE = 1024
 
     def __init__(self, flags):

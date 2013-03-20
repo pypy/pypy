@@ -15,7 +15,7 @@ from rpython.rlib.objectmodel import we_are_translated, newlist_hint,\
 from rpython.rlib.rarithmetic import r_uint
 
 
-__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
+__all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
@@ -218,11 +218,6 @@ class W_Root(object):
 
     def __spacebind__(self, space):
         return self
-
-
-# ---------- backward compatibility: these classes are the same now ----------
-Wrappable = W_Root
-# ----------------------------------------------------------------------------
 
 
 class W_InterpIterable(W_Root):
@@ -726,7 +721,7 @@ class ObjSpace(object):
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
         Unwrap w_obj, checking that it is an instance of the required internal
-        interpreter class (a subclass of Wrappable).
+        interpreter class.
         """
         assert RequiredClass is not None
         if can_be_None and self.is_none(w_obj):

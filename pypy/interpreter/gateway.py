@@ -16,8 +16,8 @@ import py
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
-    SpaceCache, DescrMismatch)
+from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
+    DescrMismatch)
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
 from rpython.rlib import rstackovf
@@ -53,7 +53,7 @@ class SignatureBuilder(object):
 class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
-    bases_order = [Wrappable, W_Root, ObjSpace, Arguments, object]
+    bases_order = [W_Root, ObjSpace, Arguments, object]
 
     def dispatch(self, el, *args):
         if isinstance(el, str):
@@ -111,7 +111,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.orig_arg = iter(original_sig.argnames).next
 
     def visit_self(self, cls, app_sig):
-        self.visit__Wrappable(cls, app_sig)
+        self.visit__W_Root(cls, app_sig)
 
     def checked_space_method(self, typname, app_sig):
         argname = self.orig_arg()
@@ -146,14 +146,6 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
 
     def visit_truncatedint_w(self, el, app_sig):
         self.checked_space_method(el, app_sig)
-
-    def visit__Wrappable(self, el, app_sig):
-        name = el.__name__
-        argname = self.orig_arg()
-        assert not argname.startswith('w_'), (
-            "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (name, argname, self.func))
-        app_sig.append(argname)
 
     def visit__ObjSpace(self, el, app_sig):
         self.orig_arg()
@@ -215,10 +207,6 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_self(self, typ):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
                              (self.use(typ), self.scopenext()))
-
-    def visit__Wrappable(self, typ):
-        self.run_args.append("space.interp_w(%s, %s)" % (self.use(typ),
-                                                         self.scopenext()))
 
     def visit__ObjSpace(self, el):
         self.run_args.append('space')
@@ -352,10 +340,6 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_self(self, typ):
         self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
                            (self.use(typ), self.nextarg()))
-
-    def visit__Wrappable(self, typ):
-        self.unwrap.append("space.interp_w(%s, %s)" % (self.use(typ),
-                                                       self.nextarg()))
 
     def visit__ObjSpace(self, el):
         if self.finger != 0:
@@ -541,7 +525,6 @@ class BuiltinCode(Code):
         # It is a list of types or singleton objects:
         #  baseobjspace.ObjSpace is used to specify the space argument
         #  baseobjspace.W_Root is for wrapped arguments to keep wrapped
-        #  baseobjspace.Wrappable subclasses imply interp_w and a typecheck
         #  argument.Arguments is for a final rest arguments Arguments object
         # 'args_w' for fixedview applied to rest arguments
         # 'w_args' for rest arguments passed as wrapped tuple
@@ -560,7 +543,7 @@ class BuiltinCode(Code):
             assert unwrap_spec[0] == 'self', "self_type without 'self' spec element"
             unwrap_spec = list(unwrap_spec)
             if descrmismatch is not None:
-                assert issubclass(self_type, Wrappable)
+                assert issubclass(self_type, W_Root)
                 unwrap_spec[0] = ('INTERNAL:self', self_type)
                 self.descrmismatch_op = descrmismatch
                 self.descr_reqcls = self_type
@@ -805,7 +788,7 @@ class BuiltinCode4(BuiltinCode):
         return w_result
 
 
-class interp2app(Wrappable):
+class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""
 
     # Takes optionally an unwrap_spec, see BuiltinCode
@@ -838,7 +821,7 @@ class interp2app(Wrappable):
             result = cls.instancecache[key]
             assert result.__class__ is cls
             return result
-        self = Wrappable.__new__(cls)
+        self = W_Root.__new__(cls)
         cls.instancecache[key] = self
         self._code = BuiltinCode(f, unwrap_spec=unwrap_spec,
                                  self_type=self_type,

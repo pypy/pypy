@@ -3,7 +3,7 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 
 from rpython.rlib import jit
@@ -155,7 +155,7 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
                                   self.name, n)
 
 
-class W_CField(Wrappable):
+class W_CField(W_Root):
     _immutable_ = True
 
     BS_REGULAR     = -1

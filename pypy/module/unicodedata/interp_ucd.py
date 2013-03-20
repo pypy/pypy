@@ -1,8 +1,9 @@
 """
 Implementation of the interpreter-level functions in the module unicodedata.
 """
-from pypy.interpreter.gateway import  interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
+
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
@@ -72,7 +73,7 @@ else:
                     'need a single Unicode character as parameter'))
 
 
-class UCD(Wrappable):
+class UCD(W_Root):
     def __init__(self, unicodedb):
         self._lookup = unicodedb.lookup
         self._name = unicodedb.name
@@ -118,7 +119,6 @@ class UCD(Wrappable):
                 return w_default
             raise OperationError(space.w_ValueError, space.wrap('no such name'))
         return space.wrap(name)
-
 
     def decimal(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -205,10 +205,10 @@ class UCD(Wrappable):
             ch = space.int_w(space.ord(space.getitem(w_unistr, space.wrap(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
-                SIndex = ch - SBase;
-                L = LBase + SIndex / NCount;
-                V = VBase + (SIndex % NCount) / TCount;
-                T = TBase + SIndex % TCount;
+                SIndex = ch - SBase
+                L = LBase + SIndex / NCount
+                V = VBase + (SIndex % NCount) / TCount
+                T = TBase + SIndex % TCount
                 if T == TBase:
                     if j + 2 > resultlen:
                         result.extend([0] * (j + 2 - resultlen + 10))
@@ -299,7 +299,6 @@ class UCD(Wrappable):
                 prev_combining = 0
                 current = next
                 continue
-
 
             result[next_insert] = next
             next_insert += 1

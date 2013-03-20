@@ -6,7 +6,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from rpython.tool.sourcetools import func_with_new_name
@@ -1141,10 +1141,14 @@ class __extend__(pyframe.CPythonFrame):
 class ExitFrame(Exception):
     pass
 
+
 class Return(ExitFrame):
     """Raised when exiting a frame via a 'return' statement."""
+
+
 class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
+
 
 class RaiseWithExplicitTraceback(Exception):
     """Raised at interp-level by a 0- or 3-arguments 'raise' statement."""
@@ -1154,7 +1158,7 @@ class RaiseWithExplicitTraceback(Exception):
 
 ### Frame Blocks ###
 
-class SuspendedUnroller(Wrappable):
+class SuspendedUnroller(W_Root):
     """Abstract base class for interpreter-level objects that
     instruct the interpreter to change the control flow and the
     block stack.

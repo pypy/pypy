@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from rpython.tool.error import offset2lineno
 
 
-class PyTraceback(baseobjspace.Wrappable):
+class PyTraceback(baseobjspace.W_Root):
     """Traceback object
 
     Public app-level fields:
@@ -38,7 +38,7 @@ class PyTraceback(baseobjspace.Wrappable):
             w(self.frame),
             w(self.lasti),
             w(self.next),
-            ]
+        ]
         nt = space.newtuple
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 

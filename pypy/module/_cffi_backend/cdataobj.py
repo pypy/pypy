@@ -1,6 +1,6 @@
 import operator
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -13,7 +13,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module._cffi_backend import misc
 
 
-class W_CData(Wrappable):
+class W_CData(W_Root):
     _attrs_ = ['space', '_cdata', 'ctype', '_lifeline_']
     _immutable_fields_ = ['_cdata', 'ctype']
     _cdata = lltype.nullptr(rffi.CCHARP.TO)

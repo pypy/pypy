@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
@@ -9,8 +9,8 @@ from rpython.rlib.objectmodel import we_are_translated
 from pypy.module._cffi_backend import cdataobj
 
 
-class W_CType(Wrappable):
-    _attrs_   = ['space', 'size',  'name', 'name_position', '_lifeline_']
+class W_CType(W_Root):
+    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_']
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.

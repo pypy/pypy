@@ -1666,9 +1666,6 @@ W_ListObject.typedef = StdTypeDef("list",
 list(sequence) -> new list initialized from sequence's items""",
     __new__ = interp2app(descr_new),
     __hash__ = None,
-    # XXX this cannot work, within the methods the annotation of 'self' is W_Root
-    # the reason why it works in modules is that there all classes inherit from Wrappable
-    # see gateway.UnwrapSpec_EmitRun.visit__Wrappable vs visit__W_Root
     sort = interp2app(W_ListObject.descr_sort),
     index = interp2app(W_ListObject.descr_index),
     append = interp2app(W_ListObject.append),

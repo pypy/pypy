@@ -1,7 +1,7 @@
 """
 Implementation of the 'buffer' and 'memoryview' types.
 """
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import buffer
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -11,7 +11,7 @@ import operator
 W_Buffer = buffer.Buffer      # actually implemented in pypy.interpreter.buffer
 
 
-class W_MemoryView(Wrappable):
+class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a thin wrapper around
     an interp-level buffer.
     """
@@ -110,16 +110,22 @@ class W_MemoryView(Wrappable):
 
     def w_get_format(self, space):
         return space.wrap("B")
+
     def w_get_itemsize(self, space):
         return space.wrap(1)
+
     def w_get_ndim(self, space):
         return space.wrap(1)
+
     def w_is_readonly(self, space):
         return space.wrap(not isinstance(self.buf, buffer.RWBuffer))
+
     def w_get_shape(self, space):
         return space.newtuple([space.wrap(self.getlength())])
+
     def w_get_strides(self, space):
         return space.newtuple([space.wrap(1)])
+
     def w_get_suboffsets(self, space):
         # I've never seen anyone filling this field
         return space.w_None

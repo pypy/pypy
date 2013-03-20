@@ -1,15 +1,15 @@
 import __builtin__
 import types
 from pypy.interpreter import special
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
-                               transparent, callmethod, proxyobject)
+                               transparent, callmethod)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from rpython.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
+from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
+from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit
 
@@ -162,7 +162,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return wrapunicode(self, x)
         if isinstance(x, float):
             return W_FloatObject(x)
-        if isinstance(x, Wrappable):
+        if isinstance(x, W_Root):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result

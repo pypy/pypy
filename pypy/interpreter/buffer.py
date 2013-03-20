@@ -15,7 +15,7 @@ Buffer protocol support.
 # free the typecheck that __buffer__() really returned a wrapped Buffer.
 
 import operator
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
@@ -23,7 +23,7 @@ from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rstring import StringBuilder
 
 
-class Buffer(Wrappable):
+class Buffer(W_Root):
     """Abstract base class for memory views."""
 
     __slots__ = ()     # no extra slot here
@@ -144,6 +144,7 @@ class RWBuffer(Buffer):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
+
 @unwrap_spec(offset=int, size=int)
 def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     # w_subtype can only be exactly 'buffer' for now
@@ -208,7 +209,7 @@ extend to the end of the target object (or with the specified size).
     __mul__ = interp2app(Buffer.descr_mul),
     __rmul__ = interp2app(Buffer.descr_mul),
     __repr__ = interp2app(Buffer.descr_repr),
-    )
+)
 Buffer.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
