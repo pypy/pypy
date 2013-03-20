@@ -95,7 +95,7 @@ class AppTestCINT:
         assert c.get_data() == 13
 
 
-class AppTestCINTPythonizations:
+class AppTestCINTPYTHONIZATIONS:
     spaceconfig = dict(usemodules=['cppyy'])
 
     def test01_strings(self):
@@ -138,7 +138,7 @@ class AppTestCINTPythonizations:
              assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
 
 
-class AppTestCINTTTree:
+class AppTestCINTTTREE:
     spaceconfig = dict(usemodules=['cppyy', 'array', '_rawffi', '_cffi_backend'])
 
     def setup_class(cls):
@@ -384,8 +384,11 @@ class AppTestCINTTTree:
             assert mytree.my_int2 == i+1
 
 
-class AppTestRegression:
+class AppTestCINTREGRESSION:
     spaceconfig = dict(usemodules=['cppyy'])
+
+    # these are tests that at some point in the past resulted in failures on
+    # PyROOT; kept here to confirm no regression from PyROOT
 
     def test01_regression(self):
         """TPaveText::AddText() used to result in KeyError"""
@@ -399,3 +402,71 @@ class AppTestRegression:
 
         hello = TPaveText( .1, .8, .9, .97 )
         hello.AddText( 'Hello, World!' )
+
+
+class AppTestSURPLUS:
+    spaceconfig = dict(usemodules=['cppyy'])
+
+    # these are tests that were historically exercised on ROOT classes and
+    # have twins on custom classes; kept here just in case differences crop
+    # up between the ROOT classes and the custom ones
+
+    def test01_class_enum(self):
+        """Test class enum access and values"""
+
+        import cppyy
+        TObject = cppyy.gbl.TObject
+        gROOT = cppyy.gbl.gROOT
+
+        assert TObject.kBitMask    == gROOT.ProcessLine("return TObject::kBitMask;")
+        assert TObject.kIsOnHeap   == gROOT.ProcessLine("return TObject::kIsOnHeap;")
+        assert TObject.kNotDeleted == gROOT.ProcessLine("return TObject::kNotDeleted;")
+        assert TObject.kZombie     == gROOT.ProcessLine("return TObject::kZombie;")
+
+        t = TObject()
+
+        assert TObject.kBitMask    == t.kBitMask
+        assert TObject.kIsOnHeap   == t.kIsOnHeap
+        assert TObject.kNotDeleted == t.kNotDeleted
+        assert TObject.kZombie     == t.kZombie
+
+    def test02_global_enum(self):
+        """Test global enums access and values"""
+
+        import cppyy
+        from cppyy import gbl
+
+        assert gbl.kRed   == gbl.gROOT.ProcessLine("return kRed;")
+        assert gbl.kGreen == gbl.gROOT.ProcessLine("return kGreen;")
+        assert gbl.kBlue  == gbl.gROOT.ProcessLine("return kBlue;")
+
+    def test03_copy_contructor(self):
+        """Test copy constructor"""
+
+        import cppyy
+        TLorentzVector = cppyy.gbl.TLorentzVector
+
+        t1 = TLorentzVector(1., 2., 3., -4.)
+        t2 = TLorentzVector(0., 0., 0.,  0.)
+        t3 = TLorentzVector(t1)
+
+        assert t1 == t3
+        assert t1 != t2
+
+        for i in range(4):
+            assert t1[i] == t3[i]
+
+    def test04_object_validity(self):
+        """Test object validity checking"""
+
+        import cppyy
+
+        t1 = cppyy.gbl.TObject()
+
+        assert t1
+        assert not not t1
+
+        t2 = cppyy.gbl.gROOT.FindObject("Nah, I don't exist")
+
+        assert not t2
+
