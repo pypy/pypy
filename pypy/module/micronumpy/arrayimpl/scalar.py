@@ -77,12 +77,9 @@ class Scalar(base.BaseArrayImplementation):
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         if self.dtype.is_complex_type():
-            #imag = dtype.itemtype.unbox(self.value.convert_imag_to(dtype))
-            #val = dtype.itemtype.unbox(w_arr.get_scalar_value().
-            #                                           convert_to(dtype))
-            #self.value = self.dtype.box_complex(val, imag)
-            self.value = self.dtype.itemtype.composite(w_arr.get_scalar_value().convert_to(dtype),
-                                    self.value.convert_imag_to(dtype))
+            self.value = self.dtype.itemtype.composite(
+                               w_arr.get_scalar_value().convert_to(dtype),
+                               self.value.convert_imag_to(dtype))
         else:
             self.value = w_arr.get_scalar_value()
 
@@ -108,13 +105,9 @@ class Scalar(base.BaseArrayImplementation):
                 "could not broadcast input array from shape " + 
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
-        #real = dtype.itemtype.unbox(self.value.convert_real_to(dtype))
-        #val = dtype.itemtype.unbox(w_arr.get_scalar_value().
-        #                                              convert_to(dtype))
-        #self.value = self.dtype.box_complex(real, val)
         self.value = self.dtype.itemtype.composite(
                             self.value.convert_real_to(dtype),
-                            w_arr.get_scalar_value(),
+                            w_arr.get_scalar_value().convert_to(dtype),
                             )
 
     def descr_getitem(self, space, _, w_idx):
