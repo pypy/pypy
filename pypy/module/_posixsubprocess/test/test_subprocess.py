@@ -38,3 +38,22 @@ class AppTestSubprocess:
 
         assert not (remaining_fds & open_fds), "Some fds were left open"
         assert 1 in remaining_fds, "Subprocess failed"
+
+    def test_start_new_session(self):
+        # For code coverage of calling setsid().  We don't care if we get an
+        # EPERM error from it depending on the test execution environment, that
+        # still indicates that it was called.
+        import subprocess
+        import os
+        try:
+            output = subprocess.check_output(
+                    ['/usr/bin/env', 'python', "-c",
+                     "import os; print(os.getpgid(os.getpid()))"],
+                    start_new_session=True)
+        except OSError as e:
+            if e.errno != errno.EPERM:
+                raise
+        else:
+            parent_pgid = os.getpgid(os.getpid())
+            child_pgid = int(output)
+            assert parent_pgid != child_pgid

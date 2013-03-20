@@ -14,6 +14,7 @@ class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=['unistd.h', 'sys/syscall.h'])
     HAVE_SYS_SYSCALL_H = platform.Has("syscall")
+    HAVE_SETSID = platform.Has("setsid")
 
 config = platform.configure(CConfig)
 
@@ -24,10 +25,15 @@ eci = ExternalCompilationInfo(
                     'pypy_subprocess_init',
                     ])
 
+compile_extra = []
 if config['HAVE_SYS_SYSCALL_H']:
-    eci = eci.merge(
-        ExternalCompilationInfo(
-            compile_extra=["-DHAVE_SYS_SYSCALL_H"]))
+    compile_extra.append("-DHAVE_SYS_SYSCALL_H")
+if config['HAVE_SETSID']:
+    compile_extra.append("-DHAVE_SETSID")
+
+eci = eci.merge(
+    ExternalCompilationInfo(
+        compile_extra=compile_extra))
 
 c_child_exec = rffi.llexternal(
     'pypy_subprocess_child_exec',
