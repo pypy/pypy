@@ -209,10 +209,10 @@ class W_ListObject(W_AbstractListObject):
         strategy and storage according to the other W_List"""
         self.strategy.copy_into(self, other)
 
-    def contains(self, w_obj):
-        """Returns unwrapped boolean, saying wether w_obj exists
-        in the list."""
-        return self.strategy.contains(self, w_obj)
+
+    def find(self, w_item, start=0, end=maxint):
+        """Find w_item in list[start:end]. If not found, raise ValueError"""
+        return self.strategy.find(self, w_item, start, end)
 
     def append(self, w_item):
         'L.append(object) -- append object to end'
@@ -378,15 +378,14 @@ class W_ListObject(W_AbstractListObject):
     def descr_remove(self, space, w_value):
         'L.remove(value) -- remove first occurrence of value'
         # needs to be safe against eq_w() mutating the w_list behind our back
-        i = 0
-        while i < self.length():
-            if space.eq_w(self.getitem(i), w_value):
-                if i < self.length(): # if this is wrong the list was changed
-                    self.pop(i)
-                return space.w_None
-            i += 1
-        raise OperationError(space.w_ValueError,
-                             space.wrap("list.remove(x): x not in list"))
+        try:
+            i = self.find(w_value, 0, maxint)
+        except ValueError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("list.remove(x): x not in list"))
+        if i < self.length(): # otherwise list was mutated
+            self.pop(i)
+        return space.w_None
 
     @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(maxint))
     def descr_index(self, space, w_value, w_start, w_stop):
@@ -396,12 +395,12 @@ class W_ListObject(W_AbstractListObject):
         size = self.length()
         i, stop = slicetype.unwrap_start_stop(
                 space, size, w_start, w_stop, True)
-        while i < stop and i < self.length():
-            if space.eq_w(self.getitem(i), w_value):
-                return space.wrap(i)
-            i += 1
-        raise OperationError(space.w_ValueError,
-                             space.wrap("list.index(x): x not in list"))
+        try:
+            i = self.find(w_value, i, stop)
+        except ValueError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("list.index(x): x not in list"))
+        return space.wrap(i)
 
     @unwrap_spec(reverse=bool)
     def descr_sort(self, space, w_cmp=None, w_key=None, reverse=False):
@@ -498,14 +497,15 @@ class ListStrategy(object):
     def _resize_hint(self, w_list, hint):
         raise NotImplementedError
 
-    def contains(self, w_list, w_obj):
-        # needs to be safe against eq_w() mutating the w_list behind our back
-        i = 0
-        while i < w_list.length(): # intentionally always calling len!
-            if self.space.eq_w(w_list.getitem(i), w_obj):
-                return True
+    def find(self, w_list, w_item, start, stop):
+        space = self.space
+        i = start
+        # needs to be safe against eq_w mutating stuff
+        while i < stop and i < w_list.length():
+            if space.eq_w(w_list.getitem(i), w_item):
+                return i
             i += 1
-        return False
+        raise ValueError
 
     def length(self, w_list):
         raise NotImplementedError
@@ -631,8 +631,8 @@ class EmptyListStrategy(ListStrategy):
         if hint:
             w_list.strategy = SizeListStrategy(self.space, hint)
 
-    def contains(self, w_list, w_obj):
-        return False
+    def find(self, w_list, w_item, start, stop):
+        raise ValueError
 
     def length(self, w_list):
         return 0
@@ -786,17 +786,19 @@ class RangeListStrategy(ListStrategy):
         w_other.strategy = self
         w_other.lstorage = w_list.lstorage
 
-    def contains(self, w_list, w_obj):
+    def find(self, w_list, w_obj, startindex, stopindex):
         if is_W_IntObject(w_obj):
-            start, step, length = self.unerase(w_list.lstorage)
             obj = self.unwrap(w_obj)
-            if step > 0 and start <= obj <= start + (length - 1) * step and (start - obj) % step == 0:
-                return True
-            elif step < 0 and start + (length - 1) * step <= obj <= start and (start - obj) % step == 0:
-                return True
+            start, step, length = self.unerase(w_list.lstorage)
+            if ((step > 0 and start <= obj <= start + (length - 1) * step and (start - obj) % step == 0) or
+                (step < 0 and start + (length - 1) * step <= obj <= start and (start - obj) % step == 0)):
+                index = (obj - start) // step
             else:
-                return False
-        return ListStrategy.contains(self, w_list, w_obj)
+                raise ValueError
+            if startindex <= index < stopindex:
+                return index
+            raise ValueError
+        return ListStrategy.find(self, w_list, w_obj, startindex, stopindex)
 
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[2]
@@ -972,17 +974,18 @@ class AbstractUnwrappedStrategy(object):
         items = self.unerase(w_list.lstorage)[:]
         w_other.lstorage = self.erase(items)
 
-    def contains(self, w_list, w_obj):
+    def find(self, w_list, w_obj, start, stop):
         if self.is_correct_type(w_obj):
-            return self._safe_contains(w_list, self.unwrap(w_obj))
-        return ListStrategy.contains(self, w_list, w_obj)
+            return self._safe_find(w_list, self.unwrap(w_obj), start, stop)
+        return ListStrategy.find(self, w_list, w_obj, start, stop)
 
-    def _safe_contains(self, w_list, obj):
+    def _safe_find(self, w_list, obj, start, stop):
         l = self.unerase(w_list.lstorage)
-        for i in l:
-            if i == obj:
-                return True
-        return False
+        for i in range(start, min(stop, len(l))):
+            val = l[i]
+            if val == obj:
+                return i
+        raise ValueError
 
     def length(self, w_list):
         return len(self.unerase(w_list.lstorage))
@@ -1224,8 +1227,8 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def clear(self, w_list):
         w_list.lstorage = self.erase([])
 
-    def contains(self, w_list, w_obj):
-        return ListStrategy.contains(self, w_list, w_obj)
+    def find(self, w_list, w_obj, start, stop):
+        return ListStrategy.find(self, w_list, w_obj, start, stop)
 
     def getitems(self, w_list):
         return self.unerase(w_list.lstorage)
@@ -1408,7 +1411,11 @@ def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     w_list.deleteslice(start, 1, stop-start)
 
 def contains__List_ANY(space, w_list, w_obj):
-    return space.wrap(w_list.contains(w_obj))
+    try:
+        w_list.find(w_obj)
+        return space.w_True
+    except ValueError:
+        return space.w_False
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
