@@ -583,7 +583,21 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test16_buffer_reshaping(self):
+    def test16_object_validity(self):
+        """Test object validity checking"""
+        
+        from cppyy import gbl
+
+        d = gbl.cppyy_test_pod()
+                     
+        assert d
+        assert not not d
+
+        d2 = gbl.get_null_pod()
+
+        assert not d2
+
+    def test17_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
         import cppyy

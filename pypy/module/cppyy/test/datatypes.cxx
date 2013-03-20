@@ -224,3 +224,7 @@ void set_global_pod(cppyy_test_pod* t) {
 cppyy_test_pod* get_global_pod() {
    return g_pod;
 }
+
+cppyy_test_pod* get_null_pod() {
+   return (cppyy_test_pod*)0;
+}

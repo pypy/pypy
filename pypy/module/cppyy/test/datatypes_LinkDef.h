@@ -19,6 +19,7 @@
 #pragma link C++ function is_global_pod(cppyy_test_pod*);
 #pragma link C++ function set_global_pod(cppyy_test_pod*);
 #pragma link C++ function get_global_pod();
+#pragma link C++ function get_null_pod();
 
 #pragma link C++ global N;
 #pragma link C++ global g_int;

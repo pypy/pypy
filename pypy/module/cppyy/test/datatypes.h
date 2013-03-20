@@ -225,3 +225,4 @@ extern cppyy_test_pod* g_pod;
 bool is_global_pod(cppyy_test_pod* t);
 void set_global_pod(cppyy_test_pod* t);
 cppyy_test_pod* get_global_pod();
+cppyy_test_pod* get_null_pod();
