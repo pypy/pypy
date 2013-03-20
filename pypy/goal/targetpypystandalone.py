@@ -10,6 +10,10 @@ from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
 from pypy.conftest import pypydir
 
+_WIN32 = sys.platform == 'win32'
+if not _WIN32:
+    from rpython.rlib.rlocale import LC_ALL, setlocale
+
 thisdir = py.path.local(__file__).dirpath()
 
 try:
@@ -49,9 +53,14 @@ def create_entry_point(space, w_dict):
         try:
             try:
                 space.call_function(w_run_toplevel, w_call_startup_gateway)
+                if not _WIN32:
+                    oldlocale = setlocale(LC_ALL, None)
+                    setlocale(LC_ALL, '')
                 w_executable = space.fsdecode(space.wrapbytes(argv[0]))
                 w_argv = space.newlist([space.fsdecode(space.wrapbytes(s))
                                         for s in argv[1:]])
+                if not _WIN32:
+                    setlocale(LC_ALL, oldlocale)
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
