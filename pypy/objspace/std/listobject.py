@@ -6,7 +6,9 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
-from pypy.interpreter import gateway, baseobjspace
+from pypy.interpreter.gateway import WrappedDefault, unwrap_spec, applevel,\
+     interp2app
+from pypy.interpreter import baseobjspace
 from pypy.interpreter.signature import Signature
 from rpython.rlib.objectmodel import (instantiate, newlist_hint, specialize,
                                    resizelist_hint)
@@ -323,7 +325,23 @@ class W_ListObject(W_AbstractListObject):
         argument reverse. Argument must be unwrapped."""
         self.strategy.sort(self, reverse)
 
-    @gateway.unwrap_spec(reverse=bool)
+    @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(maxint))
+    def descr_index(self, space, w_value, w_start, w_stop):
+        '''L.index(value, [start, [stop]]) -> integer -- return
+        first index of value'''
+        # needs to be safe against eq_w() mutating the w_list behind our back
+        size = self.length()
+        i, stop = slicetype.unwrap_start_stop(
+                space, size, w_start, w_stop, True)
+        while i < stop and i < self.length():
+            if space.eq_w(self.getitem(i), w_value):
+                return space.wrap(i)
+            i += 1
+        raise OperationError(space.w_ValueError,
+                             space.wrap("list.index(x): x not in list"))
+
+
+    @unwrap_spec(reverse=bool)
     def descr_sort(self, space, w_cmp=None, w_key=None, reverse=False):
         """ L.sort(cmp=None, key=None, reverse=False) -- stable
         sort *IN PLACE*;
@@ -1452,7 +1470,7 @@ def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
     w_other = W_ListObject(space, sequence_w)
     w_list.setslice(start, step, slicelength, w_other)
 
-app = gateway.applevel("""
+app = applevel("""
     def listrepr(currently_in_repr, l):
         'The app-level part of repr().'
         list_id = id(l)
@@ -1537,18 +1555,6 @@ def list_remove__List_ANY(space, w_list, w_any):
         i += 1
     raise OperationError(space.w_ValueError,
                          space.wrap("list.remove(x): x not in list"))
-
-def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
-    # needs to be safe against eq_w() mutating the w_list behind our back
-    size = w_list.length()
-    i, stop = slicetype.unwrap_start_stop(
-            space, size, w_start, w_stop, True)
-    while i < stop and i < w_list.length():
-        if space.eq_w(w_list.getitem(i), w_any):
-            return space.wrap(i)
-        i += 1
-    raise OperationError(space.w_ValueError,
-                         space.wrap("list.index(x): x not in list"))
 
 def list_count__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
@@ -1663,9 +1669,6 @@ list_pop      = SMM('pop',    2, defaults=(None,),
                         ' index (default last)')
 list_remove   = SMM('remove', 2,
                     doc='L.remove(value) -- remove first occurrence of value')
-list_index    = SMM('index',  4, defaults=(0,maxint),
-                    doc='L.index(value, [start, [stop]]) -> integer -- return'
-                        ' first index of value')
 list_count    = SMM('count',  2,
                     doc='L.count(value) -> integer -- return number of'
                         ' occurrences of value')
@@ -1680,9 +1683,10 @@ register_all(vars(), globals())
 W_ListObject.typedef = StdTypeDef("list",
     __doc__ = """list() -> new list
 list(sequence) -> new list initialized from sequence's items""",
-    __new__ = gateway.interp2app(descr_new),
+    __new__ = interp2app(descr_new),
     __hash__ = None,
-    sort = gateway.interp2app(W_ListObject.descr_sort),
+    sort = interp2app(W_ListObject.descr_sort),
+    index = interp2app(W_ListObject.descr_index),
     )
 W_ListObject.typedef.registermethods(globals())
 
