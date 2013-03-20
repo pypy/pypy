@@ -3,6 +3,14 @@ from pypy.module.cppyy import helper
 def test_remove_const():
     assert helper.remove_const("const int") == "int"
 
+    assert helper.remove_const("const some_class*") == "some_class*"
+    assert helper.remove_const("const some_class const*") == "some_class*"
+    assert helper.remove_const("some_class const*const") == "some_class*"
+
+    assert helper.remove_const("const some_class<const aap>*") == "some_class<const aap>*"
+    assert helper.remove_const("const some_class<const aap> const*") == "some_class<const aap>*"
+    assert helper.remove_const("some_class const<const aap*const>*const") == "some_class<const aap*const>*"
+
 def test_compound():
     assert helper.compound("int*") == "*"
     assert helper.compound("int* const *&") == "**&"

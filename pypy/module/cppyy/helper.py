@@ -2,26 +2,26 @@ from rpython.rlib import rstring
 
 
 #- type name manipulations --------------------------------------------------
-def _remove_const(name):
-    tmplt_start = name.find("<")
-    if 0 <= tmplt_start:
-        # only replace const within the class name, not in the template parameters
-        return "".join(rstring.split(name[:tmplt_start], "const"))+name[tmplt_start:]
-    else:
-        return "".join(rstring.split(name, "const"))
-
 def remove_const(name):
-    return _remove_const(name).strip(' ')
+    tmplt_start = name.find("<")
+    tmplt_stop  = name.rfind(">")
+    if 0 <= tmplt_start and 0 <= tmplt_stop:
+        # only replace const qualifying the class name, not in the template parameters
+        return "".join([x.strip(" ") for x in rstring.split(name[:tmplt_start], "const")])+\
+                     name[tmplt_start:tmplt_stop]+\
+                     "".join([x.strip(" ") for x in rstring.split(name[tmplt_stop:], "const")])
+    else:
+        return "".join([x.strip(" ") for x in rstring.split(name, "const")])
 
 def compound(name):
-    name = _remove_const(name)
+    name = remove_const(name)
     if name.endswith("]"):                       # array type?
         return "[]"
     i = _find_qualifier_index(name)
     return "".join(name[i:].split(" "))
 
 def array_size(name):
-    name = _remove_const(name)
+    name = remove_const(name)
     if name.endswith("]"):                       # array type?
         idx = name.rfind("[")
         if 0 < idx:
@@ -42,7 +42,7 @@ def _find_qualifier_index(name):
 def clean_type(name):
     # can't strip const early b/c name could be a template ...
     i = _find_qualifier_index(name)
-    name = name[:i].strip(' ')
+    name = name[:i].strip(" ")
 
     idx = -1
     if name.endswith("]"):                       # array type?
@@ -52,10 +52,10 @@ def clean_type(name):
     elif name.endswith(">"):                     # template type?
         idx = name.find("<")
         if 0 < idx:      # always true, but just so that the translater knows
-            n1 = _remove_const(name[:idx])
+            n1 = remove_const(name[:idx])
             name = "".join([n1, name[idx:]])
     else:
-        name = _remove_const(name)
+        name = remove_const(name)
         name = name[:_find_qualifier_index(name)]
     return name.strip(' ')
 
