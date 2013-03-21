@@ -20,29 +20,22 @@ def test_gethostname():
     assert space.unwrap(host) == socket.gethostname()
 
 def test_gethostbyname():
-    host = "localhost"
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyname(host)")
-    assert space.unwrap(ip) == socket.gethostbyname(host)
+    for host in ["localhost", "127.0.0.1"]:
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyname(host)")
+        assert space.unwrap(ip) == socket.gethostbyname(host)
 
 def test_gethostbyname_ex():
-    host = "localhost"
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyname_ex(host)")
-    assert isinstance(space.unwrap(ip), tuple)
-    assert space.unwrap(ip) == socket.gethostbyname_ex(host)
+    for host in ["localhost", "127.0.0.1"]:
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyname_ex(host)")
+        assert space.unwrap(ip) == socket.gethostbyname_ex(host)
 
 def test_gethostbyaddr():
-    host = "localhost"
-    expected = socket.gethostbyaddr(host)
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) == socket.gethostbyaddr(host)
-
-    host = "127.0.0.1"
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) == socket.gethostbyaddr(host)
+    for host in ["localhost", "127.0.0.1"]:
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyaddr(host)")
+        assert space.unwrap(ip) == socket.gethostbyaddr(host)
 
 def test_getservbyname():
     name = "smtp"
