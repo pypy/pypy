@@ -35,13 +35,15 @@ def test_gethostbyname_ex():
 def test_gethostbyaddr():
     host = "localhost"
     expected = socket.gethostbyaddr(host)
-    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
+    # On some versions of MacOSX, we get two '0.0.0.0' entries in the addresslist.
+    expecteds = (expected, expected[:2] + (['0.0.0.0'], ), expected[:2] + (['0.0.0.0']*2, ))
     ip = space.appexec([w_socket, space.wrap(host)],
                        "(_socket, host): return _socket.gethostbyaddr(host)")
     assert space.unwrap(ip) in expecteds
     host = "127.0.0.1"
     expected = socket.gethostbyaddr(host)
-    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
+    # On some versions of MacOSX, we get two '0.0.0.0' entries in the addresslist.
+    expecteds = (expected, expected[:2] + (['0.0.0.0'], ), expected[:2] + (['0.0.0.0']*2, ))
     ip = space.appexec([w_socket, space.wrap(host)],
                        "(_socket, host): return _socket.gethostbyaddr(host)")
     assert space.unwrap(ip) in expecteds
