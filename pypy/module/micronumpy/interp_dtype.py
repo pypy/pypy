@@ -130,10 +130,39 @@ class W_Dtype(Wrappable):
                                                                  space.wrap(offset)]))
         return w_d
 
+    def set_fields(self, space, w_fields):
+        if w_fields == space.w_None:
+            self.fields = {}
+        else:
+            iter = space.iter(w_fields)
+            while True:
+                try:
+                    key = space.next(iter)
+                    value = space.getitem(w_fields, key)
+                    self.fields[space.str_w(space.next(iter))] = space.int_w(space.getitem(value, 1)), space.getitem(value, 0)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
+
     def descr_get_names(self, space):
         if self.fieldnames is None:
             return space.w_None
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
+
+    def set_names(self, space, w_names):
+        if w_names == space.w_None:
+            self.fieldnames = None
+        else:
+            self.fieldnames = []
+            iter = space.iter(w_names)
+            while True:
+                try:
+                    self.fieldnames.append(space.str_w(space.next(iter)))
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
 
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
@@ -188,10 +217,10 @@ class W_Dtype(Wrappable):
         order = space.wrap(byteorder_prefix if self.native else nonnative_byteorder_prefix)
         names = self.descr_get_names(space)
         values = self.descr_get_fields(space)
-        #TODO: Change this when alignment is implemented :
         if self.fields:
             #TODO: Implement this when subarrays are implemented
             subdescr = space.w_None
+            #TODO: Change this when alignment is implemented :
             size = 0
             for key in self.fields:
                 size += self.fields[key].get_size()
@@ -206,6 +235,16 @@ class W_Dtype(Wrappable):
         data = space.newtuple([version, order, subdescr, names, values, w_size, alignment, flags])
 
         return space.newtuple([w_class, builder_args, data])
+
+    def descr_setstate(self, space, w_data):
+        if space.int_w(space.getitem(w_data, space.wrap(0))) != 3:
+            raise OperationError(space.w_NotImplementedError, space.wrap("Pickling protocol version not supported"))
+
+        self.native = space.getitem(w_data, space.wrap(1)) == byteorder_prefix
+
+        fieldnames = space.getitem(w_data, space.wrap(2))
+        self.set_names(space, fieldnames)
+        self.set_fields(space, space.getitem(w_data, space.wrap(3)))
 
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
@@ -281,7 +320,8 @@ def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dtype from spec"))
 
-def descr__new__(space, w_subtype, w_dtype):
+def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None):
+    # w_align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
 
     if space.is_none(w_dtype):
@@ -322,6 +362,7 @@ W_Dtype.typedef = TypeDef("dtype",
     __getitem__ = interp2app(W_Dtype.descr_getitem),
 
     __reduce__ = interp2app(W_Dtype.descr_reduce),
+    __setstate__ = interp2app(W_Dtype.descr_setstate),
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),

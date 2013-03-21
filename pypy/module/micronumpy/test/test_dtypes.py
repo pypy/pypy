@@ -16,6 +16,7 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
         cls.w_ptr_size = cls.space.wrap(ptr_size)
 
 class AppTestDtypes(BaseAppTestDtypes):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
     def test_dtype(self):
         from numpypy import dtype
 
@@ -271,8 +272,11 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_pickle(self):
         from numpypy import array, dtype
-        assert array([1,2,3]).dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
-
+        from cPickle import loads, dumps
+        a = array([1,2,3])
+        assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
+        import pdb; pdb.set_trace()
+        assert loads(dumps(a.dtype)) == a.dtype
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
