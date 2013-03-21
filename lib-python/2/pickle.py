@@ -1412,6 +1412,7 @@ except ImportError:
 try:
     from __pypy__.builders import StringBuilder
 except ImportError:
+    assert '__pypy__' not in sys.builtin_module_names
     StringBuilderFile = StringIO
 else:
     class StringBuilderFile(object):
