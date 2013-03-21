@@ -15,7 +15,7 @@ from itertools import imap as _imap
 try:
     from __pypy__ import newdict
 except ImportError:
-    assert '__pypy__' not in sys.builtin_module_names
+    assert '__pypy__' not in _sys.builtin_module_names
     newdict = lambda _ : {}
 
 try:
