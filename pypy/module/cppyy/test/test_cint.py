@@ -523,3 +523,19 @@ class AppTestSURPLUS:
         #assert gbl.aap  == "aap"
         assert gbl.noot == 1
         #assert gbl.mies == 2.0
+
+    def test08_opaque_pointer_passing(self):
+        """Test passing around of opaque pointers"""
+
+        import cppyy
+
+        # TODO: figure out CObject (see also test_advanced.py)
+
+        s = cppyy.gbl.TString("Hello World!")
+        #cobj = cppyy.as_cobject(s)
+        addr = cppyy.addressof(s)
+
+        #assert s == cppyy.bind_object(cobj, s.__class__)
+        #assert s == cppyy.bind_object(cobj, "TString")
+        assert s == cppyy.bind_object(addr, s.__class__)
+        assert s == cppyy.bind_object(addr, "TString")
