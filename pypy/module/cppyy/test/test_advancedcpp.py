@@ -402,6 +402,9 @@ class AppTestADVANCEDCPP:
 
         o = some_concrete_class()
 
+        # TODO: figure out the PyPy equivalent of CObject (may have to do this
+        # through the C-API from C++)
+
         #cobj = cppyy.as_cobject(o)
         addr = cppyy.addressof(o)
 
@@ -413,7 +416,8 @@ class AppTestADVANCEDCPP:
         assert o == cppyy.bind_object(addr, some_concrete_class)
         assert o == cppyy.bind_object(addr, type(o))
         assert o == cppyy.bind_object(addr, o.__class__)
-        #assert o == cppyy.bind_object(addr, "some_concrete_class")
+        assert o == cppyy.bind_object(addr, "some_concrete_class")
+        raises(TypeError, cppyy.bind_object, addr, 1)
 
     def test10_object_identity(self):
         """Test object identity"""
