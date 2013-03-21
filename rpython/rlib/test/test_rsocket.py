@@ -68,17 +68,17 @@ def test_gethostbyname_ex():
                          % (address_list,))
 
 def test_gethostbyaddr():
-    for host in ["localhost", "127.0.0.1"]:
+    for host in ["localhost", "127.0.0.1", "::1"]:
         name, aliases, address_list = gethostbyaddr(host)
         allnames = [name] + aliases
         for n in allnames:
             assert isinstance(n, str)
         if sys.platform != 'win32':
-            assert 'localhost' in allnames
+            assert 'localhost' in allnames or 'ip6-localhost' in allnames
         for a in address_list:
             if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
                 break  # ok
-            if host == 'localhost':  # name lookup might return IPV6
+            if host != '127.0.0.1':  # name lookup might return IPV6
                 if isinstance(a, INET6Address) and a.get_host() == "::1":
                     break  # ok
         else:
