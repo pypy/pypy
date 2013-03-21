@@ -120,7 +120,7 @@ class RStringIO(object):
         if p == 0 and n < 0:
             self.pos = AT_END
             return self.getvalue()     # reading everything
-        if p == AT_END:
+        if p == AT_END or n == 0:
             return ''
         assert p >= 0
         self.copy_into_bigbuffer()
@@ -138,12 +138,14 @@ class RStringIO(object):
             return ''.join(self.bigbuffer[p:p+count])
 
     def readline(self, size=-1):
-        p = self.tell()
+        p = self.pos
+        if p == AT_END or size == 0:
+            return ''
+        assert p >= 0
         self.copy_into_bigbuffer()
         end = len(self.bigbuffer)
         if size >= 0 and size < end - p:
             end = p + size
-        assert p >= 0
         i = p
         while i < end:
             finished = self.bigbuffer[i] == '\n'
