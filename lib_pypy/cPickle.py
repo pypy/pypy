@@ -100,6 +100,7 @@ from pickle import StringIO
 try:
     from pickle import StringBuilderFile
 except ImportError:
+    assert '__pypy__' not in sys.builtin_module_names
     StringBuilderFile = StringIO
 
 PythonPickler = Pickler
