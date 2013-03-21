@@ -417,6 +417,7 @@ class AppTestADVANCEDCPP:
         assert o == cppyy.bind_object(addr, type(o))
         assert o == cppyy.bind_object(addr, o.__class__)
         assert o == cppyy.bind_object(addr, "some_concrete_class")
+        raises(TypeError, cppyy.bind_object, addr, "does_not_exist")
         raises(TypeError, cppyy.bind_object, addr, 1)
 
     def test10_object_identity(self):

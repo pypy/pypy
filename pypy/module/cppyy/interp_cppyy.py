@@ -1111,5 +1111,8 @@ def bind_object(space, address, w_pycppclass, owns=False):
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     if not w_cppclass:
         w_cppclass = scope_byname(space, space.str_w(w_pycppclass))
+        if not w_cppclass:
+            raise OperationError(space.w_TypeError,
+                space.wrap("no such class: %s" % space.str_w(w_pycppclass)))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
     return wrap_cppobject(space, rawobject, cppclass, do_cast=False, python_owns=owns)
