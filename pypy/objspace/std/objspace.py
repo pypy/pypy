@@ -146,8 +146,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # annotation (see pypy/annotation/builtin.py)
         if x is None:
             return self.w_None
-        if isinstance(x, model.W_Object):
-            raise TypeError, "attempt to wrap already wrapped object: %s"%(x,)
         if isinstance(x, OperationError):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
                               (x,))

@@ -212,7 +212,11 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append('space')
 
     def visit__W_Root(self, el):
-        self.run_args.append(self.scopenext())
+        if el is not W_Root:
+            self.run_args.append("space.interp_w(%s, %s)" % (self.use(el),
+                                                         self.scopenext()))
+        else:
+            self.run_args.append(self.scopenext())
 
     def visit__Arguments(self, el):
         self.miniglobals['Arguments'] = Arguments

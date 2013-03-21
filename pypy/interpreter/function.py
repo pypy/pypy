@@ -57,11 +57,15 @@ class Function(W_Root):
 
     def call_args(self, args):
         # delegate activation to code
-        return self.getcode().funcrun(self, args)
+        w_res = self.getcode().funcrun(self, args)
+        assert isinstance(w_res, W_Root)
+        return w_res
 
     def call_obj_args(self, w_obj, args):
         # delegate activation to code
-        return self.getcode().funcrun_obj(self, w_obj, args)
+        w_res = self.getcode().funcrun_obj(self, w_obj, args)
+        assert isinstance(w_res, W_Root)
+        return w_res
 
     def getcode(self):
         if jit.we_are_jitted():
