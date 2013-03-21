@@ -242,7 +242,7 @@ class AssemblerARM(ResOpAssembler):
         #
         mc = ARMv7Builder()
         # save argument registers and return address
-        mc.PUSH([reg.value for reg in r.argument_regs] + [r.lr.value])
+        mc.PUSH([reg.value for reg in r.argument_regs] + [r.ip.value, r.lr.value])
         # stack is aligned here
         # Pass current stack pointer as argument to the call
         mc.MOV_rr(r.r0.value, r.sp.value)
@@ -253,21 +253,13 @@ class AssemblerARM(ResOpAssembler):
         mc.gen_load_int(r.r0.value, self.cpu.pos_exception())
         mc.LDR_ri(r.r0.value, r.r0.value)
         mc.TST_rr(r.r0.value, r.r0.value)
+        #
         # restore registers and return
         # We check for c.EQ here, meaning all bits zero in this case
-        mc.POP([reg.value for reg in r.argument_regs] + [r.pc.value], cond=c.EQ)
-        #
-        # Call the helper, which will return a dead frame object with
-        # the correct exception set, or MemoryError by default
-        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
-        mc.BL(addr)
-        #
-        # footer -- note the ADD, which skips the return address of this
-        # function, and will instead return to the caller's caller.  Note
-        # also that we completely ignore the saved arguments, because we
-        # are interrupting the function.
-        mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 1) * WORD)
-        mc.POP([r.pc.value])
+        mc.POP([reg.value for reg in r.argument_regs] + [r.ip.value, r.pc.value], cond=c.EQ)
+        # restore sp
+        mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
+        mc.B(self.propagate_exception_path)
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
@@ -311,6 +303,8 @@ class AssemblerARM(ResOpAssembler):
         else:
             self._restore_exception(mc, exc0, exc1)
             mc.VPOP([vfpr.value for vfpr in r.caller_vfp_resp])
+            assert exc0 is not None
+	    assert exc1 is not None
             mc.POP([gpr.value for gpr in r.caller_resp] +
                             [exc0.value, exc1.value])
         #
@@ -505,7 +499,7 @@ class AssemblerARM(ResOpAssembler):
         if self.cpu.supports_floats:
             mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers],
                                                                     cond=cond)
-        # push all callee saved registers and IP to keep the alignment
+        # pop all callee saved registers and IP to keep the alignment
         mc.POP([reg.value for reg in r.callee_restored_registers] +
                                                        [r.ip.value], cond=cond)
         mc.BKPT()
@@ -564,11 +558,11 @@ class AssemblerARM(ResOpAssembler):
         self.gen_func_prolog()
 
     def _call_header_with_stack_check(self):
+        self._call_header()
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
-            self.mc.PUSH([r.lr.value])
             # load stack end
             self.mc.gen_load_int(r.ip.value, endaddr)          # load ip, [end]
             self.mc.LDR_ri(r.ip.value, r.ip.value)             # LDR ip, ip
@@ -580,9 +574,6 @@ class AssemblerARM(ResOpAssembler):
             # if ofs
             self.mc.CMP_rr(r.ip.value, r.lr.value)             # CMP ip, lr
             self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
-            #
-            self.mc.POP([r.lr.value])
-        self._call_header()
 
     # cpu interface
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
