@@ -15,7 +15,7 @@ class RStringIO(object):
         #  * the list of characters self.bigbuffer;
         #  * each of the strings in self.strings.
         #
-        self.strings = StringBuilder()
+        self.strings = None
         self.bigbuffer = []
         self.pos = AT_END
 
@@ -24,7 +24,7 @@ class RStringIO(object):
         self.bigbuffer = None
 
     def is_closed(self):
-        return self.strings is None
+        return self.bigbuffer is None
 
     def getvalue(self):
         """If self.strings contains more than 1 string, join all the
@@ -32,18 +32,21 @@ class RStringIO(object):
         if len(self.bigbuffer):
             self.copy_into_bigbuffer()
             return ''.join(self.bigbuffer)
-        return self.strings.build()
+        if self.strings is not None:
+            return self.strings.build()
+        return ''
 
     def getsize(self):
         result = len(self.bigbuffer)
-        result += self.strings.getlength()
+        if self.strings is not None:
+            result += self.strings.getlength()
         return result
 
     def copy_into_bigbuffer(self):
         """Copy all the data into the list of characters self.bigbuffer."""
-        if self.strings.getlength():
+        if self.strings is not None:
             self.bigbuffer += self.strings.build()
-            self.strings = StringBuilder()
+            self.strings = None
 
     def write(self, buffer):
         # Idea: for the common case of a sequence of write() followed
@@ -80,6 +83,8 @@ class RStringIO(object):
                     self.bigbuffer += '\x00' * (-fitting)
                     self.pos = AT_END      # fall-through to the fast path
         # Fast path.
+        if self.strings is None:
+            self.strings = StringBuilder()
         self.strings.append(buffer)
 
     def seek(self, position, mode=0):
@@ -151,8 +156,8 @@ class RStringIO(object):
             self.copy_into_bigbuffer()
         else:
             # we can drop all extra strings
-            if self.strings.getlength():
-                self.strings = StringBuilder()
+            if self.strings is not None:
+                self.strings = None
         if size < len(self.bigbuffer):
             del self.bigbuffer[size:]
         self.pos = AT_END
