@@ -937,6 +937,10 @@ class W_CPPInstance(Wrappable):
         return None
 
     def instance__eq__(self, w_other):
+        # special case: if other is None, compare pointer-style
+        if self.space.is_w(w_other, self.space.w_None):
+            return self.space.wrap(not self._rawobject)
+
         # get here if no class-specific overloaded operator is available, try to
         # find a global overload in gbl, in __gnu_cxx (for iterators), or in the
         # scopes of the argument classes (TODO: implement that last option)

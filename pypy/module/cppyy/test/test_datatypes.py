@@ -583,7 +583,44 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test16_object_validity(self):
+    def test16_object_and_pointer_comparisons(self):
+        """Verify object and pointer comparisons"""
+    
+        import cppyy 
+        gbl = cppyy.gbl
+
+        c1 = cppyy.bind_object(0, gbl.cppyy_test_data)
+        assert c1 == None
+        assert None == c1
+
+        c2 = cppyy.bind_object(0, gbl.cppyy_test_data)
+        assert c1 == c2
+        assert c2 == c1
+
+        # four_vector overrides operator==
+        l1 = cppyy.bind_object(0, gbl.four_vector)
+        assert l1 == None
+        assert None == l1
+
+        assert c1 != l1
+        assert l1 != c1
+
+        l2 = cppyy.bind_object(0, gbl.four_vector)
+        assert l1 == l2
+        assert l2 == l1
+
+        l3 = gbl.four_vector(1, 2, 3, 4)
+        l4 = gbl.four_vector(1, 2, 3, 4)
+        l5 = gbl.four_vector(4, 3, 2, 1)
+        assert l3 == l4
+        assert l4 == l3
+
+        assert l3 != None                 # like this to ensure __ne__ is called
+        assert None != l3                 # id.
+        assert l3 != l5
+        assert l5 != l3
+
+    def test17_object_validity(self):
         """Test object validity checking"""
         
         from cppyy import gbl
@@ -597,7 +634,7 @@ class AppTestDATATYPES:
 
         assert not d2
 
-    def test17_buffer_reshaping(self):
+    def test18_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
         import cppyy

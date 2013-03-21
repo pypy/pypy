@@ -301,6 +301,24 @@ def _pythonize(pyclass):
     # general note: use 'in pyclass.__dict__' rather than 'hasattr' to prevent
     # adding pythonizations multiple times in derived classes
 
+    # map __eq__/__ne__ through a comparison to None
+    if '__eq__' in pyclass.__dict__:
+        def __eq__(self, other):
+            if other is None: return not self
+            if type(self) is not type(other): return False
+            if not self and not other: return True
+            return self._cxx_eq(other)
+        pyclass._cxx_eq = pyclass.__dict__['__eq__']
+        pyclass.__eq__ = __eq__
+
+    if '__ne__' in pyclass.__dict__:
+        def __ne__(self, other):
+            if other is None: return not not self
+            if type(self) is not type(other): return True
+            return self._cxx_ne(other)
+        pyclass._cxx_ne = pyclass.__dict__['__ne__']
+        pyclass.__ne__ = __ne__
+
     # map size -> __len__ (generally true for STL)
     if 'size' in pyclass.__dict__ and not '__len__' in pyclass.__dict__ \
            and callable(pyclass.size):
