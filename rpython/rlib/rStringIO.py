@@ -15,21 +15,23 @@ class RStringIO(object):
         #  * the list of characters self.bigbuffer;
         #  * each of the strings in self.strings.
         #
+        self.closed = False
         self.strings = None
-        self.bigbuffer = []
+        self.bigbuffer = None
         self.pos = AT_END
 
     def close(self):
+        self.closed = True
         self.strings = None
         self.bigbuffer = None
 
     def is_closed(self):
-        return self.bigbuffer is None
+        return self.closed
 
     def getvalue(self):
         """If self.strings contains more than 1 string, join all the
         strings together.  Return the final single string."""
-        if len(self.bigbuffer):
+        if self.bigbuffer is not None:
             self.copy_into_bigbuffer()
             return ''.join(self.bigbuffer)
         if self.strings is not None:
@@ -37,13 +39,17 @@ class RStringIO(object):
         return ''
 
     def getsize(self):
-        result = len(self.bigbuffer)
+        result = 0
+        if self.bigbuffer is not None:
+            result += len(self.bigbuffer)
         if self.strings is not None:
             result += self.strings.getlength()
         return result
 
     def copy_into_bigbuffer(self):
         """Copy all the data into the list of characters self.bigbuffer."""
+        if self.bigbuffer is None:
+            self.bigbuffer = []
         if self.strings is not None:
             self.bigbuffer += self.strings.build()
             self.strings = None
@@ -56,7 +62,7 @@ class RStringIO(object):
         if p != AT_END:    # slow or semi-fast paths
             assert p >= 0
             endp = p + len(buffer)
-            if len(self.bigbuffer) >= endp:
+            if self.bigbuffer is not None and len(self.bigbuffer) >= endp:
                 # semi-fast path: the write is entirely inside self.bigbuffer
                 for i in range(len(buffer)):
                     self.bigbuffer[p + i] = buffer[i]
@@ -152,7 +158,7 @@ class RStringIO(object):
         # than CPython: it never grows the buffer, and it sets the current
         # position to the end.
         assert size >= 0
-        if size > len(self.bigbuffer):
+        if self.bigbuffer is None or size > len(self.bigbuffer):
             self.copy_into_bigbuffer()
         else:
             # we can drop all extra strings
@@ -160,4 +166,6 @@ class RStringIO(object):
                 self.strings = None
         if size < len(self.bigbuffer):
             del self.bigbuffer[size:]
+        if len(self.bigbuffer) == 0:
+            self.bigbuffer = None
         self.pos = AT_END
