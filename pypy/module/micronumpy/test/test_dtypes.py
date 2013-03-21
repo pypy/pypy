@@ -275,7 +275,13 @@ class AppTestDtypes(BaseAppTestDtypes):
         from cPickle import loads, dumps
         a = array([1,2,3])
         assert a.dtype.__reduce__() == (dtype, ('i8', 0, 1), (3, '<', None, None, None, -1, -1, 0))
-        import pdb; pdb.set_trace()
+        assert loads(dumps(a.dtype)) == a.dtype
+
+    def test_pickle_record(self):
+        from numpypy import array, dtype
+        from cPickle import loads, dumps
+        skip("TODO")
+        a = array(([0, 0], [0, 0]), dtype=[('x', '<i8', (2,)), ('y', '<i4', (2,))])
         assert loads(dumps(a.dtype)) == a.dtype
 
 class AppTestTypes(BaseAppTestDtypes):
