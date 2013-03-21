@@ -153,11 +153,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit__W_Root(self, el, app_sig):
         argname = self.orig_arg()
         if argname == 'self':
-            # for W_ListObject and similar to be possible to have
-            # unwrap_spec in methods
+            assert el is not W_Root
             app_sig.append(argname)
             return
-        assert el is W_Root, "%s is not W_Root (forgotten to put .im_func in interp2app argument?)" % (el,)
         assert argname.startswith('w_'), (
             "argument %s of built-in function %r should "
             "start with 'w_'" % (argname, self.func))
@@ -351,7 +349,11 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space")
 
     def visit__W_Root(self, el):
-        self.unwrap.append(self.nextarg())
+        if el is not W_Root:
+            self.unwrap.append("space.interp_w(%s, %s)" % (self.use(el),
+                                                           self.nextarg()))
+        else:
+            self.unwrap.append(self.nextarg())
 
     def visit__Arguments(self, el):
         raise FastFuncNotSupported
