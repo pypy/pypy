@@ -126,6 +126,22 @@ class RStringIO(object):
             self.pos = p + count
             return ''.join(self.bigbuffer[p:p+count])
 
+    def readline(self, size=-1):
+        p = self.tell()
+        self.copy_into_bigbuffer()
+        end = len(self.bigbuffer)
+        if size >= 0 and size < end - p:
+            end = p + size
+        assert p >= 0
+        i = p
+        while i < end:
+            finished = self.bigbuffer[i] == '\n'
+            i += 1
+            if finished:
+                break
+        self.seek(i)
+        return ''.join(self.bigbuffer[p:i])
+
     def truncate(self, size):
         # NB. 'size' is mandatory.  This has the same un-Posix-y semantics
         # than CPython: it never grows the buffer, and it sets the current

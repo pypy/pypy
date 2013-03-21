@@ -149,22 +149,6 @@ class W_OutputType(RStringIO, W_InputOutputType):
         RStringIO.__init__(self)
         self.space = space
 
-    def readline(self, size=-1):
-        p = self.tell()
-        bigbuffer = self.copy_into_bigbuffer()
-        end = len(bigbuffer)
-        if size >= 0 and size < end - p:
-            end = p + size
-        assert p >= 0
-        i = p
-        while i < end:
-            finished = bigbuffer[i] == '\n'
-            i += 1
-            if finished:
-                break
-        self.seek(i)
-        return ''.join(bigbuffer[p:i])
-
     def descr_truncate(self, w_size=None):
         self.check_closed()
         space = self.space
