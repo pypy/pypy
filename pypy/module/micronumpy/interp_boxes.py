@@ -175,6 +175,12 @@ class W_GenericBox(Wrappable):
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("bool")
 
+    def descr_any(self, space):
+        return self
+
+    def descr_all(self, space):
+        return self
+
 class W_NumberBox(W_GenericBox):
     _attrs_ = ()
 
@@ -422,8 +428,9 @@ W_GenericBox.typedef = TypeDef("generic",
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_BoolBox.descr__new__.im_func),
-
     __index__ = interp2app(descr_index),
+    any = interp2app(W_BoolBox.descr_any),
+    all = interp2app(W_BoolBox.descr_all),
 )
 
 W_NumberBox.typedef = TypeDef("number", W_GenericBox.typedef,
