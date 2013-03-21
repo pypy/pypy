@@ -32,7 +32,7 @@ def test_gethostbyname_ex():
         assert space.unwrap(ip) == socket.gethostbyname_ex(host)
 
 def test_gethostbyaddr():
-    for host in ["localhost", "127.0.0.1"]:
+    for host in ["localhost", "127.0.0.1", "::1"]:
         ip = space.appexec([w_socket, space.wrap(host)],
                            "(_socket, host): return _socket.gethostbyaddr(host)")
         assert space.unwrap(ip) == socket.gethostbyaddr(host)
