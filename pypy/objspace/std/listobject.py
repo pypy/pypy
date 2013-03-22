@@ -1038,6 +1038,11 @@ class AbstractUnwrappedStrategy(object):
         w_item = self.wrap(item)
         return w_item
 
+    def mul(self, w_list, times):
+        l = self.unerase(w_list.lstorage)
+        return W_ListObject.from_storage_and_strategy(
+            self.space, self.erase(l * times), self)
+
     def inplace_mul(self, w_list, times):
         l = self.unerase(w_list.lstorage)
         l *= times

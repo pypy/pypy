@@ -200,6 +200,15 @@ class TestW_ListObject(object):
         w_res = self.space.mul(w(n), w_lis)
         assert self.space.eq_w(w_lis3, w_res)
 
+    def test_mul_does_not_clone(self):
+        # only testing right mul at the moment
+        w = self.space.wrap
+        arg = w(2)
+        w_lis = W_ListObject(self.space, [arg])
+        w_lis.clone = None
+        # does not crash
+        self.space.mul(w_lis, w(5))
+
     def test_setitem(self):
         w = self.space.wrap
         w_list = W_ListObject(self.space, [w(5), w(3)])
