@@ -530,7 +530,6 @@ class SomeTypedAddressAccess(SomeObject):
 # annotation of low-level types
 
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
 
 class SomePtr(SomeObject):
     knowntype = lltype._ptr
@@ -556,27 +555,35 @@ class SomeLLADTMeth(SomeObject):
     def can_be_none(self):
         return False
 
+
 class SomeOOObject(SomeObject):
     def __init__(self):
+        from rpython.rtyper.ootypesystem import ootype
         self.ootype = ootype.Object
+
 
 class SomeOOClass(SomeObject):
     def __init__(self, ootype):
         self.ootype = ootype
+
 
 class SomeOOInstance(SomeObject):
     def __init__(self, ootype, can_be_None=False):
         self.ootype = ootype
         self.can_be_None = can_be_None
 
+
 class SomeOOBoundMeth(SomeObject):
     immutable = True
+
     def __init__(self, ootype, name):
         self.ootype = ootype
         self.name = name
 
+
 class SomeOOStaticMeth(SomeObject):
     immutable = True
+
     def __init__(self, method):
         self.method = method
 
@@ -592,6 +599,8 @@ annotation_to_ll_map = [
 ]
 
 def annotation_to_lltype(s_val, info=None):
+    from rpython.rtyper.ootypesystem import ootype
+
     if isinstance(s_val, SomeOOInstance):
         return s_val.ootype
     if isinstance(s_val, SomeOOStaticMeth):
@@ -625,6 +634,8 @@ def annotation_to_lltype(s_val, info=None):
 ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map])
 
 def lltype_to_annotation(T):
+    from rpython.rtyper.ootypesystem import ootype
+
     try:
         s = ll_to_annotation_map.get(T)
     except TypeError:
@@ -730,7 +741,7 @@ def missing_operation(cls, name):
             flattened = args
         for arg in flattened:
             if arg.__class__ is SomeObject and arg.knowntype is not type:
-                return  SomeObject()
+                return SomeObject()
         bookkeeper = rpython.annotator.bookkeeper.getbookkeeper()
         bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
         return s_ImpossibleValue
