@@ -180,6 +180,11 @@ class W_GenericBox(Wrappable):
         value = space.is_true(self)
         return space.wrap(W_BoolBox(value))
 
+    def descr_ravel(self, space):
+        from pypy.module.micronumpy.base import convert_to_array
+        w_values = space.newtuple([self])
+        return convert_to_array(space, w_values)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("bool")
 
@@ -427,6 +432,7 @@ W_GenericBox.typedef = TypeDef("generic",
     tolist = interp2app(W_GenericBox.item),
     any = interp2app(W_GenericBox.descr_any),
     all = interp2app(W_GenericBox.descr_all),
+    ravel = interp2app(W_GenericBox.descr_ravel),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
