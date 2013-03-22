@@ -130,9 +130,6 @@ class FakeSpace(object):
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
-    def interpclass_w(self, w_obj):
-        return w_obj
-
     def buffer_w(self, w_obj):
         return FakeBuffer(w_obj)
 

@@ -17,7 +17,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 
 
-__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
+__all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
@@ -219,15 +219,9 @@ class W_Root(object):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
 
-
-class Wrappable(W_Root):
-    """A subclass of Wrappable is an internal, interpreter-level class
-    that can nevertheless be exposed at application-level by space.wrap()."""
-    __slots__ = ()
-    _settled_ = True
-
     def __spacebind__(self, space):
         return self
+
 
 class W_InterpIterable(W_Root):
     def __init__(self, space, w_iterable):
@@ -339,9 +333,8 @@ class ObjSpace(object):
                 if e.match(self, self.w_KeyError):
                     continue
                 raise
-            mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module) and not mod.startup_called:
-                mod.init(self)
+            if isinstance(w_mod, Module) and not w_mod.startup_called:
+                w_mod.init(self)
 
     def finish(self):
         self.wait_for_thread_shutdown()
@@ -350,9 +343,8 @@ class ObjSpace(object):
             self.call_function(w_exitfunc)
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
-            mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module) and mod.startup_called:
-                mod.shutdown(self)
+            if isinstance(w_mod, Module) and w_mod.startup_called:
+                w_mod.shutdown(self)
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading
@@ -424,9 +416,8 @@ class ObjSpace(object):
 
             # And initialize it
             from pypy.interpreter.module import Module
-            mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module):
-                mod.init(self)
+            if isinstance(w_mod, Module):
+                w_mod.init(self)
             return w_mod
 
     def get_builtinmodule_to_install(self):
@@ -723,38 +714,26 @@ class ObjSpace(object):
         w_s = self.interned_strings[s] = self.wrap(s)
         return w_s
 
-    def interpclass_w(self, w_obj):
-        """
-         If w_obj is a wrapped internal interpreter class instance unwrap to it,
-         otherwise return None.  (Can be overridden in specific spaces; you
-     should generally use the helper space.interp_w() instead.)
-        """
-        if isinstance(w_obj, Wrappable):
-            return w_obj
-        return None
-
     def descr_self_interp_w(self, RequiredClass, w_obj):
-        obj = self.interpclass_w(w_obj)
-        if not isinstance(obj, RequiredClass):
+        if not isinstance(w_obj, RequiredClass):
             raise DescrMismatch()
-        return obj
+        return w_obj
     descr_self_interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
         Unwrap w_obj, checking that it is an instance of the required internal
-        interpreter class (a subclass of Wrappable).
+        interpreter class.
         """
         assert RequiredClass is not None
         if can_be_None and self.is_none(w_obj):
             return None
-        obj = self.interpclass_w(w_obj)
-        if not isinstance(obj, RequiredClass):   # or obj is None
+        if not isinstance(w_obj, RequiredClass):   # or obj is None
             msg = "'%s' object expected, got '%s' instead"
             raise operationerrfmt(self.w_TypeError, msg,
                 wrappable_class_name(RequiredClass),
                 w_obj.getclass(self).getname(self))
-        return obj
+        return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     def unpackiterable(self, w_iterable, expected_length=-1):
@@ -1032,8 +1011,7 @@ class ObjSpace(object):
     def is_oldstyle_instance(self, w_obj):
         # xxx hack hack hack
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-        obj = self.interpclass_w(w_obj)
-        return obj is not None and isinstance(obj, W_InstanceObject)
+        return isinstance(w_obj, W_InstanceObject)
 
     def callable(self, w_obj):
         if self.lookup(w_obj, "__call__") is not None:
@@ -1670,7 +1648,6 @@ if sys.platform.startswith("win"):
 #                       float_w(w_floatval) -> floatval
 #             uint_w(w_ival or w_long_ival) -> r_uint_val (unsigned int value)
 #             bigint_w(w_ival or w_long_ival) -> rbigint
-#interpclass_w(w_interpclass_inst or w_obj) -> interpclass_inst|w_obj
 #                               unwrap(w_x) -> x
 #                              is_true(w_x) -> True or False
 #                  newtuple([w_1, w_2,...]) -> w_tuple
@@ -1687,7 +1664,6 @@ ObjSpace.IrregularOpTable = [
     'uint_w',
     'bigint_w',
     'unicode_w',
-    'interpclass_w',
     'unwrap',
     'is_true',
     'is_w',

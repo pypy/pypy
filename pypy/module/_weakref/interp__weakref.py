@@ -1,5 +1,5 @@
 import py
-from pypy.interpreter.baseobjspace import Wrappable, W_Root
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef
@@ -150,7 +150,7 @@ for i in range(5):
 assert dead_ref() is None
 
 
-class W_WeakrefBase(Wrappable):
+class W_WeakrefBase(W_Root):
     def __init__(w_self, space, w_obj, w_callable):
         assert w_callable is not space.w_None    # should be really None
         w_self.space = space
@@ -182,6 +182,7 @@ class W_WeakrefBase(Wrappable):
             else:
                 state = "; to '%s'" % (typename,)
         return self.getrepr(space, self.typedef.name, state)
+
 
 class W_Weakref(W_WeakrefBase):
     def __init__(w_self, space, w_obj, w_callable):
@@ -217,8 +218,7 @@ class W_Weakref(W_WeakrefBase):
         ref2 = w_ref2
         w_obj1 = ref1.dereference()
         w_obj2 = ref2.dereference()
-        if (w_obj1 is None or
-            w_obj2 is None):
+        if w_obj1 is None or w_obj2 is None:
             return space.is_(ref1, ref2)
         return space.eq(w_obj1, w_obj2)
 

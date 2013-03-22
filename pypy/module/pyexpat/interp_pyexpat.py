@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
@@ -212,7 +212,7 @@ class Storage:
 
 global_storage = Storage()
 
-class CallbackData(Wrappable):
+class CallbackData(W_Root):
     def __init__(self, space, parser):
         self.space = space
         self.parser = weakref.ref(parser)
@@ -414,8 +414,8 @@ class Cache:
     def __init__(self, space):
         self.w_error = space.new_exception_class("pyexpat.ExpatError")
 
-class W_XMLParserType(Wrappable):
 
+class W_XMLParserType(W_Root):
     def __init__(self, space, parser, w_intern):
         self.itself = parser
 

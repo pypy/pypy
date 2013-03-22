@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -13,7 +13,7 @@ from pypy.module.oracle.interp_error import get
 # XXX are those "assert isinstance(xxx, interp_variable.W_Variable)" necessary?
 # the bindList should annotate to SomeList(SomeInstance(W_Variable))
 
-class W_Cursor(Wrappable):
+class W_Cursor(W_Root):
     def __init__(self, space, connection):
         self.connection = connection
         self.environment = connection.environment

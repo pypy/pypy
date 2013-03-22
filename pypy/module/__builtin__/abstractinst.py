@@ -88,11 +88,9 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
             return space.is_true(w_result)
 
     # -- case (old-style instance, old-style class)
-    oldstyleclass = space.interpclass_w(w_klass_or_tuple)
-    if isinstance(oldstyleclass, W_ClassObject):
-        oldstyleinst = space.interpclass_w(w_obj)
-        if isinstance(oldstyleinst, W_InstanceObject):
-            return oldstyleinst.w_class.is_subclass_of(oldstyleclass)
+    if isinstance(w_klass_or_tuple, W_ClassObject):
+        if isinstance(w_obj, W_InstanceObject):
+            return w_obj.w_class.is_subclass_of(w_klass_or_tuple)
     return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
 
 @jit.dont_look_inside
@@ -152,11 +150,9 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple,
         return space.is_true(w_result)
 
     # -- case (old-style class, old-style class)
-    oldstylederived = space.interpclass_w(w_derived)
-    if isinstance(oldstylederived, W_ClassObject):
-        oldstyleklass = space.interpclass_w(w_klass_or_tuple)
-        if isinstance(oldstyleklass, W_ClassObject):
-            return oldstylederived.is_subclass_of(oldstyleklass)
+    if isinstance(w_derived, W_ClassObject):
+        if isinstance(w_klass_or_tuple, W_ClassObject):
+            return w_derived.is_subclass_of(w_klass_or_tuple)
     else:
         check_class(space, w_derived, "issubclass() arg 1 must be a class")
     # from here on, we are sure that w_derived is a class-like object
@@ -171,31 +167,26 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple,
 # Exception helpers
 
 def exception_is_valid_obj_as_class_w(space, w_obj):
-    obj = space.interpclass_w(w_obj)
-    if isinstance(obj, W_ClassObject):
+    if isinstance(w_obj, W_ClassObject):
         return True
     return BaseObjSpace.exception_is_valid_obj_as_class_w(space, w_obj)
 
 def exception_is_valid_class_w(space, w_cls):
-    cls = space.interpclass_w(w_cls)
-    if isinstance(cls, W_ClassObject):
+    if isinstance(w_cls, W_ClassObject):
         return True
     return BaseObjSpace.exception_is_valid_class_w(space, w_cls)
 
 def exception_getclass(space, w_obj):
-    obj = space.interpclass_w(w_obj)
-    if isinstance(obj, W_InstanceObject):
-        return obj.w_class
+    if isinstance(w_obj, W_InstanceObject):
+        return w_obj.w_class
     return BaseObjSpace.exception_getclass(space, w_obj)
 
 def exception_issubclass_w(space, w_cls1, w_cls2):
-    cls1 = space.interpclass_w(w_cls1)
-    cls2 = space.interpclass_w(w_cls2)
-    if isinstance(cls1, W_ClassObject):
-        if isinstance(cls2, W_ClassObject):
-            return cls1.is_subclass_of(cls2)
+    if isinstance(w_cls1, W_ClassObject):
+        if isinstance(w_cls2, W_ClassObject):
+            return w_cls1.is_subclass_of(w_cls2)
         return False
-    if isinstance(cls2, W_ClassObject):
+    if isinstance(w_cls2, W_ClassObject):
         return False
     return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
 

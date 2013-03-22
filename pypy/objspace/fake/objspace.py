@@ -1,6 +1,6 @@
 from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, SpaceCache
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -14,7 +14,7 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
 
 
-class W_MyObject(Wrappable):
+class W_MyObject(W_Root):
     typedef = None
 
     def getdict(self, space):
@@ -47,10 +47,10 @@ class W_MyObject(Wrappable):
 
     def int_w(self, space):
         return NonConstant(-42)
-    
+
     def uint_w(self, space):
         return r_uint(NonConstant(42))
-    
+
     def bigint_w(self, space):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
@@ -354,9 +354,11 @@ class FakeCompiler(object):
     pass
 FakeObjSpace.default_compiler = FakeCompiler()
 
-class FakeModule(Wrappable):
+
+class FakeModule(W_Root):
     def __init__(self):
         self.w_dict = w_some_obj()
+
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()

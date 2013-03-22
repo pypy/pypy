@@ -8,7 +8,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
@@ -439,7 +439,7 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
             return w_loader
 
 
-class W_NullImporter(Wrappable):
+class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
@@ -990,11 +990,10 @@ def read_compiled_module(space, cpathname, strbuf):
 
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
-    pycode = space.interpclass_w(w_code)
-    if pycode is None or not isinstance(pycode, Code):
+    if not isinstance(w_code, Code):
         raise operationerrfmt(space.w_ImportError,
                               "Non-code object in %s", cpathname)
-    return pycode
+    return w_code
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,

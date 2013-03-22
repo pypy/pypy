@@ -3,7 +3,7 @@ import pypy.module.cppyy.capi as capi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.interpreter.baseobjspace import Wrappable, W_Root
+from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
@@ -99,7 +99,7 @@ def register_class(space, w_pycppclass):
     state.cppclass_registry[cppclass.handle] = w_pycppclass
 
 
-class W_CPPLibrary(Wrappable):
+class W_CPPLibrary(W_Root):
     _immutable_ = True
 
     def __init__(self, space, cdll):
@@ -412,7 +412,7 @@ class CPPSetItem(CPPMethod):
         CPPMethod.call(self, cppthis, args_w)
 
 
-class W_CPPOverload(Wrappable):
+class W_CPPOverload(W_Root):
     """Dispatcher that is actually available at the app-level: it is a
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
@@ -495,7 +495,7 @@ W_CPPOverload.typedef = TypeDef(
 )
 
 
-class W_CPPDataMember(Wrappable):
+class W_CPPDataMember(W_Root):
     _attrs_ = ['space', 'scope', 'converter', 'offset', '_is_static']
     _immutable_fields = ['scope', 'converter', 'offset', '_is_static']
 
@@ -543,7 +543,7 @@ W_CPPDataMember.typedef = TypeDef(
 W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 
-class W_CPPScope(Wrappable):
+class W_CPPScope(W_Root):
     _attrs_ = ['space', 'name', 'handle', 'methods', 'datamembers']
     _immutable_fields_ = ['kind', 'name']
 
@@ -715,7 +715,7 @@ class W_CPPNamespace(W_CPPScope):
             dname = capi.c_datamember_name(self, i)
             if dname: alldir.append(self.space.wrap(dname))
         return self.space.newlist(alldir)
-        
+
 
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
@@ -836,7 +836,7 @@ W_ComplexCPPClass.typedef = TypeDef(
 W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
 
-class W_CPPTemplateType(Wrappable):
+class W_CPPTemplateType(W_Root):
     _attrs_ = ['space', 'name', 'handle']
     _immutable_fields = ['name', 'handle']
 
@@ -859,7 +859,7 @@ W_CPPTemplateType.typedef = TypeDef(
 W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
 
-class W_CPPInstance(Wrappable):
+class W_CPPInstance(W_Root):
     _attrs_ = ['space', 'cppclass', '_rawobject', 'isref', 'python_owns']
     _immutable_fields_ = ["cppclass", "isref"]
 

@@ -2,11 +2,12 @@
 Module objects.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import we_are_translated
 
-class Module(Wrappable):
+
+class Module(W_Root):
     """A module."""
 
     _immutable_fields_ = ["w_dict?"]
