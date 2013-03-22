@@ -699,7 +699,7 @@ class ObjSpace(object):
                 raise
             return None
 
-    @signature(types.bool(), returns=types.instance(W_Root))
+    @signature(types.any(), types.bool(), returns=types.instance(W_Root))
     def newbool(self, b):
         if b:
             return self.w_True
