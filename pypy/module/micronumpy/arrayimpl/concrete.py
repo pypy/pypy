@@ -49,8 +49,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return
         shape = shape_agreement(space, self.get_shape(), arr)
         if impl.storage == self.storage:
-            impl = impl.copy()
-        loop.setslice(shape, self, impl)
+            impl = impl.copy(space)
+        loop.setslice(space, shape, self, impl)
 
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
@@ -245,12 +245,12 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides,
                           backstrides, shape, self, orig_array)
 
-    def copy(self):
+    def copy(self, space):
         strides, backstrides = support.calc_strides(self.get_shape(), self.dtype,
                                                     self.order)
         impl = ConcreteArray(self.get_shape(), self.dtype, self.order, strides,
                              backstrides)
-        return loop.setslice(self.get_shape(), impl, self)
+        return loop.setslice(space, self.get_shape(), impl, self)
 
     def create_axis_iter(self, shape, dim, cum):
         return iter.AxisIterator(self, shape, dim, cum)
@@ -281,7 +281,11 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
     def astype(self, space, dtype):
         new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
-        loop.copy_from_to(self, new_arr.implementation, dtype)
+        if dtype.is_str_or_unicode():
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "astype(%s) not implemented yet" % self.dtype))
+        else:    
+            loop.setslice(space, new_arr.get_shape(), new_arr.implementation, self)
         return new_arr
 
 class ConcreteArrayNotOwning(BaseConcreteArray):

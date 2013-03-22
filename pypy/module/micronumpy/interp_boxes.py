@@ -290,6 +290,10 @@ class W_VoidBox(W_FlexibleBox):
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
+    def convert_to(self, dtype):
+        # if we reach here, the record fields are guarenteed to match.
+        return self
+
 class W_CharacterBox(W_FlexibleBox):
     pass
 
@@ -303,10 +307,6 @@ class W_StringBox(W_CharacterBox):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
 
-    def convert_to(self, dtype):
-        from pypy.module.micronumpy import types
-        assert isinstance(dtype.itemtype, types.StringType)
-        return self
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
@@ -319,11 +319,6 @@ class W_UnicodeBox(W_CharacterBox):
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
-
-    def convert_to(self, dtype):
-        from pypy.module.micronumpy import types
-        assert isinstance(dtype.itemtype, types.UnicodeType)
-        return self
 
 
 class W_ComplexFloatingBox(W_InexactBox):

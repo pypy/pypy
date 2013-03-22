@@ -1634,6 +1634,7 @@ class BaseStringType(object):
     def get_size(self):
         return self.size
 
+
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
@@ -1641,7 +1642,7 @@ class StringType(BaseType, BaseStringType):
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
         arg = space.str_w(space.str(w_item))
-        arr = interp_boxes.VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
+        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
@@ -1682,6 +1683,20 @@ class StringType(BaseType, BaseStringType):
     def to_builtin_type(self, space, box):
         return space.wrap(self.to_str(box))
 
+    def build_and_convert(self, space, mydtype, box):
+        if box.get_dtype(space).is_str_or_unicode():
+            arg = box.get_dtype(space).itemtype.to_str(box)
+        else:
+            w_arg = box.descr_str(space)
+            arg = space.str_w(space.str(w_arg))
+        arr = VoidBoxStorage(self.size, mydtype)
+        i = 0
+        for i in range(min(len(arg), self.size)):
+            arr.storage[i] = arg[i]
+        for j in range(i + 1, self.size):
+            arr.storage[j] = '\x00'
+        return interp_boxes.W_StringBox(arr,  0, arr.dtype)
+        
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
