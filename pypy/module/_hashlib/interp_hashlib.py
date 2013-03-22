@@ -4,9 +4,8 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from rpython.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rgc, ropenssl
-from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 

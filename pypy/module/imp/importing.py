@@ -112,7 +112,7 @@ else:
 def try_getattr(space, w_obj, w_name):
     try:
         return space.getattr(w_obj, w_name)
-    except OperationError, e:
+    except OperationError:
         # ugh, but blame CPython :-/ this is supposed to emulate
         # hasattr, which eats all exceptions.
         return None
@@ -164,8 +164,7 @@ def _get_relative_name(space, modulename, level, w_globals):
 
         # Try to import parent package
         try:
-            w_parent = absolute_import(space, ctxt_package, 0,
-                                       None, tentative=False)
+            absolute_import(space, ctxt_package, 0, None, tentative=False)
         except OperationError, e:
             if not e.match(space, space.w_ImportError):
                 raise
@@ -703,7 +702,6 @@ def reload(space, w_module):
         namepath = modulename.split('.')
         subname = namepath[-1]
         parent_name = '.'.join(namepath[:-1])
-        parent = None
         if parent_name:
             w_parent = check_sys_modules_w(space, parent_name)
             if w_parent is None:
@@ -1005,7 +1003,6 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     Load a module from a compiled file, execute it, and return its
     module object.
     """
-    w = space.wrap
     if magic != get_pyc_magic(space):
         raise operationerrfmt(space.w_ImportError,
                               "Bad magic number in %s", cpathname)

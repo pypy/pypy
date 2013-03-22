@@ -52,10 +52,8 @@ class W_ZipCache(Wrappable):
             raise OperationError(space.w_KeyError, space.wrap(name))
         assert isinstance(w_zipimporter, W_ZipImporter)
         w = space.wrap
-        values = {}
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
-            w_values = space.newdict()
             space.setitem(w_d, w(key), space.newtuple([
                 w(info.filename), w(info.compress_type), w(info.compress_size),
                 w(info.file_size), w(info.file_offset), w(info.dostime),
@@ -350,7 +348,6 @@ class W_ZipImporter(Wrappable):
 
 @unwrap_spec(name='str0')
 def descr_new_zipimporter(space, w_type, name):
-    w = space.wrap
     ok = False
     parts_ends = [i for i in range(0, len(name))
                     if name[i] == os.path.sep or name[i] == ZIPSEP]

@@ -4,20 +4,17 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
-from pypy.interpreter.error import operationerrfmt
 from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.rtyper.module import ll_os_stat
-from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.tool import rffi_platform
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
-import os, sys
+import os
+import sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
     from rpython.rlib.rwin32 import _MAX_ENV
-    
+
 c_int = "c_int"
 
 # CPython 2.7 semantics are too messy to follow exactly,
@@ -854,17 +851,6 @@ second form is used, set the access and modified times to the current time.
             raise
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
-def setsid(space):
-    """setsid() -> pid
-
-    Creates a new session with this process as the leader.
-    """
-    try:
-        result = os.setsid()
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    return space.wrap(result)
-
 def uname(space):
     """ uname() -> (sysname, nodename, release, version, machine)
 
@@ -1161,7 +1147,7 @@ fd to the numeric uid and gid."""
 def getloadavg(space):
     try:
         load = os.getloadavg()
-    except OSError, e:
+    except OSError:
         raise OperationError(space.w_OSError,
                              space.wrap("Load averages are unobtainable"))
     return space.newtuple([space.wrap(load[0]),

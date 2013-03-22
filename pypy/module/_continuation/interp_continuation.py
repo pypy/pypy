@@ -221,7 +221,6 @@ def new_stacklet_callback(h, arg):
     self = global_state.origin
     self.h = h
     global_state.clear()
-    space = self.space
     try:
         frame = self.bottomframe
         w_result = frame.execute_frame()

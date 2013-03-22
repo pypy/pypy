@@ -183,7 +183,7 @@ printed unless the exception is SystemExit."""
         try:
             rthread.gc_thread_prepare()     # (this has no effect any more)
             ident = rthread.start_new_thread(bootstrapper.bootstrap, ())
-        except Exception, e:
+        except Exception:
             bootstrapper.release()     # normally called by the new thread
             raise
     except rthread.error:
