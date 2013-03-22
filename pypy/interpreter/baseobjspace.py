@@ -336,7 +336,6 @@ class ObjSpace(object):
                 if e.match(self, self.w_KeyError):
                     continue
                 raise
-            modname = self.str_w(w_modname)
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and not mod.startup_called:
                 mod.init(self)
@@ -429,7 +428,6 @@ class ObjSpace(object):
 
     def get_builtinmodule_to_install(self):
         """NOT_RPYTHON"""
-        from pypy.tool.lib_pypy import LIB_PYPY
         try:
             return self._builtinmodule_list
         except AttributeError:

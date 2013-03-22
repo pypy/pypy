@@ -629,7 +629,6 @@ def run_command_line(interactive,
 
     # start a prompt if requested
     if inspect_requested():
-        inteactive = False
         try:
             from _pypy_interact import interactive_console
             success = run_toplevel(interactive_console, mainmodule)
