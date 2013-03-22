@@ -430,7 +430,7 @@ class __extend__(SomeDict):
         return dct.dictdef.read_value()
 
     def _can_only_throw(dic, *ignore):
-        if dic1.dictdef.dictkey.custom_eq_hash:
+        if dic.dictdef.dictkey.custom_eq_hash:
             return None    # r_dict: can throw anything
         return []          # else: no possible exception
 
@@ -753,10 +753,8 @@ class __extend__(SomePBC):
 
 class __extend__(SomeGenericCallable):
     def call(self, args):
-        bookkeeper = getbookkeeper()
         for arg, expected in zip(args.unpack()[0], self.args_s):
             assert expected.contains(arg)
-        
         return self.s_result
 
 class __extend__(SomeExternalObject):
@@ -769,13 +767,13 @@ class __extend__(SomeExternalObject):
         else:
             return SomeObject()
     getattr.can_only_throw = []
-    
+
     def setattr(p, s_attr, s_value):
         assert s_attr.is_constant()
         attr = s_attr.const
         entry = extregistry.lookup_type(p.knowntype)
         entry.set_field_annotation(p.knowntype, attr, s_value)
-    
+
     def is_true(p):
         return s_Bool
 

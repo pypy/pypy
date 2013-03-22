@@ -29,11 +29,11 @@ generic element in some specific subset of the set of all objects.
 
 from __future__ import absolute_import
 
-from types import BuiltinFunctionType, MethodType, FunctionType
+from types import BuiltinFunctionType, MethodType
 import rpython
 from rpython.tool import descriptor
 from rpython.tool.pairtype import pair, extendabletype
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong, base_int
+from rpython.rlib.rarithmetic import r_uint, base_int
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 import inspect, weakref
 

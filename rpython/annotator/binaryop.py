@@ -15,7 +15,6 @@ from rpython.annotator.model import SomeExternalObject, SomeWeakRef
 from rpython.annotator.model import SomeAddress, SomeTypedAddressAccess
 from rpython.annotator.model import SomeSingleFloat, SomeLongFloat, SomeType
 from rpython.annotator.model import unionof, UnionError, missing_operation
-from rpython.annotator.model import TLS
 from rpython.annotator.model import read_can_only_throw
 from rpython.annotator.model import add_knowntypedata, merge_knowntypedata
 from rpython.annotator.model import SomeGenericCallable

@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import types
+
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
@@ -10,12 +11,13 @@ from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature, unaryop, binaryop
 from rpython.annotator.bookkeeper import Bookkeeper
+
 import py
 log = py.log.Producer("annrpython")
 py.log.setconsumer("annrpython", ansi_log)
 
-
 FAIL = object()
+
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.

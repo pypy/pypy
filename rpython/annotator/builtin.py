@@ -1,10 +1,10 @@
 """
 Built-in functions.
 """
-
 import sys
+
 from rpython.annotator.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from rpython.annotator.model import SomeString, SomeTuple, s_Bool, SomeBuiltin
+from rpython.annotator.model import SomeString, SomeTuple, s_Bool
 from rpython.annotator.model import SomeUnicodeCodePoint, SomeAddress
 from rpython.annotator.model import SomeFloat, unionof, SomeUnicodeString
 from rpython.annotator.model import SomePBC, SomeInstance, SomeDict, SomeList
