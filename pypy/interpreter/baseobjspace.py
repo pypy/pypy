@@ -1,27 +1,30 @@
 import sys
 
+from rpython.rlib.cache import Cache
+from rpython.tool.uid import HUGEVAL_BYTES
+from rpython.rlib import jit, types
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
+     compute_unique_id)
+from rpython.rlib.signature import signature
+from rpython.rlib.rarithmetic import r_uint
+
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction, FrameTraceAction)
 from pypy.interpreter.error import (OperationError, operationerrfmt,
     new_exception_class, typed_unwrap_error_msg)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
-from rpython.rlib.cache import Cache
-from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit
-from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.objectmodel import we_are_translated, newlist_hint,\
-     compute_unique_id
-from rpython.rlib.rarithmetic import r_uint
 
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
-unpackiterable_driver = jit.JitDriver(name = 'unpackiterable',
-                                      greens = ['tp'],
-                                      reds = ['items', 'w_iterator'])
+unpackiterable_driver = jit.JitDriver(name='unpackiterable',
+                                      greens=['tp'],
+                                      reds=['items', 'w_iterator'])
+
 
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
@@ -336,7 +339,6 @@ class ObjSpace(object):
                 if e.match(self, self.w_KeyError):
                     continue
                 raise
-            modname = self.str_w(w_modname)
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and not mod.startup_called:
                 mod.init(self)
@@ -429,7 +431,6 @@ class ObjSpace(object):
 
     def get_builtinmodule_to_install(self):
         """NOT_RPYTHON"""
-        from pypy.tool.lib_pypy import LIB_PYPY
         try:
             return self._builtinmodule_list
         except AttributeError:
@@ -698,6 +699,7 @@ class ObjSpace(object):
                 raise
             return None
 
+    @signature(types.any(), types.bool(), returns=types.instance(W_Root))
     def newbool(self, b):
         if b:
             return self.w_True
@@ -754,18 +756,6 @@ class ObjSpace(object):
                 w_obj.getclass(self).getname(self))
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
-
-    def _check_constant_interp_w_or_w_None(self, RequiredClass, w_obj):
-        """
-        This method should NOT be called unless you are really sure about
-        it. It is used inside the implementation of end_finally() in
-        pyopcode.py, and it's there so that it can be overridden by the
-        FlowObjSpace.
-        """
-        if self.is_w(w_obj, self.w_None):
-            return True
-        obj = self.interpclass_w(w_obj)
-        return isinstance(obj, RequiredClass)
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable into a real (interpreter-level) list.

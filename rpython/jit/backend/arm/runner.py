@@ -1,31 +1,37 @@
+from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.assembler import AssemblerARM
-from rpython.jit.backend.arm.registers import all_regs, all_vfp_regs
+from rpython.jit.backend.arm.regalloc import CoreRegisterManager,\
+     VFPRegisterManager
+from rpython.jit.backend.arm.registers import fp, all_regs
+from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
-from rpython.jit.backend.arm.arch import FORCE_INDEX_OFS
+from rpython.rtyper.lltypesystem import lltype, llmemory
 
+jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
 
 class AbstractARMCPU(AbstractLLCPU):
+
+    IS_64_BIT = False
 
     supports_floats = True
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
     supports_singlefloats = True
-    
+
+    from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
+    all_reg_indexes = range(len(all_regs))
+    gen_regs = all_regs
+    float_regs = VFPRegisterManager.all_regs
+    frame_reg = fp
+
     use_hf_abi = False        # use hard float abi flag
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
-        if gcdescr is not None:
-            gcdescr.force_index_ofs = FORCE_INDEX_OFS
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
-        from rpython.jit.backend.llsupport import jitframe
-        self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
-                                                  self.get_failargs_limit())
 
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
@@ -63,63 +69,11 @@ class AbstractARMCPU(AbstractLLCPU):
         for index in range(count):
             setitem(index, null)
 
-    def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
-
-        def execute_token(executable_token, *args):
-            clt = executable_token.compiled_loop_token
-            assert len(args) == clt._debug_nbargs
-            #
-            addr = executable_token._arm_func_addr
-            assert addr % 8 == 0
-            func = rffi.cast(FUNCPTR, addr)
-            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-            prev_interpreter = None   # help flow space
-            if not self.translate_support_code:
-                prev_interpreter = LLInterpreter.current_interpreter
-                LLInterpreter.current_interpreter = self.debug_ll_interpreter
-            try:
-                deadframe = func(*args)
-            finally:
-                if not self.translate_support_code:
-                    LLInterpreter.current_interpreter = prev_interpreter
-            #llop.debug_print(lltype.Void, "<<<< Back")
-            self.gc_set_extra_threshold()
-            return deadframe
-        return execute_token
-
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return ArmCPU.cast_adr_to_int(adr)
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
-
-    all_null_registers = lltype.malloc(rffi.LONGP.TO,
-                        len(all_vfp_regs) * 2 + len(all_regs),
-                        flavor='raw', zero=True, immortal=True)
-
-    def force(self, addr_of_force_index):
-        TP = rffi.CArrayPtr(lltype.Signed)
-        fail_index = rffi.cast(TP, addr_of_force_index)[0]
-        assert fail_index >= 0, "already forced!"
-        faildescr = self.get_fail_descr_from_number(fail_index)
-        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
-        frb = self.assembler._find_failure_recovery_bytecode(faildescr)
-        bytecode = rffi.cast(rffi.UCHARP, frb)
-        addr_all_null_regsiters = rffi.cast(rffi.LONG, self.all_null_registers)
-        #
-        assert (rffi.cast(lltype.Signed, bytecode[0]) ==
-                self.assembler.CODE_FORCED)
-        bytecode = rffi.ptradd(bytecode, 1)
-        deadframe = self.assembler.grab_frame_values(self,
-                        bytecode, addr_of_force_index,
-                        self.all_null_registers,
-                        self.all_null_registers)
-        #
-        assert self.get_latest_descr(deadframe) is faildescr
-        self.assembler.force_token_to_dead_frame[addr_of_force_index] = (
-            deadframe)
-        return deadframe
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
@@ -153,10 +107,12 @@ class AbstractARMCPU(AbstractLLCPU):
 
 class CPU_ARM(AbstractARMCPU):
     """ARM v7 uses softfp ABI, requires vfp"""
-    pass
+    backend_name = "arm"
 ArmCPU = CPU_ARM
 
 class CPU_ARMHF(AbstractARMCPU):
     """ARM v7 uses hardfp ABI, requires vfp"""
     use_hf_abi = True
+    backend_name = "armhf"
     supports_floats = False
+    supports_singlefloats = False

@@ -1,5 +1,5 @@
 import py
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from rpython.rtyper.rvirtualizable2 import replace_force_virtualizable_with_call
 from rpython.rlib.jit import hint
@@ -371,7 +371,7 @@ class TestLLtype(LLRtypeMixin, BaseTest):
             return vinst
         res = self.interpret(f, [42])
         assert res.inst_v == 42
-        assert res.vable_token == 0
+        assert res.vable_token == lltype.nullptr(llmemory.GCREF.TO)
 
 class TestOOtype(OORtypeMixin, BaseTest):
     prefix = 'o'

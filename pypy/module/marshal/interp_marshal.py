@@ -235,7 +235,6 @@ class Marshaller(_Base):
         lng = len(lst_w)
         self.put_int(lng)
         idx = 0
-        space = self.space
         while idx < lng:
             w_obj = lst_w[idx]
             self.space.marshal_w(w_obj, self)

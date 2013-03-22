@@ -9,6 +9,7 @@ from distutils.errors import DistutilsPlatformError
 
 
 PREFIX = os.path.normpath(sys.prefix)
+EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
 project_base = os.path.dirname(os.path.abspath(sys.executable))
 python_build = False
 
@@ -42,7 +43,7 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
     if prefix is None:
         prefix = PREFIX
     if standard_lib:
-        return os.path.join(prefix, "lib-python", get_python_version())
+        return os.path.join(prefix, "lib-python", sys.version[0])
     return os.path.join(prefix, 'site-packages')
 
 
@@ -60,6 +61,7 @@ def _init_posix():
     g['SO'] = _get_so_extension() or ".so"
     g['SOABI'] = g['SO'].rsplit('.')[0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
+    g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
 
     global _config_vars
     _config_vars = g

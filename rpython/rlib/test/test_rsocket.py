@@ -40,55 +40,49 @@ def test_netlink_addr():
     a = NETLINKAddress(pid, group_mask)
     assert a.get_pid() == pid
     assert a.get_groups() == group_mask
-    
+
 def test_gethostname():
     s = gethostname()
     assert isinstance(s, str)
 
 def test_gethostbyname():
-    a = gethostbyname('localhost')
-    assert isinstance(a, INETAddress)
-    assert a.get_host() == "127.0.0.1"
+    for host in ["localhost", "127.0.0.1"]:
+        a = gethostbyname(host)
+        assert isinstance(a, INETAddress)
+        assert a.get_host() == "127.0.0.1"
 
 def test_gethostbyname_ex():
-    name, aliases, address_list = gethostbyname_ex('localhost')
-    allnames = [name] + aliases
-    for n in allnames:
-        assert isinstance(n, str)
-    if sys.platform != 'win32':
-        assert 'localhost' in allnames
-    for a in address_list:
-        if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
-            break  # ok
-    else:
-        py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
-                     % (address_list,))
-
-def test_gethostbyaddr():
-    name, aliases, address_list = gethostbyaddr('127.0.0.1')
-    allnames = [name] + aliases
-    for n in allnames:
-        assert isinstance(n, str)
-    if sys.platform != 'win32':
-        assert 'localhost' in allnames
-    for a in address_list:
-        if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
-            break  # ok
-    else:
-        py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
-                     % (address_list,))
-
-        name, aliases, address_list = gethostbyaddr('localhost')
+    for host in ["localhost", "127.0.0.1"]:
+        name, aliases, address_list = gethostbyname_ex(host)
         allnames = [name] + aliases
         for n in allnames:
             assert isinstance(n, str)
         if sys.platform != 'win32':
-            assert 'localhost' in allnames
+            assert host in allnames
         for a in address_list:
-            if isinstance(a, INET6Address) and a.get_host() == "::1":
+            if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
                 break  # ok
+            # no IPV6, should always return IPV4
         else:
-            py.test.fail("could not find the ::1 IPv6 address in %r"
+            py.test.fail("could not find the localhost address in %r"
+                         % (address_list,))
+
+def test_gethostbyaddr():
+    for host in ["localhost", "127.0.0.1", "::1"]:
+        name, aliases, address_list = gethostbyaddr(host)
+        allnames = [name] + aliases
+        for n in allnames:
+            assert isinstance(n, str)
+        if sys.platform != 'win32':
+            assert 'localhost' in allnames or 'ip6-localhost' in allnames
+        for a in address_list:
+            if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
+                break  # ok
+            if host != '127.0.0.1':  # name lookup might return IPV6
+                if isinstance(a, INET6Address) and a.get_host() == "::1":
+                    break  # ok
+        else:
+            py.test.fail("could not find the localhost address in %r"
                          % (address_list,))
 
 def test_getservbyname():
@@ -124,7 +118,7 @@ def test_socketpair_recvinto():
 
         def as_str(self):
             return self.x
-    
+
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()

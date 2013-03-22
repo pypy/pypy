@@ -12,11 +12,10 @@ Trying out the translator
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static RPython programs into low-level code (in particular it can
 be used to translate the `full Python interpreter`_). To be able to experiment with it
-you need to:
+you need to download and install the usual (CPython) version of:
 
-  * Download and install Pygame_.
-
-  * Download and install `Dot Graphviz`_ 
+  * Pygame_
+  * `Dot Graphviz`_
 
 To start the interactive translator shell do::
 
@@ -108,8 +107,7 @@ A slightly larger example
 
 There is a small-to-medium demo showing the translator and the annotator::
 
-    cd demo
-    ../rpython/translator/goal/translate.py --view --annotate bpnn.py
+    python bin/rpython --view --annotate translator/goal/bpnn.py
 
 This causes ``bpnn.py`` to display itself as a call graph and class
 hierarchy.  Clicking on functions shows the flow graph of the particular
@@ -120,7 +118,7 @@ instances) is computed by the annotator.
 To turn this example to C code (compiled to the executable ``bpnn-c``),
 type simply::
 
-    ../rpython/translator/goal/translate.py bpnn.py
+    python bin/rpython translator/goal/bpnn.py
 
 
 Translating Full Programs
@@ -130,14 +128,24 @@ To translate full RPython programs, there is the script ``translate.py`` in
 ``rpython/translator/goal``. Examples for this are a slightly changed version of
 Pystone::
 
-    cd rpython/translator/goal
-    python translate.py targetrpystonedalone
+    python bin/rpython translator/goal/targetrpystonedalone
 
 This will produce the executable "targetrpystonedalone-c".
 
 The largest example of this process is to translate the `full Python
 interpreter`_. There is also an FAQ about how to set up this process for `your
 own interpreters`_.
+
+There are several environment variables you can find useful while playing with the RPython:
+
+``PYPY_USESSION_DIR``
+    RPython uses temporary session directories to store files that are generated during the 
+    translation process(e.g., translated C files). ``PYPY_USESSION_DIR`` serves as a base directory for these session
+    dirs. The default value for this variable is the system's temporary dir.
+
+``PYPY_USESSION_KEEP``
+    By default RPython keeps only the last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``. 
+    Increase this value if you want to preserve C files longer (useful when producing lots of lldebug builds).
 
 .. _`your own interpreters`: faq.html#how-do-i-compile-my-own-interpreters
 

@@ -3,13 +3,12 @@ from rpython.rlib import clibffi
 from rpython.rlib import libffi
 from rpython.rlib import jit
 from rpython.rlib.rgc import must_be_light_finalizer
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_singlefloat, intmask
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import operationerrfmt
-from pypy.objspace.std.typetype import type_typedef
-from pypy.module._ffi.interp_ffitype import W_FFIType, app_types
+from pypy.module._ffi.interp_ffitype import W_FFIType
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
 

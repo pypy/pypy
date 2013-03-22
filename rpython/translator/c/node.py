@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem.lltype import (Struct, Array, FixedSizeArray,
     FuncType, typeOf, GcStruct, GcArray, RttiStruct, ContainerType, parentlink,
-    Ptr, Void, OpaqueType, Float, RuntimeTypeInfo, getRuntimeTypeInfo, Char,
+    Void, OpaqueType, Float, RuntimeTypeInfo, getRuntimeTypeInfo, Char,
     _subarray)
 from rpython.rtyper.lltypesystem import llmemory, llgroup
 from rpython.translator.c.funcgen import FunctionCodeGenerator
@@ -11,10 +11,7 @@ from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
 from rpython.rlib import exports
 from rpython.rlib.rfloat import isfinite, isinf
-from rpython.rlib.rstackovf import _StackOverflow
 from rpython.translator.c import extfunc
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from py.builtin import BaseException
 
 def needs_gcheader(T):
     if not isinstance(T, ContainerType):
@@ -259,7 +256,6 @@ class ArrayDefNode:
             return 'RPyItem(%s, %s)' % (baseexpr, indexexpr)
 
     def definition(self):
-        gcpolicy = self.db.gcpolicy
         yield 'struct %s {' % self.name
         for fname, typename in self.gcfields:
             yield '\t' + cdecl(typename, fname) + ';'
@@ -701,7 +697,6 @@ class ArrayNode(ContainerNode):
 
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
-        defnode = self.db.gettypedefnode(T)
         yield '{'
         if needs_gcheader(T):
             gc_init = self.db.gcpolicy.array_gcheader_initdata(self)
@@ -772,7 +767,6 @@ class FixedSizeArrayNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
         assert self.typename == self.implementationtypename  # not var-sized
-        is_empty = True
         yield '{'
         # _names == ['item0', 'item1', ...]
         for j, name in enumerate(T._names):

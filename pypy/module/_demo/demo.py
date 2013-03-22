@@ -5,7 +5,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import sys, math
+import math
 
 time_t = rffi_platform.getsimpletype('time_t', '#include <time.h>', rffi.LONG)
 

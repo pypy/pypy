@@ -52,6 +52,39 @@ def test_connection_after_close():
     # raises ProgrammingError because should check closed before check args
     pytest.raises(_sqlite3.ProgrammingError, "con()")
 
+def test_cursor_iter():
+    con = _sqlite3.connect(':memory:')
+    cur = con.cursor()
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    next(cur)
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    con.commit()
+    next(cur)
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    with pytest.raises(_sqlite3.ProgrammingError):
+        cur.executemany('select 1', [])
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    cur.execute('create table test(ing)')
+    with pytest.raises(StopIteration):
+        next(cur)
+
+    cur.execute('select 1')
+    cur.execute('insert into test values(1)')
+    con.commit()
+    with pytest.raises(StopIteration):
+        next(cur)
+
 def test_cursor_after_close():
      con = _sqlite3.connect(':memory:')
      cur = con.execute('select 1')
@@ -126,6 +159,22 @@ def test_on_conflict_rollback_executemany():
         con.commit()
     except _sqlite3.OperationalError:
         pytest.fail("_sqlite3 knew nothing about the implicit ROLLBACK")
+    con.close()
+
+def test_statement_arg_checking():
+    con = _sqlite3.connect(':memory:')
+    with pytest.raises(_sqlite3.Warning) as e:
+        con(123)
+    assert str(e.value) == 'SQL is of wrong type. Must be string or unicode.'
+    with pytest.raises(ValueError) as e:
+        con.execute(123)
+    assert str(e.value) == 'operation parameter must be str or unicode'
+    with pytest.raises(ValueError) as e:
+        con.executemany(123, 123)
+    assert str(e.value) == 'operation parameter must be str or unicode'
+    with pytest.raises(ValueError) as e:
+        con.executescript(123)
+    assert str(e.value) == 'script argument must be unicode or string.'
 
 def test_statement_param_checking():
     con = _sqlite3.connect(':memory:')
@@ -138,8 +187,12 @@ def test_statement_param_checking():
         def __getitem__(self, key):
             return 2
     con.execute('insert into foo(x) values (?)', seq())
+    del seq.__len__
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.execute('insert into foo(x) values (?)', seq())
     with pytest.raises(_sqlite3.ProgrammingError):
         con.execute('insert into foo(x) values (?)', {2:2})
     with pytest.raises(ValueError) as e:
         con.execute('insert into foo(x) values (?)', 2)
     assert str(e.value) == 'parameters are of unsupported type'
+    con.close()

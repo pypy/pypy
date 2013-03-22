@@ -25,7 +25,7 @@ Long history:
     Converted to RPython by arigo.
 """
 
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 
 
 if r_uint.BITS == 32:

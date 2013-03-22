@@ -1,6 +1,4 @@
-
-PIECES = 80
-BIGPIECES = 32
+from rpython.rlib.rstring import StringBuilder
 
 AT_END = -1
 
@@ -8,8 +6,7 @@ AT_END = -1
 class RStringIO(object):
     """RPython-level StringIO object.
     The fastest path through this code is for the case of a bunch of write()
-    followed by getvalue().  For at most PIECES write()s and one getvalue(),
-    there is one copy of the data done, as if ''.join() was used.
+    followed by getvalue().
     """
     _mixin_ = True        # for interp_stringio.py
 
@@ -18,80 +15,44 @@ class RStringIO(object):
         #  * the list of characters self.bigbuffer;
         #  * each of the strings in self.strings.
         #
-        # Invariants:
-        #  * self.numbigstrings <= self.numstrings;
-        #  * all strings in self.strings[self.numstrings:PIECES] are empty.
-        #
-        self.strings = [''] * PIECES
-        self.numstrings = 0
-        self.numbigstrings = 0
-        self.bigbuffer = []
+        self.closed = False
+        self.strings = None
+        self.bigbuffer = None
         self.pos = AT_END
 
     def close(self):
+        self.closed = True
         self.strings = None
-        self.numstrings = 0
-        self.numbigstrings = 0
         self.bigbuffer = None
 
     def is_closed(self):
-        return self.strings is None
+        return self.closed
 
     def getvalue(self):
         """If self.strings contains more than 1 string, join all the
         strings together.  Return the final single string."""
-        if len(self.bigbuffer) > 0:
+        if self.bigbuffer is not None:
             self.copy_into_bigbuffer()
             return ''.join(self.bigbuffer)
-        if self.numstrings > 1:
-            result = self.strings[0] = ''.join(self.strings)
-            for i in range(1, self.numstrings):
-                self.strings[i] = ''
-            self.numstrings = 1
-            self.numbigstrings = 1
-        else:
-            result = self.strings[0]
-        return result
+        if self.strings is not None:
+            return self.strings.build()
+        return ''
 
     def getsize(self):
-        result = len(self.bigbuffer)
-        for i in range(0, self.numstrings):
-            result += len(self.strings[i])
+        result = 0
+        if self.bigbuffer is not None:
+            result += len(self.bigbuffer)
+        if self.strings is not None:
+            result += self.strings.getlength()
         return result
 
     def copy_into_bigbuffer(self):
         """Copy all the data into the list of characters self.bigbuffer."""
-        for i in range(0, self.numstrings):
-            self.bigbuffer += self.strings[i]
-            self.strings[i] = ''
-        self.numstrings = 0
-        self.numbigstrings = 0
-        return self.bigbuffer
-
-    def reduce(self):
-        """Reduce the number of (non-empty) strings in self.strings."""
-        # When self.pos == AT_END, the calls to write(str) accumulate
-        # the strings in self.strings until all PIECES slots are filled.
-        # Then the reduce() method joins all the strings and put the
-        # result back into self.strings[0].  The next time all the slots
-        # are filled, we only join self.strings[1:] and put the result
-        # in self.strings[1]; and so on.  The purpose of this is that
-        # the string resulting from a join is expected to be big, so the
-        # next join operation should only join the newly added strings.
-        # When we have done this BIGPIECES times, the next join collects
-        # all strings again into self.strings[0] and we start from
-        # scratch.
-        limit = self.numbigstrings
-        self.strings[limit] = ''.join(self.strings[limit:])
-        for i in range(limit + 1, self.numstrings):
-            self.strings[i] = ''
-        self.numstrings = limit + 1
-        if limit < BIGPIECES:
-            self.numbigstrings = limit + 1
-        else:
-            self.numbigstrings = 0
-        assert self.numstrings <= BIGPIECES + 1
-        return self.numstrings
+        if self.bigbuffer is None:
+            self.bigbuffer = []
+        if self.strings is not None:
+            self.bigbuffer += self.strings.build()
+            self.strings = None
 
     def write(self, buffer):
         # Idea: for the common case of a sequence of write() followed
@@ -101,7 +62,7 @@ class RStringIO(object):
         if p != AT_END:    # slow or semi-fast paths
             assert p >= 0
             endp = p + len(buffer)
-            if len(self.bigbuffer) >= endp:
+            if self.bigbuffer is not None and len(self.bigbuffer) >= endp:
                 # semi-fast path: the write is entirely inside self.bigbuffer
                 for i in range(len(buffer)):
                     self.bigbuffer[p + i] = buffer[i]
@@ -110,30 +71,27 @@ class RStringIO(object):
             else:
                 # slow path: collect all data into self.bigbuffer and
                 # handle the various cases
-                bigbuffer = self.copy_into_bigbuffer()
-                fitting = len(bigbuffer) - p
+                self.copy_into_bigbuffer()
+                fitting = len(self.bigbuffer) - p
                 if fitting > 0:
                     # the write starts before the end of the data
                     fitting = min(len(buffer), fitting)
                     for i in range(fitting):
-                        bigbuffer[p+i] = buffer[i]
+                        self.bigbuffer[p+i] = buffer[i]
                     if len(buffer) > fitting:
                         # the write extends beyond the end of the data
-                        bigbuffer += buffer[fitting:]
+                        self.bigbuffer += buffer[fitting:]
                         endp = AT_END
                     self.pos = endp
                     return
                 else:
                     # the write starts at or beyond the end of the data
-                    bigbuffer += '\x00' * (-fitting)
+                    self.bigbuffer += '\x00' * (-fitting)
                     self.pos = AT_END      # fall-through to the fast path
         # Fast path.
-        # See comments in reduce().
-        count = self.numstrings
-        if count == PIECES:
-            count = self.reduce()
-        self.strings[count] = buffer
-        self.numstrings = count + 1
+        if self.strings is None:
+            self.strings = StringBuilder()
+        self.strings.append(buffer)
 
     def seek(self, position, mode=0):
         if mode == 1:
@@ -162,11 +120,11 @@ class RStringIO(object):
         if p == 0 and n < 0:
             self.pos = AT_END
             return self.getvalue()     # reading everything
-        if p == AT_END:
+        if p == AT_END or n == 0:
             return ''
         assert p >= 0
-        bigbuffer = self.copy_into_bigbuffer()
-        mysize = len(bigbuffer)
+        self.copy_into_bigbuffer()
+        mysize = len(self.bigbuffer)
         count = mysize - p
         if n >= 0:
             count = min(n, count)
@@ -174,24 +132,42 @@ class RStringIO(object):
             return ''
         if p == 0 and count == mysize:
             self.pos = AT_END
-            return ''.join(bigbuffer)
+            return ''.join(self.bigbuffer)
         else:
             self.pos = p + count
-            return ''.join(bigbuffer[p:p+count])
+            return ''.join(self.bigbuffer[p:p+count])
+
+    def readline(self, size=-1):
+        p = self.pos
+        if p == AT_END or size == 0:
+            return ''
+        assert p >= 0
+        self.copy_into_bigbuffer()
+        end = len(self.bigbuffer)
+        if size >= 0 and size < end - p:
+            end = p + size
+        i = p
+        while i < end:
+            finished = self.bigbuffer[i] == '\n'
+            i += 1
+            if finished:
+                break
+        self.seek(i)
+        return ''.join(self.bigbuffer[p:i])
 
     def truncate(self, size):
         # NB. 'size' is mandatory.  This has the same un-Posix-y semantics
         # than CPython: it never grows the buffer, and it sets the current
         # position to the end.
         assert size >= 0
-        if size > len(self.bigbuffer):
+        if self.bigbuffer is None or size > len(self.bigbuffer):
             self.copy_into_bigbuffer()
         else:
             # we can drop all extra strings
-            for i in range(0, self.numstrings):
-                self.strings[i] = ''
-            self.numstrings = 0
-            self.numbigstrings = 0
+            if self.strings is not None:
+                self.strings = None
         if size < len(self.bigbuffer):
             del self.bigbuffer[size:]
+        if len(self.bigbuffer) == 0:
+            self.bigbuffer = None
         self.pos = AT_END

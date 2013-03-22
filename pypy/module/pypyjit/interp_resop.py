@@ -5,14 +5,14 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
 from rpython.rtyper.lltypesystem.rclass import OBJECT
-from rpython.jit.metainterp.resoperation import rop, AbstractResOp
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import jit_hooks
 from rpython.rlib.jit import Counters
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.objectmodel import compute_unique_id
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
@@ -270,7 +270,8 @@ class W_JitLoopInfo(Wrappable):
         self.jd_name = debug_info.get_jitdriver().name
         self.type = debug_info.type
         if is_bridge:
-            self.bridge_no = debug_info.fail_descr_no
+            self.bridge_no = compute_unique_id(debug_info.fail_descr)
+            #self.bridge_no = debug_info.fail_descr_no
             self.w_green_key = space.w_None
         else:
             self.w_green_key = wrap_greenkey(space,

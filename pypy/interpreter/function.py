@@ -12,7 +12,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
 from rpython.rlib import jit
-from rpython.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 
@@ -309,7 +308,6 @@ class Function(Wrappable):
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 
     def descr_function__setstate__(self, space, w_args):
-        from pypy.interpreter.pycode import PyCode
         args_w = space.unpackiterable(w_args)
         try:
             (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs,
@@ -576,7 +574,6 @@ class Method(Wrappable):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('method_new')
-        w        = space.wrap
         w_instance = self.w_instance or space.w_None
         function = space.interpclass_w(self.w_function)
         if isinstance(function, Function) and isinstance(function.code, BuiltinCode):

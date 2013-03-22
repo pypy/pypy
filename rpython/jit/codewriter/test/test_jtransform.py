@@ -33,6 +33,9 @@ class FakeRTyper:
     instance_reprs = {}
 
 class FakeCPU:
+    class tracker:
+        pass
+    
     rtyper = FakeRTyper()
     def calldescrof(self, FUNC, ARGS, RESULT):
         return ('calldescr', FUNC, ARGS, RESULT)

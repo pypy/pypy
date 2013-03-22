@@ -3,8 +3,6 @@ Some support for genxxx implementations of source generators.
 Another name could be genEric, but well...
 """
 
-import sys
-
 def uniquemodulename(name, SEEN={}):
     # never reuse the same module name within a Python session!
     i = 0

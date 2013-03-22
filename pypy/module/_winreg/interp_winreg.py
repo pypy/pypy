@@ -188,7 +188,6 @@ file_name is relative to the remote computer.
 The caller of this method must possess the SeBackupPrivilege security privilege.
 This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
-    pSA = 0
     ret = rwinreg.RegSaveKey(hkey, filename, None)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSaveKey')

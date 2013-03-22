@@ -13,7 +13,7 @@
    converted to RPython by arigo.
 """
 
-from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
 
 # We reuse helpers from rmd5 too

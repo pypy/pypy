@@ -876,7 +876,6 @@ def str_decode_utf_7(s, size, errors, final=False,
             else: # begin base64-encoded section
                 inShift = 1
                 shiftOutStartPos = pos - 1
-                bitsleft = 0
 
         elif _utf7_DECODE_DIRECT(oc): # character decodes at itself
             result.append(unichr(oc))
@@ -894,7 +893,6 @@ def str_decode_utf_7(s, size, errors, final=False,
         if (surrogate or
             base64bits >= 6 or
             (base64bits > 0 and base64buffer != 0)):
-            endinpos = size
             msg = "unterminated shift sequence"
             res, pos = errorhandler(errors, 'utf-7', msg, s, shiftOutStartPos, pos)
             result.append(res)
@@ -1118,7 +1116,6 @@ hexdigits = "0123456789ABCDEFabcdef"
 
 def hexescape(builder, s, pos, digits,
               encoding, errorhandler, message, errors):
-    import sys
     chr = 0
     if pos + digits > len(s):
         message = "end of string in escape sequence"

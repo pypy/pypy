@@ -1,5 +1,6 @@
 from rpython.rlib import types
 
+
 def signature(*paramtypes, **kwargs):
     """Decorate a function to specify its type signature.
 
@@ -12,7 +13,7 @@ def signature(*paramtypes, **kwargs):
     """
     returntype = kwargs.pop('returns', None)
     if returntype is None:
-        raise TypeError, "signature: parameter 'returns' required"
+        raise TypeError("signature: parameter 'returns' required")
 
     def decorator(f):
         f._signature_ = (paramtypes, returntype)

@@ -1,5 +1,4 @@
 from rpython.translator.platform import CompilationError
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.conftest import cache_dir
 from hashlib import md5
 import py

@@ -43,7 +43,7 @@
 #               - No attempt to measure variation with object size
 #               - Results are sensitive to locking cost, but we dont
 #                 check for proper locking
-import os, time
+import time
 
 USAGE = """gcbench [num_repetitions] [--depths=N,N,N..] [--threads=N]"""
 ENABLE_THREADS = True

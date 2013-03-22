@@ -604,11 +604,12 @@ class __extend__(pyframe.PyFrame):
         # item (unlike CPython which can have 1, 2 or 3 items):
         #   [wrapped subclass of SuspendedUnroller]
         w_top = self.popvalue()
-        # the following logic is a mess for the flow objspace,
-        # so we hide it specially in the space :-/
-        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
-            # case of a finally: block
-            unroller = self.space.interpclass_w(w_top)
+        if self.space.is_w(w_top, self.space.w_None):
+            # case of a finally: block with no exception
+            return None
+        unroller = self.space.interpclass_w(w_top)
+        if isinstance(unroller, SuspendedUnroller):
+            # case of a finally: block with a suspended unroller
             return unroller
         else:
             # case of an except: block.  We popped the exception type

@@ -3,7 +3,6 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem.rffi import CCHARP
-from rpython.rlib.rposix import get_errno as geterrno
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as target_platform
 
@@ -262,7 +261,7 @@ CConfig.sockaddr = platform.Struct('struct sockaddr',
 CConfig.in_addr = platform.Struct('struct in_addr',
                                          [('s_addr', rffi.UINT)])
 CConfig.in6_addr = platform.Struct('struct in6_addr',
-                                          [])
+                                          [('s6_addr', rffi.CFixedArray(rffi.CHAR, 16))])
 CConfig.sockaddr_in = platform.Struct('struct sockaddr_in',
                                         [('sin_family', rffi.INT),
                                          ('sin_port',   rffi.USHORT),
@@ -635,6 +634,8 @@ if WIN32:
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
 else:
+    from rpython.rlib.rposix import get_errno as geterrno
+
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))

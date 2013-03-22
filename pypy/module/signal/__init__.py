@@ -1,7 +1,6 @@
-
 from pypy.interpreter.mixedmodule import MixedModule
+
 import os
-import signal as cpy_signal
 
 class Module(MixedModule):
     interpleveldefs = {

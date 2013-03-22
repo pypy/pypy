@@ -1,6 +1,7 @@
+import py
+
 from rpython.config.config import *
 from pypy.config.makerestdoc import make_cmdline_overview
-
 from pypy.tool.rest.rest import process as restcheck
 
 tempdir = py.test.ensuretemp('config')
@@ -19,7 +20,7 @@ def checkrest(rest, filename):
 def generate_html(descr):
     config = Config(descr)
     txt = descr.make_rest_doc().text()
-    
+
     result = {"": txt}
     for path in config.getpaths(include_groups=True):
         subconf, step = config._cfgimpl_get_home_by_path(path)

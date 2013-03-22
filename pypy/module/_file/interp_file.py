@@ -138,7 +138,6 @@ class W_File(W_AbstractStream):
         self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):
-        space = self.space
         stream = self.stream
         if stream is not None:
             self.newlines = self.stream.getnewlines()

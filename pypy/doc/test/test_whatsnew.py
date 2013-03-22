@@ -1,6 +1,6 @@
 import py
 import pypy
-from commands import getoutput
+from commands import getoutput, getstatusoutput
 ROOT = py.path.local(pypy.__file__).dirpath().dirpath()
 
 
@@ -20,6 +20,9 @@ def parse_doc(s):
     return startrev, branches
 
 def get_merged_branches(path, startrev, endrev):
+    if getstatusoutput('hg root')[0]:
+        py.test.skip('no Mercurial repo')
+
     # X = take all the merges which are descendants of startrev and are on default
     # revset = all the parents of X which are not on default
     # ===>
