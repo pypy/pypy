@@ -58,7 +58,7 @@ completely controlled by the controller."""
         if w_lookup == k:
             return v(space, w_type, w_controller)
     raise operationerrfmt(space.w_TypeError,
-        "'%s' object could not be wrapped (YET)",
+        "'%s' object could not be wrapped",
         w_type.getname(space))
 
 def register_proxyable(space, cls):
