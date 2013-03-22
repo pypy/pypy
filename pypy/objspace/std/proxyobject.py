@@ -72,10 +72,10 @@ def transparent_class(name, BaseCls):
     return W_Transparent
 
 W_Transparent = transparent_class('W_Transparent', baseobjspace.W_Root)
-W_TransparentObject = transparent_class('W_TransparentObject', W_Object)
+#W_TransparentObject = transparent_class('W_TransparentObject', W_Object)
 
-from pypy.objspace.std.objecttype import object_typedef
-W_TransparentObject.typedef = object_typedef
+#from pypy.objspace.std.objecttype import object_typedef
+#W_TransparentObject.typedef = object_typedef
 
 from pypy.interpreter.typedef import Function, GeneratorIterator, PyTraceback, \
     PyFrame, PyCode
