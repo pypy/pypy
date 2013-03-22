@@ -4,12 +4,15 @@ Gateway between app-level and interpreter-level:
 * BuiltinCode (call interp-level code from app-level)
 * app2interp  (embed an app-level function into an interp-level callable)
 * interp2app  (publish an interp-level object to be visible from app-level)
+* interpindirect2app (publish an interp-level object to be visible from
+                      app-level as an indirect call to implementation)
 
 """
 
 import sys
 import os
 import types
+import inspect
 
 import py
 
@@ -794,6 +797,29 @@ class BuiltinCode4(BuiltinCode):
             w_result = space.w_None
         return w_result
 
+def interpindirect2app(unbound_meth, unwrap_spec=None):
+    base_cls = unbound_meth.im_class
+    func = unbound_meth.im_func
+    args = inspect.getargs(func.func_code)
+    if args.varargs or args.keywords:
+        raise TypeError("Varargs and keywords not supported in unwrap_spec")
+    assert not func.func_defaults
+    argspec = ', '.join([arg for arg in args.args[1:]])
+    func_code = py.code.Source("""
+    def f(w_obj, %(args)s):
+        return w_obj.%(func_name)s(%(args)s)
+    """ % {'args': argspec, 'func_name': func.func_name})
+    d = {}
+    exec func_code.compile() in d
+    f = d['f']
+    f.func_name = func.func_name
+    if unwrap_spec is None:
+        unwrap_spec = {}
+    else:
+        assert isinstance(unwrap_spec, dict)
+        unwrap_spec = unwrap_spec.copy()
+    unwrap_spec['w_obj'] = base_cls
+    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
 
 class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""

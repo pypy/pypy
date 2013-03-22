@@ -73,8 +73,8 @@ If obj is really a transparent proxy, return its controller. Otherwise return
 None."""
     if isinstance(w_object, W_Transparent):
         return w_object.w_controller
-    if isinstance(w_object, W_TransparentObject):
-        return w_object.w_controller
+    #if isinstance(w_object, W_TransparentObject):
+    #    return w_object.w_controller
     return None
 
 app_proxy = gateway.interp2app(proxy)

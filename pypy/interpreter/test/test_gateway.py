@@ -129,6 +129,36 @@ class TestGateway:
             space.call_function(w_app_g3, w('foo'), w('bar')),
             w('foobar'))
 
+    def test_interpindirect2app(self):
+        space = self.space
+        class BaseA(W_Root):
+            def method(self, space, x):
+                pass
+
+        class A(BaseA):
+            def method(self, space, x):
+                return space.wrap(x + 2)
+
+        class B(BaseA):
+            def method(self, space, x):
+                return space.wrap(x + 1)
+
+        class FakeTypeDef(object):
+            rawdict = {}
+            bases = {}
+            applevel_subclasses_base = None
+            name = 'foo'
+            hasdict = False
+            weakrefable = False
+            doc = 'xyz'
+
+        meth = gateway.interpindirect2app(BaseA.method, {'x': int})
+        w_c = space.wrap(meth)
+        w_a = A()
+        w_b = B()
+        assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
+        assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
+
     def test_interp2app_unwrap_spec(self):
         space = self.space
         w = space.wrap
