@@ -39,4 +39,10 @@
 
   <class name="new_overloader" />
 
+  <class name="std::vector<float>" />
+  <class pattern="my_templated_class<*>" />
+  <function pattern="my_templated_function<*>" />
+  <class name="my_templated_method_class" />
+  <class name="my_typedef_t" />
+
 </lcgdict>

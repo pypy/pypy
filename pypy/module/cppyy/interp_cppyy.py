@@ -373,6 +373,38 @@ class CPPFunction(CPPMethod):
         return "CPPFunction: %s" % self.signature()
 
 
+class CPPTemplatedMember(object):
+    """Method dispatcher that first needs to resolve the template instance.
+    Note that the derivation is from object: the CPPMethod is a data member."""
+
+    _attrs_ = ['space', 'templ_args', 'method']
+    _immutable_ = True
+
+    def __init__(self, space, templ_args, containing_scope, method_index, arg_defs, args_required):
+        self.space = space
+        self.templ_args = templ_args
+        self.method = CPPMethod(space, containing_scope, method_index, arg_defs, args_required)
+
+    def call(self, cppthis, args_w):
+        assert lltype.typeOf(cppthis) == capi.C_OBJECT
+        for i in range(len(args_w)):
+            try:
+                s = self.space.str_w(args_w[i])
+            except OperationError:
+                s = self.space.str_w(self.space.getattr(args_w[i], self.space.wrap('__name__')))
+            s = capi.c_resolve_name(s)
+            if s != self.templ_args[i]:
+                raise OperationError(self.space.w_TypeError, self.space.wrap(
+                    "non-matching template (got %s where %s expected" % (s, self.templ_args[i])))
+        return W_CPPBoundMethod(cppthis, self.method)
+
+    def signature(self):
+        return self.method.signature()
+
+    def __repr__(self):
+        return "CPPTemplatedMember: %s" % self.signature()
+
+
 class CPPConstructor(CPPMethod):
     """Method dispatcher that constructs new objects. This method can not have
     a fast path, a the allocation of the object is currently left to the
@@ -497,6 +529,22 @@ W_CPPOverload.typedef = TypeDef(
     is_static = interp2app(W_CPPOverload.is_static),
     call = interp2app(W_CPPOverload.call),
     signature = interp2app(W_CPPOverload.signature),
+)
+
+
+class W_CPPBoundMethod(Wrappable):
+    _attrs_ = ['cppthis', 'method']
+
+    def __init__(self, cppthis, method):
+        self.cppthis = cppthis
+        self.method = method
+
+    def __call__(self, args_w):
+        return self.method.call(self.cppthis, args_w)
+
+W_CPPBoundMethod.typedef = TypeDef(
+    'CPPBoundMethod',
+    __call__ = interp2app(W_CPPBoundMethod.__call__),
 )
 
 
@@ -766,7 +814,6 @@ class W_CPPClass(W_CPPScope):
         self.default_constructor = None
 
     def _make_cppfunction(self, pyname, index):
-        default_constructor = False
         num_args = capi.c_method_num_args(self, index)
         args_required = capi.c_method_req_args(self, index)
         arg_defs = []
@@ -775,18 +822,18 @@ class W_CPPClass(W_CPPScope):
             arg_dflt = capi.c_method_arg_default(self, index, i)
             arg_defs.append((arg_type, arg_dflt))
         if capi.c_is_constructor(self, index):
-            cls = CPPConstructor
+            cppfunction = CPPConstructor(self.space, self, index, arg_defs, args_required)
             if args_required == 0:
-                default_constructor = True
+                self.default_constructor = cppfunction
         elif capi.c_is_staticmethod(self, index):
-            cls = CPPFunction
+            cppfunction = CPPFunction(self.space, self, index, arg_defs, args_required)
         elif pyname == "__setitem__":
-            cls = CPPSetItem
+            cppfunction = CPPSetItem(self.space, self, index, arg_defs, args_required)
+        elif capi.c_method_is_template(self, index):
+            templ_args = capi.c_template_args(self, index)
+            cppfunction = CPPTemplatedMember(self.space, templ_args, self, index, arg_defs, args_required)
         else:
-            cls = CPPMethod
-        cppfunction = cls(self.space, self, index, arg_defs, args_required)
-        if default_constructor:
-            self.default_constructor = cppfunction
+            cppfunction = CPPMethod(self.space, self, index, arg_defs, args_required)
         return cppfunction
 
     def _find_datamembers(self):

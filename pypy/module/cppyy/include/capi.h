@@ -81,6 +81,10 @@ extern "C" {
     char* cppyy_method_arg_default(cppyy_scope_t scope, cppyy_index_t idx, int arg_index);
     char* cppyy_method_signature(cppyy_scope_t scope, cppyy_index_t idx);
 
+    int cppyy_method_is_template(cppyy_scope_t scope, cppyy_index_t idx);
+    int cppyy_method_num_template_args(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_template_arg_name(cppyy_scope_t scope, cppyy_index_t idx, cppyy_index_t iarg);
+
     cppyy_method_t cppyy_get_method(cppyy_scope_t scope, cppyy_index_t idx);
     cppyy_index_t cppyy_get_global_operator(
         cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
