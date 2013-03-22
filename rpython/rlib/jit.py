@@ -598,7 +598,7 @@ class JitDriver(object):
             return result
 
         return decorate
-        
+
 
     def clone(self):
         assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
@@ -844,7 +844,7 @@ class ExtSetParam(ExtRegistryEntry):
         assert s_name.is_constant()
         if s_name.const == 'enable_opts':
             assert annmodel.SomeString(can_be_None=True).contains(s_value)
-        else: 
+        else:
             assert (s_value == annmodel.s_None or
                     annmodel.SomeInteger().contains(s_value))
         return annmodel.s_None
@@ -876,7 +876,7 @@ class ExtSetParam(ExtRegistryEntry):
 
 class AsmInfo(object):
     """ An addition to JitDebugInfo concerning assembler. Attributes:
-    
+
     ops_offset - dict of offsets of operations or None
     asmaddr - (int) raw address of assembler block
     asmlen - assembler block length
@@ -986,7 +986,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import rclass, lltype
-        
+
         classrepr = rclass.get_type_repr(hop.rtyper)
 
         hop.exception_cannot_occur()
