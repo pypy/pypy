@@ -116,8 +116,8 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def checked_space_method(self, typname, app_sig):
         argname = self.orig_arg()
         assert not argname.startswith('w_'), (
-            "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (typname, argname, self.func))
+            "unwrapped %s argument %s of built-in function %r in %r should "
+            "not start with 'w_'" % (typname, argname, self.func.func_name, self.func.func_globals['__name__']))
         app_sig.append(argname)
 
     def visit_index(self, index, app_sig):
@@ -157,8 +157,8 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
             app_sig.append(argname)
             return
         assert argname.startswith('w_'), (
-            "argument %s of built-in function %r should "
-            "start with 'w_'" % (argname, self.func))
+            "argument %s of built-in function %r in %r should "
+            "start with 'w_'" % (argname, self.func.func_name, self.func.func_globals['__name__']))
         app_sig.append(argname[2:])
 
     def visit__Arguments(self, el, app_sig):

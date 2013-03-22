@@ -5,28 +5,28 @@ from pypy.module._cffi_backend import ctypeobj, cdataobj
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
-def newp(space, ctype, w_init):
-    return ctype.newp(w_init)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
+def newp(space, w_ctype, w_init):
+    return w_ctype.newp(w_init)
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType)
-def cast(space, ctype, w_ob):
-    return ctype.cast(w_ob)
+@unwrap_spec(w_ctype=ctypeobj.W_CType)
+def cast(space, w_ctype, w_ob):
+    return w_ctype.cast(w_ob)
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType)
-def callback(space, ctype, w_callable, w_error=None):
+@unwrap_spec(w_ctype=ctypeobj.W_CType)
+def callback(space, w_ctype, w_callable, w_error=None):
     from pypy.module._cffi_backend.ccallback import W_CDataCallback
-    return W_CDataCallback(space, ctype, w_callable, w_error)
+    return W_CDataCallback(space, w_ctype, w_callable, w_error)
 
 # ____________________________________________________________
 
-@unwrap_spec(cdata=cdataobj.W_CData)
-def typeof(space, cdata):
-    return cdata.ctype
+@unwrap_spec(w_cdata=cdataobj.W_CData)
+def typeof(space, w_cdata):
+    return w_cdata.ctype
 
 # ____________________________________________________________
 
@@ -44,33 +44,33 @@ def sizeof(space, w_obj):
                             space.wrap("expected a 'cdata' or 'ctype' object"))
     return space.wrap(size)
 
-@unwrap_spec(ctype=ctypeobj.W_CType)
-def alignof(space, ctype):
-    align = ctype.alignof()
+@unwrap_spec(w_ctype=ctypeobj.W_CType)
+def alignof(space, w_ctype):
+    align = w_ctype.alignof()
     return space.wrap(align)
 
-@unwrap_spec(ctype=ctypeobj.W_CType, fieldname="str_or_None")
-def typeoffsetof(space, ctype, fieldname):
-    ctype, offset = ctype.typeoffsetof(fieldname)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, fieldname="str_or_None")
+def typeoffsetof(space, w_ctype, fieldname):
+    ctype, offset = w_ctype.typeoffsetof(fieldname)
     return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
-@unwrap_spec(ctype=ctypeobj.W_CType, cdata=cdataobj.W_CData, offset=int)
-def rawaddressof(space, ctype, cdata, offset=0):
-    return ctype.rawaddressof(cdata, offset)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
+def rawaddressof(space, w_ctype, w_cdata, offset=0):
+    return w_ctype.rawaddressof(w_cdata, offset)
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType, replace_with=str)
-def getcname(space, ctype, replace_with):
-    p = ctype.name_position
-    s = '%s%s%s' % (ctype.name[:p], replace_with, ctype.name[p:])
+@unwrap_spec(w_ctype=ctypeobj.W_CType, replace_with=str)
+def getcname(space, w_ctype, replace_with):
+    p = w_ctype.name_position
+    s = '%s%s%s' % (w_ctype.name[:p], replace_with, w_ctype.name[p:])
     return space.wrap(s)
 
 # ____________________________________________________________
 
-@unwrap_spec(cdata=cdataobj.W_CData, maxlen=int)
-def string(space, cdata, maxlen=-1):
-    return cdata.ctype.string(cdata, maxlen)
+@unwrap_spec(w_cdata=cdataobj.W_CData, maxlen=int)
+def string(space, w_cdata, maxlen=-1):
+    return w_cdata.ctype.string(w_cdata, maxlen)
 
 # ____________________________________________________________
 
