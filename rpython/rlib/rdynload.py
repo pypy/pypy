@@ -119,7 +119,7 @@ if not _WIN32:
         # Never called
         raise KeyError(index)
 
-if _WIN32:
+else:  # _WIN32
     DLLHANDLE = rwin32.HMODULE
     RTLD_GLOBAL = None
 
@@ -153,5 +153,5 @@ if _WIN32:
             raise KeyError(index)
         # XXX rffi.cast here...
         return res
-    
+
     LoadLibrary = rwin32.LoadLibrary

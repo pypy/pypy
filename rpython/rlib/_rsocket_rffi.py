@@ -3,7 +3,6 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem.rffi import CCHARP
-from rpython.rlib.rposix import get_errno as geterrno
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as target_platform
 
@@ -635,6 +634,8 @@ if WIN32:
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
 else:
+    from rpython.rlib.rposix import get_errno as geterrno
+
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))

@@ -5,7 +5,7 @@ from __future__ import with_statement
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import intmask, r_uint, is_emulated_long
+from rpython.rlib.rarithmetic import intmask, is_emulated_long
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rmmap import alloc
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
