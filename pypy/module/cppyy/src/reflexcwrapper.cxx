@@ -386,7 +386,7 @@ char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t method_index) {
         name = s.Name(Reflex::FINAL);   // to get proper name for templates
     else if (m.IsTemplateInstance()) {
         name = m.Name();
-        std::string::size_type pos = name.find("<");
+        std::string::size_type pos = name.find('<');
         name = name.substr(0, pos);     // strip template argument portion for overload
     } else
         name = m.Name();
@@ -448,6 +448,7 @@ char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t method_index) {
     return cppstring_to_cstring(sig.str());
 }
 
+
 int cppyy_method_is_template(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
@@ -469,6 +470,7 @@ char* cppyy_method_template_arg_name(
     return cppstring_to_cstring(
        m.TemplateArgumentAt(iarg).Name(Reflex::SCOPED|Reflex::QUALIFIED));
 }
+
 
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);

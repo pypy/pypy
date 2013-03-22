@@ -675,7 +675,13 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* 
 
 char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t idx) {
     TFunction* f = type_get_method(handle, idx);
-    return cppstring_to_cstring(f->GetName());
+    std::string name = f->GetName();
+    TClassRef& cr = type_from_handle(handle);
+    if (cr.GetClass() && cppyy_is_constructor(handle, idx))
+        return cppstring_to_cstring(name);
+    if (cppyy_method_is_template(handle, idx))
+       return cppstring_to_cstring(name.substr(0, name.find('<')));
+    return cppstring_to_cstring(name);
 }
 
 char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t idx) {
@@ -723,6 +729,29 @@ char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t idx) {
     }
     sig << ")" << std::ends;
     return cppstring_to_cstring(sig.str());
+}
+
+
+int cppyy_method_is_template(cppyy_scope_t handle, cppyy_index_t idx) {
+    TClassRef& cr = type_from_handle(handle);
+    TFunction* f = type_get_method(handle, idx);
+    std::string name = f->GetName();
+    return (name[name.size()-1] == '>') && (name.find('<') != std::string::npos);
+}
+
+int cppyy_method_num_template_args(cppyy_scope_t /*handle*/, cppyy_index_t /*idx*/) {
+// TODO: somehow count from the actual arguments
+    return 1;
+}
+
+char* cppyy_method_template_arg_name(
+        cppyy_scope_t handle, cppyy_index_t idx, cppyy_index_t /*iarg*/) {
+// TODO: return only the name for the requested arg
+    TClassRef& cr = type_from_handle(handle);
+    TFunction* f = type_get_method(handle, idx);
+    std::string name = f->GetName();
+    std::string::size_type pos = name.find('<');
+    return cppstring_to_cstring(resolve_typedef(name.substr(pos+1, name.size()-pos-2)));
 }
 
 
