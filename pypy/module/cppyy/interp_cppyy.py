@@ -373,7 +373,7 @@ class CPPFunction(CPPMethod):
         return "CPPFunction: %s" % self.signature()
 
 
-class CPPTemplatedCall(object):
+class CPPTemplatedCall(CPPMethod): # TODO: unnecessary derivation to make rtyper happy
     """Method dispatcher that first needs to resolve the template instance.
     Note that the derivation is from object: the CPPMethod is a data member."""
 
@@ -383,10 +383,8 @@ class CPPTemplatedCall(object):
     def __init__(self, space, templ_args, containing_scope, method_index, arg_defs, args_required):
         self.space = space
         self.templ_args = templ_args
-        if capi.c_is_staticmethod(containing_scope, index):
-            self.method = CPPFunction(space, containing_scope, method_index, arg_defs, args_require)
-        else:
-            self.method = CPPMethod(space, containing_scope, method_index, arg_defs, args_required)
+        # TODO: might have to specialize for CPPTemplatedCall on CPPMethod/CPPFunction here
+        self.method = CPPMethod(space, containing_scope, method_index, arg_defs, args_required)
 
     def call(self, cppthis, args_w):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
