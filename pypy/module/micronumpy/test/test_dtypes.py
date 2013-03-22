@@ -335,6 +335,15 @@ class AppTestTypes(BaseAppTestDtypes):
         assert X(True) is numpy.True_
         assert numpy.bool_("False") is numpy.True_
 
+    def test_bool_any_all(self):
+        import numpypy as numpy
+        x = numpy.bool_(True)
+        assert x.any()
+        assert x.all()
+        x = numpy.bool_(False)
+        assert not x.any()
+        assert not x.all()
+
     def test_int8(self):
         import numpypy as numpy
 

@@ -262,7 +262,7 @@ CConfig.sockaddr = platform.Struct('struct sockaddr',
 CConfig.in_addr = platform.Struct('struct in_addr',
                                          [('s_addr', rffi.UINT)])
 CConfig.in6_addr = platform.Struct('struct in6_addr',
-                                          [])
+                                          [('s6_addr', rffi.CFixedArray(rffi.CHAR, 16))])
 CConfig.sockaddr_in = platform.Struct('struct sockaddr_in',
                                         [('sin_family', rffi.INT),
                                          ('sin_port',   rffi.USHORT),

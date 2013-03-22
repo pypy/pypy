@@ -3033,33 +3033,6 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [])
         assert s.const == 0
 
-    def test_some_generic_function_call(self):
-        def h(x):
-            return int(x)
-
-        def c(x):
-            return int(x)
-
-        def g(a, x):
-            if x == -1:
-                a = None
-            if x < 0:
-                if x == -1:
-                    a = h
-                else:
-                    a = c
-                x = x + .01
-            return a(x)
-
-        #def fun(x):
-
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
-        s = a.build_types(g, [annmodel.SomeGenericCallable(
-            args=[annmodel.SomeFloat()], result=annmodel.SomeInteger()),
-                              annmodel.SomeFloat()])
-        assert isinstance(s, annmodel.SomeInteger)
-        assert not hasattr(s, 'const')
-
     def test_compare_int_bool(self):
         def fun(x):
             return 50 < x
