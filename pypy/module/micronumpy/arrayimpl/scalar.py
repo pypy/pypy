@@ -50,7 +50,7 @@ class Scalar(base.BaseArrayImplementation):
     def set_scalar_value(self, w_val):
         self.value = w_val.convert_to(self.dtype)
 
-    def copy(self, space):
+    def copy(self):
         scalar = Scalar(self.dtype)
         scalar.value = self.value
         return scalar

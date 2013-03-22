@@ -76,7 +76,7 @@ class W_FlatIterator(W_NDimArray):
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
         arr = convert_to_array(space, w_value)
-        loop.flatiter_setitem(space, self.base, arr, start, step, length)
+        loop.flatiter_setitem(self.base, arr, start, step, length)
 
     def descr_iter(self):
         return self

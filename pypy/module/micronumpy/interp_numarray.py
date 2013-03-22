@@ -258,14 +258,17 @@ class __extend__(W_NDimArray):
         return self.implementation.get_scalar_value()
 
     def descr_copy(self, space):
-        return W_NDimArray(self.implementation.copy(space))
+        return W_NDimArray(self.implementation.copy())
 
     def descr_get_real(self, space):
         return W_NDimArray(self.implementation.get_real(self))
 
     def descr_get_imag(self, space):
         ret = self.implementation.get_imag(self)
-        return W_NDimArray(ret)
+        if ret:
+            return W_NDimArray(ret)
+        raise OperationError(space.w_NotImplementedError,
+                    space.wrap('imag not implemented for this dtype'))
 
     def descr_set_real(self, space, w_value):
         # copy (broadcast) values into self
