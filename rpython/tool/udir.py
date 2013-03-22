@@ -17,8 +17,8 @@
 # of the current Mercurial branch.
 #
 
-import os, sys
-import py
+import os
+import sys
 
 from rpython.tool.version import get_repo_version_info
 from py.path import local 

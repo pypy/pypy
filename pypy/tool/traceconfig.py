@@ -29,7 +29,7 @@ config = {
 
     # Many operations call back into the object space
     "recursive_operations" : False,
-    
+
     # Show the bytecode or just the operations
     "show_bytecode" : True,
 
@@ -45,6 +45,4 @@ config = {
     "result_printer_clz" : ResultPrinter,
 
     "operations" : get_operations_all()
-
 }
-   

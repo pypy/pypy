@@ -1,10 +1,7 @@
 # overrides for annotation specific to PyPy codebase
-from rpython.annotator.policy import AnnotatorPolicy, Sig
-# for some reason, model must be imported first,
-# or we create a cycle.
+from rpython.annotator.policy import AnnotatorPolicy
+from rpython.annotator.signature import Sig
 from rpython.flowspace.model import Constant
-from rpython.annotator import model as annmodel
-from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.annotator import specialize
 from pypy.interpreter import baseobjspace
 
@@ -60,8 +57,8 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         # for jit benefit
         if cached not in t._immutable_fields_: # accessed this way just
                                                # for convenience
-            t._immutable_fields_.append(cached)        
-    
+            t._immutable_fields_.append(cached)
+
     def attach_lookup(pol, t, attr):
         cached = "cached_%s" % attr
         if not t.is_heaptype() and not t.is_cpytype():
