@@ -83,7 +83,7 @@ class SomeObject(object):
 
     def fmt_knowntype(self, t):
         return t.__name__
-    
+
     def contains(self, other):
         if self == other:
             return True
@@ -452,16 +452,6 @@ class SomePBC(SomeObject):
         else:
             return kt.__name__
 
-class SomeGenericCallable(SomeObject):
-    """ Stands for external callable with known signature
-    """
-    def __init__(self, args, result):
-        self.args_s = args
-        self.s_result = result
-
-    def can_be_None(self):
-        return True
-
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
     knowntype = BuiltinFunctionType  # == BuiltinMethodType
@@ -484,16 +474,6 @@ class SomeBuiltinMethod(SomeBuiltin):
     """ Stands for a built-in method which has got special meaning
     """
     knowntype = MethodType
-
-class SomeExternalObject(SomeObject):
-    """Stands for an object of 'external' type.  External types have a Repr
-    controlled by rpython.rtyper.extregistry."""
-
-    def __init__(self, knowntype):
-        self.knowntype = knowntype
-
-    def can_be_none(self):
-        return True
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
@@ -571,7 +551,7 @@ class SomeLLADTMeth(SomeObject):
     immutable = True
     def __init__(self, ll_ptrtype, func):
         self.ll_ptrtype = ll_ptrtype
-        self.func = func 
+        self.func = func
 
     def can_be_none(self):
         return False
@@ -681,7 +661,7 @@ def ll_to_annotation(v):
         T = lltype.InteriorPtr(lltype.typeOf(ob), v._T, v._offsets)
         return SomeInteriorPtr(T)
     return lltype_to_annotation(lltype.typeOf(v))
-    
+
 # ____________________________________________________________
 
 class UnionError(Exception):
@@ -732,14 +712,14 @@ def not_const(s_obj):
 
 def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
     l1 = inspect.getmro(cls1)
-    l2 = inspect.getmro(cls2) 
-    if l1[-1] != object: 
-        l1 = l1 + (object,) 
-    if l2[-1] != object: 
-        l2 = l2 + (object,) 
-    for x in l1: 
-        if x in l2: 
-            return x 
+    l2 = inspect.getmro(cls2)
+    if l1[-1] != object:
+        l1 = l1 + (object,)
+    if l2[-1] != object:
+        l2 = l2 + (object,)
+    for x in l1:
+        if x in l2:
+            return x
     assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2)
 
 def missing_operation(cls, name):

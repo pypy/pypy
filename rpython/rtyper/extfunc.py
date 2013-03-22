@@ -125,23 +125,6 @@ class BaseLazyRegistering(object):
     def _freeze_(self):
         return True
 
-class genericcallable(object):
-    """ A way to specify the callable annotation, but deferred until
-    we have bookkeeper
-    """
-    def __init__(self, args, result=None):
-        self.args = args
-        self.result = result
-
-class _ext_callable(ExtRegistryEntry):
-    _type_ = genericcallable
-    # we defer a bit annotation here
-
-    def compute_result_annotation(self):
-        return annmodel.SomeGenericCallable([annotation(i, self.bookkeeper)
-                                             for i in self.instance.args],
-                           annotation(self.instance.result, self.bookkeeper))
-
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
 
@@ -249,7 +232,7 @@ def register_external(function, args, result=None, export_name=None,
     llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
     sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
-    
+
     if export_name is None:
         export_name = function.__name__
 
