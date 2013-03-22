@@ -34,8 +34,9 @@ class AppTestProxyObj(AppProxyBasic):
     def test_simple_obj(self):
         class AT(self.A):
             pass
-        
+
         c = self.Controller(self.A())
+        obj = self.proxy(self.A, c.perform)
         obj = self.proxy(AT, c.perform)
         
         assert type(obj) is AT

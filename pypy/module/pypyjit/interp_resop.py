@@ -134,15 +134,18 @@ WrappedBox.typedef = TypeDef(
     getint = interp2app(WrappedBox.descr_getint),
 )
 
-@unwrap_spec(num=int, offset=int, repr=str, res=WrappedBox)
-def descr_new_resop(space, w_tp, num, w_args, res, offset=-1,
+@unwrap_spec(num=int, offset=int, repr=str, w_res=W_Root)
+def descr_new_resop(space, w_tp, num, w_args, w_res, offset=-1,
                     repr=''):
     args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
             space.listview(w_args)]
-    if res is None:
+    if space.is_none(w_res):
         llres = jit_hooks.emptyval()
     else:
-        llres = res.llbox
+        if not isinstance(w_res, WrappedBox):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "expected box type, got %s" % space.type(w_res)))
+        llres = w_res.llbox
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
 
 @unwrap_spec(repr=str, jd_name=str, call_depth=int, call_id=int)
@@ -178,9 +181,9 @@ class WrappedOp(W_Root):
     def descr_getarg(self, space, no):
         return WrappedBox(jit_hooks.resop_getarg(self.op, no))
 
-    @unwrap_spec(no=int, box=WrappedBox)
-    def descr_setarg(self, space, no, box):
-        jit_hooks.resop_setarg(self.op, no, box.llbox)
+    @unwrap_spec(no=int, w_box=WrappedBox)
+    def descr_setarg(self, space, no, w_box):
+        jit_hooks.resop_setarg(self.op, no, w_box.llbox)
 
     def descr_getresult(self, space):
         return WrappedBox(jit_hooks.resop_getresult(self.op))

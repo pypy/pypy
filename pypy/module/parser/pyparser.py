@@ -8,7 +8,7 @@ from pypy.interpreter.astcompiler.codegen import compile_ast
 from rpython.rlib.objectmodel import specialize
 
 
-class STType(W_Root):
+class W_STType(W_Root):
     def __init__(self, tree, mode):
         self.tree = tree
         self.mode = mode
@@ -62,12 +62,12 @@ class STType(W_Root):
                                  e.wrap_info(space))
         return space.wrap(result)
 
-STType.typedef = TypeDef("parser.st",
-    issuite=interp2app(STType.descr_issuite),
-    isexpr=interp2app(STType.descr_isexpr),
-    totuple=interp2app(STType.descr_totuple),
-    tolist=interp2app(STType.descr_tolist),
-    compile=interp2app(STType.descr_compile)
+W_STType.typedef = TypeDef("parser.st",
+    issuite=interp2app(W_STType.descr_issuite),
+    isexpr=interp2app(W_STType.descr_isexpr),
+    totuple=interp2app(W_STType.descr_totuple),
+    tolist=interp2app(W_STType.descr_tolist),
+    compile=interp2app(W_STType.descr_compile)
 )
 
 
@@ -82,7 +82,7 @@ def parse_python(space, source, mode):
     except error.SyntaxError, e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space))
-    return space.wrap(STType(tree, mode))
+    return space.wrap(W_STType(tree, mode))
 
 
 @unwrap_spec(source=str)
@@ -95,22 +95,22 @@ def expr(space, source):
     return parse_python(space, source, 'eval')
 
 
-@unwrap_spec(st=STType)
-def isexpr(space, st):
-    return space.call_method(st, "isexpr")
+@unwrap_spec(w_st=W_STType)
+def isexpr(space, w_st):
+    return w_st.descr_isexpr(space)
 
-@unwrap_spec(st=STType)
-def issuite(space, st):
-    return space.call_method(st, "issuite")
+@unwrap_spec(w_st=W_STType)
+def issuite(space, w_st):
+    return w_st.descr_issuite(space)
 
-@unwrap_spec(st=STType)
-def st2tuple(space, st, __args__):
-    return space.call_args(space.getattr(st, space.wrap("totuple")), __args__)
+@unwrap_spec(w_st=W_STType)
+def st2tuple(space, w_st, __args__):
+    return space.call_args(space.getattr(w_st, space.wrap("totuple")), __args__)
 
-@unwrap_spec(st=STType)
-def st2list(space, st, __args__):
-    return space.call_args(space.getattr(st, space.wrap("tolist")), __args__)
+@unwrap_spec(w_st=W_STType)
+def st2list(space, w_st, __args__):
+    return space.call_args(space.getattr(w_st, space.wrap("tolist")), __args__)
 
-@unwrap_spec(st=STType)
-def compilest(space, st, __args__):
-    return space.call_args(space.getattr(st, space.wrap("compile")), __args__)
+@unwrap_spec(w_st=W_STType)
+def compilest(space, w_st, __args__):
+    return space.call_args(space.getattr(w_st, space.wrap("compile")), __args__)

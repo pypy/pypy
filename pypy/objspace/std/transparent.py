@@ -37,7 +37,7 @@ completely controlled by the controller."""
         PyCode, GeneratorIterator
     if not space.is_true(space.callable(w_controller)):
         raise OperationError(space.w_TypeError, space.wrap("controller should be function"))
-    
+
     if isinstance(w_type, W_TypeObject):
         if space.is_true(space.issubtype(w_type, space.gettypeobject(Function.typedef))):
             return W_TransparentFunction(space, w_type, w_controller)
@@ -57,7 +57,7 @@ completely controlled by the controller."""
     for k, v in type_cache.cache:
         if w_lookup == k:
             return v(space, w_type, w_controller)
-    raise operationerrfmt(space.w_TypeError, 
+    raise operationerrfmt(space.w_TypeError,
         "'%s' object could not be wrapped (YET)",
         w_type.getname(space))
 

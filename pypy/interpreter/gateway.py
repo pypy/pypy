@@ -466,6 +466,7 @@ class WrappedDefault(object):
     def __init__(self, default_value):
         self.default_value = default_value
 
+
 def build_unwrap_spec(func, argnames, self_type=None):
     """build the list of parameter unwrap spec for the function.
     """
