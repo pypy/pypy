@@ -373,7 +373,7 @@ class CPPFunction(CPPMethod):
         return "CPPFunction: %s" % self.signature()
 
 
-class CPPTemplatedMember(object):
+class CPPTemplatedCall(object):
     """Method dispatcher that first needs to resolve the template instance.
     Note that the derivation is from object: the CPPMethod is a data member."""
 
@@ -383,7 +383,10 @@ class CPPTemplatedMember(object):
     def __init__(self, space, templ_args, containing_scope, method_index, arg_defs, args_required):
         self.space = space
         self.templ_args = templ_args
-        self.method = CPPMethod(space, containing_scope, method_index, arg_defs, args_required)
+        if capi.c_is_staticmethod(containing_scope, index):
+            self.method = CPPFunction(space, containing_scope, method_index, arg_defs, args_require)
+        else:
+            self.method = CPPMethod(space, containing_scope, method_index, arg_defs, args_required)
 
     def call(self, cppthis, args_w):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
@@ -402,7 +405,7 @@ class CPPTemplatedMember(object):
         return self.method.signature()
 
     def __repr__(self):
-        return "CPPTemplatedMember: %s" % self.signature()
+        return "CPPTemplatedCall: %s" % self.signature()
 
 
 class CPPConstructor(CPPMethod):
@@ -825,13 +828,13 @@ class W_CPPClass(W_CPPScope):
             cppfunction = CPPConstructor(self.space, self, index, arg_defs, args_required)
             if args_required == 0:
                 self.default_constructor = cppfunction
+        elif capi.c_method_is_template(self, index):
+            templ_args = capi.c_template_args(self, index)
+            cppfunction = CPPTemplatedCall(self.space, templ_args, self, index, arg_defs, args_required)
         elif capi.c_is_staticmethod(self, index):
             cppfunction = CPPFunction(self.space, self, index, arg_defs, args_required)
         elif pyname == "__setitem__":
             cppfunction = CPPSetItem(self.space, self, index, arg_defs, args_required)
-        elif capi.c_method_is_template(self, index):
-            templ_args = capi.c_template_args(self, index)
-            cppfunction = CPPTemplatedMember(self.space, templ_args, self, index, arg_defs, args_required)
         else:
             cppfunction = CPPMethod(self.space, self, index, arg_defs, args_required)
         return cppfunction

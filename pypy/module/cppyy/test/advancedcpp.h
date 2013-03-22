@@ -384,7 +384,7 @@ template<class T>
 T my_templated_function(T t) { return t; }
 
 template class my_templated_class<std::vector<float> >;
-template int my_templated_function<int>(int);
+template char my_templated_function<char>(char);
 template double my_templated_function<double>(double);
 
 class my_templated_method_class {

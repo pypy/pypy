@@ -567,3 +567,15 @@ class AppTestADVANCEDCPP:
         assert m.get_size('double')() == m.get_double_size()
         assert m.get_size('my_templated_method_class')() == m.get_self_size()
         assert m.get_size('my_typedef_t')() == m.get_self_size()
+
+    def test17_template_global_functions(self):
+        """Test template global function lookup and calls"""
+
+        import cppyy
+
+        f = cppyy.gbl.my_templated_function
+
+        assert f('c') == 'c'
+        assert type(f('c')) == type('c')
+        assert f(3.) == 3.
+        assert type(f(4.)) == type(4.)
