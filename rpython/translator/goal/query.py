@@ -1,6 +1,5 @@
 # functions to query information out of the translator and annotator from the debug prompt of translate
 import types
-import re
 
 import rpython.annotator.model as annmodel
 import rpython.flowspace.model as flowmodel
@@ -23,7 +22,7 @@ def graph_sig(t, g):
     return "%s -> %s" % (
         ', '.join(map(hbinding, g.getargs())),
         hbinding(g.getreturnvar()))
-    
+
 class Found(Exception):
     pass
 

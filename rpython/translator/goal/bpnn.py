@@ -187,8 +187,6 @@ def demo():
 
 # __________  Entry point for stand-alone builds __________
 
-import time
-
 def entry_point(argv):
     if len(argv) > 1:
         N = int(argv[1])
