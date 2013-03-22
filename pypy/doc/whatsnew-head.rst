@@ -106,3 +106,5 @@ the GC which fixes cannot find gc roots.
 
 .. branch: pycon2013-doc-fixes
 Documentation fixes after going through the docs at PyCon 2013 sprint.
+
+.. branch: extregistry-refactor
