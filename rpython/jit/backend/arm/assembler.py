@@ -1036,6 +1036,7 @@ class AssemblerARM(ResOpAssembler):
             assert 0, 'unsupported case'
 
     def _mov_stack_to_loc(self, prev_loc, loc, cond=c.AL):
+        helper = self._regalloc.get_free_reg()
         if loc.is_reg():
             assert prev_loc.type != FLOAT, 'trying to load from an \
                 incompatible location into a core register'
@@ -1044,24 +1045,24 @@ class AssemblerARM(ResOpAssembler):
             # unspill a core register
             offset = prev_loc.value
             is_imm = check_imm_arg(offset, size=0xFFF)
-            if not is_imm:
-                self.mc.PUSH([r.lr.value], cond=cond)
-            self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=r.lr)
-            if not is_imm:
-                self.mc.POP([r.lr.value], cond=cond)
+            helper = r.lr if helper is None else helper
+            save_helper = not is_imm and helper is r.lr
         elif loc.is_vfp_reg():
             assert prev_loc.type == FLOAT, 'trying to load from an \
                 incompatible location into a float register'
             # load spilled value into vfp reg
             offset = prev_loc.value
             is_imm = check_imm_arg(offset)
-            if not is_imm:
-                self.mc.PUSH([r.ip.value], cond=cond)
-            self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=r.ip)
-            if not is_imm:
-                self.mc.POP([r.ip.value], cond=cond)
+            helper = r.ip if helper is None else helper
+            save_helper = not is_imm and helper is r.ip
         else:
             assert 0, 'unsupported case'
+        if save_helper:
+            self.mc.PUSH([helper.value], cond=cond)
+        self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=helper)
+        if save_helper:
+	    self.mc.POP([helper.value], cond=cond)
+
 
     def _mov_imm_float_to_loc(self, prev_loc, loc, cond=c.AL):
         if loc.is_vfp_reg():

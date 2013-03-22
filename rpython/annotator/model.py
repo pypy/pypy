@@ -29,13 +29,15 @@ generic element in some specific subset of the set of all objects.
 
 from __future__ import absolute_import
 
+import inspect
+import weakref
 from types import BuiltinFunctionType, MethodType
+
 import rpython
 from rpython.tool import descriptor
 from rpython.tool.pairtype import pair, extendabletype
-from rpython.rlib.rarithmetic import r_uint, base_int
-from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
-import inspect, weakref
+from rpython.rlib.rarithmetic import r_uint, base_int, r_singlefloat, r_longfloat
+
 
 class State(object):
     # A global attribute :-(  Patch it with 'True' to enable checking of
@@ -56,8 +58,10 @@ class SomeObject(object):
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
                 self.__dict__  == other.__dict__)
+
     def __ne__(self, other):
         return not (self == other)
+
     def __repr__(self):
         try:
             reprdict = TLS.reprdict
@@ -75,7 +79,7 @@ class SomeObject(object):
                     m = getattr(self, 'fmt_' + k, repr)
                     r = m(v)
                     if r is not None:
-                        args.append('%s=%s'%(k, r))
+                        args.append('%s=%s' % (k, r))
                 kwds = ', '.join(args)
             finally:
                 del reprdict[self]
@@ -83,7 +87,7 @@ class SomeObject(object):
 
     def fmt_knowntype(self, t):
         return t.__name__
-    
+
     def contains(self, other):
         if self == other:
             return True
@@ -130,6 +134,7 @@ class SomeType(SomeObject):
     def can_be_none(self):
         return False
 
+
 class SomeFloat(SomeObject):
     "Stands for a float or an integer."
     knowntype = float   # if we don't know if it's a float or an int,
@@ -152,6 +157,7 @@ class SomeFloat(SomeObject):
     def can_be_none(self):
         return False
 
+
 class SomeSingleFloat(SomeObject):
     "Stands for an r_singlefloat."
     # No operation supported, not even union with a regular float
@@ -160,6 +166,7 @@ class SomeSingleFloat(SomeObject):
 
     def can_be_none(self):
         return False
+
 
 class SomeLongFloat(SomeObject):
     "Stands for an r_longfloat."
@@ -170,9 +177,11 @@ class SomeLongFloat(SomeObject):
     def can_be_none(self):
         return False
 
+
 class SomeInteger(SomeFloat):
     "Stands for an object which is known to be an integer."
     knowntype = int
+
     # size is in multiples of C's sizeof(long)!
     def __init__(self, nonneg=False, unsigned=None, knowntype=None):
         assert (knowntype is None or knowntype is int or
@@ -189,17 +198,21 @@ class SomeInteger(SomeFloat):
         self.nonneg = unsigned or nonneg
         self.unsigned = unsigned  # rpython.rlib.rarithmetic.r_uint
 
+
 class SomeBool(SomeInteger):
     "Stands for true or false."
     knowntype = bool
     nonneg = True
     unsigned = False
+
     def __init__(self):
         pass
+
     def set_knowntypedata(self, knowntypedata):
         assert not hasattr(self, 'knowntypedata')
         if knowntypedata:
             self.knowntypedata = knowntypedata
+
 
 class SomeStringOrUnicode(SomeObject):
     """Base class for shared implementation of SomeString and SomeUnicodeString.
@@ -207,7 +220,7 @@ class SomeStringOrUnicode(SomeObject):
     Cannot be an annotation."""
 
     immutable = True
-    can_be_None=False
+    can_be_None = False
     no_nul = False  # No NUL character in the string.
 
     def __init__(self, can_be_None=False, no_nul=False):
@@ -226,8 +239,10 @@ class SomeStringOrUnicode(SomeObject):
         d1 = self.__dict__
         d2 = other.__dict__
         if not TLS.check_str_without_nul:
-            d1 = d1.copy(); d1['no_nul'] = 0   # ignored
-            d2 = d2.copy(); d2['no_nul'] = 0   # ignored
+            d1 = d1.copy()
+            d1['no_nul'] = 0
+            d2 = d2.copy()
+            d2['no_nul'] = 0
         return d1 == d2
 
     def nonnoneify(self):
@@ -236,27 +251,34 @@ class SomeStringOrUnicode(SomeObject):
     def nonnulify(self):
         return self.__class__(can_be_None=self.can_be_None, no_nul=True)
 
+
 class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
+
 
 class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
 
+
 class SomeByteArray(SomeStringOrUnicode):
     knowntype = bytearray
+
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
     can_be_None = False
+
     def __init__(self, no_nul=False):    # no 'can_be_None' argument here
         if no_nul:
             self.no_nul = True
 
+
 class SomeUnicodeCodePoint(SomeUnicodeString):
     "Stands for an object known to be a unicode codepoint."
     can_be_None = False
+
     def __init__(self, no_nul=False):    # no 'can_be_None' argument here
         if no_nul:
             self.no_nul = True
@@ -266,11 +288,14 @@ SomeString.basecharclass = SomeChar
 SomeUnicodeString.basestringclass = SomeUnicodeString
 SomeUnicodeString.basecharclass = SomeUnicodeCodePoint
 
+
 class SomeList(SomeObject):
     "Stands for a homogenous list of any length."
     knowntype = list
+
     def __init__(self, listdef):
         self.listdef = listdef
+
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -285,10 +310,12 @@ class SomeList(SomeObject):
     def can_be_none(self):
         return True
 
+
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
     knowntype = tuple
     immutable = True
+
     def __init__(self, items):
         self.items = tuple(items)   # tuple of s_xxx elements
         for i in items:
@@ -300,11 +327,14 @@ class SomeTuple(SomeObject):
     def can_be_none(self):
         return False
 
+
 class SomeDict(SomeObject):
     "Stands for a dict."
     knowntype = dict
+
     def __init__(self, dictdef):
         self.dictdef = dictdef
+
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -323,18 +353,20 @@ class SomeDict(SomeObject):
         if len(const) < 20:
             return repr(const)
         else:
-            return '{...%s...}'%(len(const),)
+            return '{...%s...}' % (len(const),)
 
 
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects from a given container."
     knowntype = type(iter([]))  # arbitrarily chose seqiter as the type
+
     def __init__(self, s_container, *variant):
         self.variant = variant
         self.s_container = s_container
 
     def can_be_none(self):
         return False
+
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
@@ -347,11 +379,13 @@ class SomeInstance(SomeObject):
 
     def fmt_knowntype(self, kt):
         return None
+
     def fmt_classdef(self, cdef):
         if cdef is None:
             return 'object'
         else:
             return cdef.name
+
     def fmt_flags(self, flags):
         if flags:
             return repr(flags)
@@ -444,7 +478,7 @@ class SomePBC(SomeObject):
         if hasattr(self, 'const'):
             return None
         else:
-            return '{...%s...}'%(len(pbis),)
+            return '{...%s...}' % (len(pbis),)
 
     def fmt_knowntype(self, kt):
         if self.is_constant():
@@ -452,15 +486,6 @@ class SomePBC(SomeObject):
         else:
             return kt.__name__
 
-class SomeGenericCallable(SomeObject):
-    """ Stands for external callable with known signature
-    """
-    def __init__(self, args, result):
-        self.args_s = args
-        self.s_result = result
-
-    def can_be_None(self):
-        return True
 
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
@@ -480,26 +505,18 @@ class SomeBuiltin(SomeObject):
     def can_be_none(self):
         return False
 
+
 class SomeBuiltinMethod(SomeBuiltin):
     """ Stands for a built-in method which has got special meaning
     """
     knowntype = MethodType
 
-class SomeExternalObject(SomeObject):
-    """Stands for an object of 'external' type.  External types have a Repr
-    controlled by rpython.rtyper.extregistry."""
-
-    def __init__(self, knowntype):
-        self.knowntype = knowntype
-
-    def can_be_none(self):
-        return True
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
     immutable = True
-    annotationcolor = (160,160,160)
+    annotationcolor = (160, 160, 160)
 
     def can_be_none(self):
         return False
@@ -507,9 +524,10 @@ class SomeImpossibleValue(SomeObject):
 
 s_None = SomePBC([], can_be_None=True)
 s_Bool = SomeBool()
-s_Int  = SomeInteger()
+s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
 s_Str0 = SomeString(no_nul=True)
+
 
 # ____________________________________________________________
 # weakrefs
@@ -517,6 +535,7 @@ s_Str0 = SomeString(no_nul=True)
 class SomeWeakRef(SomeObject):
     knowntype = weakref.ReferenceType
     immutable = True
+
     def __init__(self, classdef):
         # 'classdef' is None for known-to-be-dead weakrefs.
         self.classdef = classdef
@@ -526,6 +545,7 @@ class SomeWeakRef(SomeObject):
 
 from rpython.rtyper.lltypesystem import llmemory
 
+
 class SomeAddress(SomeObject):
     immutable = True
 
@@ -534,6 +554,7 @@ class SomeAddress(SomeObject):
 
     def is_null_address(self):
         return self.is_immutable_constant() and not self.const
+
 
 # The following class is used to annotate the intermediate value that
 # appears in expressions of the form:
@@ -550,11 +571,12 @@ class SomeTypedAddressAccess(SomeObject):
 # annotation of low-level types
 
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
+
 
 class SomePtr(SomeObject):
     knowntype = lltype._ptr
     immutable = True
+
     def __init__(self, ll_ptrtype):
         assert isinstance(ll_ptrtype, lltype.Ptr)
         self.ll_ptrtype = ll_ptrtype
@@ -562,41 +584,52 @@ class SomePtr(SomeObject):
     def can_be_none(self):
         return False
 
+
 class SomeInteriorPtr(SomePtr):
     def __init__(self, ll_ptrtype):
         assert isinstance(ll_ptrtype, lltype.InteriorPtr)
         self.ll_ptrtype = ll_ptrtype
 
+
 class SomeLLADTMeth(SomeObject):
     immutable = True
+
     def __init__(self, ll_ptrtype, func):
         self.ll_ptrtype = ll_ptrtype
-        self.func = func 
+        self.func = func
 
     def can_be_none(self):
         return False
 
+
 class SomeOOObject(SomeObject):
     def __init__(self):
+        from rpython.rtyper.ootypesystem import ootype
         self.ootype = ootype.Object
+
 
 class SomeOOClass(SomeObject):
     def __init__(self, ootype):
         self.ootype = ootype
+
 
 class SomeOOInstance(SomeObject):
     def __init__(self, ootype, can_be_None=False):
         self.ootype = ootype
         self.can_be_None = can_be_None
 
+
 class SomeOOBoundMeth(SomeObject):
     immutable = True
+
     def __init__(self, ootype, name):
         self.ootype = ootype
         self.name = name
 
+
 class SomeOOStaticMeth(SomeObject):
     immutable = True
+
     def __init__(self, method):
         self.method = method
 
@@ -611,7 +644,10 @@ annotation_to_ll_map = [
     (SomeAddress(), llmemory.Address),
 ]
 
+
 def annotation_to_lltype(s_val, info=None):
+    from rpython.rtyper.ootypesystem import ootype
+
     if isinstance(s_val, SomeOOInstance):
         return s_val.ootype
     if isinstance(s_val, SomeOOStaticMeth):
@@ -644,7 +680,10 @@ def annotation_to_lltype(s_val, info=None):
 
 ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map])
 
+
 def lltype_to_annotation(T):
+    from rpython.rtyper.ootypesystem import ootype
+
     try:
         s = ll_to_annotation_map.get(T)
     except TypeError:
@@ -669,6 +708,7 @@ def lltype_to_annotation(T):
     else:
         return s
 
+
 def ll_to_annotation(v):
     if v is None:
         # i think we can only get here in the case of void-returning
@@ -681,12 +721,14 @@ def ll_to_annotation(v):
         T = lltype.InteriorPtr(lltype.typeOf(ob), v._T, v._offsets)
         return SomeInteriorPtr(T)
     return lltype_to_annotation(lltype.typeOf(v))
-    
+
+
 # ____________________________________________________________
 
 class UnionError(Exception):
     """Signals an suspicious attempt at taking the union of
     deeply incompatible SomeXxx instances."""
+
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
@@ -703,11 +745,13 @@ def unionof(*somevalues):
             s1 = pair(s1, s2).union()
     return s1
 
+
 # make knowntypedata dictionary
 
 def add_knowntypedata(ktd, truth, vars, s_obj):
     for v in vars:
         ktd[(truth, v)] = s_obj
+
 
 def merge_knowntypedata(ktd1, ktd2):
     r = {}
@@ -715,6 +759,7 @@ def merge_knowntypedata(ktd1, ktd2):
         if truth_v in ktd2:
             r[truth_v] = unionof(ktd1[truth_v], ktd2[truth_v])
     return r
+
 
 def not_const(s_obj):
     if s_obj.is_constant() and not isinstance(s_obj, SomePBC):
@@ -727,20 +772,22 @@ def not_const(s_obj):
         s_obj = new_s_obj
     return s_obj
 
+
 # ____________________________________________________________
 # internal
 
 def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
     l1 = inspect.getmro(cls1)
-    l2 = inspect.getmro(cls2) 
-    if l1[-1] != object: 
-        l1 = l1 + (object,) 
-    if l2[-1] != object: 
-        l2 = l2 + (object,) 
-    for x in l1: 
-        if x in l2: 
-            return x 
+    l2 = inspect.getmro(cls2)
+    if l1[-1] != object:
+        l1 = l1 + (object,)
+    if l2[-1] != object:
+        l2 = l2 + (object,)
+    for x in l1:
+        if x in l2:
+            return x
     assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2)
+
 
 def missing_operation(cls, name):
     def default_op(*args):
@@ -750,11 +797,12 @@ def missing_operation(cls, name):
             flattened = args
         for arg in flattened:
             if arg.__class__ is SomeObject and arg.knowntype is not type:
-                return  SomeObject()
+                return SomeObject()
         bookkeeper = rpython.annotator.bookkeeper.getbookkeeper()
         bookkeeper.warning("no precise annotation supplied for %s%r" % (name, args))
         return s_ImpossibleValue
     setattr(cls, name, default_op)
+
 
 class HarmlesslyBlocked(Exception):
     """Raised by the unaryop/binaryop to signal a harmless kind of

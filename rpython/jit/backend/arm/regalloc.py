@@ -166,6 +166,13 @@ class CoreRegisterManager(ARMRegisterManager):
                                                     selected_reg=selected_reg)
         return reg
 
+    def get_free_reg():
+        free_regs = self.free_regs        
+        for i in range(len(free_regs), -1, -1):
+            if free_regs[i] in self.save_around_call_regs:
+                continue
+            return free_regs[i]
+
 
 class Regalloc(BaseRegalloc):
 
@@ -250,6 +257,8 @@ class Regalloc(BaseRegalloc):
                                                                 selected_reg)
         else:
             return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
+    def get_free_reg(self):
+        return self.rm.get_free_reg()
 
     def free_temp_vars(self):
         self.rm.free_temp_vars()

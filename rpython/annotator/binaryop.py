@@ -11,13 +11,12 @@ from rpython.annotator.model import SomeUnicodeCodePoint, SomeUnicodeString
 from rpython.annotator.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from rpython.annotator.model import SomeInstance, SomeBuiltin, SomeIterator
 from rpython.annotator.model import SomePBC, SomeFloat, s_None, SomeByteArray
-from rpython.annotator.model import SomeExternalObject, SomeWeakRef
+from rpython.annotator.model import SomeWeakRef
 from rpython.annotator.model import SomeAddress, SomeTypedAddressAccess
 from rpython.annotator.model import SomeSingleFloat, SomeLongFloat, SomeType
 from rpython.annotator.model import unionof, UnionError, missing_operation
 from rpython.annotator.model import read_can_only_throw
 from rpython.annotator.model import add_knowntypedata, merge_knowntypedata
-from rpython.annotator.model import SomeGenericCallable
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.flowspace.model import Variable, Constant
 from rpython.rlib import rarithmetic
@@ -130,7 +129,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def is_((obj1, obj2)):
         r = SomeBool()
         if obj2.is_constant():
-            if obj1.is_constant(): 
+            if obj1.is_constant():
                 r.const = obj1.const is obj2.const
             if obj2.const is None and not obj1.can_be_none():
                 r.const = False
@@ -148,7 +147,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
             def bind(src_obj, tgt_obj, tgt_arg):
                 if hasattr(tgt_obj, 'is_type_of') and src_obj.is_constant():
-                    add_knowntypedata(knowntypedata, True, tgt_obj.is_type_of, 
+                    add_knowntypedata(knowntypedata, True, tgt_obj.is_type_of,
                                       bk.valueoftype(src_obj.const))
 
                 assert annotator.binding(op.args[tgt_arg]) == tgt_obj
@@ -174,7 +173,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         getbookkeeper().count("coerce", obj1, obj2)
         return pair(obj1, obj2).union()   # reasonable enough
 
-    # approximation of an annotation intersection, the result should be the annotation obj or 
+    # approximation of an annotation intersection, the result should be the annotation obj or
     # the intersection of obj and improvement
     def improve((obj, improvement)):
         if not improvement.contains(obj) and obj.contains(improvement):
@@ -321,7 +320,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             return int0.knowntype
         if int1.nonneg and isinstance(op.args[1], Variable):
             case = opname in ('lt', 'le', 'eq')
-                
+
             add_knowntypedata(knowntypedata, case, [op.args[1]],
                               SomeInteger(nonneg=True, knowntype=tointtype(int2)))
         if int2.nonneg and isinstance(op.args[0], Variable):
@@ -332,7 +331,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         # a special case for 'x < 0' or 'x >= 0',
         # where 0 is a flow graph Constant
         # (in this case we are sure that it cannot become a r_uint later)
-        if (isinstance(op.args[1], Constant) and 
+        if (isinstance(op.args[1], Constant) and
             type(op.args[1].value) is int and    # filter out Symbolics
             op.args[1].value == 0):
             if int1.nonneg:
@@ -353,14 +352,14 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 class __extend__(pairtype(SomeBool, SomeBool)):
 
     def union((boo1, boo2)):
-        s = SomeBool() 
-        if getattr(boo1, 'const', -1) == getattr(boo2, 'const', -2): 
-            s.const = boo1.const 
+        s = SomeBool()
+        if getattr(boo1, 'const', -1) == getattr(boo2, 'const', -2):
+            s.const = boo1.const
         if hasattr(boo1, 'knowntypedata') and \
            hasattr(boo2, 'knowntypedata'):
             ktd = merge_knowntypedata(boo1.knowntypedata, boo2.knowntypedata)
             s.set_knowntypedata(ktd)
-        return s 
+        return s
 
     def and_((boo1, boo2)):
         s = SomeBool()
@@ -385,13 +384,13 @@ class __extend__(pairtype(SomeBool, SomeBool)):
             if boo2.const:
                 s.const = True
         return s
-        
+
     def xor((boo1, boo2)):
         s = SomeBool()
         if boo1.is_constant() and boo2.is_constant():
             s.const = boo1.const ^ boo2.const
         return s
-        
+
 class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
@@ -494,7 +493,7 @@ class __extend__(pairtype(SomeString, SomeObject),
         return s_string.__class__()
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
-    
+
     def union((flt1, flt2)):
         return SomeFloat()
 
@@ -511,13 +510,13 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
 
 
 class __extend__(pairtype(SomeSingleFloat, SomeSingleFloat)):
-    
+
     def union((flt1, flt2)):
         return SomeSingleFloat()
 
 
 class __extend__(pairtype(SomeLongFloat, SomeLongFloat)):
-    
+
     def union((flt1, flt2)):
         return SomeLongFloat()
 
@@ -609,7 +608,7 @@ class __extend__(pairtype(SomeDict, SomeObject)):
 
 
 class __extend__(pairtype(SomeTuple, SomeInteger)):
-    
+
     def getitem((tup1, int2)):
         if int2.is_immutable_constant():
             try:
@@ -623,7 +622,7 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
 
 
 class __extend__(pairtype(SomeList, SomeInteger)):
-    
+
     def mul((lst1, int2)):
         return lst1.listdef.offspring()
 
@@ -642,27 +641,27 @@ class __extend__(pairtype(SomeList, SomeInteger)):
     getitem_idx_key = getitem_idx
 
     def setitem((lst1, int2), s_value):
-        getbookkeeper().count("list_setitem", int2)        
+        getbookkeeper().count("list_setitem", int2)
         lst1.listdef.mutate()
         lst1.listdef.generalize(s_value)
     setitem.can_only_throw = [IndexError]
 
     def delitem((lst1, int2)):
-        getbookkeeper().count("list_delitem", int2)        
+        getbookkeeper().count("list_delitem", int2)
         lst1.listdef.resize()
     delitem.can_only_throw = [IndexError]
 
 class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)        
+        getbookkeeper().count("str_getitem", int2)
         return SomeChar(no_nul=str1.no_nul)
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)        
+        getbookkeeper().count("str_getitem", int2)
         return SomeChar(no_nul=str1.no_nul)
     getitem_idx.can_only_throw = [IndexError]
 
@@ -674,14 +673,14 @@ class __extend__(pairtype(SomeString, SomeInteger)):
 
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)        
+        getbookkeeper().count("str_getitem", int2)
         return SomeUnicodeCodePoint()
     getitem.can_only_throw = []
 
     getitem_key = getitem
 
     def getitem_idx((str1, int2)):
-        getbookkeeper().count("str_getitem", int2)        
+        getbookkeeper().count("str_getitem", int2)
         return SomeUnicodeCodePoint()
     getitem_idx.can_only_throw = [IndexError]
 
@@ -693,7 +692,7 @@ class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
 
 class __extend__(pairtype(SomeInteger, SomeString),
                  pairtype(SomeInteger, SomeUnicodeString)):
-    
+
     def mul((int1, str2)): # xxx do we want to support this
         getbookkeeper().count("str_mul", str2, int1)
         return str2.basestringclass()
@@ -713,7 +712,7 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
         return result
 
 class __extend__(pairtype(SomeInteger, SomeList)):
-    
+
     def mul((int1, lst2)):
         return lst2.listdef.offspring()
 
@@ -786,7 +785,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
 
 class __extend__(pairtype(SomePBC, SomePBC)):
 
-    def union((pbc1, pbc2)):       
+    def union((pbc1, pbc2)):
         d = pbc1.descriptions.copy()
         d.update(pbc2.descriptions)
         return SomePBC(d, can_be_None = pbc1.can_be_None or pbc2.can_be_None)
@@ -802,20 +801,6 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                 else:
                     s.const = False    # no common desc in the two sets
         return s
-
-class __extend__(pairtype(SomeGenericCallable, SomePBC)):
-    def union((gencall, pbc)):
-        for desc in pbc.descriptions:
-            unique_key = desc
-            bk = desc.bookkeeper
-            s_result = bk.emulate_pbc_call(unique_key, pbc, gencall.args_s)
-            s_result = unionof(s_result, gencall.s_result)
-            assert gencall.s_result.contains(s_result)
-        return gencall
-
-class __extend__(pairtype(SomePBC, SomeGenericCallable)):
-    def union((pbc, gencall)):
-        return pair(gencall, pbc).union()
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):
@@ -853,7 +838,6 @@ _make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')
-_make_none_union('SomeExternalObject', 'obj.knowntype')
 _make_none_union('SomeWeakRef',         'obj.classdef')
 
 # getitem on SomePBCs, in particular None fails
@@ -879,12 +863,6 @@ class __extend__(pairtype(SomeString, SomePBC)):
         if not pbc.isNone():
             raise AnnotatorError('add on %r' % pbc)
         return s_ImpossibleValue
-
-class __extend__(pairtype(SomeExternalObject, SomeExternalObject)):
-    def union((ext1, ext2)):
-        if ext1.knowntype == ext2.knowntype:
-            return SomeExternalObject(ext1.knowntype)
-        return SomeObject()
 
 # ____________________________________________________________
 # annotation of low-level types

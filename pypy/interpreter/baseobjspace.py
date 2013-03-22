@@ -1,27 +1,30 @@
 import sys
 
+from rpython.rlib.cache import Cache
+from rpython.tool.uid import HUGEVAL_BYTES
+from rpython.rlib import jit, types
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
+     compute_unique_id)
+from rpython.rlib.signature import signature
+from rpython.rlib.rarithmetic import r_uint
+
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction, FrameTraceAction)
 from pypy.interpreter.error import (OperationError, operationerrfmt,
     new_exception_class, typed_unwrap_error_msg)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
-from rpython.rlib.cache import Cache
-from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit
-from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.objectmodel import we_are_translated, newlist_hint,\
-     compute_unique_id
-from rpython.rlib.rarithmetic import r_uint
 
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
-unpackiterable_driver = jit.JitDriver(name = 'unpackiterable',
-                                      greens = ['tp'],
-                                      reds = ['items', 'w_iterator'])
+unpackiterable_driver = jit.JitDriver(name='unpackiterable',
+                                      greens=['tp'],
+                                      reds=['items', 'w_iterator'])
+
 
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
@@ -696,6 +699,7 @@ class ObjSpace(object):
                 raise
             return None
 
+    @signature(types.bool(), returns=types.instance(W_Root))
     def newbool(self, b):
         if b:
             return self.w_True

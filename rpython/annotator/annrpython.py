@@ -180,13 +180,11 @@ class RPythonAnnotator(object):
             # a graph that has already been rtyped.  Safety-check the new
             # annotations that are passed in, and don't annotate the old
             # graph -- it's already low-level operations!
-            for a, s_newarg in zip(graph.getargs(), cells):
+            for a, s_newarg in zip(block.inputargs, cells):
                 s_oldarg = self.binding(a)
                 assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
         else:
             assert not self.frozen
-            for a in cells:
-                assert isinstance(a, annmodel.SomeObject)
             if block not in self.annotated:
                 self.bindinputargs(graph, block, cells)
             else:

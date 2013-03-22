@@ -1,18 +1,14 @@
 # overrides for annotation specific to PyPy codebase
 from rpython.annotator.policy import AnnotatorPolicy
-from rpython.annotator.signature import Sig
 from rpython.flowspace.model import Constant
 from rpython.annotator import specialize
-from pypy.interpreter import baseobjspace
+
 
 def isidentifier(s):
-    if not s: return False
+    if not s:
+        return False
     s = s.replace('_', 'x')
     return s[0].isalpha() and s.isalnum()
-
-# patch - mostly for debugging, to enforce some signatures
-baseobjspace.ObjSpace.newbool.im_func._annenforceargs_ = Sig(lambda s1,s2: s1,
-                                                             bool)
 
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
