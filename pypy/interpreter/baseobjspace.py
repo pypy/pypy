@@ -223,6 +223,22 @@ class W_Root(object):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
 
+    def int(self, space):
+        w_impl = space.lookup(self, '__int__')
+        if w_impl is None:
+            typename = space.type(self).getname(space)
+            raise operationerrfmt(space.w_TypeError,
+                  "unsupported operand type for int(): '%s'",
+                                  typename)
+        w_result = space.get_and_call_function(w_impl, self)
+
+        if (space.isinstance_w(w_result, space.w_int) or
+            space.isinstance_w(w_result, space.w_long)):
+            return w_result
+        typename = space.type(w_result).getname(space)
+        msg = "__int__ returned non-int (type '%s')"
+        raise operationerrfmt(space.w_TypeError, msg, typename)
+
     def __spacebind__(self, space):
         return self
 
@@ -1305,6 +1321,9 @@ class ObjSpace(object):
 
     def int_w(self, w_obj):
         return w_obj.int_w(self)
+
+    def int(self, w_obj):
+        return w_obj.int(self)
 
     def uint_w(self, w_obj):
         return w_obj.uint_w(self)

@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
-from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.inttype import wrapint, W_AbstractIntObject
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -15,25 +15,6 @@ on CPython, and after RPython translation we use ovfcheck
 from rarithmetic to explicitly check for overflows,
 something CPython does not do anymore.
 """
-
-class W_AbstractIntObject(W_Object):
-    __slots__ = ()
-
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_AbstractIntObject):
-            return False
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return self is w_other
-        return space.int_w(self) == space.int_w(w_other)
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        from pypy.objspace.std.model import IDTAG_INT as tag
-        b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(b)
-
 
 class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
@@ -66,6 +47,17 @@ class W_IntObject(W_AbstractIntObject):
 
     def float_w(self, space):
         return float(self.intval)
+
+    def int(self, space):
+        # XXX find a better way to do it
+        if (type(self) != W_IntObject and
+            space.lookup(self, '__int__') is not
+            space.lookup_in_type_where(space.w_int, '__int__')[1]):
+            return W_Object.int(self, space)
+        if space.is_w(space.type(self), space.w_int):
+            return self
+        a = self.intval
+        return wrapint(space, a)
 
 registerimplementation(W_IntObject)
 
@@ -104,7 +96,7 @@ def hash__Int(space, w_int1):
     # unlike CPython, we don't special-case the value -1 in most of our
     # hash functions, so there is not much sense special-casing it here either.
     # Make sure this is consistent with the hash of floats and longs.
-    return get_integer(space, w_int1)
+    return w_int1.int(space)
 
 # coerce
 def coerce__Int_Int(space, w_int1, w_int2):
@@ -251,7 +243,7 @@ get_negint = neg__Int
 
 def abs__Int(space, w_int1):
     if w_int1.intval >= 0:
-        return get_integer(space, w_int1)
+        return w_int1.int(space)
     else:
         return get_negint(space, w_int1)
 
@@ -278,7 +270,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
                              space.wrap("negative shift count"))
     else: #b >= LONG_BIT
         if a == 0:
-            return get_integer(space, w_int1)
+            return w_int1.int(space)
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer left shift"))
 
@@ -291,7 +283,7 @@ def rshift__Int_Int(space, w_int1, w_int2):
                                  space.wrap("negative shift count"))
         else: # b >= LONG_BIT
             if a == 0:
-                return get_integer(space, w_int1)
+                return w_int1.int(space)
             if a < 0:
                 a = -1
             else:
@@ -321,17 +313,13 @@ def or__Int_Int(space, w_int1, w_int2):
 # int__Int is supposed to do nothing, unless it has
 # a derived integer object, where it should return
 # an exact one.
-def int__Int(space, w_int1):
-    if space.is_w(space.type(w_int1), space.w_int):
-        return w_int1
-    a = w_int1.intval
-    return wrapint(space, a)
-get_integer = int__Int
-pos__Int = int__Int
-trunc__Int = int__Int
+
+def pos__Int(self, space):
+    return self.int(space)
+trunc__Int = pos__Int
 
 def index__Int(space, w_int1):
-    return get_integer(space, w_int1)
+    return w_int1.int(space)
 
 def float__Int(space, w_int1):
     a = w_int1.intval

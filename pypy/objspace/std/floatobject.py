@@ -58,6 +58,14 @@ class W_FloatObject(W_AbstractFloatObject):
     def float_w(self, space):
         return self.floatval
 
+    def int(self, space):
+        try:
+            value = ovfcheck_float_to_int(self.floatval)
+        except OverflowError:
+            return space.long(self)
+        else:
+            return space.newint(value)
+
     def __repr__(self):
         return "<W_FloatObject(%f)>" % self.floatval
 
@@ -88,14 +96,6 @@ def float__Float(space, w_float1):
         return w_float1
     a = w_float1.floatval
     return W_FloatObject(a)
-
-def int__Float(space, w_value):
-    try:
-        value = ovfcheck_float_to_int(w_value.floatval)
-    except OverflowError:
-        return space.long(w_value)
-    else:
-        return space.newint(value)
 
 def long__Float(space, w_floatobj):
     try:

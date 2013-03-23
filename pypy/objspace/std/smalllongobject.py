@@ -69,7 +69,15 @@ class W_SmallLongObject(W_AbstractLongObject):
     def float_w(self, space):
         return float(self.longlong)
 
+    def int(self, space):
+        a = self.longlong
+        b = intmask(a)
+        if b == a:
+            return space.newint(b)
+        else:
+            return self
 
+        
 registerimplementation(W_SmallLongObject)
 
 # ____________________________________________________________
@@ -118,14 +126,6 @@ def delegate_SmallLong2Complex(space, w_small):
 
 def long__SmallLong(space, w_value):
     return w_value
-
-def int__SmallLong(space, w_value):
-    a = w_value.longlong
-    b = intmask(a)
-    if b == a:
-        return space.newint(b)
-    else:
-        return w_value
 
 def index__SmallLong(space, w_value):
     return w_value
