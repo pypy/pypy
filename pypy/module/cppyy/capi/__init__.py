@@ -367,6 +367,30 @@ _c_method_signature = rffi.llexternal(
 def c_method_signature(cppscope, index):
     return charp2str_free(_c_method_signature(cppscope.handle, index))
 
+_c_method_is_template = rffi.llexternal(
+    "cppyy_method_is_template",
+    [C_SCOPE, C_INDEX], rffi.INT,
+    threadsafe=ts_reflect,
+    compilation_info=backend.eci)
+def c_method_is_template(cppscope, index):
+    return _c_method_is_template(cppscope.handle, index)
+_c_method_num_template_args = rffi.llexternal(
+    "cppyy_method_num_template_args",
+    [C_SCOPE, C_INDEX], rffi.INT,
+    threadsafe=ts_reflect,
+    compilation_info=backend.eci)
+_c_method_template_arg_name = rffi.llexternal(
+    "cppyy_method_template_arg_name",
+    [C_SCOPE, C_INDEX, C_INDEX], rffi.CCHARP,
+    threadsafe=ts_reflect,
+    compilation_info=backend.eci)
+def c_template_args(cppscope, index):
+    nargs = _c_method_num_template_args(cppscope.handle, index)
+    args = [c_resolve_name(
+        charp2str_free(_c_method_template_arg_name(cppscope.handle, index, iarg)))
+        for iarg in range(nargs)]
+    return args
+
 _c_get_method = rffi.llexternal(
     "cppyy_get_method",
     [C_SCOPE, C_INDEX], C_METHOD,

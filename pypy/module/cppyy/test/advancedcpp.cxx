@@ -103,3 +103,14 @@ void new_overloader::operator delete(void* p, std::size_t) {
     --s_instances;
     ::operator delete(p);
 }
+
+
+// more template testing
+long my_templated_method_class::get_size() { return -1; }
+
+long my_templated_method_class::get_char_size()   { return (long)sizeof(char); }
+long my_templated_method_class::get_int_size()    { return (long)sizeof(int); }
+long my_templated_method_class::get_long_size()   { return (long)sizeof(long); }
+long my_templated_method_class::get_float_size()  { return (long)sizeof(float); }
+long my_templated_method_class::get_double_size() { return (long)sizeof(double); }
+long my_templated_method_class::get_self_size()   { return (long)sizeof(my_templated_method_class); }

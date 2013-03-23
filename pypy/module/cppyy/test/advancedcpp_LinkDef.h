@@ -66,4 +66,10 @@
 
 #pragma link C++ class new_overloader;
 
+#pragma link C++ class my_templated_class<std::vector<float> >;
+#pragma link C++ function my_templated_function<char>(char);
+#pragma link C++ function my_templated_function<double>(double);
+#pragma link C++ class my_templated_method_class;
+#pragma link C++ typedef my_typedef_t;
+
 #endif

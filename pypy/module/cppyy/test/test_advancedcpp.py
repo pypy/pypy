@@ -539,3 +539,43 @@ class AppTestADVANCEDCPP:
         import gc
         gc.collect()
         assert cppyy.gbl.new_overloader.s_instances == 0
+
+    def test15_template_instantiation_with_vector_of_float(self):
+        """Test template instantiation with a std::vector<float>"""
+
+        import cppyy
+
+        # the following will simply fail if there is a naming problem (e.g.
+        # std::, allocator<int>, etc., etc.); note the parsing required ...
+        b = cppyy.gbl.my_templated_class(cppyy.gbl.std.vector(float))()
+
+        for i in range(5):
+            b.m_b.push_back(i)
+            assert round(b.m_b[i], 5) == float(i)
+
+    def test16_template_member_functions(self):
+        """Test template member functions lookup and calls"""
+
+        import cppyy
+
+        m = cppyy.gbl.my_templated_method_class()
+
+        assert m.get_size('char')()   == m.get_char_size()
+        assert m.get_size(int)()      == m.get_int_size()
+        assert m.get_size(long)()     == m.get_long_size()
+        assert m.get_size(float)()    == m.get_float_size()
+        assert m.get_size('double')() == m.get_double_size()
+        assert m.get_size('my_templated_method_class')() == m.get_self_size()
+        assert m.get_size('my_typedef_t')() == m.get_self_size()
+
+    def test17_template_global_functions(self):
+        """Test template global function lookup and calls"""
+
+        import cppyy
+
+        f = cppyy.gbl.my_templated_function
+
+        assert f('c') == 'c'
+        assert type(f('c')) == type('c')
+        assert f(3.) == 3.
+        assert type(f(4.)) == type(4.)
