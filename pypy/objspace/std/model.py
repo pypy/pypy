@@ -17,7 +17,6 @@ def registerimplementation(implcls):
 option_to_typename = {
     "withspecialisedtuple" : ["specialisedtupleobject.W_SpecialisedTupleObject"],
     "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
-    "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
 }
@@ -157,18 +156,6 @@ class StdTypeModel:
         # register the order in which types are converted into each others
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
-
-        if config.objspace.std.withsmallint:
-            from pypy.objspace.std import smallintobject
-            self.typeorder[boolobject.W_BoolObject] += [
-                (smallintobject.W_SmallIntObject, boolobject.delegate_Bool2SmallInt),
-                ]
-            self.typeorder[smallintobject.W_SmallIntObject] += [
-                (intobject.W_IntObject, smallintobject.delegate_SmallInt2Int),
-                (floatobject.W_FloatObject, smallintobject.delegate_SmallInt2Float),
-                (longobject.W_LongObject, smallintobject.delegate_SmallInt2Long),
-                (complexobject.W_ComplexObject, smallintobject.delegate_SmallInt2Complex),
-                ]
 
         if config.objspace.usemodules.micronumpy:
             from pypy.module.micronumpy.stdobjspace import register_delegates
