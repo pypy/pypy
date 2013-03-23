@@ -28,11 +28,19 @@ class RStringIO(object):
     def is_closed(self):
         return self.closed
 
+    def _copy_into_bigbuffer(self):
+        """Copy all the data into the list of characters self.bigbuffer."""
+        if self.bigbuffer is None:
+            self.bigbuffer = []
+        if self.strings is not None:
+            self.bigbuffer += self.strings.build()
+            self.strings = None
+
     def getvalue(self):
         """If self.strings contains more than 1 string, join all the
         strings together.  Return the final single string."""
         if self.bigbuffer is not None:
-            self.copy_into_bigbuffer()
+            self._copy_into_bigbuffer()
             return ''.join(self.bigbuffer)
         if self.strings is not None:
             return self.strings.build()
@@ -45,14 +53,6 @@ class RStringIO(object):
         if self.strings is not None:
             result += self.strings.getlength()
         return result
-
-    def copy_into_bigbuffer(self):
-        """Copy all the data into the list of characters self.bigbuffer."""
-        if self.bigbuffer is None:
-            self.bigbuffer = []
-        if self.strings is not None:
-            self.bigbuffer += self.strings.build()
-            self.strings = None
 
     def write(self, buffer):
         # Idea: for the common case of a sequence of write() followed
@@ -79,7 +79,7 @@ class RStringIO(object):
         else:
             # slow path: collect all data into self.bigbuffer and
             # handle the various cases
-            self.copy_into_bigbuffer()
+            self._copy_into_bigbuffer()
             fitting = len(self.bigbuffer) - p
             if fitting > 0:
                 # the write starts before the end of the data
@@ -126,7 +126,7 @@ class RStringIO(object):
         if p == AT_END or n == 0:
             return ''
         assert p >= 0
-        self.copy_into_bigbuffer()
+        self._copy_into_bigbuffer()
         mysize = len(self.bigbuffer)
         count = mysize - p
         if n >= 0:
@@ -145,7 +145,7 @@ class RStringIO(object):
         if p == AT_END or size == 0:
             return ''
         assert p >= 0
-        self.copy_into_bigbuffer()
+        self._copy_into_bigbuffer()
         end = len(self.bigbuffer)
         if size >= 0 and size < end - p:
             end = p + size
@@ -164,7 +164,7 @@ class RStringIO(object):
         # position to the end.
         assert size >= 0
         if self.bigbuffer is None or size > len(self.bigbuffer):
-            self.copy_into_bigbuffer()
+            self._copy_into_bigbuffer()
         else:
             # we can drop all extra strings
             if self.strings is not None:
