@@ -36,6 +36,8 @@ class W_BoolObject(W_Object):
     def float_w(self, space):
         return float(self.boolval)
 
+    def int(self, space):
+        return self
 
 registerimplementation(W_BoolObject)
 

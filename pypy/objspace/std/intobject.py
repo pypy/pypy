@@ -308,10 +308,6 @@ def or__Int_Int(space, w_int1, w_int2):
     res = a | b
     return wrapint(space, res)
 
-# int__Int is supposed to do nothing, unless it has
-# a derived integer object, where it should return
-# an exact one.
-
 def pos__Int(self, space):
     return self.int(space)
 trunc__Int = pos__Int

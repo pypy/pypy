@@ -56,13 +56,13 @@ class W_CData(W_Root):
     def nonzero(self):
         return self.space.wrap(bool(self._cdata))
 
-    def int(self):
-        w_result = self.ctype.int(self._cdata)
+    def int(self, space):
+        w_result = self.ctype.cast_to_int(self._cdata)
         keepalive_until_here(self)
         return w_result
 
-    def long(self):
-        w_result = self.int()
+    def long(self, space):
+        w_result = self.int(space)
         space = self.space
         if space.is_w(space.type(w_result), space.w_int):
             w_result = space.newlong(space.int_w(w_result))

@@ -99,7 +99,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
     cast_anything = True
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.space.wrap(ord(cdata[0]))
 
     def convert_to_object(self, cdata):
@@ -124,7 +124,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)
         return self.space.wrap(ord(unichardata[0]))
 
@@ -168,7 +168,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             self.vmin = r_uint(-1) << (sh - 1)
             self.vrangemax = (r_uint(1) << sh) - 1
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
 
     def convert_to_object(self, cdata):
@@ -213,7 +213,7 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
         sh = self.size * 8
         return (r_uint(1) << sh) - 1
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
 
     def convert_from_object(self, cdata, w_ob):
@@ -288,7 +288,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             keepalive_until_here(w_cdata)
         return w_cdata
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         w_value = self.float(cdata)
         return self.space.int(w_value)
 
