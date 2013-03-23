@@ -814,7 +814,7 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     f = d['f']
     f.func_name = func.func_name
     if unwrap_spec is None:
-        unwrap_spec = {}
+        unwrap_spec = getattr(func, 'unwrap_spec', {})
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()

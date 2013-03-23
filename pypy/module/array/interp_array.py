@@ -2,7 +2,7 @@ from __future__ import with_statement
 
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, interpindirect2app
 from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr
 from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.model import W_Object
@@ -52,7 +52,6 @@ def w_array(space, w_cls, typecode, __args__):
     return a
 
 
-array_append = SMM('append', 2)
 array_extend = SMM('extend', 2)
 
 array_count = SMM('count', 2)
@@ -86,6 +85,13 @@ def descr_typecode(space, self):
 
 
 class W_ArrayBase(W_Object):
+    def descr_append(self, space, w_x):
+        """ append(x)
+
+        Append new value x to the end of the array.
+        """
+        raise NotImplementedError
+
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
@@ -97,6 +103,7 @@ W_ArrayBase.typedef = StdTypeDef(
     itemsize = GetSetProperty(descr_itemsize),
     typecode = GetSetProperty(descr_typecode),
     __weakref__ = make_weakref_descr(W_ArrayBase),
+    append = interpindirect2app(W_ArrayBase.descr_append),
 )
 W_ArrayBase.typedef.registermethods(globals())
 
@@ -343,6 +350,13 @@ def make_array(mytype):
                 item = float(item)
             return space.wrap(item)
 
+        # interface
+
+        def descr_append(self, space, w_x):
+            x = self.item_w(w_x)
+            self.setlen(self.len + 1)
+            self.buffer[self.len - 1] = x
+
     # Basic get/set/append/extend methods
 
     def len__Array(space, self):
@@ -393,11 +407,6 @@ def make_array(mytype):
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
-
-    def array_append__Array_ANY(space, self, w_x):
-        x = self.item_w(w_x)
-        self.setlen(self.len + 1)
-        self.buffer[self.len - 1] = x
 
     def array_extend__Array_ANY(space, self, w_iterable):
         self.extend(w_iterable)
