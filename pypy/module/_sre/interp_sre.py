@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
@@ -89,7 +89,7 @@ def searchcontext(space, ctx):
 #
 # SRE_Pattern class
 
-class W_SRE_Pattern(Wrappable):
+class W_SRE_Pattern(W_Root):
     _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
     def cannot_copy_w(self):
@@ -320,7 +320,7 @@ W_SRE_Pattern.typedef = TypeDef(
 #
 # SRE_Match class
 
-class W_SRE_Match(Wrappable):
+class W_SRE_Match(W_Root):
     flatten_cache = None
 
     def __init__(self, srepat, ctx):
@@ -493,14 +493,14 @@ W_SRE_Match.typedef = TypeDef(
     regs         = GetSetProperty(W_SRE_Match.fget_regs),
 )
 
+
 # ____________________________________________________________
 #
 # SRE_Scanner class
 # This is mostly an internal class in CPython.
 # Our version is also directly iterable, to make finditer() easier.
 
-class W_SRE_Scanner(Wrappable):
-
+class W_SRE_Scanner(W_Root):
     def __init__(self, pattern, ctx):
         self.space = pattern.space
         self.srepat = pattern

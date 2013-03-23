@@ -4,7 +4,7 @@ from rpython.rlib import libffi
 from rpython.rlib import jit
 from rpython.rlib.rgc import must_be_light_finalizer
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import operationerrfmt
@@ -12,8 +12,7 @@ from pypy.module._ffi.interp_ffitype import W_FFIType
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
 
-class W_Field(Wrappable):
-
+class W_Field(W_Root):
     def __init__(self, name, w_ffitype):
         self.name = name
         self.w_ffitype = w_ffitype
@@ -51,9 +50,9 @@ class FFIStructOwner(object):
     def __del__(self):
         if self.ffistruct:
             lltype.free(self.ffistruct, flavor='raw', track_allocation=True)
-        
 
-class W__StructDescr(Wrappable):
+
+class W__StructDescr(W_Root):
 
     def __init__(self, name):
         self.w_ffitype = W_FFIType('struct %s' % name, clibffi.FFI_TYPE_NULL,
@@ -154,7 +153,7 @@ W__StructDescr.typedef = TypeDef(
 
 NULL = lltype.nullptr(rffi.VOIDP.TO)
 
-class W__StructInstance(Wrappable):
+class W__StructInstance(W_Root):
 
     _immutable_fields_ = ['structdescr', 'rawmem']
 
@@ -206,7 +205,7 @@ class GetFieldConverter(ToAppLevelConverter):
         self.rawmem = rawmem
         self.offset = offset
 
-    def get_longlong(self, w_ffitype): 
+    def get_longlong(self, w_ffitype):
         return libffi.struct_getfield_longlong(libffi.types.slonglong,
                                                self.rawmem, self.offset)
 

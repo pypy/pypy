@@ -4,6 +4,7 @@ from rpython.flowspace.model import Constant
 from rpython.annotator import specialize
 
 
+
 def isidentifier(s):
     if not s:
         return False
@@ -19,15 +20,15 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         pol.single_space = single_space
 
     def specialize__wrap(pol,  funcdesc, args_s):
-        from pypy.interpreter.baseobjspace import Wrappable
+        from pypy.interpreter.baseobjspace import W_Root
         from rpython.annotator.classdef import ClassDef
-        Wrappable_def = funcdesc.bookkeeper.getuniqueclassdef(Wrappable)
+        W_Root_def = funcdesc.bookkeeper.getuniqueclassdef(W_Root)
         typ = args_s[1].knowntype
         if isinstance(typ, ClassDef):
-            assert typ.issubclass(Wrappable_def)
-            typ = Wrappable
+            assert typ.issubclass(W_Root_def)
+            typ = W_Root
         else:
-            assert not issubclass(typ, Wrappable)
+            assert not issubclass(typ, W_Root)
             assert typ != tuple, "space.wrap(tuple) forbidden; use newtuple()"
             assert typ != list, "space.wrap(list) forbidden; use newlist()"
             assert typ != dict, "space.wrap(dict) forbidden; use newdict()"
@@ -36,6 +37,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
                 if typ in (str, bool, int, float):
                     space = args_s[0].const
                     x = args_s[1].const
+
                     def fold():
                         if typ is str and isidentifier(x):
                             return space.new_interned_str(x)

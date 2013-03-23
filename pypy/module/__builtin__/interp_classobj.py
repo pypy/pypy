@@ -2,7 +2,7 @@ import new
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, descr_set_dict
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rlib.debug import make_sure_not_resized
@@ -48,7 +48,8 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
 
     return W_ClassObject(space, w_name, bases_w, w_dict)
 
-class W_ClassObject(Wrappable):
+
+class W_ClassObject(W_Root):
     def __init__(self, space, w_name, bases, w_dict):
         self.name = space.str_w(w_name)
         make_sure_not_resized(bases)
@@ -315,7 +316,8 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
         w_result.setdict(space, w_dict)
     return w_result
 
-class W_InstanceObject(Wrappable):
+
+class W_InstanceObject(W_Root):
     def __init__(self, space, w_class):
         # note that user_setup is overridden by the typedef.py machinery
         self.user_setup(space, space.gettypeobject(self.typedef))

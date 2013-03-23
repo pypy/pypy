@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
@@ -37,7 +37,8 @@ def check_seekable_w(space, w_obj):
             space.w_IOError,
             space.wrap("file or stream is not seekable"))
 
-class W_IOBase(Wrappable):
+
+class W_IOBase(W_Root):
     def __init__(self, space):
         # XXX: IOBase thinks it has to maintain its own internal state in
         # `__IOBase_closed` and call flush() by itself, but it is redundant

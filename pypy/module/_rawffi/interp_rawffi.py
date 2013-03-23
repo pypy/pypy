@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -138,7 +138,7 @@ def got_libffi_error(space):
                          space.wrap("not supported by libffi"))
 
 
-class W_CDLL(Wrappable):
+class W_CDLL(W_Root):
     def __init__(self, space, name, cdll):
         self.cdll = cdll
         self.name = name
@@ -246,7 +246,7 @@ def segfault_exception(space, reason):
     w_exception = space.getattr(w_mod, space.wrap("SegfaultException"))
     return OperationError(w_exception, space.wrap(reason))
 
-class W_DataShape(Wrappable):
+class W_DataShape(W_Root):
     _array_shapes = None
     size = 0
     alignment = 0
@@ -271,7 +271,7 @@ class W_DataShape(Wrappable):
                                space.wrap(self.alignment)])
 
 
-class W_DataInstance(Wrappable):
+class W_DataInstance(W_Root):
     def __init__(self, space, size, address=r_uint(0)):
         if address:
             self.ll_buffer = rffi.cast(rffi.VOIDP, address)
@@ -321,9 +321,8 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     w = space.wrap
     if letter in TYPEMAP_PTR_LETTERS:
         # check for NULL ptr
-        datainstance = space.interpclass_w(w_arg)
-        if isinstance(datainstance, W_DataInstance):
-            ptr = datainstance.ll_buffer
+        if isinstance(w_arg, W_DataInstance):
+            ptr = w_arg.ll_buffer
         else:
             ptr = unwrap_truncate_int(rffi.VOIDP, space, w_arg)
         push_func(add_arg, argdesc, ptr)
@@ -379,7 +378,8 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
-class W_FuncPtr(Wrappable):
+
+class W_FuncPtr(W_Root):
     def __init__(self, space, ptr, argshapes, resshape):
         self.ptr = ptr
         self.argshapes = argshapes
