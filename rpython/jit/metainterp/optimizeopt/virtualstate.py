@@ -663,7 +663,7 @@ class ShortBoxes(object):
             raise BoxNotProducable
         if self.availible_boxes is not None and box not in self.availible_boxes:
             raise BoxNotProducable
-        self.short_boxes_in_production[box] = True
+        self.short_boxes_in_production[box] = None
         
         if box in self.potential_ops:
             ops = self.prioritized_alternatives(box)
