@@ -231,7 +231,7 @@ def test_getaddrinfo():
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
 
-def test_unknown_addr_as_object():    
+def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
     c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
     c_addr.c_sa_data[0] = 'c'
@@ -240,7 +240,7 @@ def test_unknown_addr_as_object():
     #     to be short enough so we have some data, 1 sounds good enough
     #     + sizeof USHORT
     w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
-    assert space.is_true(space.isinstance(w_obj, space.w_tuple))
+    assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 

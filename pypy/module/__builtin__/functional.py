@@ -47,7 +47,8 @@ def get_len_of_range(space, lo, hi, step):
         n = 0
     return n
 
-@unwrap_spec(w_step = WrappedDefault(1))
+
+@unwrap_spec(w_step=WrappedDefault(1))
 def range_int(space, w_x, w_y=None, w_step=None):
     """Return a list of integers in arithmetic position from start (defaults
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
@@ -60,24 +61,24 @@ get a list in decending order."""
         w_start = w_x
         w_stop = w_y
 
-    if space.is_true(space.isinstance(w_stop, space.w_float)):
+    if space.isinstance_w(w_stop, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer end argument expected, got float."))
-    if space.is_true(space.isinstance(w_start, space.w_float)):
+    if space.isinstance_w(w_start, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer start argument expected, got float."))
-    if space.is_true(space.isinstance(w_step, space.w_float)):
+    if space.isinstance_w(w_step, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer step argument expected, got float."))
 
     w_start = space.int(w_start)
-    w_stop  = space.int(w_stop)
-    w_step  = space.int(w_step)
+    w_stop = space.int(w_stop)
+    w_step = space.int(w_step)
 
     try:
         start = space.int_w(w_start)
-        stop  = space.int_w(w_stop)
-        step  = space.int_w(w_step)
+        stop = space.int_w(w_stop)
+        step = space.int_w(w_step)
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
@@ -107,7 +108,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
 
     start = lo = space.bigint_w(w_start)
     hi = space.bigint_w(w_stop)
-    step  = st = space.bigint_w(w_step)
+    step = st = space.bigint_w(w_step)
 
     if not step.tobool():
         raise OperationError(space.w_ValueError,

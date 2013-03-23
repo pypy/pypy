@@ -342,7 +342,7 @@ def _builduserclswithfeature(config, supercls, *features):
 # a couple of helpers for the Proto classes above, factored out to reduce
 # the translated code size
 def check_new_dictionary(space, w_dict):
-    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+    if not space.isinstance_w(w_dict, space.w_dict):
         raise OperationError(space.w_TypeError,
                 space.wrap("setting dictionary to a non-dict"))
     from pypy.objspace.std import dictmultiobject
@@ -552,7 +552,7 @@ class Member(W_Root):
         self.w_cls = w_cls
 
     def typecheck(self, space, w_obj):
-        if not space.is_true(space.isinstance(w_obj, self.w_cls)):
+        if not space.isinstance_w(w_obj, self.w_cls):
             raise operationerrfmt(space.w_TypeError,
                                   "descriptor '%s' for '%s'"
                                   " objects doesn't apply to '%s' object",

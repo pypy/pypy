@@ -28,9 +28,9 @@ class W_Random(W_Root):
         if w_n is None:
             w_n = space.newint(int(time.time()))
         else:
-            if space.is_true(space.isinstance(w_n, space.w_int)):
+            if space.isinstance_w(w_n, space.w_int):
                 w_n = space.abs(w_n)
-            elif space.is_true(space.isinstance(w_n, space.w_long)):
+            elif space.isinstance_w(w_n, space.w_long):
                 w_n = space.abs(w_n)
             else:
                 # XXX not perfectly like CPython
@@ -59,7 +59,7 @@ class W_Random(W_Root):
         return space.newtuple(state)
 
     def setstate(self, space, w_state):
-        if not space.is_true(space.isinstance(w_state, space.w_tuple)):
+        if not space.isinstance_w(w_state, space.w_tuple):
             errstring = space.wrap("state vector must be tuple")
             raise OperationError(space.w_TypeError, errstring)
         if space.len_w(w_state) != rrandom.N + 1:
@@ -78,7 +78,7 @@ class W_Random(W_Root):
         self._rnd.index = space.int_w(w_item)
 
     def jumpahead(self, space, w_n):
-        if space.is_true(space.isinstance(w_n, space.w_long)):
+        if space.isinstance_w(w_n, space.w_long):
             num = space.bigint_w(w_n)
             n = intmask(num.uintmask())
         else:

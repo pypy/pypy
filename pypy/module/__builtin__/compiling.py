@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
 
+
 @unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
     """Compile the source string (a Python module, statement or expression)
@@ -25,10 +26,10 @@ in addition to any features explicitly specified.
     ast_node = None
     w_ast_type = space.gettypeobject(ast.AST.typedef)
     str_ = None
-    if space.is_true(space.isinstance(w_source, w_ast_type)):
+    if space.isinstance_w(w_source, w_ast_type):
         ast_node = space.interp_w(ast.mod, w_source)
         ast_node.sync_app_attrs(space)
-    elif space.is_true(space.isinstance(w_source, space.w_unicode)):
+    elif space.isinstance_w(w_source, space.w_unicode):
         w_utf_8_source = space.call_method(w_source, "encode",
                                            space.wrap("utf-8"))
         str_ = space.str_w(w_utf_8_source)
@@ -72,8 +73,8 @@ If only globals is given, locals defaults to it.
 """
     w = space.wrap
 
-    if (space.is_true(space.isinstance(w_code, space.w_str)) or
-        space.is_true(space.isinstance(w_code, space.w_unicode))):
+    if (space.isinstance_w(w_code, space.w_str) or
+        space.isinstance_w(w_code, space.w_unicode)):
         w_code = compile(space,
                          space.call_method(w_code, 'lstrip',
                                            space.wrap(' \t')),

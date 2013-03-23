@@ -1031,9 +1031,6 @@ class ObjSpace(object):
     def issequence_w(self, w_obj):
         return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
 
-    def isinstance_w(self, w_obj, w_type):
-        return self.is_true(self.isinstance(w_obj, w_type))
-
     # The code below only works
     # for the simple case (new-style instance).
     # These methods are patched with the full logic by the __builtin__
@@ -1345,7 +1342,7 @@ class ObjSpace(object):
 
     # This is all interface for gateway.py.
     def gateway_int_w(self, w_obj):
-        if self.is_true(self.isinstance(w_obj, self.w_float)):
+        if self.isinstance_w(w_obj, self.w_float):
             raise OperationError(self.w_TypeError,
                             self.wrap("integer argument expected, got float"))
         return self.int_w(self.int(w_obj))

@@ -616,10 +616,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     return True
         return self.type(w_inst).issubtype(w_type)
 
-    @specialize.arg_or_var(2)
-    def isinstance_w(space, w_inst, w_type):
-        return space._type_isinstance(w_inst, w_type)
-
     def setup_isinstance_cache(self):
         # This assumes that all classes in the stdobjspace implementing a
         # particular app-level type are distinguished by a common base class.
