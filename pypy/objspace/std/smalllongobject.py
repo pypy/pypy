@@ -36,6 +36,9 @@ class W_SmallLongObject(W_AbstractLongObject):
     def asbigint(w_self):
         return rbigint.fromrarith_int(w_self.longlong)
 
+    def longval(self):
+        return self.longlong
+
     def __repr__(w_self):
         return '<W_SmallLongObject(%d)>' % w_self.longlong
 

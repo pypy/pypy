@@ -4,10 +4,7 @@ little use of termios module on RPython level by itself
 """
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import OperationError, wrap_oserror
-from rpython.rtyper.module import ll_termios
-from rpython.rlib.objectmodel import we_are_translated
-import os
+from pypy.interpreter.error import wrap_oserror
 from rpython.rlib import rtermios
 import termios
 

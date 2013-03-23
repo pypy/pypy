@@ -26,6 +26,9 @@ class W_AbstractLongObject(W_Object):
         b = b.lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(b)
 
+    def unwrap(w_self, space): #YYYYYY
+        return w_self.longval()
+
 
 class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
@@ -41,9 +44,6 @@ class W_LongObject(W_AbstractLongObject):
 
     def longval(self):
         return self.num.tolong()
-
-    def unwrap(w_self, space): #YYYYYY
-        return w_self.longval()
 
     def tofloat(self):
         return self.num.tofloat()

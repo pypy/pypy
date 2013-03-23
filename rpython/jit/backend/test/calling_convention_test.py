@@ -1,24 +1,17 @@
-from rpython.jit.metainterp.history import (AbstractFailDescr,
-                                         AbstractDescr,
-                                         BasicFailDescr,
-                                         BoxInt, Box, BoxPtr,
-                                         JitCellToken,
-                                         ConstInt, ConstPtr,
-                                         BoxObj, Const,
-                                         ConstObj, BoxFloat, ConstFloat)
-from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.metainterp.typesystem import deref
+
+from rpython.jit.metainterp.history import BasicFinalDescr, BoxInt,\
+     JitCellToken, ConstInt, BoxFloat, ConstFloat
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi, rclass
-from rpython.rtyper.ootypesystem import ootype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.llinterp import LLException
 from rpython.jit.codewriter import heaptracker, longlong
-from rpython.rlib.rarithmetic import intmask
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.runner_test import Runner
 import py
+import sys
+import platform
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -28,7 +21,8 @@ def constfloat(x):
 
 class FakeStats(object):
     pass
-class TestCallingConv(Runner):
+
+class CallingConvTests(Runner):
     type_system = 'lltype'
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
@@ -111,12 +105,11 @@ class TestCallingConv(Runner):
 
             loop = parse(ops, namespace=locals())
             looptoken = JitCellToken()
-            done_number = self.cpu.get_fail_descr_number(loop.operations[-2].getdescr())
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             argvals, expected_result = self._prepare_args(args, floats, ints)
 
             deadframe = self.cpu.execute_token(looptoken, *argvals)
-            x = longlong.getrealfloat(cpu.get_latest_value_float(deadframe, 0))
+            x = longlong.getrealfloat(cpu.get_float_value(deadframe, 0))
             assert abs(x - expected_result) < 0.0001
 
     def test_call_aligned_with_imm_values(self):
@@ -208,8 +201,8 @@ class TestCallingConv(Runner):
         if not cpu.supports_floats:
             py.test.skip('requires floats')
 
-        fdescr3 = BasicFailDescr(3)
-        fdescr4 = BasicFailDescr(4)
+        fdescr3 = BasicFinalDescr(3)
+        fdescr4 = BasicFinalDescr(4)
 
         def assembler_helper(failindex, virtualizable):
             assert 0, 'should not be called, but was with failindex (%d)' % failindex
@@ -255,13 +248,13 @@ class TestCallingConv(Runner):
             called_loop = parse(called_ops, namespace=locals())
             called_looptoken = JitCellToken()
             called_looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
-            done_number = self.cpu.get_fail_descr_number(called_loop.operations[-1].getdescr())
+            done_descr = called_loop.operations[-1].getdescr()
             self.cpu.compile_loop(called_loop.inputargs, called_loop.operations, called_looptoken)
 
             argvals, expected_result = self._prepare_args(args, floats, ints)
             deadframe = cpu.execute_token(called_looptoken, *argvals)
-            assert cpu.get_latest_descr(deadframe).identifier == 3
-            t = longlong.getrealfloat(cpu.get_latest_value_float(deadframe, 0))
+            assert cpu.get_latest_descr(deadframe) == fdescr3
+            t = longlong.getrealfloat(cpu.get_float_value(deadframe, 0))
             assert abs(t - expected_result) < 0.0001
 
             ARGS = []
@@ -282,7 +275,7 @@ class TestCallingConv(Runner):
             ''' % (arguments, arguments)
             loop = parse(ops, namespace=locals())
             # we want to take the fast path
-            self.cpu.done_with_this_frame_float_v = done_number
+            self.cpu.done_with_this_frame_descr_float = done_descr
             try:
                 othertoken = JitCellToken()
                 self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
@@ -291,38 +284,37 @@ class TestCallingConv(Runner):
                 argvals, _ = self._prepare_args(args, floats, ints)
                 deadframe = cpu.execute_token(othertoken, *argvals)
                 x = longlong.getrealfloat(
-                    cpu.get_latest_value_float(deadframe, 0))
-                assert cpu.get_latest_descr(deadframe).identifier == 4
+                    cpu.get_float_value(deadframe, 0))
+                assert cpu.get_latest_descr(deadframe) == fdescr4
                 assert abs(x - expected_result) < 0.0001
             finally:
-                del self.cpu.done_with_this_frame_float_v
+                del self.cpu.done_with_this_frame_descr_float
 
 
     def test_call_with_imm_values_bug_constint0(self):
-            from rpython.rlib.libffi import types
-            cpu = self.cpu
+        cpu = self.cpu
 
-            I = lltype.Signed
-            ints = [7, 11, 23, 13, -42, 0, 0, 9]
+        I = lltype.Signed
+        ints = [7, 11, 23, 13, -42, 0, 0, 9]
 
-            def func(*args):
-                for i in range(len(args)):
-                    assert args[i] == ints[i]
-                return sum(args)
+        def func(*args):
+            for i in range(len(args)):
+                assert args[i] == ints[i]
+            return sum(args)
 
-            result = sum(ints)
-            args = [I] * len(ints)
-            argslist = [ConstInt(i) for i in ints]
-            FUNC = self.FuncType(args, I)
-            FPTR = self.Ptr(FUNC)
-            func_ptr = llhelper(FPTR, func)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
-            funcbox = self.get_funcbox(cpu, func_ptr)
+        result = sum(ints)
+        args = [I] * len(ints)
+        argslist = [ConstInt(i) for i in ints]
+        FUNC = self.FuncType(args, I)
+        FPTR = self.Ptr(FUNC)
+        func_ptr = llhelper(FPTR, func)
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
+        funcbox = self.get_funcbox(cpu, func_ptr)
 
-            res = self.execute_operation(rop.CALL,
-                                         [funcbox] + argslist,
-                                         'int', descr=calldescr)
-            assert res.value == result
+        res = self.execute_operation(rop.CALL,
+                                     [funcbox] + argslist,
+                                     'int', descr=calldescr)
+        assert res.value == result
 
 
     def test_call_with_singlefloats(self):
@@ -382,3 +374,60 @@ class TestCallingConv(Runner):
                                          'float', descr=calldescr)
             expected = func(*argvalues)
             assert abs(res.getfloat() - expected) < 0.0001
+
+
+    def make_function_returning_stack_pointer(self):
+        raise NotImplementedError
+
+    def get_alignment_requirements(self):
+        raise NotImplementedError
+
+    def test_call_aligned_explicit_check(self):
+        if (not platform.machine().startswith('arm') and
+		sys.maxint == 2 ** 31 - 1): # XXX is still necessary on x86?
+            py.test.skip("libffi on 32bit is broken")
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip('requires floats')
+
+        func_addr = self.make_function_returning_stack_pointer()
+
+        F = lltype.Float
+        I = lltype.Signed
+        floats = [0.7, 5.8, 0.1, 0.3, 0.9, -2.34, -3.45, -4.56]
+        ints = [7, 11, 23, 13, -42, 1111, 95, 1]
+        for case in range(256):
+            args = []
+            funcargs = []
+            float_count = 0
+            int_count = 0
+            for i in range(8):
+                if case & (1<<i):
+                    args.append('f%d' % float_count)
+                    float_count += 1
+                    funcargs.append(F)
+                else:
+                    args.append('i%d' % int_count)
+                    int_count += 1
+                    funcargs.append(I)
+
+            arguments = ', '.join(args)
+
+            FUNC = self.FuncType(funcargs, I)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
+
+            ops = '[%s]\n' % arguments
+            ops += 'i99 = call(%d, %s, descr=calldescr)\n' % (func_addr,
+                                                              arguments)
+            ops += 'finish(i99)\n'
+
+            loop = parse(ops, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            argvals, expected_result = self._prepare_args(args, floats, ints)
+
+            deadframe = self.cpu.execute_token(looptoken, *argvals)
+            x = cpu.get_int_value(deadframe, 0)
+            align_req = self.get_alignment_requirements()
+            assert x % align_req == 0

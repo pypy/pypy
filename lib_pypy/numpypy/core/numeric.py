@@ -4,6 +4,7 @@ __all__ = [
            'array_repr', 'array_str', 'set_string_function',
            'array_equal', 'outer', 'vdot', 'identity', 'little_endian',
            'Inf', 'inf', 'infty', 'Infinity', 'nan', 'NaN', 'False_', 'True_',
+           'seterr',
           ]
 
 import sys

@@ -681,6 +681,32 @@ class AppTestTypes(BaseAppTestDtypes):
         from numpypy import dtype
         assert dtype('i4').alignment == 4
 
+    def test_any_all(self):
+        import numpypy as numpy
+        x = numpy.bool_(True)
+        assert x.any()
+        assert x.all()
+        x = numpy.bool_(False)
+        assert not x.any()
+        assert not x.all()
+        #
+        x = numpy.float64(0)
+        assert not x.any()
+        assert not x.all()
+        assert isinstance(x.any(), numpy.bool_)
+
+    def test_ravel(self):
+        from numpypy import float64, int8, array
+        x = float64(42.5).ravel()
+        assert x.dtype == float64
+        assert (x == array([42.5])).all()
+        #
+        x = int8(42).ravel()
+        assert x.dtype == int8
+        assert (x == array(42)).all()
+        
+
+
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from numpypy import str_, unicode_, character, flexible, generic

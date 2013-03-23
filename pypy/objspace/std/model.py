@@ -20,8 +20,6 @@ option_to_typename = {
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
-    "withtproxy" : ["proxyobject.W_TransparentList",
-                    "proxyobject.W_TransparentDict"],
 }
 
 IDTAG_INT     = 1
@@ -44,7 +42,7 @@ class StdTypeModel:
             from pypy.objspace.std.settype import set_typedef
             from pypy.objspace.std.frozensettype import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
-            from pypy.objspace.std.listtype   import list_typedef
+            from pypy.objspace.std.listobject   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef

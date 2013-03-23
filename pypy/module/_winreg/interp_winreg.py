@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, wrap_windowserror
@@ -13,7 +13,7 @@ def raiseWindowsError(space, errcode, context):
                          space.newtuple([space.wrap(errcode),
                                          space.wrap(message)]))
 
-class W_HKEY(Wrappable):
+class W_HKEY(W_Root):
     def __init__(self, hkey):
         self.hkey = hkey
 
@@ -188,7 +188,6 @@ file_name is relative to the remote computer.
 The caller of this method must possess the SeBackupPrivilege security privilege.
 This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
-    pSA = 0
     ret = rwinreg.RegSaveKey(hkey, filename, None)
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSaveKey')

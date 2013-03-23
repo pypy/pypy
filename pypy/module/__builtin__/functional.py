@@ -3,7 +3,7 @@ Interp-level definition of frequently used functionals.
 
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
@@ -226,8 +226,8 @@ def min(space, __args__):
     """
     return min_max(space, __args__, "min")
 
-class W_Enumerate(Wrappable):
 
+class W_Enumerate(W_Root):
     def __init__(self, w_iter, w_start):
         self.w_iter = w_iter
         self.w_index = w_start
@@ -283,8 +283,8 @@ def reversed(space, w_sequence):
         return space.call_function(w_reversed)
     return space.wrap(W_ReversedIterator(space, w_sequence))
 
-class W_ReversedIterator(Wrappable):
 
+class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
@@ -339,8 +339,7 @@ def _make_reversed(space, w_seq, w_remaining):
     return space.wrap(iterator)
 
 
-
-class W_XRange(Wrappable):
+class W_XRange(W_Root):
     def __init__(self, space, start, len, step, promote_step=False):
         self.space = space
         self.start = start
@@ -429,7 +428,8 @@ W_XRange.typedef = TypeDef("xrange",
     __reduce__       = interp2app(W_XRange.descr_reduce),
 )
 
-class W_XRangeIterator(Wrappable):
+
+class W_XRangeIterator(W_Root):
     def __init__(self, space, current, remaining, step):
         self.space = space
         self.current = current
@@ -441,7 +441,7 @@ class W_XRangeIterator(Wrappable):
 
     def descr_next(self):
         return self.next()
-    
+
     def next(self):
         if self.remaining > 0:
             item = self.current

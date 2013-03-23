@@ -598,7 +598,7 @@ class JitDriver(object):
             return result
 
         return decorate
-        
+
 
     def clone(self):
         assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
@@ -844,7 +844,7 @@ class ExtSetParam(ExtRegistryEntry):
         assert s_name.is_constant()
         if s_name.const == 'enable_opts':
             assert annmodel.SomeString(can_be_None=True).contains(s_value)
-        else: 
+        else:
             assert (s_value == annmodel.s_None or
                     annmodel.SomeInteger().contains(s_value))
         return annmodel.s_None
@@ -876,7 +876,7 @@ class ExtSetParam(ExtRegistryEntry):
 
 class AsmInfo(object):
     """ An addition to JitDebugInfo concerning assembler. Attributes:
-    
+
     ops_offset - dict of offsets of operations or None
     asmaddr - (int) raw address of assembler block
     asmlen - assembler block length
@@ -893,24 +893,24 @@ class JitDebugInfo(object):
     logger - an instance of jit.metainterp.logger.LogOperations
     type - either 'loop', 'entry bridge' or 'bridge'
     looptoken - description of a loop
-    fail_descr_no - number of failing descr for bridges, -1 otherwise
+    fail_descr - fail descr or None
     asminfo - extra assembler information
     """
 
     asminfo = None
     def __init__(self, jitdriver_sd, logger, looptoken, operations, type,
-                 greenkey=None, fail_descr_no=-1):
+                 greenkey=None, fail_descr=None):
         self.jitdriver_sd = jitdriver_sd
         self.logger = logger
         self.looptoken = looptoken
         self.operations = operations
         self.type = type
         if type == 'bridge':
-            assert fail_descr_no != -1
+            assert fail_descr is not None
         else:
             assert greenkey is not None
         self.greenkey = greenkey
-        self.fail_descr_no = fail_descr_no
+        self.fail_descr = fail_descr
 
     def get_jitdriver(self):
         """ Return where the jitdriver on which the jitting started
@@ -986,7 +986,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import rclass, lltype
-        
+
         classrepr = rclass.get_type_repr(hop.rtyper)
 
         hop.exception_cannot_occur()

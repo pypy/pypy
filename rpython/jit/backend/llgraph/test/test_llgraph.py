@@ -1,23 +1,16 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rclass
-from rpython.rtyper.test.test_llinterp import interpret
-from rpython.rlib.unroll import unrolling_iterable
-
-from rpython.jit.metainterp.history import BoxInt, BoxPtr, Const, ConstInt,\
-     TreeLoop
-from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.metainterp.executor import execute
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
+from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
 class TestLLTypeLLGraph(LLtypeBackendTest):
     # for individual tests see:
     # ====> ../../test/runner_test.py
     
-    from rpython.jit.backend.llgraph.runner import LLGraphCPU as cpu_type
 
-    def setup_method(self, _):
-        self.cpu = self.cpu_type(None)
+    def get_cpu(self):
+        return LLGraphCPU(None)
 
     def test_memoryerror(self):
         py.test.skip("does not make much sense on the llgraph backend")

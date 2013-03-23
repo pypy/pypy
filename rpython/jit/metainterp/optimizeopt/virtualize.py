@@ -2,6 +2,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.codewriter.heaptracker import vtable2descr
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
+from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
 from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
@@ -418,7 +419,7 @@ class OptVirtualize(optimizer.Optimization):
         # but the point is that doing so does not force the original structure.
         op = ResOperation(rop.NEW_WITH_VTABLE, [c_cls], op.result)
         vrefvalue = self.make_virtual(c_cls, op.result, op)
-        tokenbox = BoxInt()
+        tokenbox = BoxPtr()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
 
@@ -441,12 +442,12 @@ class OptVirtualize(optimizer.Optimization):
 
         # - set 'forced' to point to the real object
         objbox = op.getarg(1)
-        if not self.optimizer.cpu.ts.CONST_NULL.same_constant(objbox):
+        if not CONST_NULL.same_constant(objbox):
             seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
                              descr = vrefinfo.descr_forced))
 
-        # - set 'virtual_token' to TOKEN_NONE
-        args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
+        # - set 'virtual_token' to TOKEN_NONE (== NULL)
+        args = [op.getarg(0), CONST_NULL]
         seo(ResOperation(rop.SETFIELD_GC, args, None,
                          descr=vrefinfo.descr_virtual_token))
         # Note that in some cases the virtual in op.getarg(1) has been forced
@@ -462,7 +463,7 @@ class OptVirtualize(optimizer.Optimization):
         if vref.is_virtual():
             tokenvalue = vref.getfield(vrefinfo.descr_virtual_token, None)
             if (tokenvalue is not None and tokenvalue.is_constant() and
-                tokenvalue.box.getint() == vrefinfo.TOKEN_NONE):
+                    not tokenvalue.box.nonnull()):
                 forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
                 if forcedvalue is not None and not forcedvalue.is_null():
                     self.make_equal_to(op.result, forcedvalue)

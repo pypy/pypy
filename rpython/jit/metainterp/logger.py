@@ -1,11 +1,11 @@
-import os
+
 from rpython.rlib.debug import have_debug_prints
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import Const, ConstInt, Box, \
-     BoxInt, ConstFloat, BoxFloat, AbstractFailDescr, TargetToken
+from rpython.jit.metainterp.history import ConstInt, \
+     BoxInt, ConstFloat, BoxFloat, TargetToken
 
 class Logger(object):
 
@@ -30,18 +30,20 @@ class Logger(object):
             debug_stop("jit-log-opt-loop")
         return logops
 
-    def log_bridge(self, inputargs, operations, number=-1, ops_offset=None):
-        if number == -1:
+    def log_bridge(self, inputargs, operations, extra=None,
+                   descr=None, ops_offset=None):
+        if extra == "noopt":
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
-        elif number == -2:
+        elif extra == "compiling":
             debug_start("jit-log-compiling-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-compiling-bridge")
         else:
             debug_start("jit-log-opt-bridge")
-            debug_print("# bridge out of Guard", number,
+            debug_print("# bridge out of Guard",
+                        "0x%x" % compute_unique_id(descr),
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")
@@ -131,8 +133,8 @@ class LogOperations(object):
         if op.getdescr() is not None:
             descr = op.getdescr()
             if is_guard and self.guard_number:
-                index = self.metainterp_sd.cpu.get_fail_descr_number(descr)
-                r = "<Guard%d>" % index
+                hash = compute_unique_id(descr)
+                r = "<Guard0x%x>" % hash
             else:
                 r = self.repr_of_descr(descr)
             if args:

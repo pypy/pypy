@@ -44,7 +44,6 @@ rlock = RLock()
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
-_LINUX = "linux" in sys.platform
 _64BIT = "64bit" in host_platform.architecture()[0]
 
 
@@ -70,7 +69,7 @@ def allocate_ctypes(ctype):
         return ctype()
 
 def do_allocation_in_far_regions():
-    """On 32 bits: this reserves 1.25GB of address space, or 2.5GB on Linux,
+    """On 32 bits: this reserves 1.25GB of address space, or 2.5GB on POSIX,
        which helps test this module for address values that are signed or
        unsigned.
 
@@ -85,26 +84,42 @@ def do_allocation_in_far_regions():
     if not far_regions:
         from rpython.rlib import rmmap
         if _64BIT:
-            PIECESIZE = 0x80000000
+            PIECE_STRIDE = 0x80000000
         else:
-            if _LINUX:
-                PIECESIZE = 0x10000000
+            if _POSIX:
+                PIECE_STRIDE = 0x10000000
             else:
-                PIECESIZE = 0x08000000
+                PIECE_STRIDE = 0x08000000
+        if _POSIX:
+            PIECE_SIZE = 0x04000000
+        else:
+            PIECE_SIZE = PIECE_STRIDE
         PIECES = 10
         flags = (0,)
-        if _LINUX:
+        if _POSIX:
             flags = (rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
                      rmmap.PROT_READ|rmmap.PROT_WRITE)
-        if _MS_WINDOWS:
+        elif _MS_WINDOWS:
             flags = (rmmap.MEM_RESERVE,)
             # XXX seems not to work
-        m = rmmap.mmap(-1, PIECES * PIECESIZE, *flags)
+        else:
+            assert False  # should always generate flags
+
+        # Map and unmap something just to exercise unmap so that we (lazily)
+        # build the ctypes callable.  Otherwise, when we reach unmap below
+        # we may already have a giant map and be unable to fork, as for the
+        # /sbin/ldconfig call inside ctypes.util.find_library().
+        rmmap.mmap(-1, 4096, *flags).close()
+
+        m = rmmap.mmap(-1, PIECES * PIECE_STRIDE, *flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
         m._ll2ctypes_pieces = []
         for i in range(PIECES):
-            m._ll2ctypes_pieces.append((i * PIECESIZE, (i+1) * PIECESIZE))
+            start = i * PIECE_STRIDE
+            m._ll2ctypes_pieces.append((start, start + PIECE_SIZE))
+            if _POSIX:
+                m.unmap_range(start + PIECE_SIZE, PIECE_STRIDE - PIECE_SIZE)
         far_regions = m
 
 # ____________________________________________________________

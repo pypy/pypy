@@ -361,13 +361,14 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
-    v_flavor, v_zero, v_track_allocation, v_add_memory_pressure = parse_kwds(
+    kwds_v = parse_kwds(
         hop,
         (i_flavor, lltype.Void),
         (i_zero, None),
         (i_track_allocation, None),
         (i_add_memory_pressure, None))
-
+    (v_flavor, v_zero, v_track_allocation,
+     v_add_memory_pressure) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value

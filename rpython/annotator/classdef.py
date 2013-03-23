@@ -212,7 +212,7 @@ class ClassDef(object):
 
     def find_attribute(self, attr):
         return self.locate_attribute(attr).attrs[attr]
-    
+
     def __repr__(self):
         return "<ClassDef '%s'>" % (self.name,)
 
@@ -223,7 +223,6 @@ class ClassDef(object):
         return True
 
     def commonbase(self, other):
-        other1 = other
         while other is not None and not self.issubclass(other):
             other = other.basedef
         return other
@@ -323,14 +322,11 @@ class ClassDef(object):
         d = []
         uplookup = None
         updesc = None
-        meth = False
-        check_for_missing_attrs = False
         for desc in pbc.descriptions:
             # pick methods but ignore already-bound methods, which can come
             # from an instance attribute
             if (isinstance(desc, description.MethodDesc)
-                and desc.selfclassdef is None):
-                meth = True
+                    and desc.selfclassdef is None):
                 methclassdef = desc.originclassdef
                 if methclassdef is not self and methclassdef.issubclass(self):
                     pass # subclasses methods are always candidates
@@ -349,7 +345,7 @@ class ClassDef(object):
                 # more precise subclass that it's coming from.
                 desc = desc.bind_self(methclassdef, flags)
             d.append(desc)
-        if uplookup is not None:            
+        if uplookup is not None:
             d.append(updesc.bind_self(self, flags))
 
         if d or pbc.can_be_None:

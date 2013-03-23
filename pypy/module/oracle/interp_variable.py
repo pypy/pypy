@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -116,7 +116,7 @@ def _defineHelper(cursor, param, position, numElements):
     return var
 
 
-class W_Variable(Wrappable):
+class W_Variable(W_Root):
     charsetForm = roci.SQLCS_IMPLICIT
     isVariableLength = False
     canBeInArray = True

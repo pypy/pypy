@@ -1,11 +1,12 @@
+import time
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rbigint, rrandom, rstring
 
-import time
 
 def descr_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()
@@ -14,7 +15,8 @@ def descr_new__(space, w_subtype, __args__):
     W_Random.__init__(x, space, w_anything)
     return space.wrap(x)
 
-class W_Random(Wrappable):
+
+class W_Random(W_Root):
     def __init__(self, space, w_anything):
         self._rnd = rrandom.Random()
         self.seed(space, w_anything)

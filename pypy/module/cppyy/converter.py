@@ -424,11 +424,10 @@ class InstancePtrConverter(TypeConverter):
 
     def _unwrap_object(self, space, w_obj):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
-        obj = space.interpclass_w(w_obj)
-        if isinstance(obj, W_CPPInstance):
-            if capi.c_is_subtype(obj.cppclass, self.cppclass):
-                rawobject = obj.get_rawobject()
-                offset = capi.c_base_offset(obj.cppclass, self.cppclass, rawobject, 1)
+        if isinstance(w_obj, W_CPPInstance):
+            if capi.c_is_subtype(w_obj.cppclass, self.cppclass):
+                rawobject = w_obj.get_rawobject()
+                offset = capi.c_base_offset(w_obj.cppclass, self.cppclass, rawobject, 1)
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
         raise OperationError(space.w_TypeError,
@@ -497,10 +496,9 @@ class InstancePtrPtrConverter(InstancePtrConverter):
 
     def finalize_call(self, space, w_obj, call_local):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
-        obj = space.interpclass_w(w_obj)
-        assert isinstance(obj, W_CPPInstance)
+        assert isinstance(w_obj, W_CPPInstance)
         r = rffi.cast(rffi.VOIDPP, call_local)
-        obj._rawobject = rffi.cast(capi.C_OBJECT, r[0])
+        w_obj._rawobject = rffi.cast(capi.C_OBJECT, r[0])
 
 
 class StdStringConverter(InstanceConverter):

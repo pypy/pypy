@@ -79,8 +79,7 @@ If only globals is given, locals defaults to it.
                                            space.wrap(' \t')),
                          "<string>", "eval")
 
-    codeobj = space.interpclass_w(w_code)
-    if not isinstance(codeobj, PyCode):
+    if not isinstance(w_code, PyCode):
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
 
@@ -102,4 +101,4 @@ If only globals is given, locals defaults to it.
     # the gettopframe_nohidden()).  I bet no test fails, and it's a really
     # obscure case.
 
-    return codeobj.exec_code(space, w_globals, w_locals)
+    return w_code.exec_code(space, w_globals, w_locals)

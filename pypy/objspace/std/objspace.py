@@ -1,15 +1,15 @@
 import __builtin__
 import types
 from pypy.interpreter import special
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
-                               transparent, callmethod, proxyobject)
+                               transparent, callmethod)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from rpython.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
+from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
+from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit
 
@@ -146,8 +146,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # annotation (see pypy/annotation/builtin.py)
         if x is None:
             return self.w_None
-        if isinstance(x, model.W_Object):
-            raise TypeError, "attempt to wrap already wrapped object: %s"%(x,)
         if isinstance(x, OperationError):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
                               (x,))
@@ -162,7 +160,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return wrapunicode(self, x)
         if isinstance(x, float):
             return W_FloatObject(x)
-        if isinstance(x, Wrappable):
+        if isinstance(x, W_Root):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
@@ -256,11 +254,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def unwrap(self, w_obj):
         """NOT_RPYTHON"""
-        if isinstance(w_obj, Wrappable):
-            return w_obj
         if isinstance(w_obj, model.W_Object):
             return w_obj.unwrap(self)
-        raise model.UnwrapError, "cannot unwrap: %r" % w_obj
+        if isinstance(w_obj, W_Root):
+            return w_obj
+        raise model.UnwrapError("cannot unwrap: %r" % w_obj)
 
     def newint(self, intval):
         return wrapint(self, intval)

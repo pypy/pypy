@@ -34,6 +34,10 @@ class FakeArrayDescr(AbstractDescr):
 class FakeCPU:
     def __init__(self, rtyper):
         self.rtyper = rtyper
+
+    class tracker:
+        pass
+    
     calldescrof = FakeCallDescr
     fielddescrof = FakeFieldDescr
     sizeof = FakeSizeDescr

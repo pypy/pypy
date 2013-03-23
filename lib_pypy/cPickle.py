@@ -97,12 +97,18 @@ _tuplesize2code = [EMPTY_TUPLE, TUPLE1, TUPLE2, TUPLE3]
 
 from pickle import StringIO
 
+try:
+    from pickle import StringBuilderFile
+except ImportError:
+    assert '__pypy__' not in sys.builtin_module_names
+    StringBuilderFile = StringIO
+
 PythonPickler = Pickler
 class Pickler(PythonPickler):
     def __init__(self, *args, **kw):
         self.__f = None
         if len(args) == 1 and isinstance(args[0], int):
-            self.__f = StringIO()
+            self.__f = StringBuilderFile()
             PythonPickler.__init__(self, self.__f, args[0], **kw)
         else:
             PythonPickler.__init__(self, *args, **kw)
@@ -120,7 +126,7 @@ def dump(obj, file, protocol=None):
 
 @builtinify
 def dumps(obj, protocol=None):
-    file = StringIO()
+    file = StringBuilderFile()
     Pickler(file, protocol).dump(obj)
     return file.getvalue()
 

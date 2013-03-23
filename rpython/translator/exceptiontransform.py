@@ -1,14 +1,13 @@
 from rpython.translator.simplify import join_blocks, cleanup_graph
 from rpython.translator.unsimplify import copyvar, varoftype
 from rpython.translator.unsimplify import insert_empty_block, split_block
-from rpython.translator.backendopt import canraise, inline, support, removenoops
+from rpython.translator.backendopt import canraise, inline
 from rpython.flowspace.model import Block, Constant, Variable, Link, \
-    c_last_exception, SpaceOperation, checkgraph, FunctionGraph, mkentrymap
+    c_last_exception, SpaceOperation, FunctionGraph, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.lltypesystem import lloperation
 from rpython.rtyper import rtyper
-from rpython.rtyper import rclass
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
@@ -106,7 +105,7 @@ class BaseExceptionTransformer(object):
             evalue = rpyexc_fetch_value()
             rpyexc_clear()
             return evalue
-        
+
         def rpyexc_restore_exception(evalue):
             if evalue:
                 exc_data.exc_type = rclass.ll_inst_type(evalue)
@@ -408,14 +407,13 @@ class BaseExceptionTransformer(object):
 
         # XXX: does alloc_shortcut make sense also for ootype?
         if alloc_shortcut:
-            T = spaceop.result.concretetype
             var_no_exc = self.gen_nonnull(spaceop.result, llops)
         else:
             v_exc_type = self.gen_getfield('exc_type', llops)
             var_no_exc = self.gen_isnull(v_exc_type, llops)
 
         block.operations.extend(llops)
-        
+
         block.exitswitch = var_no_exc
         #exception occurred case
         b = Block([])

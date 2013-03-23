@@ -129,17 +129,15 @@ class DescrOperation(object):
         return space.lookup(w_obj, '__set__') is not None
 
     def get_and_call_args(space, w_descr, w_obj, args):
-        descr = space.interpclass_w(w_descr)
         # a special case for performance and to avoid infinite recursion
-        if isinstance(descr, Function):
-            return descr.call_obj_args(w_obj, args)
+        if isinstance(w_descr, Function):
+            return w_descr.call_obj_args(w_obj, args)
         else:
             w_impl = space.get(w_descr, w_obj)
             return space.call_args(w_impl, args)
 
     def get_and_call_function(space, w_descr, w_obj, *args_w):
-        descr = space.interpclass_w(w_descr)
-        typ = type(descr)
+        typ = type(w_descr)
         # a special case for performance and to avoid infinite recursion
         if typ is Function or typ is FunctionWithFixedCode:
             # isinstance(typ, Function) would not be correct here:
@@ -150,7 +148,7 @@ class DescrOperation(object):
 
             # the fastcall paths are purely for performance, but the resulting
             # increase of speed is huge
-            return descr.funccall(w_obj, *args_w)
+            return w_descr.funccall(w_obj, *args_w)
         else:
             args = Arguments(space, list(args_w))
             w_impl = space.get(w_descr, w_obj)

@@ -1,6 +1,6 @@
 import sys
 from pypy.interpreter import gateway
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -51,7 +51,7 @@ class Lock(object):
 
 # ------------------------------------------------------------
 
-class W_Deque(Wrappable):
+class W_Deque(W_Root):
     def __init__(self, space):
         self.space = space
         self.maxlen = sys.maxint
@@ -322,7 +322,7 @@ class W_Deque(Wrappable):
 
     def compare(self, w_other, op):
         space = self.space
-        if not isinstance(space.interpclass_w(w_other), W_Deque):
+        if not isinstance(w_other, W_Deque):
             return space.w_NotImplemented
         return space.compare_by_iteration(space.wrap(self), w_other, op)
     compare._annspecialcase_ = 'specialize:arg(2)'
@@ -504,7 +504,7 @@ Build an ordered collection accessible from endpoints only.""",
 
 # ------------------------------------------------------------
 
-class W_DequeIter(Wrappable):
+class W_DequeIter(W_Root):
     def __init__(self, deque):
         self.space = deque.space
         self.deque = deque
@@ -547,7 +547,7 @@ W_DequeIter.typedef.acceptable_as_base_class = False
 
 # ------------------------------------------------------------
 
-class W_DequeRevIter(Wrappable):
+class W_DequeRevIter(W_Root):
     def __init__(self, deque):
         self.space = deque.space
         self.deque = deque

@@ -1,4 +1,5 @@
 # coding: iso-8859-15
+import py
 import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, ObjectListStrategy
@@ -199,6 +200,15 @@ class TestW_ListObject(object):
         # commute
         w_res = self.space.mul(w(n), w_lis)
         assert self.space.eq_w(w_lis3, w_res)
+
+    def test_mul_does_not_clone(self):
+        # only testing right mul at the moment
+        w = self.space.wrap
+        arg = w(2)
+        w_lis = W_ListObject(self.space, [arg])
+        w_lis.clone = None
+        # does not crash
+        self.space.mul(w_lis, w(5))
 
     def test_setitem(self):
         w = self.space.wrap
@@ -405,6 +415,19 @@ class TestW_ListObject(object):
         w_lst = space.newlist_hint(13)
         assert isinstance(w_lst.strategy, SizeListStrategy)
         assert w_lst.strategy.sizehint == 13
+
+    def test_find_fast_on_intlist(self, monkeypatch):
+        monkeypatch.setattr(self.space, "eq_w", None)
+        w = self.space.wrap
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
+        res = intlist.find(w(4), 0, 7)
+        assert res == 3
+        res = intlist.find(w(4), 0, 100)
+        assert res == 3
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 4, 7)
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 0, 2)
 
 class AppTestW_ListObject(object):
     def setup_class(cls):
@@ -1275,6 +1298,9 @@ class AppTestW_ListObject(object):
         l1 = [1, 2, 3]
         l1[:] = l2
         assert len(l1) == 0
+
+    def test_use_method_for_wrong_object(self):
+        raises(TypeError, list.append.im_func, 1, 2)
 
 
 class AppTestForRangeLists(AppTestW_ListObject):
