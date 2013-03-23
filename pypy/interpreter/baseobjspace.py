@@ -277,18 +277,13 @@ class SpaceCache(Cache):
     def __init__(self, space):
         Cache.__init__(self)
         self.space = space
+
     def _build(self, key):
-        val = self.space.enter_cache_building_mode()
-        try:
-            return self.build(key)
-        finally:
-            self.space.leave_cache_building_mode(val)
+        return self.build(key)
+
     def _ready(self, result):
-        val = self.space.enter_cache_building_mode()
-        try:
-            return self.ready(result)
-        finally:
-            self.space.leave_cache_building_mode(val)
+        return self.ready(result)
+
     def ready(self, result):
         pass
 
@@ -576,11 +571,6 @@ class ObjSpace(object):
     def initialize(self):
         """NOT_RPYTHON: Abstract method that should put some minimal
         content into the w_builtins."""
-
-    def enter_cache_building_mode(self):
-        "hook for the flow object space"
-    def leave_cache_building_mode(self, val):
-        "hook for the flow object space"
 
     @jit.loop_invariant
     def getexecutioncontext(self):
