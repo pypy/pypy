@@ -1076,7 +1076,7 @@ class ComplexFloating(object):
 
     def to_builtin_type(self, space, box):
         real,imag = self.for_computation(self.unbox(box))
-        return space.newcomplex(real, imag) 
+        return space.newcomplex(real, imag)
 
     def read_bool(self, arr, i, offset):
         v = self.for_computation(self._read(arr.storage, i, offset))
@@ -1217,7 +1217,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def le(self, v1, v2):
-        return self._lt(v1, v2) or self._eq(v1, v2) 
+        return self._lt(v1, v2) or self._eq(v1, v2)
 
     @raw_binary_op
     def gt(self, v1, v2):
@@ -1225,7 +1225,7 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def ge(self, v1, v2):
-        return self._lt(v2, v1) or self._eq(v2, v1) 
+        return self._lt(v2, v1) or self._eq(v2, v1)
 
     def _bool(self, v):
         return bool(v[0]) or bool(v[1])
@@ -1341,7 +1341,7 @@ class ComplexFloating(object):
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
- 
+
     # No floor, ceil, trunc in numpy for complex
     #@simple_unary_op
     #def floor(self, v):
@@ -1562,8 +1562,8 @@ class Complex128(ComplexFloating, BaseType):
 
 NonNativeComplex128 = Complex128
 
-if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
-    class Float96(BaseType, Float):
+if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
+    class Float80(BaseType, Float):
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
@@ -1571,7 +1571,7 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
         format_code = "q"
 
         def runpack_str(self, s):
-            assert len(s) == 12
+            assert len(s) == self.storage_bytes
             fval = unpack_float80(s, native_is_bigendian)
             return self.box(fval)
 
@@ -1580,47 +1580,28 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 12:
             result = StringBuilder(10)
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
+    NonNativeFloat80 = Float80
 
-    NonNativeFloat96 = Float96
 
-    class Complex192(ComplexFloating, BaseType):
+    class Complex160(ComplexFloating, BaseType):
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_Complex192Box
         ComponentBoxType = interp_boxes.W_Float96Box
+    NonNativeComplex160 = Complex160
 
-    NonNativeComplex192 = Complex192
+    if interp_boxes.long_double_size == 12:
+        Float80.storage_bytes = 12
+        Float96 = Float80
+        Complex192 = Complex160
+    elif interp_boxes.long_double_size == 16:
+        Float80.storage_bytes = 16
+        Float128 = Float80
+        Complex256 = Complex160
+    else:
+        raise ImportError("Unsupported size for long double")
 
-elif interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size == 16:
-    class Float128(BaseType, Float):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float128Box
-        format_code = "q"
-
-        def runpack_str(self, s):
-            assert len(s) == 16
-            fval = unpack_float80(s, native_is_bigendian)
-            return self.box(fval)
-
-        def byteswap(self, w_v):
-            value = self.unbox(w_v)
-            result = StringBuilder(10)
-            pack_float80(result, value, 10, not native_is_bigendian)
-            return self.box(unpack_float80(result.build(), native_is_bigendian))
-
-    NonNativeFloat128 = Float128
-
-    class Complex256(ComplexFloating, BaseType):
-        _attrs_ = ()
-
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex256Box
-        ComponentBoxType = interp_boxes.W_Float128Box
-
-    NonNativeComplex256 = Complex256
 
 class BaseStringType(object):
     _mixin_ = True
@@ -1696,7 +1677,7 @@ class StringType(BaseType, BaseStringType):
         for j in range(i + 1, self.size):
             arr.storage[j] = '\x00'
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
-        
+
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
