@@ -76,32 +76,32 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
 
         return True
@@ -167,23 +167,23 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if len(self.fieldstate) != len(other.fieldstate):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         for i in range(len(self.fieldstate)):
             if not self.fieldstate[i].generalization_of(other.fieldstate[i],
                                                         renum, bad):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         return True
 
@@ -222,36 +222,36 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         assert isinstance(other, VArrayStructStateInfo)
         if len(self.fielddescrs) != len(other.fielddescrs):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
 
         p = 0
         for i in range(len(self.fielddescrs)):
             if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
             for j in range(len(self.fielddescrs[i])):
                 if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
-                    bad[self] = True
-                    bad[other] = True
+                    bad[self] = None
+                    bad[other] = None
                     return False
                 if not self.fieldstate[p].generalization_of(other.fieldstate[p],
                                                             renum, bad):
-                    bad[self] = True
-                    bad[other] = True
+                    bad[self] = None
+                    bad[other] = None
                     return False
                 p += 1
         return True
@@ -310,42 +310,42 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         renum[self.position] = other.position
         if not isinstance(other, NotVirtualStateInfo):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if other.level < self.level:
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if self.level == LEVEL_CONSTANT:
             if not self.constbox.same_constant(other.constbox):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         elif self.level == LEVEL_KNOWNCLASS:
             if not self.known_class.same_constant(other.known_class):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         if not self.intbound.contains_bound(other.intbound):
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         if self.lenbound and other.lenbound:
             if self.lenbound.mode != other.lenbound.mode or \
                self.lenbound.descr != other.lenbound.descr or \
                not self.lenbound.bound.contains_bound(other.lenbound.bound):
-                bad[self] = True
-                bad[other] = True
+                bad[self] = None
+                bad[other] = None
                 return False
         elif self.lenbound:
-            bad[self] = True
-            bad[other] = True
+            bad[self] = None
+            bad[other] = None
             return False
         return True
 
