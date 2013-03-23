@@ -1094,7 +1094,7 @@ class ObjSpace(object):
             expression = compiler.compile(expression, '?', 'eval', 0,
                                          hidden_applevel=hidden_applevel)
         else:
-            raise TypeError, 'space.eval(): expected a string, code or PyCode object'
+            raise TypeError('space.eval(): expected a string, code or PyCode object')
         return expression.exec_code(self, w_globals, w_locals)
 
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
@@ -1108,7 +1108,7 @@ class ObjSpace(object):
             statement = compiler.compile(statement, filename, 'exec', 0,
                                          hidden_applevel=hidden_applevel)
         if not isinstance(statement, PyCode):
-            raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
+            raise TypeError('space.exec_(): expected a string, code or PyCode object')
         w_key = self.wrap('__builtins__')
         if not self.is_true(self.contains(w_globals, w_key)):
             self.setitem(w_globals, w_key, self.wrap(self.builtin))
@@ -1496,15 +1496,20 @@ class AppExecCache(SpaceCache):
         space.exec_(str(source), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
 
+
 class DummyLock(object):
     def acquire(self, flag):
         return True
+
     def release(self):
         pass
+
     def _freeze_(self):
         return True
+
     def __enter__(self):
         pass
+
     def __exit__(self, *args):
         pass
 
@@ -1539,7 +1544,7 @@ ObjSpace.MethodTable = [
     ('pos',             'pos',       1, ['__pos__']),
     ('neg',             'neg',       1, ['__neg__']),
     ('nonzero',         'truth',     1, ['__nonzero__']),
-    ('abs' ,            'abs',       1, ['__abs__']),
+    ('abs',             'abs',       1, ['__abs__']),
     ('hex',             'hex',       1, ['__hex__']),
     ('oct',             'oct',       1, ['__oct__']),
     ('ord',             'ord',       1, []),
@@ -1592,12 +1597,12 @@ ObjSpace.MethodTable = [
     ('delete',          'delete',    2, ['__delete__']),
     ('userdel',         'del',       1, ['__del__']),
     ('buffer',          'buffer',    1, ['__buffer__']),   # see buffer.py
-    ]
+]
 
 ObjSpace.BuiltinModuleTable = [
     '__builtin__',
     'sys',
-    ]
+]
 
 ObjSpace.ConstantTable = [
     'None',
@@ -1605,7 +1610,7 @@ ObjSpace.ConstantTable = [
     'True',
     'Ellipsis',
     'NotImplemented',
-    ]
+]
 
 ObjSpace.ExceptionTable = [
     'ArithmeticError',
@@ -1648,7 +1653,7 @@ ObjSpace.ExceptionTable = [
     'ZeroDivisionError',
     'RuntimeWarning',
     'PendingDeprecationWarning',
-    ]
+]
 
 if sys.platform.startswith("win"):
     ObjSpace.ExceptionTable += ['WindowsError']
