@@ -189,6 +189,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),
 
+        BoolOption("withsmallint", "use tagged integers",
+                   default=False,
+                   requires=[("objspace.std.withprebuiltint", False),
+                             ("translation.taggedpointers", True)]),
+
         BoolOption("withprebuiltint", "prebuild commonly used int objects",
                    default=False),
 
@@ -199,7 +204,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                   default=100, cmdline="--prebuiltintto"),
 
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
-                   default=False),
+                   default=False,
+                   requires=[("objspace.std.withsmallint", False)]),
+                             #  ^^^ because of missing delegate_xx2yy
 
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),

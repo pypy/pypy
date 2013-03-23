@@ -26,6 +26,7 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.smallintobject import W_SmallIntObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -579,8 +580,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
             self.setitem(w_obj, self.wrap(key), w_value)
 
     def getindex_w(self, w_obj, w_exception, objdescr=None):
-        if type(w_obj) is W_IntObject:
-            return w_obj.intval
+        # Performance shortcut for the common case of w_obj being an int.
+        # If withsmallint is disabled, we check for W_IntObject.
+        # If withsmallint is enabled, we only check for W_SmallIntObject - it's
+        # probably not useful to have a shortcut for W_IntObject at all then.
+        if self.config.objspace.std.withsmallint:
+            if type(w_obj) is W_SmallIntObject:
+                return w_obj.intval
+        else:
+            if type(w_obj) is W_IntObject:
+                return w_obj.intval
         return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
 
     def call_method(self, w_obj, methname, *arg_w):

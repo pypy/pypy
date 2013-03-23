@@ -39,7 +39,14 @@ def descr_bit_length(space, w_int):
 
 
 def wrapint(space, x):
-    if space.config.objspace.std.withprebuiltint:
+    if space.config.objspace.std.withsmallint:
+        from pypy.objspace.std.smallintobject import W_SmallIntObject
+        try:
+            return W_SmallIntObject(x)
+        except OverflowError:
+            from pypy.objspace.std.intobject import W_IntObject
+            return W_IntObject(x)
+    elif space.config.objspace.std.withprebuiltint:
         from pypy.objspace.std.intobject import W_IntObject
         lower = space.config.objspace.std.prebuiltintfrom
         upper =  space.config.objspace.std.prebuiltintto
