@@ -58,40 +58,43 @@ class RStringIO(object):
         # Idea: for the common case of a sequence of write() followed
         # by only getvalue(), self.bigbuffer remains empty.  It is only
         # used to handle the more complicated cases.
-        p = self.pos
-        if p != AT_END:    # slow or semi-fast paths
-            assert p >= 0
-            endp = p + len(buffer)
-            if self.bigbuffer is not None and len(self.bigbuffer) >= endp:
-                # semi-fast path: the write is entirely inside self.bigbuffer
-                for i in range(len(buffer)):
-                    self.bigbuffer[p + i] = buffer[i]
-                self.pos = endp
-                return
-            else:
-                # slow path: collect all data into self.bigbuffer and
-                # handle the various cases
-                self.copy_into_bigbuffer()
-                fitting = len(self.bigbuffer) - p
-                if fitting > 0:
-                    # the write starts before the end of the data
-                    fitting = min(len(buffer), fitting)
-                    for i in range(fitting):
-                        self.bigbuffer[p+i] = buffer[i]
-                    if len(buffer) > fitting:
-                        # the write extends beyond the end of the data
-                        self.bigbuffer += buffer[fitting:]
-                        endp = AT_END
-                    self.pos = endp
-                    return
-                else:
-                    # the write starts at or beyond the end of the data
-                    self.bigbuffer += '\x00' * (-fitting)
-                    self.pos = AT_END      # fall-through to the fast path
-        # Fast path.
+        if self.pos == AT_END:
+            self._fast_write(buffer)
+        else:
+            self._slow_write(buffer)
+
+    def _fast_write(self, buffer):
         if self.strings is None:
             self.strings = StringBuilder()
         self.strings.append(buffer)
+
+    def _slow_write(self, buffer):
+        p = self.pos
+        assert p >= 0
+        endp = p + len(buffer)
+        if self.bigbuffer is not None and len(self.bigbuffer) >= endp:
+            # semi-fast path: the write is entirely inside self.bigbuffer
+            for i in range(len(buffer)):
+                self.bigbuffer[p + i] = buffer[i]
+        else:
+            # slow path: collect all data into self.bigbuffer and
+            # handle the various cases
+            self.copy_into_bigbuffer()
+            fitting = len(self.bigbuffer) - p
+            if fitting > 0:
+                # the write starts before the end of the data
+                fitting = min(len(buffer), fitting)
+                for i in range(fitting):
+                    self.bigbuffer[p + i] = buffer[i]
+                if len(buffer) > fitting:
+                    # the write extends beyond the end of the data
+                    self.bigbuffer += buffer[fitting:]
+                    endp = AT_END
+            else:
+                # the write starts at or beyond the end of the data
+                self.bigbuffer += '\x00' * (-fitting) + buffer
+                endp = AT_END
+        self.pos = endp
 
     def seek(self, position, mode=0):
         if mode == 1:
