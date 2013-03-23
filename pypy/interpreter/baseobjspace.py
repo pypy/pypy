@@ -1520,9 +1520,9 @@ class DummyLock(object):
 
 dummy_lock = DummyLock()
 
-## Table describing the regular part of the interface of object spaces,
-## namely all methods which only take w_ arguments and return a w_ result
-## (if any).  Note: keep in sync with rpython.flowspace.operation.Table.
+# Table describing the regular part of the interface of object spaces,
+# namely all methods which only take w_ arguments and return a w_ result
+# (if any).
 
 ObjSpace.MethodTable = [
 # method name # symbol # number of arguments # special method name(s)
