@@ -33,6 +33,9 @@
   <class name="some_class_with_data" />
   <class name="some_class_with_data::some_data" />
 
+  <class name="ref_tester" />
+  <class name="std::vector<ref_tester>" />
+
   <class name="pointer_pass" />
 
   <class pattern="multi*" />

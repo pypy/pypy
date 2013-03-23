@@ -579,3 +579,18 @@ class AppTestADVANCEDCPP:
         assert type(f('c')) == type('c')
         assert f(3.) == 3.
         assert type(f(4.)) == type(4.)
+
+    def test18_assign_to_return_byref( self ):
+        """Test assignment to an instance returned by reference"""
+
+        from cppyy import gbl
+
+        a = gbl.std.vector(gbl.ref_tester)()
+        a.push_back(gbl.ref_tester(42))
+
+        assert len(a) == 1
+        assert a[0].m_i == 42
+
+       # a[0] = gbl.ref_tester(33)
+       # assert len(a) == 1
+       # assert a[0].m_i == 33
