@@ -669,3 +669,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if not hasattr(self, "_interplevel_classes"):
             return None # before running initialize
         return self._interplevel_classes.get(w_type, None)
+
+    @specialize.arg(2, 3)
+    def is_overloaded(self, w_obj, tp, method):
+        return (self.lookup(w_obj, method) is not
+                self.lookup_in_type_where(tp, method)[1])

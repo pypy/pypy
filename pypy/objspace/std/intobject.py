@@ -49,10 +49,8 @@ class W_IntObject(W_AbstractIntObject):
         return float(self.intval)
 
     def int(self, space):
-        # XXX find a better way to do it
-        if (type(self) != W_IntObject and
-            space.lookup(self, '__int__') is not
-            space.lookup_in_type_where(space.w_int, '__int__')[1]):
+        if type(self) != W_IntObject and space.is_overloaded(self, space.w_int,
+                                                             '__int__'):
             return W_Object.int(self, space)
         if space.is_w(space.type(self), space.w_int):
             return self
