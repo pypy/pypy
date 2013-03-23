@@ -24,8 +24,12 @@ class TestBuiltinCode:
         assert code.signature() == Signature(['x', 'y'], 'hello', None)
         def d(self, w_boo):
             pass
+
+        class W_X(W_Root):
+            pass
+
         code = gateway.BuiltinCode(d, unwrap_spec= ['self',
-                                                   gateway.W_Root], self_type=gateway.W_Root)
+                                                   gateway.W_Root], self_type=W_X)
         assert code.signature() == Signature(['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass
