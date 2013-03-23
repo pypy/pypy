@@ -24,6 +24,7 @@ class RStringIO(object):
         self.closed = True
         self.strings = None
         self.bigbuffer = None
+        self.pos = AT_END
 
     def is_closed(self):
         return self.closed
