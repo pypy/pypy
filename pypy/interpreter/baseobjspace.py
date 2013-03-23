@@ -211,6 +211,10 @@ class W_Root(object):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
 
+    def float_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "float", self))
+
     def uint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
@@ -1308,6 +1312,9 @@ class ObjSpace(object):
     def bigint_w(self, w_obj):
         return w_obj.bigint_w(self)
 
+    def float_w(self, w_obj):
+        return w_obj.float_w(self)
+
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
@@ -1670,4 +1677,4 @@ ObjSpace.IrregularOpTable = [
     'newslice',
     'call_args',
     'marshal_w',
-    ]
+]

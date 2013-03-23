@@ -55,6 +55,9 @@ class W_FloatObject(W_AbstractFloatObject):
     def unwrap(w_self, space):
         return w_self.floatval
 
+    def float_w(self, space):
+        return self.floatval
+
     def __repr__(self):
         return "<W_FloatObject(%f)>" % self.floatval
 
@@ -113,9 +116,6 @@ def trunc__Float(space, w_floatobj):
         return long__Float(space, w_floatobj)
     else:
         return space.newint(value)
-
-def float_w__Float(space, w_float):
-    return w_float.floatval
 
 def _char_from_hex(number):
     return "0123456789abcdef"[number]

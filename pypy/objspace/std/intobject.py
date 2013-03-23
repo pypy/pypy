@@ -64,6 +64,9 @@ class W_IntObject(W_AbstractIntObject):
     def bigint_w(w_self, space):
         return rbigint.fromint(w_self.intval)
 
+    def float_w(self, space):
+        return float(self.intval)
+
 registerimplementation(W_IntObject)
 
 # NB: This code is shared by smallintobject.py, and thus no other Int

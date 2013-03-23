@@ -436,7 +436,6 @@ class MM:
     init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
     getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
     # special visible multimethods
-    float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
     # NOTE: when adding more sometype_w() methods, you need to write a
     # stub in default.py to raise a space.w_TypeError
     marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
@@ -449,4 +448,3 @@ class MM:
             del mm
 
     pow.extras['defaults'] = (None,)
-

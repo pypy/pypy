@@ -84,6 +84,9 @@ class W_LongObject(W_AbstractLongObject):
     def bigint_w(w_self, space):
         return w_self.num
 
+    def float_w(self, space):
+        return self.num.tofloat()
+
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
 

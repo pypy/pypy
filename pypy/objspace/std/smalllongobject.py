@@ -66,6 +66,10 @@ class W_SmallLongObject(W_AbstractLongObject):
     def bigint_w(w_self, space):
         return w_self.asbigint()
 
+    def float_w(self, space):
+        return float(self.longlong)
+
+
 registerimplementation(W_SmallLongObject)
 
 # ____________________________________________________________
