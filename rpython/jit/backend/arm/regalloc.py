@@ -168,7 +168,7 @@ class CoreRegisterManager(ARMRegisterManager):
 
     def get_free_reg(self):
         free_regs = self.free_regs
-        for i in range(len(free_regs), -1, -1):
+        for i in range(len(free_regs) - 1, -1, -1):
             if free_regs[i] in self.save_around_call_regs:
                 continue
             return free_regs[i]
