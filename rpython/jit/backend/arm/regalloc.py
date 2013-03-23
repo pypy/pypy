@@ -166,8 +166,8 @@ class CoreRegisterManager(ARMRegisterManager):
                                                     selected_reg=selected_reg)
         return reg
 
-    def get_free_reg():
-        free_regs = self.free_regs        
+    def get_free_reg(self):
+        free_regs = self.free_regs
         for i in range(len(free_regs), -1, -1):
             if free_regs[i] in self.save_around_call_regs:
                 continue
@@ -365,7 +365,7 @@ class Regalloc(BaseRegalloc):
     # ------------------------------------------------------------
     def perform_llong(self, op, args, fcond):
         return self.assembler.regalloc_emit_llong(op, args, fcond, self)
-    
+
     def perform_math(self, op, args, fcond):
         return self.assembler.regalloc_emit_math(op, args, self, fcond)
 
@@ -442,7 +442,7 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
-    
+
     def prepare_op_int_force_ge_zero(self, op, fcond):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
