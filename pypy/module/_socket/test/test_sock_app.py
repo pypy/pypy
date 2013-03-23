@@ -32,7 +32,19 @@ def test_gethostbyname_ex():
         assert space.unwrap(ip) == socket.gethostbyname_ex(host)
 
 def test_gethostbyaddr():
+    try:
+        socket.gethostbyaddr("::1")
+    except socket.herror:
+        ipv6 = False
+    else:
+        ipv6 = True
     for host in ["localhost", "127.0.0.1", "::1"]:
+        if host == "::1" and not ipv6:
+            from pypy.interpreter.error import OperationError
+            with py.test.raises(OperationError):
+                space.appexec([w_socket, space.wrap(host)],
+                              "(_socket, host): return _socket.gethostbyaddr(host)")
+            continue
         ip = space.appexec([w_socket, space.wrap(host)],
                            "(_socket, host): return _socket.gethostbyaddr(host)")
         assert space.unwrap(ip) == socket.gethostbyaddr(host)

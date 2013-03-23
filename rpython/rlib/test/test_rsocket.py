@@ -68,7 +68,17 @@ def test_gethostbyname_ex():
                          % (address_list,))
 
 def test_gethostbyaddr():
+    try:
+        cpy_socket.gethostbyaddr("::1")
+    except cpy_socket.herror:
+        ipv6 = False
+    else:
+        ipv6 = True
     for host in ["localhost", "127.0.0.1", "::1"]:
+        if host == "::1" and not ipv6:
+            with py.test.raises(HSocketError):
+                gethostbyaddr(host)
+            continue
         name, aliases, address_list = gethostbyaddr(host)
         allnames = [name] + aliases
         for n in allnames:
