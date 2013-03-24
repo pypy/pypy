@@ -46,7 +46,7 @@ class StdTypeModel:
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
             from pypy.objspace.std.bytearraytype import bytearray_typedef
-            from pypy.objspace.std.typetype   import type_typedef
+            from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef

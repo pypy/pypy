@@ -49,7 +49,6 @@ def abstract_getclass(space, w_obj):
 @jit.unroll_safe
 def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
     """Implementation for the full 'isinstance(obj, klass_or_tuple)'."""
-
     # -- case (anything, tuple)
     # XXX it might be risky that the JIT sees this
     if space.isinstance_w(w_klass_or_tuple, space.w_tuple):
