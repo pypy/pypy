@@ -105,6 +105,12 @@ class AbstractARMCPU(AbstractLLCPU):
             l[i].counter = ll_s.i
         return l
 
+    def build_regalloc(self):
+	''' for tests'''
+	from rpython.jit.backend.arm.regalloc import Regalloc
+	assert self.assembler is not None
+	return Regalloc(self.assembler)
+
 class CPU_ARM(AbstractARMCPU):
     """ARM v7 uses softfp ABI, requires vfp"""
     backend_name = "arm"
