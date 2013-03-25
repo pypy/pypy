@@ -1053,6 +1053,15 @@ def _pick_correct_strategy(space, w_set, iterable_w):
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
+    # check for unicode
+    for w_item in iterable_w:
+        if type(w_item) is not W_UnicodeObject:
+            break
+    else:
+        w_set.strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
+
     w_set.strategy = space.fromcache(ObjectSetStrategy)
     w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
