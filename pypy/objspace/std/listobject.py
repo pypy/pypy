@@ -1468,6 +1468,11 @@ def inplace_mul__List_ANY(space, w_list, w_times):
     w_list.inplace_mul(times)
     return w_list
 
+def list_unroll_condition(space, w_list1, w_list2):
+    return jit.loop_unrolling_heuristic(w_list1, w_list1.length()) or \
+           jit.loop_unrolling_heuristic(w_list2, w_list2.length())
+
+@jit.look_inside_iff(list_unroll_condition)
 def eq__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     if w_list1.length() != w_list2.length():
@@ -1485,6 +1490,8 @@ def eq__List_List(space, w_list1, w_list2):
 def _make_list_comparison(name):
     import operator
     op = getattr(operator, name)
+
+    @jit.look_inside_iff(list_unroll_condition)
     def compare_unwrappeditems(space, w_list1, w_list2):
         # needs to be safe against eq_w() mutating the w_lists behind our back
         # Search for the first index where items are different
