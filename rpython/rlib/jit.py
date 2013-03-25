@@ -206,13 +206,13 @@ def isvirtual(value):
     return NonConstant(False)
 isvirtual._annspecialcase_ = "specialize:call_location"
 
-LIST_CUTOFF = 2
+UNROLL_CUTOFF = 5
 
 @specialize.call_location()
 def loop_unrolling_heuristic(lst, size):
     """ In which cases iterating over items of lst can be unrolled
     """
-    return isvirtual(lst) or (isconstant(size) and size <= LIST_CUTOFF)
+    return isvirtual(lst) or (isconstant(size) and size <= UNROLL_CUTOFF)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint

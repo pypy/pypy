@@ -10,8 +10,6 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib import jit
 from rpython.tool.sourcetools import func_with_new_name
 
-# Tuples of known length up to UNROLL_TUPLE_LIMIT have unrolled certain methods
-UNROLL_TUPLE_LIMIT = 10
 
 class W_AbstractTupleObject(W_Object):
     __slots__ = ()
@@ -85,15 +83,8 @@ def getslice__Tuple_ANY_ANY(space, w_tuple, w_start, w_stop):
     start, stop = normalize_simple_slice(space, length, w_start, w_stop)
     return space.newtuple(w_tuple.wrappeditems[start:stop])
 
-THRESHOLD = 7
-
-def unroll_tuple_contains(space, w_tuple, w_obj):
-    if (jit.isconstant(w_tuple) or jit.isvirtual(w_tuple) and
-        len(w_tuple.wrappeditems) < THRESHOLD):
-        return True
-    return False
-
-@jit.look_inside_iff(unroll_tuple_contains)
+@jit.look_inside_iff(lambda space, w_tuple, w_obj:
+        jit.loop_unrolling_heuristic(w_tuple, len(w_tuple.wrappeditems)))
 def contains__Tuple_ANY(space, w_tuple, w_obj):
     for w_item in w_tuple.wrappeditems:
         if space.eq_w(w_item, w_obj):
@@ -128,10 +119,8 @@ def mul__ANY_Tuple(space, w_times, w_tuple):
     return mul_tuple_times(space, w_tuple, w_times)
 
 def tuple_unroll_condition(space, w_tuple1, w_tuple2):
-    lgt1 = len(w_tuple1.wrappeditems)
-    lgt2 = len(w_tuple2.wrappeditems)
-    return ((jit.isconstant(lgt1) and lgt1 <= UNROLL_TUPLE_LIMIT) or
-            (jit.isconstant(lgt2) and lgt2 <= UNROLL_TUPLE_LIMIT))
+    return jit.loop_unrolling_heuristic(w_tuple1, len(w_tuple1.wrappeditems)) or \
+           jit.loop_unrolling_heuristic(w_tuple2, len(w_tuple2.wrappeditems))
 
 @jit.look_inside_iff(tuple_unroll_condition)
 def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
@@ -151,7 +140,7 @@ def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
 def _make_tuple_comparison(name):
     import operator
     op = getattr(operator, name)
-    #
+
     @jit.look_inside_iff(tuple_unroll_condition)
     def compare_tuples(space, w_tuple1, w_tuple2):
         items1 = w_tuple1.wrappeditems
@@ -184,8 +173,7 @@ def hash__Tuple(space, w_tuple):
     return space.wrap(hash_tuple(space, w_tuple.wrappeditems))
 
 @jit.look_inside_iff(lambda space, wrappeditems:
-                     jit.isconstant(len(wrappeditems)) and
-                     len(wrappeditems) < UNROLL_TUPLE_LIMIT)
+        jit.loop_unrolling_heuristic(wrappeditems, len(wrappeditems)))
 def hash_tuple(space, wrappeditems):
     # this is the CPython 2.4 algorithm (changed from 2.3)
     mult = 1000003
