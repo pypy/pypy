@@ -482,21 +482,21 @@ class DtypeCache(object):
         )
         if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
             self.w_longdouble = W_Dtype(
-                types.Float96(),
+                types.Float80(),
                 num=13,
                 kind=FLOATINGLTR,
                 name="",
                 char="g",
-                w_box_type=space.gettypefor(interp_boxes.W_Float96Box),
+                w_box_type=space.gettypefor(interp_boxes.W_LongDoubleBox),
                 aliases=["longdouble", "longfloat"],
             )
             self.w_clongdouble = W_ComplexDtype(
-                types.Complex192(),
+                types.Complex160(),
                 num=16,
                 kind=COMPLEXLTR,
                 name="",
                 char="G",
-                w_box_type = space.gettypefor(interp_boxes.W_Complex192Box),
+                w_box_type = space.gettypefor(interp_boxes.W_CLongDoubleBox),
                 alternate_constructors=[space.w_complex],
                 aliases=["clongdouble", "clongfloat"],
                 float_type = self.w_longdouble,

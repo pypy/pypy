@@ -1567,7 +1567,7 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float96Box
+        BoxType = interp_boxes.W_LongDoubleBox
         format_code = "q"
 
         def runpack_str(self, s):
@@ -1587,18 +1587,12 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
         _attrs_ = ()
 
         T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Complex192Box
-        ComponentBoxType = interp_boxes.W_Float96Box
+        BoxType = interp_boxes.W_CLongDoubleBox
+        ComponentBoxType = interp_boxes.W_LongDoubleBox
     NonNativeComplex160 = Complex160
 
-    if interp_boxes.long_double_size == 12:
-        Float80.storage_bytes = 12
-        Float96 = Float80
-        Complex192 = Complex160
-    elif interp_boxes.long_double_size == 16:
-        Float80.storage_bytes = 16
-        Float128 = Float80
-        Complex256 = Complex160
+    if interp_boxes.long_double_size in (12, 16):
+        Float80.storage_bytes = interp_boxes.long_double_size
     else:
         raise ImportError("Unsupported size for long double")
 

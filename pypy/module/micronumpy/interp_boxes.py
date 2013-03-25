@@ -346,34 +346,34 @@ class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype = new_dtype_getter("complex128")
     _COMPONENTS_BOX = W_Float64Box
 
-if ENABLED_LONG_DOUBLE and long_double_size == 12:
-    class W_Float96Box(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype = new_dtype_getter("float96")
+if ENABLED_LONG_DOUBLE and long_double_size > 8:
+    class W_LongDoubleBox(W_FloatingBox, PrimitiveBox):
+        @staticmethod
+        def _get_dtype(space):
+            from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+            return get_dtype_cache(space).w_longdouble
 
-    W_LongDoubleBox = W_Float96Box
+        def descr__new__(space, w_subtype, w_value):
+            dtype = W_LongDoubleBox._get_dtype(space)
+            return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
 
-    class W_Complex192Box(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype = new_dtype_getter("complex192")
-        _COMPONENTS_BOX = W_Float96Box
 
-    W_CLongDoubleBox = W_Complex192Box
+    class W_CLongDoubleBox(ComplexBox, W_ComplexFloatingBox):
+        @staticmethod
+        def _get_dtype(space):
+            from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+            return get_dtype_cache(space).w_clongdouble
 
-elif ENABLED_LONG_DOUBLE and long_double_size == 16:
-    class W_Float128Box(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype = new_dtype_getter("float128")
-    W_LongDoubleBox = W_Float128Box
-
-    class W_Complex256Box(ComplexBox, W_ComplexFloatingBox):
-        descr__new__, _get_dtype = new_dtype_getter("complex256")
-        _COMPONENTS_BOX = W_Float128Box
-
-    W_CLongDoubleBox = W_Complex256Box
+        def descr__new__(space, w_subtype, w_value):
+            dtype = W_CLongDoubleBox._get_dtype(space)
+            return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
+        _COMPONENTS_BOX = W_LongDoubleBox
 
 elif ENABLED_LONG_DOUBLE:
     W_LongDoubleBox = W_Float64Box
     W_CLongDoubleBox = W_Complex64Box
 
-    
+
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
 
@@ -539,33 +539,25 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
 
-if ENABLED_LONG_DOUBLE and long_double_size == 12:
-    W_Float96Box.typedef = TypeDef("float96", (W_FloatingBox.typedef),
+if ENABLED_LONG_DOUBLE and long_double_size > 8:
+    W_LongDoubleBox.typedef = TypeDef("float00", (W_FloatingBox.typedef),
         __module__ = "numpypy",
 
-        __new__ = interp2app(W_Float96Box.descr__new__.im_func),
+        __new__ = interp2app(W_LongDoubleBox.descr__new__.im_func),
     )
 
-    W_Complex192Box.typedef = TypeDef("complex192", (W_ComplexFloatingBox.typedef, complex_typedef),
+    W_CLongDoubleBox.typedef = TypeDef("complex00", (W_ComplexFloatingBox.typedef, complex_typedef),
         __module__ = "numpypy",
-        __new__ = interp2app(W_Complex192Box.descr__new__.im_func),
+        __new__ = interp2app(W_CLongDoubleBox.descr__new__.im_func),
         real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
         imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
     )
-
-elif ENABLED_LONG_DOUBLE and long_double_size == 16:
-    W_Float128Box.typedef = TypeDef("float128", (W_FloatingBox.typedef),
-        __module__ = "numpypy",
-
-        __new__ = interp2app(W_Float128Box.descr__new__.im_func),
-    )
-
-    W_Complex256Box.typedef = TypeDef("complex256", (W_ComplexFloatingBox.typedef, complex_typedef),
-        __module__ = "numpypy",
-        __new__ = interp2app(W_Complex256Box.descr__new__.im_func),
-        real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-        imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
-    )
+    if long_double_size == 12:
+        W_LongDoubleBox.name = "float96"
+        W_CLongDoubleBox.name = "complex192"
+    elif long_double_size == 16:
+        W_LongDoubleBox.name = "float128"
+        W_CLongDoubleBox.name = "complex256"
 
 W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
     __module__ = "numpypy",

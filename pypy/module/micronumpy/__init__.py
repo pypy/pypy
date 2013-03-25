@@ -79,13 +79,13 @@ class NumericTypesModule(MixedModule):
         ]
         if long_double_size == 16:
             long_double_dtypes += [
-                ('float128', 'interp_boxes.W_Float128Box'),
-                ('complex256', 'interp_boxes.W_Complex256Box'),
+                ('float128', 'interp_boxes.W_LongDoubleBox'),
+                ('complex256', 'interp_boxes.W_CLongDoubleBox'),
             ]
         elif long_double_size == 12:
             long_double_dtypes += [
-                ('float96', 'interp_boxes.W_Float96Box'),
-                ('complex192', 'interp_boxes.W_Complex192Box'),
+                ('float96', 'interp_boxes.W_LongDoubleBox'),
+                ('complex192', 'interp_boxes.W_CLongDoubleBox'),
             ]
         for dt, box in long_double_dtypes:
             interpleveldefs[dt] = box
