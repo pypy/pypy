@@ -591,6 +591,23 @@ class AppTestADVANCEDCPP:
         assert len(a) == 1
         assert a[0].m_i == 42
 
-       # a[0] = gbl.ref_tester(33)
-       # assert len(a) == 1
-       # assert a[0].m_i == 33
+        # TODO:
+        # a[0] = gbl.ref_tester(33)
+        # assert len(a) == 1
+        # assert a[0].m_i == 33
+
+    def test19_math_converters(self):
+        """Test operator int/long/double incl. typedef"""
+
+        from cppyy import gbl
+
+        a = gbl.some_convertible()
+        a.m_i = 1234
+        a.m_d = 4321.
+
+        assert int(a)  == 1234
+        assert int(a)  == a.m_i
+        assert long(a) == a.m_i
+
+        assert float(a) == 4321.
+        assert float(a) == a.m_d
