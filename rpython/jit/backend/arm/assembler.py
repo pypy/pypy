@@ -65,6 +65,8 @@ class AssemblerARM(ResOpAssembler):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
+        self.mc.datablockwrapper = self.datablockwrapper
+        self.mc.is_armv6 = self.cpu.backend_name == 'armv6'
         self.target_tokens_currently_compiling = {}
 
     def teardown(self):

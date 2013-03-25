@@ -122,3 +122,11 @@ class CPU_ARMHF(AbstractARMCPU):
     backend_name = "armhf"
     supports_floats = False
     supports_singlefloats = False
+
+class CPU_ARMv6(AbstractARMCPU):
+    """ ARM v6, uses hardfp ABI, requires vfp"""
+    use_hf_abi = True
+    backend_name = "armv6"
+    supports_floats = False
+    supports_singlefloats = False
+    

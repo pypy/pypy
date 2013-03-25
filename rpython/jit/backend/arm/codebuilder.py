@@ -248,6 +248,10 @@ class AbstractARMv7Builder(object):
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
+        if value > 0xFF and self.is_armv6:
+            val = self.datablockwrapper.malloc_aligned(WORD)
+            import pdb
+            pdb.set_trace()
         bottom = value & 0xFFFF
         top = value >> 16
         self.MOVW_ri(r, bottom, cond)
