@@ -15,15 +15,15 @@ Buffer protocol support.
 # free the typecheck that __buffer__() really returned a wrapped Buffer.
 
 import operator
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import compute_hash
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.rstring import StringBuilder
 
 
-class Buffer(Wrappable):
+class Buffer(W_Root):
     """Abstract base class for memory views."""
 
     __slots__ = ()     # no extra slot here
@@ -93,12 +93,11 @@ class Buffer(Wrappable):
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
-            other = space.interpclass_w(w_other)
-            if not isinstance(other, Buffer):
+            if not isinstance(w_other, Buffer):
                 return space.w_NotImplemented
             # xxx not the most efficient implementation
             str1 = self.as_str()
-            str2 = other.as_str()
+            str2 = w_other.as_str()
             return space.wrap(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp
@@ -145,6 +144,7 @@ class RWBuffer(Buffer):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
+
 @unwrap_spec(offset=int, size=int)
 def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     # w_subtype can only be exactly 'buffer' for now
@@ -155,7 +155,7 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     if space.isinstance_w(w_object, space.w_unicode):
         # unicode objects support the old buffer interface
         # but not the new buffer interface (change in python  2.7)
-        from pypy.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
+        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
         unistr = space.unicode_w(w_object)
         builder = StringBuilder(len(unistr) * UNICODE_SIZE)
         for unich in unistr:
@@ -209,7 +209,7 @@ extend to the end of the target object (or with the specified size).
     __mul__ = interp2app(Buffer.descr_mul),
     __rmul__ = interp2app(Buffer.descr_mul),
     __repr__ = interp2app(Buffer.descr_repr),
-    )
+)
 Buffer.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________

@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, cpython_struct, bootstrap_function,
     PyObjectFields, PyObject)

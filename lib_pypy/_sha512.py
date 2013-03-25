@@ -10,7 +10,7 @@ SHA_DIGESTSIZE = 64
 
 def new_shaobject():
     return {
-        'digest': [0L]*8,
+        'digest': [0]*8,
         'count_lo': 0,
         'count_hi': 0,
         'data': [0]* SHA_BLOCKSIZE,

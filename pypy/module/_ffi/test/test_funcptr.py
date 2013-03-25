@@ -1,8 +1,8 @@
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.clibffi import get_libc_name
-from pypy.rlib.libffi import types
-from pypy.rlib.libffi import CDLL
-from pypy.rlib.test.test_clibffi import get_libm_name
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.clibffi import get_libc_name
+from rpython.rlib.libffi import types
+from rpython.rlib.libffi import CDLL
+from rpython.rlib.test.test_clibffi import get_libm_name
 
 import sys, py
 
@@ -11,9 +11,9 @@ class BaseAppTestFFI(object):
 
     @classmethod
     def prepare_c_example(cls):
-        from pypy.tool.udir import udir
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        from pypy.translator.platform import platform
+        from rpython.tool.udir import udir
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.translator.platform import platform
 
         c_file = udir.ensure("test__ffi", dir=1).join("foolib.c")
         # automatically collect the C source from the docstrings of the tests
@@ -96,7 +96,7 @@ class AppTestFFI(BaseAppTestFFI):
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
         fff = sys.maxint*2-1
-        if sys.platform == 'win32':
+        if sys.platform == 'win32' or sys.platform == 'darwin':
             fff = sys.maxint*2+1
         assert pow_addr == self.pow_addr & fff
 

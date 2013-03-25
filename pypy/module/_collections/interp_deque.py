@@ -1,11 +1,11 @@
 import sys
 from pypy.interpreter import gateway
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rlib.debug import check_nonneg
+from rpython.rlib.debug import check_nonneg
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.
@@ -51,7 +51,7 @@ class Lock(object):
 
 # ------------------------------------------------------------
 
-class W_Deque(Wrappable):
+class W_Deque(W_Root):
     def __init__(self, space):
         self.space = space
         self.maxlen = sys.maxint
@@ -287,9 +287,9 @@ class W_Deque(Wrappable):
     def rotate(self, n=1):
         "Rotate the deque n steps to the right (default n=1).  If n is negative, rotates left."
         len = self.len
-        if len == 0:
+        if len <= 1:
             return
-        halflen = (len+1) >> 1
+        halflen = len >> 1
         if n > halflen or n < -halflen:
             n %= len
             if n > halflen:
@@ -322,7 +322,7 @@ class W_Deque(Wrappable):
 
     def compare(self, w_other, op):
         space = self.space
-        if not isinstance(space.interpclass_w(w_other), W_Deque):
+        if not isinstance(w_other, W_Deque):
             return space.w_NotImplemented
         return space.compare_by_iteration(space.wrap(self), w_other, op)
     compare._annspecialcase_ = 'specialize:arg(2)'
@@ -504,7 +504,7 @@ Build an ordered collection accessible from endpoints only.""",
 
 # ------------------------------------------------------------
 
-class W_DequeIter(Wrappable):
+class W_DequeIter(W_Root):
     def __init__(self, deque):
         self.space = deque.space
         self.deque = deque
@@ -521,7 +521,11 @@ class W_DequeIter(Wrappable):
         return self.space.wrap(self.counter)
 
     def next(self):
-        self.deque.checklock(self.lock)
+        if self.lock is not self.deque.lock:
+            self.counter = 0
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.wrap("deque mutated during iteration"))
         if self.counter == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         self.counter -= 1
@@ -543,7 +547,7 @@ W_DequeIter.typedef.acceptable_as_base_class = False
 
 # ------------------------------------------------------------
 
-class W_DequeRevIter(Wrappable):
+class W_DequeRevIter(W_Root):
     def __init__(self, deque):
         self.space = deque.space
         self.deque = deque
@@ -560,7 +564,11 @@ class W_DequeRevIter(Wrappable):
         return self.space.wrap(self.counter)
 
     def next(self):
-        self.deque.checklock(self.lock)
+        if self.lock is not self.deque.lock:
+            self.counter = 0
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.wrap("deque mutated during iteration"))
         if self.counter == 0:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         self.counter -= 1

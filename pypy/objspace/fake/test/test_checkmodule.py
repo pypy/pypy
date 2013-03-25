@@ -1,9 +1,11 @@
+from rpython.rlib.objectmodel import specialize
+from rpython.rtyper.test.test_llinterp import interpret
 
 from pypy.objspace.fake.objspace import FakeObjSpace, is_root
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.interpreter.gateway import interp2app, ObjSpace
+
 
 def make_checker():
     check = []
@@ -34,6 +36,22 @@ def test_wrap_interp2app_int():
     space.translates()
     assert check
 
+def test_wrap_interp2app_later():
+    see, check = make_checker()
+    #
+    @specialize.memo()
+    def hithere(space):
+        space.wrap(interp2app(foobar2))
+    #
+    def foobar(space):
+        hithere(space)
+    def foobar2(space):
+        see()
+    space = FakeObjSpace()
+    space.wrap(interp2app(foobar))
+    space.translates()
+    assert check
+
 def test_wrap_GetSetProperty():
     see, check = make_checker()
     def foobar(w_obj, space):
@@ -48,7 +66,7 @@ def test_wrap_GetSetProperty():
 
 def test_gettypefor_untranslated():
     see, check = make_checker()
-    class W_Foo(Wrappable):
+    class W_Foo(W_Root):
         def do_it(self, space, w_x):
             is_root(w_x)
             see()
@@ -76,3 +94,23 @@ def test_gettype_mro():
         return len(w_type.mro_w)
 
     assert interpret(f, [1]) == 2
+
+def test_see_objects():
+    see, check = make_checker()
+    class W_Foo(W_Root):
+        def __init__(self, x):
+            self.x = x
+        def do_it(self):
+            if self.x == 42:
+                return
+            see()
+    def f():
+        W_Foo(42).do_it()
+    #
+    space = FakeObjSpace()
+    space.translates(f)
+    assert not check
+    #
+    space = FakeObjSpace()
+    space.translates(f, seeobj_w=[W_Foo(15)])
+    assert check

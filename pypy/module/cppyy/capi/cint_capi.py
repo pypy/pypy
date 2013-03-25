@@ -3,11 +3,11 @@ import py, os, sys
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib import libffi, rdynload
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib import libffi, rdynload
 
 from pypy.module.itertools import interp_itertools
 
@@ -169,14 +169,14 @@ def ttree_getattr(space, w_self, args_w):
     w_klassname = space.call_method(w_branch, "GetClassName")
     klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
     w_obj = klass.construct()
-    #space.call_method(w_branch, "SetStatus", space.wrap(1)) 
+    #space.call_method(w_branch, "SetStatus", space.wrap(1))
     activate_branch(space, w_branch)
     space.call_method(w_branch, "SetObject", w_obj)
     space.call_method(w_branch, "GetEntry", space.wrap(0))
     space.setattr(w_self, args_w[0], w_obj)
     return w_obj
 
-class W_TTreeIter(Wrappable):
+class W_TTreeIter(W_Root):
     def __init__(self, space, w_tree):
 
         from pypy.module.cppyy import interp_cppyy
@@ -199,7 +199,7 @@ class W_TTreeIter(Wrappable):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         # TODO: check bytes read?
         self.getentry.call(self.tree, [self.space.wrap(self.current)])
-        self.current += 1 
+        self.current += 1
         return self.w_tree
 
 W_TTreeIter.typedef = TypeDef(

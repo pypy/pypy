@@ -1,14 +1,14 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.module.oracle import roci, config, transform
 from pypy.module.oracle.interp_error import get
 
-class W_ObjectType(Wrappable):
+class W_ObjectType(W_Root):
     def __init__(self, connection, param):
         self.tdo = lltype.nullptr(roci.dvoidp.TO)
         self.environment = connection.environment
@@ -287,7 +287,7 @@ W_ObjectType.typedef = TypeDef(
     attributes = GetSetProperty(W_ObjectType.get_attributes),
     )
 
-class W_ObjectAttribute(Wrappable):
+class W_ObjectAttribute(W_Root):
     def __init__(self, connection, param):
         self.initialize(connection, param)
 
@@ -340,7 +340,7 @@ W_ObjectAttribute.typedef = TypeDef(
     name = interp_attrproperty('name', W_ObjectAttribute),
     )
 
-class W_ExternalObject(Wrappable):
+class W_ExternalObject(W_Root):
     def __init__(self, var, objectType, instance, indicator,
                  isIndependent=True):
         self.var = var # keepalive

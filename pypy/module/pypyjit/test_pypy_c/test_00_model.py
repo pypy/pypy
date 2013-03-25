@@ -4,9 +4,9 @@ import types
 import subprocess
 import py
 from lib_pypy import disassembler
-from pypy.tool.udir import udir
-from pypy.tool import logparser
-from pypy.jit.tool.jitoutput import parse_prof
+from rpython.tool.udir import udir
+from rpython.tool import logparser
+from rpython.jit.tool.jitoutput import parse_prof
 from pypy.module.pypyjit.test_pypy_c.model import (Log, find_ids_range,
                                                    find_ids,
                                                    OpMatcher, InvalidMatch)
@@ -496,7 +496,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             i10 = getfield_raw(..., descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
         #
         assert loop.match("""
@@ -504,7 +504,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
         #
         py.test.raises(InvalidMatch, loop.match, """
@@ -512,7 +512,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
             --TICK--
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_match_by_id(self):

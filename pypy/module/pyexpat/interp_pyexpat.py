@@ -1,12 +1,12 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rgc
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.platform import platform
+from rpython.rlib import rgc, jit
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import platform
 
 import sys
 import weakref
@@ -182,6 +182,8 @@ class Storage:
 
     def clear(self):
         self.next_id = 0
+        self._last_object_id = -1
+        self._last_object = None
         self.storage = {}
 
     @staticmethod
@@ -194,15 +196,23 @@ class Storage:
 
     @staticmethod
     def get_object(id):
-        return global_storage.storage[id]
+        if id == global_storage._last_object_id:
+            return global_storage._last_object
+        result = global_storage.storage[id]
+        global_storage._last_object_id = id
+        global_storage._last_object = result
+        return result
 
     @staticmethod
     def free_nonmoving_id(id):
+        if id == global_storage._last_object_id:
+            global_storage._last_object = None
+            global_storage._last_object_id = -1
         del global_storage.storage[id]
 
 global_storage = Storage()
 
-class CallbackData(Wrappable):
+class CallbackData(W_Root):
     def __init__(self, space, parser):
         self.space = space
         self.parser = weakref.ref(parser)
@@ -278,6 +288,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         post_code = ''
 
     src = py.code.Source("""
+    @jit.jit_callback('XML:%(name)s')
     def %(name)s_callback(%(first_arg)s, %(args)s):
         id = rffi.cast(lltype.Signed, %(ll_id)s)
         userdata = global_storage.get_object(id)
@@ -403,8 +414,8 @@ class Cache:
     def __init__(self, space):
         self.w_error = space.new_exception_class("pyexpat.ExpatError")
 
-class W_XMLParserType(Wrappable):
 
+class W_XMLParserType(W_Root):
     def __init__(self, space, parser, w_intern):
         self.itself = parser
 
@@ -432,7 +443,10 @@ class W_XMLParserType(Wrappable):
         if XML_ParserFree: # careful with CPython interpreter shutdown
             XML_ParserFree(self.itself)
         if global_storage:
-            global_storage.free_nonmoving_id(self.id)
+            try:
+                global_storage.free_nonmoving_id(self.id)
+            except KeyError:
+                pass    # maybe global_storage.clear() was already called
 
     @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):
@@ -625,10 +639,13 @@ Parse XML data.  `isfinal' should be true at end of input."""
     def ParseFile(self, space, w_file):
         """ParseFile(file)
 Parse XML data from file-like object."""
-        # XXX not the more efficient method
-        w_data = space.call_method(w_file, 'read')
-        data = space.str_w(w_data)
-        return self.Parse(space, data, isfinal=True)
+        eof = False
+        while not eof:
+            w_data = space.call_method(w_file, 'read', space.wrap(2048))
+            data = space.str_w(w_data)
+            eof = len(data) == 0
+            w_res = self.Parse(space, data, isfinal=eof)
+        return w_res
 
     @unwrap_spec(base=str)
     def SetBase(self, space, base):
@@ -779,7 +796,7 @@ def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
 Return a new XML parser object."""
     if space.is_none(w_encoding):
         encoding = None
-    elif space.is_true(space.isinstance(w_encoding, space.w_str)):
+    elif space.isinstance_w(w_encoding, space.w_str):
         encoding = space.str_w(w_encoding)
     else:
         type_name = space.type(w_encoding).getname(space)
@@ -790,7 +807,7 @@ Return a new XML parser object."""
 
     if space.is_none(w_namespace_separator):
         namespace_separator = 0
-    elif space.is_true(space.isinstance(w_namespace_separator, space.w_str)):
+    elif space.isinstance_w(w_namespace_separator, space.w_str):
         separator = space.str_w(w_namespace_separator)
         if len(separator) == 0:
             namespace_separator = 0

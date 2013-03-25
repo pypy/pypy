@@ -1,8 +1,8 @@
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rstring import StringBuilder
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
 import sys, os, stat, errno
 from pypy.module._io.interp_iobase import W_RawIOBase, convert_size
@@ -117,9 +117,6 @@ def new_buffersize(fd, currentsize):
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
 
-def verify_fd(fd):
-    return
-
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
         W_RawIOBase.__init__(self, space)
@@ -153,41 +150,48 @@ class W_FileIO(W_RawIOBase):
 
         self.readable, self.writable, append, flags = decode_mode(space, mode)
 
-        if fd >= 0:
-            verify_fd(fd)
-            try:
-                os.fstat(fd)
-            except OSError, e:
-                if e.errno == errno.EBADF:
-                    raise wrap_oserror(space, e)
-                # else: pass
-            self.fd = fd
-            self.closefd = bool(closefd)
-        else:
-            if not closefd:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "Cannot use closefd=False with file name"))
-            self.closefd = True
+        fd_is_own = False
+        try:
+            if fd >= 0:
+                try:
+                    os.fstat(fd)
+                except OSError, e:
+                    if e.errno == errno.EBADF:
+                        raise wrap_oserror(space, e)
+                    # else: pass
+                self.fd = fd
+                self.closefd = bool(closefd)
+            else:
+                self.closefd = True
+                if not closefd:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "Cannot use closefd=False with file name"))
 
-            from pypy.module.posix.interp_posix import (
-                dispatch_filename, rposix)
-            try:
-                self.fd = dispatch_filename(rposix.open)(
-                    space, w_name, flags, 0666)
-            except OSError, e:
-                raise wrap_oserror2(space, e, w_name,
-                                    exception_name='w_IOError')
+                from pypy.module.posix.interp_posix import (
+                    dispatch_filename, rposix)
+                try:
+                    self.fd = dispatch_filename(rposix.open)(
+                        space, w_name, flags, 0666)
+                except OSError, e:
+                    raise wrap_oserror2(space, e, w_name,
+                                        exception_name='w_IOError')
+                finally:
+                    fd_is_own = True
 
             self._dircheck(space, w_name)
-        self.w_name = w_name
+            self.w_name = w_name
 
-        if append:
-            # For consistent behaviour, we explicitly seek to the end of file
-            # (otherwise, it might be done only on the first write()).
-            try:
-                os.lseek(self.fd, 0, os.SEEK_END)
-            except OSError, e:
-                raise wrap_oserror(space, e, exception_name='w_IOError')
+            if append:
+                # For consistent behaviour, we explicitly seek to the end of file
+                # (otherwise, it might be done only on the first write()).
+                try:
+                    os.lseek(self.fd, 0, os.SEEK_END)
+                except OSError, e:
+                    raise wrap_oserror(space, e, exception_name='w_IOError')
+        except:
+            if not fd_is_own:
+                self.fd = -1
+            raise
 
     def _mode(self):
         if self.readable:
@@ -229,7 +233,6 @@ class W_FileIO(W_RawIOBase):
         self.fd = -1
 
         try:
-            verify_fd(fd)
             os.close(fd)
         except OSError, e:
             raise wrap_oserror(space, e,
@@ -253,7 +256,6 @@ class W_FileIO(W_RawIOBase):
         except OSError:
             return
         if stat.S_ISDIR(st.st_mode):
-            self._close(space)
             raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
                                 w_filename, exception_name='w_IOError')
 
@@ -288,7 +290,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         if self.seekable < 0:
             try:
-                pos = os.lseek(self.fd, 0, os.SEEK_CUR)
+                os.lseek(self.fd, 0, os.SEEK_CUR)
             except OSError:
                 self.seekable = 0
             else:
@@ -401,7 +403,7 @@ class W_FileIO(W_RawIOBase):
 
     if sys.platform == "win32":
         def _truncate(self, size):
-            from pypy.rlib.streamio import ftruncate_win32
+            from rpython.rlib.streamio import ftruncate_win32
             ftruncate_win32(self.fd, size)
     else:
         def _truncate(self, size):

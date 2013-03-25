@@ -1,8 +1,8 @@
 import re, sys
 
-from pypy.jit.metainterp.resoperation import opname
-from pypy.jit.tool.oparser import OpParser
-from pypy.tool.logparser import parse_log_file, extract_category
+from rpython.jit.metainterp.resoperation import opname
+from rpython.jit.tool.oparser import OpParser
+from rpython.tool.logparser import parse_log_file, extract_category
 from copy import copy
 
 def parse_code_data(arg):
@@ -34,7 +34,7 @@ class Op(object):
         self.descr = descr
         self._is_guard = name.startswith('guard_')
         if self._is_guard:
-            self.guard_no = int(self.descr[len('<Guard'):-1])
+            self.guard_no = int(self.descr[len('<Guard'):-1], 16)
 
     def setfailargs(self, failargs):
         self.failargs = failargs
@@ -113,7 +113,7 @@ class SimpleParser(OpParser):
         return loop
 
     def _asm_disassemble(self, d, origin_addr, tp):
-        from pypy.jit.backend.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump
         return list(machine_code_dump(d, tp, origin_addr))
 
     @classmethod
@@ -215,6 +215,7 @@ class Function(object):
     _lineset = None
     is_bytecode = False
     inline_level = None
+    bytecode_name = None
 
     # factory method
     TraceForOpcode = TraceForOpcode
@@ -244,23 +245,29 @@ class Function(object):
             return ",".join([str(len(v)) for v in stack])
 
         def append_to_res(bc):
-            if not stack:
-                stack.append([])
-            else:
-                if bc.inline_level is not None and bc.inline_level + 1 != len(stack):
-                    if bc.inline_level < len(stack):
+            if bc.inline_level is not None:
+                if bc.inline_level == len(stack) - 1:
+                    pass
+                elif bc.inline_level > len(stack) - 1:
+                    stack.append([])
+                else:
+                    while bc.inline_level + 1 < len(stack):
                         last = stack.pop()
                         stack[-1].append(cls(last, getpath(stack), storage))
-                    else:
-                        stack.append([])
             stack[-1].append(bc)
 
         so_far = []
         stack = []
+        nothing_yet = True
         for op in operations:
             if op.name == 'debug_merge_point':
                 if so_far:
-                    append_to_res(cls.TraceForOpcode(so_far, storage, loopname))
+                    opc = cls.TraceForOpcode(so_far, storage, loopname)
+                    if nothing_yet:
+                        nothing_yet = False
+                        for i in xrange(opc.inline_level + 1):
+                            stack.append([])
+                    append_to_res(opc)
                     if limit:
                         break
                     so_far = []
@@ -343,7 +350,7 @@ def adjust_bridges(loop, bridges):
     i = 0
     while i < len(ops):
         op = ops[i]
-        if op.is_guard() and bridges.get('loop-' + str(op.guard_no), None):
+        if op.is_guard() and bridges.get('loop-' + hex(op.guard_no)[2:], None):
             res.append(op)
             i = 0
             if hasattr(op.bridge, 'force_asm'):
@@ -357,16 +364,17 @@ def adjust_bridges(loop, bridges):
 
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
+    hex_re = '0x([\da-f]+)'
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
-        m = re.search('bootstrap ([-\da-f]+)', entry)
+        m = re.search('bootstrap ' + hex_re, entry)
         if not m:
             # a bridge
-            m = re.search('has address ([-\da-f]+)', entry)
+            m = re.search('has address ' + hex_re, entry)
             addr = int(m.group(1), 16)
             entry = entry.lower()
-            m = re.search('guard \d+', entry)
-            name = m.group(0)
+            m = re.search('guard ' + hex_re, entry)
+            name = 'guard ' + m.group(1)
         else:
             name = entry[:entry.find('(') - 1].lower()
             addr = int(m.group(1), 16)
@@ -388,8 +396,8 @@ def import_log(logname, ParserCls=SimpleParser):
         comm = loop.comment
         comm = comm.lower()
         if comm.startswith('# bridge'):
-            m = re.search('guard \d+', comm)
-            name = m.group(0)
+            m = re.search('guard ([\da-f]+)', comm)
+            name = 'guard ' + m.group(1)
         elif "(" in comm:
             name = comm[2:comm.find('(')-1]
         else:
@@ -407,7 +415,8 @@ def import_log(logname, ParserCls=SimpleParser):
 def split_trace(trace):
     labels = [0]
     if trace.comment and 'Guard' in trace.comment:
-        descrs = ['bridge ' + re.search('Guard (\d+)', trace.comment).group(1)]
+        descrs = ['bridge %d' % int(
+            re.search('Guard 0x([\da-f]+)', trace.comment).group(1), 16)]
     else:
         descrs = ['entry ' + re.search('Loop (\d+)', trace.comment).group(1)]
     for i, op in enumerate(trace.operations):
@@ -437,3 +446,7 @@ def parse_log_counts(input, loops):
         if line:
             num, count = line.split(':', 2)
             mapping[num].count = int(count)
+
+if __name__ == '__main__':
+    import_log(sys.argv[1])
+    

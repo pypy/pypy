@@ -225,7 +225,7 @@ class Reader(object):
         self._parse_reset()
         while True:
             try:
-                line = self.input_iter.next()
+                line = next(self.input_iter)
             except StopIteration:
                 # End of input OR exception
                 if len(self.field) > 0:

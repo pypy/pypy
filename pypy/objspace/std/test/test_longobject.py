@@ -1,6 +1,6 @@
 import py
 from pypy.objspace.std import longobject as lobj
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib.rbigint import rbigint
 
 
 class TestW_LongObject:
@@ -15,9 +15,12 @@ class TestW_LongObject:
         w_obj = space.wrap(123.456)
         space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
 
+        w_obj = fromlong(42)
+        assert space.unwrap(w_obj) == 42
+
     def test_rint_variants(self):
         py.test.skip("XXX broken!")
-        from pypy.rpython.tool.rfficache import platform
+        from rpython.rtyper.tool.rfficache import platform
         space = self.space
         for r in platform.numbertype_to_rclass.values():
             if r is int:

@@ -1,11 +1,13 @@
 import sys
-from pypy.rlib import rposix
+
+from rpython.rlib import rposix
+
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.gateway import unwrap_spec
 
 WIN32 = sys.platform == 'win32'
 if WIN32:
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
 
 
 ExecutionContext._cffi_saved_errno = 0

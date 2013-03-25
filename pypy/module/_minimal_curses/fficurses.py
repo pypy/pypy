@@ -2,12 +2,12 @@
 """ The ffi for rpython, need to be imported for side effects
 """
 
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.extfunc import register_external
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.extfunc import register_external
 from pypy.module._minimal_curses import interp_curses
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from sys import platform
 import os.path
 
@@ -35,7 +35,7 @@ c_setupterm = rffi.llexternal('setupterm', [rffi.CCHARP, INT, INTP], INT,
 c_tigetstr = rffi.llexternal('tigetstr', [rffi.CCHARP], rffi.CCHARP,
                              compilation_info=eci)
 c_tparm = rffi.llexternal('tparm', [rffi.CCHARP, INT, INT, INT, INT, INT,
-                                    INT, INT, INT, INT, INT], rffi.CCHARP,
+                                    INT, INT, INT, INT], rffi.CCHARP,
                           compilation_info=eci)
 
 ERR = rffi.CConstant('ERR', lltype.Signed)
@@ -97,13 +97,13 @@ register_external(interp_curses._curses_tigetstr, [str], str,
 
 def tparm_llimpl(s, args):
     check_setup_invoked()
-    l = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    for i in range(min(len(args), 10)):
+    l = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for i in range(min(len(args), 9)):
         l[i] = args[i]
     ll_s = rffi.str2charp(s)
     # XXX nasty trick stolen from CPython
     ll_res = c_tparm(ll_s, l[0], l[1], l[2], l[3], l[4], l[5], l[6],
-                     l[7], l[8], l[9])
+                     l[7], l[8])
     rffi.free_charp(ll_s)
     res = rffi.charp2str(ll_res)
     return res

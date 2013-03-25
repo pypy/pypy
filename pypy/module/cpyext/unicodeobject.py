@@ -1,6 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.lltypesystem import llmemory
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
@@ -14,8 +13,8 @@ from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
-from pypy.rlib import runicode
-from pypy.tool.sourcetools import func_renamer
+from rpython.rlib import runicode
+from rpython.tool.sourcetools import func_renamer
 import sys
 
 ## See comment in stringobject.py.
@@ -388,7 +387,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     # - unicode is disallowed
     # - raise TypeError for non-string types
-    if space.is_true(space.isinstance(w_obj, space.w_unicode)):
+    if space.isinstance_w(w_obj, space.w_unicode):
         w_meth = None
     else:
         try:

@@ -57,7 +57,8 @@ the need to emulate refcounting.  It is often faster to take out your
 CPython extension and replace it with a pure python version that the
 JIT can see.
 
-We fully support ctypes-based extensions.
+We fully support ctypes-based extensions. But for best performance, we
+recommend that you use the cffi_ module to interface with C code.
 
 For information on which third party extensions work (or do not work) 
 with PyPy see the `compatibility wiki`_.
@@ -65,7 +66,9 @@ with PyPy see the `compatibility wiki`_.
 
 .. _`extension modules`: cpython_differences.html#extension-modules
 .. _`cpython differences`: cpython_differences.html
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _`compatibility wiki`:
+.. https://bitbucket.org/pypy/compatibility/wiki/Home
+.. _cffi: http://cffi.readthedocs.org/
 
 ---------------------------------
 On which platforms does PyPy run?
@@ -77,6 +80,7 @@ extensively). PyPy needs a CPython running on the target platform to
 bootstrap, as cross compilation is not really meant to work yet.
 At the moment you need CPython 2.5 - 2.7
 for the translation process. PyPy's JIT requires an x86 or x86_64 CPU.
+(There has also been good progress on getting the JIT working for ARMv7.)
 
 ------------------------------------------------
 Which Python version (2.x?) does PyPy implement?
@@ -202,20 +206,20 @@ This will disable SELinux's protection and allow PyPy to configure correctly.
 Be sure to enable it again if you need it!
 
 
-The PyPy translation tool chain
-===============================
+The RPython translation tool chain
+===================================
 
----------------------------------------------
-Can PyPy compile normal Python programs to C?
----------------------------------------------
+------------------------------------------------
+Can RPython compile normal Python programs to C?
+------------------------------------------------
 
-No, PyPy is not a Python compiler.
+No, RPython is not a Python compiler.
 
 In Python, it is mostly impossible to *prove* anything about the types
 that a program will manipulate by doing a static analysis.  It should be
 clear if you are familiar with Python, but if in doubt see [BRETT]_.
 
-If you want a fast Python program, please use our JIT_ instead.
+If you want a fast Python program, please use the PyPy JIT_ instead.
 
 .. _JIT: jit/index.html
 
@@ -300,12 +304,26 @@ coercion rules would probably drive you insane first).  -- mwh
 Do I have to rewrite my programs in RPython?
 --------------------------------------------
 
-No.  And you shouldn't try.  PyPy always runs your code in its own interpreter, which is a
-full and compliant Python 2.7 interpreter.  RPython is only the
-language in which parts of PyPy itself are written and extension
-modules for it.  Not only is it not necessary for you to rewrite your
-code in RPython, it probably won't give you any speed improvements if you 
-try.
+No, and you shouldn't try.  First and foremost, RPython is a language
+designed for writing interpreters. It is a restricted subset of
+Python.  If you program is not an interpreter but tries to do "real
+things", like use *any* part of the standard Python library or *any*
+3rd-party library, then it is not RPython to start with.  You should
+only look at RPython if you try to `write your own interpreter`__.
+
+.. __: `how do I compile my own interpreters`_
+
+If your goal is to speed up Python code, then look at the regular PyPy,
+which is a full and compliant Python 2.7 interpreter (which happens to
+be written in RPython).  Not only is it not necessary for you to rewrite
+your code in RPython, it might not give you any speed improvements even
+if you manage to.
+
+Yes, it is possible with enough effort to compile small self-contained
+pieces of RPython code doing a few performance-sensitive things.  But
+this case is not interesting for us.  If you needed to rewrite the code
+in RPython, you could as well have rewritten it in C for example.  The
+latter is a much more supported, much more documented language `:-)`
 
 ---------------------------------------------------
 Which backends are there for the RPython toolchain?
@@ -367,16 +385,15 @@ Can RPython modules for PyPy be translated independently?
 
 No, you have to rebuild the entire interpreter.  This means two things:
 
-* It is imperative to use test-driven development.  You have to test
-  exhaustively your module in pure Python, before even attempting to
+* It is imperative to use test-driven development.  You have to exhaustively
+  test your module in pure Python, before even attempting to
   translate it.  Once you translate it, you should have only a few typing
   issues left to fix, but otherwise the result should work out of the box.
 
 * Second, and perhaps most important: do you have a really good reason
   for writing the module in RPython in the first place?  Nowadays you
   should really look at alternatives, like writing it in pure Python,
-  using ctypes if it needs to call C code.  Other alternatives are being
-  developed too (as of summer 2011), like a Cython binding.
+  using cffi_ if it needs to call C code.
 
 In this context it is not that important to be able to translate
 RPython modules independently of translating the complete interpreter.

@@ -2,11 +2,11 @@ import new
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict, descr_set_dict
-from pypy.rlib.objectmodel import compute_identity_hash
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
+from rpython.rlib.objectmodel import compute_identity_hash
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
 
 
 def raise_type_err(space, argument, expected, w_obj):
@@ -25,10 +25,10 @@ def unwrap_attr(space, w_attr):
         # XXX it's not clear that we have to catch the TypeError...
 
 def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
-    if not space.is_true(space.isinstance(w_bases, space.w_tuple)):
+    if not space.isinstance_w(w_bases, space.w_tuple):
         raise_type_err(space, 'bases', 'tuple', w_bases)
 
-    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+    if not space.isinstance_w(w_dict, space.w_dict):
         raise_type_err(space, 'bases', 'tuple', w_bases)
 
     if not space.is_true(space.contains(w_dict, space.wrap("__doc__"))):
@@ -48,7 +48,8 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
 
     return W_ClassObject(space, w_name, bases_w, w_dict)
 
-class W_ClassObject(Wrappable):
+
+class W_ClassObject(W_Root):
     def __init__(self, space, w_name, bases, w_dict):
         self.name = space.str_w(w_name)
         make_sure_not_resized(bases)
@@ -67,27 +68,24 @@ class W_ClassObject(Wrappable):
         return self.w_dict
 
     def setdict(self, space, w_dict):
-        if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+        if not space.isinstance_w(w_dict, space.w_dict):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("__dict__ must be a dictionary object"))
         self.w_dict = w_dict
 
     def setname(self, space, w_newname):
-        if not space.is_true(space.isinstance(w_newname, space.w_str)):
-            raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("__name__ must be a string object"))
+        if not space.isinstance_w(w_newname, space.w_str):
+            raise OperationError(space.w_TypeError,
+                space.wrap("__name__ must be a string object")
+            )
         self.name = space.str_w(w_newname)
 
     def setbases(self, space, w_bases):
-        # XXX in theory, this misses a check against inheritance cycles
-        # although on pypy we don't get a segfault for infinite
-        # recursion anyway
-        if not space.is_true(space.isinstance(w_bases, space.w_tuple)):
-            raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("__bases__ must be a tuple object"))
+        if not space.isinstance_w(w_bases, space.w_tuple):
+            raise OperationError(space.w_TypeError,
+                space.wrap("__bases__ must be a tuple object")
+            )
         bases_w = space.fixedview(w_bases)
         for w_base in bases_w:
             if not isinstance(w_base, W_ClassObject):
@@ -154,9 +152,9 @@ class W_ClassObject(Wrappable):
                 return
             elif name == "__del__":
                 if self.lookup(space, name) is None:
-                    msg = ("a __del__ method added to an existing class "
-                           "will not be called")
-                    space.warn(msg, space.w_RuntimeWarning)
+                    msg = ("a __del__ method added to an existing class will "
+                           "not be called")
+                    space.warn(space.wrap(msg), space.w_RuntimeWarning)
         space.setitem(self.w_dict, w_attr, w_value)
 
     def descr_delattr(self, space, w_attr):
@@ -193,7 +191,7 @@ class W_ClassObject(Wrappable):
             if not e.match(space, space.w_AttributeError):
                 raise
             return "?"
-        if space.is_true(space.isinstance(w_mod, space.w_str)):
+        if space.isinstance_w(w_mod, space.w_str):
             return space.str_w(w_mod)
         return "?"
 
@@ -315,7 +313,8 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
         w_result.setdict(space, w_dict)
     return w_result
 
-class W_InstanceObject(Wrappable):
+
+class W_InstanceObject(W_Root):
     def __init__(self, space, w_class):
         # note that user_setup is overridden by the typedef.py machinery
         self.user_setup(space, space.gettypeobject(self.typedef))
@@ -395,9 +394,9 @@ class W_InstanceObject(Wrappable):
                 cache = space.fromcache(Cache)
                 if (not isinstance(self, cache.cls_with_del)
                     and self.getdictvalue(space, '__del__') is None):
-                    msg = ("a __del__ method added to an instance "
-                           "with no __del__ in the class will not be called")
-                    space.warn(msg, space.w_RuntimeWarning)
+                    msg = ("a __del__ method added to an instance with no "
+                           "__del__ in the class will not be called")
+                    space.warn(space.wrap(msg), space.w_RuntimeWarning)
         if w_meth is not None:
             space.call_function(w_meth, w_name, w_value)
         else:
@@ -454,17 +453,15 @@ class W_InstanceObject(Wrappable):
             else:
                 w_as_str = self.descr_str(space)
             if space.len_w(w_format_spec) > 0:
-                space.warn(
-                    ("object.__format__ with a non-empty format string is "
-                        "deprecated"),
-                    space.w_PendingDeprecationWarning
-                )
+                msg = ("object.__format__ with a non-empty format string is "
+                       "deprecated")
+                space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
             return space.format(w_as_str, w_format_spec)
 
     def descr_len(self, space):
         w_meth = self.getattr(space, '__len__')
         w_result = space.call_function(w_meth)
-        if space.is_true(space.isinstance(w_result, space.w_int)):
+        if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
                 raise OperationError(
                     space.w_ValueError,
@@ -532,7 +529,7 @@ class W_InstanceObject(Wrappable):
             if w_func is None:
                 return space.w_True
         w_result = space.call_function(w_func)
-        if space.is_true(space.isinstance(w_result, space.w_int)):
+        if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
                 raise OperationError(
                     space.w_ValueError,
@@ -594,16 +591,16 @@ class W_InstanceObject(Wrappable):
     def descr_hash(self, space):
         w_func = self.getattr(space, '__hash__', False)
         if w_func is None:
-            w_eq =  self.getattr(space, '__eq__', False)
-            w_cmp =  self.getattr(space, '__cmp__', False)
+            w_eq = self.getattr(space, '__eq__', False)
+            w_cmp = self.getattr(space, '__cmp__', False)
             if w_eq is not None or w_cmp is not None:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("unhashable instance"))
             else:
                 return space.wrap(compute_identity_hash(self))
         w_ret = space.call_function(w_func)
-        if (not space.is_true(space.isinstance(w_ret, space.w_int)) and
-            not space.is_true(space.isinstance(w_ret, space.w_long))):
+        if (not space.isinstance_w(w_ret, space.w_int) and
+            not space.isinstance_w(w_ret, space.w_long)):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("__hash__ must return int or long"))
@@ -653,7 +650,6 @@ class W_InstanceObject(Wrappable):
                 raise
             if space.eq_w(w_x, w_obj):
                 return space.w_True
-
 
     def descr_pow(self, space, w_other, w_modulo=None):
         if space.is_none(w_modulo):

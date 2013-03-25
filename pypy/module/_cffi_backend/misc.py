@@ -1,11 +1,13 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib import jit
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.interpreter.error import OperationError
+
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 
@@ -43,14 +45,14 @@ def read_raw_long_data(target, size):
 def read_raw_unsigned_data(target, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
-            return rffi.cast(lltype.UnsignedLongLong, rffi.cast(TPP,target)[0])
+            return rffi.cast(lltype.UnsignedLongLong, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad integer size")
 
 def read_raw_ulong_data(target, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
             assert rffi.sizeof(TP) <= rffi.sizeof(lltype.Unsigned)
-            return rffi.cast(lltype.Unsigned, rffi.cast(TPP,target)[0])
+            return rffi.cast(lltype.Unsigned, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad integer size")
 
 def read_raw_float_data(target, size):
@@ -104,9 +106,8 @@ def longdouble2str(lvalue):
 def _is_a_float(space, w_ob):
     from pypy.module._cffi_backend.cdataobj import W_CData
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
-    ob = space.interpclass_w(w_ob)
-    if isinstance(ob, W_CData):
-        return isinstance(ob.ctype, W_CTypePrimitiveFloat)
+    if isinstance(w_ob, W_CData):
+        return isinstance(w_ob.ctype, W_CTypePrimitiveFloat)
     return space.isinstance_w(w_ob, space.w_float)
 
 def as_long_long(space, w_ob):
@@ -201,6 +202,11 @@ def as_unsigned_long(space, w_ob, strict):
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
 
+def is_zero(space, w_ob):
+    return ((space.isinstance_w(w_ob, space.w_int) or
+             space.isinstance_w(w_ob, space.w_long))
+            and not space.is_true(w_ob))
+
 # ____________________________________________________________
 
 class _NotStandardObject(Exception):
@@ -236,14 +242,14 @@ def object_as_bool(space, w_ob):
     from pypy.module._cffi_backend.cdataobj import W_CData
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
-    ob = space.interpclass_w(w_ob)
-    is_cdata = isinstance(ob, W_CData)
-    if is_cdata and isinstance(ob.ctype, W_CTypePrimitiveFloat):
-        if isinstance(ob.ctype, W_CTypePrimitiveLongDouble):
-            result = is_nonnull_longdouble(read_raw_longdouble_data(ob._cdata))
+    is_cdata = isinstance(w_ob, W_CData)
+    if is_cdata and isinstance(w_ob.ctype, W_CTypePrimitiveFloat):
+        if isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble):
+            result = is_nonnull_longdouble(
+                read_raw_longdouble_data(w_ob._cdata))
         else:
-            result = read_raw_float_data(ob._cdata, ob.ctype.size) != 0.0
-        keepalive_until_here(ob)
+            result = read_raw_float_data(w_ob._cdata, w_ob.ctype.size) != 0.0
+        keepalive_until_here(w_ob)
         return result
     #
     if not is_cdata and space.lookup(w_ob, '__float__') is not None:

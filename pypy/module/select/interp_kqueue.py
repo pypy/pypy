@@ -1,12 +1,12 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
-from pypy.rlib._rsocket_rffi import socketclose
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib._rsocket_rffi import socketclose
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 
@@ -103,7 +103,7 @@ syscall_kevent = rffi.llexternal(
 )
 
 
-class W_Kqueue(Wrappable):
+class W_Kqueue(W_Root):
     def __init__(self, space, kqfd):
         self.kqfd = kqfd
 
@@ -232,7 +232,7 @@ W_Kqueue.typedef = TypeDef("select.kqueue",
 W_Kqueue.typedef.acceptable_as_base_class = False
 
 
-class W_Kevent(Wrappable):
+class W_Kevent(W_Root):
     def __init__(self, space):
         self.event = lltype.nullptr(kevent)
 

@@ -2,8 +2,8 @@ import py
 import sys
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.rlib.rarithmetic import r_uint, is_valid_int
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import r_uint, is_valid_int
+from rpython.rlib.rbigint import rbigint
 
 
 class TestW_IntObject:
@@ -268,7 +268,7 @@ class TestW_IntObject:
 
     def test_int(self):
         f1 = iobj.W_IntObject(1)
-        result = iobj.int__Int(self.space, f1)
+        result = f1.int(self.space)
         assert result == f1
 
     def test_oct(self):

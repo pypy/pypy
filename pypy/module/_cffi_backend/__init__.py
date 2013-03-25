@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import rdynload
+from rpython.rlib import rdynload
 
 
 class Module(MixedModule):
@@ -7,7 +7,7 @@ class Module(MixedModule):
     appleveldefs = {
         }
     interpleveldefs = {
-        '__version__': 'space.wrap("0.4")',
+        '__version__': 'space.wrap("0.6")',
 
         'load_library': 'libraryobj.load_library',
 

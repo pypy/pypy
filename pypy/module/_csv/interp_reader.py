@@ -1,5 +1,5 @@
-from pypy.rlib.rstring import StringBuilder
-from pypy.interpreter.baseobjspace import Wrappable
+from rpython.rlib.rstring import StringBuilder
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp2app
@@ -13,7 +13,7 @@ from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
  EAT_CRNL) = range(8)
 
 
-class W_Reader(Wrappable):
+class W_Reader(W_Root):
 
     def __init__(self, space, dialect, w_iter):
         self.space = space

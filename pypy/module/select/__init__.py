@@ -32,7 +32,7 @@ class Module(MixedModule):
             interpleveldefs[symbol] = "space.wrap(interp_kqueue.%s)" % symbol
 
     def buildloaders(cls):
-        from pypy.rlib import rpoll
+        from rpython.rlib import rpoll
         for name in rpoll.eventnames:
             value = getattr(rpoll, name)
             Module.interpleveldefs[name] = "space.wrap(%r)" % value

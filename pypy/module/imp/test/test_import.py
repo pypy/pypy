@@ -3,8 +3,8 @@ from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
-from pypy.tool.udir import udir
-from pypy.rlib import streamio
+from rpython.tool.udir import udir
+from rpython.rlib import streamio
 from pypy.tool.option import make_config
 from pypy.tool.pytest.objspace import maketestobjspace
 import pytest
@@ -727,7 +727,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
                     space, cpathname, stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
         assert type(pycode) is pypy.interpreter.pycode.PyCode
@@ -772,7 +772,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is pypy.interpreter.pycode.PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
@@ -911,7 +911,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
@@ -939,7 +939,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(space, cpathname,
                                                     stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
 

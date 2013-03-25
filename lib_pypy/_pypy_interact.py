@@ -4,7 +4,7 @@ import sys
 import os
 
 
-def interactive_console(mainmodule=None):
+def interactive_console(mainmodule=None, quiet=False):
     # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
     # mimics what CPython does in pythonrun.c
     if not hasattr(sys, 'ps1'):
@@ -12,17 +12,18 @@ def interactive_console(mainmodule=None):
     if not hasattr(sys, 'ps2'):
         sys.ps2 = '.... '
     #
-    try:
-        from _pypy_irc_topic import some_topic
-        text = "And now for something completely different: ``%s''" % (
-            some_topic(),)
-        while len(text) >= 80:
-            i = text[:80].rfind(' ')
-            print text[:i]
-            text = text[i+1:]
-        print text
-    except ImportError:
-        pass
+    if not quiet:
+        try:
+            from _pypy_irc_topic import some_topic
+            text = "And now for something completely different: ``%s''" % (
+                some_topic(),)
+            while len(text) >= 80:
+                i = text[:80].rfind(' ')
+                print(text[:i])
+                text = text[i+1:]
+            print(text)
+        except ImportError:
+            pass
     #
     try:
         if not os.isatty(sys.stdin.fileno()):

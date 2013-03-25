@@ -6,7 +6,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rlib.rbigint import rbigint, SHIFT
+from rpython.rlib.rbigint import rbigint, SHIFT
 
 class W_AbstractLongObject(W_Object):
     __slots__ = ()
@@ -26,6 +26,9 @@ class W_AbstractLongObject(W_Object):
         b = b.lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(b)
 
+    def unwrap(w_self, space): #YYYYYY
+        return w_self.longval()
+
 
 class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
@@ -41,9 +44,6 @@ class W_LongObject(W_AbstractLongObject):
 
     def longval(self):
         return self.num.tolong()
-
-    def unwrap(w_self, space): #YYYYYY
-        return w_self.longval()
 
     def tofloat(self):
         return self.num.tofloat()
@@ -83,6 +83,15 @@ class W_LongObject(W_AbstractLongObject):
 
     def bigint_w(w_self, space):
         return w_self.num
+
+    def float_w(self, space):
+        return self.num.tofloat()
+
+    def int(self, space):
+        try:
+            return space.newint(self.num.toint())
+        except OverflowError:
+            return long__Long(space, self)
 
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
@@ -126,12 +135,6 @@ trunc__Long = long__Long
 
 def long__Int(space, w_intobj):
     return space.newlong(w_intobj.intval)
-
-def int__Long(space, w_value):
-    try:
-        return space.newint(w_value.num.toint())
-    except OverflowError:
-        return long__Long(space, w_value)
 
 def index__Long(space, w_value):
     return long__Long(space, w_value)

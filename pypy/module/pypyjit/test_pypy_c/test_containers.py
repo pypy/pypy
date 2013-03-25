@@ -115,7 +115,7 @@ class TestDicts(BaseTestPyPyC):
             i35 = int_add_ovf(i5, i34)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i35, p13, i7, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_floatlist_unpack_without_calls(self):

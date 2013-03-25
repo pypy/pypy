@@ -12,19 +12,18 @@ Trying out the translator
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static RPython programs into low-level code (in particular it can
 be used to translate the `full Python interpreter`_). To be able to experiment with it
-you need to:
+you need to download and install the usual (CPython) version of:
 
-  * Download and install Pygame_.
-
-  * Download and install `Dot Graphviz`_ 
+  * Pygame_
+  * `Dot Graphviz`_
 
 To start the interactive translator shell do::
 
-    cd pypy
+    cd rpython
     python bin/translatorshell.py
 
 Test snippets of translatable code are provided in the file
-``pypy/translator/test/snippet.py``, which is imported under the name
+``rpython/translator/test/snippet.py``, which is imported under the name
 ``snippet``.  For example::
 
     >>> t = Translation(snippet.is_perfect_number, [int])
@@ -52,16 +51,17 @@ Translating the flow graph to C code
 The graph can be turned into C code::
 
    >>> t.rtype()
-   >>> f = t.compile_c()
+   >>> lib = t.compile_c()
 
 The first command replaces the operations with other low level versions that
-only use low level types that are available in C (e.g. int). To try out the
-compiled version::
+only use low level types that are available in C (e.g. int). The compiled
+version is now in a ``.so`` library. You can run it say using ctypes:
 
+   >>> f = get_c_function(lib, snippet.is_perfect_number)
    >>> f(5)
-   False
+   0
    >>> f(6)
-   True
+   1
 
 Translating the flow graph to CLI or JVM code
 +++++++++++++++++++++++++++++++++++++++++++++
@@ -107,8 +107,7 @@ A slightly larger example
 
 There is a small-to-medium demo showing the translator and the annotator::
 
-    cd demo
-    ../pypy/translator/goal/translate.py --view --annotate bpnn.py
+    python bin/rpython --view --annotate translator/goal/bpnn.py
 
 This causes ``bpnn.py`` to display itself as a call graph and class
 hierarchy.  Clicking on functions shows the flow graph of the particular
@@ -119,24 +118,34 @@ instances) is computed by the annotator.
 To turn this example to C code (compiled to the executable ``bpnn-c``),
 type simply::
 
-    ../pypy/translator/goal/translate.py bpnn.py
+    python bin/rpython translator/goal/bpnn.py
 
 
 Translating Full Programs
 +++++++++++++++++++++++++
 
 To translate full RPython programs, there is the script ``translate.py`` in
-``translator/goal``. Examples for this are a slightly changed version of
+``rpython/translator/goal``. Examples for this are a slightly changed version of
 Pystone::
 
-    cd pypy/translator/goal
-    python translate.py targetrpystonedalone
+    python bin/rpython translator/goal/targetrpystonedalone
 
 This will produce the executable "targetrpystonedalone-c".
 
 The largest example of this process is to translate the `full Python
 interpreter`_. There is also an FAQ about how to set up this process for `your
 own interpreters`_.
+
+There are several environment variables you can find useful while playing with the RPython:
+
+``PYPY_USESSION_DIR``
+    RPython uses temporary session directories to store files that are generated during the 
+    translation process(e.g., translated C files). ``PYPY_USESSION_DIR`` serves as a base directory for these session
+    dirs. The default value for this variable is the system's temporary dir.
+
+``PYPY_USESSION_KEEP``
+    By default RPython keeps only the last ``PYPY_USESSION_KEEP`` (defaults to 3) session dirs inside ``PYPY_USESSION_DIR``. 
+    Increase this value if you want to preserve C files longer (useful when producing lots of lldebug builds).
 
 .. _`your own interpreters`: faq.html#how-do-i-compile-my-own-interpreters
 
@@ -171,23 +180,23 @@ or start off at one of the following points:
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `pypy/translator`_ contains the code analysis and generation stuff.
+*  `rpython/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py, from which it should be easy to follow
    the pieces of code involved in the various translation phases.
 
-*  `pypy/annotation`_ contains the data model for the type annotation that
+*  `rpython/annotator`_ contains the data model for the type annotation that
    can be inferred about a graph.  The graph "walker" that uses this is in
-   `pypy/annotation/annrpython.py`_.
+   `rpython/annotator/annrpython.py`_.
 
-*  `pypy/rpython`_ contains the code of the RPython typer. The typer transforms
+*  `rpython/rtyper`_ contains the code of the RPython typer. The typer transforms
    annotated flow graphs in a way that makes them very similar to C code so
    that they can be easy translated. The graph transformations are controlled
-   by the code in `pypy/rpython/rtyper.py`_. The object model that is used can
-   be found in `pypy/rpython/lltypesystem/lltype.py`_. For each RPython type
+   by the code in `rpython/rtyper/rtyper.py`_. The object model that is used can
+   be found in `rpython/rtyper/lltypesystem/lltype.py`_. For each RPython type
    there is a file rxxxx.py that contains the low level functions needed for
    this type.
 
-*  `pypy/rlib`_ contains the `RPython standard library`_, things that you can
+*  `rpython/rlib`_ contains the `RPython standard library`_, things that you can
    use from rpython.
 
 .. _`RPython standard library`: rlib.html
@@ -256,7 +265,7 @@ Interpreter-level console
 
 If you start an untranslated Python interpreter via::
 
-    python pypy/bin/py.py
+    python pypy/bin/pyinteractive.py
 
 If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a
@@ -318,10 +327,10 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
 Demos
 -------
 
-The `demo/`_ directory contains examples of various aspects of PyPy,
-ranging from running regular Python programs (that we used as compliance goals) 
-over experimental distribution mechanisms to examples translating 
-sufficiently static programs into low level code. 
+The `example-interpreter`_ repository contains an example interpreter
+written using the RPython translation toolchain.
+
+.. _`example-interpreter`: https://bitbucket.org/pypy/example-interpreter
 
 Additional Tools for running (and hacking) PyPy 
 -----------------------------------------------

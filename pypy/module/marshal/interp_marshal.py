@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rstackovf
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
 
 
@@ -11,9 +11,8 @@ Py_MARSHAL_VERSION = 2
 def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
     # special case real files for performance
-    file = space.interpclass_w(w_f)
-    if isinstance(file, W_File):
-        writer = DirectStreamWriter(space, file)
+    if isinstance(w_f, W_File):
+        writer = DirectStreamWriter(space, w_f)
     else:
         writer = FileWriter(space, w_f)
     try:
@@ -36,9 +35,8 @@ by dump(data, file)."""
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
     # special case real files for performance
-    file = space.interpclass_w(w_f)
-    if isinstance(file, W_File):
-        reader = DirectStreamReader(space, file)
+    if isinstance(w_f, W_File):
+        reader = DirectStreamReader(space, w_f)
     else:
         reader = FileReader(space, w_f)
     try:
@@ -235,7 +233,6 @@ class Marshaller(_Base):
         lng = len(lst_w)
         self.put_int(lng)
         idx = 0
-        space = self.space
         while idx < lng:
             w_obj = lst_w[idx]
             self.space.marshal_w(w_obj, self)

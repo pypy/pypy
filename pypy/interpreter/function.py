@@ -6,15 +6,16 @@ objects; the difference lies in the code object found in their func_code
 attribute.
 """
 
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
-from pypy.rlib import jit
-from pypy.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
+
 
 funccallunrolling = unrolling_iterable(range(4))
+
 
 @jit.elidable_promote()
 def _get_immutable_code(func):
@@ -22,7 +23,7 @@ def _get_immutable_code(func):
     return func.code
 
 
-class Function(Wrappable):
+class Function(W_Root):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,
     and an arbitrary 'closure' passed to the code object."""
@@ -41,7 +42,7 @@ class Function(Wrappable):
         self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
-        self.closure   = closure    # normally, list of Cell instances or None
+        self.closure = closure    # normally, list of Cell instances or None
         self.defs_w = defs_w
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
@@ -56,11 +57,15 @@ class Function(Wrappable):
 
     def call_args(self, args):
         # delegate activation to code
-        return self.getcode().funcrun(self, args)
+        w_res = self.getcode().funcrun(self, args)
+        assert isinstance(w_res, W_Root)
+        return w_res
 
     def call_obj_args(self, w_obj, args):
         # delegate activation to code
-        return self.getcode().funcrun_obj(self, w_obj, args)
+        w_res = self.getcode().funcrun_obj(self, w_obj, args)
+        assert isinstance(w_res, W_Root)
+        return w_res
 
     def getcode(self):
         if jit.we_are_jitted():
@@ -203,7 +208,7 @@ class Function(Wrappable):
     def descr_function__new__(space, w_subtype, w_code, w_globals,
                               w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
-        if not space.is_true(space.isinstance(w_globals, space.w_dict)):
+        if not space.isinstance_w(w_globals, space.w_dict):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
         if not space.is_none(w_name):
             name = space.str_w(w_name)
@@ -240,7 +245,6 @@ class Function(Wrappable):
     def descr_function_repr(self):
         return self.getrepr(self.space, 'function %s' % (self.name,))
 
-
     # delicate
     _all = {'': None}
 
@@ -267,8 +271,8 @@ class Function(Wrappable):
     def descr_function__reduce__(self, space):
         from pypy.interpreter.gateway import BuiltinCode
         from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
         code = self.code
         if isinstance(code, BuiltinCode):
             new_inst = mod.get('builtin_function')
@@ -276,7 +280,7 @@ class Function(Wrappable):
                                    space.newtuple([space.wrap(code.identifier)])])
 
         new_inst = mod.get('func_new')
-        w        = space.wrap
+        w = space.wrap
         if self.closure is None:
             w_closure = space.w_None
         else:
@@ -309,7 +313,6 @@ class Function(Wrappable):
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 
     def descr_function__setstate__(self, space, w_args):
-        from pypy.interpreter.pycode import PyCode
         args_w = space.unpackiterable(w_args)
         try:
             (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs,
@@ -353,8 +356,8 @@ class Function(Wrappable):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
             return
-        if not space.is_true(space.isinstance(w_defaults, space.w_tuple)):
-            raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None") )
+        if not space.isinstance_w(w_defaults, space.w_tuple):
+            raise OperationError(space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None"))
         self.defs_w = space.fixedview(w_defaults)
 
     def fdel_func_defaults(self, space):
@@ -380,7 +383,6 @@ class Function(Wrappable):
                                      space.wrap("func_name must be set "
                                                 "to a string object"))
             raise
-
 
     def fdel_func_doc(self, space):
         self.w_doc = space.w_None
@@ -420,7 +422,7 @@ class Function(Wrappable):
 
     def fget_func_closure(self, space):
         if self.closure is not None:
-            w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
+            w_res = space.newtuple([space.wrap(i) for i in self.closure])
         else:
             w_res = space.w_None
         return w_res
@@ -439,7 +441,7 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
         return space.wrap(Method(space, w_function, None, w_cls))
 
 
-class Method(Wrappable):
+class Method(W_Root):
     """A method is a function bound to a specific instance or class."""
     _immutable_fields_ = ['w_function', 'w_instance', 'w_class']
 
@@ -550,18 +552,17 @@ class Method(Wrappable):
 
     def descr_method_eq(self, w_other):
         space = self.space
-        other = space.interpclass_w(w_other)
-        if not isinstance(other, Method):
+        if not isinstance(w_other, Method):
             return space.w_NotImplemented
         if self.w_instance is None:
-            if other.w_instance is not None:
+            if w_other.w_instance is not None:
                 return space.w_False
         else:
-            if other.w_instance is None:
+            if w_other.w_instance is None:
                 return space.w_False
-            if not space.eq_w(self.w_instance, other.w_instance):
+            if not space.eq_w(self.w_instance, w_other.w_instance):
                 return space.w_False
-        return space.eq(self.w_function, other.w_function)
+        return space.eq(self.w_function, w_other.w_function)
 
     def descr_method_hash(self):
         space = self.space
@@ -576,22 +577,23 @@ class Method(Wrappable):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('method_new')
-        w        = space.wrap
         w_instance = self.w_instance or space.w_None
-        function = space.interpclass_w(self.w_function)
-        if isinstance(function, Function) and isinstance(function.code, BuiltinCode):
+        w_function = self.w_function
+        if (isinstance(w_function, Function) and
+                isinstance(w_function.code, BuiltinCode)):
             new_inst = mod.get('builtin_method_new')
             if space.is_w(w_instance, space.w_None):
-                tup = [self.w_class, space.wrap(function.name)]
+                tup = [self.w_class, space.wrap(w_function.name)]
             else:
-                tup = [w_instance, space.wrap(function.name)]
-        elif space.is_w( self.w_class, space.w_None ):
+                tup = [w_instance, space.wrap(w_function.name)]
+        elif space.is_w(self.w_class, space.w_None):
             tup = [self.w_function, w_instance]
         else:
             tup = [self.w_function, w_instance, self.w_class]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
-class StaticMethod(Wrappable):
+
+class StaticMethod(W_Root):
     """The staticmethod objects."""
     _immutable_fields_ = ['w_function']
 
@@ -607,7 +609,8 @@ class StaticMethod(Wrappable):
         instance.__init__(w_function)
         return space.wrap(instance)
 
-class ClassMethod(Wrappable):
+
+class ClassMethod(W_Root):
     """The classmethod objects."""
     _immutable_fields_ = ['w_function']
 

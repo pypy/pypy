@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import rmmap
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -14,13 +13,11 @@ class Module(MixedModule):
 
     appleveldefs = {
     }
-    
+
     def buildloaders(cls):
-        from pypy.module.mmap import interp_mmap
+        from rpython.rlib import rmmap
         for constant, value in rmmap.constants.iteritems():
             if isinstance(value, (int, long)):
                 Module.interpleveldefs[constant] = "space.wrap(%r)" % value
-        
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
-

@@ -1,7 +1,7 @@
 import py
 from pypy import conftest
 from pypy.interpreter import gateway
-from pypy.rlib.jit import non_virtual_ref, vref_None
+from rpython.rlib.jit import non_virtual_ref, vref_None
 
 class AppTestSlow:    
     spaceconfig = dict(usemodules=['itertools'])

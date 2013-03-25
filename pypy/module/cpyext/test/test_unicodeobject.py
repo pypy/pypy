@@ -5,7 +5,7 @@ from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
 from pypy.module.cpyext.api import PyObjectP, PyObject
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
@@ -304,7 +304,7 @@ class TestUnicode(BaseApiTest):
             api.PyUnicode_Decode(b_text, 4, b_encoding, None)) == u'caf\xe9'
 
         w_text = api.PyUnicode_FromEncodedObject(space.wrap("test"), b_encoding, None)
-        assert space.is_true(space.isinstance(w_text, space.w_unicode))
+        assert space.isinstance_w(w_text, space.w_unicode)
         assert space.unwrap(w_text) == "test"
 
         assert api.PyUnicode_FromEncodedObject(space.wrap(u"test"), b_encoding, None) is None

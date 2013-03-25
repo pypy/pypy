@@ -7,17 +7,16 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 import dis, imp, struct, types, new, sys
 
 from pypy.interpreter import eval
-from pypy.interpreter.argument import Signature
+from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import compute_hash
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib import jit
 
 
 class BytecodeCorruption(Exception):
@@ -53,16 +52,17 @@ def cpython_code_signature(code):
         kwargname = None
     return Signature(argnames, varargname, kwargname)
 
+
 class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]"]
+                          "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
-                     hidden_applevel=False, magic = default_magic):
+                     hidden_applevel=False, magic=default_magic):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space
@@ -89,8 +89,6 @@ class PyCode(eval.Code):
 
     def _initialize(self):
         self._init_flags()
-        # Precompute what arguments need to be copied into cellvars
-        self._args_as_cellvars = []
 
         if self.co_cellvars:
             argcount = self.co_argcount
@@ -108,16 +106,22 @@ class PyCode(eval.Code):
             # produced by CPython are loaded by PyPy.  Note that CPython
             # contains the following bad-looking nested loops at *every*
             # function call!
-            argvars  = self.co_varnames
+
+            # Precompute what arguments need to be copied into cellvars
+            args_as_cellvars = []
+            argvars = self.co_varnames
             cellvars = self.co_cellvars
             for i in range(len(cellvars)):
                 cellname = cellvars[i]
                 for j in range(argcount):
                     if cellname == argvars[j]:
                         # argument j has the same name as the cell var i
-                        while len(self._args_as_cellvars) <= i:
-                            self._args_as_cellvars.append(-1)   # pad
-                        self._args_as_cellvars[i] = j
+                        while len(args_as_cellvars) <= i:
+                            args_as_cellvars.append(-1)   # pad
+                        args_as_cellvars[i] = j
+            self._args_as_cellvars = args_as_cellvars[:]
+        else:
+            self._args_as_cellvars = []
 
         self._compute_flatcall()
 
@@ -228,7 +232,7 @@ class PyCode(eval.Code):
     def getdocstring(self, space):
         if self.co_consts_w:   # it is probably never empty
             w_first = self.co_consts_w[0]
-            if space.is_true(space.isinstance(w_first, space.w_basestring)):
+            if space.isinstance_w(w_first, space.w_basestring):
                 return w_first
         return space.w_None
 
@@ -242,20 +246,20 @@ class PyCode(eval.Code):
             else:
                 consts[num] = self.space.unwrap(w)
             num += 1
-        return new.code( self.co_argcount,
-                         self.co_nlocals,
-                         self.co_stacksize,
-                         self.co_flags,
-                         self.co_code,
-                         tuple(consts),
-                         tuple(self.co_names),
-                         tuple(self.co_varnames),
-                         self.co_filename,
-                         self.co_name,
-                         self.co_firstlineno,
-                         self.co_lnotab,
-                         tuple(self.co_freevars),
-                         tuple(self.co_cellvars) )
+        return new.code(self.co_argcount,
+                        self.co_nlocals,
+                        self.co_stacksize,
+                        self.co_flags,
+                        self.co_code,
+                        tuple(consts),
+                        tuple(self.co_names),
+                        tuple(self.co_varnames),
+                        self.co_filename,
+                        self.co_name,
+                        self.co_firstlineno,
+                        self.co_lnotab,
+                        tuple(self.co_freevars),
+                        tuple(self.co_cellvars))
 
     def exec_host_bytecode(self, w_globals, w_locals):
         from pypy.interpreter.pyframe import CPythonFrame
@@ -285,29 +289,28 @@ class PyCode(eval.Code):
 
     def descr_code__eq__(self, w_other):
         space = self.space
-        other = space.interpclass_w(w_other)
-        if not isinstance(other, PyCode):
+        if not isinstance(w_other, PyCode):
             return space.w_False
-        areEqual = (self.co_name == other.co_name and
-                    self.co_argcount == other.co_argcount and
-                    self.co_nlocals == other.co_nlocals and
-                    self.co_flags == other.co_flags and
-                    self.co_firstlineno == other.co_firstlineno and
-                    self.co_code == other.co_code and
-                    len(self.co_consts_w) == len(other.co_consts_w) and
-                    len(self.co_names_w) == len(other.co_names_w) and
-                    self.co_varnames == other.co_varnames and
-                    self.co_freevars == other.co_freevars and
-                    self.co_cellvars == other.co_cellvars)
+        areEqual = (self.co_name == w_other.co_name and
+                    self.co_argcount == w_other.co_argcount and
+                    self.co_nlocals == w_other.co_nlocals and
+                    self.co_flags == w_other.co_flags and
+                    self.co_firstlineno == w_other.co_firstlineno and
+                    self.co_code == w_other.co_code and
+                    len(self.co_consts_w) == len(w_other.co_consts_w) and
+                    len(self.co_names_w) == len(w_other.co_names_w) and
+                    self.co_varnames == w_other.co_varnames and
+                    self.co_freevars == w_other.co_freevars and
+                    self.co_cellvars == w_other.co_cellvars)
         if not areEqual:
             return space.w_False
 
         for i in range(len(self.co_names_w)):
-            if not space.eq_w(self.co_names_w[i], other.co_names_w[i]):
+            if not space.eq_w(self.co_names_w[i], w_other.co_names_w[i]):
                 return space.w_False
 
         for i in range(len(self.co_consts_w)):
-            if not space.eq_w(self.co_consts_w[i], other.co_consts_w[i]):
+            if not space.eq_w(self.co_consts_w[i], w_other.co_consts_w[i]):
                 return space.w_False
 
         return space.w_True
@@ -346,12 +349,12 @@ class PyCode(eval.Code):
         if nlocals < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("code: nlocals must not be negative"))
-        if not space.is_true(space.isinstance(w_constants, space.w_tuple)):
+        if not space.isinstance_w(w_constants, space.w_tuple):
             raise OperationError(space.w_TypeError,
                                  space.wrap("Expected tuple for constants"))
-        consts_w   = space.fixedview(w_constants)
-        names      = unpack_str_tuple(space, w_names)
-        varnames   = unpack_str_tuple(space, w_varnames)
+        consts_w = space.fixedview(w_constants)
+        names = unpack_str_tuple(space, w_names)
+        varnames = unpack_str_tuple(space, w_varnames)
         if w_freevars is not None:
             freevars = unpack_str_tuple(space, w_freevars)
         else:

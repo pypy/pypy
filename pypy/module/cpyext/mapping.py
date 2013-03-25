@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
 from pypy.module.cpyext.pyobject import PyObject

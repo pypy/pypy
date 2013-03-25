@@ -130,15 +130,7 @@ the variables would be defined as follows.
   export SB2=/srv/chroot/precise_arm
   export SB2OPT='-t ARM'
 
-Once this is set, you can call the translator 
-
-::
-
-  pypy ~/path_to_pypy_checkout/pypy/translator/goal/translate.py -O1 --platform=arm target.py
-
-If everything worked correctly this should yield an ARM binary. Running this binary in the ARM chroot or on an ARM device should produce the output ``"Hello World"``.
-
-.. _`this`:
+Once this is set, you can call the translator. For example save this file 
 
 ::
 
@@ -148,3 +140,22 @@ If everything worked correctly this should yield an ARM binary. Running this bin
 
   def target(*args):
       return main, None
+
+and call the translator
+
+::
+
+  pypy ~/path_to_pypy_checkout/rpython/translator/goal/translate.py -O1 --platform=arm target.py
+
+If everything worked correctly this should yield an ARM binary. Running this binary in the ARM chroot or on an ARM device should produce the output ``"Hello World"``.
+
+To translate the full python pypy interpreter with a jit, you can cd into pypy/goal and call      
+
+::
+
+  pypy <path to rpython>/rpython/translator/goal/translate.py -Ojit --platform=arm --gcrootfinder=shadowstack --jit-backend=arm targetpypystandalone.py
+
+The gcrootfinder option is needed to work around `issue 1377`_ and the jit-backend works around `issue 1376`_
+
+.. _`issue 1377`: https://bugs.pypy.org/issue1377
+.. _`issue 1376`: https://bugs.pypy.org/issue1376

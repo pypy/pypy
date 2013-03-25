@@ -8,12 +8,12 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib import streamio, jit
-from pypy.rlib.streamio import StreamErrors
-from pypy.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib import streamio, jit
+from rpython.rlib.streamio import StreamErrors
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
 
 SEARCH_ERROR = 0
@@ -112,7 +112,7 @@ else:
 def try_getattr(space, w_obj, w_name):
     try:
         return space.getattr(w_obj, w_name)
-    except OperationError, e:
+    except OperationError:
         # ugh, but blame CPython :-/ this is supposed to emulate
         # hasattr, which eats all exceptions.
         return None
@@ -164,8 +164,7 @@ def _get_relative_name(space, modulename, level, w_globals):
 
         # Try to import parent package
         try:
-            w_parent = absolute_import(space, ctxt_package, 0,
-                                       None, tentative=False)
+            absolute_import(space, ctxt_package, 0, None, tentative=False)
         except OperationError, e:
             if not e.match(space, space.w_ImportError):
                 raise
@@ -174,9 +173,9 @@ def _get_relative_name(space, modulename, level, w_globals):
                     "Parent module '%s' not loaded, "
                     "cannot perform relative import" % ctxt_package))
             else:
-                space.warn("Parent module '%s' not found "
-                           "while handling absolute import" % ctxt_package,
-                           space.w_RuntimeWarning)
+                msg = ("Parent module '%s' not found while handling absolute "
+                       "import" % ctxt_package)
+                space.warn(space.wrap(msg), space.w_RuntimeWarning)
 
         rel_modulename = ctxt_package[:dot_position]
         rel_level = rel_modulename.count('.') + 1
@@ -440,7 +439,7 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
             return w_loader
 
 
-class W_NullImporter(Wrappable):
+class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
@@ -533,9 +532,9 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if modtype in (PY_SOURCE, PY_COMPILED):
                     return FindInfo(PKG_DIRECTORY, filepart, None)
                 else:
-                    msg = "Not importing directory " +\
-                            "'%s' missing __init__.py" % (filepart,)
-                    space.warn(msg, space.w_ImportWarning)
+                    msg = ("Not importing directory '%s' missing __init__.py" %
+                           (filepart,))
+                    space.warn(space.wrap(msg), space.w_ImportWarning)
             modtype, suffix, filemode = find_modtype(space, filepart)
             try:
                 if modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION):
@@ -703,7 +702,6 @@ def reload(space, w_module):
         namepath = modulename.split('.')
         subname = namepath[-1]
         parent_name = '.'.join(namepath[:-1])
-        parent = None
         if parent_name:
             w_parent = check_sys_modules_w(space, parent_name)
             if w_parent is None:
@@ -992,11 +990,10 @@ def read_compiled_module(space, cpathname, strbuf):
 
     w_marshal = space.getbuiltinmodule('marshal')
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
-    pycode = space.interpclass_w(w_code)
-    if pycode is None or not isinstance(pycode, Code):
+    if not isinstance(w_code, Code):
         raise operationerrfmt(space.w_ImportError,
                               "Non-code object in %s", cpathname)
-    return pycode
+    return w_code
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
@@ -1005,7 +1002,6 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     Load a module from a compiled file, execute it, and return its
     module object.
     """
-    w = space.wrap
     if magic != get_pyc_magic(space):
         raise operationerrfmt(space.w_ImportError,
                               "Bad magic number in %s", cpathname)
