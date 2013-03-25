@@ -58,6 +58,8 @@
 #pragma link C++ class some_class_with_data;
 #pragma link C++ class some_class_with_data::some_data;
 
+#pragma link C++ class ref_tester;
+#pragma link C++ class std::vector<ref_tester>;
 #pragma link C++ class pointer_pass;
 
 #pragma link C++ class multi1;

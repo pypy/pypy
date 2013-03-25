@@ -243,7 +243,9 @@ public:
     int m_i;
 };
 
+#ifndef __CINT__
 template class std::vector<ref_tester>;
+#endif
 
 
 //===========================================================================

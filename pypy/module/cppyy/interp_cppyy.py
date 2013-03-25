@@ -1150,10 +1150,10 @@ def wrap_cppobject(space, rawobject, cppclass,
     memory_regulator.register(cppinstance)
     return w_cppinstance
 
-@unwrap_spec(cppinstance=W_CPPInstance)
-def addressof(space, cppinstance):
+@unwrap_spec(w_cppinstance=W_CPPInstance)
+def addressof(space, w_cppinstance):
     """Takes a bound C++ instance, returns the raw address."""
-    address = rffi.cast(rffi.LONG, cppinstance.get_rawobject())
+    address = rffi.cast(rffi.LONG, w_cppinstance.get_rawobject())
     return space.wrap(address)
 
 @unwrap_spec(address=int, owns=bool)
