@@ -812,6 +812,8 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     d = {}
     exec func_code.compile() in d
     f = d['f']
+    f.__module__ = func.__module__
+    # necessary for unique identifiers for pickling
     f.func_name = func.func_name
     if unwrap_spec is None:
         unwrap_spec = {}
