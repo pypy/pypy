@@ -33,7 +33,7 @@ def autodetect_main_model():
                 'x86_64': 'x86',
                 'amd64': 'x86',    # freebsd
                 'AMD64': 'x86',    # win64
-                'armv7l': 'arm',
+                'armv7l': 'armv7',
                 'armv6l': 'armv6',
                 }[mach]
     except KeyError:
@@ -59,11 +59,10 @@ def autodetect():
             from rpython.jit.backend.x86.detect_sse2 import detect_sse2
             if not detect_sse2():
                 model = 'x86-without-sse2'
-    if model == 'arm':
+    if model.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_hardfloat, detect_float
         if detect_hardfloat():
-            model = 'armhf'
-    if model.startswith('arm'):
+            model += 'hf'
         assert detect_float(), 'the JIT-compiler requires a vfp unit'
     return model
 
@@ -78,11 +77,11 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
     elif backend_name == 'cli':
         return "rpython.jit.backend.cli.runner", "CliCPU"
-    elif backend_name == 'armv6':
+    elif backend_name == 'armv6hf':
         return "rpython.jit.backend.arm.runner", "CPU_ARMv6"
-    elif backend_name == 'arm':
+    elif backend_name == 'armv7':
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
-    elif backend_name == 'armhf':
+    elif backend_name == 'armv7hf':
         return "rpython.jit.backend.arm.runner", "CPU_ARMHF"
     else:
         raise ProcessorAutodetectError, (
