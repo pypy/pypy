@@ -202,8 +202,8 @@ min_max_normal = make_min_max(False)
 
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
-    if not jit.we_are_jitted() or jit.loop_unrolling_heuristic(
-            args.arguments_w, len(args.arguments_w)):
+    if not jit.we_are_jitted() or len(args.arguments_w) != 1 and \
+            jit.loop_unrolling_heuristic(args.arguments_w, len(args.arguments_w)):
         return min_max_unroll(space, args, implementation_of)
     else:
         return min_max_normal(space, args, implementation_of)
