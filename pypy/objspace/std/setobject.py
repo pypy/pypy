@@ -805,6 +805,8 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(StringSetStrategy):
             return False
+        if strategy is self.space.fromcache(UnicodeSetStrategy):
+            return False
         if strategy is self.space.fromcache(EmptySetStrategy):
             return False
         return True
