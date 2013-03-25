@@ -120,7 +120,7 @@ def ttree_Branch(space, w_self, args_w):
             classname = space.str_w(args_w[1])
             addr_idx  = 2
             w_address = args_w[addr_idx]
-        except OperationError:
+        except (OperationError, TypeError):
             addr_idx  = 1
             w_address = args_w[addr_idx]
 
@@ -140,11 +140,12 @@ def ttree_Branch(space, w_self, args_w):
         branch_class = interp_cppyy.scope_byname(space, "TBranch")
         w_branch = interp_cppyy.wrap_cppobject(space, vbranch, branch_class)
         return w_branch
-    except (OperationError, TypeError, IndexError), e:
+    except (OperationError, TypeError, IndexError):
         pass
 
     # return control back to the original, unpythonized overload
-    return tree_class.get_overload("Branch").call(w_self, args_w)
+    ol = tree_class.get_overload("Branch")
+    return ol.call(w_self, args_w)
 
 def activate_branch(space, w_branch):
     w_branches = space.call_method(w_branch, "GetListOfBranches")

@@ -16,6 +16,17 @@ from pypy.module.cppyy import converter, executor, helper
 class FastCallNotPossible(Exception):
     pass
 
+# overload priorities: lower is preferred
+priority = { 'void*'  : 100,
+             'void**' : 100,
+             'float'  :  30,
+             'double' :  10, }
+
+from rpython.rlib.listsort import make_timsort_class
+CPPMethodBaseTimSort = make_timsort_class()
+class CPPMethodSort(CPPMethodBaseTimSort):
+    def lt(self, a, b):
+        return a.priority() < b.priority()
 
 @unwrap_spec(name=str)
 def load_dictionary(space, name):
@@ -224,7 +235,8 @@ class CPPMethod(object):
     def _setup(self, cppthis):
         self.converters = [converter.get_converter(self.space, arg_type, arg_dflt)
                                for arg_type, arg_dflt in self.arg_defs]
-        self.executor = executor.get_executor(self.space, capi.c_method_result_type(self.scope, self.index))
+        self.executor = executor.get_executor(
+            self.space, capi.c_method_result_type(self.scope, self.index))
 
         for conv in self.converters:
             if conv.uses_local:
@@ -350,6 +362,12 @@ class CPPMethod(object):
     def signature(self):
         return capi.c_method_signature(self.scope, self.index)
 
+    def priority(self):
+        total_arg_priority = 0
+        for p in [priority.get(arg_type, 0) for arg_type, arg_dflt in self.arg_defs]:
+            total_arg_priority += p
+        return total_arg_priority
+
     def __del__(self):
         if self.cif_descr:
             lltype.free(self.cif_descr.atypes, flavor='raw')
@@ -373,7 +391,7 @@ class CPPFunction(CPPMethod):
         return "CPPFunction: %s" % self.signature()
 
 
-class CPPTemplatedCall(CPPMethod): # TODO: unnecessary derivation to make rtyper happy
+class CPPTemplatedCall(CPPMethod):
     """Method dispatcher that first needs to resolve the template instance.
     Note that the derivation is from object: the CPPMethod is a data member."""
 
@@ -384,7 +402,7 @@ class CPPTemplatedCall(CPPMethod): # TODO: unnecessary derivation to make rtyper
         self.space = space
         self.templ_args = templ_args
         # TODO: might have to specialize for CPPTemplatedCall on CPPMethod/CPPFunction here
-        self.method = CPPMethod(space, containing_scope, method_index, arg_defs, args_required)
+        CPPMethod.__init__(self, space, containing_scope, method_index, arg_defs, args_required)
 
     def call(self, cppthis, args_w):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
@@ -397,10 +415,10 @@ class CPPTemplatedCall(CPPMethod): # TODO: unnecessary derivation to make rtyper
             if s != self.templ_args[i]:
                 raise OperationError(self.space.w_TypeError, self.space.wrap(
                     "non-matching template (got %s where %s expected" % (s, self.templ_args[i])))
-        return W_CPPBoundMethod(cppthis, self.method)
+        return W_CPPBoundMethod(cppthis, self)
 
-    def signature(self):
-        return self.method.signature()
+    def bound_call(self, cppthis, args_w):
+        return CPPMethod.call(self, cppthis, args_w)
 
     def __repr__(self):
         return "CPPTemplatedCall: %s" % self.signature()
@@ -541,7 +559,7 @@ class W_CPPBoundMethod(W_Root):
         self.method = method
 
     def __call__(self, args_w):
-        return self.method.call(self.cppthis, args_w)
+        return self.method.bound_call(self.cppthis, args_w)
 
 W_CPPBoundMethod.typedef = TypeDef(
     'CPPBoundMethod',
@@ -662,6 +680,7 @@ class W_CPPScope(W_Root):
 
         # create the overload methods from the method sets
         for pyname, methods in methods_temp.iteritems():
+            CPPMethodSort(methods).sort()
             overload = W_CPPOverload(self.space, self, methods[:])
             self.methods[pyname] = overload
 

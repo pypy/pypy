@@ -329,20 +329,20 @@ class AppTestCINTTTREE:
         mytree._python_owns = False
 
         import array
-        ba = array.array('c', [chr(0)])
-        ia = array.array('i', [0])
-        da = array.array('d', [0.])
+        mytree.ba = array.array('c', [chr(0)])
+        mytree.ia = array.array('i', [0])
+        mytree.da = array.array('d', [0.])
 
-        mytree.Branch("my_bool",   ba, "my_bool/O")
-        mytree.Branch("my_int",    ia, "my_int/I")
-        mytree.Branch("my_int2",   ia, "my_int2/I")
-        mytree.Branch("my_double", da, "my_double/D")
+        mytree.Branch("my_bool",   mytree.ba, "my_bool/O")
+        mytree.Branch("my_int",    mytree.ia, "my_int/I")
+        mytree.Branch("my_int2",   mytree.ia, "my_int2/I")
+        mytree.Branch("my_double", mytree.da, "my_double/D")
 
         for i in range(self.N):
             # make sure value is different from default (0)
-            ba[0] = i%2 and chr(0) or chr(1)
-            ia[0] = i+1
-            da[0] = (i+1)/2.
+            mytree.ba[0] = i%2 and chr(0) or chr(1)
+            mytree.ia[0] = i+1
+            mytree.da[0] = (i+1)/2.
             mytree.Fill()
         f.Write()
         f.Close()
