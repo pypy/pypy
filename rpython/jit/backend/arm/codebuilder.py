@@ -248,16 +248,33 @@ class AbstractARMv7Builder(object):
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
-        if value > 0xFF and self.is_armv6:
-            val = self.datablockwrapper.malloc_aligned(WORD)
-            import pdb
-            pdb.set_trace()
-        bottom = value & 0xFFFF
-        top = value >> 16
-        self.MOVW_ri(r, bottom, cond)
-        if top:
-            self.MOVT_ri(r, top, cond)
-    size_of_gen_load_int = 2 * WORD
+        if self.is_armv6:
+            from pypy.jit.backend.arm.conditions import AL
+            if cond != AL or 0 <= value <= 0xFFFF:
+                self._load_by_shifting(r, value, cond)
+            else:
+                self.LDR_ri(r, reg.pc.value)
+                self.MOV_rr(reg.pc.value, reg.pc.value)
+                self.write32(value)
+        else:
+            bottom = value & 0xFFFF
+            top = value >> 16
+            self.MOVW_ri(r, bottom, cond)
+            if top:
+                self.MOVT_ri(r, top, cond)
+
+    max_size_of_gen_load_int = 2 * WORD
+    ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
+    def _load_by_shifting(self, r, value, c=cond.AL):
+        # to be sure it is only called for the correct cases
+        assert c != cond.AL or 0 <= value <= 0xFFFF
+        self.MOV_ri(r, (value & 0xFF), cond=c)
+        for offset, shift in self.ofs_shift:
+            b = (value >> offset) & 0xFF
+            if b == 0:
+                continue
+            t = b | (shift << 8)
+            self.ORR_ri(r, r, imm=t, cond=c)
 
 
 class OverwritingBuilder(AbstractARMv7Builder):

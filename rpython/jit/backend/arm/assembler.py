@@ -733,8 +733,8 @@ class AssemblerARM(ResOpAssembler):
         mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         stack_check_cmp_ofs = mc.currpos()
         if expected_size == -1:
-            mc.NOP()
-            mc.NOP()
+            for _ in range(mc.max_size_of_gen_load_int):
+                mc.NOP()
         else:
             mc.gen_load_int(r.lr.value, expected_size)
         mc.CMP_rr(r.ip.value, r.lr.value)
