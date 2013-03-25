@@ -726,6 +726,13 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(strlist[:])
             return
 
+        unilist = space.listview_unicode(w_iterable)
+        if unilist is not None:
+            w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
+            # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(unilist[:])
+            return
+
         ListStrategy._extend_from_iterable(self, w_list, w_iterable)
 
     def reverse(self, w_list):
