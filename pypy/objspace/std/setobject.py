@@ -398,6 +398,8 @@ class AbstractUnwrappedSetStrategy(object):
             setdata[self.unwrap(w_item)] = None
         return self.erase(setdata)
 
+    @jit.look_inside_iff(lambda self, items:
+                         jit.loop_unrolling_heuristic(items, len(items)))
     def get_storage_from_unwrapped_list(self, items):
         setdata = self.get_empty_dict()
         for item in items:
