@@ -611,3 +611,21 @@ class AppTestADVANCEDCPP:
 
         assert float(a) == 4321.
         assert float(a) == a.m_d
+
+    def test20_comparator(self):
+        """Check that the global operator!=/== is picked up"""
+
+        from cppyy import gbl
+
+        a, b = gbl.some_comparable(), gbl.some_comparable()
+
+        assert a == b
+        assert b == a
+        assert a.__eq__(b)
+        assert b.__eq__(a)
+        assert a.__ne__(a)
+        assert b.__ne__(b)
+        assert a.__eq__(b) == True
+        assert b.__eq__(a) == True
+        assert a.__eq__(a) == False
+        assert b.__eq__(b) == False

@@ -33,6 +33,11 @@
   <class name="some_class_with_data" />
   <class name="some_class_with_data::some_data" />
 
+  <class name="some_comparable" />
+  <function name="operator=="/>
+  <function name="operator!="/>
+
+
   <class name="ref_tester" />
   <class name="std::vector<ref_tester>" />
 
