@@ -13,7 +13,7 @@ from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib import rerased
+from rpython.rlib import rerased, jit
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -390,6 +390,8 @@ class AbstractUnwrappedSetStrategy(object):
         """ Returns a wrapped version of the given unwrapped item. """
         raise NotImplementedError
 
+    @jit.look_inside_iff(lambda self, list_w:
+                         jit.loop_unrolling_heuristic(list_w, len(list_w)))
     def get_storage_from_list(self, list_w):
         setdata = self.get_empty_dict()
         for w_item in list_w:
@@ -1026,6 +1028,8 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     _pick_correct_strategy(space, w_set, iterable_w)
 
+@jit.look_inside_iff(lambda space, w_set, iterable_w:
+                     jit.loop_unrolling_heuristic(iterable_w, len(iterable_w)))
 def _pick_correct_strategy(space, w_set, iterable_w):
     # check for integers
     for w_item in iterable_w:
