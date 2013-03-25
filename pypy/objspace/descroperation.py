@@ -363,7 +363,7 @@ class DescrOperation(object):
                                   "'%s' object does not define __format__",
                                   typename)
         w_res = space.get_and_call_function(w_descr, w_obj, w_format_spec)
-        if not space.is_true(space.isinstance(w_res, space.w_basestring)):
+        if not space.isinstance_w(w_res, space.w_basestring):
             typename = space.type(w_obj).getname(space)
             restypename = space.type(w_res).getname(space)
             raise operationerrfmt(space.w_TypeError,
@@ -453,10 +453,10 @@ class DescrOperation(object):
             return w_result
         elif space.is_w(w_resulttype, space.w_long):
             return space.hash(w_result)
-        elif space.is_true(space.isinstance(w_result, space.w_int)):
+        elif space.isinstance_w(w_result, space.w_int):
             # be careful about subclasses of 'int'...
             return space.wrap(space.int_w(w_result))
-        elif space.is_true(space.isinstance(w_result, space.w_long)):
+        elif space.isinstance_w(w_result, space.w_long):
             # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
             return space.wrap(bigint.hash())
@@ -507,12 +507,12 @@ class DescrOperation(object):
             if w_res is None  or space.is_w(w_res, space.w_None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("coercion failed"))
-            if (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
+            if (not space.isinstance_w(w_res, space.w_tuple) or
                 space.len_w(w_res) != 2):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("coercion should return None or 2-tuple"))
             w_res = space.newtuple([space.getitem(w_res, space.wrap(1)), space.getitem(w_res, space.wrap(0))])
-        elif (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
+        elif (not space.isinstance_w(w_res, space.w_tuple) or
             space.len_w(w_res) != 2):
             raise OperationError(space.w_TypeError,
                                  space.wrap("coercion should return None or 2-tuple"))
@@ -522,8 +522,12 @@ class DescrOperation(object):
         return space._type_issubtype(w_sub, w_type)
 
     @specialize.arg_or_var(2)
+    def isinstance_w(space, w_inst, w_type):
+        return space._type_isinstance(w_inst, w_type)
+
+    @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
-        return space.wrap(space._type_isinstance(w_inst, w_type))
+        return space.wrap(space.isinstance_w(w_inst, w_type))
 
     def issubtype_allow_override(space, w_sub, w_type):
         w_check = space.lookup(w_type, "__subclasscheck__")
@@ -804,12 +808,11 @@ def _make_unaryop_impl(symbol, specialnames):
 # more of the above manually-coded operations as well)
 
 for targetname, specialname, checkerspec in [
-    ('int', '__int__', ("space.w_int", "space.w_long")),
     ('index', '__index__', ("space.w_int", "space.w_long")),
     ('long', '__long__', ("space.w_int", "space.w_long")),
     ('float', '__float__', ("space.w_float",))]:
 
-    l = ["space.is_true(space.isinstance(w_result, %s))" % x
+    l = ["space.isinstance_w(w_result, %s)" % x
                 for x in checkerspec]
     checker = " or ".join(l)
     source = """if 1:
@@ -849,7 +852,7 @@ for targetname, specialname in [
                                       typename)
             w_result = space.get_and_call_function(w_impl, w_obj)
 
-            if space.is_true(space.isinstance(w_result, space.w_str)):
+            if space.isinstance_w(w_result, space.w_str):
                 return w_result
             try:
                 result = space.str_w(w_result)

@@ -1080,6 +1080,7 @@ for name in RegisterOs.w_star:
         func = declare_new_w_star(name)
         globals()[name] = func
 
+
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
@@ -1087,9 +1088,10 @@ def ttyname(space, fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 
+
 def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
-    if space.is_true(space.isinstance(w_name, space.w_basestring)):
+    if space.isinstance_w(w_name, space.w_basestring):
         try:
             num = namespace[space.str_w(w_name)]
         except KeyError:

@@ -208,7 +208,7 @@ class Function(W_Root):
     def descr_function__new__(space, w_subtype, w_code, w_globals,
                               w_name=None, w_argdefs=None, w_closure=None):
         code = space.interp_w(Code, w_code)
-        if not space.is_true(space.isinstance(w_globals, space.w_dict)):
+        if not space.isinstance_w(w_globals, space.w_dict):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
         if not space.is_none(w_name):
             name = space.str_w(w_name)
@@ -356,7 +356,7 @@ class Function(W_Root):
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
             return
-        if not space.is_true(space.isinstance(w_defaults, space.w_tuple)):
+        if not space.isinstance_w(w_defaults, space.w_tuple):
             raise OperationError(space.w_TypeError, space.wrap("func_defaults must be set to a tuple object or None"))
         self.defs_w = space.fixedview(w_defaults)
 

@@ -796,7 +796,7 @@ def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
 Return a new XML parser object."""
     if space.is_none(w_encoding):
         encoding = None
-    elif space.is_true(space.isinstance(w_encoding, space.w_str)):
+    elif space.isinstance_w(w_encoding, space.w_str):
         encoding = space.str_w(w_encoding)
     else:
         type_name = space.type(w_encoding).getname(space)
@@ -807,7 +807,7 @@ Return a new XML parser object."""
 
     if space.is_none(w_namespace_separator):
         namespace_separator = 0
-    elif space.is_true(space.isinstance(w_namespace_separator, space.w_str)):
+    elif space.isinstance_w(w_namespace_separator, space.w_str):
         separator = space.str_w(w_namespace_separator)
         if len(separator) == 0:
             namespace_separator = 0

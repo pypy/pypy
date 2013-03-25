@@ -24,15 +24,24 @@ class RStringIO(object):
         self.closed = True
         self.strings = None
         self.bigbuffer = None
+        self.pos = AT_END
 
     def is_closed(self):
         return self.closed
+
+    def _copy_into_bigbuffer(self):
+        """Copy all the data into the list of characters self.bigbuffer."""
+        if self.bigbuffer is None:
+            self.bigbuffer = []
+        if self.strings is not None:
+            self.bigbuffer += self.strings.build()
+            self.strings = None
 
     def getvalue(self):
         """If self.strings contains more than 1 string, join all the
         strings together.  Return the final single string."""
         if self.bigbuffer is not None:
-            self.copy_into_bigbuffer()
+            self._copy_into_bigbuffer()
             return ''.join(self.bigbuffer)
         if self.strings is not None:
             return self.strings.build()
@@ -46,52 +55,47 @@ class RStringIO(object):
             result += self.strings.getlength()
         return result
 
-    def copy_into_bigbuffer(self):
-        """Copy all the data into the list of characters self.bigbuffer."""
-        if self.bigbuffer is None:
-            self.bigbuffer = []
-        if self.strings is not None:
-            self.bigbuffer += self.strings.build()
-            self.strings = None
-
     def write(self, buffer):
         # Idea: for the common case of a sequence of write() followed
         # by only getvalue(), self.bigbuffer remains empty.  It is only
         # used to handle the more complicated cases.
-        p = self.pos
-        if p != AT_END:    # slow or semi-fast paths
-            assert p >= 0
-            endp = p + len(buffer)
-            if self.bigbuffer is not None and len(self.bigbuffer) >= endp:
-                # semi-fast path: the write is entirely inside self.bigbuffer
-                for i in range(len(buffer)):
-                    self.bigbuffer[p + i] = buffer[i]
-                self.pos = endp
-                return
-            else:
-                # slow path: collect all data into self.bigbuffer and
-                # handle the various cases
-                self.copy_into_bigbuffer()
-                fitting = len(self.bigbuffer) - p
-                if fitting > 0:
-                    # the write starts before the end of the data
-                    fitting = min(len(buffer), fitting)
-                    for i in range(fitting):
-                        self.bigbuffer[p+i] = buffer[i]
-                    if len(buffer) > fitting:
-                        # the write extends beyond the end of the data
-                        self.bigbuffer += buffer[fitting:]
-                        endp = AT_END
-                    self.pos = endp
-                    return
-                else:
-                    # the write starts at or beyond the end of the data
-                    self.bigbuffer += '\x00' * (-fitting)
-                    self.pos = AT_END      # fall-through to the fast path
-        # Fast path.
+        if self.pos == AT_END:
+            self._fast_write(buffer)
+        else:
+            self._slow_write(buffer)
+
+    def _fast_write(self, buffer):
         if self.strings is None:
             self.strings = StringBuilder()
         self.strings.append(buffer)
+
+    def _slow_write(self, buffer):
+        p = self.pos
+        assert p >= 0
+        endp = p + len(buffer)
+        if self.bigbuffer is not None and len(self.bigbuffer) >= endp:
+            # semi-fast path: the write is entirely inside self.bigbuffer
+            for i in range(len(buffer)):
+                self.bigbuffer[p + i] = buffer[i]
+        else:
+            # slow path: collect all data into self.bigbuffer and
+            # handle the various cases
+            self._copy_into_bigbuffer()
+            fitting = len(self.bigbuffer) - p
+            if fitting > 0:
+                # the write starts before the end of the data
+                fitting = min(len(buffer), fitting)
+                for i in range(fitting):
+                    self.bigbuffer[p + i] = buffer[i]
+                if len(buffer) > fitting:
+                    # the write extends beyond the end of the data
+                    self.bigbuffer += buffer[fitting:]
+                    endp = AT_END
+            else:
+                # the write starts at or beyond the end of the data
+                self.bigbuffer += '\x00' * (-fitting) + buffer
+                endp = AT_END
+        self.pos = endp
 
     def seek(self, position, mode=0):
         if mode == 1:
@@ -123,7 +127,7 @@ class RStringIO(object):
         if p == AT_END or n == 0:
             return ''
         assert p >= 0
-        self.copy_into_bigbuffer()
+        self._copy_into_bigbuffer()
         mysize = len(self.bigbuffer)
         count = mysize - p
         if n >= 0:
@@ -142,7 +146,7 @@ class RStringIO(object):
         if p == AT_END or size == 0:
             return ''
         assert p >= 0
-        self.copy_into_bigbuffer()
+        self._copy_into_bigbuffer()
         end = len(self.bigbuffer)
         if size >= 0 and size < end - p:
             end = p + size
@@ -161,7 +165,7 @@ class RStringIO(object):
         # position to the end.
         assert size >= 0
         if self.bigbuffer is None or size > len(self.bigbuffer):
-            self.copy_into_bigbuffer()
+            self._copy_into_bigbuffer()
         else:
             # we can drop all extra strings
             if self.strings is not None:

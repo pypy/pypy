@@ -92,8 +92,7 @@ class WeakrefLifeline(W_Root):
             w_weakreftype = space.gettypeobject(W_Weakref.typedef)
             for wref in self.other_refs_weak.items():
                 w_ref = wref()
-                if (w_ref is not None and
-                    space.is_true(space.isinstance(w_ref, w_weakreftype))):
+                if (w_ref is not None and space.isinstance_w(w_ref, w_weakreftype)):
                     return w_ref
         return space.w_None
 
@@ -103,8 +102,8 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
     def __init__(self, space, oldlifeline=None):
         self.space = space
         if oldlifeline is not None:
-            self.cached_weakref  = oldlifeline.cached_weakref
-            self.cached_proxy    = oldlifeline.cached_proxy
+            self.cached_weakref = oldlifeline.cached_weakref
+            self.cached_proxy = oldlifeline.cached_proxy
             self.other_refs_weak = oldlifeline.other_refs_weak
 
     def __del__(self):

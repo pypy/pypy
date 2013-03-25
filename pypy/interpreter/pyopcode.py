@@ -777,12 +777,12 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
         space = self.space
-        if space.is_true(space.isinstance(w_2, space.w_tuple)):
+        if space.isinstance_w(w_2, space.w_tuple):
             for w_t in space.fixedview(w_2):
-                if space.is_true(space.isinstance(w_t, space.w_str)):
+                if space.isinstance_w(w_t, space.w_str):
                     msg = "catching of string exceptions is deprecated"
                     space.warn(space.wrap(msg), space.w_DeprecationWarning)
-        elif space.is_true(space.isinstance(w_2, space.w_str)):
+        elif space.isinstance_w(w_2, space.w_str):
             msg = "catching of string exceptions is deprecated"
             space.warn(space.wrap(msg), space.w_DeprecationWarning)
         return space.newbool(space.exception_match(w_1, w_2))
@@ -796,7 +796,7 @@ class __extend__(pyframe.PyFrame):
                 w_result = getattr(self, attr)(w_1, w_2)
                 break
         else:
-            raise BytecodeCorruption, "bad COMPARE_OP oparg"
+            raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
 
     def IMPORT_NAME(self, nameindex, next_instr):

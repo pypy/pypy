@@ -91,7 +91,7 @@ def letter2tp(space, key):
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
-    if space.is_true(space.isinstance(w_shape, space.w_str)):
+    if space.isinstance_w(w_shape, space.w_str):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -102,7 +102,7 @@ def unpack_simple_shape(space, w_shape):
 def unpack_shape_with_length(space, w_shape):
     # Allow 'w_shape' to be a letter or any (shape, number).
     # The result is always a W_Array.
-    if space.is_true(space.isinstance(w_shape, space.w_str)):
+    if space.isinstance_w(w_shape, space.w_str):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -171,7 +171,7 @@ class W_CDLL(W_Root):
         else:
             ffi_restype = ffi_type_void
 
-        if space.is_true(space.isinstance(w_name, space.w_str)):
+        if space.isinstance_w(w_name, space.w_str):
             name = space.str_w(w_name)
 
             try:
@@ -183,8 +183,7 @@ class W_CDLL(W_Root):
             except LibFFIError:
                 raise got_libffi_error(space)
 
-        elif (_MS_WINDOWS and
-              space.is_true(space.isinstance(w_name, space.w_int))):
+        elif (_MS_WINDOWS and space.isinstance_w(w_name, space.w_int)):
             ordinal = space.int_w(w_name)
             try:
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
@@ -311,11 +310,12 @@ class W_DataInstance(W_Root):
         raise NotImplementedError("abstract base class")
 
 def unwrap_truncate_int(TP, space, w_arg):
-    if space.is_true(space.isinstance(w_arg, space.w_int)):
+    if space.isinstance_w(w_arg, space.w_int):
         return rffi.cast(TP, space.int_w(w_arg))
     else:
         return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
 unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
+
 
 def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     w = space.wrap

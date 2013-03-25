@@ -18,7 +18,6 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from sys import maxint
 
-UNROLL_CUTOFF = 5
 
 class W_AbstractListObject(W_Object):
     __slots__ = ()
@@ -43,7 +42,7 @@ def make_empty_list_with_size(space, hint):
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 @jit.look_inside_iff(lambda space, list_w, sizehint:
-                         jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
+                     jit.loop_unrolling_heuristic(list_w, len(list_w)))
 def get_strategy_from_list_objects(space, list_w, sizehint):
     if not list_w:
         if sizehint != -1:
@@ -727,6 +726,13 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(strlist[:])
             return
 
+        unilist = space.listview_unicode(w_iterable)
+        if unilist is not None:
+            w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
+            # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(unilist[:])
+            return
+
         ListStrategy._extend_from_iterable(self, w_list, w_iterable)
 
     def reverse(self, w_list):
@@ -950,7 +956,7 @@ class AbstractUnwrappedStrategy(object):
         raise NotImplementedError("abstract base class")
 
     @jit.look_inside_iff(lambda space, w_list, list_w:
-        jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
+                         jit.loop_unrolling_heuristic(list_w, len(list_w)))
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
@@ -999,7 +1005,7 @@ class AbstractUnwrappedStrategy(object):
         return self.wrap(r)
 
     @jit.look_inside_iff(lambda self, w_list:
-           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
+                         jit.loop_unrolling_heuristic(w_list, w_list.length()))
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
 
@@ -1008,7 +1014,7 @@ class AbstractUnwrappedStrategy(object):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
 
     @jit.look_inside_iff(lambda self, w_list:
-           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
+                         jit.loop_unrolling_heuristic(w_list, w_list.length()))
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
@@ -1469,6 +1475,11 @@ def inplace_mul__List_ANY(space, w_list, w_times):
     w_list.inplace_mul(times)
     return w_list
 
+def list_unroll_condition(space, w_list1, w_list2):
+    return jit.loop_unrolling_heuristic(w_list1, w_list1.length()) or \
+           jit.loop_unrolling_heuristic(w_list2, w_list2.length())
+
+@jit.look_inside_iff(list_unroll_condition)
 def eq__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     if w_list1.length() != w_list2.length():
@@ -1486,6 +1497,8 @@ def eq__List_List(space, w_list1, w_list2):
 def _make_list_comparison(name):
     import operator
     op = getattr(operator, name)
+
+    @jit.look_inside_iff(list_unroll_condition)
     def compare_unwrappeditems(space, w_list1, w_list2):
         # needs to be safe against eq_w() mutating the w_lists behind our back
         # Search for the first index where items are different

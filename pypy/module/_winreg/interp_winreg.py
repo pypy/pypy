@@ -108,9 +108,9 @@ def hkey_w(w_hkey, space):
         raise OperationError(space.w_TypeError, errstring)
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
-    elif space.is_true(space.isinstance(w_hkey, space.w_int)):
+    elif space.isinstance_w(w_hkey, space.w_int):
         return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
-    elif space.is_true(space.isinstance(w_hkey, space.w_long)):
+    elif space.isinstance_w(w_hkey, space.w_long):
         return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
     else:
         errstring = space.wrap("The object is not a PyHKEY object")
@@ -266,7 +266,7 @@ def convert_to_regdata(space, w_value, typ):
     buf = None
 
     if typ == rwinreg.REG_DWORD:
-        if space.is_true(space.isinstance(w_value, space.w_int)):
+        if space.isinstance_w(w_value, space.w_int):
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
             buf1[0] = space.uint_w(w_value)
@@ -278,7 +278,7 @@ def convert_to_regdata(space, w_value, typ):
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
             buf[0] = '\0'
         else:
-            if space.is_true(space.isinstance(w_value, space.w_unicode)):
+            if space.isinstance_w(w_value, space.w_unicode):
                 w_value = space.call_method(w_value, 'encode',
                                             space.wrap('mbcs'))
             buf = rffi.str2charp(space.str_w(w_value))
@@ -289,7 +289,7 @@ def convert_to_regdata(space, w_value, typ):
             buflen = 1
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
             buf[0] = '\0'
-        elif space.is_true(space.isinstance(w_value, space.w_list)):
+        elif space.isinstance_w(w_value, space.w_list):
             strings = []
             buflen = 0
 
@@ -298,7 +298,7 @@ def convert_to_regdata(space, w_value, typ):
             while True:
                 try:
                     w_item = space.next(w_iter)
-                    if space.is_true(space.isinstance(w_item, space.w_unicode)):
+                    if space.isinstance_w(w_item, space.w_unicode):
                         w_item = space.call_method(w_item, 'encode',
                                                    space.wrap('mbcs'))
                     item = space.str_w(w_item)

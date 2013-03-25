@@ -25,10 +25,10 @@ def unwrap_attr(space, w_attr):
         # XXX it's not clear that we have to catch the TypeError...
 
 def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
-    if not space.is_true(space.isinstance(w_bases, space.w_tuple)):
+    if not space.isinstance_w(w_bases, space.w_tuple):
         raise_type_err(space, 'bases', 'tuple', w_bases)
 
-    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+    if not space.isinstance_w(w_dict, space.w_dict):
         raise_type_err(space, 'bases', 'tuple', w_bases)
 
     if not space.is_true(space.contains(w_dict, space.wrap("__doc__"))):
@@ -68,27 +68,24 @@ class W_ClassObject(W_Root):
         return self.w_dict
 
     def setdict(self, space, w_dict):
-        if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+        if not space.isinstance_w(w_dict, space.w_dict):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("__dict__ must be a dictionary object"))
         self.w_dict = w_dict
 
     def setname(self, space, w_newname):
-        if not space.is_true(space.isinstance(w_newname, space.w_str)):
-            raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("__name__ must be a string object"))
+        if not space.isinstance_w(w_newname, space.w_str):
+            raise OperationError(space.w_TypeError,
+                space.wrap("__name__ must be a string object")
+            )
         self.name = space.str_w(w_newname)
 
     def setbases(self, space, w_bases):
-        # XXX in theory, this misses a check against inheritance cycles
-        # although on pypy we don't get a segfault for infinite
-        # recursion anyway
-        if not space.is_true(space.isinstance(w_bases, space.w_tuple)):
-            raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("__bases__ must be a tuple object"))
+        if not space.isinstance_w(w_bases, space.w_tuple):
+            raise OperationError(space.w_TypeError,
+                space.wrap("__bases__ must be a tuple object")
+            )
         bases_w = space.fixedview(w_bases)
         for w_base in bases_w:
             if not isinstance(w_base, W_ClassObject):
@@ -194,7 +191,7 @@ class W_ClassObject(W_Root):
             if not e.match(space, space.w_AttributeError):
                 raise
             return "?"
-        if space.is_true(space.isinstance(w_mod, space.w_str)):
+        if space.isinstance_w(w_mod, space.w_str):
             return space.str_w(w_mod)
         return "?"
 
@@ -464,7 +461,7 @@ class W_InstanceObject(W_Root):
     def descr_len(self, space):
         w_meth = self.getattr(space, '__len__')
         w_result = space.call_function(w_meth)
-        if space.is_true(space.isinstance(w_result, space.w_int)):
+        if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
                 raise OperationError(
                     space.w_ValueError,
@@ -532,7 +529,7 @@ class W_InstanceObject(W_Root):
             if w_func is None:
                 return space.w_True
         w_result = space.call_function(w_func)
-        if space.is_true(space.isinstance(w_result, space.w_int)):
+        if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
                 raise OperationError(
                     space.w_ValueError,
@@ -594,16 +591,16 @@ class W_InstanceObject(W_Root):
     def descr_hash(self, space):
         w_func = self.getattr(space, '__hash__', False)
         if w_func is None:
-            w_eq =  self.getattr(space, '__eq__', False)
-            w_cmp =  self.getattr(space, '__cmp__', False)
+            w_eq = self.getattr(space, '__eq__', False)
+            w_cmp = self.getattr(space, '__cmp__', False)
             if w_eq is not None or w_cmp is not None:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("unhashable instance"))
             else:
                 return space.wrap(compute_identity_hash(self))
         w_ret = space.call_function(w_func)
-        if (not space.is_true(space.isinstance(w_ret, space.w_int)) and
-            not space.is_true(space.isinstance(w_ret, space.w_long))):
+        if (not space.isinstance_w(w_ret, space.w_int) and
+            not space.isinstance_w(w_ret, space.w_long)):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("__hash__ must return int or long"))
@@ -653,7 +650,6 @@ class W_InstanceObject(W_Root):
                 raise
             if space.eq_w(w_x, w_obj):
                 return space.w_True
-
 
     def descr_pow(self, space, w_other, w_modulo=None):
         if space.is_none(w_modulo):

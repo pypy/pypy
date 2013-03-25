@@ -39,6 +39,9 @@ from rpython.annotator import description
 #                                B       C
 #                             attr=s2  attr=s3
 #
+# XXX this does not seem to be correct, but I don't know how to phrase
+#     it correctly. See test_specific_attributes in test_annrpython
+#
 # In this case, as long as 'attr' is only read/written from B or C, the
 # Attribute on B says that it can be 's1 or s2', and the Attribute on C says
 # it can be 's1 or s3'.  Merging them into a single Attribute on A would give
@@ -97,7 +100,7 @@ class Attribute(object):
         s_newvalue = self.getvalue()
 
         for position in self.read_locations:
-            self.bookkeeper.annotator.reflowfromposition(position)        
+            self.bookkeeper.annotator.reflowfromposition(position)
 
         # check for method demotion and after-the-fact method additions
         if isinstance(s_newvalue, SomePBC):
@@ -116,7 +119,7 @@ class Attribute(object):
                                                     (self.name, homedef)
                                                     )
                                 #self.bookkeeper.warning("demoting method %s "
-                                #                        "to base class %s" % 
+                                #                        "to base class %s" %
                                 #                        (self.name, homedef))
                                 break
 
@@ -147,7 +150,7 @@ class ClassDef(object):
         self.attrs = {}          # {name: Attribute}
         self.classdesc = classdesc
         self.name = self.classdesc.name
-        self.shortname = self.name.split('.')[-1]        
+        self.shortname = self.name.split('.')[-1]
         self.subdefs = []
         self.attr_sources = {}   # {name: list-of-sources}
         self.read_locations_of__class__ = {}
@@ -401,7 +404,7 @@ class InstanceSource(object):
     def __init__(self, bookkeeper, obj):
         self.bookkeeper = bookkeeper
         self.obj = obj
- 
+
     def s_get_value(self, classdef, name):
         try:
             v = getattr(self.obj, name)

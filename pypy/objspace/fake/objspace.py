@@ -99,7 +99,6 @@ class Entry(ExtRegistryEntry):
 
 
 class FakeObjSpace(ObjSpace):
-
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
@@ -241,6 +240,11 @@ class FakeObjSpace(ObjSpace):
 
     def type(self, w_obj):
         return w_some_type()
+
+    def isinstance_w(self, w_inst, w_type):
+        is_root(w_inst)
+        is_root(w_type)
+        return NonConstant(True)
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         is_root(w_iterable)

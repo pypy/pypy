@@ -1,12 +1,11 @@
 import sys, py
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance, hlstr
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.flowspace.model import checkgraph, Link, copygraph
 from rpython.rlib.objectmodel import we_are_translated

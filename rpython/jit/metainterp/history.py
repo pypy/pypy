@@ -1,4 +1,3 @@
-
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.ootypesystem import ootype
@@ -175,7 +174,7 @@ class AbstractFailDescr(AbstractDescr):
 
 class BasicFinalDescr(AbstractFailDescr):
     final_descr = True
-    
+
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
 

@@ -33,7 +33,7 @@ SCount = (LCount*NCount)
 if MAXUNICODE > 0xFFFF:
     # Target is wide build
     def unichr_to_code_w(space, w_unichr):
-        if not space.is_true(space.isinstance(w_unichr, space.w_unicode)):
+        if not space.isinstance_w(w_unichr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap(
                 'argument 1 must be unicode'))
 
@@ -53,7 +53,7 @@ if MAXUNICODE > 0xFFFF:
 else:
     # Target is narrow build
     def unichr_to_code_w(space, w_unichr):
-        if not space.is_true(space.isinstance(w_unichr, space.w_unicode)):
+        if not space.isinstance_w(w_unichr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap(
                 'argument 1 must be unicode'))
 
@@ -178,7 +178,7 @@ class UCD(W_Root):
 
     @unwrap_spec(form=str)
     def normalize(self, space, form, w_unistr):
-        if not space.is_true(space.isinstance(w_unistr, space.w_unicode)):
+        if not space.isinstance_w(w_unistr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap('argument 2 must be unicode'))
         if form == 'NFC':
             composed = True

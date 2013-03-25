@@ -54,7 +54,7 @@ class W_CType(W_Root):
         raise operationerrfmt(space.w_TypeError,
                               "cannot cast to '%s'", self.name)
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
                               "int() not supported on cdata '%s'", self.name)
