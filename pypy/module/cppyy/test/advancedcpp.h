@@ -1,4 +1,5 @@
 #include <new>
+#include <string>
 #include <vector>
 
 
@@ -416,3 +417,17 @@ template long my_templated_method_class::get_size<double>();
 
 typedef my_templated_method_class my_typedef_t;
 template long my_templated_method_class::get_size<my_typedef_t>();
+
+
+//===========================================================================
+class overload_one_way {           // overload order testing
+public:
+    int gime() const;
+    std::string gime();
+};
+
+class overload_the_other_way {
+public:
+   std::string gime();
+   int gime() const;
+};

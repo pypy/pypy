@@ -114,3 +114,11 @@ long my_templated_method_class::get_long_size()   { return (long)sizeof(long); }
 long my_templated_method_class::get_float_size()  { return (long)sizeof(float); }
 long my_templated_method_class::get_double_size() { return (long)sizeof(double); }
 long my_templated_method_class::get_self_size()   { return (long)sizeof(my_templated_method_class); }
+
+
+// overload order testing
+int overload_one_way::gime() const { return 1; }
+std::string overload_one_way::gime() { return "aap"; }
+
+std::string overload_the_other_way::gime() { return "aap"; }
+int overload_the_other_way::gime() const { return 1; }

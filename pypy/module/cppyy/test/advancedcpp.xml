@@ -53,4 +53,7 @@
   <class name="my_templated_method_class" />
   <class name="my_typedef_t" />
 
+  <class name="overload_one_way" />
+  <class name="overload_the_other_way" />
+
 </lcgdict>

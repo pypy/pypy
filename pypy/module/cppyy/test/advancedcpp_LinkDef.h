@@ -78,4 +78,7 @@
 #pragma link C++ class my_templated_method_class;
 #pragma link C++ typedef my_typedef_t;
 
+#pragma link C++ class overload_one_way;
+#pragma link C++ class overload_the_other_way;
+
 #endif

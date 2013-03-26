@@ -629,3 +629,11 @@ class AppTestADVANCEDCPP:
         assert b.__eq__(a) == True
         assert a.__eq__(a) == False
         assert b.__eq__(b) == False
+
+    def test21_overload_order_with_proper_return(self):
+        """Test return type against proper overload w/ const and covariance"""
+
+        import cppyy
+
+        assert cppyy.gbl.overload_one_way().gime() == 1
+        assert cppyy.gbl.overload_the_other_way().gime() == "aap"
