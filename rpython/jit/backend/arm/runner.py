@@ -113,13 +113,13 @@ class AbstractARMCPU(AbstractLLCPU):
 
 class CPU_ARM(AbstractARMCPU):
     """ARM v7 uses softfp ABI, requires vfp"""
-    backend_name = "arm"
+    backend_name = "armv7"
 ArmCPU = CPU_ARM
 
 class CPU_ARMHF(AbstractARMCPU):
     """ARM v7 uses hardfp ABI, requires vfp"""
     use_hf_abi = True
-    backend_name = "armhf"
+    backend_name = "armv7hf"
     supports_floats = False
     supports_singlefloats = False
 
