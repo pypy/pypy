@@ -1431,7 +1431,15 @@ class TestOOtype(#ExplicitVirtualizableTests,
     pass
 
 
-class TestLLtype(ExplicitVirtualizableTests,
-                 ImplicitVirtualizableTests,
+class TestLLtype1(ExplicitVirtualizableTests,
                  LLJitMixin):
     pass
+
+class TestLLtype2(ImplicitVirtualizableTests,
+                  LLJitMixin):
+    def meta_interp(self, *args, **kwds):
+        class VInfo(object):
+            pass
+
+        kwds['vinfo_for_tests'] = VInfo()
+        return LLJitMixin.meta_interp(*args, **kwds)

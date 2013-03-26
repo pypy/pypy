@@ -304,14 +304,15 @@ class WarmEnterState(object):
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
             # input args.
-            deadframe = func_execute_token(loop_token, *args)
+
+            # If we have a virtualizable, we have to clear its
+            # state, to make sure we enter with vable_token being NONE
             #
-            # If we have a virtualizable, we have to reset its
-            # 'vable_token' field afterwards
             if vinfo is not None:
                 virtualizable = args[index_of_virtualizable]
-                virtualizable = vinfo.cast_gcref_to_vtype(virtualizable)
-                vinfo.reset_vable_token(virtualizable)
+                vinfo.clear_vable_token(virtualizable)
+            
+            deadframe = func_execute_token(loop_token, *args)
             #
             # Record in the memmgr that we just ran this loop,
             # so that it will keep it alive for a longer time
@@ -602,7 +603,7 @@ class WarmEnterState(object):
                 fn = support.maybe_on_top_of_llinterp(rtyper, inline_ptr)
                 return fn(*greenargs)
         self.should_unroll_one_iteration = should_unroll_one_iteration
-        
+
         redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
 
         def get_assembler_token(greenkey):

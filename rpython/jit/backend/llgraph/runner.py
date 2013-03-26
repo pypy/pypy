@@ -101,6 +101,9 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
 
+    def get_vinfo(self):
+        return self.vinfo
+
     def __repr__(self):
         return 'FieldDescr(%r, %r)' % (self.S, self.fieldname)
 
@@ -170,7 +173,7 @@ class LLGraphCPU(model.AbstractCPU):
     translate_support_code = False
     is_llgraph = True
 
-    def __init__(self, rtyper, stats=None, *ignored_args, **ignored_kwds):
+    def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
         self.rtyper = rtyper
         self.llinterp = LLInterpreter(rtyper)
@@ -178,6 +181,7 @@ class LLGraphCPU(model.AbstractCPU):
         class MiniStats:
             pass
         self.stats = stats or MiniStats()
+        self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         clt = model.CompiledLoopToken(self, looptoken.number)
@@ -267,6 +271,15 @@ class LLGraphCPU(model.AbstractCPU):
         assert isinstance(frame, LLFrame)
         assert frame.forced_deadframe is None
         values = []
+        if frame.force_guard_op is None:
+            if frame.current_op.opnum == rop.FINISH:
+                values = [frame.env[arg] for arg in
+                          frame.current_op.getarglist()]
+            else:
+                xxx
+            frame.forced_deadframe = LLDeadFrame(
+                _getdescr(frame.current_op), values)
+            return frame.forced_deadframe
         for box in frame.force_guard_op.getfailargs():
             if box is not None:
                 if box is not frame.current_op.result:
@@ -316,6 +329,8 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = FieldDescr(S, fieldname)
             self.descrs[key] = descr
+            if self.vinfo_for_tests is not None:
+                descr.vinfo = self.vinfo_for_tests
             return descr
 
     def arraydescrof(self, A):
@@ -587,6 +602,7 @@ class LLFrame(object):
     forced_deadframe = None
     overflow_flag = False
     last_exception = None
+    force_guard_op = None
 
     def __init__(self, cpu, argboxes, args):
         self.env = {}

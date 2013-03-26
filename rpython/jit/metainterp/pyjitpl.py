@@ -2214,7 +2214,7 @@ class MetaInterp(object):
         # contents of the virtualizable should be generally correct
         self.history.record(rop.FORCE_TOKEN, [], force_token_box)
         self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
-                        None, descr=vinfo.vable_token_descr)
+                            None, descr=vinfo.vable_token_descr)
 
     def compile_exit_frame_with_exception(self, valuebox):
         self.store_token_in_vable()
