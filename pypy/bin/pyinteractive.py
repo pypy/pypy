@@ -6,14 +6,13 @@
 
 """
 
-import os, sys
+import os
+import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-import pypy
 from pypy.tool import option
-from optparse import make_option
 from pypy.interpreter import main, interactive, error, gateway
 from rpython.config.config import OptionDescription, BoolOption, StrOption
 from rpython.config.config import Config, to_optparse

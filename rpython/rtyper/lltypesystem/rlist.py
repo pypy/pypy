@@ -1,6 +1,6 @@
-from rpython.rlib import rgc, jit
+from rpython.rlib import rgc, jit, types
 from rpython.rlib.debug import ll_assert
-from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.signature import signature
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
      GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)
@@ -171,7 +171,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
-@enforceargs(None, int, None)
+@signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
     Ensure l.items has room for at least newsize elements.  Note that
@@ -227,7 +227,8 @@ def _ll_list_resize_hint(l, newsize):
     if allocated < newsize or newsize < (allocated >> 1) - 5:
         _ll_list_resize_hint_really(l, newsize, False)
 
-@enforceargs(None, int, None)
+
+@signature(types.any(), types.int(), types.bool(), returns=types.none())
 def _ll_list_resize_really(l, newsize, overallocate):
     """
     Ensure l.items has room for at least newsize elements, and set

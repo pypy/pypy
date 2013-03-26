@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
@@ -16,7 +16,7 @@ def done_if_true(dtype, val):
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
-class W_Ufunc(Wrappable):
+class W_Ufunc(W_Root):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity",
                "allow_complex", "complex_to_float"]
     _immutable_fields_ = ["promote_to_float", "promote_bools", "name",
@@ -414,7 +414,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
-    if dt1.kind == dt2.kind:
+    if dt1.kind == dt2.kind and not dt2.is_flexible_type():
         return dt2
 
     # Everything promotes to float, and bool promotes to everything.
@@ -434,7 +434,23 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     elif dt2.num == 10 or (LONG_BIT == 64 and dt2.num == 8):
         # UInt64 + signed = Float64
         dtypenum = 12
-    else:
+    elif dt2.is_flexible_type():
+        # For those operations that get here (concatenate, stack),
+        # flexible types take precedence over numeric type
+        if dt2.is_record_type():
+            return dt2
+        if dt1.is_str_or_unicode():
+            if dt2.num == 18:
+                if dt2.itemtype.get_element_size() >= \
+                           dt1.itemtype.get_element_size():
+                    return dt2
+                return dt1
+            if dt2.itemtype.get_element_size() >= \
+                       dt1.itemtype.get_element_size():
+                return dt2
+            return dt1
+        return dt2
+    else:    
         # increase to the next signed type
         dtypenum = dt2.num + 1
     newdtype = interp_dtype.get_dtype_cache(space).dtypes_by_num[dtypenum]

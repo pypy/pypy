@@ -12,7 +12,7 @@ from rpython.annotator.model import SomeString, SomeChar, SomeFloat, \
      SomeInteger, SomeOOInstance, SomeOOObject, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
+     SomeUnicodeString, SomeList, HarmlesslyBlocked, \
      SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
@@ -25,7 +25,7 @@ from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper import extregistry
-from rpython.tool.identity_dict import identity_dict
+
 
 class Stats(object):
 
@@ -426,8 +426,8 @@ class Bookkeeper(object):
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
-        elif extregistry.is_registered(x, self.policy):
-            entry = extregistry.lookup(x, self.policy)
+        elif extregistry.is_registered(x):
+            entry = extregistry.lookup(x)
             result = entry.compute_annotation_bk(self)
         elif isinstance(x, lltype._ptr):
             result = SomePtr(lltype.typeOf(x))
@@ -758,9 +758,7 @@ def getbookkeeper():
     except AttributeError:
         return None
 
-
 def delayed_imports():
     # import ordering hack
     global BUILTIN_ANALYZERS
     from rpython.annotator.builtin import BUILTIN_ANALYZERS
-

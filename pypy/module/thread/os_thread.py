@@ -146,6 +146,7 @@ def setup_threads(space):
     space.threadlocals.setup_threads(space)
     bootstrapper.setup(space)
 
+
 def reinit_threads(space):
     "Called in the child process after a fork()"
     space.threadlocals.reinit_threads(space)
@@ -167,10 +168,10 @@ function returns; the return value is ignored.  The thread will also exit
 when the function raises an unhandled exception; a stack trace will be
 printed unless the exception is SystemExit."""
     setup_threads(space)
-    if not space.is_true(space.isinstance(w_args, space.w_tuple)):
+    if not space.isinstance_w(w_args, space.w_tuple):
         raise OperationError(space.w_TypeError,
                 space.wrap("2nd arg must be a tuple"))
-    if w_kwargs is not None and not space.is_true(space.isinstance(w_kwargs, space.w_dict)):
+    if w_kwargs is not None and not space.isinstance_w(w_kwargs, space.w_dict):
         raise OperationError(space.w_TypeError,
                 space.wrap("optional 3rd arg must be a dictionary"))
     if not space.is_true(space.callable(w_callable)):
@@ -183,7 +184,7 @@ printed unless the exception is SystemExit."""
         try:
             rthread.gc_thread_prepare()     # (this has no effect any more)
             ident = rthread.start_new_thread(bootstrapper.bootstrap, ())
-        except Exception, e:
+        except Exception:
             bootstrapper.release()     # normally called by the new thread
             raise
     except rthread.error:

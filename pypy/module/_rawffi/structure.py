@@ -32,7 +32,7 @@ def unpack_fields(space, w_fields):
             name = space.str_w(l_w[0])
         except OperationError:
             raise OperationError(space.w_TypeError, space.wrap(
-               "structure field name must be string not %s" % 
+               "structure field name must be string not %s" %
                space.type(l_w[0]).getname(space)))
         tp = unpack_shape_with_length(space, l_w[1])
 
@@ -153,7 +153,7 @@ class W_Structure(W_DataShape):
             bitsizes = None
         self.fields = fields
         self.size = size
-        self.alignment = alignment                
+        self.alignment = alignment
         self.ll_positions = pos
         self.ll_bitsizes = bitsizes
         self.name_to_index = name_to_index
@@ -223,11 +223,10 @@ class W_Structure(W_DataShape):
                                                            self.alignment,
                                                            fieldtypes)
         return self.ffi_struct.ffistruct
-    
+
     def __del__(self):
         if self.ffi_struct:
             lltype.free(self.ffi_struct, flavor='raw')
-    
 
 
 @unwrap_spec(union=bool, pack=int)
@@ -236,7 +235,7 @@ def descr_new_structure(space, w_type, w_shapeinfo, union=False, pack=0):
         raise OperationError(space.w_ValueError, space.wrap(
             "_pack_ must be a non-negative integer"))
 
-    if space.is_true(space.isinstance(w_shapeinfo, space.w_tuple)):
+    if space.isinstance_w(w_shapeinfo, space.w_tuple):
         w_size, w_alignment = space.fixedview(w_shapeinfo, expected_length=2)
         S = W_Structure(space, None, space.int_w(w_size),
                                      space.int_w(w_alignment), union)
@@ -372,7 +371,7 @@ class W_StructureInstanceAutoFree(W_StructureInstance):
     def __del__(self):
         if self.ll_buffer:
             self._free()
-        
+
 W_StructureInstanceAutoFree.typedef = TypeDef(
     'StructureInstanceAutoFree',
     __repr__    = interp2app(W_StructureInstance.descr_repr),

@@ -1,7 +1,4 @@
-
-
 class SimpleTaskEngine(object):
-
     def __init__(self):
         self._plan_cache = {}
 
@@ -32,7 +29,7 @@ class SimpleTaskEngine(object):
                 if dep.startswith('??'): # optional
                     dep = dep[2:]
                     if dep not in goals:
-                        continue                
+                        continue
                 if dep.startswith('?'): # suggested
                     dep = dep[1:]
                     if dep in skip:
@@ -40,7 +37,7 @@ class SimpleTaskEngine(object):
                 yield dep
 
         seen = {}
-                        
+
         def consider(subgoal):
             if subgoal in seen:
                 return
@@ -71,7 +68,7 @@ class SimpleTaskEngine(object):
                 else:
                     break
             else:
-                raise RuntimeError, "circular dependecy"
+                raise RuntimeError("circular dependecy")
 
             plan.append(cand)
             for constr in constraints:
@@ -93,6 +90,7 @@ class SimpleTaskEngine(object):
 
     def _depending_on_closure(self, goal):
         d = {}
+
         def track(goal):
             if goal in d:
                 return
@@ -127,10 +125,6 @@ class SimpleTaskEngine(object):
 
     def _event(self, kind, goal, func):
         pass
-    
+
     def _error(self, goal):
         pass
-
-
-        
-        

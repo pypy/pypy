@@ -39,6 +39,9 @@ def test_direct():
     wx = space.and_(w14000000000000, w_huge)
     assert space.is_true(space.eq(wx, w14000000000000))
 
+    w_obj = W_SmallLongObject.fromint(42)
+    assert space.unwrap(w_obj) == 42
+
 
 class AppTestSmallLong(test_longobject.AppTestLong):
     spaceconfig = {"objspace.std.withsmalllong": True}

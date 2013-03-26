@@ -1,6 +1,6 @@
 
 import sys
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
@@ -44,7 +44,8 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     out = base.W_NDimArray.from_shape(shape, dtype)
     return out
 
-class W_Dtype(Wrappable):
+
+class W_Dtype(W_Root):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
@@ -71,7 +72,8 @@ class W_Dtype(Wrappable):
     def box_complex(self, real, imag):
         return self.itemtype.box_complex(real, imag)
 
-
+    def build_and_convert(self, space, box):
+        return self.itemtype.build_and_convert(space, self, box)
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 

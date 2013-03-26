@@ -58,6 +58,18 @@ class W_FloatObject(W_AbstractFloatObject):
     def unwrap(w_self, space):
         return w_self.floatval
 
+    def float_w(self, space):
+        return self.floatval
+
+    def int(self, space):
+        try:
+            value = ovfcheck_float_to_int(self.floatval)
+        except OverflowError:
+            from pypy.objspace.std.longobject import newlong_from_float
+            return newlong_from_float(space, self.floatval)
+        else:
+            return space.newint(value)
+
     def __repr__(self):
         return "<W_FloatObject(%f)>" % self.floatval
 
@@ -89,16 +101,6 @@ def float__Float(space, w_float1):
     a = w_float1.floatval
     return W_FloatObject(a)
 
-def int__Float(space, w_value):
-    from pypy.objspace.std.longobject import newlong_from_float
-    try:
-        value = ovfcheck_float_to_int(w_value.floatval)
-    except OverflowError:
-        pass
-    else:
-        return space.newint(value)
-    return newlong_from_float(space, w_value.floatval)
-
 def trunc__Float(space, w_floatobj):
     whole = math.modf(w_floatobj.floatval)[1]
     try:
@@ -107,9 +109,6 @@ def trunc__Float(space, w_floatobj):
         return int__Float(space, w_floatobj)
     else:
         return space.newint(value)
-
-def float_w__Float(space, w_float):
-    return w_float.floatval
 
 def _char_from_hex(number):
     return "0123456789abcdef"[number]

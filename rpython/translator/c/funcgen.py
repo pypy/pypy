@@ -264,7 +264,6 @@ class FunctionCodeGenerator(object):
                         for op in self.gen_link(link):
                             yield '\t' + op
                         # 'break;' not needed, as gen_link ends in a 'goto'
-                        
                     # Emit default case
                     yield 'default:'
                     if defaultlink is None:
@@ -371,7 +370,7 @@ class FunctionCodeGenerator(object):
 
     # the C preprocessor cannot handle operations taking a variable number
     # of arguments, so here are Python methods that do it
-    
+
     def OP_NEWLIST(self, op):
         args = [self.expr(v) for v in op.args]
         r = self.expr(op.result)

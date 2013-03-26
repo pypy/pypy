@@ -258,30 +258,25 @@ class __extend__(W_NDimArray):
         return self.implementation.get_scalar_value()
 
     def descr_copy(self, space):
-        return W_NDimArray(self.implementation.copy())
+        return W_NDimArray(self.implementation.copy(space))
 
     def descr_get_real(self, space):
         return W_NDimArray(self.implementation.get_real(self))
 
     def descr_get_imag(self, space):
         ret = self.implementation.get_imag(self)
-        if ret:
-            return W_NDimArray(ret)
-        raise OperationError(space.w_NotImplementedError,
-                    space.wrap('imag not implemented for this dtype'))
+        return W_NDimArray(ret)
 
     def descr_set_real(self, space, w_value):
         # copy (broadcast) values into self
-        tmp = self.implementation.get_real(self)
-        tmp.setslice(space, convert_to_array(space, w_value))
+        self.implementation.set_real(space, self, w_value)
 
     def descr_set_imag(self, space, w_value):
         # if possible, copy (broadcast) values into self
         if not self.get_dtype().is_complex_type():
             raise OperationError(space.w_TypeError,
                     space.wrap('array does not have imaginary part to set'))
-        tmp = self.implementation.get_imag(self)
-        tmp.setslice(space, convert_to_array(space, w_value))
+        self.implementation.set_imag(space, self, w_value)
 
     def descr_reshape(self, space, args_w):
         """reshape(...)

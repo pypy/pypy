@@ -680,12 +680,31 @@ class AppTestTypes(BaseAppTestDtypes):
         from numpypy import dtype
         assert dtype('i4').alignment == 4
 
-    def test_typeinfo(self):
-        from _numpypy import typeinfo, void, number, int64, bool_
-        assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807, -9223372036854775808, int64)
-        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
-        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
+    def test_any_all(self):
+        import numpypy as numpy
+        x = numpy.bool_(True)
+        assert x.any()
+        assert x.all()
+        x = numpy.bool_(False)
+        assert not x.any()
+        assert not x.all()
+        #
+        x = numpy.float64(0)
+        assert not x.any()
+        assert not x.all()
+        assert isinstance(x.any(), numpy.bool_)
+
+    def test_ravel(self):
+        from numpypy import float64, int8, array
+        x = float64(42.5).ravel()
+        assert x.dtype == float64
+        assert (x == array([42.5])).all()
+        #
+        x = int8(42).ravel()
+        assert x.dtype == int8
+        assert (x == array(42)).all()
+        
+
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
@@ -796,7 +815,7 @@ class AppTestPyPyOnly(BaseNumpyAppTest):
         from numpypy import void, number, int64, bool_
         from numpypy.core.multiarray import typeinfo
         assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807, -9223372036854775808, int64)
         assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
         assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
 

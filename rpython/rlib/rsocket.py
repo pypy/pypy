@@ -339,7 +339,7 @@ class INET6Address(IPAddress):
         # to avoid leaks if an exception occurs inbetween
         sin = lltype.malloc(_c.sockaddr_in6, flavor='raw', zero=True)
         result.setdata(sin, sizeof(_c.sockaddr_in6))
-        rffi.setintfield(sin, 'c_sin6_family', AF_INET)
+        rffi.setintfield(sin, 'c_sin6_family', AF_INET6)
         rffi.structcopy(sin.c_sin6_addr, in6_addr)
         return result
     from_in6_addr = staticmethod(from_in6_addr)

@@ -9,11 +9,10 @@ from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from rpython.jit.metainterp.history import TreeLoop, Box, History, JitCellToken, TargetToken
+from rpython.jit.metainterp.history import TreeLoop, Box, JitCellToken, TargetToken
 from rpython.jit.metainterp.history import AbstractFailDescr, BoxInt
-from rpython.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const, ConstInt
+from rpython.jit.metainterp.history import BoxPtr, BoxFloat, ConstInt
 from rpython.jit.metainterp import history, resume
-from rpython.jit.metainterp.typesystem import llhelper, oohelper
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
@@ -140,7 +139,7 @@ def compile_loop(metainterp, greenkey, start,
     assert isinstance(target_token, TargetToken)
     all_target_tokens = [target_token]
 
-    loop = create_empty_loop(metainterp)        
+    loop = create_empty_loop(metainterp)
     loop.inputargs = part.inputargs
     loop.operations = part.operations
     loop.quasi_immutable_deps = {}
@@ -163,7 +162,7 @@ def compile_loop(metainterp, greenkey, start,
             optimize_trace(metainterp_sd, part, enable_opts)
         except InvalidLoop:
             return None
-            
+
         loop.operations = loop.operations[:-1] + part.operations
         if part.quasi_immutable_deps:
             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
@@ -224,7 +223,6 @@ def compile_retrace(metainterp, greenkey, start,
         try:
             optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
                            inline_short_preamble=False)
-            
         except InvalidLoop:
             return None
     assert part.operations[-1].getopnum() != rop.LABEL
@@ -249,9 +247,9 @@ def compile_retrace(metainterp, greenkey, start,
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
-    target_token = loop.operations[-1].getdescr()    
+    target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop)
-    
+
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)
     record_loop_or_bridge(metainterp_sd, loop)
@@ -486,7 +484,7 @@ class ResumeGuardDescr(ResumeDescr):
     _counters = None    # they get stored in _counters then.
 
     # this class also gets the following attributes stored by resume.py code
-    
+
     # XXX move all of unused stuff to guard_op, now that we can have
     #     a separate class, so it does not survive that long
     rd_snapshot = None
@@ -803,7 +801,6 @@ class ResumeFromInterpDescr(ResumeDescr):
         # with completely unoptimized arguments, as in the interpreter.
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
-        redargs = new_loop.inputargs
         new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
         propagate_original_jitcell_token(new_loop)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
@@ -819,14 +816,14 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     to some existing place.
     """
     from rpython.jit.metainterp.optimizeopt import optimize_trace
-    
+
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
     # 
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_trace = create_empty_loop(metainterp)
-    new_trace.inputargs = inputargs = metainterp.history.inputargs[:]
+    new_trace.inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
 
     new_trace.operations = [op.clone() for op in metainterp.history.operations]
@@ -856,7 +853,6 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     else:
         metainterp.retrace_needed(new_trace)
         return None
-        
 
 # ____________________________________________________________
 

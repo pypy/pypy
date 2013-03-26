@@ -163,7 +163,7 @@ class W_ArrayInstance(W_DataInstance):
         return itemsize * self.length
 
     def decodeslice(self, space, w_slice):
-        if not space.is_true(space.isinstance(w_slice, space.w_slice)):
+        if not space.isinstance_w(w_slice, space.w_slice):
             raise OperationError(space.w_TypeError,
                                  space.wrap('index must be int or slice'))
         letter = self.shape.itemcode

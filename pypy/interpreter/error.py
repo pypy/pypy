@@ -224,7 +224,7 @@ class OperationError(Exception):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
-                    if space.is_true(space.isinstance(w_value, space.w_tuple)):
+                    if space.isinstance_w(w_value, space.w_tuple):
                         # raise Type, tuple: assume the tuple contains the
                         #                    constructor args
                         w_value = space.call(w_type, w_value)

@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty_w, interp_attrproperty,
     generic_new_descr)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_uint
 from rpython.rlib.rbigint import rbigint
@@ -22,7 +22,7 @@ SEEN_ALL  = SEEN_CR | SEEN_LF | SEEN_CRLF
 
 _WINDOWS = sys.platform == 'win32'
 
-class W_IncrementalNewlineDecoder(Wrappable):
+class W_IncrementalNewlineDecoder(W_Root):
     seennl = 0
     pendingcr = False
     w_decoder = None

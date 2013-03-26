@@ -3,7 +3,7 @@ Interp-level definition of frequently used functionals.
 
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
@@ -170,8 +170,8 @@ min_max_normal = make_min_max(False)
 
 @specialize.arg(2)
 def min_max(space, args, implementation_of):
-    if not jit.we_are_jitted() or (jit.isconstant(len(args.arguments_w)) and
-            len(args.arguments_w) == 2):
+    if not jit.we_are_jitted() or len(args.arguments_w) != 1 and \
+            jit.loop_unrolling_heuristic(args.arguments_w, len(args.arguments_w)):
         return min_max_unroll(space, args, implementation_of)
     else:
         return min_max_normal(space, args, implementation_of)
@@ -195,8 +195,8 @@ def min(space, __args__):
     """
     return min_max(space, __args__, "min")
 
-class W_Enumerate(Wrappable):
 
+class W_Enumerate(W_Root):
     def __init__(self, w_iter, w_start):
         self.w_iter = w_iter
         self.w_index = w_start
@@ -247,8 +247,8 @@ def reversed(space, w_sequence):
         return space.call_function(w_reversed)
     return space.wrap(W_ReversedIterator(space, w_sequence))
 
-class W_ReversedIterator(Wrappable):
 
+class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
@@ -304,7 +304,7 @@ def _make_reversed(space, w_seq, w_remaining):
 
 
 
-class W_Range(Wrappable):
+class W_Range(W_Root):
     def __init__(self, w_start, w_stop, w_step, w_length):
         self.w_start = w_start
         self.w_stop  = w_stop
@@ -461,7 +461,7 @@ W_Range.typedef = TypeDef("range",
     index            = interp2app(W_Range.descr_index),
 )
 
-class W_RangeIterator(Wrappable):
+class W_RangeIterator(W_Root):
     def __init__(self, space, w_start, w_step, w_len, w_index=None):
         self.w_start = w_start
         self.w_step = w_step
@@ -505,7 +505,7 @@ W_RangeIterator.typedef = TypeDef("rangeiterator",
 )
 
 
-class W_Map(Wrappable):
+class W_Map(W_Root):
     _error_name = "map"
     _immutable_fields_ = ["w_fun", "iterators_w"]
 
@@ -572,7 +572,7 @@ W_Map.typedef = TypeDef(
 Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
 
-class W_Filter(Wrappable):
+class W_Filter(W_Root):
     reverse = False
 
     def __init__(self, space, w_predicate, w_iterable):

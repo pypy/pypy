@@ -1,7 +1,6 @@
 from __future__ import division
 import py
 
-import math
 import random
 
 exclude_files = ["__init__.py", "conftest.py"]
@@ -72,7 +71,6 @@ def casteljeau(points, t):
     return points[0]
 
 def color(t):
-    points = [0, 0, 1, 0, 0]
     casteljeau([0, 0, 1, 0, 0], t) / 0.375
 
 class ModuleGraph(object):

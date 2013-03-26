@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib.rarithmetic import intmask
@@ -135,7 +135,7 @@ def ipaddr_from_object(space, w_sockaddr):
     return addr
 
 
-class W_RSocket(Wrappable, RSocket):
+class W_RSocket(W_Root, RSocket):
 
     # for _dealloc_warn
     space = None
@@ -208,7 +208,7 @@ class W_RSocket(Wrappable, RSocket):
 
     def bind_w(self, space, w_addr):
         """bind(address)
-        
+
         Bind the socket to a local address.  For IP sockets, the address is a
         pair (host, port); the host must refer to the local host. For raw packet
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
@@ -225,7 +225,7 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             self.close()
-        except SocketError, e:
+        except SocketError:
             # cpython doesn't return any errors on close
             pass
 

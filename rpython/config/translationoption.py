@@ -1,6 +1,6 @@
-import py, os, sys
+import sys
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, to_optparse, Config
+from rpython.config.config import ChoiceOption, StrOption, Config
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
 
@@ -349,11 +349,6 @@ def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.
     """
-    # warning: during some tests, the type_system and the backend may be
-    # unspecified and we get None.  It shouldn't occur in translate.py though.
-    type_system = config.translation.type_system
-    backend = config.translation.backend
-
     try:
         opts = OPT_TABLE[level]
     except KeyError:

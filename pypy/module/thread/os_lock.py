@@ -5,7 +5,7 @@ Python locks, based on true threading locks provided by the OS.
 import time
 from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import OperationError
@@ -72,7 +72,7 @@ def acquire_timed(space, lock, microseconds):
     return result
 
 
-class Lock(Wrappable):
+class Lock(W_Root):
     "A wrappable box around an interp-level lock object."
 
     def __init__(self, space):

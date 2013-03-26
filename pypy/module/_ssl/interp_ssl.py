@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
@@ -90,7 +90,7 @@ def ssl_error(space, msg, errno=0):
     return OperationError(w_exception_class, w_exception)
 
 
-class SSLContext(Wrappable):
+class SSLContext(W_Root):
     def __init__(self, method):
         self.ctx = libssl_SSL_CTX_new(method)
 
@@ -332,7 +332,7 @@ if HAVE_OPENSSL_RAND:
         return space.wrap(bytes)
 
 
-class SSLSocket(Wrappable):
+class SSLSocket(W_Root):
     def __init__(self, space):
         self.w_socket = None
         self.ssl = lltype.nullptr(SSL.TO)

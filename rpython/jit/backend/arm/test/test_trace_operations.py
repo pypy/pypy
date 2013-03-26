@@ -26,12 +26,11 @@ class TestConstPtr(BaseTestRegalloc):
         ops = '''
         [i0]
         i1 = int_add(i0, 1)
-        finish(i1, ConstPtr(ptr0))
+        finish(ConstPtr(ptr0))
         '''
-        self.interpret(ops, [99])
-        assert self.getint(0) == 100
-        ptr = self.cpu.get_latest_value_ref(1)
-        assert self.ptr0 == ptr
+        loop = self.interpret(ops, [99])
+        ptr = self.getptr(0, lltype.Ptr(self.S))
+        assert self.struct_ptr == ptr
 
     def test_getfield_with_offset_gt_one_byte(self):
         self.struct_ptr.int1049 = 666

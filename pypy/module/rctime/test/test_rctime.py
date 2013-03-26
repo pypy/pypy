@@ -139,6 +139,16 @@ class AppTestRCTime:
         ltime = rctime.localtime()
         assert rctime.asctime(tuple(ltime)) == rctime.asctime(ltime)
 
+    def test_accept2dyear_access(self):
+        import time as rctime
+
+        accept2dyear = rctime.accept2dyear
+        del rctime.accept2dyear
+        try:
+            assert rctime.asctime((12345,) + (0,) * 8).split()[-1] == '12345'
+        finally:
+            rctime.accept2dyear = accept2dyear
+
     def test_struct_time(self):
         import time as rctime
         raises(TypeError, rctime.struct_time)

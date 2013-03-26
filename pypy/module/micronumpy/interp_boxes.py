@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -64,7 +64,8 @@ class ComplexBox(object):
     def convert_imag_to(self, dtype):
         return dtype.box(self.imag)
 
-class W_GenericBox(Wrappable):
+
+class W_GenericBox(W_Root):
     _attrs_ = ()
 
     def descr__new__(space, w_subtype, __args__):
@@ -172,6 +173,19 @@ class W_GenericBox(Wrappable):
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
 
+    def descr_any(self, space):
+        value = space.is_true(self)
+        return space.wrap(W_BoolBox(value))
+
+    def descr_all(self, space):
+        value = space.is_true(self)
+        return space.wrap(W_BoolBox(value))
+
+    def descr_ravel(self, space):
+        from pypy.module.micronumpy.base import convert_to_array
+        w_values = space.newtuple([self])
+        return convert_to_array(space, w_values)
+
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("bool")
 
@@ -277,6 +291,10 @@ class W_VoidBox(W_FlexibleBox):
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
+    def convert_to(self, dtype):
+        # if we reach here, the record fields are guarenteed to match.
+        return self
+
 class W_CharacterBox(W_FlexibleBox):
     pass
 
@@ -290,10 +308,6 @@ class W_StringBox(W_CharacterBox):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
 
-    def convert_to(self, dtype):
-        from pypy.module.micronumpy import types
-        assert isinstance(dtype.itemtype, types.StringType)
-        return self
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
@@ -306,11 +320,6 @@ class W_UnicodeBox(W_CharacterBox):
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
-
-    def convert_to(self, dtype):
-        from pypy.module.micronumpy import types
-        assert isinstance(dtype.itemtype, types.UnicodeType)
-        return self
 
 
 class W_ComplexFloatingBox(W_InexactBox):
@@ -422,12 +431,14 @@ W_GenericBox.typedef = TypeDef("generic",
     __hash__ = interp2app(W_GenericBox.descr_hash),
 
     tolist = interp2app(W_GenericBox.item),
+    any = interp2app(W_GenericBox.descr_any),
+    all = interp2app(W_GenericBox.descr_all),
+    ravel = interp2app(W_GenericBox.descr_ravel),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_BoolBox.descr__new__.im_func),
-
     __index__ = interp2app(descr_index),
 )
 

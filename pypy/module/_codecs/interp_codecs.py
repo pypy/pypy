@@ -3,6 +3,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib.objectmodel import we_are_translated
 
+
 class CodecState(object):
     def __init__(self, space):
         self.codec_search_path = []
@@ -152,8 +153,7 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
         w_result = space.call_function(w_search,
                                        space.wrap(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
-            if not (space.is_true(space.isinstance(w_result,
-                                            space.w_tuple)) and
+            if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
                 raise OperationError(
                     space.w_TypeError,
@@ -424,8 +424,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
-        if (not space.is_true(space.isinstance(w_res, space.w_tuple))
-            or space.len_w(w_res) != 2):
+        if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("encoder must return a tuple (object, integer)"))
@@ -594,7 +593,7 @@ class Charmap_Decode:
         self.w_mapping = w_mapping
 
         # fast path for all the stuff in the encodings module
-        if space.is_true(space.isinstance(w_mapping, space.w_tuple)):
+        if space.isinstance_w(w_mapping, space.w_tuple):
             self.mapping_w = space.fixedview(w_mapping)
         else:
             self.mapping_w = None

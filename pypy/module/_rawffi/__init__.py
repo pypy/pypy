@@ -1,15 +1,9 @@
-
 """ Low-level interface to clibffi
 """
 
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._rawffi.interp_rawffi import W_CDLL
-from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module._rawffi.tracker import Tracker
-import sys
 
 class Module(MixedModule):
-
     interpleveldefs = {
         'CDLL'               : 'interp_rawffi.W_CDLL',
         'FuncPtr'            : 'interp_rawffi.W_FuncPtr',
@@ -52,6 +46,6 @@ class Module(MixedModule):
                      ]:
             if hasattr(clibffi, name):
                 Module.interpleveldefs[name] = "space.wrap(%r)" % getattr(clibffi, name)
-                
+
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)

@@ -1,9 +1,9 @@
 import py
 import sys
+import math
+
 from rpython.rlib.rarithmetic import intmask, ovfcheck
 from rpython.rlib.rarithmetic import r_uint, LONG_BIT
-from rpython.rlib.objectmodel import we_are_translated
-import math
 
 LOG2 = math.log(2)
 NBITS = int(math.log(sys.maxint) / LOG2) + 2
@@ -696,7 +696,6 @@ def rope_from_unicode(uni):
         if i != start:
             nodelist.append(LiteralUnicodeNode(uni[start:i]))
         start = i
-        strchunk = []
         while i < length:
             c = ord(uni[i])
             if c >= 256:
@@ -973,28 +972,24 @@ class ItemIterator(object):
 
     def nextchar(self):
         node = self.getnode()
-        index = self.index
         result = node.getchar(self.index)
         self.advance_index()
         return result
 
     def nextunichar(self):
         node = self.getnode()
-        index = self.index
         result = node.getunichar(self.index)
         self.advance_index()
         return result
 
     def nextrope(self):
         node = self.getnode()
-        index = self.index
         result = node.getrope(self.index)
         self.advance_index()
         return result
 
     def nextint(self):
         node = self.getnode()
-        index = self.index
         result = node.getint(self.index)
         self.advance_index()
         return result
@@ -1064,7 +1059,6 @@ class SeekableItemIterator(object):
         assert 0 <= items < node.length()
         while isinstance(node, BinaryConcatNode):
             self.stack.append(node)
-            right = node.right
             left = node.left
             if items >= left.length():
                 items -= left.length()
@@ -1085,7 +1079,7 @@ class SeekableItemIterator(object):
         if self.index == -1:
             self.seekback(0)
         return self.node
-    
+
     nextchar = make_seekable_method("getchar")
     nextunichar = make_seekable_method("getunichar")
     nextint = make_seekable_method("getint")
