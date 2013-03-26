@@ -244,8 +244,8 @@ class Bookkeeper(object):
                 seen.add(s_value_or_def)
                 check_no_flags(s_value_or_def.s_value)
 
-        for clsdef in self.classdefs:
-            check_no_flags(clsdef)
+                #for clsdef in self.classdefs:
+                #check_no_flags(clsdef)
 
     def consider_call_site(self, call_op):
         binding = self.annotator.binding
