@@ -4,9 +4,10 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib import jit
-from rpython.rlib.jit_libffi import types, CIF_DESCRIPTION, FFI_TYPE_PP
+from rpython.rlib.jit_libffi import types, CIF_DESCRIPTION, FFI_TYPE_PP, jit_ffi_save_result
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.nonconst import NonConstant
 
 
 def get_description(atypes, rtype):
@@ -42,7 +43,7 @@ class FfiCallTests(object):
         unroll_avalues = unrolling_iterable(avalues)
 
         @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
-        def fake_call(cif_description, func_addr, exchange_buffer):
+        def fake_call_impl(cif_description, func_addr, exchange_buffer):
             ofs = 16
             for avalue in unroll_avalues:
                 TYPE = rffi.CArray(lltype.typeOf(avalue))
@@ -56,6 +57,12 @@ class FfiCallTests(object):
             TYPE = rffi.CArray(lltype.typeOf(write_rvalue))
             data = rffi.ptradd(exchange_buffer, ofs)
             rffi.cast(lltype.Ptr(TYPE), data)[0] = write_rvalue
+            return NonConstant(-1)
+
+        def fake_call(cif_description, func_addr, exchange_buffer):
+            result = fake_call_impl(cif_description, func_addr, exchange_buffer)
+            jit_ffi_save_result('int', cif_description, exchange_buffer, result)
+
 
         def f():
             exbuf = lltype.malloc(rffi.CCHARP.TO, (len(avalues)+2) * 16,
@@ -85,7 +92,7 @@ class FfiCallTests(object):
         self.check_operations_history(call_may_force=0,
                                       call_release_gil=1)
 
-    def test_simple_call(self):
+    def test_simple_call_int(self):
         self._run([types.signed] * 2, types.signed, [456, 789], -42)
 
     def test_many_arguments(self):
@@ -125,7 +132,6 @@ class FfiCallTests(object):
         # and force frames) and write back to the buffer
         @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
         def fake_libffi_call_impl(cif_description, func_addr, exchange_buffer):
-            from rpython.rlib.nonconst import NonConstant
             # read the args from the buffer
             data_in = rffi.ptradd(exchange_buffer, 16)
             n = rffi.cast(ARRAY, data_in)[0]
@@ -145,16 +151,10 @@ class FfiCallTests(object):
             # actual value returned by the C function.
             return NonConstant(-1)
 
-        @jit.oopspec("libffi_save_result_int(cif_description, exchange_buffer, result)")
-        def fake_libffi_save_result_int(cif_description, exchange_buffer, result):
-            # during normal execution, we don't need to do anything because
-            # the buffer has already been filled by libffi_call_impl. This is
-            # a placeholder for the JIT
-            pass
-
         def fake_libffi_call(cif_description, func_addr, exchange_buffer):
+            from rpython.rtyper.lltypesystem.lloperation import llop
             result = fake_libffi_call_impl(cif_description, func_addr, exchange_buffer)
-            fake_libffi_save_result_int(cif_description, exchange_buffer, result)
+            jit_ffi_save_result('int', cif_description, exchange_buffer, result)
 
         def do_call(n):
             func_ptr = llhelper(lltype.Ptr(FUNC), fn)

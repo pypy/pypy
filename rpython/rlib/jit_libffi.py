@@ -1,5 +1,6 @@
 
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib import clibffi, jit
 
 
@@ -66,7 +67,7 @@ def jit_ffi_prep_cif(cif_description):
 
 
 @jit.oopspec("libffi_call(cif_description, func_addr, exchange_buffer)")
-def jit_ffi_call(cif_description, func_addr, exchange_buffer):
+def jit_ffi_call_impl(cif_description, func_addr, exchange_buffer):
     """Wrapper around ffi_call().  Must receive a CIF_DESCRIPTION_P that
     describes the layout of the 'exchange_buffer'.
     """
@@ -79,6 +80,30 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
     clibffi.c_ffi_call(cif_description.cif, func_addr,
                        rffi.cast(rffi.VOIDP, resultdata),
                        buffer_array)
+    return -1
+
+def jit_ffi_call(cif_description, func_addr, exchange_buffer):
+    result = jit_ffi_call_impl(cif_description, func_addr, exchange_buffer)
+    jit_ffi_save_result('int', cif_description, exchange_buffer, result)
+
+
+def jit_ffi_save_result(kind, cif_description, exchange_buffer, result):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = jit_ffi_save_result
+
+    def compute_result_annotation(self, kind_s, *args_s):
+        from rpython.annotator import model as annmodel
+        assert isinstance(kind_s, annmodel.SomeString)
+        assert kind_s.const in ('int', 'float')
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        vlist = hop.inputargs(lltype.Void, *hop.args_r[1:])
+        return hop.genop('jit_ffi_save_result', vlist,
+                         resulttype=lltype.Void)
+    
 
 # ____________________________________________________________
 
