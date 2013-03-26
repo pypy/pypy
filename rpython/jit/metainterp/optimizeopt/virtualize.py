@@ -398,6 +398,12 @@ class OptVirtualize(optimizer.Optimization):
             return
         self.emit_operation(op)
 
+    def optimize_FORCE_VIRTUALIZABLE(self, op):
+        val = self.getvalue(op.getarg(0))
+        if val.is_virtual():
+            return
+        self.emit_operation(op)
+
     def optimize_CALL_MAY_FORCE(self, op):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
