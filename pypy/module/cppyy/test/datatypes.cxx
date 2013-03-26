@@ -183,6 +183,10 @@ float               cppyy_test_data::s_float  = -606.f;
 double              cppyy_test_data::s_double = -707.;
 cppyy_test_data::what  cppyy_test_data::s_enum = cppyy_test_data::kNothing;
 
+//- strings -----------------------------------------------------------------
+const char* cppyy_test_data::get_valid_string(const char* in) { return in; }
+const char* cppyy_test_data::get_invalid_string() { return (const char*)0; }
+
 
 //= global functions ========================================================
 long get_pod_address(cppyy_test_data& c)

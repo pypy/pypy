@@ -148,6 +148,10 @@ public:
     float*          pass_void_array_f(void* a) { return pass_array((float*)a); }
     double*         pass_void_array_d(void* a) { return pass_array((double*)a); }
 
+// strings
+    const char* get_valid_string(const char* in);
+    const char* get_invalid_string();
+
 public:
 // basic types
     bool                 m_bool;

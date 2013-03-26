@@ -459,7 +459,17 @@ class AppTestDATATYPES:
         assert gbl.kBanana == 29
         assert gbl.kCitrus == 34
 
-    def test12_copy_contructor(self):
+    def test12_string_passing(self):
+        """Test passing/returning of a const char*"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert c.get_valid_string('aap') == 'aap'
+        assert c.get_invalid_string() == ''
+
+    def test13_copy_contructor(self):
         """Test copy constructor"""
 
         import cppyy
@@ -475,7 +485,7 @@ class AppTestDATATYPES:
         for i in range(4):
             assert t1[i] == t3[i]
 
-    def test13_object_returns(self):
+    def test14_object_returns(self):
         """Test access to and return of PODs"""
 
         import cppyy
@@ -502,7 +512,7 @@ class AppTestDATATYPES:
         assert c.get_pod_ptrref().m_int == 666
         assert c.get_pod_ptrref().m_double == 3.14
 
-    def test14_object_arguments(self):
+    def test15_object_arguments(self):
         """Test setting and returning of a POD through arguments"""
 
         import cppyy
@@ -570,7 +580,7 @@ class AppTestDATATYPES:
         assert p.m_int == 888
         assert p.m_double == 3.14
 
-    def test15_respect_privacy(self):
+    def test16_respect_privacy(self):
         """Test that privacy settings are respected"""
 
         import cppyy
@@ -583,7 +593,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test16_object_and_pointer_comparisons(self):
+    def test17_object_and_pointer_comparisons(self):
         """Verify object and pointer comparisons"""
     
         import cppyy 
@@ -620,7 +630,7 @@ class AppTestDATATYPES:
         assert l3 != l5
         assert l5 != l3
 
-    def test17_object_validity(self):
+    def test18_object_validity(self):
         """Test object validity checking"""
         
         from cppyy import gbl
@@ -634,7 +644,7 @@ class AppTestDATATYPES:
 
         assert not d2
 
-    def test18_buffer_reshaping(self):
+    def test19_buffer_reshaping(self):
         """Test usage of buffer sizing"""
 
         import cppyy
@@ -654,4 +664,3 @@ class AppTestDATATYPES:
             l = list(arr)
             for i in range(self.N):
                 assert arr[i] == l[i]
-
