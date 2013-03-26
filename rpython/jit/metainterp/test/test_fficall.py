@@ -120,8 +120,12 @@ class FfiCallTests(object):
                 exctx.m = exctx.topframeref().n # forces the frame
             return n*2
 
+        # this function simulates what a real libffi_call does: reading from
+        # the buffer, calling a function (which can potentially call callbacks
+        # and force frames) and write back to the buffer
         @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
-        def fake_call(cif_description, func_addr, exchange_buffer):
+        def fake_libffi_call_impl(cif_description, func_addr, exchange_buffer):
+            from rpython.rlib.nonconst import NonConstant
             # read the args from the buffer
             data_in = rffi.ptradd(exchange_buffer, 16)
             n = rffi.cast(ARRAY, data_in)[0]
@@ -134,13 +138,31 @@ class FfiCallTests(object):
             data_out = rffi.ptradd(exchange_buffer, 32)
             rffi.cast(ARRAY, data_out)[0] = n
 
+            # we must return a NonConstant else we get the constant -1 as the
+            # result of the flowgraph, and the codewriter does not produce a
+            # box for the result. Note that when not-jitted, the result is
+            # unused, but when jitted the box of the result contains the
+            # actual value returned by the C function.
+            return NonConstant(-1)
+
+        @jit.oopspec("libffi_save_result_int(cif_description, exchange_buffer, result)")
+        def fake_libffi_save_result_int(cif_description, exchange_buffer, result):
+            # during normal execution, we don't need to do anything because
+            # the buffer has already been filled by libffi_call_impl. This is
+            # a placeholder for the JIT
+            pass
+
+        def fake_libffi_call(cif_description, func_addr, exchange_buffer):
+            result = fake_libffi_call_impl(cif_description, func_addr, exchange_buffer)
+            fake_libffi_save_result_int(cif_description, exchange_buffer, result)
+
         def do_call(n):
             func_ptr = llhelper(lltype.Ptr(FUNC), fn)
             #func_addr = rffi.cast(rffi.VOIDP, func_ptr)
             exbuf = lltype.malloc(rffi.CCHARP.TO, 48, flavor='raw', zero=True)
             data_in = rffi.ptradd(exbuf, 16)
             rffi.cast(ARRAY, data_in)[0] = n
-            fake_call(cif_description, func_ptr, exbuf)
+            fake_libffi_call(cif_description, func_ptr, exbuf)
             data_out = rffi.ptradd(exbuf, 32)
             res = rffi.cast(ARRAY, data_out)[0]
             lltype.free(exbuf, flavor='raw')
@@ -163,6 +185,14 @@ class FfiCallTests(object):
                 exctx.topframeref = vref = jit.virtual_ref(xy)
                 res = do_call(n) # this is equivalent of a cffi call which
                                  # sometimes forces a frame
+
+                # when n==50, fn() will force the frame, so guard_not_forced
+                # fails and we enter blackholing: this test makes sure that
+                # the result of call_release_gil is kept alive before the
+                # libffi_save_result, and that the corresponding box is passed
+                # in the fail_args. Before the fix, the result of
+                # call_release_gil was simply lost and when guard_not_forced
+                # failed, and the values of "res" was unpredictable
                 assert res == n*2
                 jit.virtual_ref_finish(vref, xy)
                 exctx.topframeref = jit.vref_None
