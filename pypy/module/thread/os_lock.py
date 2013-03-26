@@ -156,7 +156,7 @@ See LockType.__doc__ for information about locks."""
     return space.wrap(Lock(space))
 
 
-class W_RLock(Wrappable):
+class W_RLock(W_Root):
     def __init__(self, space):
         self.rlock_count = 0
         self.rlock_owner = 0

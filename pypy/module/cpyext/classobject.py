@@ -1,13 +1,13 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import Method
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
 
 
-class InstanceMethod(Wrappable):
+class InstanceMethod(W_Root):
     """The instancemethod facade."""
     _immutable_fields_ = ['w_function']
 
