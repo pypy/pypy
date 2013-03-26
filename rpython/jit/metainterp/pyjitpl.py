@@ -2177,6 +2177,7 @@ class MetaInterp(object):
 
     def compile_done_with_this_frame(self, exitbox):
         # temporarily put a JUMP to a pseudo-loop
+        self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
         if result_type == history.VOID:
@@ -2202,7 +2203,21 @@ class MetaInterp(object):
         if target_token is not token:
             compile.giveup()
 
+    def store_token_in_vable(self):
+        vinfo = self.jitdriver_sd.virtualizable_info
+        if vinfo is None:
+            return
+        vbox = self.virtualizable_boxes[-1]
+        force_token_box = history.BoxPtr()
+        # in case the force_token has not been recorded, record it here
+        # to make sure we know the virtualizable can be broken. However, the
+        # contents of the virtualizable should be generally correct
+        self.history.record(rop.FORCE_TOKEN, [], force_token_box)
+        self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
+                        None, descr=vinfo.vable_token_descr)
+
     def compile_exit_frame_with_exception(self, valuebox):
+        self.store_token_in_vable()
         sd = self.staticdata
         token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
