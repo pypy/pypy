@@ -1207,6 +1207,8 @@ class MIFrame(object):
                                             ConstInt(ofs // itemsize), box_result],
                                            None, descr)
 
+    opimpl_libffi_save_result_float = opimpl_libffi_save_result_int
+
     # ------------------------------
 
     def setup_call(self, argboxes):

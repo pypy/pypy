@@ -42,8 +42,7 @@ class FfiCallTests(object):
 
         unroll_avalues = unrolling_iterable(avalues)
 
-        @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
-        def fake_call_impl(cif_description, func_addr, exchange_buffer):
+        def fake_call_impl_any(cif_description, func_addr, exchange_buffer):
             ofs = 16
             for avalue in unroll_avalues:
                 TYPE = rffi.CArray(lltype.typeOf(avalue))
@@ -57,12 +56,31 @@ class FfiCallTests(object):
             TYPE = rffi.CArray(lltype.typeOf(write_rvalue))
             data = rffi.ptradd(exchange_buffer, ofs)
             rffi.cast(lltype.Ptr(TYPE), data)[0] = write_rvalue
+
+        @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
+        def fake_call_impl_void(cif_description, func_addr, exchange_buffer):
+            fake_call_impl_any(cif_description, func_addr, exchange_buffer)
+            return None
+
+        @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
+        def fake_call_impl_int(cif_description, func_addr, exchange_buffer):
+            fake_call_impl_any(cif_description, func_addr, exchange_buffer)
             return NonConstant(-1)
 
-        def fake_call(cif_description, func_addr, exchange_buffer):
-            result = fake_call_impl(cif_description, func_addr, exchange_buffer)
-            jit_ffi_save_result('int', cif_description, exchange_buffer, result)
+        @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
+        def fake_call_impl_float(cif_description, func_addr, exchange_buffer):
+            fake_call_impl_any(cif_description, func_addr, exchange_buffer)
+            return NonConstant(-1.0)
 
+        def fake_call(cif_description, func_addr, exchange_buffer):
+            if cif_description.rtype == types.void:
+                fake_call_impl_void(cif_description, func_addr, exchange_buffer)
+            elif cif_description.rtype == types.double:
+                result = fake_call_impl_float(cif_description, func_addr, exchange_buffer)
+                jit_ffi_save_result('float', cif_description, exchange_buffer, result)
+            else:
+                result = fake_call_impl_int(cif_description, func_addr, exchange_buffer)
+                jit_ffi_save_result('int', cif_description, exchange_buffer, result)
 
         def f():
             exbuf = lltype.malloc(rffi.CCHARP.TO, (len(avalues)+2) * 16,

@@ -1365,6 +1365,24 @@ class BlackholeInterpreter(object):
         data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
         rffi.cast(ARRAY, data_out)[0] = result
 
+    @arguments("cpu", "i", "i", "f")
+    def bhimpl_libffi_save_result_float(self, cif_description, exchange_buffer, result):
+        from rpython.rtyper.lltypesystem import llmemory, rffi
+        from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
+        ARRAY = lltype.Ptr(rffi.CArray(lltype.Float))
+        
+        cif_description = llmemory.cast_int_to_adr(cif_description)
+        cif_description = llmemory.cast_adr_to_ptr(cif_description,
+                                                   CIF_DESCRIPTION_P)
+
+        exchange_buffer = llmemory.cast_int_to_adr(exchange_buffer)
+        exchange_buffer = llmemory.cast_adr_to_ptr(exchange_buffer,
+                                                   rffi.CCHARP)
+
+        data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
+        rffi.cast(ARRAY, data_out)[0] = result
+
+
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
 
