@@ -37,7 +37,7 @@
 
 #define OP_RAW_MALLOC_USAGE(size, r) r = size
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS) && !defined(__MINGW32__)
 #define alloca  _alloca
 #endif
 
