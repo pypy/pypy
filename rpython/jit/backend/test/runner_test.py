@@ -3866,14 +3866,21 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_force_virtualizable(self):
 
         class FakeVinfo(object):
-            # for llgraph
-            def clear_vable_token(self, token):
-                lltype.cast_opaque_ptr(lltype.Ptr(S), token).x = 18
+            pass
 
+        def clear_vable_token(token):
+            lltype.cast_opaque_ptr(lltype.Ptr(S), token).x = 18
+
+        FUNC = lltype.FuncType([llmemory.GCREF], lltype.Void)
+        clear_vable_ptr = llhelper(lltype.Ptr(FUNC), clear_vable_token)
         S = lltype.GcStruct('x', ('x', lltype.Signed))
 
         pdescr = self.cpu.fielddescrof(S, 'x')
         pdescr.vinfo = FakeVinfo()
+        pdescr.vinfo.clear_vable_token = clear_vable_token
+        pdescr.vinfo.clear_vable_ptr = clear_vable_ptr
+        pdescr.vinfo.clear_vable_descr = self.cpu.calldescrof(FUNC, FUNC.ARGS,
+          FUNC.RESULT, EffectInfo.LEAST_GENERAL)
         loop = parse("""
         [p0]
         force_virtualizable(p0, descr=pdescr)

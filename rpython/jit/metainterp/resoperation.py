@@ -495,6 +495,8 @@ _oplist = [
     'READ_TIMESTAMP/0',
     'MARK_OPAQUE_PTR/1b',
     'FORCE_VIRTUALIZABLE/1d', # forces a non-standard virtualizable
+    # this one has no *visible* side effect, since the virtualizable
+    # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',

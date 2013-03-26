@@ -1,3 +1,4 @@
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
 from rpython.jit.metainterp.warmstate import wrap, unwrap
@@ -70,7 +71,7 @@ class VirtualizableInfo(object):
             descr.vinfo = self
         for descr in self.array_field_descrs:
             descr.vinfo = self
-        
+
         self.static_field_by_descrs = dict(
             [(descr, i) for (i, descr) in enumerate(self.static_field_descrs)])
         self.array_field_by_descrs = dict(
@@ -291,6 +292,13 @@ class VirtualizableInfo(object):
             FUNCPTR, force_virtualizable_if_necessary)
         rvirtualizable2.replace_force_virtualizable_with_call(
             all_graphs, self.VTYPEPTR, funcptr)
+        (_, FUNCPTR) = ts.get_FuncType([llmemory.GCREF], lltype.Void)
+        self.clear_vable_ptr = self.warmrunnerdesc.helper_func(
+            FUNCPTR, self.clear_vable_token)
+        FUNC = FUNCPTR.TO
+        self.clear_vable_descr = self.cpu.calldescrof(FUNC, FUNC.ARGS,
+                                                      FUNC.RESULT,
+                                                      EffectInfo.LEAST_GENERAL)
 
     def unwrap_virtualizable_box(self, virtualizable_box):
         return virtualizable_box.getref(llmemory.GCREF)

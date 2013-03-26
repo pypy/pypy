@@ -16,7 +16,7 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
@@ -54,7 +54,7 @@ class X86RegisterManager(RegisterManager):
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
-    
+
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
@@ -103,7 +103,7 @@ class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
         FrameManager.__init__(self)
         self.base_ofs = base_ofs
-    
+
     def frame_pos(self, i, box_type):
         return FrameLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
 
@@ -338,7 +338,8 @@ class RegAlloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
-            if op.has_no_side_effect() and op.result not in self.longevity:
+            if (op.has_no_side_effect() and op.result not in self.longevity
+                and op.opnum != rop.FORCE_VIRTUALIZABLE):
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
@@ -870,6 +871,16 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)
 
+    def consider_force_virtualizable(self, op):
+        # just do a call for now
+        vinfo = op.getdescr().vinfo
+        calldescr = vinfo.clear_vable_descr
+        assert isinstance(calldescr, CallDescr)
+        fval = rffi.cast(lltype.Signed, vinfo.clear_vable_ptr)
+        op = ResOperation(rop.CALL, [ConstInt(fval), op.getarg(0)], None,
+                          descr=calldescr)
+        self.consider_call(op)
+
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
         gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)
@@ -1313,7 +1324,7 @@ class RegAlloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
-        
+
 
     def consider_keepalive(self, op):
         pass
