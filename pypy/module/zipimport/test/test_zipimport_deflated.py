@@ -2,9 +2,9 @@ import py
 
 from zipfile import ZIP_DEFLATED
 
-from pypy.module.zipimport.test.test_zipimport import AppTestZipimport
+from pypy.module.zipimport.test.test_zipimport import AppTestZipimport as Base
 
-class AppTestZipimportDeflated(AppTestZipimport):
+class AppTestZipimportDeflated(Base):
     compression = ZIP_DEFLATED
     spaceconfig = {
         "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'itertools', 'binascii'],
