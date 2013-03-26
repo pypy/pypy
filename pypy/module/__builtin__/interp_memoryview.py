@@ -20,7 +20,7 @@ class W_MemoryView(W_Root):
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
             if self.buf is None:
-                return space.wrap(getattr(operator, name)(self, other))
+                return space.wrap(getattr(operator, name)(self, w_other))
             if isinstance(w_other, W_MemoryView):
                 # xxx not the most efficient implementation
                 str1 = self.as_str()
