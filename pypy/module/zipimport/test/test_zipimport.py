@@ -360,20 +360,6 @@ def get_co_filename():
         assert co_filename == expected
 
 
-class AppTestZipimportDeflated(AppTestZipimport):
-    compression = ZIP_DEFLATED
-    spaceconfig = {
-        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'itertools', 'binascii'],
-    }
-
-    def setup_class(cls):
-        try:
-            import rpython.rlib.rzlib
-        except ImportError:
-            py.test.skip("zlib not available, cannot test compressed zipfiles")
-        cls.make_class()
-
-
 if os.sep != '/':
     class AppTestNativePathSep(AppTestZipimport):
         pathsep = os.sep
