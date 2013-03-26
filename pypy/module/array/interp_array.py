@@ -51,11 +51,6 @@ def w_array(space, w_cls, typecode, __args__):
 
     return a
 
-
-array_extend = SMM('extend', 2)
-
-array_count = SMM('count', 2)
-array_index = SMM('index', 2)
 array_reverse = SMM('reverse', 1)
 array_remove = SMM('remove', 2)
 array_pop = SMM('pop', 2, defaults=(-1,))
@@ -92,6 +87,27 @@ class W_ArrayBase(W_Object):
         """
         raise NotImplementedError
 
+    def descr_extend(self, space, w_x):
+        """ extend(array or iterable)
+
+        Append items to the end of the array.
+        """
+        self.extend(w_x)
+
+    def descr_count(self, space, w_val):
+        """ count(x)
+
+        Return number of occurrences of x in the array.
+        """
+        raise NotImplementedError
+
+    def descr_index(self, space, w_x):
+        """ index(x)
+
+        Return index of first occurrence of x in the array.
+        """
+        raise NotImplementedError
+
     @staticmethod
     def register(typeorder):
         typeorder[W_ArrayBase] = []
@@ -104,6 +120,9 @@ W_ArrayBase.typedef = StdTypeDef(
     typecode = GetSetProperty(descr_typecode),
     __weakref__ = make_weakref_descr(W_ArrayBase),
     append = interpindirect2app(W_ArrayBase.descr_append),
+    extend = interp2app(W_ArrayBase.descr_extend),
+    count = interpindirect2app(W_ArrayBase.descr_count),
+    index = interpindirect2app(W_ArrayBase.descr_index),
 )
 W_ArrayBase.typedef.registermethods(globals())
 
@@ -357,6 +376,24 @@ def make_array(mytype):
             self.setlen(self.len + 1)
             self.buffer[self.len - 1] = x
 
+        # List interface
+        def descr_count(self, space, w_val):
+            cnt = 0
+            for i in range(self.len):
+                # XXX jitdriver
+                w_item = self.w_getitem(space, i)
+                if space.is_true(space.eq(w_item, w_val)):
+                    cnt += 1
+            return space.wrap(cnt)
+
+        def descr_index(self, space, w_val):
+            for i in range(self.len):
+                w_item = self.w_getitem(space, i)
+                if space.is_true(space.eq(w_item, w_val)):
+                    return space.wrap(i)
+            msg = 'array.index(x): x not in list'
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+
     # Basic get/set/append/extend methods
 
     def len__Array(space, self):
@@ -408,26 +445,6 @@ def make_array(mytype):
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
 
-    def array_extend__Array_ANY(space, self, w_iterable):
-        self.extend(w_iterable)
-
-    # List interface
-    def array_count__Array_ANY(space, self, w_val):
-        cnt = 0
-        for i in range(self.len):
-            w_item = self.w_getitem(space, i)
-            if space.is_true(space.eq(w_item, w_val)):
-                cnt += 1
-        return space.wrap(cnt)
-
-    def array_index__Array_ANY(space, self, w_val):
-        for i in range(self.len):
-            w_item = self.w_getitem(space, i)
-            if space.is_true(space.eq(w_item, w_val)):
-                return space.wrap(i)
-        msg = 'array.index(x): x not in list'
-        raise OperationError(space.w_ValueError, space.wrap(msg))
-
     def array_reverse__Array(space, self):
         b = self.buffer
         for i in range(self.len / 2):
@@ -448,7 +465,7 @@ def make_array(mytype):
         return w_val
 
     def array_remove__Array_ANY(space, self, w_val):
-        w_idx = array_index__Array_ANY(space, self, w_val)
+        w_idx = self.descr_index(space, w_val)
         array_pop__Array_ANY(space, self, w_idx)
 
     def array_insert__Array_ANY_ANY(space, self, w_idx, w_val):
