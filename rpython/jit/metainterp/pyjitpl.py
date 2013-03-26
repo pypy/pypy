@@ -2176,7 +2176,6 @@ class MetaInterp(object):
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
     def compile_done_with_this_frame(self, exitbox):
-        self.gen_store_back_in_virtualizable()
         # temporarily put a JUMP to a pseudo-loop
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
@@ -2204,7 +2203,6 @@ class MetaInterp(object):
             compile.giveup()
 
     def compile_exit_frame_with_exception(self, valuebox):
-        self.gen_store_back_in_virtualizable()
         sd = self.staticdata
         token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
         self.history.record(rop.FINISH, [valuebox], None, descr=token)
@@ -2430,28 +2428,6 @@ class MetaInterp(object):
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
                                                         virtualizable)
             self.virtualizable_boxes.append(virtualizable_box)
-
-    def gen_store_back_in_virtualizable(self):
-        vinfo = self.jitdriver_sd.virtualizable_info
-        if vinfo is not None:
-            # xxx only write back the fields really modified
-            vbox = self.virtualizable_boxes[-1]
-            for i in range(vinfo.num_static_extra_boxes):
-                fieldbox = self.virtualizable_boxes[i]
-                descr = vinfo.static_field_descrs[i]
-                self.execute_and_record(rop.SETFIELD_GC, descr, vbox, fieldbox)
-            i = vinfo.num_static_extra_boxes
-            virtualizable = vinfo.unwrap_virtualizable_box(vbox)
-            for k in range(vinfo.num_arrays):
-                descr = vinfo.array_field_descrs[k]
-                abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
-                descr = vinfo.array_descrs[k]
-                for j in range(vinfo.get_array_length(virtualizable, k)):
-                    itembox = self.virtualizable_boxes[i]
-                    i += 1
-                    self.execute_and_record(rop.SETARRAYITEM_GC, descr,
-                                            abox, ConstInt(j), itembox)
-            assert i + 1 == len(self.virtualizable_boxes)
 
     def replace_box(self, oldbox, newbox):
         assert isinstance(oldbox, Box)
