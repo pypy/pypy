@@ -1,10 +1,10 @@
 ==================================
-Getting Started 
+Getting Started
 ==================================
 
 .. contents::
 
-.. _howtopypy: 
+.. _howtopypy:
 
 What is PyPy ?
 ==============
@@ -33,8 +33,8 @@ language implementation itself. `more...`_
 .. _`RPython translation toolchain`: translation.html
 .. _`more...`: architecture.html
 
-Just the facts 
-============== 
+Just the facts
+==============
 
 Download a pre-built PyPy
 -------------------------
@@ -53,15 +53,14 @@ Installing PyPy
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
 file, with no need to install it in any specific location::
 
-    $ tar xf pypy-1.9-linux.tar.bz2
-    $ ./pypy-1.9/bin/pypy
-    Python 2.7.2 (341e1e3821ff, Jun 07 2012, 15:40:31)
-    [PyPy 1.9.0 with GCC 4.4.3] on linux2
+    $ tar xf pypy-2.0-beta1-linux.tar.bz2
+    $ ./pypy-2.0-beta1/bin/pypy
+    Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
+    [PyPy 2.0.0-beta1 with GCC 4.7.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``it seems to me that once you
-    settle on an execution / object model and / or bytecode format, you've already
-    decided what languages (where the 's' seems superfluous) support is going to be
-    first class for''
+    And now for something completely different: ``PyPy is an exciting technology
+    that lets you to write fast, portable, multi-platform interpreters with less
+    effort''
     >>>>
 
 If you want to make PyPy available system-wide, you can put a symlink to the
@@ -76,14 +75,14 @@ install distribute_ and pip_:
 
     $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
 
-    $ ./pypy-1.9/bin/pypy distribute_setup.py
+    $ ./pypy-2.0-beta1/bin/pypy distribute_setup.py
 
-    $ ./pypy-1.9/bin/pypy get-pip.py
+    $ ./pypy-2.0-beta1/bin/pypy get-pip.py
 
-    $ ./pypy-1.9/bin/pip install pygments  # for example
+    $ ./pypy-2.0-beta1/bin/pip install pygments  # for example
 
-3rd party libraries will be installed in ``pypy-1.9/site-packages``, and
-the scripts in ``pypy-1.9/bin``.
+3rd party libraries will be installed in ``pypy-2.0-beta1/site-packages``, and
+the scripts in ``pypy-2.0-beta1/bin``.
 
 Installing using virtualenv
 ---------------------------
@@ -126,7 +125,7 @@ named ``pypy``, and will get you the PyPy source in
 ``pypy/pypy`` and documentation files in ``pypy/pypy/doc``.
 We try to ensure that the tip is always stable, but it might
 occasionally be broken.  You may want to check out `our nightly tests:`_
-find a revision (12-chars alphanumeric string, e.g. "963e808156b3") 
+find a revision (12-chars alphanumeric string, e.g. "963e808156b3")
 that passed at least the
 ``{linux32}`` tests (corresponding to a ``+`` sign on the
 line ``success``) and then, in your cloned repository, switch to this revision
@@ -160,24 +159,24 @@ After you successfully manage to get PyPy's source you can read more about:
 Understanding PyPy's architecture
 ---------------------------------
 
-For in-depth information about architecture and coding documentation 
-head over to the `documentation section`_ where you'll find lots of 
-interesting information.  Additionally, in true hacker spirit, you 
-may just `start reading sources`_ . 
+For in-depth information about architecture and coding documentation
+head over to the `documentation section`_ where you'll find lots of
+interesting information.  Additionally, in true hacker spirit, you
+may just `start reading sources`_ .
 
 .. _`documentation section`: index.html#project-documentation
 .. _`start reading sources`: getting-started-dev.html#start-reading-sources
 
-Filing bugs or feature requests 
+Filing bugs or feature requests
 -------------------------------
 
 You may file `bug reports`_ on our issue tracker which is
-also accessible through the 'issues' top menu of 
-the PyPy website.  `Using the development tracker`_ has 
-more detailed information on specific features of the tracker. 
+also accessible through the 'issues' top menu of
+the PyPy website.  `Using the development tracker`_ has
+more detailed information on specific features of the tracker.
 
 .. _`Using the development tracker`: coding-guide.html#using-development-tracker
-.. _bug reports:            https://codespeak.net/issue/pypy-dev/
+.. _bug reports: https://bugs.pypy.org/
 
 
 .. include:: _ref.txt

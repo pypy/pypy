@@ -13,9 +13,9 @@ __docformat__ = 'restructuredtext'
 # and by Travis Oliphant  2005-8-22 for numpy
 
 import sys
-import _numpypy as _nt
-from _numpypy import maximum, minimum, absolute, not_equal, isnan, isinf
-#from _numpypy import format_longfloat, datetime_as_string, datetime_data
+import numerictypes as _nt
+from umath import maximum, minimum, absolute, not_equal, isnan, isinf
+#from multiarray import format_longfloat, datetime_as_string, datetime_data
 from fromnumeric import ravel
 
 
@@ -248,9 +248,9 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
                   'int' : IntegerFormat(data),
                   'float' : FloatFormat(data, precision, suppress_small),
                   'longfloat' : LongFloatFormat(precision),
-                  #'complexfloat' : ComplexFormat(data, precision,
-                  #                               suppress_small),
-                  #'longcomplexfloat' : LongComplexFormat(precision),
+                  'complexfloat' : ComplexFormat(data, precision,
+                                                 suppress_small),
+                  'longcomplexfloat' : LongComplexFormat(precision),
                   'datetime' : DatetimeFormat(data),
                   'timedelta' : TimedeltaFormat(data),
                   'numpystr' : repr_format,
@@ -294,19 +294,19 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
             #else:
             format_function = formatdict['int']
         elif issubclass(dtypeobj, _nt.floating):
-            #if issubclass(dtypeobj, _nt.longfloat):
-            #    format_function = formatdict['longfloat']
-            #else:
-            format_function = formatdict['float']
-        #elif issubclass(dtypeobj, _nt.complexfloating):
-        #    if issubclass(dtypeobj, _nt.clongfloat):
-        #        format_function = formatdict['longcomplexfloat']
-        #    else:
-        #        format_function = formatdict['complexfloat']
+            if hasattr(_nt, 'longfloat') and issubclass(dtypeobj, _nt.longfloat):
+                format_function = formatdict['longfloat']
+            else:
+                format_function = formatdict['float']
+        elif issubclass(dtypeobj, _nt.complexfloating):
+            if hasattr(_nt, 'clongfloat') and issubclass(dtypeobj, _nt.clongfloat):
+                format_function = formatdict['longcomplexfloat']
+            else:
+                format_function = formatdict['complexfloat']
         elif issubclass(dtypeobj, (_nt.unicode_, _nt.string_)):
             format_function = formatdict['numpystr']
-        elif issubclass(dtypeobj, _nt.datetime64):
-            format_function = formatdict['datetime']
+        #elif issubclass(dtypeobj, _nt.datetime64):
+        #    format_function = formatdict['datetime']
         else:
             format_function = formatdict['str']
 

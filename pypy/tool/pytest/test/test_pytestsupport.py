@@ -5,7 +5,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool.pytest.appsupport import (AppFrame, build_pytest_assertion,
     AppExceptionInfo, interpret)
 import py
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import os
 import sys
 import pypy
@@ -80,21 +80,6 @@ def test_appexecinfo(space):
     assert not appex.errisinstance(A)
 
 
-def test_fakedexception(space):
-    from cPickle import PicklingError
-    def raise_error():
-        raise PicklingError("SomeMessage")
-    space.setitem(space.builtin.w_dict, space.wrap('raise_error'),
-                  space.wrap(raise_error))
-
-    try:
-        space.appexec([], "(): raise_error()")
-    except OperationError, e:
-        appex = AppExceptionInfo(space, e)
-    else:
-        py.test.fail("did not raise!")
-    assert "PicklingError" in appex.exconly()
-
 class AppTestWithWrappedInterplevelAttributes:
     def setup_class(cls):
         space = cls.space
@@ -116,48 +101,6 @@ class AppTestWithWrappedInterplevelAttributes:
     def test_equal(self):
         assert self.compute(3) == 5
 
-def test_expectcollect(testdir):
-    py.test.importorskip("pexpect")
-    conftestpath.copy(testdir.tmpdir)
-    sorter = testdir.inline_runsource("""
-        class ExpectTestOne:
-            def test_one(self):
-                pass
-    """)
-    passed, skipped, failed = sorter.countoutcomes()
-    assert passed == 1
-
-def test_safename():
-    from pypy.tool.pytest.expecttest import ExpectTestMethod
-
-    safe_name = ExpectTestMethod.safe_name
-    assert safe_name(['pypy', 'tool', 'test', 'test_pytestsupport.py',
-                      'ExpectTest', '()', 'test_one']) == \
-           'pypy_tool_test_test_pytestsupport_ExpectTest_paren_test_one'
-
-def test_safe_filename(testdir):
-    py.test.importorskip("pexpect")
-    conftestpath.copy(testdir.tmpdir)
-    sorter = testdir.inline_runsource("""
-        class ExpectTestOne:
-            def test_one(self):
-                pass
-    """)
-    evlist = sorter.getcalls("pytest_runtest_makereport")
-    ev = [x for x in evlist if x.call.when == "call"][0]
-    print ev
-    sfn = ev.item.safe_filename()
-    print sfn
-    assert sfn == 'test_safe_filename_test_safe_filename_ExpectTestOne_paren_test_one_1.py'
-
-class ExpectTest:
-    def test_one(self):
-        import os
-        import sys
-        assert os.ttyname(sys.stdin.fileno())
-
-    def test_two(self):
-        import pypy
 
 def test_app_test_blow(testdir):
     conftestpath.copy(testdir.tmpdir)

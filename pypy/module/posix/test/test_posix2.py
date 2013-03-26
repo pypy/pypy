@@ -3,21 +3,24 @@
 
 from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.tool.autopath import pypydir
-from pypy.rpython.module.ll_os import RegisterOs
+from pypy.conftest import pypydir
+from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.translator.c.test.test_extfunc import need_sparse_files
 import os
 import py
 import sys
 import signal
 
 def setup_module(mod):
+    usemodules = ['binascii', 'posix', 'struct', 'rctime']
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct'])
+        usemodules += ['fcntl']
     else:
         # On windows, os.popen uses the subprocess module
-        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct'])
+        usemodules += ['_rawffi', 'thread']
+    mod.space = gettestobjspace(usemodules=usemodules)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -40,15 +43,13 @@ def setup_module(mod):
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
-def need_sparse_files():
-    if sys.platform == 'darwin':
-        py.test.skip("no sparse files on default Mac OS X file system")
-    if os.name == 'nt':
-        py.test.skip("no sparse files on Windows")
+
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
+
 class AppTestPosix:
+
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -321,7 +322,11 @@ class AppTestPosix:
             u = "caf\xe9".decode(sys.getfilesystemencoding())
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
-            assert (str, "caf\xe9") in typed_result
+            if sys.platform != 'darwin':
+                assert (str, "caf\xe9") in typed_result
+            else:
+                # darwin 'normalized' it
+                assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
 
@@ -507,6 +512,16 @@ class AppTestPosix:
         with stream as fp:
             res = fp.read()
             assert res == '1\n'
+
+    def test_popen_child_fds(self):
+        import os
+        with open(os.path.join(self.pdir, 'file1'), 'r') as fd:
+            with self.posix.popen('%s -c "import os; print os.read(%d, 10)" 2>&1' % (self.python, fd.fileno())) as stream:
+                res = stream.read()
+                if os.name == 'nt':
+                    assert '\nOSError: [Errno 9]' in res
+                else:
+                    assert res == 'test1\n'
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -809,6 +824,38 @@ class AppTestPosix:
             os.symlink('foobar', self.path)
             os.lchown(self.path, os.getuid(), os.getgid())
 
+    if hasattr(os, 'fchown'):
+        def test_fchown(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchown(f.fileno(), os.getuid(), os.getgid())
+            f.close()
+
+    if hasattr(os, 'chmod'):
+        def test_chmod(self):
+            import sys
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.chmod, self.path, 0600)
+            f = open(self.path, "w")
+            f.write("this is a test")
+            f.close()
+            if sys.platform == 'win32':
+                os.chmod(self.path, 0400)
+                assert (os.stat(self.path).st_mode & 0600) == 0400
+            else:
+                os.chmod(self.path, 0200)
+                assert (os.stat(self.path).st_mode & 0777) == 0200
+
+    if hasattr(os, 'fchmod'):
+        def test_fchmod(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchmod(f.fileno(), 0200)
+            assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
+            f.close()
+            assert (os.stat(self.path).st_mode & 0777) == 0200
+
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
             os = self.posix
@@ -1092,7 +1139,7 @@ class TestPexpect(object):
         return child
 
     def spawn(self, argv):
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         return self._spawn(sys.executable, [str(py_py)] + argv)
 
     def test_ttyname(self):

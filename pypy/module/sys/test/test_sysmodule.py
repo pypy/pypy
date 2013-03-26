@@ -538,8 +538,8 @@ class AppTestSysModulePortedFromCPython:
         # be changed.
         assert sys.float_repr_style == "short"
 
-class AppTestCurrentFrames:
 
+class AppTestCurrentFrames:
     def test_current_frames(self):
         try:
             import thread
@@ -555,8 +555,11 @@ class AppTestCurrentFrames:
         assert frames.keys() == [0]
         assert frames[0].f_code.co_name in ('f', '?')
 
+
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
-    spaceconfig = dict(usemodules=('thread',))
+    spaceconfig = {
+        "usemodules": ["rctime", "thread"],
+    }
 
     def test_current_frames(self):
         import sys
@@ -610,14 +613,14 @@ class AppTestSysExcInfoDirect:
             vm.exc_info_with_tb = exc_info_with_tb
             vm.exc_info_without_tb = exc_info_without_tb
             #
-            from pypy.rlib import jit
+            from rpython.rlib import jit
             self.old2 = [jit.we_are_jitted]
             jit.we_are_jitted = lambda: True
 
     def teardown_method(self, meth):
         if self.checking:
             from pypy.module.sys import vm
-            from pypy.rlib import jit
+            from rpython.rlib import jit
             vm.exc_info_with_tb = self.old[0]
             vm.exc_info_without_tb = self.old[1]
             jit.we_are_jitted = self.old2[0]

@@ -18,26 +18,6 @@ Generally available functionality
    It works like a simplified array of characters (actually, depending on the
    configuration the ``array`` module internally uses this).
 
-Thunk Object Space Functionality
-================================
-
-When the thunk object space is used (choose with :config:`objspace.name`),
-the following functions are put into ``__pypy__``:
-
- - ``thunk``
- - ``is_thunk``
- - ``become``
- - ``lazy``
-
-Those are all described in the `interface section of the thunk object space
-docs`_.
-
-For explanations and examples see the `thunk object space docs`_.
-
-.. _`thunk object space docs`: objspace-proxies.html#thunk
-.. _`interface section of the thunk object space docs`: objspace-proxies.html#thunk-interface
-
-
 Transparent Proxy Functionality
 ===============================
 

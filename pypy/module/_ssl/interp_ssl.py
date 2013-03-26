@@ -1,13 +1,13 @@
 from __future__ import with_statement
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rpoll, rsocket
-from pypy.rlib.ropenssl import *
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rpoll, rsocket
+from rpython.rlib.ropenssl import *
 
 from pypy.module._socket import interp_socket
 
@@ -119,7 +119,8 @@ if HAVE_OPENSSL_RAND:
             raise ssl_error(space, msg)
         return space.wrap(bytes)
 
-class SSLObject(Wrappable):
+
+class SSLObject(W_Root):
     def __init__(self, space):
         self.space = space
         self.w_socket = None

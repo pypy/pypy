@@ -16,12 +16,15 @@ created_paths = dict.fromkeys(['_top_level',
                      os.path.join('_pkg', '_subpkg', 'submodule')
                                ])
 
+
 class AppTestZipImport:
-    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct',
-                                   'itertools'])
+    spaceconfig = {
+        "usemodules": ['zipimport', 'rctime', 'struct', 'itertools', 'binascii']
+    }
+
     def setup_class(cls):
         cls.w_created_paths = cls.space.wrap(created_paths)
-    
+
     def w_temp_zipfile(self, created_paths, source=True, bytecode=True):
         """Create a temporary zip file for testing.
 

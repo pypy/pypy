@@ -1,6 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 import sys
 
 _WIN = sys.platform == 'win32'
@@ -91,18 +91,18 @@ class Module(MixedModule):
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
-    
+
     appleveldefs = {
-        'excepthook'            : 'app.excepthook', 
-        '__excepthook__'        : 'app.excepthook', 
-        'exit'                  : 'app.exit', 
+        'excepthook'            : 'app.excepthook',
+        '__excepthook__'        : 'app.excepthook',
+        'exit'                  : 'app.exit',
         'exitfunc'              : 'app.exitfunc',
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',
         'flags'                 : 'app.null_sysflags',
     }
 
-    def setbuiltinmodule(self, w_module, name): 
+    def setbuiltinmodule(self, w_module, name):
         w_name = self.space.wrap(name)
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
@@ -120,8 +120,8 @@ class Module(MixedModule):
 
     def getmodule(self, name):
         space = self.space
-        w_modules = self.get('modules') 
-        try: 
+        w_modules = self.get('modules')
+        try:
             return space.getitem(w_modules, space.wrap(name))
         except OperationError, e: 
             if not e.match(space, space.w_KeyError): 

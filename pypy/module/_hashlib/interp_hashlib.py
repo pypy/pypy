@@ -2,27 +2,22 @@ from __future__ import with_statement
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import func_renamer
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib import rgc, ropenssl
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rstring import StringBuilder
+from rpython.tool.sourcetools import func_renamer
+from pypy.interpreter.baseobjspace import W_Root
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rgc, ropenssl
+from rpython.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
+
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
-# HASH_MALLOC_SIZE is the size of EVP_MD, EVP_MD_CTX plus their points
-# Used for adding memory pressure. Last number is an (under?)estimate of
-# EVP_PKEY_CTX's size.
-# XXX: Make a better estimate here
-HASH_MALLOC_SIZE = ropenssl.EVP_MD_SIZE + ropenssl.EVP_MD_CTX_SIZE \
-        + rffi.sizeof(ropenssl.EVP_MD) * 2 + 208
 
-class W_Hash(Wrappable):
-    ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
+class W_Hash(W_Root):
+    NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
+    ctx = NULL_CTX
 
-    def __init__(self, space, name):
+    def __init__(self, space, name, copy_from=NULL_CTX):
         self.name = name
         digest_type = self.digest_type_by_name(space)
         self.digest_size = rffi.getintfield(digest_type, 'c_md_size')
@@ -33,16 +28,18 @@ class W_Hash(Wrappable):
         self.lock = Lock(space)
 
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
-        rgc.add_memory_pressure(HASH_MALLOC_SIZE + self.digest_size)
+        rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
         try:
-            ropenssl.EVP_DigestInit(ctx, digest_type)
+            if copy_from:
+                ropenssl.EVP_MD_CTX_copy(ctx, copy_from)
+            else:
+                ropenssl.EVP_DigestInit(ctx, digest_type)
             self.ctx = ctx
         except:
             lltype.free(ctx, flavor='raw')
             raise
 
     def __del__(self):
-        # self.lock.free()
         if self.ctx:
             ropenssl.EVP_MD_CTX_cleanup(self.ctx)
             lltype.free(self.ctx, flavor='raw')
@@ -68,10 +65,8 @@ class W_Hash(Wrappable):
 
     def copy(self, space):
         "Return a copy of the hash object."
-        w_hash = W_Hash(space, self.name)
         with self.lock:
-            ropenssl.EVP_MD_CTX_copy(w_hash.ctx, self.ctx)
-        return w_hash
+            return W_Hash(space, self.name, copy_from=self.ctx)
 
     def digest(self, space):
         "Return the digest value as a string of binary data."
@@ -122,7 +117,7 @@ W_Hash.typedef = TypeDef(
     digestsize=GetSetProperty(W_Hash.get_digest_size),
     block_size=GetSetProperty(W_Hash.get_block_size),
     name=GetSetProperty(W_Hash.get_name),
-    )
+)
 W_Hash.acceptable_as_base_class = False
 
 @unwrap_spec(name=str, string='bufferstr')

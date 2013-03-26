@@ -6,18 +6,20 @@ import struct
 from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
-from pypy.tool.udir import udir
-from zipfile import ZIP_STORED, ZIP_DEFLATED, ZipInfo
+from rpython.tool.udir import udir
+from zipfile import ZIP_STORED, ZIP_DEFLATED
+
 
 class AppTestZipimport:
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
     compression = ZIP_STORED
-    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct',
-                                   'itertools'])
+    spaceconfig = {
+        "usemodules": ['zipimport', 'rctime', 'struct', 'itertools', 'binascii'],
+    }
     pathsep = os.path.sep
-    
+
     @classmethod
     def make_pyc(cls, space, co, mtime):
         data = marshal.dumps(co)
@@ -48,7 +50,7 @@ class AppTestZipimport:
         def get_file():
             return __file__
         """).compile()
-            
+
         space = cls.space
 
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
@@ -61,7 +63,6 @@ class AppTestZipimport:
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
         ziptestmodule = tmpdir.join("somezip.zip")
         cls.w_tmpzip = space.wrap(str(ziptestmodule))
-        cls.w_co = space.wrap(co)
         cls.tmpdir = tmpdir
 
     def setup_class(cls):
@@ -93,6 +94,9 @@ class AppTestZipimport:
                 del sys.modules[module]
         """)
         self.w_modules = []
+
+    def w_now_in_the_future(self, delta):
+        self.now += delta
 
     def w_writefile(self, filename, data):
         import sys
@@ -162,7 +166,7 @@ class AppTestZipimport:
         for key, val in expected.items():
             assert mod.__dict__[key] == val
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.py')
-    
+
     def test_pyc(self):
         import sys, os
         self.writefile("uuu.pyc", self.test_pyc)
@@ -263,10 +267,12 @@ class AppTestZipimport:
         import os
         import zipimport
         data = "saddsadsa"
+        pyc_data = self.test_pyc
+        self.now_in_the_future(+5)   # write the zipfile 5 secs after the .pyc
         self.writefile("xxx", data)
         self.writefile("xx/__init__.py", "5")
         self.writefile("yy.py", "3")
-        self.writefile('uu.pyc', self.test_pyc)
+        self.writefile('uu.pyc', pyc_data)
         z = zipimport.zipimporter(self.zipfile)
         assert z.get_data(self.zipfile + os.sep + "xxx") == data
         assert z.is_package("xx")
@@ -276,6 +282,7 @@ class AppTestZipimport:
         raises(ImportError, "z.get_source('zz')")
         #assert z.get_code('yy') == py.code.Source('3').compile()
         #assert z.get_code('uu') == self.co
+        assert z.get_code('uu')
         assert z.get_code('xx')
         assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile
@@ -312,7 +319,7 @@ class AppTestZipimport:
 
     def test_subdirectory_twice(self):
         #import os, zipimport
- 
+
         self.writefile("package/__init__.py", "")
         self.writefile("package/subpackage/__init__.py", "")
         self.writefile("package/subpackage/foo.py", "")
@@ -355,12 +362,13 @@ def get_co_filename():
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
-    spaceconfig = dict(usemodules=['zipimport', 'zlib', 'rctime', 'struct',
-                                   'itertools'])
+    spaceconfig = {
+        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'itertools', 'binascii'],
+    }
 
     def setup_class(cls):
         try:
-            import pypy.rlib.rzlib
+            import rpython.rlib.rzlib
         except ImportError:
             py.test.skip("zlib not available, cannot test compressed zipfiles")
         cls.make_class()

@@ -1,9 +1,9 @@
 import os
-from pypy.tool.udir import udir
+import py
+from rpython.tool.udir import udir
 
-if os.name == "nt":
-    from py.test import skip
-    skip("fcntl module is not available on Windows")
+if os.name != 'posix':
+    py.test.skip("fcntl module only available on unix")
 
 def teardown_module(mod):
     for i in "abcde":
@@ -11,7 +11,7 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios'))
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select', 'rctime'))
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = cls.space.wrap(tmpprefix)
@@ -22,13 +22,23 @@ class AppTestFcntl:
         import sys
         import struct
 
+        class F:
+            def __init__(self, fn):
+                self.fn = fn
+            def fileno(self):
+                return self.fn
+
         f = open(self.tmp + "b", "w+")
 
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
+        fcntl.fcntl(F(long(f.fileno())), 1)
         raises(TypeError, fcntl.fcntl, "foo")
         raises(TypeError, fcntl.fcntl, f, "foo")
-        raises((IOError, ValueError), fcntl.fcntl, -1, 1, 0)
+        raises(TypeError, fcntl.fcntl, F("foo"), 1)
+        raises(ValueError, fcntl.fcntl, -1, 1, 0)
+        raises(ValueError, fcntl.fcntl, F(-1), 1, 0)
+        raises(ValueError, fcntl.fcntl, F(long(-1)), 1, 0)
         assert fcntl.fcntl(f, 1, 0) == 0
         assert fcntl.fcntl(f, 2, "foo") == "foo"
         assert fcntl.fcntl(f, 2, buffer("foo")) == "foo"
@@ -100,22 +110,43 @@ class AppTestFcntl:
 
     def test_flock(self):
         import fcntl
-        import sys
+        import os
+        import errno
 
         f = open(self.tmp + "c", "w+")
 
         raises(TypeError, fcntl.flock, "foo")
         raises(TypeError, fcntl.flock, f, "foo")
-        fcntl.flock(f, fcntl.LOCK_SH)
-        # this is an error EWOULDBLOCK, man: The file is locked and the
-        # LOCK_NB flag was selected.
-        raises(IOError, fcntl.flock, f, fcntl.LOCK_NB)
+
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        pid = os.fork()
+        if pid == 0:
+            rval = 2
+            try:
+                fcntl.flock(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except IOError, e:
+                if e.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                rval = 0
+            else:
+                rval = 1
+            finally:
+                os._exit(rval)
+
+        assert pid > 0
+        (pid, status) = os.waitpid(pid, 0)
+        assert os.WIFEXITED(status) == True
+        assert os.WEXITSTATUS(status) == 0
+
         fcntl.flock(f, fcntl.LOCK_UN)
 
         f.close()
 
     def test_lockf(self):
         import fcntl
+        import os
+        import errno
 
         f = open(self.tmp + "d", "w+")
 
@@ -124,7 +155,27 @@ class AppTestFcntl:
         raises(ValueError, fcntl.lockf, f, -256)
         raises(ValueError, fcntl.lockf, f, 256)
 
-        fcntl.lockf(f, fcntl.LOCK_SH)
+        fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        pid = os.fork()
+        if pid == 0:
+            rval = 2
+            try:
+                fcntl.lockf(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except IOError, e:
+                if e.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                rval = 0
+            else:
+                rval = 1
+            finally:
+                os._exit(rval)
+
+        assert pid > 0
+        (pid, status) = os.waitpid(pid, 0)
+        assert os.WIFEXITED(status) == True
+        assert os.WEXITSTATUS(status) == 0
+
         fcntl.lockf(f, fcntl.LOCK_UN)
 
         f.close()
@@ -132,11 +183,12 @@ class AppTestFcntl:
     def test_ioctl(self):
         import fcntl
         import array
-        import sys, os
+        import os
+        import pty
+        import time
 
         try:
             from termios import TIOCGPGRP
-            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
@@ -148,8 +200,12 @@ class AppTestFcntl:
         child_pid, mfd = pty.fork()
         if child_pid == 0:
             # We're the child
-            return
+            time.sleep(1)
+            os._exit(0)
         try:
+            # We're the parent, we want TIOCGPGRP calls after child started but before it dies
+            time.sleep(0.5)
+
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
             assert res == 0
@@ -174,10 +230,10 @@ class AppTestFcntl:
     def test_ioctl_int(self):
         import os
         import fcntl
+        import pty
 
         try:
             from termios import TCFLSH, TCIOFLUSH
-            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
@@ -187,11 +243,6 @@ class AppTestFcntl:
         finally:
             os.close(mfd)
             os.close(sfd)
-
-    def test_lockf_with_ex(self):
-        import fcntl
-        f = open(self.tmp, "w")
-        fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def test_large_flag(self):
         import sys

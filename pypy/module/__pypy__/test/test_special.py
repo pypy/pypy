@@ -8,17 +8,6 @@ class AppTest(object):
         if cls.runappdirect:
             py.test.skip("does not make sense on pypy-c")
 
-    def test__isfake(self):
-        from __pypy__ import isfake
-        assert not isfake(map)
-        assert not isfake(object)
-        assert not isfake(isfake)
-
-    def test__isfake_currently_true(self):
-        from __pypy__ import isfake
-        import select
-        assert isfake(select)
-
     def test_cpumodel(self):
         import __pypy__
         assert hasattr(__pypy__, 'cpumodel')

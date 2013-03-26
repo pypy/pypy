@@ -90,7 +90,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an `interactive interface`_ called `pypy/bin/translatorshell.py`_ to the
+There is an `interactive interface`_ called `rpython/bin/translatorshell.py`_ to the
 translation process which allows you to interactively work through these
 stages.
 
@@ -99,7 +99,7 @@ The following figure gives a simplified overview (`PDF color version`_):
     .. image:: image/translation-greyscale-small.png
 
 
-.. _`PDF color version`: image/translation.pdf
+.. _`PDF color version`: https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/image/translation.pdf
 .. _`bytecode evaluator`: interpreter.html
 .. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
@@ -116,7 +116,7 @@ describing object spaces`_. Here we describe the data structures produced by it,
 which are the basic data structures of the translation
 process.
 
-All these types are defined in `pypy/objspace/flow/model.py`_ (which is a rather
+All these types are defined in `rpython/flowspace/model.py`_ (which is a rather
 important module in the PyPy source base, to reinforce the point).
 
 The flow graph of a function is represented by the class ``FunctionGraph``.

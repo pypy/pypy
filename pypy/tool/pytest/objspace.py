@@ -1,16 +1,16 @@
 import py
 import sys
-from pypy.config.config import ConflictConfigError
+from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_config, make_objspace
 from pypy.tool.pytest import appsupport
 from pypy.conftest import option
 
 _SPACECACHE={}
-def gettestobjspace(name=None, **kwds):
+def gettestobjspace(**kwds):
     """ helper for instantiating and caching space's for testing.
     """
     try:
-        config = make_config(option, objspace=name, **kwds)
+        config = make_config(option,**kwds)
     except ConflictConfigError, e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
@@ -20,11 +20,6 @@ def gettestobjspace(name=None, **kwds):
         return _SPACECACHE[key]
     except KeyError:
         if getattr(option, 'runappdirect', None):
-            if name not in (None, 'std'):
-                myname = getattr(sys, 'pypy_objspaceclass', '')
-                if not myname.lower().startswith(name):
-                    py.test.skip("cannot runappdirect test: "
-                                 "%s objspace required" % (name,))
             return TinyObjSpace(**kwds)
         space = maketestobjspace(config)
         _SPACECACHE[key] = space
@@ -54,6 +49,9 @@ class TinyObjSpace(object):
             if key == 'usemodules':
                 if info is not None:
                     for modname in value:
+                        if modname == 'time':
+                            continue   # always either 'time' or 'rctime',
+                                       # and any is fine
                         ok = info.get('objspace.usemodules.%s' % modname,
                                       False)
                         if not ok:
@@ -71,8 +69,11 @@ class TinyObjSpace(object):
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
                     "while pypy-c was built with %s" % (key, value, has))
 
-        for name in ('int', 'long', 'str', 'unicode', 'None'):
+        for name in ('int', 'long', 'str', 'unicode', 'None', 'ValueError',
+                'OverflowError'):
             setattr(self, 'w_' + name, eval(name))
+        import __builtin__ as __builtin__
+        self.builtin = __builtin__
 
     def appexec(self, args, body):
         body = body.lstrip()

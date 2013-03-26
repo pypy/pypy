@@ -1,5 +1,7 @@
 class AppTestRandom:
-    spaceconfig = dict(usemodules=['_random'])
+    spaceconfig = {
+        "usemodules": ['_random', 'rctime'],
+    }
 
     def test_dict(self):
         import _random

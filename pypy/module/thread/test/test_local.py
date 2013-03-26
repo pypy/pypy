@@ -108,3 +108,54 @@ class AppTestLocal(GenericTestThread):
         gc.collect()
         assert done == ['ok', 'del']
         done.append('shutdown')
+
+def test_local_caching():
+    from pypy.module.thread.os_local import Local
+    class FakeSpace:
+        def getexecutioncontext(self):
+            return self.ec
+
+        def getattr(*args):
+            pass
+        def call_obj_args(*args):
+            pass
+        def newdict(*args, **kwargs):
+            return {}
+        def wrap(self, obj):
+            return obj
+        def type(self, obj):
+            return type(obj)
+        class config:
+            class translation:
+                rweakref = True
+
+    class FakeEC:
+        def __init__(self, space):
+            self.space = space
+            self._thread_local_objs = None
+    space = FakeSpace()
+    ec1 = FakeEC(space)
+    space.ec = ec1
+
+    l = Local(space, None)
+    assert l.last_dict is l.dicts[ec1]
+    assert l.last_ec is ec1
+    d1 = l.getdict(space)
+    assert d1 is l.last_dict
+
+    ec2 = space.ec = FakeEC(space)
+    d2 = l.getdict(space)
+    assert l.last_dict is d2
+    assert d2 is l.dicts[ec2]
+    assert l.last_ec is ec2
+    dicts = l.dicts
+    l.dicts = "nope"
+    assert l.getdict(space) is d2
+    l.dicts = dicts
+
+    space.ec = ec1
+    assert l.getdict(space) is d1
+    l.dicts = "nope"
+    assert l.getdict(space) is d1
+    l.dicts = dicts
+

@@ -1,8 +1,7 @@
-import autopath
-
-
 class AppTestCodecs:
-    spaceconfig = dict(usemodules=('unicodedata', 'struct'))
+    spaceconfig = {
+        "usemodules": ['unicodedata', 'struct', 'binascii'],
+    }
 
     def test_register_noncallable(self):
         import _codecs
@@ -19,7 +18,7 @@ class AppTestCodecs:
     def test_ucs4(self):
         x = u'\U00100000'
         y = x.encode("raw-unicode-escape").decode("raw-unicode-escape")
-        assert x == y 
+        assert x == y
 
     def test_named_unicode(self):
         assert unicode('\\N{SPACE}','unicode-escape') == u" "

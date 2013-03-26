@@ -93,7 +93,7 @@ class coroutine(object):
 
 
 try:
-    from thread import _local
+    from threading import local as _local
 except ImportError:
     class _local(object):    # assume no threads
         pass
@@ -433,16 +433,16 @@ class tasklet(coroutine):
 
     def insert(self):
         if self.blocked:
-            raise RuntimeError, "You cannot run a blocked tasklet"
-            if not self.alive:
-                raise RuntimeError, "You cannot run an unbound(dead) tasklet"
+            raise RuntimeError("You cannot run a blocked tasklet")
+        if not self.alive:
+            raise RuntimeError("You cannot run an unbound(dead) tasklet")
         _scheduler_append(self)
 
     def remove(self):
         if self.blocked:
-            raise RuntimeError, "You cannot remove a blocked tasklet."
+            raise RuntimeError("You cannot remove a blocked tasklet.")
         if self is getcurrent():
-            raise RuntimeError, "The current tasklet cannot be removed."
+            raise RuntimeError("The current tasklet cannot be removed.")
             # not sure if I will revive this  " Use t=tasklet().capture()"
         _scheduler_remove(self)
 

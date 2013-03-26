@@ -86,8 +86,8 @@ the version you have is not 4.2 or you will run into `this bug`_.
 
 4. Run::
 
-     cd pypy/translator/goal
-     python translate.py --opt=jit targetpypystandalone.py
+     cd pypy/goal
+     python ../../rpython/bin/rpython --opt=jit targetpypystandalone.py
 
    possibly replacing ``--opt=jit`` with another `optimization level`_
    of your choice like ``--opt=2`` if you do not want to include the JIT
@@ -103,8 +103,8 @@ translation options that where used to produce this particular
 executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
-    Python 2.7.2 (341e1e3821ff, Jun 07 2012, 15:40:31)
-    [PyPy 1.9.0 with GCC 4.4.3] on linux2
+    Python 2.7.3 (7e4f0faa3d51, Nov 22 2012, 10:35:18)
+    [PyPy 2.0.0-beta1 with GCC 4.7.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``RPython magically makes you rich
     and famous (says so on the tin)''
@@ -131,8 +131,6 @@ Find a more detailed description of the various options in our `configuration
 sections`_.
 
 .. _`configuration sections`: config/index.html
-
-.. _`translate PyPy with the thunk object space`:
 
 Translating with non-standard options
 ++++++++++++++++++++++++++++++++++++++++
@@ -234,7 +232,7 @@ correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy1.9``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy2.0-beta1``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report
@@ -243,19 +241,19 @@ and then attempt to continue normally.  If the default path is usable,
 most code will be fine.  However, the ``sys.prefix`` will be unset
 and some existing libraries assume that this is never the case.
 
-.. _`py.py interpreter`:
+.. _`pyinteractive.py interpreter`:
 
 Running the Python Interpreter Without Translation
 ---------------------------------------------------
 
-The py.py interpreter
+The pyinteractive.py interpreter
 +++++++++++++++++++++
 
 To start interpreting Python with PyPy, install a C compiler that is
 supported by distutils and use Python 2.5 or greater to run PyPy::
 
     cd pypy
-    python bin/py.py
+    python bin/pyinteractive.py
 
 After a few seconds (remember: this is running on top of CPython), 
 you should be at the PyPy prompt, which is the same as the Python 
@@ -275,24 +273,24 @@ default is 50000, which is far too many to run in a non-translated
 PyPy version (i.e. when PyPy's interpreter itself is being interpreted 
 by CPython).
 
-py.py options
+pyinteractive.py options
 +++++++++++++
 
 To list the PyPy interpreter command line options, type::
 
     cd pypy
-    python bin/py.py --help
+    python bin/pyinteractive.py --help
 
-py.py supports most of the options that CPython supports too (in addition to a
-large amount of options that can be used to customize py.py).
+pyinteractive.py supports most of the options that CPython supports too (in addition to a
+large amount of options that can be used to customize pyinteractive.py).
 As an example of using PyPy from the command line, you could type::
 
-    python py.py -c "from test import pystone; pystone.main(10)"
+    python pyinteractive.py -c "from test import pystone; pystone.main(10)"
 
 Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
-    python py.py ../../lib-python/2.7/test/pystone.py 10
+    python pyinteractive.py ../../lib-python/2.7/test/pystone.py 10
 
 See our  `configuration sections`_ for details about what all the commandline
 options do.

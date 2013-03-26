@@ -1,4 +1,4 @@
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 class AppTestMarshal:
@@ -180,9 +180,6 @@ class AppTestMarshal:
         exc = raises(ValueError, marshal.loads, chr(1))
         assert r"'\x01'" in exc.value.message
 
-
-class AppTestRope(AppTestMarshal):
-    spaceconfig = {"objspace.std.withrope": True}
 
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = {"objspace.std.withsmalllong": True}

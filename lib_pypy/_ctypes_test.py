@@ -1,10 +1,5 @@
 import os, sys
 import tempfile
-import gc
-
-# Monkeypatch & hacks to let ctypes.tests import.
-# This should be removed at some point.
-sys.getrefcount = lambda x: len(gc.get_referrers(x)) - 1
 
 def compile_shared():
     """Compile '_ctypes_test.c' into an extension module, and import it
@@ -23,7 +18,7 @@ def compile_shared():
     if sys.platform == 'win32':
         ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
     else:
-        ccflags = ['-fPIC']
+        ccflags = ['-fPIC', '-Wimplicit-function-declaration']
     res = compiler.compile([os.path.join(thisdir, '_ctypes_test.c')],
                            include_dirs=[include_dir],
                            extra_preargs=ccflags)
@@ -39,10 +34,10 @@ def compile_shared():
             library = os.path.join(thisdir, '..', 'include', 'python27')
         if not os.path.exists(library + '.lib'):
             # For a local translation
-            library = os.path.join(thisdir, '..', 'pypy', 'translator',
-                    'goal', 'libpypy-c')
+            library = os.path.join(thisdir, '..', 'pypy', 'goal', 'libpypy-c')
         libraries = [library, 'oleaut32']
-        extra_ldargs = ['/MANIFEST'] # needed for VC10
+        extra_ldargs = ['/MANIFEST',  # needed for VC10
+                        '/EXPORT:init_ctypes_test']
     else:
         libraries = []
         extra_ldargs = []

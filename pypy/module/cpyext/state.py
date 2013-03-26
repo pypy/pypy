@@ -1,8 +1,8 @@
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rdynload import DLLHANDLE
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.rdynload import DLLHANDLE
 import sys
 
 class State:
@@ -78,11 +78,7 @@ class State:
         from pypy.module.cpyext.api import INIT_FUNCTIONS
 
         setup_new_method_def(space)
-        if not we_are_translated():
-            space.setattr(space.wrap(self),
-                          space.wrap('api_lib'),
-                          space.wrap(self.api_lib))
-        else:
+        if we_are_translated():
             refcountstate = space.fromcache(RefcountState)
             refcountstate.init_r2w_from_w2r()
 

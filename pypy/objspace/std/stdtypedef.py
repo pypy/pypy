@@ -7,8 +7,8 @@ from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std import model
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.rlib import jit
-from pypy.tool.sourcetools import compile2
+from rpython.rlib import jit
+from rpython.tool.sourcetools import compile2
 
 __all__ = ['StdTypeDef', 'SMM']
 
@@ -202,12 +202,6 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
             src.append(wrapper_arg)
             dest.append(expr_arg)
     renaming = ', '.join(dest) +" = "+', '.join(src)
-
-    # add a call to resolve_target to give the thunk space a chance to replace
-    # the thing with something else
-    offset = len(multimethod.argnames_before)
-    renaming += "; %s = space.resolve_target(%s)" % (
-            exprargs[selfindex+offset], exprargs[selfindex+offset])
 
     if allow_NotImplemented_results and (len(multimethod.specialnames) > 1 or
                                          multimethod.name.startswith('inplace_')):

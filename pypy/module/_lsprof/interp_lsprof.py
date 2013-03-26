@@ -1,24 +1,24 @@
 import py
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rtimer import read_timestamp, _is_64_bit
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.autopath import pypydir
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rtimer import read_timestamp, _is_64_bit
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.conftest import cdir
+from rpython.rlib.rarithmetic import r_longlong
 
 import time, sys
 
 # cpu affinity settings
 
-srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
+srcdir = py.path.local(cdir).join('src')
 eci = ExternalCompilationInfo(
     separate_module_files=[srcdir.join('profiling.c')],
     export_symbols=['pypy_setup_profiling', 'pypy_teardown_profiling'])
@@ -35,7 +35,7 @@ if _is_64_bit:
 else:
     timer_size_int = r_longlong
 
-class W_StatsEntry(Wrappable):
+class W_StatsEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it,
                  w_sublist):
         self.frame = frame
@@ -72,7 +72,7 @@ W_StatsEntry.typedef = TypeDef(
     __repr__ = interp2app(W_StatsEntry.repr),
 )
 
-class W_StatsSubEntry(Wrappable):
+class W_StatsSubEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it):
         self.frame = frame
         self.callcount = callcount
@@ -185,37 +185,52 @@ class ProfilerContext(object):
             if subentry is not None:
                 subentry._stop(tt, it)
 
+
 @jit.elidable_promote()
-def create_spec(space, w_arg):
-    if isinstance(w_arg, Method):
-        w_function = w_arg.w_function
-        if isinstance(w_function, Function):
-            name = w_function.name
-        else:
-            name = '?'
-        # try to get the real class that defines the method,
-        # which is a superclass of the class of the instance
-        from pypy.objspace.std.typeobject import W_TypeObject   # xxx
-        w_type = w_arg.w_class
-        class_name = w_type.getname(space)    # if the rest doesn't work
-        if isinstance(w_type, W_TypeObject) and name != '?':
-            w_realclass, _ = space.lookup_in_type_where(w_type, name)
-            if isinstance(w_realclass, W_TypeObject):
-                class_name = w_realclass.get_module_type_name()
-        return "{method '%s' of '%s' objects}" % (name, class_name)
-    elif isinstance(w_arg, Function):
-        if w_arg.w_module is None:
+def create_spec_for_method(space, w_function, w_type):
+    w_function = w_function
+    if isinstance(w_function, Function):
+        name = w_function.name
+    else:
+        name = '?'
+    # try to get the real class that defines the method,
+    # which is a superclass of the class of the instance
+    from pypy.objspace.std.typeobject import W_TypeObject   # xxx
+    class_name = w_type.getname(space)    # if the rest doesn't work
+    if isinstance(w_type, W_TypeObject) and name != '?':
+        w_realclass, _ = space.lookup_in_type_where(w_type, name)
+        if isinstance(w_realclass, W_TypeObject):
+            class_name = w_realclass.get_module_type_name()
+    return "{method '%s' of '%s' objects}" % (name, class_name)
+
+
+@jit.elidable_promote()
+def create_spec_for_function(space, w_func):
+    if w_func.w_module is None:
+        module = ''
+    else:
+        module = space.str_w(w_func.w_module)
+        if module == '__builtin__':
             module = ''
         else:
-            module = space.str_w(w_arg.w_module)
-            if module == '__builtin__':
-                module = ''
-            else:
-                module += '.'
-        return '{%s%s}' % (module, w_arg.name)
+            module += '.'
+    return '{%s%s}' % (module, w_func.name)
+
+
+@jit.elidable_promote()
+def create_spec_for_object(space, w_obj):
+    class_name = space.type(w_obj).getname(space)
+    return "{'%s' object}" % (class_name,)
+
+
+def create_spec(space, w_arg):
+    if isinstance(w_arg, Method):
+        return create_spec_for_method(space, w_arg.w_function, w_arg.w_class)
+    elif isinstance(w_arg, Function):
+        return create_spec_for_function(space, w_arg)
     else:
-        class_name = space.type(w_arg).getname(space)
-        return "{'%s' object}" % (class_name,)
+        return create_spec_for_object(space, w_arg)
+
 
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
@@ -237,8 +252,8 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         # ignore or raise an exception???
         pass
 
-class W_Profiler(Wrappable):
 
+class W_Profiler(W_Root):
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
         self.subcalls = subcalls
         self.builtins = builtins

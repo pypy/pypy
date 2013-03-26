@@ -1,12 +1,12 @@
-from pypy.rlib import rgc
-from pypy.interpreter.baseobjspace import W_Root, Wrappable
+from rpython.rlib import rgc
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 
 
-class W_GcRef(Wrappable):
+class W_GcRef(W_Root):
     def __init__(self, gcref):
         self.gcref = gcref
 
@@ -34,9 +34,8 @@ def wrap(space, gcref):
     return w_obj
 
 def unwrap(space, w_obj):
-    gcrefobj = space.interpclass_w(w_obj)
-    if isinstance(gcrefobj, W_GcRef):
-        gcref = gcrefobj.gcref
+    if isinstance(w_obj, W_GcRef):
+        gcref = w_obj.gcref
     else:
         gcref = rgc.cast_instance_to_gcref(w_obj)
     return gcref

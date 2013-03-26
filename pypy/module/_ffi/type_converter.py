@@ -1,7 +1,6 @@
-from pypy.rlib import libffi
-from pypy.rlib import jit
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rpython.lltypesystem import rffi
+from rpython.rlib import libffi
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import app_types
@@ -73,7 +72,7 @@ class FromAppLevelConverter(object):
     def _singlefloat(self, w_ffitype, w_obj):
         # a separate function, which can be seen by the jit or not,
         # depending on whether singlefloats are supported
-        from pypy.rlib.rarithmetic import r_singlefloat
+        from rpython.rlib.rarithmetic import r_singlefloat
         floatval = self.space.float_w(w_obj)
         singlefloatval = r_singlefloat(floatval)
         self.handle_singlefloat(w_ffitype, w_obj, singlefloatval)
@@ -307,7 +306,7 @@ class ToAppLevelConverter(object):
     def get_unsigned_which_fits_into_a_signed(self, w_ffitype):
         """
         Return type: lltype.Signed.
-        
+
         We return Signed even if the input type is unsigned, because this way
         we get an app-level <int> instead of a <long>.
         """

@@ -1,9 +1,9 @@
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.rlib import rposix
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib import rposix
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 class CConfig:
@@ -74,21 +74,6 @@ def _get_error(space, funcname):
     return wrap_oserror(space, OSError(errno, funcname),
                         exception_name = 'w_IOError')
 
-def _check_flock_op(space, op):
-
-    if op == LOCK_UN:
-        l_type = F_UNLCK
-    elif op & LOCK_SH:
-        l_type = F_RDLCK
-    elif op & LOCK_EX:
-        l_type = F_WRLCK
-    else:
-        raise OperationError(space.w_ValueError,
-            space.wrap("unrecognized flock argument"))
-    l = lltype.malloc(_flock.TO, flavor='raw')
-    l.c_l_type = rffi.cast(rffi.SHORT, l_type)
-    return l
-
 @unwrap_spec(op=int, w_arg=WrappedDefault(0))
 def fcntl(space, w_fd, op, w_arg):
     """fcntl(fd, op, [arg])
@@ -143,21 +128,14 @@ def flock(space, w_fd, op):
     manual flock(3) for details.  (On some systems, this function is
     emulated using fcntl().)"""
 
-    fd = space.c_filedescriptor_w(w_fd)
-
     if has_flock:
+        fd = space.c_filedescriptor_w(w_fd)
+        op = rffi.cast(rffi.INT, op)        # C long => C int
         rv = c_flock(fd, op)
         if rv < 0:
             raise _get_error(space, "flock")
     else:
-        l = _check_flock_op(space, op)
-        rffi.setintfield(l, 'c_l_whence', 0)
-        rffi.setintfield(l, 'c_l_start', 0)
-        rffi.setintfield(l, 'c_l_len', 0)
-        op = [F_SETLKW, F_SETLK][int(bool(op & LOCK_NB))]
-        op = rffi.cast(rffi.INT, op)        # C long => C int
-        fcntl_flock(fd, op, l)
-        lltype.free(l, flavor='raw')
+        lockf(space, w_fd, op)
 
 @unwrap_spec(op=int, length=int, start=int, whence=int)
 def lockf(space, w_fd, op, length=0, start=0, whence=0):
@@ -187,22 +165,28 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
 
     fd = space.c_filedescriptor_w(w_fd)
 
-    l = _check_flock_op(space, op)
-    if start:
-        rffi.setintfield(l, 'c_l_start', int(start))
+    if op == LOCK_UN:
+        l_type = F_UNLCK
+    elif op & LOCK_SH:
+        l_type = F_RDLCK
+    elif op & LOCK_EX:
+        l_type = F_WRLCK
     else:
-        rffi.setintfield(l, 'c_l_start', 0)
-    if len:
-        rffi.setintfield(l, 'c_l_len', int(length))
-    else:
-        rffi.setintfield(l, 'c_l_len', 0)
+        raise OperationError(space.w_ValueError,
+            space.wrap("unrecognized lock operation"))
 
-    l.c_l_whence = rffi.cast(rffi.SHORT, whence)
+    op = [F_SETLKW, F_SETLK][int(bool(op & LOCK_NB))]
+    op = rffi.cast(rffi.INT, op)        # C long => C int
 
+    l = lltype.malloc(_flock.TO, flavor='raw')
     try:
-        op = [F_SETLKW, F_SETLK][int(bool(op & LOCK_NB))]
-        op = rffi.cast(rffi.INT, op)        # C long => C int
-        fcntl_flock(fd, op, l)
+        rffi.setintfield(l, 'c_l_type', l_type)
+        rffi.setintfield(l, 'c_l_start', int(start))
+        rffi.setintfield(l, 'c_l_len', int(length))
+        rffi.setintfield(l, 'c_l_whence', int(whence))
+        rv = fcntl_flock(fd, op, l)
+        if rv < 0:
+            raise _get_error(space, "fcntl")
     finally:
         lltype.free(l, flavor='raw')
 

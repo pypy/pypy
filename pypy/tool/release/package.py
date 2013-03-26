@@ -1,27 +1,28 @@
 #!/usr/bin/env python
 """ A sample script that packages PyPy, provided that it's already built.
-It uses 'pypy/translator/goal/pypy-c' and parts of the rest of the working
+It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py root-pypy-dir [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
+    package.py root-pypy-dir [--nostrip] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]
 
 Usually you would do:   package.py ../../.. pypy-VER-PLATFORM
 The output is found in the directory /tmp/usession-YOURNAME/build/.
 """
 
-import autopath
 import shutil
 import sys
-import py
 import os
+#Add toplevel repository dir to sys.path
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+import py
 import fnmatch
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
-STDLIB_VER = "2.7"
+STDLIB_VER = "2"
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
@@ -43,13 +44,13 @@ def fix_permissions(basedir):
         os.system("chmod -R a+rX %s" % basedir)
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
-            copy_to_dir = None, override_pypy_c = None):
+            copy_to_dir = None, override_pypy_c = None, nostrip=False):
     basedir = py.path.local(basedir)
     if override_pypy_c is None:
         basename = 'pypy-c'
         if sys.platform == 'win32':
             basename += '.exe'
-        pypy_c = basedir.join('pypy', 'translator', 'goal', basename)
+        pypy_c = basedir.join('pypy', 'goal', basename)
     else:
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
@@ -93,7 +94,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
-    for file in ['LICENSE', 'README']:
+    for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
     if sys.platform == 'win32':
@@ -122,14 +123,15 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     try:
         os.chdir(str(builddir))
         #
-        # 'strip' fun: see https://codespeak.net/issue/pypy-dev/issue587
-        for source, target in binaries:
-            if sys.platform == 'win32':
-                pass
-            elif sys.platform == 'darwin':
-                os.system("strip -x " + str(bindir.join(target)))    # ignore errors
-            else:
-                os.system("strip " + str(bindir.join(target)))    # ignore errors
+        # 'strip' fun: see issue #587
+        if not nostrip:
+            for source, target in binaries:
+                if sys.platform == 'win32':
+                    pass
+                elif sys.platform == 'darwin':
+                    os.system("strip -x " + str(bindir.join(target)))    # ignore errors
+                else:
+                    os.system("strip " + str(bindir.join(target)))    # ignore errors
         #
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -144,6 +146,10 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
             if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
+                print >>sys.stderr, """Warning: tar on current platform does not suport overriding the uid and gid
+for its contents. The tarball will contain your uid and gid. If you are
+building the actual release for the PyPy website, you may want to be
+using another platform..."""
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
                 e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
@@ -165,4 +171,9 @@ if __name__ == '__main__':
         print >>sys.stderr, __doc__
         sys.exit(1)
     else:
-        package(*sys.argv[1:])
+        args = sys.argv[1:]
+        kw = {}
+        if args[0] == '--nostrip':
+            kw['nostrip'] = True
+            args = args[1:]
+        package(*args, **kw)

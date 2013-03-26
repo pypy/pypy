@@ -1,9 +1,11 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
+     interpindirect2app
+from pypy.objspace.std.model import W_Object
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
+from rpython.rlib.rbigint import rbigint
 
 def descr_conjugate(space, w_int):
     return space.long(w_int)
@@ -12,7 +14,6 @@ def descr_conjugate(space, w_int):
 @unwrap_spec(w_x = WrappedDefault(0))
 def descr__new__(space, w_longtype, w_x, w_base=None):
     from pypy.objspace.std.longobject import W_LongObject
-    from pypy.rlib.rbigint import rbigint
     if space.config.objspace.std.withsmalllong:
         from pypy.objspace.std.smalllongobject import W_SmallLongObject
     else:
@@ -29,10 +30,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         elif space.isinstance_w(w_value, space.w_str):
             return string_to_w_long(space, w_longtype, space.str_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
-            if space.config.objspace.std.withropeunicode:
-                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-            else:
-                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
         else:
@@ -54,15 +52,12 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         base = space.int_w(w_base)
 
         if space.isinstance_w(w_value, space.w_unicode):
-            if space.config.objspace.std.withropeunicode:
-                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-            else:
-                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
                 s = space.str_w(w_value)
-            except OperationError, e:
+            except OperationError:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("long() can't convert non-string "
                                                 "with explicit base"))
@@ -120,6 +115,30 @@ def bit_length(space, w_obj):
 
 # ____________________________________________________________
 
+class W_AbstractLongObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractLongObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        return space.bigint_w(self).eq(space.bigint_w(w_other))
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from pypy.objspace.std.model import IDTAG_LONG as tag
+        b = space.bigint_w(self)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+    def unwrap(w_self, space): #YYYYYY
+        return w_self.longval()
+
+    def int(self, space):
+        raise NotImplementedError
+
 long_typedef = StdTypeDef("long",
     __doc__ = '''long(x[, base]) -> integer
 
@@ -135,5 +154,6 @@ converting a non-string.''',
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
     bit_length = interp2app(bit_length),
+    __int__ = interpindirect2app(W_AbstractLongObject.int),
 )
 long_typedef.registermethods(globals())

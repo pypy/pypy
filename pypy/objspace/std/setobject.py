@@ -1,19 +1,21 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib.objectmodel import r_dict
-from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Signature
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
-from pypy.rlib import rerased
-from pypy.rlib.objectmodel import instantiate
+from pypy.interpreter.signature import Signature
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
+
+from rpython.rlib.objectmodel import r_dict
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib import rerased, jit
+
+UNROLL_CUTOFF = 5
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -390,12 +392,16 @@ class AbstractUnwrappedSetStrategy(object):
         """ Returns a wrapped version of the given unwrapped item. """
         raise NotImplementedError
 
+    @jit.look_inside_iff(lambda self, list_w:
+            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def get_storage_from_list(self, list_w):
         setdata = self.get_empty_dict()
         for w_item in list_w:
             setdata[self.unwrap(w_item)] = None
         return self.erase(setdata)
 
+    @jit.look_inside_iff(lambda self, items:
+            jit.loop_unrolling_heuristic(items, len(items), UNROLL_CUTOFF))
     def get_storage_from_unwrapped_list(self, items):
         setdata = self.get_empty_dict()
         for item in items:
@@ -476,15 +482,13 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def _difference_wrapped(self, w_set, w_other):
-        strategy = self.space.fromcache(ObjectSetStrategy)
-
-        d_new = strategy.get_empty_dict()
-        for obj in self.unerase(w_set.sstorage):
-            w_item = self.wrap(obj)
+        iterator = self.unerase(w_set.sstorage).iterkeys()
+        result_dict = self.get_empty_dict()
+        for key in iterator:
+            w_item = self.wrap(key)
             if not w_other.has_key(w_item):
-                d_new[w_item] = None
-
-        return strategy.erase(d_new)
+                result_dict[key] = None
+        return self.erase(result_dict)
 
     def _difference_unwrapped(self, w_set, w_other):
         iterator = self.unerase(w_set.sstorage).iterkeys()
@@ -497,26 +501,50 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _difference_base(self, w_set, w_other):
         if self is w_other.strategy:
-            strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
         elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
-            strategy = w_set.strategy
             d = self.unerase(w_set.sstorage)
             storage = self.erase(d.copy())
         else:
-            strategy = self.space.fromcache(ObjectSetStrategy)
             storage = self._difference_wrapped(w_set, w_other)
-        return storage, strategy
+        return storage
 
     def difference(self, w_set, w_other):
-        storage, strategy = self._difference_base(w_set, w_other)
-        w_newset = w_set.from_storage_and_strategy(storage, strategy)
+        storage = self._difference_base(w_set, w_other)
+        w_newset = w_set.from_storage_and_strategy(storage, w_set.strategy)
         return w_newset
 
+    def _difference_update_unwrapped(self, w_set, w_other):
+        my_dict = self.unerase(w_set.sstorage)
+        if w_set.sstorage is w_other.sstorage:
+            my_dict.clear()
+            return
+        iterator = self.unerase(w_other.sstorage).iterkeys()
+        for key in iterator:
+            try:
+                del my_dict[key]
+            except KeyError:
+                pass
+
+    def _difference_update_wrapped(self, w_set, w_other):
+        w_iterator = w_other.iter()
+        while True:
+            w_item = w_iterator.next_entry()
+            if w_item is None:
+                break
+            w_set.remove(w_item)
+
     def difference_update(self, w_set, w_other):
-        storage, strategy = self._difference_base(w_set, w_other)
-        w_set.strategy = strategy
-        w_set.sstorage = storage
+        if self.length(w_set) < w_other.strategy.length(w_other):
+            # small_set -= big_set: compute the difference as a new set
+            storage = self._difference_base(w_set, w_other)
+            w_set.sstorage = storage
+        else:
+            # big_set -= small_set: be more subtle
+            if self is w_other.strategy:
+                self._difference_update_unwrapped(w_set, w_other)
+            elif w_set.strategy.may_contain_equal_elements(w_other.strategy):
+                self._difference_update_wrapped(w_set, w_other)
 
     def _symmetric_difference_unwrapped(self, w_set, w_other):
         d_new = self.get_empty_dict()
@@ -779,6 +807,8 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(StringSetStrategy):
             return False
+        if strategy is self.space.fromcache(UnicodeSetStrategy):
+            return False
         if strategy is self.space.fromcache(EmptySetStrategy):
             return False
         return True
@@ -876,7 +906,7 @@ class IteratorImplementation(object):
         raise NotImplementedError
 
     def length(self):
-        if self.setimplementation is not None:
+        if self.setimplementation is not None and self.len != -1:
             return self.len - self.pos
         return 0
 
@@ -957,13 +987,6 @@ def next__SetIterObject(space, w_setiter):
         return w_key
     raise OperationError(space.w_StopIteration, space.w_None)
 
-# XXX __length_hint__()
-##def len__SetIterObject(space, w_setiter):
-##    content = w_setiter.content
-##    if content is None or w_setiter.len == -1:
-##        return space.wrap(0)
-##    return space.wrap(w_setiter.len - w_setiter.pos)
-
 # some helper functions
 
 def newset(space):
@@ -1011,6 +1034,8 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     _pick_correct_strategy(space, w_set, iterable_w)
 
+@jit.look_inside_iff(lambda space, w_set, iterable_w:
+        jit.loop_unrolling_heuristic(iterable_w, len(iterable_w), UNROLL_CUTOFF))
 def _pick_correct_strategy(space, w_set, iterable_w):
     # check for integers
     for w_item in iterable_w:
@@ -1027,6 +1052,15 @@ def _pick_correct_strategy(space, w_set, iterable_w):
             break
     else:
         w_set.strategy = space.fromcache(StringSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
+
+    # check for unicode
+    for w_item in iterable_w:
+        if type(w_item) is not W_UnicodeObject:
+            break
+    else:
+        w_set.strategy = space.fromcache(UnicodeSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 

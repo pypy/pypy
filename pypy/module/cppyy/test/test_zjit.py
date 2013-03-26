@@ -1,8 +1,8 @@
 import py, os, sys
-from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.rlib.objectmodel import specialize, instantiate
-from pypy.rlib import rarithmetic, jit
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.rlib.objectmodel import specialize, instantiate
+from rpython.rlib import rarithmetic, jit
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy, capi
@@ -13,6 +13,19 @@ if capi.identify() == 'CINT':
 # load cpyext early, or its global vars are counted as leaks in the test
 # (note that the module is not otherwise used in the test itself)
 import pypy.module.cpyext
+
+# change capi's direct_ptradd and exchange_address to being jit-opaque
+@jit.dont_look_inside
+def _opaque_direct_ptradd(ptr, offset):
+    address = rffi.cast(rffi.CCHARP, ptr)
+    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
+capi.direct_ptradd = _opaque_direct_ptradd
+
+@jit.dont_look_inside
+def _opaque_exchange_address(ptr, cif_descr, index):
+    offset = rffi.cast(rffi.LONG, cif_descr.exchange_args[index])
+    return rffi.ptradd(ptr, offset)
+capi.exchange_address = _opaque_exchange_address
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
@@ -57,12 +70,6 @@ class FakeException(FakeType):
     def __init__(self, name):
         FakeType.__init__(self, name)
         self.message = name
-
-@jit.dont_look_inside
-def _opaque_direct_ptradd(ptr, offset):
-    address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
-capi.direct_ptradd = _opaque_direct_ptradd
 
 class FakeUserDelAction(object):
     def __init__(self, space):
@@ -122,9 +129,6 @@ class FakeSpace(object):
             raise TypeError
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
-
-    def interpclass_w(self, w_obj):
-        return w_obj
 
     def buffer_w(self, w_obj):
         return FakeBuffer(w_obj)

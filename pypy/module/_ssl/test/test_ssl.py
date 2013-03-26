@@ -82,7 +82,9 @@ class AppTestSSL:
 
 
 class AppTestConnectedSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct'))
+    spaceconfig = {
+        "usemodules": ['_ssl', '_socket', 'struct', 'binascii'],
+    }
 
     def setup_method(self, method):
         # https://www.verisign.net/
@@ -165,10 +167,13 @@ class AppTestConnectedSSL:
         raises(ssl.SSLError, ss.write, "hello\n")
         del ss; gc.collect()
 
+
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout
     # to exercise the poll() calls
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct'))
+    spaceconfig = {
+        "usemodules": ['_ssl', '_socket', 'struct', 'binascii'],
+    }
 
     def setup_class(cls):
         cls.space.appexec([], """():

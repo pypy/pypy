@@ -22,4 +22,6 @@
 #pragma link C++ class more_overloads;
 #pragma link C++ class more_overloads2;
 
+#pragma link C++ function calc_mean;
+
 #endif

@@ -10,13 +10,13 @@ a callback and a state variable.
 
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
 from pypy.objspace.std import model
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway, unicodehelper
-from pypy.rlib.rstruct import ieee
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rstruct import ieee
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.objspace.std.boolobject    import W_BoolObject
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -26,7 +26,6 @@ from pypy.objspace.std.tupleobject   import W_TupleObject
 from pypy.objspace.std.listobject    import W_ListObject
 from pypy.objspace.std.dictmultiobject    import W_DictMultiObject
 from pypy.objspace.std.stringobject  import W_StringObject
-from pypy.objspace.std.ropeobject    import W_RopeObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject, newlong
 from pypy.objspace.std.noneobject    import W_NoneObject
@@ -207,7 +206,7 @@ def unmarshal_Complex_bin(space, u, tc):
 register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
-    from pypy.rlib.rbigint import rbigint
+    from rpython.rlib.rbigint import rbigint
     m.start(TYPE_LONG)
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
@@ -224,7 +223,7 @@ def marshal_w__Long(space, w_long, m):
         m.put_short(i)
 
 def unmarshal_Long(space, u, tc):
-    from pypy.rlib.rbigint import rbigint
+    from rpython.rlib.rbigint import rbigint
     lng = u.get_int()
     if lng < 0:
         negative = True
@@ -268,8 +267,6 @@ def marshal_w__String(space, w_str, m):
             m.atom_str(TYPE_INTERNED, s)
     else:
         m.atom_str(TYPE_STRING, s)
-
-marshal_w__Rope = marshal_w__String
 
 def unmarshal_String(space, u, tc):
     return space.wrap(u.get_str())

@@ -17,17 +17,8 @@ def registerimplementation(implcls):
 option_to_typename = {
     "withspecialisedtuple" : ["specialisedtupleobject.W_SpecialisedTupleObject"],
     "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
-    "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
-    "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
-    "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
-    "withrope"       : ["ropeobject.W_RopeObject",
-                        "ropeobject.W_RopeIterObject"],
-    "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
-                        "ropeunicodeobject.W_RopeUnicodeIterObject"],
-    "withtproxy" : ["proxyobject.W_TransparentList",
-                    "proxyobject.W_TransparentDict"],
 }
 
 IDTAG_INT     = 1
@@ -50,12 +41,12 @@ class StdTypeModel:
             from pypy.objspace.std.settype import set_typedef
             from pypy.objspace.std.frozensettype import frozenset_typedef
             from pypy.objspace.std.tupletype  import tuple_typedef
-            from pypy.objspace.std.listtype   import list_typedef
+            from pypy.objspace.std.listobject   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
             from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
             from pypy.objspace.std.bytearraytype import bytearray_typedef
-            from pypy.objspace.std.typetype   import type_typedef
+            from pypy.objspace.std.typeobject   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
@@ -86,7 +77,6 @@ class StdTypeModel:
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import proxyobject
-        from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
 
         import pypy.objspace.std.marshal_impl # install marshal multimethods
@@ -151,9 +141,6 @@ class StdTypeModel:
                     else:
                         self.imported_but_not_registered[implcls] = True
 
-        if config.objspace.std.withrope:
-            del self.typeorder[stringobject.W_StringObject]
-
         # check if we missed implementations
         for implcls in _registered_implementations:
             if hasattr(implcls, 'register'):
@@ -169,18 +156,6 @@ class StdTypeModel:
         # register the order in which types are converted into each others
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
-
-        if config.objspace.std.withsmallint:
-            from pypy.objspace.std import smallintobject
-            self.typeorder[boolobject.W_BoolObject] += [
-                (smallintobject.W_SmallIntObject, boolobject.delegate_Bool2SmallInt),
-                ]
-            self.typeorder[smallintobject.W_SmallIntObject] += [
-                (intobject.W_IntObject, smallintobject.delegate_SmallInt2Int),
-                (floatobject.W_FloatObject, smallintobject.delegate_SmallInt2Float),
-                (longobject.W_LongObject, smallintobject.delegate_SmallInt2Long),
-                (complexobject.W_ComplexObject, smallintobject.delegate_SmallInt2Complex),
-                ]
 
         if config.objspace.usemodules.micronumpy:
             from pypy.module.micronumpy.stdobjspace import register_delegates
@@ -225,39 +200,10 @@ class StdTypeModel:
         self.typeorder[setobject.W_FrozensetObject] += [
             (setobject.W_BaseSetObject, None)
             ]
-        if not config.objspace.std.withrope:
-            self.typeorder[stringobject.W_StringObject] += [
-             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-                ]
-        else:
-            from pypy.objspace.std import ropeobject
-            if config.objspace.std.withropeunicode:
-                from pypy.objspace.std import ropeunicodeobject
-                self.typeorder[ropeobject.W_RopeObject] += [
-                 (ropeunicodeobject.W_RopeUnicodeObject,
-                     ropeunicodeobject.delegate_Rope2RopeUnicode),
-                 ]
-            else:
-                self.typeorder[ropeobject.W_RopeObject] += [
-                 (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-                    ]
-        if config.objspace.std.withstrslice:
-            from pypy.objspace.std import strsliceobject
-            self.typeorder[strsliceobject.W_StringSliceObject] += [
-                (stringobject.W_StringObject,
-                                       strsliceobject.delegate_slice2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strsliceobject.delegate_slice2unicode),
-                ]
-        if config.objspace.std.withstrjoin:
-            from pypy.objspace.std import strjoinobject
-            self.typeorder[strjoinobject.W_StringJoinObject] += [
-                (stringobject.W_StringObject,
-                                       strjoinobject.delegate_join2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strjoinobject.delegate_join2unicode)
-                ]
-        elif config.objspace.std.withstrbuf:
+        self.typeorder[stringobject.W_StringObject] += [
+            (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
+            ]
+        if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
             self.typeorder[strbufobject.W_StringBufferObject] += [
                 (stringobject.W_StringObject,
@@ -465,7 +411,7 @@ NOT_MULTIMETHODS = dict.fromkeys(
     ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
      'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
      'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel',
-     'isinstance', 'issubtype'])
+     'isinstance', 'issubtype', 'int'])
 # XXX should we just remove those from the method table or we're happy
 #     with just not having multimethods?
 
@@ -477,17 +423,15 @@ class MM:
     init    = StdObjSpaceMultiMethod('__init__', 1, general__args__=True)
     getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
     # special visible multimethods
-    float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
     # NOTE: when adding more sometype_w() methods, you need to write a
     # stub in default.py to raise a space.w_TypeError
     marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
 
     # add all regular multimethods here
     for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-        if _name not in locals() or _name in NOT_MULTIMETHODS:
+        if _name not in locals() and _name not in NOT_MULTIMETHODS:
             mm = StdObjSpaceMultiMethod(_symbol, _arity, _specialnames)
             locals()[_name] = mm
             del mm
 
     pow.extras['defaults'] = (None,)
-

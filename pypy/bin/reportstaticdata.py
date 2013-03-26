@@ -27,8 +27,9 @@ Options:
   --help   Show this help message
 """
 
-import autopath
-from pypy.translator.tool.staticsizereport import print_report
+import sys
+
+from rpython.translator.tool.staticsizereport import print_report
 
 def parse_options(argv):
     kwds = {}
@@ -60,7 +61,6 @@ def parse_options(argv):
 
 
 def main():
-    import sys
     try:
         kwds = parse_options(sys.argv[1:])
     except AssertionError:

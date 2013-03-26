@@ -1,5 +1,7 @@
 class AppTestCProfile(object):
-    spaceconfig = dict(usemodules=('_lsprof',))
+    spaceconfig = {
+        "usemodules": ['_lsprof', 'rctime'],
+    }
 
     def setup_class(cls):
         cls.w_expected_output = cls.space.wrap(expected_output)

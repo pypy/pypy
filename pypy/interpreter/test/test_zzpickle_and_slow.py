@@ -1,7 +1,7 @@
 import py
 from pypy import conftest
 from pypy.interpreter import gateway
-from pypy.rlib.jit import non_virtual_ref, vref_None
+from rpython.rlib.jit import non_virtual_ref, vref_None
 
 class AppTestSlow:    
     spaceconfig = dict(usemodules=['itertools'])
@@ -71,9 +71,12 @@ def _detach_helpers(space):
     space.delitem(space.builtin.w_dict,
                   space.wrap('restore_top_frame'))
 
+
 class AppTestInterpObjectPickling:
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = {
+        "usemodules": ["struct", "binascii"]
+    }
 
     def setup_class(cls):
         _attach_helpers(cls.space)

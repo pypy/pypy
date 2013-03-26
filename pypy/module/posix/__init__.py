@@ -1,8 +1,7 @@
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rpython.module.ll_os import RegisterOs
+from rpython.rtyper.module.ll_os import RegisterOs
 
-import os, sys
+import os
 exec 'import %s as posix' % os.name
 
 # this is the list of function which is *not* present in the posix module of
@@ -98,6 +97,10 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['chown'] = 'interp_posix.chown'
     if hasattr(os, 'lchown'):
         interpleveldefs['lchown'] = 'interp_posix.lchown'
+    if hasattr(os, 'fchown'):
+        interpleveldefs['fchown'] = 'interp_posix.fchown'
+    if hasattr(os, 'fchmod'):
+        interpleveldefs['fchmod'] = 'interp_posix.fchmod'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
     if hasattr(os, 'fsync'):

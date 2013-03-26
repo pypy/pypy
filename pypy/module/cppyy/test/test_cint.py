@@ -98,6 +98,29 @@ class AppTestCINT:
 class AppTestCINTPythonizations:
     spaceconfig = dict(usemodules=['cppyy'])
 
+    def test01_strings(self):
+        """Test TString/TObjString compatibility"""
+
+        import cppyy
+
+        pyteststr = "aap noot mies"
+        def test_string(s1, s2):
+            assert len(s1) == len(s2)
+            assert s1 == s1
+            assert s1 == s2
+            assert s1 == str(s1)
+            assert s1 == pyteststr
+            assert s1 != "aap"
+            assert s1 != ""
+            assert s1 < "noot"
+            assert repr(s1) == repr(s2)
+
+        s1 = cppyy.gbl.TString(pyteststr)
+        test_string(s1, pyteststr)
+
+        s3 = cppyy.gbl.TObjString(pyteststr)
+        test_string(s3, pyteststr)
+
     def test03_TVector(self):
         """Test TVector2/3/T behavior"""
 

@@ -15,7 +15,7 @@ Getting into PyPy ...
 
 * `FAQ`_: some frequently asked questions.
 
-* `Release 1.9`_: the latest official release
+* `Release 2.0 beta 1`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
@@ -67,7 +67,7 @@ on the `development mailing list`_.
 .. _Python: http://docs.python.org/index.html
 .. _`more...`: architecture.html#mission-statement 
 .. _`PyPy blog`: http://morepypy.blogspot.com/
-.. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
+.. _`development bug/feature tracker`: https://bugs.pypy.org
 .. _here: http://tismerysoft.de/pypy/irc-logs/pypy
 .. _`Mercurial commit mailing list`: http://python.org/mailman/listinfo/pypy-commit
 .. _`development mailing list`: http://python.org/mailman/listinfo/pypy-dev
@@ -75,7 +75,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
-.. _`Release 1.9`: http://pypy.org/download.html
+.. _`Release 2.0 beta 1`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
 .. _`potential project ideas`: project-ideas.html
@@ -120,9 +120,9 @@ PyPy can be used to run Python programs on Linux, OS/X,
 Windows, on top of .NET, and on top of Java.
 To dig into PyPy it is recommended to try out the current
 Mercurial default branch, which is always working or mostly working,
-instead of the latest release, which is `1.9`__.
+instead of the latest release, which is `2.0 beta1`__.
 
-.. __: release-1.9.0.html
+.. __: release-2.0.0-beta1.html
 
 PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
 but platform-specific bugs tend to take longer before we notice and fix
@@ -217,18 +217,20 @@ PyPy directory cross-reference
 Here is a fully referenced alphabetical two-level deep 
 directory overview of PyPy: 
 
-================================   =========================================== 
+=================================  ============================================
 Directory                          explanation/links
-================================   =========================================== 
-`pypy/annotation/`_                `type inferencing code`_ for `RPython`_ programs 
+=================================  ============================================
+`pypy/bin/`_                       command-line scripts, mainly
+                                   `pypy/bin/pyinteractive.py`_
 
-`pypy/bin/`_                       command-line scripts, mainly `py.py`_ and `translatorshell.py`_
+`pypy/config/`_                    handles the numerous options for building
+                                   and running PyPy
 
-`pypy/config/`_                    handles the numerous options for building and running PyPy
+`pypy/doc/`_                       text versions of PyPy developer
+                                   documentation
 
-`pypy/doc/`_                       text versions of PyPy developer documentation
-
-`pypy/doc/config/`_                documentation for the numerous translation options
+`pypy/doc/config/`_                documentation for the numerous translation
+                                   options
 
 `pypy/doc/discussion/`_            drafts of ideas and documentation
 
@@ -239,77 +241,89 @@ Directory                          explanation/links
 
 `pypy/interpreter/pyparser/`_      interpreter-level Python source parser
 
-`pypy/interpreter/astcompiler/`_   interpreter-level bytecode compiler, via an AST
-                                   representation
+`pypy/interpreter/astcompiler/`_   interpreter-level bytecode compiler,
+                                   via an AST representation
 
-`pypy/module/`_                    contains `mixed modules`_ implementing core modules with 
+`pypy/module/`_                    contains `mixed modules`_
+                                   implementing core modules with 
                                    both application and interpreter level code.
-                                   Not all are finished and working.  Use the ``--withmod-xxx``
-                                   or ``--allworkingmodules`` translation options.
+                                   Not all are finished and working.  Use
+                                   the ``--withmod-xxx``
+                                   or ``--allworkingmodules`` translation
+                                   options.
 
 `pypy/objspace/`_                  `object space`_ implementations
 
-`pypy/objspace/trace.py`_          the `trace object space`_ monitoring bytecode and space operations
+`pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's
+                                   objects and types
 
-`pypy/objspace/dump.py`_           the dump object space saves a large, searchable log file
-                                   with all operations
-
-`pypy/objspace/thunk.py`_          the `thunk object space`_, providing unique object features 
-
-`pypy/objspace/flow/`_             the FlowObjSpace_ implementing `abstract interpretation`_
-
-`pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's objects and types
-
-`pypy/rlib/`_                      a `"standard library"`_ for RPython_ programs
-
-`pypy/rpython/`_                   the `RPython Typer`_ 
-
-`pypy/rpython/lltypesystem/`_      the `low-level type system`_ for C-like backends
-
-`pypy/rpython/ootypesystem/`_      the `object-oriented type system`_ for OO backends
-
-`pypy/rpython/memory/`_            the `garbage collector`_ construction framework
-
-`pypy/tool/`_                      various utilities and hacks used from various places 
+`pypy/tool/`_                      various utilities and hacks used
+                                   from various places 
 
 `pypy/tool/algo/`_                 general-purpose algorithmic and mathematic
                                    tools
 
 `pypy/tool/pytest/`_               support code for our `testing methods`_
 
-`pypy/translator/`_                translation_ backends and support code
 
-`pypy/translator/backendopt/`_     general optimizations that run before a backend generates code
+`rpython/annotator/`_              `type inferencing code`_ for
+                                   `RPython`_ programs 
 
-`pypy/translator/c/`_              the `GenC backend`_, producing C code from an
+`rpython/config/`_                 handles the numerous options for RPython
+
+
+`rpython/flowspace/`_              the FlowObjSpace_ implementing
+                                   `abstract interpretation`_
+
+`rpython/rlib/`_                   a `"standard library"`_ for RPython_
+                                   programs
+
+`rpython/rtyper/`_                 the `RPython Typer`_ 
+
+`rpython/rtyper/lltypesystem/`_    the `low-level type system`_ for
+                                   C-like backends
+
+`rpython/rtyper/ootypesystem/`_    the `object-oriented type system`_
+                                   for OO backends
+
+`rpython/memory/`_                 the `garbage collector`_ construction
+                                   framework
+
+`rpython/translator/`_             translation_ backends and support code
+
+`rpython/translator/backendopt/`_  general optimizations that run before a 
+                                   backend generates code
+
+`rpython/translator/c/`_           the `GenC backend`_, producing C code
+                                   from an
                                    RPython program (generally via the rtyper_)
 
-`pypy/translator/cli/`_            the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
+`rpython/translator/cli/`_         the `CLI backend`_ for `.NET`_
+                                   (Microsoft CLR or Mono_)
 
-`pypy/translator/goal/`_           our `main PyPy-translation scripts`_ live here
+`pypy/goal/`_                      our `main PyPy-translation scripts`_
+                                   live here
 
-`pypy/translator/jvm/`_            the Java backend
+`rpython/translator/jvm/`_         the Java backend
 
-`pypy/translator/tool/`_           helper tools for translation, including the Pygame
-                                   `graph viewer`_
+`rpython/translator/tool/`_        helper tools for translation
 
-``*/test/``                        many directories have a test subdirectory containing test 
+`dotviewer/`_                      `graph viewer`_
+
+``*/test/``                        many directories have a test subdirectory
+                                   containing test 
                                    modules (see `Testing in PyPy`_) 
 
-``_cache/``                        holds cache files from internally `translating application 
-                                   level to interpreterlevel`_ code.   
-================================   =========================================== 
+``_cache/``                        holds cache files from various purposes
+=================================  ============================================
 
 .. _`bytecode interpreter`: interpreter.html
-.. _`translating application level to interpreterlevel`: geninterp.html
 .. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
 .. _`mixed modules`: coding-guide.html#mixed-modules 
 .. _`modules`: coding-guide.html#modules 
 .. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
 .. _`object space`: objspace.html
 .. _FlowObjSpace: objspace.html#the-flow-object-space 
-.. _`trace object space`: objspace.html#the-trace-object-space 
-.. _`thunk object space`: objspace-proxies.html#thunk
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`Differences between PyPy and CPython`: cpython_differences.html
 .. _`What PyPy can do for your objects`: objspace-proxies.html

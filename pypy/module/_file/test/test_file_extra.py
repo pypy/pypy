@@ -1,8 +1,8 @@
 import os, random, sys
-import pypy.tool.udir
+import rpython.tool.udir
 import py
 
-udir = pypy.tool.udir.udir.ensure('test_file_extra', dir=1)
+udir = rpython.tool.udir.udir.ensure('test_file_extra', dir=1)
 
 
 # XXX this file is a random test.  It may only fail occasionally
@@ -207,15 +207,19 @@ class BaseROTests:
         assert repr(self.file).startswith(
             "<closed file '%s', mode '%s' at 0x" % (
                 self.expected_filename, self.expected_mode))
-        
+
 # ____________________________________________________________
 #
 #  Basic 'rb' mode
 
+
 class AppTestFile(BaseROTests):
-    expected_filename  = str(udir.join('sample'))
-    expected_mode      = 'rb'
+    expected_filename = str(udir.join('sample'))
+    expected_mode = 'rb'
     extra_args = ()
+    spaceconfig = {
+        "usemodules": ["binascii", "rctime"],
+    }
 
     def setup_method(self, method):
         space = self.space
@@ -270,10 +274,14 @@ class TestWithCPython(BaseROTests):
 #
 #  Files built with fdopen()
 
+
 class AppTestFdOpen(BaseROTests):
-    expected_filename  = '<fdopen>'
-    expected_mode      = 'rb'
+    expected_filename = '<fdopen>'
+    expected_mode = 'rb'
     extra_args = ()
+    spaceconfig = {
+        "usemodules": ["binascii", "rctime"],
+    }
 
     def setup_method(self, method):
         space = self.space
@@ -351,7 +359,9 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = dict(usemodules=('array', '_socket'))
+    spaceconfig = {
+        "usemodules": ['array', '_socket', 'binascii', 'rctime'],
+    }
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -602,6 +612,7 @@ class AppTestAFewExtra:
                                   repr(unicode(self.temptestfile)))
         f.close()
 
+    @py.test.mark.skipif("os.name != 'posix'")
     def test_EAGAIN(self):
         import _socket, posix
         s1, s2 = _socket.socketpair()

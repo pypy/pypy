@@ -6,8 +6,8 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.proxyobject import *
 from pypy.objspace.std.typeobject import W_TypeObject
-from pypy.rlib.objectmodel import r_dict
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import r_dict
+from rpython.rlib.unroll import unrolling_iterable
 
 class TypeCache(object):
     def __init__(self):
@@ -37,12 +37,8 @@ completely controlled by the controller."""
         PyCode, GeneratorIterator
     if not space.is_true(space.callable(w_controller)):
         raise OperationError(space.w_TypeError, space.wrap("controller should be function"))
-    
+
     if isinstance(w_type, W_TypeObject):
-        if space.is_true(space.issubtype(w_type, space.w_list)):
-            return W_TransparentList(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.w_dict)):
-            return W_TransparentDict(space, w_type, w_controller)
         if space.is_true(space.issubtype(w_type, space.gettypeobject(Function.typedef))):
             return W_TransparentFunction(space, w_type, w_controller)
         if space.is_true(space.issubtype(w_type, space.gettypeobject(PyTraceback.typedef))):
@@ -61,8 +57,8 @@ completely controlled by the controller."""
     for k, v in type_cache.cache:
         if w_lookup == k:
             return v(space, w_type, w_controller)
-    raise operationerrfmt(space.w_TypeError, 
-        "'%s' object could not be wrapped (YET)",
+    raise operationerrfmt(space.w_TypeError,
+        "'%s' object could not be wrapped",
         w_type.getname(space))
 
 def register_proxyable(space, cls):
@@ -77,8 +73,8 @@ If obj is really a transparent proxy, return its controller. Otherwise return
 None."""
     if isinstance(w_object, W_Transparent):
         return w_object.w_controller
-    if isinstance(w_object, W_TransparentObject):
-        return w_object.w_controller
+    #if isinstance(w_object, W_TransparentObject):
+    #    return w_object.w_controller
     return None
 
 app_proxy = gateway.interp2app(proxy)

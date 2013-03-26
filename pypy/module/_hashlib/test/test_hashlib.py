@@ -1,7 +1,7 @@
-import py
-
 class AppTestHashlib:
-    spaceconfig = dict(usemodules=['_hashlib', 'array', 'struct'])
+    spaceconfig = {
+        "usemodules": ['_hashlib', 'array', 'struct', 'binascii'],
+    }
 
     def test_simple(self):
         import _hashlib

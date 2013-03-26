@@ -1,17 +1,16 @@
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.typedef import make_weakref_descr
-from pypy.interpreter.typedef import GetSetProperty, interp_attrproperty
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
+
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.objectmodel import we_are_translated
 
 from pypy.module._cffi_backend import cdataobj
 
 
-class W_CType(Wrappable):
-    _attrs_   = ['space', 'size',  'name', 'name_position', '_lifeline_']
+class W_CType(W_Root):
+    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_']
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
@@ -55,7 +54,7 @@ class W_CType(Wrappable):
         raise operationerrfmt(space.w_TypeError,
                               "cannot cast to '%s'", self.name)
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
                               "int() not supported on cdata '%s'", self.name)
@@ -81,23 +80,28 @@ class W_CType(Wrappable):
 
     def _convert_error(self, expected, w_got):
         space = self.space
-        ob = space.interpclass_w(w_got)
-        if isinstance(ob, cdataobj.W_CData):
+        if isinstance(w_got, cdataobj.W_CData):
             return operationerrfmt(space.w_TypeError,
                                    "initializer for ctype '%s' must be a %s, "
                                    "not cdata '%s'", self.name, expected,
-                                   ob.ctype.name)
+                                   w_got.ctype.name)
         else:
             return operationerrfmt(space.w_TypeError,
                                    "initializer for ctype '%s' must be a %s, "
                                    "not %s", self.name, expected,
                                    space.type(w_got).getname(space))
 
-    def _check_subscript_index(self, w_cdata, i):
+    def _cannot_index(self):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
                               "cdata of type '%s' cannot be indexed",
                               self.name)
+
+    def _check_subscript_index(self, w_cdata, i):
+        raise self._cannot_index()
+
+    def _check_slice_index(self, w_cdata, start, stop):
+        raise self._cannot_index()
 
     def string(self, cdataobj, maxlen):
         space = self.space
@@ -188,7 +192,7 @@ class W_CType(Wrappable):
         if attrchar == 'c':     # cname
             return space.wrap(self.name)
         raise operationerrfmt(space.w_AttributeError,
-                              "cdata '%s' has no such attribute",
+                              "ctype '%s' has no such attribute",
                               self.name)
 
     def fget_kind(self, space):     return self._fget('k')
@@ -201,6 +205,7 @@ class W_CType(Wrappable):
     def fget_ellipsis(self, space): return self._fget('E')
     def fget_abi(self, space):      return self._fget('A')
     def fget_elements(self, space): return self._fget('e')
+    def fget_relements(self, space):return self._fget('R')
 
 
 W_CType.typedef = TypeDef(
@@ -218,6 +223,8 @@ W_CType.typedef = TypeDef(
     ellipsis = GetSetProperty(W_CType.fget_ellipsis, doc="function has '...'"),
     abi = GetSetProperty(W_CType.fget_abi, doc="function ABI"),
     elements = GetSetProperty(W_CType.fget_elements, doc="enum elements"),
+    relements = GetSetProperty(W_CType.fget_relements,
+                               doc="enum elements, reversed"),
     __dir__ = interp2app(W_CType.dir),
     )
 W_CType.typedef.acceptable_as_base_class = False

@@ -1,12 +1,12 @@
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import intmask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -22,6 +22,13 @@ def PyLong_FromSsize_t(space, val):
     NULL on failure.
     """
     return space.newlong(val)
+
+@cpython_api([rffi.SIZE_T], PyObject)
+def PyLong_FromSize_t(space, val):
+    """Return a new PyLongObject object from a C size_t, or NULL on
+    failure.
+    """
+    return space.wrap(val)
 
 @cpython_api([rffi.LONGLONG], PyObject)
 def PyLong_FromLongLong(space, val):
@@ -47,7 +54,12 @@ def PyLong_AsUnsignedLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
-    return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+    try:
+        return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+    except OperationError, e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        raise
 
 @cpython_api([PyObject], rffi.ULONG, error=-1)
 def PyLong_AsUnsignedLongMask(space, w_long):
@@ -86,7 +98,12 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
-    return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
+    try:
+        return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
+    except OperationError, e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        raise
 
 @cpython_api([PyObject], rffi.ULONGLONG, error=-1)
 def PyLong_AsUnsignedLongLongMask(space, w_long):

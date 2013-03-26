@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.rlib.rstring import UnicodeBuilder
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.objectmodel import we_are_translated
+
 
 class CodecState(object):
     def __init__(self, space):
@@ -9,15 +10,19 @@ class CodecState(object):
         self.codec_search_cache = {}
         self.codec_error_registry = {}
         self.codec_need_encodings = True
-        self.decode_error_handler = self.make_errorhandler(space, True)
-        self.encode_error_handler = self.make_errorhandler(space, False)
+        self.decode_error_handler = self.make_decode_errorhandler(space)
+        self.encode_error_handler = self.make_encode_errorhandler(space)
 
         self.unicodedata_handler = None
 
-    def make_errorhandler(self, space, decode):
-        def unicode_call_errorhandler(errors,  encoding, reason, input,
-                                      startpos, endpos):
+    def _make_errorhandler(self, space, decode):
+        def call_errorhandler(errors, encoding, reason, input, startpos,
+                              endpos):
+            """Generic wrapper for calling into error handlers.
 
+            Returns (unicode_or_none, str_or_none, newpos) as error
+            handlers may return unicode or on Python 3, bytes.
+            """
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
@@ -31,11 +36,11 @@ class CodecState(object):
                 space.wrap(endpos),
                 space.wrap(reason))
             w_res = space.call_function(w_errorhandler, w_exc)
-            if (not space.is_true(space.isinstance(w_res, space.w_tuple))
+            if (not space.isinstance_w(w_res, space.w_tuple)
                 or space.len_w(w_res) != 2
-                or not space.is_true(space.isinstance(
+                or not space.isinstance_w(
                                  space.getitem(w_res, space.wrap(0)),
-                                 space.w_unicode))):
+                                 space.w_unicode)):
                 if decode:
                     msg = ("decoding error handler must return "
                            "(unicode, int) tuple, not %s")
@@ -55,7 +60,19 @@ class CodecState(object):
                     "position %d from error handler out of bounds", newpos)
             replace = space.unicode_w(w_replace)
             return replace, newpos
-        return unicode_call_errorhandler
+        return call_errorhandler
+
+    def make_decode_errorhandler(self, space):
+        return self._make_errorhandler(space, True)
+
+    def make_encode_errorhandler(self, space):
+        errorhandler = self._make_errorhandler(space, False)
+        def encode_call_errorhandler(errors, encoding, reason, input, startpos,
+                                     endpos):
+            replace, newpos = errorhandler(errors, encoding, reason, input,
+                                           startpos, endpos)
+            return replace, None, newpos
+        return encode_call_errorhandler
 
     def get_unicodedata_handler(self, space):
         if self.unicodedata_handler:
@@ -119,8 +136,7 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
         w_result = space.call_function(w_search,
                                        space.wrap(normalized_encoding))
         if not space.is_w(w_result, space.w_None):
-            if not (space.is_true(space.isinstance(w_result,
-                                            space.w_tuple)) and
+            if not (space.isinstance_w(w_result, space.w_tuple) and
                     space.len_w(w_result) == 4):
                 raise OperationError(
                     space.w_TypeError,
@@ -306,8 +322,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
     if space.is_true(w_decoder):
         w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
-        if (not space.is_true(space.isinstance(w_res, space.w_tuple))
-            or space.len_w(w_res) != 2):
+        if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("encoder must return a tuple (object, integer)"))
@@ -336,7 +351,7 @@ def register_error(space, errors, w_handler):
 # ____________________________________________________________
 # delegation to runicode
 
-from pypy.rlib import runicode
+from rpython.rlib import runicode
 
 def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
@@ -477,7 +492,7 @@ class Charmap_Decode:
         self.w_mapping = w_mapping
 
         # fast path for all the stuff in the encodings module
-        if space.is_true(space.isinstance(w_mapping, space.w_tuple)):
+        if space.isinstance_w(w_mapping, space.w_tuple):
             self.mapping_w = space.fixedview(w_mapping)
         else:
             self.mapping_w = None

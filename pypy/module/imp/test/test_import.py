@@ -3,8 +3,8 @@ from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
-from pypy.tool.udir import udir
-from pypy.rlib import streamio
+from rpython.tool.udir import udir
+from rpython.rlib import streamio
 from pypy.tool.option import make_config
 from pypy.tool.pytest.objspace import maketestobjspace
 import pytest
@@ -139,23 +139,25 @@ def _setup(space):
 
 def _teardown(space, w_saved_modules):
     space.appexec([w_saved_modules], """
-        ((saved_path, saved_modules)): 
+        ((saved_path, saved_modules)):
             import sys
             sys.path[:] = saved_path
             sys.modules.clear()
             sys.modules.update(saved_modules)
     """)
 
-class AppTestImport:
-    spaceconfig = dict(usemodules=['_md5'])
 
-    def setup_class(cls): # interpreter-level
+class AppTestImport:
+    spaceconfig = {
+        "usemodules": ['_md5', 'rctime'],
+    }
+
+    def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
-        
-    def teardown_class(cls): # interpreter-level
+    def teardown_class(cls):
         _teardown(cls.space, cls.saved_modules)
 
     def test_set_sys_modules_during_import(self):
@@ -725,7 +727,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(
                     space, cpathname, stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
         assert type(pycode) is pypy.interpreter.pycode.PyCode
@@ -770,7 +772,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is pypy.interpreter.pycode.PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
@@ -909,7 +911,7 @@ class TestPycStuff:
                                                   stream.readall())
         finally:
             stream.close()
-        pycode = space.interpclass_w(w_ret)
+        pycode = w_ret
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
@@ -937,7 +939,7 @@ class TestPycStuff:
             stream.seek(8, 0)
             w_code = importing.read_compiled_module(space, cpathname,
                                                     stream.readall())
-            pycode = space.interpclass_w(w_code)
+            pycode = w_code
         finally:
             stream.close()
 
@@ -992,19 +994,22 @@ def test_PYTHONPATH_takes_precedence(space):
     extrapath.join("urllib.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
-    try: 
+    try:
         os.environ['PYTHONPATH'] = str(extrapath)
-        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' % 
-                                 (sys.executable, pypypath) )
-        assert output.strip() == '42' 
-    finally: 
-        if old: 
-            os.environ['PYTHONPATH'] = old 
+        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' %
+                                 (sys.executable, pypypath))
+        assert output.strip() == '42'
+    finally:
+        if old:
+            os.environ['PYTHONPATH'] = old
         if oldlang:
             os.environ['LANG'] = oldlang
 
+
 class AppTestImportHooks(object):
-    spaceconfig = dict(usemodules=('struct', 'itertools'))
+    spaceconfig = {
+        "usemodules": ['struct', 'itertools', 'rctime'],
+    }
 
     def setup_class(cls):
         mydir = os.path.dirname(__file__)
@@ -1145,7 +1150,7 @@ class AppTestImportHooks(object):
         sys.path_hooks.append(ImpWrapper)
         sys.path_importer_cache.clear()
         try:
-            mnames = ("colorsys", "urlparse", "distutils.core", "compiler.misc")
+            mnames = ("colorsys", "urlparse", "email.mime", "compiler.misc")
             for mname in mnames:
                 parent = mname.split(".")[0]
                 for n in sys.modules.keys():
@@ -1263,7 +1268,7 @@ class AppTestLonePycFile(AppTestNoPycFile):
 
 
 class AppTestMultithreadedImp(object):
-    spaceconfig = dict(usemodules=['thread', 'time'])
+    spaceconfig = dict(usemodules=['thread', 'rctime'])
 
     def setup_class(cls):
         #if not conftest.option.runappdirect:

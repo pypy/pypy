@@ -8,7 +8,7 @@ class TestCheckSignals:
     def setup_class(cls):
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             py.test.skip("requires os.kill() and os.getpid()")
-        if not hasattr(cpy_signal, 'SIGUSR1'):    
+        if not hasattr(cpy_signal, 'SIGUSR1'):
             py.test.skip("requires SIGUSR1 in signal")
 
     def test_checksignals(self):
@@ -35,7 +35,9 @@ class TestCheckSignals:
 
 
 class AppTestSignal:
-    spaceconfig = dict(usemodules=['signal'])
+    spaceconfig = {
+        "usemodules": ['signal', 'rctime'] + (['fcntl'] if os.name != 'nt' else []),
+    }
 
     def setup_class(cls):
         cls.w_signal = cls.space.getbuiltinmodule('signal')
@@ -52,8 +54,8 @@ class AppTestSignal:
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             skip("requires os.kill() and os.getpid()")
         signal = self.signal   # the signal module to test
-        if not hasattr(signal, 'SIGUSR1'):    
-            py.test.skip("requires SIGUSR1 in signal")
+        if not hasattr(signal, 'SIGUSR1'):
+            skip("requires SIGUSR1 in signal")
         signum = signal.SIGUSR1
 
         received = []
@@ -83,7 +85,6 @@ class AppTestSignal:
 
         signal.signal(signum, signal.SIG_DFL)
 
-
     def test_default_return(self):
         """
         Test that signal.signal returns SIG_DFL if that is the current handler.
@@ -97,7 +98,6 @@ class AppTestSignal:
         finally:
             signal(SIGINT, SIG_DFL)
 
-
     def test_ignore_return(self):
         """
         Test that signal.signal returns SIG_IGN if that is the current handler.
@@ -110,7 +110,6 @@ class AppTestSignal:
                 assert signal(SIGINT, handler) == SIG_IGN
         finally:
             signal(SIGINT, SIG_DFL)
-
 
     def test_obj_return(self):
         """
@@ -127,7 +126,6 @@ class AppTestSignal:
                 assert signal(SIGINT, handler) is installed
         finally:
             signal(SIGINT, SIG_DFL)
-
 
     def test_getsignal(self):
         """
@@ -149,14 +147,18 @@ class AppTestSignal:
         finally:
             signal(SIGINT, SIG_DFL)
 
-        raises(ValueError, getsignal, 4444)
-        raises(ValueError, signal, 4444, lambda *args: None)
+    def test_check_signum(self):
         import sys
+        from signal import getsignal, signal, NSIG
+
+        # signum out of range fails
+        raises(ValueError, getsignal, NSIG)
+        raises(ValueError, signal, NSIG, lambda *args: None)
+
+        # on windows invalid signal within range should pass getsignal but fail signal
         if sys.platform == 'win32':
-            raises(ValueError, signal, 42, lambda *args: None)
-        else:
-            signal(42, lambda *args: None)
-            signal(42, SIG_DFL)
+            assert getsignal(7) == None
+            raises(ValueError, signal, 7, lambda *args: None)
 
     def test_alarm(self):
         try:

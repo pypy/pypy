@@ -1,18 +1,18 @@
 
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
      interp_attrproperty, interp_attrproperty_w)
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, hlstr
-from pypy.rpython.lltypesystem.rclass import OBJECT
-from pypy.jit.metainterp.resoperation import rop, AbstractResOp
-from pypy.rlib.nonconst import NonConstant
-from pypy.rlib import jit_hooks
-from pypy.rlib.jit import Counters
-from pypy.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
+from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import jit_hooks
+from rpython.rlib.jit import Counters
+from rpython.rlib.objectmodel import compute_unique_id
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
@@ -83,8 +83,8 @@ def set_abort_hook(space, w_hook):
 
     The hook will be called as in: hook(jitdriver_name, greenkey, reason)
 
-    Where reason is the reason for abort, see documentation for set_compile_hook
-    for descriptions of other arguments.
+    Reason is a string, the meaning of other arguments is the same
+    as attributes on JitLoopInfo object
     """
     cache = space.fromcache(Cache)
     cache.w_abort_hook = w_hook
@@ -114,7 +114,8 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
                                  logops.repr_of_resop(op)))
     return l_w
 
-class WrappedBox(Wrappable):
+
+class WrappedBox(W_Root):
     """ A class representing a single box
     """
     def __init__(self, llbox):
@@ -133,15 +134,18 @@ WrappedBox.typedef = TypeDef(
     getint = interp2app(WrappedBox.descr_getint),
 )
 
-@unwrap_spec(num=int, offset=int, repr=str, res=WrappedBox)
-def descr_new_resop(space, w_tp, num, w_args, res, offset=-1,
+@unwrap_spec(num=int, offset=int, repr=str, w_res=W_Root)
+def descr_new_resop(space, w_tp, num, w_args, w_res, offset=-1,
                     repr=''):
     args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
             space.listview(w_args)]
-    if res is None:
+    if space.is_none(w_res):
         llres = jit_hooks.emptyval()
     else:
-        llres = res.llbox
+        if not isinstance(w_res, WrappedBox):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "expected box type, got %s" % space.type(w_res)))
+        llres = w_res.llbox
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
 
 @unwrap_spec(repr=str, jd_name=str, call_depth=int, call_id=int)
@@ -155,7 +159,8 @@ def descr_new_dmp(space, w_tp, w_args, repr, jd_name, call_depth, call_id,
                            jit_hooks.resop_new(num, args, jit_hooks.emptyval()),
                            repr, jd_name, call_depth, call_id, w_greenkey)
 
-class WrappedOp(Wrappable):
+
+class WrappedOp(W_Root):
     """ A class representing a single ResOperation, wrapped nicely
     """
     def __init__(self, op, offset, repr_of_resop):
@@ -176,9 +181,9 @@ class WrappedOp(Wrappable):
     def descr_getarg(self, space, no):
         return WrappedBox(jit_hooks.resop_getarg(self.op, no))
 
-    @unwrap_spec(no=int, box=WrappedBox)
-    def descr_setarg(self, space, no, box):
-        jit_hooks.resop_setarg(self.op, no, box.llbox)
+    @unwrap_spec(no=int, w_box=WrappedBox)
+    def descr_setarg(self, space, no, w_box):
+        jit_hooks.resop_setarg(self.op, no, w_box.llbox)
 
     def descr_getresult(self, space):
         return WrappedBox(jit_hooks.resop_getresult(self.op))
@@ -191,7 +196,7 @@ class DebugMergePoint(WrappedOp):
     """ A class representing Debug Merge Point - the entry point
     to a jitted loop.
     """
-    
+
     def __init__(self, space, op, repr_of_resop, jd_name, call_depth, call_id,
         w_greenkey):
 
@@ -249,15 +254,16 @@ DebugMergePoint.typedef = TypeDef(
 )
 DebugMergePoint.acceptable_as_base_class = False
 
-class W_JitLoopInfo(Wrappable):
+
+class W_JitLoopInfo(W_Root):
     """ Loop debug information
     """
-    
+
     w_green_key = None
     bridge_no   = 0
     asmaddr     = 0
     asmlen      = 0
-    
+
     def __init__(self, space, debug_info, is_bridge=False):
         logops = debug_info.logger._make_log_operations()
         if debug_info.asminfo is not None:
@@ -266,11 +272,12 @@ class W_JitLoopInfo(Wrappable):
             ofs = {}
         self.w_ops = space.newlist(
             wrap_oplist(space, logops, debug_info.operations, ofs))
-        
+
         self.jd_name = debug_info.get_jitdriver().name
         self.type = debug_info.type
         if is_bridge:
-            self.bridge_no = debug_info.fail_descr_no
+            self.bridge_no = compute_unique_id(debug_info.fail_descr)
+            #self.bridge_no = debug_info.fail_descr_no
             self.w_green_key = space.w_None
         else:
             self.w_green_key = wrap_greenkey(space,
@@ -292,10 +299,17 @@ class W_JitLoopInfo(Wrappable):
         return space.wrap('<JitLoopInfo %s, %d operations, starting at <%s>>' %
                           (self.jd_name, lgt, code_repr))
 
+    def descr_get_bridge_no(self, space):
+        if space.is_none(self.w_green_key):
+            return space.wrap(self.bridge_no)
+        raise OperationError(space.w_TypeError, space.wrap("not a bridge"))
+
+
 @unwrap_spec(loopno=int, asmaddr=int, asmlen=int, loop_no=int,
              type=str, jd_name=str, bridge_no=int)
 def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
-                            asmaddr, asmlen, loop_no, type, jd_name, bridge_no):
+                            asmaddr, asmlen, loop_no, type, jd_name,
+                            bridge_no=-1):
     w_info = space.allocate_instance(W_JitLoopInfo, w_subtype)
     w_info.w_green_key = w_greenkey
     w_info.w_ops = w_ops
@@ -321,11 +335,16 @@ W_JitLoopInfo.typedef = TypeDef(
                                        "List of operations in this loop."),
     loop_no = interp_attrproperty('loop_no', cls=W_JitLoopInfo, doc=
                                   "Loop cardinal number"),
+    bridge_no = GetSetProperty(W_JitLoopInfo.descr_get_bridge_no,
+                               doc="bridge number (if a bridge)"),
+    type = interp_attrproperty('type', cls=W_JitLoopInfo,
+                               doc="Loop type"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
 W_JitLoopInfo.acceptable_as_base_class = False
 
-class W_JitInfoSnapshot(Wrappable):
+
+class W_JitInfoSnapshot(W_Root):
     def __init__(self, space, w_times, w_counters, w_counter_times):
         self.w_loop_run_times = w_times
         self.w_counters = w_counters
@@ -352,7 +371,9 @@ def get_stats_snapshot(space):
     ll_times = jit_hooks.stats_get_loop_run_times(None)
     w_times = space.newdict()
     for i in range(len(ll_times)):
-        space.setitem(w_times, space.wrap(ll_times[i].number),
+        w_key = space.newtuple([space.wrap(ll_times[i].type),
+                                space.wrap(ll_times[i].number)])
+        space.setitem(w_times, w_key,
                       space.wrap(ll_times[i].counter))
     w_counters = space.newdict()
     for i, counter_name in enumerate(Counters.counter_names):

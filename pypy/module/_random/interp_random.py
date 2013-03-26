@@ -1,11 +1,12 @@
+import time
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib import rrandom
+from pypy.interpreter.baseobjspace import W_Root
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib import rbigint, rrandom, rstring
 
-import time
 
 def descr_new__(space, w_subtype, __args__):
     w_anything = __args__.firstarg()
@@ -14,7 +15,8 @@ def descr_new__(space, w_subtype, __args__):
     W_Random.__init__(x, space, w_anything)
     return space.wrap(x)
 
-class W_Random(Wrappable):
+
+class W_Random(W_Root):
     def __init__(self, space, w_anything):
         self._rnd = rrandom.Random()
         self.seed(space, w_anything)
@@ -26,9 +28,9 @@ class W_Random(Wrappable):
         if w_n is None:
             w_n = space.newint(int(time.time()))
         else:
-            if space.is_true(space.isinstance(w_n, space.w_int)):
+            if space.isinstance_w(w_n, space.w_int):
                 w_n = space.abs(w_n)
-            elif space.is_true(space.isinstance(w_n, space.w_long)):
+            elif space.isinstance_w(w_n, space.w_long):
                 w_n = space.abs(w_n)
             else:
                 # XXX not perfectly like CPython
@@ -57,7 +59,7 @@ class W_Random(Wrappable):
         return space.newtuple(state)
 
     def setstate(self, space, w_state):
-        if not space.is_true(space.isinstance(w_state, space.w_tuple)):
+        if not space.isinstance_w(w_state, space.w_tuple):
             errstring = space.wrap("state vector must be tuple")
             raise OperationError(space.w_TypeError, errstring)
         if space.len_w(w_state) != rrandom.N + 1:
@@ -76,7 +78,7 @@ class W_Random(Wrappable):
         self._rnd.index = space.int_w(w_item)
 
     def jumpahead(self, space, w_n):
-        if space.is_true(space.isinstance(w_n, space.w_long)):
+        if space.isinstance_w(w_n, space.w_long):
             num = space.bigint_w(w_n)
             n = intmask(num.uintmask())
         else:
@@ -89,25 +91,21 @@ class W_Random(Wrappable):
             strerror = space.wrap("number of bits must be greater than zero")
             raise OperationError(space.w_ValueError, strerror)
         bytes = ((k - 1) // 32 + 1) * 4
-        bytesarray = [0] * bytes
+        bytesarray = rstring.StringBuilder(bytes)
         for i in range(0, bytes, 4):
             r = self._rnd.genrand32()
             if k < 32:
                 r >>= (32 - k)
-            bytesarray[i + 0] = r & r_uint(0xff)
-            bytesarray[i + 1] = (r >> 8) & r_uint(0xff)
-            bytesarray[i + 2] = (r >> 16) & r_uint(0xff)
-            bytesarray[i + 3] = (r >> 24) & r_uint(0xff)
+            bytesarray.append(chr(r & r_uint(0xff)))
+            bytesarray.append(chr((r >> 8) & r_uint(0xff)))
+            bytesarray.append(chr((r >> 16) & r_uint(0xff)))
+            bytesarray.append(chr((r >> 24) & r_uint(0xff)))
             k -= 32
 
-        # XXX so far this is quadratic
-        w_result = space.newint(0)
-        w_eight = space.newint(8)
-        for i in range(len(bytesarray) - 1, -1, -1):
-            byte = bytesarray[i]
-            w_result = space.or_(space.lshift(w_result, w_eight),
-                                 space.newint(intmask(byte)))
-        return w_result
+        # little endian order to match bytearray assignment order
+        result = rbigint.rbigint.frombytes(
+            bytesarray.build(), 'little', signed=False)
+        return space.newlong_from_rbigint(result)
 
 
 W_Random.typedef = TypeDef("Random",

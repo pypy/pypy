@@ -1,6 +1,6 @@
-from pypy.rlib.ropenssl import *
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.ropenssl import *
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # CRYPTO_set_locking_callback:
 #
@@ -62,13 +62,14 @@ int _PyPy_SSL_SetupThreads(void)
 }
 """
 
+from rpython.rlib import rthread
 
-eci = ExternalCompilationInfo(
+eci = rthread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
     post_include_bits=[
         "int _PyPy_SSL_SetupThreads(void);"],
     export_symbols=['_PyPy_SSL_SetupThreads'],
-)
+))
 
 _PyPy_SSL_SetupThreads = rffi.llexternal('_PyPy_SSL_SetupThreads',
                                          [], rffi.INT,

@@ -1,11 +1,11 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, descr_get_dict, descr_set_dict,
     make_weakref_descr)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib import rweakref
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import rweakref
 
 
 DEFAULT_BUFFER_SIZE = 8192
@@ -37,7 +37,8 @@ def check_seekable_w(space, w_obj):
             space.w_IOError,
             space.wrap("file or stream is not seekable"))
 
-class W_IOBase(Wrappable):
+
+class W_IOBase(W_Root):
     def __init__(self, space):
         # XXX: IOBase thinks it has to maintain its own internal state in
         # `__IOBase_closed` and call flush() by itself, but it is redundant
@@ -148,8 +149,6 @@ class W_IOBase(Wrappable):
     def readline_w(self, space, w_limit=None):
         # For backwards compatibility, a (slowish) readline().
         limit = convert_size(space, w_limit)
-
-        old_size = -1
 
         has_peek = space.findattr(self, space.wrap("peek"))
 
@@ -315,7 +314,6 @@ W_RawIOBase.typedef = TypeDef(
 # ------------------------------------------------------------
 
 class StreamHolder(object):
-
     def __init__(self, w_iobase):
         self.w_iobase_ref = rweakref.ref(w_iobase)
         w_iobase.autoflusher = self
@@ -325,7 +323,7 @@ class StreamHolder(object):
         if w_iobase is not None:
             try:
                 space.call_method(w_iobase, 'flush')
-            except OperationError, e:
+            except OperationError:
                 # Silencing all errors is bad, but getting randomly
                 # interrupted here is equally as bad, and potentially
                 # more frequent (because of shutdown issues).
@@ -333,7 +331,6 @@ class StreamHolder(object):
 
 
 class AutoFlusher(object):
-    
     def __init__(self, space):
         self.streams = {}
 
@@ -350,7 +347,11 @@ class AutoFlusher(object):
     def remove(self, w_iobase):
         holder = w_iobase.streamholder
         if holder is not None:
-            del self.streams[holder]
+            try:
+                del self.streams[holder]
+            except KeyError:
+                # this can happen in daemon threads
+                pass
 
     def flush_all(self, space):
         while self.streams:
@@ -362,8 +363,5 @@ class AutoFlusher(object):
                 else:
                     streamholder.autoflush(space)
 
-
 def get_autoflushher(space):
     return space.fromcache(AutoFlusher)
-
-

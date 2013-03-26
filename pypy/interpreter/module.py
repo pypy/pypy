@@ -2,11 +2,12 @@
 Module objects.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 
-class Module(Wrappable):
+
+class Module(W_Root):
     """A module."""
 
     _immutable_fields_ = ["w_dict?"]
@@ -80,7 +81,7 @@ class Module(Wrappable):
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.wrap('__name__'))
         if (w_name is None or
-            not space.is_true(space.isinstance(w_name, space.w_str))):
+            not space.isinstance_w(w_name, space.w_str)):
             # maybe raise exception here (XXX this path is untested)
             return space.w_None
         w_modules = space.sys.get('modules')

@@ -1,5 +1,3 @@
-from pypy.rpython.tool.rffi_platform import CompilationError
-import py
 import os
 
 def pytest_addoption(parser):

@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING)
@@ -6,7 +6,7 @@ from pypy.module.cpyext.pyobject import PyObject, PyObjectP, borrow_from
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
 
 @cpython_api([], PyObject)
 def PyDict_New(space):

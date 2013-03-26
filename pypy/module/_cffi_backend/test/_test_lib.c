@@ -172,6 +172,13 @@ static struct _testfunc22_s _testfunc22(struct _testfunc22_s s1,
     return result;
 }
 
+static int _testfunc23(char *p)
+{
+    if (p)
+        return 1000 * p[0];
+    return -42;
+}
+
 DLLEXPORT void *gettestfunc(int num)
 {
     void *f;
@@ -199,6 +206,7 @@ DLLEXPORT void *gettestfunc(int num)
     case 20: f = &_testfunc20; break;
     case 21: f = &_testfunc21; break;
     case 22: f = &_testfunc22; break;
+    case 23: f = &_testfunc23; break;
     default:
         return NULL;
     }

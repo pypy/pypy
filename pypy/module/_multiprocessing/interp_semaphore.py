@@ -1,21 +1,21 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import rgc
-from pypy.rlib.rarithmetic import r_uint
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.module.thread import ll_thread
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rgc
+from rpython.rlib.rarithmetic import r_uint
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rlib import rthread
 from pypy.module._multiprocessing.interp_connection import w_handle
 import sys, os, time, errno
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     from pypy.module._multiprocessing.interp_win32 import (
         handle_w, _GetTickCount)
 
@@ -31,7 +31,7 @@ if sys.platform == 'win32':
         rwin32.BOOL)
 
 else:
-    from pypy.rlib import rposix
+    from rpython.rlib import rposix
 
     if sys.platform == 'darwin':
         libraries = []
@@ -416,7 +416,7 @@ else:
             return semlock_getvalue(self, space) == 0
 
 
-class W_SemLock(Wrappable):
+class W_SemLock(W_Root):
     def __init__(self, handle, kind, maxvalue):
         self.handle = handle
         self.kind = kind
@@ -434,7 +434,7 @@ class W_SemLock(Wrappable):
         return space.wrap(self.count)
 
     def _ismine(self):
-        return self.count > 0 and ll_thread.get_ident() == self.last_tid
+        return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
         return space.wrap(self._ismine())
@@ -466,7 +466,7 @@ class W_SemLock(Wrappable):
             raise wrap_oserror(space, e)
 
         if got:
-            self.last_tid = ll_thread.get_ident()
+            self.last_tid = rthread.get_ident()
             self.count += 1
             return space.w_True
         else:

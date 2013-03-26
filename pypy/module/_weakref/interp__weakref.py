@@ -1,11 +1,11 @@
 import py
-from pypy.interpreter.baseobjspace import Wrappable, W_Root
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef
-from pypy.rlib import jit
-from pypy.rlib.rshrinklist import AbstractShrinkList
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib import jit
+from rpython.rlib.rshrinklist import AbstractShrinkList
+from rpython.rlib.objectmodel import specialize
 import weakref
 
 
@@ -92,8 +92,7 @@ class WeakrefLifeline(W_Root):
             w_weakreftype = space.gettypeobject(W_Weakref.typedef)
             for wref in self.other_refs_weak.items():
                 w_ref = wref()
-                if (w_ref is not None and
-                    space.is_true(space.isinstance(w_ref, w_weakreftype))):
+                if (w_ref is not None and space.isinstance_w(w_ref, w_weakreftype)):
                     return w_ref
         return space.w_None
 
@@ -103,8 +102,8 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
     def __init__(self, space, oldlifeline=None):
         self.space = space
         if oldlifeline is not None:
-            self.cached_weakref  = oldlifeline.cached_weakref
-            self.cached_proxy    = oldlifeline.cached_proxy
+            self.cached_weakref = oldlifeline.cached_weakref
+            self.cached_proxy = oldlifeline.cached_proxy
             self.other_refs_weak = oldlifeline.other_refs_weak
 
     def __del__(self):
@@ -150,7 +149,7 @@ for i in range(5):
 assert dead_ref() is None
 
 
-class W_WeakrefBase(Wrappable):
+class W_WeakrefBase(W_Root):
     def __init__(w_self, space, w_obj, w_callable):
         assert w_callable is not space.w_None    # should be really None
         w_self.space = space
@@ -182,6 +181,7 @@ class W_WeakrefBase(Wrappable):
             else:
                 state = "; to '%s'" % (typename,)
         return self.getrepr(space, self.typedef.name, state)
+
 
 class W_Weakref(W_WeakrefBase):
     def __init__(w_self, space, w_obj, w_callable):
@@ -217,8 +217,7 @@ class W_Weakref(W_WeakrefBase):
         ref2 = w_ref2
         w_obj1 = ref1.dereference()
         w_obj2 = ref2.dereference()
-        if (w_obj1 is None or
-            w_obj2 is None):
+        if w_obj1 is None or w_obj2 is None:
             return space.is_(ref1, ref2)
         return space.eq(w_obj1, w_obj2)
 

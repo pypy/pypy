@@ -1,7 +1,14 @@
-import os, sys
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import we_are_translated
+import cStringIO
+import os
+import sys
+import traceback
 from errno import EINTR
+
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
+
+from pypy.interpreter import debug
+
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
@@ -61,7 +68,7 @@ class OperationError(Exception):
         if space is None:
             # this part NOT_RPYTHON
             exc_typename = str(self.w_type)
-            exc_value    = str(w_value)
+            exc_value = str(w_value)
         else:
             w = space.wrap
             if space.is_w(space.type(self.w_type), space.w_str):
@@ -95,7 +102,8 @@ class OperationError(Exception):
 
     def print_application_traceback(self, space, file=None):
         "NOT_RPYTHON: Dump a standard application-level traceback."
-        if file is None: file = sys.stderr
+        if file is None:
+            file = sys.stderr
         self.print_app_tb_only(file)
         print >> file, self.errorstr(space)
 
@@ -130,8 +138,8 @@ class OperationError(Exception):
     def print_detailed_traceback(self, space=None, file=None):
         """NOT_RPYTHON: Dump a nice detailed interpreter- and
         application-level traceback, useful to debug the interpreter."""
-        import traceback, cStringIO
-        if file is None: file = sys.stderr
+        if file is None:
+            file = sys.stderr
         f = cStringIO.StringIO()
         for i in range(len(self.debug_excs)-1, -1, -1):
             print >> f, "Traceback (interpreter-level):"
@@ -144,7 +152,6 @@ class OperationError(Exception):
         self.print_app_tb_only(file)
         print >> file, '(application-level)', self.errorstr(space)
         if AUTO_DEBUG:
-            import debug
             debug.fire(self)
 
     @jit.unroll_safe
@@ -174,9 +181,9 @@ class OperationError(Exception):
         #  ("string", ...)            ("string", ...)              deprecated
         #  (inst, None)               (inst.__class__, inst)          no
         #
-        w_type  = self.w_type
+        w_type = self.w_type
         w_value = self.get_w_value(space)
-        while space.is_true(space.isinstance(w_type, space.w_tuple)):
+        while space.isinstance_w(w_type, space.w_tuple):
             w_type = space.getitem(w_type, space.wrap(0))
 
         if space.exception_is_valid_obj_as_class_w(w_type):
@@ -191,7 +198,7 @@ class OperationError(Exception):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
-                    if space.is_true(space.isinstance(w_value, space.w_tuple)):
+                    if space.isinstance_w(w_value, space.w_tuple):
                         # raise Type, tuple: assume the tuple contains the
                         #                    constructor args
                         w_value = space.call(w_type, w_value)
@@ -211,7 +218,7 @@ class OperationError(Exception):
             w_value = w_inst
             w_type = w_instclass
 
-        self.w_type   = w_type
+        self.w_type = w_type
         self._w_value = w_value
 
     def _exception_getclass(self, space, w_inst):
@@ -224,7 +231,7 @@ class OperationError(Exception):
         return w_type
 
     def write_unraisable(self, space, where, w_object=None,
-                         with_traceback=False):
+                         with_traceback=False, extra_line=''):
         if w_object is None:
             objrepr = ''
         else:
@@ -240,10 +247,13 @@ class OperationError(Exception):
                 w_tb = space.wrap(self.get_traceback())
                 space.appexec([space.wrap(where),
                                space.wrap(objrepr),
+                               space.wrap(extra_line),
                                w_t, w_v, w_tb],
-                """(where, objrepr, t, v, tb):
+                """(where, objrepr, extra_line, t, v, tb):
                     import sys, traceback
                     sys.stderr.write('From %s%s:\\n' % (where, objrepr))
+                    if extra_line:
+                        sys.stderr.write(extra_line)
                     traceback.print_exception(t, v, tb)
                 """)
             else:
@@ -321,10 +331,10 @@ def get_operrcls2(valuefmt):
     try:
         OpErrFmt = _fmtcache2[formats]
     except KeyError:
-        from pypy.rlib.unroll import unrolling_iterable
+        from rpython.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
         entries = unrolling_iterable(enumerate(attrs))
-        #
+
         class OpErrFmt(OperationError):
             def __init__(self, w_type, strings, *args):
                 self.setup(w_type)
@@ -333,6 +343,7 @@ def get_operrcls2(valuefmt):
                 for i, attr in entries:
                     setattr(self, attr, args[i])
                 assert w_type is not None
+
             def _compute_value(self):
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, attr in entries:
@@ -365,7 +376,7 @@ operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
 # ____________________________________________________________
 
 # Utilities
-from pypy.tool.ansi_print import ansi_print
+from rpython.tool.ansi_print import ansi_print
 
 def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"
@@ -379,7 +390,7 @@ else:
     _WINDOWS = True
 
     def wrap_windowserror(space, e, w_filename=None):
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
 
         winerror = e.winerror
         try:
@@ -437,7 +448,7 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
 def exception_from_errno(space, w_type):
-    from pypy.rlib.rposix import get_errno
+    from rpython.rlib.rposix import get_errno
 
     errno = get_errno()
     msg = os.strerror(errno)

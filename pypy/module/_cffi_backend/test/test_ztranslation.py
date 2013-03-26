@@ -1,6 +1,6 @@
 from pypy.objspace.fake.checkmodule import checkmodule
 from pypy.module._cffi_backend import ctypeptr
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 # side-effect: FORMAT_LONGDOUBLE must be built before test_checkmodule()
 from pypy.module._cffi_backend import misc

@@ -1,7 +1,10 @@
 import py
 
+
 class AppTestAST:
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = {
+        "usemodules": ['struct', 'binascii'],
+    }
 
     def setup_class(cls):
         cls.w_ast = cls.space.getbuiltinmodule('_ast')
@@ -287,6 +290,12 @@ from __future__ import generators""")
         ])
         exec compile(body, '<string>', 'exec')
 
+    def test_empty_set(self):
+        import ast
+        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))])
+        ast.fix_missing_locations(m)
+        compile(m, "<test>", "exec")
+
     def test_invalid_sum(self):
         import _ast as ast
         pos = dict(lineno=2, col_offset=3)
@@ -305,3 +314,18 @@ from __future__ import generators""")
         ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
+    def test_hacked_lineno(self):
+        import _ast
+        stmt = '''if 1:
+            try:
+                foo
+            except Exception as error:
+                bar
+            except Baz as error:
+                bar
+            '''
+        mod = compile(stmt, "<test>", "exec", _ast.PyCF_ONLY_AST)
+        # These lineno are invalid, but should not crash the interpreter.
+        mod.body[0].body[0].handlers[0].lineno = 7
+        mod.body[0].body[0].handlers[1].lineno = 6
+        code = compile(mod, "<test>", "exec")

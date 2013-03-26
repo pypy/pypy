@@ -1,12 +1,10 @@
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
-from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.gateway import interp2app
-import py
+
 
 class TestTypeObject:
-
     def test_not_acceptable_as_base_class(self):
         space = self.space
         class W_Stuff(W_Object):
@@ -59,45 +57,6 @@ class TestTypeObject:
         finally:
             space.warn = prev_warn
         assert len(warnings) == 2
-
-    def test_metaclass_typedef(self):
-        py.test.skip("Not implemented yet")
-
-        # Define a metaclass
-        class W_MyMetaclass(W_TypeObject):
-            def f(w_self, space):
-                return space.wrap(42)
-
-        W_MyMetaclass.typedef = StdTypeDef(
-            "MyMeta",
-            W_TypeObject.typedef,
-            f=interp2app(W_MyMetaclass.f, unwrap_spec=["self", ObjSpace]),
-            )
-
-        # Define a type, instance of the above metaclass
-        class W_MyType(Wrappable):
-            pass
-
-        def MyType_descr_new(space, w_cls):
-            return space.wrap(W_MyType())
-
-        W_MyType.typedef = StdTypeDef(
-            "MyType",
-            __new__ = interp2app(MyType_descr_new),
-            )
-        W_MyType.typedef.meta = W_MyMetaclass
-
-        # Test it
-        w_mytype = self.space.gettypeobject(W_MyType.typedef)
-        self.space.appexec([w_mytype], """(MyType):
-            x = MyType()
-            assert type(x).f() == 42
-
-            class MyDerived(MyType):
-                pass
-            y = MyDerived()
-            assert type(y).f() == 42
-        """)
 
 
 class AppTestTypeObject:
@@ -1074,38 +1033,6 @@ class AppTestWithMethodCacheCounter:
         # this last line used to crash; see ab926f846f39
         assert t.__module__
 
-
-class AppTestMutableBuiltintypes:
-    spaceconfig = {"objspace.std.mutable_builtintypes": True}
-
-    def test_del_type_mro(self):
-        del type.mro
-        # Make sure the default mro function is used.
-        class X(object):
-            pass
-
-    def test_mutate_builtintype(self):
-        list.a = 1
-        def doublelen(self):
-            return len(self) * 2
-        list.doublelen = doublelen
-        l = []
-        assert l.a == 1
-        l.append(100)
-        assert l.doublelen() == 2
-        del list.doublelen
-        del list.a
-        raises(AttributeError, "l.a")
-
-    def test_doc(self):
-        class C(object):
-            pass
-
-        assert C.__dict__['__dict__'].__doc__.startswith("dictionary for")
-        assert C.__dict__['__weakref__'].__doc__.startswith("list of weak")
-        assert property.__doc__.startswith("property(fget=None,")
-        assert type.__doc__.startswith("type(object)")
-        assert "run-time error" in RuntimeError.__doc__
 
 class AppTestGetattributeShortcut:
     spaceconfig = {"objspace.std.getattributeshortcut": True}

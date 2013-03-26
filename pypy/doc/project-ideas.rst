@@ -23,6 +23,14 @@ Make bytearray type fast
 PyPy's bytearray type is very inefficient. It would be an interesting
 task to look into possible optimizations on this.
 
+Implement copy-on-write list slicing
+------------------------------------
+
+The idea is to have a special implementation of list objects which is used
+when doing ``myslice = mylist[a:b]``: the new list is not constructed
+immediately, but only when (and if) ``myslice`` or ``mylist`` are mutated.
+
+
 Numpy improvements
 ------------------
 
@@ -80,7 +88,7 @@ Various GCs
 
 PyPy has pluggable garbage collection policy. This means that various garbage
 collectors can be written for specialized purposes, or even various
-experiments can be done for the general purpose. Examples
+experiments can be done for the general purpose. Examples:
 
 * An incremental garbage collector that has specified maximal pause times,
   crucial for games
@@ -88,6 +96,9 @@ experiments can be done for the general purpose. Examples
 * A garbage collector that compact memory better for mobile devices
 
 * A concurrent garbage collector (a lot of work)
+
+* A collector that keeps object flags in separate memory pages, to avoid
+  un-sharing all pages between several fork()ed processes
 
 STM (Software Transactional Memory)
 -----------------------------------
