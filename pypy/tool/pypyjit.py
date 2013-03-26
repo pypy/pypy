@@ -110,7 +110,7 @@ def test_run_translation():
 
     from rpython.jit.codewriter.codewriter import CodeWriter
     CodeWriter.debug = True
-    from rpython.jit.tl.pypyjit_child import run_child, run_child_ootype
+    from pypy.tool.pypyjit_child import run_child, run_child_ootype
     if BACKEND == 'c':
         run_child(globals(), locals())
     elif BACKEND == 'cli':
