@@ -74,6 +74,7 @@ class __extend__(PyFrame):
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 is_being_profiled = self.is_being_profiled
         except ExitFrame:
+            self.last_exception = None
             return self.popvalue()
 
     def jump_absolute(self, jumpto, ec):
