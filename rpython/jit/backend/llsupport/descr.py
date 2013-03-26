@@ -76,7 +76,13 @@ FLAG_SIGNED   = 'S'
 FLAG_STRUCT   = 'X'
 FLAG_VOID     = 'V'
 
-class FieldDescr(AbstractDescr):
+class ArrayOrFieldDescr(AbstractDescr):
+    vinfo = None
+
+    def get_vinfo(self):
+        return self.vinfo
+
+class FieldDescr(ArrayOrFieldDescr):
     name = ''
     offset = 0      # help translation
     field_size = 0
@@ -150,12 +156,13 @@ def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
 # ____________________________________________________________
 # ArrayDescrs
 
-class ArrayDescr(AbstractDescr):
+class ArrayDescr(ArrayOrFieldDescr):
     tid = 0
     basesize = 0       # workaround for the annotator
     itemsize = 0
     lendescr = None
     flag = '\x00'
+    vinfo = None
 
     def __init__(self, basesize, itemsize, lendescr, flag):
         self.basesize = basesize

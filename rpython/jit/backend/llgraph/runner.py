@@ -566,10 +566,6 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_read_timestamp(self):
         return read_timestamp()
 
-    def bh_force_virtualizable(self, v, descr):
-        vinfo = descr.vinfo
-        vinfo.clear_vable_token(v)
-
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
 

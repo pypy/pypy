@@ -873,7 +873,9 @@ class RegAlloc(BaseRegalloc):
 
     def consider_force_virtualizable(self, op):
         # just do a call for now
-        vinfo = op.getdescr().vinfo
+        vinfo = op.getdescr().get_vinfo()
+        if vinfo is None:
+            return # for tests
         calldescr = vinfo.clear_vable_descr
         assert isinstance(calldescr, CallDescr)
         fval = rffi.cast(lltype.Signed, vinfo.clear_vable_ptr)

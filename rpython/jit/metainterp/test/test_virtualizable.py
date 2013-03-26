@@ -139,11 +139,13 @@ class ExplicitVirtualizableTests:
                 n -= 1
         def f(n):
             xy = self.setup()
+            promote_virtualizable(xy, 'inst_x')
             xy.inst_x = 10000
             m = 10
             while m > 0:
                 g(xy, n)
                 m -= 1
+            promote_virtualizable(xy, 'inst_x')
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10180

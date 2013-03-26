@@ -163,6 +163,8 @@ class AbstractDescr(AbstractValue):
         descr_ptr = cpu.ts.cast_to_baseclass(descr_gcref)
         return cast_base_ptr_to_instance(AbstractDescr, descr_ptr)
 
+    def get_vinfo(self):
+        raise NotImplementedError
 
 class AbstractFailDescr(AbstractDescr):
     index = -1
@@ -175,7 +177,7 @@ class AbstractFailDescr(AbstractDescr):
 
 class BasicFinalDescr(AbstractFailDescr):
     final_descr = True
-    
+
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
 
@@ -730,7 +732,7 @@ class TargetToken(AbstractDescr):
 
     def repr_of_descr(self):
         return 'TargetToken(%d)' % compute_unique_id(self)
-        
+
 class TreeLoop(object):
     inputargs = None
     operations = None
@@ -827,7 +829,7 @@ class TreeLoop(object):
                 seen = dict.fromkeys(inputargs)
                 assert len(seen) == len(inputargs), (
                     "duplicate Box in the LABEL arguments")
-                
+
         assert operations[-1].is_final()
         if operations[-1].getopnum() == rop.JUMP:
             target = operations[-1].getdescr()
@@ -836,7 +838,7 @@ class TreeLoop(object):
 
     def dump(self):
         # RPython-friendly
-        print '%r: inputargs =' % self, self._dump_args(self.inputargs)        
+        print '%r: inputargs =' % self, self._dump_args(self.inputargs)
         for op in self.operations:
             args = op.getarglist()
             print '\t', op.getopname(), self._dump_args(args), \
@@ -952,7 +954,7 @@ class Stats(object):
     def add_jitcell_token(self, token):
         assert isinstance(token, JitCellToken)
         self.jitcell_token_wrefs.append(weakref.ref(token))
-        
+
     def set_history(self, history):
         self.operations = history.operations
 
@@ -1045,7 +1047,7 @@ class Stats(object):
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return self._check_insns(insns, expected, check)
-        
+
     def check_loops(self, expected=None, everywhere=False, **check):
         insns = {}
         for loop in self.get_all_loops():
@@ -1068,7 +1070,7 @@ class Stats(object):
             print
             import pdb; pdb.set_trace()
         return
-        
+
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
             found = insns.get(insn, 0)

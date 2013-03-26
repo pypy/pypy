@@ -711,7 +711,7 @@ class MIFrame(object):
         if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
             return True
         vinfo = self.metainterp.jitdriver_sd.virtualizable_info
-        if vinfo is not fielddescr.vinfo:
+        if vinfo is not fielddescr.get_vinfo():
             self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
             return True
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,

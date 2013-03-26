@@ -6,7 +6,7 @@ class CPUTotalTracker(object):
     total_compiled_loops = 0
     total_compiled_bridges = 0
     total_freed_loops = 0
-    total_freed_bridges = 0    
+    total_freed_bridges = 0
 
     # for heaptracker
     # _all_size_descrs_with_vtable = None
@@ -284,6 +284,9 @@ class AbstractCPU(object):
     def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
         raise NotImplementedError
 
+    def bh_force_virtualizable(self, v, descr):
+        vinfo = descr.get_vinfo()
+        vinfo.clear_vable_token(v)
 
 class CompiledLoopToken(object):
     asmmemmgr_blocks = None
