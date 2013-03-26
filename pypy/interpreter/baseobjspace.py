@@ -236,8 +236,7 @@ class W_Root(object):
                                   typename)
         w_result = space.get_and_call_function(w_impl, self)
 
-        if (space.isinstance_w(w_result, space.w_int) or
-            space.isinstance_w(w_result, space.w_long)):
+        if space.isinstance_w(w_result, space.w_int):
             return w_result
         typename = space.type(w_result).getname(space)
         msg = "__int__ returned non-int (type '%s')"

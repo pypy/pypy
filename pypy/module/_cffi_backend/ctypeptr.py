@@ -360,11 +360,10 @@ class CffiFileObj(object):
 
 
 def prepare_file_argument(space, w_fileobj):
-    fileobj = space.interpclass_w(w_fileobj)
     from pypy.module._io.interp_iobase import W_IOBase
-    assert isinstance(fileobj, W_IOBase)
+    assert isinstance(w_fileobj, W_IOBase)
     space.call_method(w_fileobj, "flush")
-    if fileobj.cffi_fileobj is None:
+    if w_fileobj.cffi_fileobj is None:
         fd = space.int_w(space.call_method(w_fileobj, "fileno"))
         if fd < 0:
             raise OperationError(space.w_ValueError,
@@ -372,7 +371,7 @@ def prepare_file_argument(space, w_fileobj):
         fd = os.dup(fd)
         mode = space.str_w(space.getattr(w_fileobj, space.wrap("mode")))
         try:
-            fileobj.cffi_fileobj = CffiFileObj(fd, mode)
+            w_fileobj.cffi_fileobj = CffiFileObj(fd, mode)
         except OSError, e:
             raise wrap_oserror(space, e)
-    return fileobj.cffi_fileobj.llf
+    return w_fileobj.cffi_fileobj.llf

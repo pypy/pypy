@@ -6,7 +6,7 @@ from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.longobject import W_LongObject, newlong_from_float
 from rpython.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
 from rpython.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
@@ -65,7 +65,6 @@ class W_FloatObject(W_AbstractFloatObject):
         try:
             value = ovfcheck_float_to_int(self.floatval)
         except OverflowError:
-            from pypy.objspace.std.longobject import newlong_from_float
             return newlong_from_float(space, self.floatval)
         else:
             return space.newint(value)
@@ -106,7 +105,7 @@ def trunc__Float(space, w_floatobj):
     try:
         value = ovfcheck_float_to_int(whole)
     except OverflowError:
-        return int__Float(space, w_floatobj)
+        return newlong_from_float(space, whole)
     else:
         return space.newint(value)
 

@@ -24,6 +24,9 @@ class W_LongObject(W_AbstractIntObject):
     def longval(self):
         return self.num.tolong()
 
+    def unwrap(w_self, space): #YYYYYY
+        return w_self.longval()
+
     def tofloat(self):
         return self.num.tofloat()
 
