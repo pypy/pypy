@@ -65,6 +65,12 @@ class VirtualizableInfo(object):
                                     for name in static_fields]
         self.array_field_descrs = [cpu.fielddescrof(VTYPE, name)
                                    for name in array_fields]
+
+        for descr in self.static_field_descrs:
+            descr.vinfo = self
+        for descr in self.array_field_descrs:
+            descr.vinfo = self
+        
         self.static_field_by_descrs = dict(
             [(descr, i) for (i, descr) in enumerate(self.static_field_descrs)])
         self.array_field_by_descrs = dict(

@@ -286,7 +286,7 @@ class LLGraphCPU(model.AbstractCPU):
     def get_savedata_ref(self, deadframe):
         assert deadframe._saved_data is not None
         return deadframe._saved_data
-    
+
     # ------------------------------------------------------------
 
     def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
@@ -334,7 +334,7 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = InteriorFieldDescr(A, fieldname)
             self.descrs[key] = descr
-            return descr        
+            return descr
 
     def _calldescr_dynamic_for_tests(self, atypes, rtype,
                                      abiname='FFI_DEFAULT_ABI'):
@@ -566,6 +566,10 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_read_timestamp(self):
         return read_timestamp()
 
+    def bh_force_virtualizable(self, v, descr):
+        vinfo = descr.vinfo
+        vinfo.clear_vable_token(v)
+
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
 
@@ -789,7 +793,7 @@ class LLFrame(object):
         else:
             ovf = False
         self.overflow_flag = ovf
-        return z        
+        return z
 
     def execute_guard_no_overflow(self, descr):
         if self.overflow_flag:

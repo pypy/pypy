@@ -143,6 +143,7 @@ class HeapCache(object):
 
         self.heap_cache.clear()
         self.heap_array_cache.clear()
+        self.nonstandard_virtualizables.clear()
 
     def is_class_known(self, box):
         return box in self.known_class_boxes

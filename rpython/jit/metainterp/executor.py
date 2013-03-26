@@ -276,6 +276,9 @@ def do_read_timestamp(cpu, _):
 def do_keepalive(cpu, _, x):
     pass
 
+def do_force_virtualizable(cpu, _, v, descr):
+    cpu.bh_force_virtualizable(v.getref_base(), descr)
+
 # ____________________________________________________________
 
 ##def do_force_token(cpu):

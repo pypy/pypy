@@ -603,7 +603,7 @@ class MIFrame(object):
     def _opimpl_getfield_gc_greenfield_any(self, box, fielddescr, pc):
         ginfo = self.metainterp.jitdriver_sd.greenfield_info
         if (ginfo is not None and fielddescr in ginfo.green_field_descrs
-            and not self._nonstandard_virtualizable(pc, box)):
+            and not self._nonstandard_virtualizable(pc, box, fielddescr)):
             # fetch the result, but consider it as a Const box and don't
             # record any operation
             resbox = executor.execute(self.metainterp.cpu, self.metainterp,
@@ -699,7 +699,7 @@ class MIFrame(object):
             raise SwitchToBlackhole(Counters.ABORT_FORCE_QUASIIMMUT)
         self.generate_guard(rop.GUARD_ISNULL, mutatebox, resumepc=orgpc)
 
-    def _nonstandard_virtualizable(self, pc, box):
+    def _nonstandard_virtualizable(self, pc, box, fielddescr):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]
         if (self.metainterp.jitdriver_sd.virtualizable_info is None and
@@ -710,6 +710,10 @@ class MIFrame(object):
             return False
         if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
             return True
+        vinfo = self.metainterp.jitdriver_sd.virtualizable_info
+        if vinfo is not fielddescr.vinfo:
+            self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
+            return True
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
                                                    box, standard_box)
         eqbox = self.implement_guard_value(eqbox, pc)
@@ -717,6 +721,9 @@ class MIFrame(object):
         if isstandard:
             self.metainterp.replace_box(box, standard_box)
         else:
+            if not self.metainterp.heapcache.is_unescaped(box):
+                self.metainterp.execute_and_record(rop.FORCE_VIRTUALIZABLE,
+                                                   fielddescr, box)
             self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
         return not isstandard
 
@@ -728,7 +735,7 @@ class MIFrame(object):
 
     @arguments("box", "descr", "orgpc")
     def _opimpl_getfield_vable(self, box, fielddescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fielddescr):
             return self._opimpl_getfield_gc_any(box, fielddescr)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_virtualizable_field_index(fielddescr)
@@ -740,7 +747,7 @@ class MIFrame(object):
 
     @arguments("box", "box", "descr", "orgpc")
     def _opimpl_setfield_vable(self, box, valuebox, fielddescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fielddescr):
             return self._opimpl_setfield_gc_any(box, valuebox, fielddescr)
         index = self._get_virtualizable_field_index(fielddescr)
         self.metainterp.virtualizable_boxes[index] = valuebox
@@ -770,7 +777,7 @@ class MIFrame(object):
 
     @arguments("box", "box", "descr", "descr", "orgpc")
     def _opimpl_getarrayitem_vable(self, box, indexbox, fdescr, adescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fdescr):
             arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             return self._opimpl_getarrayitem_gc_any(arraybox, indexbox, adescr)
         self.metainterp.check_synchronized_virtualizable()
@@ -784,7 +791,7 @@ class MIFrame(object):
     @arguments("box", "box", "box", "descr", "descr", "orgpc")
     def _opimpl_setarrayitem_vable(self, box, indexbox, valuebox,
                                    fdescr, adescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fdescr):
             arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             self._opimpl_setarrayitem_gc_any(arraybox, indexbox, valuebox,
                                              adescr)
@@ -800,7 +807,7 @@ class MIFrame(object):
 
     @arguments("box", "descr", "descr", "orgpc")
     def opimpl_arraylen_vable(self, box, fdescr, adescr, pc):
-        if self._nonstandard_virtualizable(pc, box):
+        if self._nonstandard_virtualizable(pc, box, fdescr):
             arraybox = self._opimpl_getfield_gc_any(box, fdescr)
             return self.opimpl_arraylen_gc(arraybox, adescr)
         vinfo = self.metainterp.jitdriver_sd.virtualizable_info

@@ -494,6 +494,7 @@ _oplist = [
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     'READ_TIMESTAMP/0',
     'MARK_OPAQUE_PTR/1b',
+    'FORCE_VIRTUALIZABLE/1d', # forces a non-standard virtualizable
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
