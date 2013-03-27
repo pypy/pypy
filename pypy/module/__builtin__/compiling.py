@@ -116,7 +116,7 @@ def build_class(space, w_func, w_name, __args__):
     if isclass:
         # w_meta is really a class, so check for a more derived
         # metaclass, or possible metaclass conflicts
-        from pypy.objspace.std.typetype import _calculate_metaclass
+        from pypy.objspace.std.typeobject import _calculate_metaclass
         w_meta = _calculate_metaclass(space, w_meta, bases_w)
 
     try:
