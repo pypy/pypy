@@ -346,3 +346,9 @@ class AppTestLong:
 
     def test_base_overflow(self):
         raises(ValueError, int, '42', 2**63)
+
+    def test_large_identity(self):
+        import sys
+        a = sys.maxsize + 1
+        b = sys.maxsize + 2
+        assert a is not b
