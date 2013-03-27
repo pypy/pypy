@@ -9,6 +9,7 @@ from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
@@ -324,15 +325,18 @@ class W_UnicodeBox(W_CharacterBox):
 
 class W_ComplexFloatingBox(W_InexactBox):
     _attrs_ = ()
+
+    @specialize.argtype(0)
     def descr_get_real(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
-        box = self.convert_real_to(dtype)
+        box = dtype.box(self.real)
         assert isinstance(box, self._COMPONENTS_BOX)
         return space.wrap(box)
 
+    @specialize.argtype(0)
     def descr_get_imag(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
-        box = self.convert_imag_to(dtype)
+        box = dtype.box(self.imag)
         assert isinstance(box, self._COMPONENTS_BOX)
         return space.wrap(box)
 
@@ -549,8 +553,8 @@ if ENABLED_LONG_DOUBLE and long_double_size > 8:
     W_CLongDoubleBox.typedef = TypeDef("complex00", (W_ComplexFloatingBox.typedef, complex_typedef),
         __module__ = "numpypy",
         __new__ = interp2app(W_CLongDoubleBox.descr__new__.im_func),
-        real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-        imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
+        real = GetSetProperty(W_CLongDoubleBox.descr_get_real),
+        imag = GetSetProperty(W_CLongDoubleBox.descr_get_imag),
     )
     if long_double_size == 12:
         W_LongDoubleBox.name = "float96"
@@ -592,13 +596,13 @@ W_ComplexFloatingBox.typedef = TypeDef("complexfloating", W_InexactBox.typedef,
 W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
-    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
-    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
+    real = GetSetProperty(W_Complex128Box.descr_get_real),
+    imag = GetSetProperty(W_Complex128Box.descr_get_imag),
 )
 
 W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
-    real = GetSetProperty(W_ComplexFloatingBox .descr_get_real),
-    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
+    real = GetSetProperty(W_Complex64Box.descr_get_real),
+    imag = GetSetProperty(W_Complex64Box.descr_get_imag),
 )
