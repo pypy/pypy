@@ -2,22 +2,25 @@
 Welcome to PyPy
 ===============
 
-The PyPy project aims at producing a flexible and fast Python_
-implementation. For the general idea what is pypy, consult the `pypy website`_.
-This page documents entry points into the development of the PyPy project.
-If you just want to use it, consult the `download`_ page on the PyPy website
-and `getting started with pypy`_ document.
+The PyPy project aims to produce a flexible and fast Python_
+implementation.  This page documents the development of the PyPy
+project itself. If you don't know what PyPy is, consult the `PyPy
+website`_. If you just want to use PyPy, consult the `download`_ page
+and the `getting started with pypy`_ documents. If you want to help
+develop PyPy -- keep reading!
 
 PyPy is written in a language called `RPython`_, which is suitable for
-writing dynamic language interpreters (and not much else).
-`Starting with RPython`_ should provide a reasonable overview if you want
-to learn the language.
+writing dynamic language interpreters (and not much else). RPython is
+a subset of Python and is itself written in Python.  If you'd like to
+learn more about RPython, `Starting with RPython`_ should provide a
+reasonable overview.
 
-**If you want to contribute to PyPy**, please read `how to contribute`_ first.
-PyPy development style is vastly different than most other software projects
-and it usually comes as surprise to most people. What is **not** necessary is
-having academic knowledge from university about writing compilers. Most of
-it does not apply to PyPy at all.
+**If you would like to contribute to PyPy**, please read `how to
+contribute`_ first.  PyPy's development style is somewhat different to
+that of many other software projects and it often surprises
+newcomers. What is **not** necessary is an academic background from
+university in writing compilers -- much of it does not apply to PyPy
+any way.
 
 All of the documentation and source code is available under the MIT license,
 unless otherwise specified. Consult `LICENSE`_
@@ -27,7 +30,7 @@ unless otherwise specified. Consult `LICENSE`_
 .. _`RPython`: coding-guide.html#RPython
 .. _`Starting with RPython`: getting-started-dev.html
 .. _`how to contribute`: how-to-contribute.html
-.. _`pypy website`: http://pypy.org
+.. _`PyPy website`: http://pypy.org
 
 Index of various topics:
 ========================
