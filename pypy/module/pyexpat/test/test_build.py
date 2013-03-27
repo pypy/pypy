@@ -1,8 +1,8 @@
-from pypy.translator.translator import TranslationContext
-from pypy.translator.c.genc import CStandaloneBuilder
-from pypy.annotation.listdef import s_list_of_strings
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool.rffi_platform import CompilationError
+from rpython.translator.translator import TranslationContext
+from rpython.translator.c.genc import CStandaloneBuilder
+from rpython.annotator.listdef import s_list_of_strings
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool.rffi_platform import CompilationError
 
 import os
 import py

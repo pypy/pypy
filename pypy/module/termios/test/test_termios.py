@@ -1,8 +1,11 @@
-
-import py
+import os
 import sys
-from pypy.tool.autopath import pypydir
-from pypy.tool.udir import udir
+import py
+from pypy.conftest import pypydir
+from rpython.tool.udir import udir
+
+if os.name != 'posix':
+    py.test.skip('termios module only available on unix')
 
 class TestTermios(object):
     def setup_class(cls):
@@ -14,7 +17,7 @@ class TestTermios(object):
             import termios
         except ImportError:
             py.test.skip("termios not found")
-        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         assert py_py.check()
         cls.py_py = py_py
         cls.termios = termios
@@ -40,7 +43,8 @@ class TestTermios(object):
         child.expect('\[.*?\[.*?\]\]')
         lst = eval(child.match.group(0))
         assert len(lst) == 7
-        assert len(lst[-1]) == 32 # XXX is this portable???
+         # Length of the last element is 32 on Linux, 20 on MacOSX.
+        assert len(lst[-1]) in (20, 32)
 
     def test_tcall(self):
         """ Again - a test that doesnt really test anything
@@ -61,10 +65,16 @@ class TestTermios(object):
         child.expect('ok!')
 
     def test_tcsetattr(self):
+        # The last element of the third parameter for termios.tcsetattr()
+        # can't be a constant, because it varies from one OS to another.
+        # (Its length must be 32 on Linux, 20 on MacOSX, for example.)
+        # Use termios.tcgetattr() to get a value that will hopefully be
+        # valid for whatever OS we are running on right now.
         source = py.code.Source("""
         import sys
         import termios
-        termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, ['\x03', '\x1c', '\x7f', '\x15', '\x04', 0, 1, '\x00', '\x11', '\x13', '\x1a', '\x00', '\x12', '\x0f', '\x17', '\x16', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00']])
+        cc = termios.tcgetattr(sys.stdin)[-1]
+        termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, cc])
         print 'ok!'
         """)
         f = udir.join("test_tcsetattr.py")

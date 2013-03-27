@@ -1,19 +1,21 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib.objectmodel import r_dict
-from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Signature
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
-from pypy.rlib import rerased
-from pypy.rlib.objectmodel import instantiate
+from pypy.interpreter.signature import Signature
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
+
+from rpython.rlib.objectmodel import r_dict
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib import rerased, jit
+
+UNROLL_CUTOFF = 5
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -390,12 +392,16 @@ class AbstractUnwrappedSetStrategy(object):
         """ Returns a wrapped version of the given unwrapped item. """
         raise NotImplementedError
 
+    @jit.look_inside_iff(lambda self, list_w:
+            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def get_storage_from_list(self, list_w):
         setdata = self.get_empty_dict()
         for w_item in list_w:
             setdata[self.unwrap(w_item)] = None
         return self.erase(setdata)
 
+    @jit.look_inside_iff(lambda self, items:
+            jit.loop_unrolling_heuristic(items, len(items), UNROLL_CUTOFF))
     def get_storage_from_unwrapped_list(self, items):
         setdata = self.get_empty_dict()
         for item in items:
@@ -801,6 +807,8 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(StringSetStrategy):
             return False
+        if strategy is self.space.fromcache(UnicodeSetStrategy):
+            return False
         if strategy is self.space.fromcache(EmptySetStrategy):
             return False
         return True
@@ -898,7 +906,7 @@ class IteratorImplementation(object):
         raise NotImplementedError
 
     def length(self):
-        if self.setimplementation is not None:
+        if self.setimplementation is not None and self.len != -1:
             return self.len - self.pos
         return 0
 
@@ -1026,6 +1034,8 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     _pick_correct_strategy(space, w_set, iterable_w)
 
+@jit.look_inside_iff(lambda space, w_set, iterable_w:
+        jit.loop_unrolling_heuristic(iterable_w, len(iterable_w), UNROLL_CUTOFF))
 def _pick_correct_strategy(space, w_set, iterable_w):
     # check for integers
     for w_item in iterable_w:
@@ -1042,6 +1052,15 @@ def _pick_correct_strategy(space, w_set, iterable_w):
             break
     else:
         w_set.strategy = space.fromcache(StringSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
+
+    # check for unicode
+    for w_item in iterable_w:
+        if type(w_item) is not W_UnicodeObject:
+            break
+    else:
+        w_set.strategy = space.fromcache(UnicodeSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 

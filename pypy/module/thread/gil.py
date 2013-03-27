@@ -7,12 +7,12 @@ Global Interpreter Lock.
 # all but one will be blocked.  The other threads get a chance to run
 # from time to time, using the periodic action GILReleaseAction.
 
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.module.thread.threadlocals import OSThreadLocals
-from pypy.rlib.objectmodel import invoke_around_extcall
-from pypy.rlib.rposix import get_errno, set_errno
+from rpython.rlib.objectmodel import invoke_around_extcall
+from rpython.rlib.rposix import get_errno, set_errno
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
@@ -25,7 +25,7 @@ class GILThreadLocals(OSThreadLocals):
                                                   use_bytecode_counter=True)
 
     def _initialize_gil(self, space):
-        if not thread.gil_allocate():
+        if not rthread.gil_allocate():
             raise wrap_thread_error(space, "can't allocate GIL")
 
     def setup_threads(self, space):
@@ -49,6 +49,8 @@ class GILThreadLocals(OSThreadLocals):
         return result
 
     def reinit_threads(self, space):
+        "Called in the child process after a fork()"
+        OSThreadLocals.reinit_threads(self, space)
         if self.gil_ready:     # re-initialize the gil if needed
             self._initialize_gil(space)
 
@@ -62,22 +64,7 @@ class GILReleaseAction(PeriodicAsyncAction):
         do_yield_thread()
 
 
-class SpaceState:
-
-    def _cleanup_(self):
-        self.action_after_thread_switch = None
-        # ^^^ set by AsyncAction.fire_after_thread_switch()
-
-    def after_thread_switch(self):
-        # this is support logic for the signal module, to help it deliver
-        # signals to the main thread.
-        action = self.action_after_thread_switch
-        if action is not None:
-            self.action_after_thread_switch = None
-            action.fire()
-
-spacestate = SpaceState()
-spacestate._cleanup_()
+after_thread_switch = lambda: None     # hook for signal.py
 
 # Fragile code below.  We have to preserve the C-level errno manually...
 
@@ -85,16 +72,16 @@ def before_external_call():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
     e = get_errno()
-    thread.gil_release()
+    rthread.gil_release()
     set_errno(e)
 before_external_call._gctransformer_hint_cannot_collect_ = True
 before_external_call._dont_reach_me_in_del_ = True
 
 def after_external_call():
     e = get_errno()
-    thread.gil_acquire()
-    thread.gc_thread_run()
-    spacestate.after_thread_switch()
+    rthread.gil_acquire()
+    rthread.gc_thread_run()
+    after_thread_switch()
     set_errno(e)
 after_external_call._gctransformer_hint_cannot_collect_ = True
 after_external_call._dont_reach_me_in_del_ = True
@@ -110,9 +97,9 @@ def do_yield_thread():
     # explicitly release the gil, in a way that tries to give more
     # priority to other threads (as opposed to continuing to run in
     # the same thread).
-    if thread.gil_yield_thread():
-        thread.gc_thread_run()
-        spacestate.after_thread_switch()
+    if rthread.gil_yield_thread():
+        rthread.gc_thread_run()
+        after_thread_switch()
 do_yield_thread._gctransformer_hint_close_stack_ = True
 do_yield_thread._dont_reach_me_in_del_ = True
 do_yield_thread._dont_inline_ = True

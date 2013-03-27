@@ -1,8 +1,8 @@
 import os, random, sys
-import pypy.tool.udir
+import rpython.tool.udir
 import py
 
-udir = pypy.tool.udir.udir.ensure('test_file_extra', dir=1)
+udir = rpython.tool.udir.udir.ensure('test_file_extra', dir=1)
 
 
 # XXX this file is a random test.  It may only fail occasionally
@@ -612,6 +612,7 @@ class AppTestAFewExtra:
                                   repr(unicode(self.temptestfile)))
         f.close()
 
+    @py.test.mark.skipif("os.name != 'posix'")
     def test_EAGAIN(self):
         import _socket, posix
         s1, s2 = _socket.socketpair()

@@ -2,9 +2,9 @@ import sys
 
 import py
 
-from pypy.config.config import (OptionDescription, BoolOption, IntOption,
+from rpython.config.config import (OptionDescription, BoolOption, IntOption,
   ChoiceOption, StrOption, to_optparse, ConflictConfigError)
-from pypy.config.translationoption import IS_64_BITS
+from rpython.config.translationoption import IS_64_BITS
 
 
 modulepath = py.path.local(__file__).dirpath().dirpath().join("module")
@@ -93,25 +93,25 @@ module_suggests = {
 }
 
 module_import_dependencies = {
-    # no _rawffi if importing pypy.rlib.clibffi raises ImportError
+    # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
-    "_rawffi"   : ["pypy.rlib.clibffi"],
-    "_ffi"      : ["pypy.rlib.clibffi"],
+    "_rawffi"   : ["rpython.rlib.clibffi"],
+    "_ffi"      : ["rpython.rlib.clibffi"],
 
-    "zlib"      : ["pypy.rlib.rzlib"],
+    "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
-    "_continuation": ["pypy.rlib.rstacklet"],
+    "_continuation": ["rpython.rlib.rstacklet"],
     }
 
 def get_module_validator(modname):
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):
-            from pypy.rpython.tool.rffi_platform import CompilationError
+            from rpython.rtyper.tool.rffi_platform import CompilationError
             try:
                 for name in modlist:
                     __import__(name)
@@ -189,11 +189,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),
 
-        BoolOption("withsmallint", "use tagged integers",
-                   default=False,
-                   requires=[("objspace.std.withprebuiltint", False),
-                             ("translation.taggedpointers", True)]),
-
         BoolOption("withprebuiltint", "prebuild commonly used int objects",
                    default=False),
 
@@ -204,9 +199,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                   default=100, cmdline="--prebuiltintto"),
 
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
-                   default=False,
-                   requires=[("objspace.std.withsmallint", False)]),
-                             #  ^^^ because of missing delegate_xx2yy
+                   default=False),
 
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),
@@ -304,7 +297,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 ])
 
 def get_pypy_config(overrides=None, translating=False):
-    from pypy.config.translationoption import get_combined_translation_config
+    from rpython.config.translationoption import get_combined_translation_config
     return get_combined_translation_config(
             pypy_optiondescription, overrides=overrides,
             translating=translating)

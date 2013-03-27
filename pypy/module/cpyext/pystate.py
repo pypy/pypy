@@ -1,8 +1,9 @@
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, CConfig, cpython_struct)
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref, from_ref
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.thread import ll_thread, os_thread
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rthread
+from pypy.module.thread import os_thread
 
 PyInterpreterStateStruct = lltype.ForwardReference()
 PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
@@ -231,12 +232,12 @@ def PyThreadState_New(space, interp):
     """Create a new thread state object belonging to the given interpreter
     object.  The global interpreter lock need not be held, but may be held if
     it is necessary to serialize calls to this function."""
-    ll_thread.gc_thread_prepare()
+    rthread.gc_thread_prepare()
     # PyThreadState_Get will allocate a new execution context,
     # we need to protect gc and other globals with the GIL.
     rffi.aroundstate.after()
     try:
-        ll_thread.gc_thread_start()
+        rthread.gc_thread_start()
         return PyThreadState_Get(space)
     finally:
         rffi.aroundstate.before()
@@ -249,7 +250,7 @@ def PyThreadState_Clear(space, tstate):
     tstate.c_dict = lltype.nullptr(PyObject.TO)
     space.threadlocals.leave_thread(space)
     space.getexecutioncontext().cleanup_cpyext_state()
-    ll_thread.gc_thread_die()
+    rthread.gc_thread_die()
 
 @cpython_api([PyThreadState], lltype.Void)
 def PyThreadState_Delete(space, tstate):

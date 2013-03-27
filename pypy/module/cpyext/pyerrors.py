@@ -1,6 +1,6 @@
 import os
 
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
@@ -9,7 +9,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, Py_DecRef, borrow_from)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
-from pypy.rlib.rposix import get_errno
+from rpython.rlib.rposix import get_errno
 
 @cpython_api([PyObject, PyObject], lltype.Void)
 def PyErr_SetObject(space, w_type, w_value):
@@ -182,7 +182,7 @@ def PyErr_GivenExceptionMatches(space, w_given, w_exc):
     exc is a class object, this also returns true when given is an instance
     of a subclass.  If exc is a tuple, all exceptions in the tuple (and
     recursively in subtuples) are searched for a match."""
-    if (space.is_true(space.isinstance(w_given, space.w_BaseException)) or
+    if (space.isinstance_w(w_given, space.w_BaseException) or
         space.is_oldstyle_instance(w_given)):
         w_given_type = space.exception_getclass(w_given)
     else:

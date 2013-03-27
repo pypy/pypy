@@ -1,20 +1,20 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
-from pypy.rlib.clibffi import *
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.unroll import unrolling_iterable
-import pypy.rlib.rposix as rposix
+from rpython.rlib.clibffi import *
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.unroll import unrolling_iterable
+import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
 
 if _MS_WINDOWS:
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
 
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rarithmetic import intmask, r_uint
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.tracker import tracker
 
 TYPEMAP = {
@@ -91,7 +91,7 @@ def letter2tp(space, key):
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
-    if space.is_true(space.isinstance(w_shape, space.w_str)):
+    if space.isinstance_w(w_shape, space.w_str):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -102,7 +102,7 @@ def unpack_simple_shape(space, w_shape):
 def unpack_shape_with_length(space, w_shape):
     # Allow 'w_shape' to be a letter or any (shape, number).
     # The result is always a W_Array.
-    if space.is_true(space.isinstance(w_shape, space.w_str)):
+    if space.isinstance_w(w_shape, space.w_str):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -138,7 +138,7 @@ def got_libffi_error(space):
                          space.wrap("not supported by libffi"))
 
 
-class W_CDLL(Wrappable):
+class W_CDLL(W_Root):
     def __init__(self, space, name, cdll):
         self.cdll = cdll
         self.name = name
@@ -171,7 +171,7 @@ class W_CDLL(Wrappable):
         else:
             ffi_restype = ffi_type_void
 
-        if space.is_true(space.isinstance(w_name, space.w_str)):
+        if space.isinstance_w(w_name, space.w_str):
             name = space.str_w(w_name)
 
             try:
@@ -183,8 +183,7 @@ class W_CDLL(Wrappable):
             except LibFFIError:
                 raise got_libffi_error(space)
 
-        elif (_MS_WINDOWS and
-              space.is_true(space.isinstance(w_name, space.w_int))):
+        elif (_MS_WINDOWS and space.isinstance_w(w_name, space.w_int)):
             ordinal = space.int_w(w_name)
             try:
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
@@ -246,7 +245,7 @@ def segfault_exception(space, reason):
     w_exception = space.getattr(w_mod, space.wrap("SegfaultException"))
     return OperationError(w_exception, space.wrap(reason))
 
-class W_DataShape(Wrappable):
+class W_DataShape(W_Root):
     _array_shapes = None
     size = 0
     alignment = 0
@@ -271,7 +270,7 @@ class W_DataShape(Wrappable):
                                space.wrap(self.alignment)])
 
 
-class W_DataInstance(Wrappable):
+class W_DataInstance(W_Root):
     def __init__(self, space, size, address=r_uint(0)):
         if address:
             self.ll_buffer = rffi.cast(rffi.VOIDP, address)
@@ -311,19 +310,19 @@ class W_DataInstance(Wrappable):
         raise NotImplementedError("abstract base class")
 
 def unwrap_truncate_int(TP, space, w_arg):
-    if space.is_true(space.isinstance(w_arg, space.w_int)):
+    if space.isinstance_w(w_arg, space.w_int):
         return rffi.cast(TP, space.int_w(w_arg))
     else:
         return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
 unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
+
 def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     w = space.wrap
     if letter in TYPEMAP_PTR_LETTERS:
         # check for NULL ptr
-        datainstance = space.interpclass_w(w_arg)
-        if isinstance(datainstance, W_DataInstance):
-            ptr = datainstance.ll_buffer
+        if isinstance(w_arg, W_DataInstance):
+            ptr = w_arg.ll_buffer
         else:
             ptr = unwrap_truncate_int(rffi.VOIDP, space, w_arg)
         push_func(add_arg, argdesc, ptr)
@@ -379,7 +378,8 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                          space.wrap("cannot directly read value"))
 wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
-class W_FuncPtr(Wrappable):
+
+class W_FuncPtr(W_Root):
     def __init__(self, space, ptr, argshapes, resshape):
         self.ptr = ptr
         self.argshapes = argshapes
@@ -553,11 +553,11 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     def get_last_error(space):
-        from pypy.rlib.rwin32 import GetLastError
+        from rpython.rlib.rwin32 import GetLastError
         return space.wrap(GetLastError())
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        from pypy.rlib.rwin32 import SetLastError
+        from rpython.rlib.rwin32 import SetLastError
         SetLastError(error)
 else:
     # always have at least a dummy version of these functions

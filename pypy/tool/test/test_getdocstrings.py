@@ -1,10 +1,8 @@
-import autopath
 from os import listdir
 import glob, os.path, py, re
 
-this_dir = autopath.this_dir
-pypy_dir = autopath.pypydir
-# Naming weirdness: why not both pypy_dir and this_dir or pypydir and thisdir
+this_dir = os.path.realpath(os.path.dirname(__file__))
+pypy_dir = os.path.realpath(os.path.join(this_dir, '..', '..'))
 
 from pypy.tool.getdocstrings import quote, triplequotes
 from pypy.tool.getdocstrings import mk_std_filelist

@@ -1,13 +1,13 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.rlib.rstring import UnicodeBuilder, StringBuilder
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
+from rpython.tool.sourcetools import func_with_new_name
 
 
 def create_builder(name, strtype, builder_cls):
-    class W_Builder(Wrappable):
+    class W_Builder(W_Root):
         def __init__(self, space, size):
             if size < 0:
                 self.builder = builder_cls()

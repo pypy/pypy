@@ -1,10 +1,10 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
                                       GetSetProperty)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.module.oracle import roci, interp_error
 from pypy.module.oracle.config import string_w, StringBuffer, MAX_STRING_CHARS
@@ -13,7 +13,8 @@ from pypy.module.oracle.interp_cursor import W_Cursor
 from pypy.module.oracle.interp_pool import W_SessionPool
 from pypy.module.oracle.interp_variable import VT_String
 
-class W_Connection(Wrappable):
+
+class W_Connection(W_Root):
     def __init__(self):
         self.commitMode = roci.OCI_DEFAULT
         self.environment = None

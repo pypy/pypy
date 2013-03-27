@@ -1,7 +1,7 @@
 import gc
 from pypy.interpreter import typedef
-from pypy.tool.udir import udir
-from pypy.interpreter.baseobjspace import Wrappable
+from rpython.tool.udir import udir
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import ObjSpace, interp2app
 
 # this test isn't so much to test that the objspace interface *works*
@@ -139,7 +139,7 @@ class TestTypeDef:
                 cls, len(set), list(set))
 
     def test_getsetproperty(self):
-        class W_SomeType(Wrappable):
+        class W_SomeType(W_Root):
             pass
         def fget(self, space, w_self):
             assert self is prop
@@ -151,7 +151,7 @@ class TestTypeDef:
         assert self.space.getattr(w_obj, self.space.wrap('x')) is self.space.w_None
 
     def test_getsetproperty_arguments(self):
-        class W_SomeType(Wrappable):
+        class W_SomeType(W_Root):
             def fget1(space, w_self):
                 assert isinstance(space, ObjSpace)
                 assert isinstance(w_self, W_SomeType)
@@ -169,7 +169,7 @@ class TestTypeDef:
         assert space.getattr(w_obj, space.wrap('x2')) == space.w_None
 
     def test_unhashable(self):
-        class W_SomeType(Wrappable):
+        class W_SomeType(W_Root):
             pass
         W_SomeType.typedef = typedef.TypeDef(
             'some_type',
@@ -183,12 +183,12 @@ class TestTypeDef:
 
     def test_destructor(self):
         space = self.space
-        class W_Level1(Wrappable):
+        class W_Level1(W_Root):
             def __init__(self, space1):
                 assert space1 is space
             def __del__(self):
                 space.call_method(w_seen, 'append', space.wrap(1))
-        class W_Level2(Wrappable):
+        class W_Level2(W_Root):
             def __init__(self, space1):
                 assert space1 is space
             def __del__(self):
@@ -261,7 +261,7 @@ class TestTypeDef:
         assert space.unwrap(w_seen) == [6, 2]
 
     def test_multiple_inheritance(self):
-        class W_A(Wrappable):
+        class W_A(W_Root):
             a = 1
             b = 2
         class W_C(W_A):
@@ -270,7 +270,7 @@ class TestTypeDef:
             a = typedef.interp_attrproperty("a", cls=W_A),
             b = typedef.interp_attrproperty("b", cls=W_A),
         )
-        class W_B(Wrappable):
+        class W_B(W_Root):
             pass
         def standalone_method(space, w_obj):
             if isinstance(w_obj, W_A):
@@ -305,7 +305,7 @@ class TestTypeDef:
         assert_method(w_o2, "c", False)
 
     def test_total_ordering(self):
-        class W_SomeType(Wrappable):
+        class W_SomeType(W_Root):
             def __init__(self, space, x):
                 self.space = space
                 self.x = x

@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
+from rpython.rlib.rarithmetic import intmask, r_uint
 
 
 @unwrap_spec(lo=int, hi=int)
@@ -18,7 +19,7 @@ slice of a to be searched."""
     if hi == -1:
         hi = space.len_w(w_a)
     while lo < hi:
-        mid = (lo + hi) >> 1
+        mid = intmask((r_uint(lo) + r_uint(hi)) >> 1)
         w_litem = space.getitem(w_a, space.wrap(mid))
         if space.is_true(space.lt(w_litem, w_x)):
             lo = mid + 1
@@ -43,7 +44,7 @@ slice of a to be searched."""
     if hi == -1:
         hi = space.len_w(w_a)
     while lo < hi:
-        mid = (lo + hi) >> 1
+        mid = intmask((r_uint(lo) + r_uint(hi)) >> 1)
         w_litem = space.getitem(w_a, space.wrap(mid))
         if space.is_true(space.lt(w_x, w_litem)):
             hi = mid

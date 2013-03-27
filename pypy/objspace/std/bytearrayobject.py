@@ -4,13 +4,12 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.debug import check_annotation
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.debug import check_annotation
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import get_positive_index
-from pypy.objspace.std.listtype import get_list_index
+from pypy.objspace.std.listobject import get_positive_index, get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.strutil import ParseStringError
@@ -19,13 +18,13 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Signature
 from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.signature import Signature
 from pypy.objspace.std.bytearraytype import (
     makebytearraydata_w, getbytevalue,
     new_bytearray
 )
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 
 class W_BytearrayObject(W_Object):
@@ -561,18 +560,18 @@ def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
 # __________________________________________________________
 # Mutability methods
 
-def list_append__Bytearray_ANY(space, w_bytearray, w_item):
+def bytearray_append__Bytearray_ANY(space, w_bytearray, w_item):
     from pypy.objspace.std.bytearraytype import getbytevalue
     w_bytearray.data.append(getbytevalue(space, w_item))
 
-def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
+def bytearray_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
 
-def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
+def bytearray_extend__Bytearray_ANY(space, w_bytearray, w_other):
     w_bytearray.data += makebytearraydata_w(space, w_other)
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
-    list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
+    bytearray_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
     return w_bytearray1
 
 def inplace_add__Bytearray_ANY(space, w_bytearray1, w_iterable2):

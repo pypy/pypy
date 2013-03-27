@@ -3,7 +3,7 @@ The main test for the set implementation is located
 in the stdlibs test/test_set.py which is located in lib-python
 go there and invoke::
 
-    ../../../pypy/bin/py.py test_set.py
+    ../../../pypy/bin/pyinteractive.py test_set.py
 
 This file just contains some basic tests that make sure, the implementation
 is not too wrong.
@@ -84,7 +84,7 @@ class TestW_SetObject:
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
 
     def test_create_set_from_list(self):
-        from pypy.objspace.std.setobject import ObjectSetStrategy, StringSetStrategy
+        from pypy.objspace.std.setobject import ObjectSetStrategy, StringSetStrategy, UnicodeSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
         from pypy.objspace.std.model import W_Object
 
@@ -105,6 +105,12 @@ class TestW_SetObject:
         _initialize_set(self.space, w_set, w_list)
         assert w_set.strategy is self.space.fromcache(StringSetStrategy)
         assert w_set.strategy.unerase(w_set.sstorage) == {"1":None, "2":None, "3":None}
+
+        w_list = self.space.iter(W_ListObject(self.space, [w(u"1"), w(u"2"), w(u"3")]))
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_list)
+        assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
+        assert w_set.strategy.unerase(w_set.sstorage) == {u"1":None, u"2":None, u"3":None}
 
         w_list = W_ListObject(self.space, [w("1"), w(2), w("3")])
         w_set = W_SetObject(self.space)

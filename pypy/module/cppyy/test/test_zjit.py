@@ -1,8 +1,8 @@
 import py, os, sys
-from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.rlib.objectmodel import specialize, instantiate
-from pypy.rlib import rarithmetic, jit
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.rlib.objectmodel import specialize, instantiate
+from rpython.rlib import rarithmetic, jit
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy, capi
@@ -129,9 +129,6 @@ class FakeSpace(object):
             raise TypeError
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
-
-    def interpclass_w(self, w_obj):
-        return w_obj
 
     def buffer_w(self, w_obj):
         return FakeBuffer(w_obj)

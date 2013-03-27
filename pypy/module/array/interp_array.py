@@ -9,11 +9,11 @@ from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib import jit
-from pypy.rlib.rarithmetic import ovfcheck, widen
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import specialize, keepalive_until_here
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import ovfcheck, widen
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize, keepalive_until_here
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 @unwrap_spec(typecode=str)
@@ -412,7 +412,6 @@ def make_array(mytype):
         return space.wrap(cnt)
 
     def array_index__Array_ANY(space, self, w_val):
-        cnt = 0
         for i in range(self.len):
             w_item = self.w_getitem(space, i)
             if space.is_true(space.eq(w_item, w_val)):

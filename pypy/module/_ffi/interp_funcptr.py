@@ -1,18 +1,18 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.module._ffi.interp_ffitype import W_FFIType
 #
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 #
-from pypy.rlib import jit
-from pypy.rlib import libffi
-from pypy.rlib.clibffi import get_libc_name, StackCheckError, LibFFIError
-from pypy.rlib.rdynload import DLOpenError
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit
+from rpython.rlib import libffi
+from rpython.rlib.clibffi import get_libc_name, StackCheckError, LibFFIError
+from rpython.rlib.rdynload import DLOpenError
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 from pypy.module._rawffi.interp_rawffi import got_libffi_error
 
@@ -24,7 +24,7 @@ if os.name == 'nt':
         if space.isinstance_w(w_name, space.w_str):
             name = space.str_w(w_name)
             try:
-                func = CDLL.cdll.getpointer(name, argtypes, restype, 
+                func = CDLL.cdll.getpointer(name, argtypes, restype,
                                             flags = CDLL.flags)
             except KeyError:
                 raise operationerrfmt(
@@ -38,7 +38,7 @@ if os.name == 'nt':
             ordinal = space.int_w(w_name)
             try:
                 func = CDLL.cdll.getpointer_by_ordinal(
-                    ordinal, argtypes, restype, 
+                    ordinal, argtypes, restype,
                     flags = CDLL.flags)
             except KeyError:
                 raise operationerrfmt(
@@ -51,14 +51,14 @@ if os.name == 'nt':
         else:
             raise OperationError(space.w_TypeError, space.wrap(
                     'function name must be a string or integer'))
-else:    
+else:
     @unwrap_spec(name=str)
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
         name = space.str_w(w_name)
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
         try:
-            func = CDLL.cdll.getpointer(name, argtypes, restype, 
+            func = CDLL.cdll.getpointer(name, argtypes, restype,
                                         flags = CDLL.flags)
         except KeyError:
             raise operationerrfmt(
@@ -79,7 +79,7 @@ def unwrap_ffitype(space, w_argtype, allow_void=False):
 
 # ========================================================================
 
-class W_FuncPtr(Wrappable):
+class W_FuncPtr(W_Root):
 
     _immutable_fields_ = ['func', 'argtypes_w[*]', 'w_restype']
 
@@ -229,7 +229,7 @@ class CallFunctionConverter(ToAppLevelConverter):
             return rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
         else:
             self.error(w_ffitype)
-            
+
     def get_unsigned(self, w_ffitype):
         return self.func.call(self.argchain, rffi.ULONG)
 
@@ -276,7 +276,7 @@ class CallFunctionConverter(ToAppLevelConverter):
 
     def get_void(self, w_ffitype):
         return self.func.call(self.argchain, lltype.Void)
-    
+
 
 def unpack_argtypes(space, w_argtypes, w_restype):
     argtypes_w = [space.interp_w(W_FFIType, w_argtype)
@@ -288,7 +288,7 @@ def unpack_argtypes(space, w_argtypes, w_restype):
     return argtypes_w, argtypes, w_restype, restype
 
 @unwrap_spec(addr=r_uint, name=str, flags=int)
-def descr_fromaddr(space, w_cls, addr, name, w_argtypes, 
+def descr_fromaddr(space, w_cls, addr, name, w_argtypes,
                     w_restype, flags=libffi.FUNCFLAG_CDECL):
     argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
                                                                w_argtypes,
@@ -313,7 +313,7 @@ W_FuncPtr.typedef = TypeDef(
 
 # ========================================================================
 
-class W_CDLL(Wrappable):
+class W_CDLL(W_Root):
     def __init__(self, space, name, mode):
         self.flags = libffi.FUNCFLAG_CDECL
         self.space = space

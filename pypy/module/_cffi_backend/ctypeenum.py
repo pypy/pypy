@@ -2,27 +2,19 @@
 Enums.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.rarithmetic import intmask, r_ulonglong
-from pypy.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here
 
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend import misc
+from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
+    W_CTypePrimitiveUnsigned)
 
 
-class W_CTypeEnum(W_CTypePrimitiveSigned):
-    _attrs_            = ['enumerators2values', 'enumvalues2erators']
-    _immutable_fields_ = ['enumerators2values', 'enumvalues2erators']
-    kind = "enum"
+class _Mixin_Enum(object):
+    _mixin_ = True
 
-    def __init__(self, space, name, enumerators, enumvalues):
-        from pypy.module._cffi_backend.newtype import alignment
+    def __init__(self, space, name, size, align, enumerators, enumvalues):
         name = "enum " + name
-        size = rffi.sizeof(rffi.INT)
-        align = alignment(rffi.INT)
-        W_CTypePrimitiveSigned.__init__(self, space, size,
-                                        name, len(name), align)
+        self._super.__init__(self, space, size, name, len(name), align)
         self.enumerators2values = {}   # str -> int
         self.enumvalues2erators = {}   # int -> str
         for i in range(len(enumerators)-1, -1, -1):
@@ -44,55 +36,46 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
                 space.setitem(w_dct, space.wrap(enumerator),
                                      space.wrap(enumvalue))
             return w_dct
-        return W_CTypePrimitiveSigned._fget(self, attrchar)
+        return self._super._fget(self, attrchar)
+
+    def extra_repr(self, cdata):
+        value = self._get_value(cdata)
+        try:
+            s = self.enumvalues2erators[value]
+        except KeyError:
+            return str(value)
+        else:
+            return '%s: %s' % (value, s)
 
     def string(self, cdataobj, maxlen):
-        w_result = self.convert_to_object(cdataobj._cdata)
+        value = self._get_value(cdataobj._cdata)
         keepalive_until_here(cdataobj)
-        return w_result
-
-    def convert_to_object(self, cdata):
-        value = misc.read_raw_long_data(cdata, self.size)
         try:
-            enumerator = self.enumvalues2erators[value]
+            s = self.enumvalues2erators[value]
         except KeyError:
-            enumerator = '#%d' % (value,)
-        return self.space.wrap(enumerator)
+            s = str(value)
+        return self.space.wrap(s)
 
-    def convert_from_object(self, cdata, w_ob):
-        space = self.space
-        try:
-            return W_CTypePrimitiveSigned.convert_from_object(self, cdata,
-                                                              w_ob)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-        if space.isinstance_w(w_ob, space.w_basestring):
-            value = self.convert_enum_string_to_int(space.str_w(w_ob))
-            value = r_ulonglong(value)
-            misc.write_raw_signed_data(cdata, value, self.size)
-        else:
-            raise self._convert_error("str or int", w_ob)
 
-    def cast_str(self, w_ob):
-        space = self.space
-        return self.convert_enum_string_to_int(space.str_w(w_ob))
+class W_CTypeEnumSigned(_Mixin_Enum, W_CTypePrimitiveSigned):
+    _attrs_            = ['enumerators2values', 'enumvalues2erators']
+    _immutable_fields_ = ['enumerators2values', 'enumvalues2erators']
+    kind = "enum"
+    _super = W_CTypePrimitiveSigned
 
-    def cast_unicode(self, w_ob):
-        return self.cast_str(w_ob)
+    def _get_value(self, cdata):
+        # returns a signed long
+        assert self.value_fits_long
+        return misc.read_raw_long_data(cdata, self.size)
 
-    def convert_enum_string_to_int(self, s):
-        space = self.space
-        if s.startswith('#'):
-            try:
-                return int(s[1:])
-            except ValueError:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("invalid literal after '#'"))
-        else:
-            try:
-                return self.enumerators2values[s]
-            except KeyError:
-                raise operationerrfmt(space.w_ValueError,
-                                      "'%s' is not an enumerator for %s",
-                                      s, self.name)
+
+class W_CTypeEnumUnsigned(_Mixin_Enum, W_CTypePrimitiveUnsigned):
+    _attrs_            = ['enumerators2values', 'enumvalues2erators']
+    _immutable_fields_ = ['enumerators2values', 'enumvalues2erators']
+    kind = "enum"
+    _super = W_CTypePrimitiveUnsigned
+
+    def _get_value(self, cdata):
+        # returns an unsigned long
+        assert self.value_fits_ulong
+        return misc.read_raw_ulong_data(cdata, self.size)

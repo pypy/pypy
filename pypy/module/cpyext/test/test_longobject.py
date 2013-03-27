@@ -1,5 +1,5 @@
 import sys, py
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
@@ -31,6 +31,8 @@ class TestLongObject(BaseApiTest):
         value = api.PyLong_AsUnsignedLong(w_value)
         assert value == (sys.maxint - 1) * 2
 
+        self.raises(space, api, OverflowError, api.PyLong_AsUnsignedLong, space.wrap(-1))
+
     def test_as_ssize_t(self, space, api):
         w_value = space.newlong(2)
         value = api.PyLong_AsSsize_t(w_value)
@@ -46,11 +48,11 @@ class TestLongObject(BaseApiTest):
         w_l = space.wrap(sys.maxint + 1)
         assert api.PyLong_Check(w_l)
         assert api.PyLong_CheckExact(w_l)
-        
+
         w_i = space.wrap(sys.maxint)
         assert not api.PyLong_Check(w_i)
         assert not api.PyLong_CheckExact(w_i)
-        
+
         L = space.appexec([], """():
             class L(long):
                 pass
@@ -72,6 +74,8 @@ class TestLongObject(BaseApiTest):
 
         assert api.PyLong_AsUnsignedLongLongMask(
             space.wrap(1<<64)) == 0
+
+        self.raises(space, api, OverflowError, api.PyLong_AsUnsignedLongLong, space.wrap(-1))
 
     def test_as_long_and_overflow(self, space, api):
         overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
@@ -141,6 +145,15 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """)])
         assert module.from_longlong() == -1
         assert module.from_unsignedlonglong() == (1<<64) - 1
+
+    def test_from_size_t(self):
+        module = self.import_extension('foo', [
+            ("from_unsignedlong", "METH_NOARGS",
+             """
+                 return PyLong_FromSize_t((size_t)-1);
+             """)])
+        import sys
+        assert module.from_unsignedlong() == 2 * sys.maxint + 1
 
     def test_fromstring(self):
         module = self.import_extension('foo', [

@@ -2,7 +2,7 @@ from pypy.interpreter import module
 from pypy.module.cpyext.api import (
     generic_cpy_call, cpython_api, PyObject, CONST_STRING)
 from pypy.module.cpyext.pyobject import borrow_from
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
@@ -29,7 +29,7 @@ def PyImport_Import(space, w_name):
         space.setitem(w_globals, space.wrap("__builtins__"), w_builtin)
 
     # Get the __import__ function from the builtins
-    if space.is_true(space.isinstance(w_builtin, space.w_dict)):
+    if space.isinstance_w(w_builtin, space.w_dict):
         w_import = space.getitem(w_builtin, space.wrap("__import__"))
     else:
         w_import = space.getattr(w_builtin, space.wrap("__import__"))
@@ -46,8 +46,9 @@ def PyImport_ImportModule(space, name):
 
 @cpython_api([CONST_STRING], PyObject)
 def PyImport_ImportModuleNoBlock(space, name):
-    space.warn('PyImport_ImportModuleNoBlock() is not non-blocking',
-               space.w_RuntimeWarning)
+    space.warn(
+        space.wrap('PyImport_ImportModuleNoBlock() is not non-blocking'),
+        space.w_RuntimeWarning)
     return PyImport_Import(space, space.wrap(rffi.charp2str(name)))
 
 @cpython_api([PyObject], PyObject)

@@ -1,116 +1,28 @@
 from __future__ import with_statement
-from pypy.interpreter.error import OperationError, exception_from_errno
-from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
-from pypy.interpreter.executioncontext import PeriodicAsyncAction
-from pypy.interpreter.gateway import unwrap_spec
+
 import signal as cpy_signal
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-import py
 import sys
-from pypy.tool import autopath
-from pypy.rlib import jit, rposix
-from pypy.rlib.rarithmetic import intmask, is_valid_int
 
-def setup():
-    for key, value in cpy_signal.__dict__.items():
-        if (key.startswith('SIG') or key.startswith('CTRL_')) and \
-                is_valid_int(value) and \
-                key != 'SIG_DFL' and key != 'SIG_IGN':
-            globals()[key] = value
-            yield key
+from pypy.interpreter.error import OperationError, exception_from_errno
+from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
+    PeriodicAsyncAction)
+from pypy.interpreter.gateway import unwrap_spec
 
-NSIG    = cpy_signal.NSIG
-SIG_DFL = cpy_signal.SIG_DFL
-SIG_IGN = cpy_signal.SIG_IGN
-signal_names = list(setup())
-signal_values = {}
-for key in signal_names:
-    signal_values[globals()[key]] = None
-if sys.platform == 'win32' and not hasattr(cpy_signal,'CTRL_C_EVENT'):
-    # XXX Hack to revive values that went missing,
-    #     Remove this once we are sure the host cpy module has them.
-    signal_values[0] = None
-    signal_values[1] = None
-    signal_names.append('CTRL_C_EVENT')
-    signal_names.append('CTRL_BREAK_EVENT')
-    CTRL_C_EVENT = 0
-    CTRL_BREAK_EVENT = 1
-includes = ['stdlib.h', 'src/signals.h']
-if sys.platform != 'win32':
-    includes.append('sys/time.h')
+from rpython.rlib import jit, rposix, rgc
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rsignal import *
+from rpython.rtyper.lltypesystem import lltype, rffi
 
-cdir = py.path.local(autopath.pypydir).join('translator', 'c')
 
-eci = ExternalCompilationInfo(
-    includes = includes,
-    separate_module_files = [cdir / 'src' / 'signals.c'],
-    include_dirs = [str(cdir)],
-    export_symbols = ['pypysig_poll', 'pypysig_default',
-                      'pypysig_ignore', 'pypysig_setflag',
-                      'pypysig_reinstall',
-                      'pypysig_set_wakeup_fd',
-                      'pypysig_getaddr_occurred'],
-)
-
-class CConfig:
-    _compilation_info_ = eci
-
-if sys.platform != 'win32':
-    for name in """ITIMER_REAL ITIMER_VIRTUAL ITIMER_PROF""".split():
-        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
-
-    CConfig.timeval = rffi_platform.Struct(
-        'struct timeval',
-        [('tv_sec', rffi.LONG),
-         ('tv_usec', rffi.LONG)])
-
-    CConfig.itimerval = rffi_platform.Struct(
-        'struct itimerval',
-        [('it_value', CConfig.timeval),
-         ('it_interval', CConfig.timeval)])
-
-for k, v in rffi_platform.configure(CConfig).items():
-    globals()[k] = v
-
-def external(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, compilation_info=eci,
-                           sandboxsafe=True, **kwds)
-
-pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
-pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
-pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
-pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
-pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
-pypysig_poll = external('pypysig_poll', [], rffi.INT, threadsafe=False)
-# don't bother releasing the GIL around a call to pypysig_poll: it's
-# pointless and a performance issue
-
-# don't use rffi.LONGP because the JIT doesn't support raw arrays so far
-struct_name = 'pypysig_long_struct'
-LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
-                            hints={'c_name' : struct_name, 'external' : 'C'})
-del struct_name
-
-pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
-                                    lltype.Ptr(LONG_STRUCT), _nowrapper=True,
-                                    elidable_function=True)
-c_alarm = external('alarm', [rffi.INT], rffi.INT)
-c_pause = external('pause', [], rffi.INT, threadsafe=True)
-c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
-
-if sys.platform != 'win32':
-    itimervalP = rffi.CArrayPtr(itimerval)
-    c_setitimer = external('setitimer',
-                           [rffi.INT, itimervalP, itimervalP], rffi.INT)
-    c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)
+WIN32 = sys.platform == 'win32'
 
 
 class SignalActionFlag(AbstractActionFlag):
     # This class uses the C-level pypysig_counter variable as the tick
     # counter.  The C-level signal handler will reset it to -1 whenever
-    # a signal is received.
+    # a signal is received.  This causes CheckSignalAction.perform() to
+    # be called.
 
     def get_ticker(self):
         p = pypysig_getaddr_occurred()
@@ -119,6 +31,10 @@ class SignalActionFlag(AbstractActionFlag):
     def reset_ticker(self, value):
         p = pypysig_getaddr_occurred()
         p.c_value = value
+
+    def rearm_ticker(self):
+        p = pypysig_getaddr_occurred()
+        p.c_value = -1
 
     def decrement_ticker(self, by):
         p = pypysig_getaddr_occurred()
@@ -135,94 +51,89 @@ class SignalActionFlag(AbstractActionFlag):
 class CheckSignalAction(PeriodicAsyncAction):
     """An action that is automatically invoked when a signal is received."""
 
+    # Note that this is a PeriodicAsyncAction: it means more precisely
+    # that it is called whenever the C-level ticker becomes < 0.
+    # Without threads, it is only ever set to -1 when we receive a
+    # signal.  With threads, it also decrements steadily (but slowly).
+
     def __init__(self, space):
+        "NOT_RPYTHON"
         AsyncAction.__init__(self, space)
-        self.handlers_w = {}
-        if space.config.objspace.usemodules.thread:
-            # need a helper action in case signals arrive in a non-main thread
-            self.pending_signals = {}
-            self.reissue_signal_action = ReissueSignalAction(space)
-        else:
-            self.reissue_signal_action = None
+        self.pending_signal = -1
+        self.fire_in_another_thread = False
+        if self.space.config.objspace.usemodules.thread:
+            from pypy.module.thread import gil
+            gil.after_thread_switch = self._after_thread_switch
+
+    @rgc.no_collect
+    def _after_thread_switch(self):
+        if self.fire_in_another_thread:
+            if self.space.threadlocals.signals_enabled():
+                self.fire_in_another_thread = False
+                self.space.actionflag.rearm_ticker()
+                # this occurs when we just switched to the main thread
+                # and there is a signal pending: we force the ticker to
+                # -1, which should ensure perform() is called quickly.
 
     @jit.dont_look_inside
     def perform(self, executioncontext, frame):
-        while True:
-            n = pypysig_poll()
-            if n < 0:
-                break
-            self.perform_signal(executioncontext, n)
-
-    @jit.dont_look_inside
-    def perform_signal(self, executioncontext, n):
-        if self.reissue_signal_action is None:
-            # no threads: we can report the signal immediately
-            self.report_signal(n)
-        else:
-            main_ec = self.space.threadlocals.getmainthreadvalue()
-            if executioncontext is main_ec:
-                # running in the main thread: we can report the
-                # signal immediately
-                self.report_signal(n)
+        # Poll for the next signal, if any
+        n = self.pending_signal
+        if n < 0: n = pypysig_poll()
+        while n >= 0:
+            if self.space.threadlocals.signals_enabled():
+                # If we are in the main thread, report the signal now,
+                # and poll more
+                self.pending_signal = -1
+                report_signal(self.space, n)
+                n = self.pending_signal
+                if n < 0: n = pypysig_poll()
             else:
-                # running in another thread: we need to hack a bit
-                self.pending_signals[n] = None
-                self.reissue_signal_action.fire_after_thread_switch()
+                # Otherwise, arrange for perform() to be called again
+                # after we switch to the main thread.
+                self.pending_signal = n
+                self.fire_in_another_thread = True
+                break
 
-    @jit.dont_look_inside
     def set_interrupt(self):
         "Simulates the effect of a SIGINT signal arriving"
-        ec = self.space.getexecutioncontext()
-        self.perform_signal(ec, cpy_signal.SIGINT)
-
-    @jit.dont_look_inside
-    def report_signal(self, n):
-        try:
-            w_handler = self.handlers_w[n]
-        except KeyError:
-            return    # no handler, ignore signal
-        space = self.space
-        if not space.is_true(space.callable(w_handler)):
-            return    # w_handler is SIG_IGN or SIG_DFL?
-        # re-install signal handler, for OSes that clear it
-        pypysig_reinstall(n)
-        # invoke the app-level handler
-        ec = space.getexecutioncontext()
-        w_frame = space.wrap(ec.gettopframe_nohidden())
-        space.call_function(w_handler, space.wrap(n), w_frame)
-
-    @jit.dont_look_inside
-    def report_pending_signals(self):
-        # XXX this logic isn't so complicated but I have no clue how
-        # to test it :-(
-        pending_signals = self.pending_signals.keys()
-        self.pending_signals.clear()
-        try:
-            while pending_signals:
-                self.report_signal(pending_signals.pop())
-        finally:
-            # in case of exception, put the undelivered signals back
-            # into the dict instead of silently swallowing them
-            if pending_signals:
-                for n in pending_signals:
-                    self.pending_signals[n] = None
-                self.reissue_signal_action.fire()
-
-
-class ReissueSignalAction(AsyncAction):
-    """A special action to help deliver signals to the main thread.  If
-    a non-main thread caught a signal, this action fires after every
-    thread switch until we land in the main thread.
-    """
-
-    def perform(self, executioncontext, frame):
-        main_ec = self.space.threadlocals.getmainthreadvalue()
-        if executioncontext is main_ec:
-            # now running in the main thread: we can really report the signals
-            self.space.check_signal_action.report_pending_signals()
+        if not we_are_translated():
+            self.pending_signal = cpy_signal.SIGINT
+            # ^^^ may override another signal, but it's just for testing
+            self.fire_in_another_thread = True
         else:
-            # still running in some other thread: try again later
-            self.fire_after_thread_switch()
+            pypysig_pushback(cpy_signal.SIGINT)
+
+# ____________________________________________________________
+
+
+class Handlers:
+    def __init__(self, space):
+        self.handlers_w = {}
+        for signum in range(1, NSIG):
+            if WIN32 and signum not in signal_values:
+                self.handlers_w[signum] = space.w_None
+            else:
+                self.handlers_w[signum] = space.wrap(SIG_DFL)
+
+def _get_handlers(space):
+    return space.fromcache(Handlers).handlers_w
+
+
+def report_signal(space, n):
+    handlers_w = _get_handlers(space)
+    try:
+        w_handler = handlers_w[n]
+    except KeyError:
+        return    # no handler, ignore signal
+    if not space.is_true(space.callable(w_handler)):
+        return    # w_handler is SIG_IGN or SIG_DFL?
+    # re-install signal handler, for OSes that clear it
+    pypysig_reinstall(n)
+    # invoke the app-level handler
+    ec = space.getexecutioncontext()
+    w_frame = space.wrap(ec.gettopframe_nohidden())
+    space.call_function(w_handler, space.wrap(n), w_frame)
 
 
 @unwrap_spec(signum=int)
@@ -233,14 +144,13 @@ def getsignal(space, signum):
     Return the current action for the given signal.  The return value can be:
     SIG_IGN -- if the signal is being ignored
     SIG_DFL -- if the default action for the signal is in effect
-    None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
+    None -- if an unknown handler is in effect
     anything else -- the callable Python object used as a handler
     """
     check_signum_in_range(space, signum)
-    action = space.check_signal_action
-    if signum in action.handlers_w:
-        return action.handlers_w[signum]
-    return space.wrap(SIG_DFL)
+    handlers_w = _get_handlers(space)
+    return handlers_w[signum]
+
 
 def default_int_handler(space, w_signum, w_frame):
     """
@@ -252,21 +162,18 @@ def default_int_handler(space, w_signum, w_frame):
     raise OperationError(space.w_KeyboardInterrupt,
                          space.w_None)
 
+
 @jit.dont_look_inside
 @unwrap_spec(timeout=int)
 def alarm(space, timeout):
     return space.wrap(c_alarm(timeout))
+
 
 @jit.dont_look_inside
 def pause(space):
     c_pause()
     return space.w_None
 
-def check_signum_exists(space, signum):
-    if signum in signal_values:
-        return
-    raise OperationError(space.w_ValueError,
-                         space.wrap("invalid signal value"))
 
 def check_signum_in_range(space, signum):
     if 1 <= signum < NSIG:
@@ -289,16 +196,15 @@ def signal(space, signum, w_handler):
     A signal handler function is called with two arguments:
     the first is the signal number, the second is the interrupted stack frame.
     """
-    ec      = space.getexecutioncontext()
-    main_ec = space.threadlocals.getmainthreadvalue()
-
-    old_handler = getsignal(space, signum)
-
-    if ec is not main_ec:
+    if WIN32 and signum not in signal_values:
         raise OperationError(space.w_ValueError,
-                             space.wrap("signal() must be called from the "
-                                        "main thread"))
-    action = space.check_signal_action
+                             space.wrap("invalid signal value"))
+    if not space.threadlocals.signals_enabled():
+        raise OperationError(space.w_ValueError,
+                             space.wrap("signal only works in main thread "
+                                 "or with __pypy__.thread.enable_signals()"))
+    check_signum_in_range(space, signum)
+
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
         pypysig_default(signum)
     elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
@@ -309,8 +215,12 @@ def signal(space, signum, w_handler):
                                  space.wrap("'handler' must be a callable "
                                             "or SIG_DFL or SIG_IGN"))
         pypysig_setflag(signum)
-    action.handlers_w[signum] = w_handler
+
+    handlers_w = _get_handlers(space)
+    old_handler = handlers_w[signum]
+    handlers_w[signum] = w_handler
     return old_handler
+
 
 @jit.dont_look_inside
 @unwrap_spec(fd=int)
@@ -318,23 +228,22 @@ def set_wakeup_fd(space, fd):
     """Sets the fd to be written to (with '\0') when a signal
     comes in.  Returns the old fd.  A library can use this to
     wakeup select or poll.  The previous fd is returned.
-    
+
     The fd must be non-blocking.
     """
-    if space.config.objspace.usemodules.thread:
-        main_ec = space.threadlocals.getmainthreadvalue()
-        ec = space.getexecutioncontext()
-        if ec is not main_ec:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("set_wakeup_fd only works in main thread"))
+    if not space.threadlocals.signals_enabled():
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("set_wakeup_fd only works in main thread "
+                       "or with __pypy__.thread.enable_signals()"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
+
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
-    check_signum_exists(space, signum)
+    check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))
@@ -346,33 +255,38 @@ def timeval_from_double(d, timeval):
     rffi.setintfield(timeval, 'c_tv_sec', int(d))
     rffi.setintfield(timeval, 'c_tv_usec', int((d - int(d)) * 1000000))
 
+
 def double_from_timeval(tv):
     return rffi.getintfield(tv, 'c_tv_sec') + (
         rffi.getintfield(tv, 'c_tv_usec') / 1000000.0)
+
 
 def itimer_retval(space, val):
     w_value = space.wrap(double_from_timeval(val.c_it_value))
     w_interval = space.wrap(double_from_timeval(val.c_it_interval))
     return space.newtuple([w_value, w_interval])
 
+
 class Cache:
     def __init__(self, space):
         self.w_itimererror = space.new_exception_class("signal.ItimerError",
                                                        space.w_IOError)
 
+
 def get_itimer_error(space):
     return space.fromcache(Cache).w_itimererror
+
 
 @jit.dont_look_inside
 @unwrap_spec(which=int, first=float, interval=float)
 def setitimer(space, which, first, interval=0):
     """setitimer(which, seconds[, interval])
-    
     Sets given itimer (one of ITIMER_REAL, ITIMER_VIRTUAL
+
     or ITIMER_PROF) to fire after value seconds and after
     that every interval seconds.
     The itimer can be cleared by setting seconds to zero.
-    
+
     Returns old values as a tuple: (delay, interval).
     """
     with lltype.scoped_alloc(itimervalP.TO, 1) as new:
@@ -386,14 +300,14 @@ def setitimer(space, which, first, interval=0):
             if ret != 0:
                 raise exception_from_errno(space, get_itimer_error(space))
 
-
             return itimer_retval(space, old[0])
+
 
 @jit.dont_look_inside
 @unwrap_spec(which=int)
 def getitimer(space, which):
     """getitimer(which)
-    
+
     Returns current value of given itimer.
     """
     with lltype.scoped_alloc(itimervalP.TO, 1) as old:

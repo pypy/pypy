@@ -1,12 +1,12 @@
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.interpreter.baseobjspace import W_Root
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 
 from pypy.module.oracle import roci, config
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 
 exported_names = unrolling_iterable("""
     DatabaseError OperationalError InterfaceError ProgrammingError
@@ -45,10 +45,10 @@ class State:
                      datetime.datetime, datetime.date, datetime.timedelta)
         """))
 
-def get(space): 
-    return space.fromcache(State) 
+def get(space):
+    return space.fromcache(State)
 
-class W_Error(Wrappable):
+class W_Error(W_Root):
     def __init__(self, space, environment, context, retrieveError):
         self.context = context
         if retrieveError:

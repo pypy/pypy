@@ -1,14 +1,13 @@
-import py
 import sys
-from pypy.interpreter.error import OperationError
-from pypy.objspace.std.dictmultiobject import \
-     W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StringDictStrategy, ObjectDictStrategy
+import py
 
-class TestW_DictObject:
+from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
+    setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, StringDictStrategy,
+    ObjectDictStrategy)
 
+
+class TestW_DictObject(object):
     def test_empty(self):
-        space = self.space
         d = self.space.newdict()
         assert not self.space.is_true(d)
         assert type(d.strategy) is not ObjectDictStrategy
@@ -895,6 +894,7 @@ class FakeSpace:
             return str
         return type(w_obj)
     w_str = str
+
     def str_w(self, string):
         assert isinstance(string, str)
         return string
@@ -906,8 +906,9 @@ class FakeSpace:
     def wrap(self, obj):
         return obj
 
-    def isinstance(self, obj, klass):
+    def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
+    isinstance = isinstance_w
 
     def newtuple(self, l):
         return tuple(l)
@@ -954,6 +955,7 @@ class Config:
             withcelldict = False
             withmethodcache = False
             withidentitydict = False
+            withmapdict = False
 
 FakeSpace.config = Config()
 

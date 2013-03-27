@@ -6,8 +6,8 @@ from pypy.conftest import option
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.rlib.rfloat import isnan, isinf, copysign
-from pypy.rlib.rcomplex import c_pow
+from rpython.rlib.rfloat import isnan, isinf, copysign
+from rpython.rlib.rcomplex import c_pow
 
 
 def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg='', isnumpy=False):
@@ -132,112 +132,123 @@ class AppTestUfuncs(BaseNumpyAppTest):
             cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
 
     def test_fabs(self):
-        from _numpypy import fabs, complex128
+        from numpypy import fabs, complex128
 
         a = complex128(complex(-5., 5.))
         raises(TypeError, fabs, a)
 
     def test_fmax(self):
-        from _numpypy import fmax, array
+        from numpypy import fmax, array
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
-        a = array((complex(ninf, 10), complex(10, ninf), 
+        a = array((complex(ninf, 10), complex(10, ninf),
                    complex( inf, 10), complex(10,  inf),
                    5+5j, 5-5j, -5+5j, -5-5j,
                    0+5j, 0-5j, 5, -5,
                    complex(nan, 0), complex(0, nan)), dtype = complex)
         b = [ninf]*a.size
-        res = [a[0 ], a[1 ], a[2 ], a[3 ], 
+        res = [a[0 ], a[1 ], a[2 ], a[3 ],
                a[4 ], a[5 ], a[6 ], a[7 ],
                a[8 ], a[9 ], a[10], a[11],
                b[12], b[13]]
         assert (fmax(a, b) == res).all()
         b = [inf]*a.size
-        res = [b[0 ], b[1 ], a[2 ], b[3 ], 
+        res = [b[0 ], b[1 ], a[2 ], b[3 ],
                b[4 ], b[5 ], b[6 ], b[7 ],
                b[8 ], b[9 ], b[10], b[11],
                b[12], b[13]]
         assert (fmax(a, b) == res).all()
         b = [0]*a.size
-        res = [b[0 ], a[1 ], a[2 ], a[3 ], 
+        res = [b[0 ], a[1 ], a[2 ], a[3 ],
                a[4 ], a[5 ], b[6 ], b[7 ],
                a[8 ], b[9 ], a[10], b[11],
                b[12], b[13]]
         assert (fmax(a, b) == res).all()
 
     def test_fmin(self):
-        from _numpypy import fmin, array
+        from numpypy import fmin, array
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
-        a = array((complex(ninf, 10), complex(10, ninf), 
+        a = array((complex(ninf, 10), complex(10, ninf),
                    complex( inf, 10), complex(10,  inf),
                    5+5j, 5-5j, -5+5j, -5-5j,
                    0+5j, 0-5j, 5, -5,
                    complex(nan, 0), complex(0, nan)), dtype = complex)
         b = [inf]*a.size
-        res = [a[0 ], a[1 ], b[2 ], a[3 ], 
+        res = [a[0 ], a[1 ], b[2 ], a[3 ],
                a[4 ], a[5 ], a[6 ], a[7 ],
                a[8 ], a[9 ], a[10], a[11],
                b[12], b[13]]
         assert (fmin(a, b) == res).all()
         b = [ninf]*a.size
-        res = [b[0 ], b[1 ], b[2 ], b[3 ], 
+        res = [b[0 ], b[1 ], b[2 ], b[3 ],
                b[4 ], b[5 ], b[6 ], b[7 ],
                b[8 ], b[9 ], b[10], b[11],
                b[12], b[13]]
         assert (fmin(a, b) == res).all()
         b = [0]*a.size
-        res = [a[0 ], b[1 ], b[2 ], b[3 ], 
+        res = [a[0 ], b[1 ], b[2 ], b[3 ],
                b[4 ], b[5 ], a[6 ], a[7 ],
                b[8 ], a[9 ], b[10], a[11],
                b[12], b[13]]
         assert (fmin(a, b) == res).all()
 
     def test_signbit(self):
-        from _numpypy import signbit
+        from numpypy import signbit
         raises(TypeError, signbit, complex(1,1))
 
     def test_reciprocal(self):
-        from _numpypy import array, reciprocal, complex64, complex128, clongdouble
-
+        from numpypy import array, reciprocal, complex64, complex128
+        c_and_relerr = [(complex64, 2e-7), (complex128, 2e-15)]
+        try:
+            from numpypy import clongdouble
+            c_and_relerr.append((clongdouble, 2e-30))
+        except:
+            pass # no longdouble yet
         inf = float('inf')
         nan = float('nan')
-        #complex    
-        orig = [2.+4.j, -2.+4.j, 2.-4.j, -2.-4.j, 
-                complex(inf, 3), complex(inf, -3), complex(inf, -inf), 
+        #complex
+        orig = [2.+4.j, -2.+4.j, 2.-4.j, -2.-4.j,
+                complex(inf, 3), complex(inf, -3), complex(inf, -inf),
                 complex(nan, 3), 0+0j, 0-0j]
         a2 = 2.**2 + 4.**2
         r = 2. / a2
         i = 4. / a2
         cnan = complex(nan, nan)
-        expected = [complex(r, -i), complex(-r, -i), complex(r, i), 
-                    complex(-r, i), 
-                    -0j, 0j, cnan, 
+        expected = [complex(r, -i), complex(-r, -i), complex(r, i),
+                    complex(-r, i),
+                    -0j, 0j, cnan,
                     cnan, cnan, cnan]
-        for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), (clongdouble, 2e-15)):
+        for c, rel_err in c_and_relerr:
             actual = reciprocal(array([orig], dtype=c))
             for b, a, e in zip(orig, actual, expected):
                 assert (a[0].real - e.real) < rel_err
                 assert (a[0].imag - e.imag) < rel_err
 
     def test_floorceiltrunc(self):
-        from _numpypy import array, floor, ceil, trunc
-        a = array([ complex(-1.4, -1.4), complex(-1.5, -1.5)]) 
+        from numpypy import array, floor, ceil, trunc
+        a = array([ complex(-1.4, -1.4), complex(-1.5, -1.5)])
         raises(TypeError, floor, a)
         raises(TypeError, ceil, a)
         raises(TypeError, trunc, a)
 
     def test_copysign(self):
-        from _numpypy import copysign, complex128
+        from numpypy import copysign, complex128
         a = complex128(complex(-5., 5.))
         b = complex128(complex(0., 0.))
         raises(TypeError, copysign, a, b)
 
     def test_exp2(self):
-        from _numpypy import array, exp2, complex128, complex64, clongfloat
+        from numpypy import array, exp2, complex128, complex64
+        c_and_relerr = [(complex64, 2e-7), (complex128, 2e-15)]
+        try:
+            from numpypy import clongdouble
+            c_and_relerr.append((clongdouble, 2e-30))
+        except:
+            pass # no longdouble yet
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7), (clongfloat, 2e-15)):
+        for c,rel_err in c_and_relerr:
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -259,16 +270,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res[0])        
-                t2 = float(b[i].real)        
+                t1 = float(res[0])
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res[1])        
-                t2 = float(b[i].imag)        
+                t1 = float(res[1])
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_expm1(self):
         import math, cmath
-        from _numpypy import array, expm1, complex128, complex64
+        from numpypy import array, expm1, complex128, complex64
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
@@ -299,15 +310,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res.real)        
-                t2 = float(b[i].real)        
+                t1 = float(res.real)
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res.imag)        
-                t2 = float(b[i].imag)        
+                t1 = float(res.imag)
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_not_complex(self):
-        from _numpypy import (radians, deg2rad, degrees, rad2deg,
+        from numpypy import (radians, deg2rad, degrees, rad2deg,
                   isneginf, isposinf, logaddexp, logaddexp2, fmod,
                   arctan2)
         raises(TypeError, radians, complex(90,90))
@@ -319,23 +330,23 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, logaddexp, complex(1, 1), complex(3, 3))
         raises(TypeError, logaddexp2, complex(1, 1), complex(3, 3))
         raises(TypeError, arctan2, complex(1, 1), complex(3, 3))
-        raises (TypeError, fmod, complex(90,90), 3) 
+        raises (TypeError, fmod, complex(90,90), 3)
 
     def test_isnan_isinf(self):
-        from _numpypy import isnan, isinf, array
-        assert (isnan(array([0.2+2j, complex(float('inf'),0), 
+        from numpypy import isnan, isinf, array
+        assert (isnan(array([0.2+2j, complex(float('inf'),0),
                 complex(0,float('inf')), complex(0,float('nan')),
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, False, False, True, True]).all()
 
-        assert (isinf(array([0.2+2j, complex(float('inf'),0), 
+        assert (isinf(array([0.2+2j, complex(float('inf'),0),
                 complex(0,float('inf')), complex(0,float('nan')),
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, True, True, False, False]).all()
 
 
     def test_square(self):
-        from _numpypy import square
+        from numpypy import square
         assert square(complex(3, 4)) == complex(3,4) * complex(3, 4)
 
     def test_power_complex(self):
@@ -344,7 +355,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         nan = float('nan')
         cmpl = complex
         from math import copysign
-        from _numpypy import power, array, complex128, complex64
+        from numpypy import power, array, complex128, complex64
         # note: in some settings (namely a x86-32 build without the JIT),
         # gcc optimizes the code in rlib.rcomplex.c_pow() to not truncate
         # the 10-byte values down to 8-byte values.  It ends up with more
@@ -363,7 +374,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 b = power(a, p)
                 for i in range(len(a)):
                     try:
-                        r = self.c_pow((float(a[i].real), float(a[i].imag)), 
+                        r = self.c_pow((float(a[i].real), float(a[i].imag)),
                                 (float(p.real), float(p.imag)))
                     except ZeroDivisionError:
                         r = (nan, nan)
@@ -373,16 +384,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         r = (nan, nan)
                     msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
                             (c,a[i], p, b[i], r)
-                    t1 = float(r[0])        
-                    t2 = float(b[i].real)        
+                    t1 = float(r[0])
+                    t2 = float(b[i].real)
                     self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(r[1])        
+                    t1 = float(r[1])
                     t2 = float(b[i].imag)
                     self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_conjugate(self):
-        from _numpypy import conj, conjugate, complex128, complex64
-        import _numpypy as np
+        from numpypy import conj, conjugate, complex128, complex64
+        import numpypy as np
 
         c0 = complex128(complex(2.5, 0))
         c1 = complex64(complex(1, 2))
@@ -405,7 +416,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_logn(self):
         import math, cmath
         # log and log10 are tested in math (1:1 from rcomplex)
-        from _numpypy import log2, array, complex128, complex64, log1p
+        from numpypy import log2, array, complex128, complex64, log1p
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
@@ -434,11 +445,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res.real)        
-                t2 = float(b[i].real)        
+                t1 = float(res.real)
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res.imag)        
-                t2 = float(b[i].imag)        
+                t1 = float(res.imag)
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
         for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             b = log1p(array(a,dtype=c))
@@ -454,15 +465,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             (c,a[i], b[i], res)
                 # cast untranslated boxed results to float,
                 # does no harm when translated
-                t1 = float(res.real)        
-                t2 = float(b[i].real)        
+                t1 = float(res.real)
+                t2 = float(b[i].real)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                t1 = float(res.imag)        
-                t2 = float(b[i].imag)        
+                t1 = float(res.imag)
+                t2 = float(b[i].imag)
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_logical_ops(self):
-        from _numpypy import logical_and, logical_or, logical_xor, logical_not
+        from numpypy import logical_and, logical_or, logical_xor, logical_not
 
         c1 = complex(1, 1)
         c3 = complex(3, 0)
@@ -476,7 +487,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (logical_not([c1, c0]) == [False, True]).all()
 
     def test_minimum(self):
-        from _numpypy import array, minimum
+        from numpypy import array, minimum
 
         a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
         b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
@@ -485,7 +496,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == min(a[i], b[i])
 
     def test_maximum(self):
-        from _numpypy import array, maximum
+        from numpypy import array, maximum
 
         a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
         b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
@@ -494,17 +505,46 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == max(a[i], b[i])
 
     def test_basic(self):
-        from _numpypy import (complex128, complex64, add, array, dtype,
-            subtract as sub, multiply, divide, negative, abs, floor_divide,
-            real, imag, sign, clongfloat)
-        from _numpypy import (equal, not_equal, greater, greater_equal, less,
+        from numpypy import (complex128, complex64, add, array, dtype,
+            subtract as sub, multiply, divide, negative, absolute as abs,
+            floor_divide, real, imag, sign)
+        from numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
+        complex_dtypes = [complex64, complex128]
+        try:
+            from numpypy import clongfloat
+            complex_dtypes.append(clongfloat)
+        except:
+            pass
         assert real(4.0) == 4.0
         assert imag(0.0) == 0.0
         a = array([complex(3.0, 4.0)])
         b = a.real
+        b[0] = 1024
+        assert a[0].real == 1024
         assert b.dtype == dtype(float)
-        for complex_ in complex64, complex128, clongfloat:
+        a = array(complex(3.0, 4.0))
+        b = a.real
+        assert b == array(3)
+        assert a.imag == array(4)
+        a.real = 1024
+        a.imag = 2048
+        assert a.real == 1024 and a.imag == 2048
+        assert b.dtype == dtype(float)
+        a = array(4.0)
+        b = a.imag
+        assert b == 0
+        assert b.dtype == dtype(float)
+        exc = raises(TypeError, 'a.imag = 1024')
+        assert str(exc.value).startswith("array does not have imaginary")
+        exc = raises(ValueError, 'a.real = [1, 3]')
+        assert str(exc.value) == \
+            "could not broadcast input array from shape (2) into shape ()"
+        a = array('abc')
+        assert str(a.real) == 'abc'
+        # numpy imag for flexible types returns self
+        assert str(a.imag) == 'abc'
+        for complex_ in complex_dtypes:
 
             O = complex(0, 0)
             c0 = complex_(complex(2.5, 0))
@@ -530,12 +570,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
             assert add(c1, c2) == complex_(complex(4, 6))
             assert add(c1, c2) == complex(4, 6)
-            
+
             assert sub(c0, c0) == sub(c1, c1) == 0
             assert sub(c1, c2) == complex(-2, -2)
             assert negative(complex(1,1)) == complex(-1, -1)
             assert negative(complex(0, 0)) == 0
-            
+
 
             assert multiply(1, c1) == c1
             assert multiply(2, c2) == complex(6, 8)
@@ -571,23 +611,31 @@ class AppTestUfuncs(BaseNumpyAppTest):
             inf_c = complex_(complex(float('inf'), 0.))
             assert repr(abs(inf_c)) == 'inf'
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
-            # numpy actually raises an AttributeError, 
-            # but _numpypy raises a TypeError
-            raises((TypeError, AttributeError), 'c2.real = 10.')
-            raises((TypeError, AttributeError), 'c2.imag = 10.')
+            # numpy actually raises an AttributeError,
+            # but numpypy raises a TypeError
+            exc = raises((TypeError, AttributeError), 'c2.real = 10.')
+            assert str(exc.value) == "readonly attribute"
+            exc = raises((TypeError, AttributeError), 'c2.imag = 10.')
+            assert str(exc.value) == "readonly attribute"
             assert(real(c2) == 3.0)
             assert(imag(c2) == 4.0)
+
+    def test_conj(self):
+        from numpypy import array
+
+        a = array([1 + 2j, 1 - 2j])
+        assert (a.conj() == [1 - 2j, 1 + 2j]).all()
 
     def test_math(self):
         if self.isWindows:
             skip('windows does not support c99 complex')
         import sys
-        import _numpypy as np
+        import numpypy as np
         rAlmostEqual = self.rAlmostEqual
 
         for complex_, abs_err, testcases in (\
                  (np.complex128, 5e-323, self.testcases128),
-                 # (np.complex64,  5e-32,  self.testcases64), 
+                 # (np.complex64,  5e-32,  self.testcases64),
                 ):
             for id, fn, ar, ai, er, ei, flags in testcases:
                 arg = complex_(complex(ar, ai))
@@ -625,7 +673,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     ) % (id, fn, complex_, ar, ai,
                          expected[0], expected[1],
                          actual[0], actual[1])
-    
+
                 # since rAlmostEqual is a wrapped function,
                 # convert arguments to avoid boxed values
                 rAlmostEqual(float(expected[0]), float(actual[0]),

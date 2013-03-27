@@ -1,13 +1,13 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
-from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.inttype import wrapint, W_AbstractIntObject
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib import jit
-from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, r_uint, is_valid_int
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, r_uint, is_valid_int
+from rpython.rlib.rbigint import rbigint
 
 """
 In order to have the same behavior running
@@ -15,25 +15,6 @@ on CPython, and after RPython translation we use ovfcheck
 from rarithmetic to explicitly check for overflows,
 something CPython does not do anymore.
 """
-
-class W_AbstractIntObject(W_Object):
-    __slots__ = ()
-
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_AbstractIntObject):
-            return False
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return self is w_other
-        return space.int_w(self) == space.int_w(w_other)
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        from pypy.objspace.std.model import IDTAG_INT as tag
-        b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(b)
-
 
 class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
@@ -64,6 +45,18 @@ class W_IntObject(W_AbstractIntObject):
     def bigint_w(w_self, space):
         return rbigint.fromint(w_self.intval)
 
+    def float_w(self, space):
+        return float(self.intval)
+
+    def int(self, space):
+        if (type(self) is not W_IntObject and
+            space.is_overloaded(self, space.w_int, '__int__')):
+            return W_Object.int(self, space)
+        if space.is_w(space.type(self), space.w_int):
+            return self
+        a = self.intval
+        return wrapint(space, a)
+
 registerimplementation(W_IntObject)
 
 # NB: This code is shared by smallintobject.py, and thus no other Int
@@ -84,7 +77,7 @@ def format__Int_ANY(space, w_int, w_format_spec):
 
 def declare_new_int_comparison(opname):
     import operator
-    from pypy.tool.sourcetools import func_with_new_name
+    from rpython.tool.sourcetools import func_with_new_name
     op = getattr(operator, opname)
     def f(space, w_int1, w_int2):
         i = w_int1.intval
@@ -101,7 +94,7 @@ def hash__Int(space, w_int1):
     # unlike CPython, we don't special-case the value -1 in most of our
     # hash functions, so there is not much sense special-casing it here either.
     # Make sure this is consistent with the hash of floats and longs.
-    return get_integer(space, w_int1)
+    return w_int1.int(space)
 
 # coerce
 def coerce__Int_Int(space, w_int1, w_int2):
@@ -190,7 +183,8 @@ def divmod__Int_Int(space, w_int1, w_int2):
 
 
 # helper for pow()
-@jit.look_inside_iff(lambda space, iv, iw, iz: jit.isconstant(iw) and jit.isconstant(iz))
+@jit.look_inside_iff(lambda space, iv, iw, iz:
+                     jit.isconstant(iw) and jit.isconstant(iz))
 def _impl_int_int_pow(space, iv, iw, iz):
     if iw < 0:
         if iz != 0:
@@ -248,7 +242,7 @@ get_negint = neg__Int
 
 def abs__Int(space, w_int1):
     if w_int1.intval >= 0:
-        return get_integer(space, w_int1)
+        return w_int1.int(space)
     else:
         return get_negint(space, w_int1)
 
@@ -275,7 +269,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
                              space.wrap("negative shift count"))
     else: #b >= LONG_BIT
         if a == 0:
-            return get_integer(space, w_int1)
+            return w_int1.int(space)
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer left shift"))
 
@@ -288,7 +282,7 @@ def rshift__Int_Int(space, w_int1, w_int2):
                                  space.wrap("negative shift count"))
         else: # b >= LONG_BIT
             if a == 0:
-                return get_integer(space, w_int1)
+                return w_int1.int(space)
             if a < 0:
                 a = -1
             else:
@@ -315,20 +309,12 @@ def or__Int_Int(space, w_int1, w_int2):
     res = a | b
     return wrapint(space, res)
 
-# int__Int is supposed to do nothing, unless it has
-# a derived integer object, where it should return
-# an exact one.
-def int__Int(space, w_int1):
-    if space.is_w(space.type(w_int1), space.w_int):
-        return w_int1
-    a = w_int1.intval
-    return wrapint(space, a)
-get_integer = int__Int
-pos__Int = int__Int
-trunc__Int = int__Int
+def pos__Int(self, space):
+    return self.int(space)
+trunc__Int = pos__Int
 
 def index__Int(space, w_int1):
-    return get_integer(space, w_int1)
+    return w_int1.int(space)
 
 def float__Int(space, w_int1):
     a = w_int1.intval

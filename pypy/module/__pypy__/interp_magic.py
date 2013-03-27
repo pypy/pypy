@@ -1,11 +1,11 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
-from pypy.rlib import rposix
+from rpython.rlib import rposix
 
 
 def internal_repr(space, w_object):
@@ -85,7 +85,7 @@ def validate_fd(space, fd):
         raise wrap_oserror(space, e)
 
 def get_console_cp(space):
-    from pypy.rlib import rwin32    # Windows only
+    from rpython.rlib import rwin32    # Windows only
     return space.newtuple([
         space.wrap('cp%d' % rwin32.GetConsoleCP()),
         space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),

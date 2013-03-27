@@ -1,12 +1,12 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rpoll, rsocket
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rpoll, rsocket
 import sys
 
 READABLE = 1
@@ -25,7 +25,8 @@ def BufferTooShort(space, w_data):
 def w_handle(space, handle):
     return space.wrap(rffi.cast(rffi.INTPTR_T, handle))
 
-class W_BaseConnection(Wrappable):
+
+class W_BaseConnection(W_Root):
     BUFFER_SIZE = 1024
 
     def __init__(self, flags):
@@ -194,20 +195,20 @@ class W_FileConnection(W_BaseConnection):
 
     if sys.platform == 'win32':
         def WRITE(self, data):
-            from pypy.rlib._rsocket_rffi import send, geterrno
+            from rpython.rlib._rsocket_rffi import send, geterrno
             length = send(self.fd, data, len(data), 0)
             if length < 0:
                 raise WindowsError(geterrno(), "send")
             return length
         def READ(self, size):
-            from pypy.rlib._rsocket_rffi import socketrecv, geterrno
+            from rpython.rlib._rsocket_rffi import socketrecv, geterrno
             with rffi.scoped_alloc_buffer(size) as buf:
                 length = socketrecv(self.fd, buf.raw, buf.size, 0)
                 if length < 0:
                     raise WindowsError(geterrno(), "recv")
                 return buf.str(length)
         def CLOSE(self):
-            from pypy.rlib._rsocket_rffi import socketclose
+            from rpython.rlib._rsocket_rffi import socketclose
             socketclose(self.fd)
     else:
         def WRITE(self, data):
@@ -343,7 +344,7 @@ W_FileConnection.typedef = TypeDef(
 
 class W_PipeConnection(W_BaseConnection):
     if sys.platform == 'win32':
-        from pypy.rlib.rwin32 import INVALID_HANDLE_VALUE
+        from rpython.rlib.rwin32 import INVALID_HANDLE_VALUE
 
     def __init__(self, handle, flags):
         W_BaseConnection.__init__(self, flags)
@@ -372,7 +373,7 @@ class W_PipeConnection(W_BaseConnection):
         return w_handle(space, self.handle)
 
     def do_close(self):
-        from pypy.rlib.rwin32 import CloseHandle
+        from rpython.rlib.rwin32 import CloseHandle
         if self.is_valid():
             CloseHandle(self.handle)
             self.handle = self.INVALID_HANDLE_VALUE
@@ -380,7 +381,7 @@ class W_PipeConnection(W_BaseConnection):
     def do_send_string(self, space, buffer, offset, size):
         from pypy.module._multiprocessing.interp_win32 import (
             _WriteFile, ERROR_NO_SYSTEM_RESOURCES)
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
 
         charp = rffi.str2charp(buffer)
         written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
@@ -402,7 +403,7 @@ class W_PipeConnection(W_BaseConnection):
     def do_recv_string(self, space, buflength, maxlength):
         from pypy.module._multiprocessing.interp_win32 import (
             _ReadFile, _PeekNamedPipe, ERROR_BROKEN_PIPE, ERROR_MORE_DATA)
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
         from pypy.interpreter.error import wrap_windowserror
 
         read_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
@@ -457,7 +458,7 @@ class W_PipeConnection(W_BaseConnection):
     def do_poll(self, space, timeout):
         from pypy.module._multiprocessing.interp_win32 import (
             _PeekNamedPipe, _GetTickCount, _Sleep)
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
         from pypy.interpreter.error import wrap_windowserror
         bytes_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
                                  flavor='raw')

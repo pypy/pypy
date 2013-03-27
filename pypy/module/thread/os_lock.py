@@ -2,14 +2,11 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-
-# Force the declaration of the type 'thread.LockType' for RPython
-#import pypy.module.thread.rpython.exttable
 
 
 ##import sys
@@ -22,26 +19,26 @@ from pypy.interpreter.typedef import TypeDef
 ##    except:
 ##        pass
 ##    tb = ' '.join(tb)
-##    msg = '| %6d | %d %s | %s\n' % (thread.get_ident(), n, msg, tb)
+##    msg = '| %6d | %d %s | %s\n' % (rthread.get_ident(), n, msg, tb)
 ##    sys.stderr.write(msg)
 
 
-class Lock(Wrappable):
-    "A wrappable box around an interp-level lock object."
+class Lock(W_Root):
+    "A box around an interp-level lock object."
 
     def __init__(self, space):
         self.space = space
         try:
-            self.lock = thread.allocate_lock()
-        except thread.error:
+            self.lock = rthread.allocate_lock()
+        except rthread.error:
             raise wrap_thread_error(space, "out of resources")
 
     @unwrap_spec(waitflag=int)
     def descr_lock_acquire(self, space, waitflag=1):
-        """Lock the lock.  Without argument, this blocks if the lock is already
-locked (even by the same thread), waiting for another thread to release
-the lock, and return None once the lock is acquired.
-With an argument, this will only block if the argument is true,
+        """Lock the lock.  With the default argument of True, this blocks
+if the lock is already locked (even by the same thread), waiting for
+another thread to release the lock, and returns True once the lock is
+acquired.  With an argument of False, this will always return immediately
 and the return value reflects whether the lock is acquired.
 The blocking operation is not interruptible."""
         mylock = self.lock
@@ -54,7 +51,7 @@ the lock to acquire the lock.  The lock must be in the locked state,
 but it needn't be locked by the same thread that unlocks it."""
         try:
             self.lock.release()
-        except thread.error:
+        except rthread.error:
             raise wrap_thread_error(space, "release unlocked lock")
 
     def descr_lock_locked(self, space):

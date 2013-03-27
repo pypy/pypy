@@ -6,9 +6,9 @@ fits in an 'int'.
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
-from pypy.rlib.rarithmetic import r_longlong, r_int, r_uint
-from pypy.rlib.rarithmetic import intmask, LONGLONG_BIT
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import r_longlong, r_int, r_uint
+from rpython.rlib.rarithmetic import intmask, LONGLONG_BIT
+from rpython.rlib.rbigint import rbigint
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -35,6 +35,9 @@ class W_SmallLongObject(W_AbstractLongObject):
 
     def asbigint(w_self):
         return rbigint.fromrarith_int(w_self.longlong)
+
+    def longval(self):
+        return self.longlong
 
     def __repr__(w_self):
         return '<W_SmallLongObject(%d)>' % w_self.longlong
@@ -63,6 +66,18 @@ class W_SmallLongObject(W_AbstractLongObject):
     def bigint_w(w_self, space):
         return w_self.asbigint()
 
+    def float_w(self, space):
+        return float(self.longlong)
+
+    def int(self, space):
+        a = self.longlong
+        b = intmask(a)
+        if b == a:
+            return space.newint(b)
+        else:
+            return self
+
+        
 registerimplementation(W_SmallLongObject)
 
 # ____________________________________________________________
@@ -111,14 +126,6 @@ def delegate_SmallLong2Complex(space, w_small):
 
 def long__SmallLong(space, w_value):
     return w_value
-
-def int__SmallLong(space, w_value):
-    a = w_value.longlong
-    b = intmask(a)
-    if b == a:
-        return space.newint(b)
-    else:
-        return w_value
 
 def index__SmallLong(space, w_value):
     return w_value

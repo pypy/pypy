@@ -2,18 +2,19 @@
 import py
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pycode import PyCode
-from pypy.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr
-from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.logger import Logger
-from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
+from rpython.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr,\
+     BasicFailDescr
+from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.logger import Logger
+from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
                                       cast_base_ptr_to_instance)
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.rclass import OBJECT
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem.rclass import OBJECT
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 from pypy.module.pypyjit.policy import pypy_hooks
-from pypy.jit.tool.oparser import parse
-from pypy.jit.metainterp.typesystem import llhelper
-from pypy.rlib.jit import JitDebugInfo, AsmInfo, Counters
+from rpython.jit.tool.oparser import parse
+from rpython.jit.metainterp.typesystem import llhelper
+from rpython.rlib.jit import JitDebugInfo, AsmInfo, Counters
 
 class MockJitDriverSD(object):
     class warmstate(object):
@@ -69,7 +70,7 @@ class AppTestJitHook(object):
                                         oplist, 'loop', greenkey)
         di_loop.asminfo = AsmInfo(offset, 0, 0)
         di_bridge = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
-                                 oplist, 'bridge', fail_descr_no=0)
+                                 oplist, 'bridge', fail_descr=BasicFailDescr())
         di_bridge.asminfo = AsmInfo(offset, 0, 0)
 
         def interp_on_compile():

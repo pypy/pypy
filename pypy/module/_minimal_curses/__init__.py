@@ -8,9 +8,7 @@ except ImportError:
         py.test.skip("no _curses or _minimal_curses module") #no _curses at all
 
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._minimal_curses import fficurses
-from pypy.module._minimal_curses import interp_curses
-from pypy.rlib.nonconst import NonConstant
+from pypy.module._minimal_curses import fficurses  # for side effects
 
 
 class Module(MixedModule):
@@ -21,7 +19,7 @@ class Module(MixedModule):
     appleveldefs = {
         'error'          : 'app_curses.error',
     }
-    
+
     interpleveldefs = {
         'setupterm'      : 'interp_curses.setupterm',
         'tigetstr'       : 'interp_curses.tigetstr',

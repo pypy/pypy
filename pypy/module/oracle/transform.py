@@ -1,5 +1,5 @@
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.oracle import roci, config
+from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.module.oracle import roci
 
 def OracleNumberToPythonFloat(environment, valueptr):
     "Return a Python float object given an oracle number"

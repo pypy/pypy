@@ -2,6 +2,7 @@ import gc
 import time
 import thread
 import os
+import errno
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.thread import gil
@@ -28,7 +29,12 @@ def timeout_killer(pid, delay):
     def kill():
         for x in range(delay * 10):
             time.sleep(0.1)
-            os.kill(pid, 0)
+            try:
+                os.kill(pid, 0)
+            except OSError, e:
+                if e.errno == errno.ESRCH: # no such process
+                    return
+                raise
         os.kill(pid, 9)
         print "process %s killed!" % (pid,)
     thread.start_new_thread(kill, ())

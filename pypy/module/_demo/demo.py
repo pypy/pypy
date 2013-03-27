@@ -1,11 +1,11 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-import sys, math
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import math
 
 time_t = rffi_platform.getsimpletype('time_t', '#include <time.h>', rffi.LONG)
 
@@ -47,8 +47,8 @@ def sieve(space, n):
                 newlst.append(element)
         lst = newlst
         head += 1
- 
-class W_MyType(Wrappable):
+
+class W_MyType(W_Root):
     def __init__(self, space, x=1):
         self.space = space
         self.x = x

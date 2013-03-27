@@ -3,15 +3,16 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
-from pypy.rlib import jit
 
-from pypy.module._cffi_backend.ctypeobj import W_CType
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
+from rpython.rtyper.lltypesystem import rffi
+
 from pypy.module._cffi_backend import cdataobj, ctypeprim, misc
+from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypeStructOrUnion(W_CType):
@@ -79,11 +80,10 @@ class W_CTypeStructOrUnion(W_CType):
 
     def _copy_from_same(self, cdata, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            if ob.ctype is self and self.size >= 0:
-                misc._raw_memcopy(ob._cdata, cdata, self.size)
-                keepalive_until_here(ob)
+        if isinstance(w_ob, cdataobj.W_CData):
+            if w_ob.ctype is self and self.size >= 0:
+                misc._raw_memcopy(w_ob._cdata, cdata, self.size)
+                keepalive_until_here(w_ob)
                 return True
         return False
 
@@ -141,6 +141,7 @@ class W_CTypeStructOrUnion(W_CType):
 class W_CTypeStruct(W_CTypeStructOrUnion):
     kind = "struct"
 
+
 class W_CTypeUnion(W_CTypeStructOrUnion):
     kind = "union"
 
@@ -154,7 +155,7 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
                                   self.name, n)
 
 
-class W_CField(Wrappable):
+class W_CField(W_Root):
     _immutable_ = True
 
     BS_REGULAR     = -1
@@ -242,8 +243,8 @@ class W_CField(Wrappable):
         value = misc.as_long_long(space, w_ob)
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveSigned):
             is_signed = True
-            fmin = -(r_longlong(1) << (self.bitsize-1))
-            fmax = (r_longlong(1) << (self.bitsize-1)) - 1
+            fmin = -(r_longlong(1) << (self.bitsize - 1))
+            fmax = (r_longlong(1) << (self.bitsize - 1)) - 1
             if fmax == 0:
                 fmax = 1      # special case to let "int x:1" receive "1"
         else:

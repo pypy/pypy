@@ -1,5 +1,5 @@
-from pypy.rlib.rstring import StringBuilder
-from pypy.interpreter.baseobjspace import Wrappable
+from rpython.rlib.rstring import StringBuilder
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import interp_attrproperty_w
@@ -8,16 +8,17 @@ from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
                                          QUOTE_NONNUMERIC, QUOTE_NONE)
 
 
-class W_Writer(Wrappable):
-
+class W_Writer(W_Root):
     def __init__(self, space, dialect, w_fileobj):
         self.space = space
         self.dialect = dialect
         self.w_filewrite = space.getattr(w_fileobj, space.wrap('write'))
         # precompute this
         special = dialect.delimiter + dialect.lineterminator
-        if dialect.escapechar != '\0': special += dialect.escapechar
-        if dialect.quotechar  != '\0': special += dialect.quotechar
+        if dialect.escapechar != '\0':
+            special += dialect.escapechar
+        if dialect.quotechar != '\0':
+            special += dialect.quotechar
         self.special_characters = special
 
     def error(self, msg):

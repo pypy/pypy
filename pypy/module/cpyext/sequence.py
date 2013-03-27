@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
 from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem

@@ -3,11 +3,11 @@
 This is transformed to become a JIT by code elsewhere: pypy/jit/*
 """
 
-from pypy.tool.pairtype import extendabletype
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from pypy.rlib import jit, objectmodel
-from pypy.rlib.jit import current_trace_length, unroll_parameters
+from rpython.tool.pairtype import extendabletype
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
+from rpython.rlib import jit
+from rpython.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR
@@ -22,6 +22,7 @@ PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'lastblock',
                             'is_being_profiled',
                             'w_globals',
+                            'w_f_trace',
                             ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
@@ -37,9 +38,6 @@ def get_jitcell_at(next_instr, is_being_profiled, bytecode):
 def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode):
     bytecode.jit_cells[next_instr, is_being_profiled] = newcell
 
-def confirm_enter_jit(next_instr, is_being_profiled, bytecode, frame, ec):
-    return (frame.w_f_trace is None and
-            ec.w_tracefunc is None)
 
 def can_never_inline(next_instr, is_being_profiled, bytecode):
     return False
@@ -55,7 +53,6 @@ class PyPyJitDriver(JitDriver):
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
-                              confirm_enter_jit = confirm_enter_jit,
                               can_never_inline = can_never_inline,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
@@ -96,15 +93,6 @@ class __extend__(PyFrame):
                                     pycode=self.getcode(),
                                     is_being_profiled=self.is_being_profiled)
         return jumpto
-
-callback_jit_driver = JitDriver(greens = ['name'], reds = 'auto')
-
-def callback_merge_point(name):
-    callback_jit_driver.jit_merge_point(name=name)
-
-@callback_jit_driver.inline(callback_merge_point)
-def callback_hook(name):
-    pass
 
 def _get_adapted_tick_counter():
     # Normally, the tick counter is decremented by 100 for every

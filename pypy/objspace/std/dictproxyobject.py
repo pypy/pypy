@@ -5,7 +5,7 @@ from pypy.objspace.std.dictmultiobject import DictStrategy
 from pypy.objspace.std.typeobject import unwrap_cell
 from pypy.interpreter.error import OperationError, operationerrfmt
 
-from pypy.rlib import rerased
+from rpython.rlib import rerased
 
 
 class DictProxyStrategy(DictStrategy):
@@ -54,10 +54,11 @@ class DictProxyStrategy(DictStrategy):
                 raise
             if not w_type.is_cpytype():
                 raise
-            # xxx obscure workaround: allow cpyext to write to type->tp_dict
-            # xxx even in the case of a builtin type.
-            # xxx like CPython, we assume that this is only done early after
-            # xxx the type is created, and we don't invalidate any cache.
+            # Allow cpyext to write to type->tp_dict even in the case
+            # of a builtin type.
+            # Like CPython, we assume that this is only done early
+            # after the type is created, and we don't invalidate any
+            # cache.  User code shoud call PyType_Modified().
             w_type.dict_w[key] = w_value
 
     def setdefault(self, w_dict, w_key, w_default):
@@ -81,7 +82,7 @@ class DictProxyStrategy(DictStrategy):
     def length(self, w_dict):
         return len(self.unerase(w_dict.dstorage).dict_w)
 
-    def keys(self, w_dict):
+    def w_keys(self, w_dict):
         space = self.space
         return space.newlist_str(self.unerase(w_dict.dstorage).dict_w.keys())
 

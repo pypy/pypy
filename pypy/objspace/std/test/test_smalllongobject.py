@@ -3,7 +3,7 @@ import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong
 from pypy.interpreter.error import OperationError
 
 
@@ -38,6 +38,9 @@ def test_direct():
     w_huge = space.sub(space.lshift(w5, space.wrap(150)), space.wrap(1))
     wx = space.and_(w14000000000000, w_huge)
     assert space.is_true(space.eq(wx, w14000000000000))
+
+    w_obj = W_SmallLongObject.fromint(42)
+    assert space.unwrap(w_obj) == 42
 
 
 class AppTestSmallLong(test_longobject.AppTestLong):

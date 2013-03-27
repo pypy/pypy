@@ -1,7 +1,7 @@
 import weakref
-from pypy.rlib import jit, objectmodel, debug
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rlib import rerased
+from rpython.rlib import jit, objectmodel, debug
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib import rerased
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, ObjectDictStrategy
@@ -456,7 +456,7 @@ class BaseMapdictObject:
 class ObjectMixin(object):
     _mixin_ = True
     def _init_empty(self, map):
-        from pypy.rlib.debug import make_sure_not_resized
+        from rpython.rlib.debug import make_sure_not_resized
         self.map = map
         self.storage = make_sure_not_resized([None] * map.size_estimate())
 
@@ -513,13 +513,13 @@ erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
 erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 
 def _make_subclass_size_n(supercls, n):
-    from pypy.rlib import unroll
+    from rpython.rlib import unroll
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     class subcls(BaseMapdictObject, supercls):
         def _init_empty(self, map):
-            from pypy.rlib.debug import make_sure_not_resized
+            from rpython.rlib.debug import make_sure_not_resized
             for i in rangen:
                 setattr(self, "_value%s" % i, erase_item(None))
             self.map = map
@@ -593,6 +593,9 @@ def _make_subclass_size_n(supercls, n):
 # ____________________________________________________________
 # dict implementation
 
+def get_terminator_for_dicts(space):
+    return DictTerminator(space, None)
+
 class MapDictStrategy(DictStrategy):
 
     erase, unerase = rerased.new_erasing_pair("map")
@@ -602,13 +605,19 @@ class MapDictStrategy(DictStrategy):
     def __init__(self, space):
         self.space = space
 
+    def get_empty_storage(self):
+        w_result = Object()
+        terminator = self.space.fromcache(get_terminator_for_dicts)
+        w_result._init_empty(terminator)
+        return self.erase(w_result)
+
     def switch_to_object_strategy(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)
         dict_w = strategy.unerase(strategy.get_empty_storage())
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(dict_w)
-        assert w_obj.getdict(self.space) is w_dict
+        assert w_obj.getdict(self.space) is w_dict or w_obj._get_mapdict_map().terminator.w_cls is None
         materialize_r_dict(self.space, w_obj, dict_w)
 
     def getitem(self, w_dict, w_key):
@@ -858,9 +867,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 # we have a data descriptor, which means the dictionary value
                 # (if any) has no relevance.
                 from pypy.interpreter.typedef import Member
-                descr = space.interpclass_w(w_descr)
-                if isinstance(descr, Member):    # it is a slot -- easy case
-                    selector = ("slot", SLOTS_STARTING_FROM + descr.index)
+                if isinstance(w_descr, Member):    # it is a slot -- easy case
+                    selector = ("slot", SLOTS_STARTING_FROM + w_descr.index)
             else:
                 # There is a non-data descriptor in the class.  If there is
                 # also a dict attribute, use the latter, caching its position.

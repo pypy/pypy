@@ -10,6 +10,7 @@ rsyncignore = ['_cache']
 #
 option = None
 
+pypydir = os.path.realpath(os.path.dirname(__file__))
 
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""
@@ -22,49 +23,27 @@ def braindead_deindent(self):
 py.code.Source.deindent = braindead_deindent
 
 def pytest_report_header():
-    return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
-
+    return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
 def pytest_addhooks(pluginmanager):
-    from pypy.tool.pytest.plugins import LeakFinder
+    from rpython.conftest import LeakFinder
     pluginmanager.register(LeakFinder())
-
 
 def pytest_configure(config):
     global option
     option = config.option
 
-def _set_platform(opt, opt_str, value, parser):
-    from pypy.config.translationoption import PLATFORMS
-    from pypy.translator.platform import set_platform
-    if value not in PLATFORMS:
-        raise ValueError("%s not in %s" % (value, PLATFORMS))
-    set_platform(value, None)
-
 def pytest_addoption(parser):
+    from rpython.conftest import pytest_addoption
+    pytest_addoption(parser)
+    
     group = parser.getgroup("pypy options")
-    group.addoption('--view', action="store_true", dest="view", default=False,
-           help="view translation tests' flow graphs with Pygame")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
            help="run applevel tests directly on python interpreter (not through PyPy)")
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
-    group.addoption('-P', '--platform', action="callback", type="string",
-           default="host", callback=_set_platform,
-           help="set up tests to use specified platform as compile/run target")
-    group = parser.getgroup("JIT options")
-    group.addoption('--viewloops', action="store_true",
-           default=False, dest="viewloops",
-           help="show only the compiled loops")
-
-def pytest_sessionstart():
-    # have python subprocesses avoid startup customizations by default
-    try:
-        del os.environ['PYTHONSTARTUP']
-    except KeyError:
-        pass
 
 def pytest_funcarg__space(request):
     from pypy.tool.pytest.objspace import gettestobjspace
@@ -105,10 +84,11 @@ class PyPyModule(py.test.collect.Module):
         if self.config.option.runappdirect:
             # only collect regular tests if we are in an 'app_test' directory,
             # or in test_lib_pypy
-            names = self.listnames()
-            return "app_test" in names or "test_lib_pypy" in names
-        else:
-            return True
+            for name in self.listnames():
+                if "app_test" in name or "test_lib_pypy" in name:
+                    return True
+            return False
+        return True
 
     def funcnamefilter(self, name):
         if name.startswith('test_'):
@@ -122,11 +102,6 @@ class PyPyModule(py.test.collect.Module):
             return self.accept_regular_test()
         if name.startswith('AppTest'):
             return True
-        if name.startswith('ExpectTest'):
-            return True
-        #XXX todo
-        #if name.startswith('AppExpectTest'):
-        #    return True
         return False
 
     def makeitem(self, name, obj):
@@ -134,16 +109,6 @@ class PyPyModule(py.test.collect.Module):
             if name.startswith('AppTest'):
                 from pypy.tool.pytest.apptest import AppClassCollector
                 return AppClassCollector(name, parent=self)
-            elif name.startswith('ExpectTest'):
-                if self.config.option.rundirect:
-                    return py.test.collect.Class(name, parent=self)
-                from pypy.tool.pytest.expecttest import ExpectClassCollector
-                return ExpectClassCollector(name, parent=self)
-            # XXX todo
-            #elif name.startswith('AppExpectTest'):
-            #    if option.rundirect:
-            #        return AppClassCollector(name, parent=self)
-            #    return AppExpectClassCollector(name, parent=self)
             else:
                 from pypy.tool.pytest.inttest import IntClassCollector
                 return IntClassCollector(name, parent=self)

@@ -1,5 +1,5 @@
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import jit
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import jit
 
 import reflex_capi as backend
 #import cint_capi as backend

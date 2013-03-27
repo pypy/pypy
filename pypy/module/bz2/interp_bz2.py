@@ -1,15 +1,15 @@
 from __future__ import with_statement
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.streamio import Stream
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.platform import platform as compiler
-from pypy.rlib.rarithmetic import intmask, r_longlong
+from rpython.rlib.streamio import Stream
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import platform as compiler
+from rpython.rlib.rarithmetic import intmask, r_longlong
 import sys
 
 
@@ -319,8 +319,8 @@ newlines are available only when reading.""",
 
 def open_bz2file_as_stream(space, w_path, mode="r", buffering=-1,
                            compresslevel=9):
-    from pypy.rlib.streamio import decode_mode, open_path_helper
-    from pypy.rlib.streamio import construct_stream_tower
+    from rpython.rlib.streamio import decode_mode, open_path_helper
+    from rpython.rlib.streamio import construct_stream_tower
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
     if reading and writing:
         raise OperationError(space.w_ValueError,
@@ -512,7 +512,7 @@ def descr_compressor__new__(space, w_subtype, compresslevel=9):
     W_BZ2Compressor.__init__(x, space, compresslevel)
     return space.wrap(x)
 
-class W_BZ2Compressor(Wrappable):
+class W_BZ2Compressor(W_Root):
     """BZ2Compressor([compresslevel=9]) -> compressor object
 
     Create a new compressor object. This object may be used to compress
@@ -616,7 +616,8 @@ def descr_decompressor__new__(space, w_subtype):
     W_BZ2Decompressor.__init__(x, space)
     return space.wrap(x)
 
-class W_BZ2Decompressor(Wrappable):
+
+class W_BZ2Decompressor(W_Root):
     """BZ2Decompressor() -> decompressor object
 
     Create a new decompressor object. This object may be used to decompress

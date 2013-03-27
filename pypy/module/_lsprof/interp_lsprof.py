@@ -1,24 +1,24 @@
 import py
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rtimer import read_timestamp, _is_64_bit
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.autopath import pypydir
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rtimer import read_timestamp, _is_64_bit
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.conftest import cdir
+from rpython.rlib.rarithmetic import r_longlong
 
 import time, sys
 
 # cpu affinity settings
 
-srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
+srcdir = py.path.local(cdir).join('src')
 eci = ExternalCompilationInfo(
     separate_module_files=[srcdir.join('profiling.c')],
     export_symbols=['pypy_setup_profiling', 'pypy_teardown_profiling'])
@@ -35,7 +35,7 @@ if _is_64_bit:
 else:
     timer_size_int = r_longlong
 
-class W_StatsEntry(Wrappable):
+class W_StatsEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it,
                  w_sublist):
         self.frame = frame
@@ -72,7 +72,7 @@ W_StatsEntry.typedef = TypeDef(
     __repr__ = interp2app(W_StatsEntry.repr),
 )
 
-class W_StatsSubEntry(Wrappable):
+class W_StatsSubEntry(W_Root):
     def __init__(self, space, frame, callcount, reccallcount, tt, it):
         self.frame = frame
         self.callcount = callcount
@@ -252,8 +252,8 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         # ignore or raise an exception???
         pass
 
-class W_Profiler(Wrappable):
 
+class W_Profiler(W_Root):
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
         self.subcalls = subcalls
         self.builtins = builtins

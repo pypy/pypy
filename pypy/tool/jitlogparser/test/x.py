@@ -1,4 +1,7 @@
 
+import pypyjit
+pypyjit.set_param(threshold=3)
+
 def f(a, b):
     return a + b
 
@@ -10,3 +13,6 @@ def g():
 
 def h():
     [x for x in range(10)]
+
+g()
+h()

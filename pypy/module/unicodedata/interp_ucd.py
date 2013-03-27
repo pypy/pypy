@@ -1,16 +1,18 @@
 """
 Implementation of the interpreter-level functions in the module unicodedata.
 """
-from pypy.interpreter.gateway import  interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
+
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.runicode import MAXUNICODE
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
+from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
 import sys
 
-from pypy.module.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
 
 # Contants for Hangul characters
 SBase = 0xAC00
@@ -27,40 +29,19 @@ SCount = (LCount*NCount)
 # handling: on narrow unicode builds, a surrogate pair is considered as one
 # unicode code point.
 
-# The functions below are subtly different from the ones in runicode.py.
-# When PyPy implements Python 3 they should be merged.
-
-def UNICHR(c):
-    if c <= sys.maxunicode and c <= MAXUNICODE:
-        return unichr(c)
-    else:
-        c -= 0x10000
-        return (unichr(0xD800 + (c >> 10)) +
-                unichr(0xDC00 + (c & 0x03FF)))
-
-def ORD(u):
-    assert isinstance(u, unicode)
-    if len(u) == 1:
-        return ord(u[0])
-    elif len(u) == 2:
-        ch1 = ord(u[0])
-        ch2 = ord(u[1])
-        if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
-            return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-    raise ValueError
 
 if MAXUNICODE > 0xFFFF:
     # Target is wide build
     def unichr_to_code_w(space, w_unichr):
-        if not space.is_true(space.isinstance(w_unichr, space.w_unicode)):
+        if not space.isinstance_w(w_unichr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap(
                 'argument 1 must be unicode'))
 
         if not we_are_translated() and sys.maxunicode == 0xFFFF:
             # Host CPython is narrow build, accept surrogates
             try:
-                return ORD(space.unicode_w(w_unichr))
-            except ValueError:
+                return ord_accepts_surrogate(space.unicode_w(w_unichr))
+            except TypeError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
         else:
@@ -69,16 +50,10 @@ if MAXUNICODE > 0xFFFF:
                     'need a single Unicode character as parameter'))
             return space.int_w(space.ord(w_unichr))
 
-    def code_to_unichr(code):
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
-            # Host CPython is narrow build, generate surrogates
-            return UNICHR(code)
-        else:
-            return unichr(code)
 else:
     # Target is narrow build
     def unichr_to_code_w(space, w_unichr):
-        if not space.is_true(space.isinstance(w_unichr, space.w_unicode)):
+        if not space.isinstance_w(w_unichr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap(
                 'argument 1 must be unicode'))
 
@@ -92,17 +67,13 @@ else:
         else:
             # Accept surrogates
             try:
-                return ORD(space.unicode_w(w_unichr))
-            except ValueError:
+                return ord_accepts_surrogate(space.unicode_w(w_unichr))
+            except TypeError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
 
-    def code_to_unichr(code):
-        # generate surrogates for large codes
-        return UNICHR(code)
 
-
-class UCD(Wrappable):
+class UCD(W_Root):
     def __init__(self, unicodedb):
         self._lookup = unicodedb.lookup
         self._name = unicodedb.name
@@ -148,7 +119,6 @@ class UCD(Wrappable):
                 return w_default
             raise OperationError(space.w_ValueError, space.wrap('no such name'))
         return space.wrap(name)
-
 
     def decimal(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -208,7 +178,7 @@ class UCD(Wrappable):
 
     @unwrap_spec(form=str)
     def normalize(self, space, form, w_unistr):
-        if not space.is_true(space.isinstance(w_unistr, space.w_unicode)):
+        if not space.isinstance_w(w_unistr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap('argument 2 must be unicode'))
         if form == 'NFC':
             composed = True
@@ -235,10 +205,10 @@ class UCD(Wrappable):
             ch = space.int_w(space.ord(space.getitem(w_unistr, space.wrap(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
-                SIndex = ch - SBase;
-                L = LBase + SIndex / NCount;
-                V = VBase + (SIndex % NCount) / TCount;
-                T = TBase + SIndex % TCount;
+                SIndex = ch - SBase
+                L = LBase + SIndex / NCount
+                V = VBase + (SIndex % NCount) / TCount
+                T = TBase + SIndex % TCount
                 if T == TBase:
                     if j + 2 > resultlen:
                         result.extend([0] * (j + 2 - resultlen + 10))
@@ -329,7 +299,6 @@ class UCD(Wrappable):
                 prev_combining = 0
                 current = next
                 continue
-
 
             result[next_insert] = next
             next_insert += 1

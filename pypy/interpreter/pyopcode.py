@@ -6,15 +6,15 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit, rstackovf
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.debug import check_nonneg
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit, rstackovf
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.debug import check_nonneg
 from pypy.tool.stdlib_opcode import (bytecode_spec,
                                      unrolling_all_opcode_descs)
 
@@ -178,6 +178,11 @@ class __extend__(pyframe.PyFrame):
             else:
                 oparg = 0
 
+            # note: the structure of the code here is such that it makes
+            # (after translation) a big "if/elif" chain, which is then
+            # turned into a switch().  It starts here: even if the first
+            # one is not an "if" but a "while" the effect is the same.
+
             while opcode == self.opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
                 if opcode < self.HAVE_ARGUMENT:
@@ -226,6 +231,8 @@ class __extend__(pyframe.PyFrame):
                         'END_FINALLY', 'JUMP_ABSOLUTE'):
                         continue   # opcodes implemented above
 
+                    # the following "if" is part of the big switch described
+                    # above.
                     if opcode == opdesc.index:
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)
@@ -597,18 +604,18 @@ class __extend__(pyframe.PyFrame):
         # item (unlike CPython which can have 1, 2 or 3 items):
         #   [wrapped subclass of SuspendedUnroller]
         w_top = self.popvalue()
-        # the following logic is a mess for the flow objspace,
-        # so we hide it specially in the space :-/
-        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
-            # case of a finally: block
-            unroller = self.space.interpclass_w(w_top)
-            return unroller
+        if self.space.is_w(w_top, self.space.w_None):
+            # case of a finally: block with no exception
+            return None
+        if isinstance(w_top, SuspendedUnroller):
+            # case of a finally: block with a suspended unroller
+            return w_top
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
-            unroller = self.space.interpclass_w(self.popvalue())
-            assert unroller is not None
-            return unroller
+            w_unroller = self.popvalue()
+            assert w_unroller is not None
+            return w_unroller
 
     def BUILD_CLASS(self, oparg, next_instr):
         w_methodsdict = self.popvalue()
@@ -769,17 +776,16 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
-        if self.space.is_true(self.space.isinstance(w_2, self.space.w_tuple)):
-            for w_t in self.space.fixedview(w_2):
-                if self.space.is_true(self.space.isinstance(w_t,
-                                                            self.space.w_str)):
-                    self.space.warn("catching of string exceptions is "
-                                    "deprecated",
-                                    self.space.w_DeprecationWarning)
-        elif self.space.is_true(self.space.isinstance(w_2, self.space.w_str)):
-            self.space.warn("catching of string exceptions is deprecated",
-                            self.space.w_DeprecationWarning)
-        return self.space.newbool(self.space.exception_match(w_1, w_2))
+        space = self.space
+        if space.isinstance_w(w_2, space.w_tuple):
+            for w_t in space.fixedview(w_2):
+                if space.isinstance_w(w_t, space.w_str):
+                    msg = "catching of string exceptions is deprecated"
+                    space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        elif space.isinstance_w(w_2, space.w_str):
+            msg = "catching of string exceptions is deprecated"
+            space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
@@ -790,7 +796,7 @@ class __extend__(pyframe.PyFrame):
                 w_result = getattr(self, attr)(w_1, w_2)
                 break
         else:
-            raise BytecodeCorruption, "bad COMPARE_OP oparg"
+            raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
 
     def IMPORT_NAME(self, nameindex, next_instr):
@@ -937,11 +943,9 @@ class __extend__(pyframe.PyFrame):
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
         self.pushvalue(w_unroller)
-        unroller = self.space.interpclass_w(w_unroller)
-        is_app_exc = (unroller is not None and
-                      isinstance(unroller, SApplicationException))
-        if is_app_exc:
-            operr = unroller.operr
+        if isinstance(w_unroller, SApplicationException):
+            # app-level exception
+            operr = w_unroller.operr
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
@@ -1137,10 +1141,14 @@ class __extend__(pyframe.CPythonFrame):
 class ExitFrame(Exception):
     pass
 
+
 class Return(ExitFrame):
     """Raised when exiting a frame via a 'return' statement."""
+
+
 class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
+
 
 class RaiseWithExplicitTraceback(Exception):
     """Raised at interp-level by a 0- or 3-arguments 'raise' statement."""
@@ -1150,7 +1158,7 @@ class RaiseWithExplicitTraceback(Exception):
 
 ### Frame Blocks ###
 
-class SuspendedUnroller(Wrappable):
+class SuspendedUnroller(W_Root):
     """Abstract base class for interpreter-level objects that
     instruct the interpreter to change the control flow and the
     block stack.

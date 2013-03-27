@@ -4,15 +4,15 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.rarithmetic import r_longlong, intmask
-from pypy.rlib import rposix
-from pypy.tool.sourcetools import func_renamer
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rarithmetic import r_longlong, intmask
+from rpython.rlib import rposix
+from rpython.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
-from pypy.module.thread import ll_thread
+from rpython.rlib import rthread
 import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -53,10 +53,10 @@ class TryLock(object):
 
     def __enter__(self):
         if not self.lock.acquire(False):
-            if self.owner == ll_thread.get_ident():
+            if self.owner == rthread.get_ident():
                 raise self.operr
             self.lock.acquire(True)
-        self.owner = ll_thread.get_ident()
+        self.owner = rthread.get_ident()
     
     def __exit__(self,*args):
         self.owner = 0
@@ -76,7 +76,7 @@ class W_BufferedIOBase(W_IOBase):
         raise NotImplementedError
 
     def _deprecated_max_buffer_size(self, space):
-        space.warn("max_buffer_size is deprecated",
+        space.warn(space.wrap("max_buffer_size is deprecated"),
                    space.w_DeprecationWarning)
 
     def read_w(self, space, w_size=None):
@@ -531,7 +531,7 @@ class BufferedMixin:
                 raise
             else:
                 break
-                
+
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
         size = space.int_w(w_size)
@@ -564,7 +564,6 @@ class BufferedMixin:
         result_buffer = ['\0'] * n
         remaining = n
         written = 0
-        data = None
         if current_size:
             for i in range(current_size):
                 result_buffer[written + i] = self.buffer[self.pos + i]
@@ -630,6 +629,72 @@ class BufferedMixin:
             self.pos = endpos
             return res
         return None
+
+    def readline_w(self, space, w_limit=None):
+        self._check_init(space)
+        self._check_closed(space, "readline of closed file")
+
+        limit = convert_size(space, w_limit)
+
+        # First, try to find a line in the buffer. This can run
+        # unlocked because the calls to the C API are simple enough
+        # that they can't trigger any thread switch.
+        have = self._readahead()
+        if limit >= 0 and have > limit:
+            have = limit
+        for pos in range(self.pos, self.pos+have):
+            if self.buffer[pos] == '\n':
+                break
+        else:
+            pos = -1
+        if pos >= 0:
+            w_res = space.wrap(''.join(self.buffer[self.pos:pos+1]))
+            self.pos = pos + 1
+            return w_res
+        if have == limit:
+            w_res = space.wrap(''.join(self.buffer[self.pos:self.pos+have]))
+            self.pos += have
+            return w_res
+
+        written = 0
+        with self.lock:
+            # Now we try to get some more from the raw stream
+            chunks = []
+            if have > 0:
+                chunks.extend(self.buffer[self.pos:self.pos+have])
+                written += have
+                self.pos += have
+                if limit >= 0:
+                    limit -= have
+            if self.writable:
+                self._flush_and_rewind_unlocked(space)
+
+            while True:
+                self._reader_reset_buf()
+                have = self._fill_buffer(space)
+                if have == 0:
+                    break
+                if limit >= 0 and have > limit:
+                    have = limit
+                pos = 0
+                found = False
+                while pos < have:
+                    c = self.buffer[pos]
+                    pos += 1
+                    if c == '\n':
+                        self.pos = pos
+                        found = True
+                        break
+                chunks.extend(self.buffer[0:pos])
+                if found:
+                    break
+                if have == limit:
+                    self.pos = have
+                    break
+                written += have
+                if limit >= 0:
+                    limit -= have
+            return space.wrap(''.join(chunks))
 
     # ____________________________________________________
     # Write methods
@@ -795,6 +860,7 @@ W_BufferedReader.typedef = TypeDef(
     peek = interp2app(W_BufferedReader.peek_w),
     read1 = interp2app(W_BufferedReader.read1_w),
     raw = interp_attrproperty_w("w_raw", cls=W_BufferedReader),
+    readline = interp2app(W_BufferedReader.readline_w),
 
     # from the mixin class
     __repr__ = interp2app(W_BufferedReader.repr_w),
@@ -858,10 +924,6 @@ W_BufferedWriter.typedef = TypeDef(
     name = GetSetProperty(W_BufferedWriter.name_get_w),
     mode = GetSetProperty(W_BufferedWriter.mode_get_w),
 )
-
-def _forward_call(space, w_obj, method, __args__):
-    w_meth = self.getattr(w_obj, self.wrap(method))
-    return self.call_args(w_meth, __args__)
 
 def make_forwarding_method(method, writer=False, reader=False):
     @func_renamer(method + '_w')
@@ -968,6 +1030,7 @@ W_BufferedRandom.typedef = TypeDef(
     read = interp2app(W_BufferedRandom.read_w),
     peek = interp2app(W_BufferedRandom.peek_w),
     read1 = interp2app(W_BufferedRandom.read1_w),
+    readline = interp2app(W_BufferedRandom.readline_w),
 
     write = interp2app(W_BufferedRandom.write_w),
     flush = interp2app(W_BufferedRandom.flush_w),
