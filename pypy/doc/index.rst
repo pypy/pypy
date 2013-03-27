@@ -1,15 +1,36 @@
 
-Welcome to PyPy Development
-=============================================
+Welcome to PyPy
+===============
 
 The PyPy project aims at producing a flexible and fast Python_
-implementation.  The guiding idea is to translate a Python-level
-description of the Python language itself to lower level languages.
-Rumors have it that the secret goal is being faster-than-C which is
-nonsense, isn't it?  `more...`_
+implementation. For the general idea what is pypy, consult the `pypy website`_.
+This page documents entry points into the development of the PyPy project.
+If you just want to use it, consult the `download`_ page on the PyPy website
+and `getting started with pypy`_ document.
 
-Getting into PyPy ... 
-=============================================
+PyPy is written in a language called `RPython`_, which is suitable for
+writing dynamic language interpreters (and not much else).
+`Starting with RPython`_ should provide a reasonable overview if you want
+to learn the language.
+
+**If you want to contribute to PyPy**, please read `how to contribute`_ first.
+PyPy development style is vastly different than most other software projects
+and it usually comes as surprise to most people. What is **not** necessary is
+having academic knowledge from university about writing compilers. Most of
+it does not apply to PyPy at all.
+
+All of the documentation and source code is available under the MIT license,
+unless otherwise specified. Consult `LICENSE`_
+
+.. _`download`: http://pypy.org/download.html
+.. _`getting started with pypy`: getting-started-python.html
+.. _`RPython`: coding-guide.html#RPython
+.. _`Starting with RPython`: getting-started-dev.html
+.. _`how to contribute`: how-to-contribute.html
+.. _`pypy website`: http://pypy.org
+
+Index of various topics:
+========================
 
 * `Getting started`_: how to install and run the PyPy Python interpreter
 
@@ -26,19 +47,28 @@ Getting into PyPy ...
 * `potential project ideas`_: In case you want to get your feet wet...
 
 Documentation for the PyPy Python Interpreter
-===============================================
+=============================================
 
 New features of PyPy's Python Interpreter and 
 Translation Framework: 
 
   * `Differences between PyPy and CPython`_
-  * `What PyPy can do for your objects`_
-  * `Continulets and greenlets`_
+  * `What PyPy can do for your objects`_ - transparent proxy documentation
+  * `Continulets and greenlets`_ - documentation about stackless features
   * `JIT Generation in PyPy`_ 
+  * `JIT hooks`_
   * `Sandboxing Python code`_
+  * `Garbage collection environment variables`_
 
 Status_ of the project.
 
+.. _`Differences between PyPy and CPython`: cpython_differences.html
+.. _`What PyPy can do for your objects`: objspace-proxies.html
+.. _`Continulets and greenlets_`: stackless.html
+.. _`JIT Generation in PyPy`: jit/index.html
+.. _`JIT hooks`: jit-hooks.html
+.. _`Sandboxing Python code`: sandbox.html
+.. _`Garbage collection environment variables`: gc_info.html
 
 Mailing lists, bug tracker, IRC channel
 =============================================
@@ -83,12 +113,7 @@ on the `development mailing list`_.
 Project Documentation
 =====================================
 
-PyPy was funded by the EU for several years. See the `web site of the EU
-project`_ for more details.
-
-.. _`web site of the EU project`: http://pypy.org
-
-architecture_ gives a complete view of PyPy's basic design. 
+`architecture`_ gives a complete view of PyPy's basic design. 
 
 `coding guide`_ helps you to write code for PyPy (especially also describes
 coding in RPython a bit). 
@@ -112,12 +137,11 @@ reports that we submitted to the European Union.
 `Glossary`_ of PyPy words to help you align your inner self with
 the PyPy universe.
 
-
 Status
 ===================================
 
 PyPy can be used to run Python programs on Linux, OS/X,
-Windows, on top of .NET, and on top of Java.
+Windows.
 To dig into PyPy it is recommended to try out the current
 Mercurial default branch, which is always working or mostly working,
 instead of the latest release, which is `2.0 beta1`__.
@@ -176,13 +200,21 @@ RPython.
 `configuration documentation`_ describes the various configuration options that
 allow you to customize PyPy.
 
+`pypy on windows`_
+
+`command line reference`_
+
 `CLI backend`_ describes the details of the .NET backend.
 
 `JIT Generation in PyPy`_ describes how we produce the Python Just-in-time Compiler
 from our Python interpreter.
 
+`directory cross-reference`_
 
-
+.. _`garbage collector`: garbage_collection.html
+.. _`directory cross-reference`: dir-reference.html
+.. _`pypy on windows`: windows.html
+.. _`command line reference`: commandline_ref.html
 .. _`FAQ`: faq.html
 .. _Glossary: glossary.html
 .. _`PyPy video documentation`: video-index.html
@@ -198,7 +230,7 @@ from our Python interpreter.
 .. _`translation aspects`: translation-aspects.html
 .. _`configuration documentation`: config/
 .. _`coding guide`: coding-guide.html 
-.. _`architecture`: architecture.html 
+.. _`Architecture`: architecture.html 
 .. _`getting started`: getting-started.html 
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
@@ -211,168 +243,14 @@ from our Python interpreter.
 .. _`Sandboxing Python code`: sandbox.html
 .. _`LICENSE`: https://bitbucket.org/pypy/pypy/src/default/LICENSE
 
-PyPy directory cross-reference 
-------------------------------
-
-Here is a fully referenced alphabetical two-level deep 
-directory overview of PyPy: 
-
-=================================  ============================================
-Directory                          explanation/links
-=================================  ============================================
-`pypy/bin/`_                       command-line scripts, mainly
-                                   `pypy/bin/pyinteractive.py`_
-
-`pypy/config/`_                    handles the numerous options for building
-                                   and running PyPy
-
-`pypy/doc/`_                       text versions of PyPy developer
-                                   documentation
-
-`pypy/doc/config/`_                documentation for the numerous translation
-                                   options
-
-`pypy/doc/discussion/`_            drafts of ideas and documentation
-
-``doc/*/``                         other specific documentation topics or tools
-
-`pypy/interpreter/`_               `bytecode interpreter`_ and related objects
-                                   (frames, functions, modules,...) 
-
-`pypy/interpreter/pyparser/`_      interpreter-level Python source parser
-
-`pypy/interpreter/astcompiler/`_   interpreter-level bytecode compiler,
-                                   via an AST representation
-
-`pypy/module/`_                    contains `mixed modules`_
-                                   implementing core modules with 
-                                   both application and interpreter level code.
-                                   Not all are finished and working.  Use
-                                   the ``--withmod-xxx``
-                                   or ``--allworkingmodules`` translation
-                                   options.
-
-`pypy/objspace/`_                  `object space`_ implementations
-
-`pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's
-                                   objects and types
-
-`pypy/tool/`_                      various utilities and hacks used
-                                   from various places 
-
-`pypy/tool/algo/`_                 general-purpose algorithmic and mathematic
-                                   tools
-
-`pypy/tool/pytest/`_               support code for our `testing methods`_
-
-
-`rpython/annotator/`_              `type inferencing code`_ for
-                                   `RPython`_ programs 
-
-`rpython/config/`_                 handles the numerous options for RPython
-
-
-`rpython/flowspace/`_              the FlowObjSpace_ implementing
-                                   `abstract interpretation`_
-
-`rpython/rlib/`_                   a `"standard library"`_ for RPython_
-                                   programs
-
-`rpython/rtyper/`_                 the `RPython Typer`_ 
-
-`rpython/rtyper/lltypesystem/`_    the `low-level type system`_ for
-                                   C-like backends
-
-`rpython/rtyper/ootypesystem/`_    the `object-oriented type system`_
-                                   for OO backends
-
-`rpython/memory/`_                 the `garbage collector`_ construction
-                                   framework
-
-`rpython/translator/`_             translation_ backends and support code
-
-`rpython/translator/backendopt/`_  general optimizations that run before a 
-                                   backend generates code
-
-`rpython/translator/c/`_           the `GenC backend`_, producing C code
-                                   from an
-                                   RPython program (generally via the rtyper_)
-
-`rpython/translator/cli/`_         the `CLI backend`_ for `.NET`_
-                                   (Microsoft CLR or Mono_)
-
-`pypy/goal/`_                      our `main PyPy-translation scripts`_
-                                   live here
-
-`rpython/translator/jvm/`_         the Java backend
-
-`rpython/translator/tool/`_        helper tools for translation
-
-`dotviewer/`_                      `graph viewer`_
-
-``*/test/``                        many directories have a test subdirectory
-                                   containing test 
-                                   modules (see `Testing in PyPy`_) 
-
-``_cache/``                        holds cache files from various purposes
-=================================  ============================================
-
-.. _`bytecode interpreter`: interpreter.html
-.. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
-.. _`mixed modules`: coding-guide.html#mixed-modules 
-.. _`modules`: coding-guide.html#modules 
-.. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
-.. _`object space`: objspace.html
-.. _FlowObjSpace: objspace.html#the-flow-object-space 
-.. _`transparent proxies`: objspace-proxies.html#tproxy
-.. _`Differences between PyPy and CPython`: cpython_differences.html
-.. _`What PyPy can do for your objects`: objspace-proxies.html
-.. _`Continulets and greenlets`: stackless.html
-.. _StdObjSpace: objspace.html#the-standard-object-space 
-.. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
-.. _`rpython`: coding-guide.html#rpython 
-.. _`type inferencing code`: translation.html#the-annotation-pass 
-.. _`RPython Typer`: translation.html#rpython-typer 
-.. _`testing methods`: coding-guide.html#testing-in-pypy
-.. _`translation`: translation.html 
-.. _`GenC backend`: translation.html#genc 
-.. _`CLI backend`: cli-backend.html
-.. _`py.py`: getting-started-python.html#the-py.py-interpreter
-.. _`translatorshell.py`: getting-started-dev.html#try-out-the-translator
-.. _JIT: jit/index.html
-.. _`JIT Generation in PyPy`: jit/index.html
-.. _`just-in-time compiler generator`: jit/index.html
-.. _rtyper: rtyper.html
-.. _`low-level type system`: rtyper.html#low-level-type
-.. _`object-oriented type system`: rtyper.html#oo-type
-.. _`garbage collector`: garbage_collection.html
-.. _`main PyPy-translation scripts`: getting-started-python.html#translating-the-pypy-python-interpreter
-.. _`.NET`: http://www.microsoft.com/net/
-.. _Mono: http://www.mono-project.com/
-.. _`"standard library"`: rlib.html
-.. _`graph viewer`: getting-started-dev.html#try-out-the-translator
-
-
 .. The following documentation is important and reasonably up-to-date:
 
 .. extradoc: should this be integrated one level up: dcolish?
-
 
 .. toctree::
    :maxdepth: 1
    :hidden:
 
-   getting-started.rst
-   getting-started-python.rst
-   getting-started-dev.rst
-   windows.rst
-   faq.rst
-   commandline_ref.rst
-   architecture.rst
-   coding-guide.rst
-   cpython_differences.rst
-   garbage_collection.rst
-   gc_info.rst
    interpreter.rst
    objspace.rst
    __pypy__-module.rst

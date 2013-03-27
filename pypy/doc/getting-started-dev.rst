@@ -1,8 +1,14 @@
-===============================================================================
-Getting Started with the Translation Toolchain and Development Process
-===============================================================================
+============================
+Getting Started with RPython
+============================
 
 .. contents::
+
+
+This should really write a word of two about **WHAT** is RPython
+XXX
+XXX
+XXX
 
 .. _`try out the translator`:
 
