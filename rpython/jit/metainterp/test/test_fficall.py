@@ -122,8 +122,13 @@ class FfiCallTests(object):
         self._run([types.signed], types.sint8, [456],
                   rffi.cast(rffi.SIGNEDCHAR, -42))
 
+    def _add_libffi_types_to_ll2types_maybe(self):
+        # not necessary on the llgraph backend, but needed for x86.
+        # see rpython/jit/backend/x86/test/test_fficall.py
+        pass
 
     def test_guard_not_forced_fails(self):
+        self._add_libffi_types_to_ll2types_maybe()
         FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
 
         cif_description = get_description([types.slong], types.slong)

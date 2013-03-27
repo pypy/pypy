@@ -8,8 +8,9 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from rpython.rlib.rtimer import read_timestamp
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
 
 
 def arguments(*argtypes, **kwds):
@@ -1350,35 +1351,19 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "i", "i", "i")
     def bhimpl_libffi_save_result_int(self, cif_description, exchange_buffer, result):
-        from rpython.rtyper.lltypesystem import llmemory, rffi
-        from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
         ARRAY = lltype.Ptr(rffi.CArray(lltype.Signed))
-        
-        cif_description = llmemory.cast_int_to_adr(cif_description)
-        cif_description = llmemory.cast_adr_to_ptr(cif_description,
-                                                   CIF_DESCRIPTION_P)
-
-        exchange_buffer = llmemory.cast_int_to_adr(exchange_buffer)
-        exchange_buffer = llmemory.cast_adr_to_ptr(exchange_buffer,
-                                                   rffi.CCHARP)
-
+        cif_description = self.cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
+        exchange_buffer = self.cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
+        #
         data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
         rffi.cast(ARRAY, data_out)[0] = result
 
     @arguments("cpu", "i", "i", "f")
     def bhimpl_libffi_save_result_float(self, cif_description, exchange_buffer, result):
-        from rpython.rtyper.lltypesystem import llmemory, rffi
-        from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
         ARRAY = lltype.Ptr(rffi.CArray(lltype.Float))
-        
-        cif_description = llmemory.cast_int_to_adr(cif_description)
-        cif_description = llmemory.cast_adr_to_ptr(cif_description,
-                                                   CIF_DESCRIPTION_P)
-
-        exchange_buffer = llmemory.cast_int_to_adr(exchange_buffer)
-        exchange_buffer = llmemory.cast_adr_to_ptr(exchange_buffer,
-                                                   rffi.CCHARP)
-
+        cif_description = self.cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
+        exchange_buffer = self.cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
+        #
         data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
         rffi.cast(ARRAY, data_out)[0] = result
 
