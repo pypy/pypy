@@ -70,10 +70,10 @@ class W_LongObject(W_AbstractIntObject):
         return self.num.tofloat()
 
     def int(self, space):
-        try:
-            return space.newint(self.num.toint())
-        except OverflowError:
-            return long_long(space, self)
+        if (type(self) is not W_LongObject and
+            space.is_overloaded(self, space.w_int, '__int__')):
+            return W_Object.int(self, space)
+        return long_long(space, self)
 
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
