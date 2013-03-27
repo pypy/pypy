@@ -275,6 +275,10 @@ class AbstractLLCPU(AbstractCPU):
     def cast_adr_to_int(x):
         return rffi.cast(lltype.Signed, x)
 
+    @staticmethod
+    def cast_int_to_ptr(x, TYPE):
+        return rffi.cast(TYPE, x)
+
     def sizeof(self, S):
         return get_size_descr(self.gc_ll_descr, S)
 

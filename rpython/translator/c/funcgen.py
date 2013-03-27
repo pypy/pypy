@@ -843,6 +843,9 @@ class FunctionCodeGenerator(object):
     def OP_JIT_FORCE_QUASI_IMMUTABLE(self, op):
         return '/* JIT_FORCE_QUASI_IMMUTABLE %s */' % op
 
+    def OP_JIT_FFI_SAVE_RESULT(self, op):
+        return '/* JIT_FFI_SAVE_RESULT %s */' % op
+
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)
         return '%s = (%s)_OP_GET_GROUP_MEMBER(%s, %s);' % (
