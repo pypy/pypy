@@ -1,6 +1,6 @@
 import py
-from pypy.jit.metainterp.optimizeopt.rawbuffer import (InvalidRawWrite,
-                                                       InvalidRawRead, RawBuffer)
+from rpython.jit.metainterp.optimizeopt.rawbuffer import (InvalidRawWrite,
+                                                          InvalidRawRead, RawBuffer)
 
 class FakeCPU(object):
     def unpack_arraydescr_size(self, descr):

@@ -485,8 +485,8 @@ class LLGraphCPU(model.AbstractCPU):
             return self.bh_raw_load_i(struct, offset, descr)
 
     def unpack_arraydescr_size(self, arraydescr):
-        from pypy.jit.backend.llsupport.symbolic import get_array_token
-        from pypy.jit.backend.llsupport.descr import get_type_flag, FLAG_SIGNED
+        from rpython.jit.backend.llsupport.symbolic import get_array_token
+        from rpython.jit.backend.llsupport.descr import get_type_flag, FLAG_SIGNED
         assert isinstance(arraydescr, ArrayDescr)
         basesize, itemsize, _ = get_array_token(arraydescr.A, False)
         flag = get_type_flag(arraydescr.A.OF)

@@ -14,9 +14,9 @@ from rpython.config.translationoption import DEFL_GC
 from rpython.rlib import rgc
 
 def fix_annotator_for_vrawbuffer(monkeypatch):
-    from pypy.rlib.nonconst import NonConstant
-    from pypy.jit.metainterp.optimizeopt.virtualize import VRawBufferValue
-    from pypy.jit.metainterp import warmspot
+    from rpython.rlib.nonconst import NonConstant
+    from rpython.jit.metainterp.optimizeopt.virtualize import VRawBufferValue
+    from rpython.jit.metainterp import warmspot
 
     def my_hook_for_tests(cpu):
         # this is needed so that the annotator can see it
@@ -81,9 +81,9 @@ class TestTranslationX86(CCompiledMixin):
                 if k - abs(-j): raise ValueError
             return chr(total % 253)
         #
-        from pypy.rpython.lltypesystem import lltype, rffi
-        from pypy.rlib.libffi import types, CDLL, ArgChain
-        from pypy.rlib.test.test_clibffi import get_libm_name
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        from rpython.rlib.libffi import types, CDLL, ArgChain
+        from rpython.rlib.test.test_clibffi import get_libm_name
         libm_name = get_libm_name(sys.platform)
         jitdriver2 = JitDriver(greens=[], reds = ['i', 'func', 'res', 'x'])
         def libffi_stuff(i, j):
@@ -110,7 +110,7 @@ class TestTranslationX86(CCompiledMixin):
 
     def test_direct_assembler_call_translates(self, monkeypatch):
         """Test CALL_ASSEMBLER and the recursion limit"""
-        from pypy.rlib.rstackovf import StackOverflow
+        from rpython.rlib.rstackovf import StackOverflow
         fix_annotator_for_vrawbuffer(monkeypatch)
 
         class Thing(object):

@@ -1,5 +1,5 @@
-from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.rlib.objectmodel import compute_unique_id, we_are_translated
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.objectmodel import compute_unique_id, we_are_translated
 
 class InvalidRawOperation(Exception):
     pass
