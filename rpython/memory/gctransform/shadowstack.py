@@ -397,7 +397,11 @@ def get_shadowstackref(gctransformer):
         from rpython.rlib import _rffi_stacklet as _c
         h = shadowstackref.context
         h = llmemory.cast_adr_to_ptr(h, _c.handle)
-        llmemory.raw_free(shadowstackref.base)
+        base = shadowstackref.base
+        shadowstackref.base    = llmemory.NULL
+        shadowstackref.top     = llmemory.NULL
+        shadowstackref.context = llmemory.NULL
+        llmemory.raw_free(base)
         if h:
             _c.destroy(h)
 
