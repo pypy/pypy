@@ -10,7 +10,7 @@ def get_operations_all():
         operations[name] = name
 
     # Remove list
-    for name in ["wrap", "unwrap", "interpclass_w"]:
+    for name in ["wrap", "unwrap"]:
         if name in operations:
             del operations[name]
 

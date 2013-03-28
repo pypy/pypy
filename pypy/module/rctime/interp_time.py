@@ -432,10 +432,10 @@ def _gettmarg(space, w_tup, allowNone=True):
             glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
             rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
 
-    w_accept2dyear = _get_module_object(space, "accept2dyear")
-    accept2dyear = space.int_w(w_accept2dyear)
-
     if y < 1900:
+        w_accept2dyear = _get_module_object(space, "accept2dyear")
+        accept2dyear = space.int_w(w_accept2dyear)
+
         if not accept2dyear:
             raise OperationError(space.w_ValueError,
                 space.wrap("year >= 1900 required"))

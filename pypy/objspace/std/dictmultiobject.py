@@ -10,8 +10,9 @@ from rpython.rlib.objectmodel import r_dict, specialize, newlist_hint
 from rpython.rlib.debug import mark_dict_non_null
 from rpython.tool.sourcetools import func_with_new_name
 
-from rpython.rlib import rerased
-from rpython.rlib import jit
+from rpython.rlib import rerased, jit
+
+UNROLL_CUTOFF = 5
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -29,9 +30,6 @@ def _never_equal_to_string(space, w_lookup_type):
             space.is_w(w_lookup_type, space.w_float)
             )
 
-
-DICT_CUTOFF = 5
-
 @specialize.call_location()
 def w_dict_unrolling_heuristic(w_dct):
     """ In which cases iterating over dict items can be unrolled.
@@ -39,7 +37,8 @@ def w_dict_unrolling_heuristic(w_dct):
     an actual dict
     """
     return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
-                                    w_dct.length() <= DICT_CUTOFF)
+                                    w_dct.length() <= UNROLL_CUTOFF)
+
 
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
@@ -761,7 +760,8 @@ def update1(space, w_dict, w_data):
             update1_keys(space, w_dict, w_data)
 
 
-@jit.look_inside_iff(lambda space, w_dict, w_data: w_dict_unrolling_heuristic(w_data))
+@jit.look_inside_iff(lambda space, w_dict, w_data:
+                     w_dict_unrolling_heuristic(w_data))
 def update1_dict_dict(space, w_dict, w_data):
     iterator = w_data.iteritems()
     while 1:

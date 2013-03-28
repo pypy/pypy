@@ -166,9 +166,9 @@ class CoreRegisterManager(ARMRegisterManager):
                                                     selected_reg=selected_reg)
         return reg
 
-    def get_free_reg():
-        free_regs = self.free_regs        
-        for i in range(len(free_regs), -1, -1):
+    def get_free_reg(self):
+        free_regs = self.free_regs
+        for i in range(len(free_regs) - 1, -1, -1):
             if free_regs[i] in self.save_around_call_regs:
                 continue
             return free_regs[i]
@@ -257,6 +257,7 @@ class Regalloc(BaseRegalloc):
                                                                 selected_reg)
         else:
             return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
+
     def get_free_reg(self):
         return self.rm.get_free_reg()
 
@@ -287,8 +288,7 @@ class Regalloc(BaseRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity, last_real_usage = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.last_real_usage = last_real_usage
         fm = self.frame_manager
@@ -365,7 +365,7 @@ class Regalloc(BaseRegalloc):
     # ------------------------------------------------------------
     def perform_llong(self, op, args, fcond):
         return self.assembler.regalloc_emit_llong(op, args, fcond, self)
-    
+
     def perform_math(self, op, args, fcond):
         return self.assembler.regalloc_emit_math(op, args, self, fcond)
 
@@ -442,7 +442,7 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
-    
+
     def prepare_op_int_force_ge_zero(self, op, fcond):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
@@ -588,7 +588,6 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op.result)
         return [loc0, res]
 
-
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
@@ -664,8 +663,7 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_op_guard_no_exception(self, op, fcond):
-        loc = self.make_sure_var_in_reg(
-                    ConstInt(self.cpu.pos_exception()))
+        loc = self.make_sure_var_in_reg(ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
         return arglocs
 
@@ -1019,7 +1017,6 @@ class Regalloc(BaseRegalloc):
     def prepare_op_call_malloc_nursery_varsize_small(self, op, fcond):
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt)
-        size = size_box.getint()
 
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
@@ -1121,8 +1118,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_float_add = prepare_float_op(name='prepare_op_float_add')
     prepare_op_float_sub = prepare_float_op(name='prepare_op_float_sub')
     prepare_op_float_mul = prepare_float_op(name='prepare_op_float_mul')
-    prepare_op_float_truediv = prepare_float_op(
-                                            name='prepare_op_float_truediv')
+    prepare_op_float_truediv = prepare_float_op(name='prepare_op_float_truediv')
     prepare_op_float_lt = prepare_float_op(float_result=False,
                                             name='prepare_op_float_lt')
     prepare_op_float_le = prepare_float_op(float_result=False,

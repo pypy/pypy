@@ -3,15 +3,17 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from rpython.tool.sourcetools import func_renamer
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rgc, ropenssl
 from rpython.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
+
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
-class W_Hash(Wrappable):
+
+class W_Hash(W_Root):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
     ctx = NULL_CTX
 
@@ -115,7 +117,7 @@ W_Hash.typedef = TypeDef(
     digestsize=GetSetProperty(W_Hash.get_digest_size),
     block_size=GetSetProperty(W_Hash.get_block_size),
     name=GetSetProperty(W_Hash.get_name),
-    )
+)
 W_Hash.acceptable_as_base_class = False
 
 @unwrap_spec(name=str, string='bufferstr')

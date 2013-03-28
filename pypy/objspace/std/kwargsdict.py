@@ -95,7 +95,8 @@ class KwargsDictStrategy(DictStrategy):
     def getitem_str(self, w_dict, key):
         return self._getitem_str_indirection(w_dict, key)
 
-    @jit.look_inside_iff(lambda self, w_dict, key: jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
+    @jit.look_inside_iff(lambda self, w_dict, key:
+            jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def _getitem_str_indirection(self, w_dict, key):
         keys, values_w = self.unerase(w_dict.dstorage)
         result = []

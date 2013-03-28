@@ -115,10 +115,10 @@ elif _MINGW:
         )
 
     eci = rffi_platform.configure_external_library(
-        'libffi-5', eci,
+        'ffi-5', eci,
         [dict(prefix='libffi-',
               include_dir='include', library_dir='.libs'),
-         dict(prefix=r'c:\mingw64', include_dir='include', library_dir='lib'),
+         dict(prefix=r'c:\\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
     USE_C_LIBFFI_MSVC = True

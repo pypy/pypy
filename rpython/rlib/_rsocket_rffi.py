@@ -81,11 +81,14 @@ if _WIN32:
             '#define RCVALL_ON              1',
             '#define RCVALL_SOCKETLEVELONLY 2',
             '''\
+            #ifndef __MINGW32__
             struct tcp_keepalive {
                 u_long  onoff;
                 u_long  keepalivetime;
                 u_long  keepaliveinterval;
-            };'''
+            };
+            #endif
+            '''
             ])
     HEADER = '\n'.join(header_lines)
     COND_HEADER = ''

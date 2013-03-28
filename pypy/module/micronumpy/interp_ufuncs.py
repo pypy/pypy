@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
@@ -16,7 +16,7 @@ def done_if_true(dtype, val):
 def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
-class W_Ufunc(Wrappable):
+class W_Ufunc(W_Root):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity",
                "allow_complex", "complex_to_float"]
     _immutable_fields_ = ["promote_to_float", "promote_bools", "name",

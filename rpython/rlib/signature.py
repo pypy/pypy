@@ -38,3 +38,13 @@ def finishsigs(cls):
             paramtypes, returntype = attr._signature_
             attr._signature_ = (tuple(fix(t) for t in paramtypes), fix(returntype))
     return cls
+
+
+class FieldSpec(object):
+    def __init__(self, tp):
+        pass
+
+
+class ClassSpec(object):
+    def __init__(self, fields, inherit=False):
+        pass

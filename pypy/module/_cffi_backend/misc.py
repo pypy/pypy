@@ -106,9 +106,8 @@ def longdouble2str(lvalue):
 def _is_a_float(space, w_ob):
     from pypy.module._cffi_backend.cdataobj import W_CData
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
-    ob = space.interpclass_w(w_ob)
-    if isinstance(ob, W_CData):
-        return isinstance(ob.ctype, W_CTypePrimitiveFloat)
+    if isinstance(w_ob, W_CData):
+        return isinstance(w_ob.ctype, W_CTypePrimitiveFloat)
     return space.isinstance_w(w_ob, space.w_float)
 
 def as_long_long(space, w_ob):
@@ -243,14 +242,14 @@ def object_as_bool(space, w_ob):
     from pypy.module._cffi_backend.cdataobj import W_CData
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
-    ob = space.interpclass_w(w_ob)
-    is_cdata = isinstance(ob, W_CData)
-    if is_cdata and isinstance(ob.ctype, W_CTypePrimitiveFloat):
-        if isinstance(ob.ctype, W_CTypePrimitiveLongDouble):
-            result = is_nonnull_longdouble(read_raw_longdouble_data(ob._cdata))
+    is_cdata = isinstance(w_ob, W_CData)
+    if is_cdata and isinstance(w_ob.ctype, W_CTypePrimitiveFloat):
+        if isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble):
+            result = is_nonnull_longdouble(
+                read_raw_longdouble_data(w_ob._cdata))
         else:
-            result = read_raw_float_data(ob._cdata, ob.ctype.size) != 0.0
-        keepalive_until_here(ob)
+            result = read_raw_float_data(w_ob._cdata, w_ob.ctype.size) != 0.0
+        keepalive_until_here(w_ob)
         return result
     #
     if not is_cdata and space.lookup(w_ob, '__float__') is not None:

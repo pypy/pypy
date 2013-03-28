@@ -6,7 +6,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from rpython.tool.sourcetools import func_with_new_name
@@ -607,16 +607,15 @@ class __extend__(pyframe.PyFrame):
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
             return None
-        unroller = self.space.interpclass_w(w_top)
-        if isinstance(unroller, SuspendedUnroller):
+        if isinstance(w_top, SuspendedUnroller):
             # case of a finally: block with a suspended unroller
-            return unroller
+            return w_top
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
-            unroller = self.space.interpclass_w(self.popvalue())
-            assert unroller is not None
-            return unroller
+            w_unroller = self.popvalue()
+            assert w_unroller is not None
+            return w_unroller
 
     def BUILD_CLASS(self, oparg, next_instr):
         w_methodsdict = self.popvalue()
@@ -778,12 +777,12 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
         space = self.space
-        if space.is_true(space.isinstance(w_2, space.w_tuple)):
+        if space.isinstance_w(w_2, space.w_tuple):
             for w_t in space.fixedview(w_2):
-                if space.is_true(space.isinstance(w_t, space.w_str)):
+                if space.isinstance_w(w_t, space.w_str):
                     msg = "catching of string exceptions is deprecated"
                     space.warn(space.wrap(msg), space.w_DeprecationWarning)
-        elif space.is_true(space.isinstance(w_2, space.w_str)):
+        elif space.isinstance_w(w_2, space.w_str):
             msg = "catching of string exceptions is deprecated"
             space.warn(space.wrap(msg), space.w_DeprecationWarning)
         return space.newbool(space.exception_match(w_1, w_2))
@@ -797,7 +796,7 @@ class __extend__(pyframe.PyFrame):
                 w_result = getattr(self, attr)(w_1, w_2)
                 break
         else:
-            raise BytecodeCorruption, "bad COMPARE_OP oparg"
+            raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
 
     def IMPORT_NAME(self, nameindex, next_instr):
@@ -944,11 +943,9 @@ class __extend__(pyframe.PyFrame):
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
         self.pushvalue(w_unroller)
-        unroller = self.space.interpclass_w(w_unroller)
-        is_app_exc = (unroller is not None and
-                      isinstance(unroller, SApplicationException))
-        if is_app_exc:
-            operr = unroller.operr
+        if isinstance(w_unroller, SApplicationException):
+            # app-level exception
+            operr = w_unroller.operr
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
@@ -1144,10 +1141,14 @@ class __extend__(pyframe.CPythonFrame):
 class ExitFrame(Exception):
     pass
 
+
 class Return(ExitFrame):
     """Raised when exiting a frame via a 'return' statement."""
+
+
 class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
+
 
 class RaiseWithExplicitTraceback(Exception):
     """Raised at interp-level by a 0- or 3-arguments 'raise' statement."""
@@ -1157,7 +1158,7 @@ class RaiseWithExplicitTraceback(Exception):
 
 ### Frame Blocks ###
 
-class SuspendedUnroller(Wrappable):
+class SuspendedUnroller(W_Root):
     """Abstract base class for interpreter-level objects that
     instruct the interpreter to change the control flow and the
     block stack.
