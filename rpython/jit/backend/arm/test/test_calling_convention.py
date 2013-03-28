@@ -1,3 +1,5 @@
+import py
+
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.test.calling_convention_test import CallingConvTests, parse
