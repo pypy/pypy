@@ -86,10 +86,10 @@ class AbstractARMCPU(AbstractLLCPU):
         possible then to re-call invalidate_loop() on the same looptoken,
         which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
         old one that already has a bridge attached to it."""
-        from rpython.jit.backend.arm.codebuilder import ARMv7Builder
+        from rpython.jit.backend.arm.codebuilder import InstrBuilder
 
         for jmp, tgt  in looptoken.compiled_loop_token.invalidate_positions:
-            mc = ARMv7Builder()
+            mc = InstrBuilder()
             mc.B_offs(tgt)
             mc.copy_to_raw_memory(jmp)
         # positions invalidated

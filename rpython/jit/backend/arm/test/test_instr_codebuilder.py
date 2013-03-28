@@ -8,7 +8,7 @@ import py
 
 requires_arm_as()
 
-class CodeBuilder(codebuilder.ARMv7Builder):
+class CodeBuilder(codebuilder.InstrBuilder):
     def __init__(self):
         self.buffer = []
 

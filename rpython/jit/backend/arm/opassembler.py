@@ -17,7 +17,7 @@ from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call
                                                 saved_registers,
                                                 count_reg_args)
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
-from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
+from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempInt, TempPtr
 from rpython.jit.backend.arm.locations import imm
@@ -1219,7 +1219,7 @@ class ResOpAssembler(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
 

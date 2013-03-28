@@ -4,7 +4,7 @@ from rpython.jit.backend.test.calling_convention_test import CallingConvTests, p
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
-from rpython.jit.backend.arm.codebuilder import ARMv7Builder
+from rpython.jit.backend.arm.codebuilder import InstrBuilder
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm.test.support import skip_unless_run_slow_tests
 from rpython.jit.backend.arm.test.test_runner import boxfloat, constfloat
@@ -25,9 +25,9 @@ class TestARMCallingConvention(CallingConvTests):
     # ../../test/calling_convention_test.py
 
     def make_function_returning_stack_pointer(self):
-        mc = ARMv7Builder()
-	mc.MOV_rr(r.r0.value, r.sp.value)
-	mc.MOV_rr(r.pc.value, r.lr.value)
+        mc = InstrBuilder()
+        mc.MOV_rr(r.r0.value, r.sp.value)
+        mc.MOV_rr(r.pc.value, r.lr.value)
         return mc.materialize(self.cpu.asmmemmgr, [])
 
     def get_alignment_requirements(self):

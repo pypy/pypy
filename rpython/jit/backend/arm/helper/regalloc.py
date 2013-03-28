@@ -1,6 +1,5 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from rpython.jit.metainterp.history import ConstInt, BoxInt, Box, FLOAT
 from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.objectmodel import we_are_translated
