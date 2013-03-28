@@ -1,3 +1,4 @@
+from rpython.rlib.objectmodel import specialize
 
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
@@ -73,7 +74,7 @@ class Scalar(base.BaseArrayImplementation):
         dtype = self.dtype.float_type or self.dtype
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
-                "could not broadcast input array from shape " + 
+                "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         if self.dtype.is_complex_type():
@@ -96,19 +97,21 @@ class Scalar(base.BaseArrayImplementation):
         return scalar
 
     def set_imag(self, space, orig_array, w_val):
-        #Only called on complex dtype
-        assert self.dtype.is_complex_type()
         w_arr = convert_to_array(space, w_val)
-        dtype = self.dtype.float_type
-        if len(w_arr.get_shape()) > 0:
+        if not w_arr.is_scalar():
             raise OperationError(space.w_ValueError, space.wrap(
-                "could not broadcast input array from shape " + 
+                "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
-        self.value = self.dtype.itemtype.composite(
-                            self.value.convert_real_to(dtype),
-                            w_arr.get_scalar_value().convert_to(dtype),
-                            )
+        value = w_arr.get_scalar_value()
+        self._set_imag(value)
+
+    @specialize.argtype(1)
+    def _set_imag(self, value):
+        from pypy.module.micronumpy.interp_dtype import W_ComplexDtype
+        assert isinstance(self.dtype, W_ComplexDtype)
+        dtype = self.dtype.float_type
+        self.value.imag = value.convert_to(dtype)
 
     def descr_getitem(self, space, _, w_idx):
         raise OperationError(space.w_IndexError,

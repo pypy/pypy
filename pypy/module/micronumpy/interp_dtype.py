@@ -11,6 +11,8 @@ from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import jit
 
+from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+
 
 UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
@@ -192,6 +194,16 @@ class W_ComplexDtype(W_Dtype):
     def is_complex_type(self):
         return True
 
+    def _writable_imag_array(self, w_arr):
+        """helper for BaseConcreteArray.set_imag"""
+        impl = w_arr.implementation
+        strides = impl.get_strides()
+        backstrides = impl.get_backstrides()
+        float_type = self.float_type
+        return SliceArray(impl.start + float_type.get_size(), strides, backstrides,
+                impl.get_shape(), impl, w_arr, dtype=float_type)
+
+
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
     fields = {}
@@ -252,7 +264,7 @@ def variable_dtype(space, name):
 
 def dtype_from_spec(space, name):
         raise OperationError(space.w_NotImplementedError, space.wrap(
-            "dtype from spec"))    
+            "dtype from spec"))
 
 def descr__new__(space, w_subtype, w_dtype):
     cache = get_dtype_cache(space)
