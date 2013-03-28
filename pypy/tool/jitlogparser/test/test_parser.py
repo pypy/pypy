@@ -6,9 +6,9 @@ from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
 from rpython.jit.backend.detect_cpu import autodetect_main_model
 
-
 def parse(input, **kwds):
     return SimpleParser.parse_from_input(input, **kwds)
+
 
 def test_parse():
     ops = parse('''
@@ -371,4 +371,4 @@ def test_parse_from_inside():
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
     assert len(f.chunks) == 2
-
+    
