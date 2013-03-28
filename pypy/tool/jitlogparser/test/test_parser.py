@@ -389,9 +389,11 @@ def test_import_log_on_pypy():
         env={'PYPYLOG': 'jit-log-opt,jit-backend:%s' % log_filename})
     log, loops = import_log(log_filename)
     parse_log_counts(extract_category(log, 'jit-backend-count'), loops)
+    lib_re = re.compile("file '.*lib-python.*'")
     for loop in loops:
         loop.force_asm()
-        if re.search("file '.*lib-python.*'", loop.comment):
+        if lib_re.search(loop.comment) or \
+                lib_re.search(loop.operations[0].repr()):
             # do not care for _optimize_charset or _mk_bitmap
             continue
         else:
