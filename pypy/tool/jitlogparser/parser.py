@@ -447,6 +447,17 @@ def parse_log_counts(input, loops):
             num, count = line.split(':', 2)
             mapping[num].count = int(count)
 
+
+def mangle_descr(descr):
+    if descr.startswith('TargetToken('):
+        return descr[len('TargetToken('):-1]
+    if descr.startswith('<Guard'):
+        return 'bridge-' + str(int(descr[len('<Guard0x'):-1], 16))
+    if descr.startswith('<Loop'):
+        return 'entry-' + descr[len('<Loop'):-1]
+    return descr.replace(" ", '-')
+
+
 if __name__ == '__main__':
     import_log(sys.argv[1])
     
