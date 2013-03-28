@@ -30,7 +30,7 @@ def binary_helper_call(name):
 class AbstractARMv7Builder(object):
 
     def __init__(self):
-        pass
+        self.is_armv6 = False
 
     def align(self):
         while(self.currpos() % FUNC_ALIGN != 0):
