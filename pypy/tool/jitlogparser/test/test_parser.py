@@ -1,8 +1,3 @@
-import re
-import os.path
-import tempfile
-import subprocess
-
 from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            Function, adjust_bridges,
                                            import_log, split_trace, Op,
@@ -10,7 +5,6 @@ from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
 from rpython.jit.backend.detect_cpu import autodetect_main_model
-from rpython.tool.logparser import extract_category
 
 
 def parse(input, **kwds):
@@ -378,24 +372,3 @@ def test_parse_from_inside():
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
     assert len(f.chunks) == 2
-    
-def test_import_log_on_pypy():
-    ''' Test import_log and parse_log_counts on a log from actual pypy run
-    '''
-    log_filename = tempfile.mktemp()
-    pypy = '/Users/kostia/programming/pypy/pypy-c' # FIXME
-    subprocess.check_call([pypy, 
-        os.path.join(os.path.dirname(__file__), 'y.py')],
-        env={'PYPYLOG': 'jit-log-opt,jit-backend:%s' % log_filename})
-    log, loops = import_log(log_filename)
-    parse_log_counts(extract_category(log, 'jit-backend-count'), loops)
-    lib_re = re.compile("file '.*lib-python.*'")
-    for loop in loops:
-        loop.force_asm()
-        if lib_re.search(loop.comment) or \
-                lib_re.search(loop.operations[0].repr()):
-            # do not care for _optimize_charset or _mk_bitmap
-            continue
-        else:
-            import pdb; pdb.set_trace()
-
