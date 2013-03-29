@@ -257,7 +257,7 @@ def report_abort_info(info):
     header = info[0]
     f = cStringIO.StringIO()
     if len(info) > 1:
-        print >> f, 'Traceback from detected conflict:'
+        print >> f, 'Detected conflict:'
         for tb in info[1:]:
             filename = tb[0]
             coname = tb[1]
