@@ -138,6 +138,7 @@ class AppTestRCTime:
         raises(TypeError, rctime.asctime, (1, 2))
         raises(TypeError, rctime.asctime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
         raises(TypeError, rctime.asctime, "foo")
+        raises(ValueError, rctime.asctime, (1900, -1, 1, 0, 0, 0, 0, 1, -1))
         res = rctime.asctime()
         assert isinstance(res, str)
         rctime.asctime(rctime.localtime())
