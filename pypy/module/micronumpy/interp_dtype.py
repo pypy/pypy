@@ -453,7 +453,7 @@ class DtypeCache(object):
             w_box_type=space.gettypefor(interp_boxes.W_UInt64Box),
         )
         self.w_float32dtype = W_Dtype(
-            types.Float32(),
+            types.Float32_instance,
             num=11,
             kind=FLOATINGLTR,
             name="float32",
@@ -461,7 +461,7 @@ class DtypeCache(object):
             w_box_type=space.gettypefor(interp_boxes.W_Float32Box),
         )
         self.w_float64dtype = W_Dtype(
-            types.Float64(),
+            types.Float64_instance,
             num=12,
             kind=FLOATINGLTR,
             name="float64",
@@ -494,7 +494,7 @@ class DtypeCache(object):
         )
         if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
             self.w_longdouble = W_Dtype(
-                types.Float80(),
+                types.Float80_instance,
                 num=13,
                 kind=FLOATINGLTR,
                 name="",

@@ -1003,6 +1003,7 @@ class Float32(BaseType, Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
+Float32_instance = Float32()
 
 class NonNativeFloat32(BaseType, NonNativeFloat):
     _attrs_ = ()
@@ -1025,6 +1026,7 @@ class Float64(BaseType, Float):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
+Float64_instance = Float64()
 
 class NonNativeFloat64(BaseType, NonNativeFloat):
     _attrs_ = ()
@@ -1097,8 +1099,7 @@ class ComplexFloating(object):
 
     @specialize.argtype(1)
     def box_component(self, value):
-        return self.ComponentBoxType(
-            rffi.cast(self.T, value))
+        return self.FloatType.box(value)
 
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
@@ -1541,7 +1542,7 @@ class Complex64(ComplexFloating, BaseType):
 
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Complex64Box
-    ComponentBoxType = interp_boxes.W_Float32Box
+    FloatType = Float32_instance
 
 NonNativeComplex64 = Complex64
 
@@ -1550,7 +1551,7 @@ class Complex128(ComplexFloating, BaseType):
 
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
-    ComponentBoxType = interp_boxes.W_Float64Box
+    FloatType = Float64_instance
 
 NonNativeComplex128 = Complex128
 
@@ -1572,6 +1573,7 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
             result = StringBuilder(10)
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
+    Float80_instance = Float80()
     NonNativeFloat80 = Float80
 
 
@@ -1580,7 +1582,7 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
 
         T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_CLongDoubleBox
-        ComponentBoxType = interp_boxes.W_LongDoubleBox
+        FloatType = Float80_instance
     NonNativeComplex160 = Complex160
 
     if interp_boxes.long_double_size in (12, 16):
