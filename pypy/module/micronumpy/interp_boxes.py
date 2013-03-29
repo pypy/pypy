@@ -65,6 +65,14 @@ class ComplexBox(object):
     def convert_imag_to(self, dtype):
         return dtype.box(self.imag)
 
+    def set_real(self, box):
+        assert isinstance(box, self._COMPONENTS_BOX)
+        self.real = box.value
+
+    def set_imag(self, box):
+        assert isinstance(box, self._COMPONENTS_BOX)
+        self.imag = box.value
+
 
 class W_GenericBox(W_Root):
     _attrs_ = ()

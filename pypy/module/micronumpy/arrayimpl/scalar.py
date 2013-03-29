@@ -71,18 +71,24 @@ class Scalar(base.BaseArrayImplementation):
 
     def set_real(self, space, orig_array, w_val):
         w_arr = convert_to_array(space, w_val)
-        dtype = self.dtype.float_type or self.dtype
         if len(w_arr.get_shape()) > 0:
             raise OperationError(space.w_ValueError, space.wrap(
                 "could not broadcast input array from shape " +
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
+        value = w_arr.get_scalar_value()
         if self.dtype.is_complex_type():
-            self.value = self.dtype.itemtype.composite(
-                               w_arr.get_scalar_value().convert_to(dtype),
-                               self.value.convert_imag_to(dtype))
+            self._set_real(self.value, value)
         else:
-            self.value = w_arr.get_scalar_value()
+            self.value = value
+
+    @specialize.argtype(1)
+    def _set_real(self, box, value):
+        from pypy.module.micronumpy.interp_dtype import W_ComplexDtype
+        assert isinstance(self.dtype, W_ComplexDtype)
+        float_type = self.dtype.float_type
+        box.set_real(value.convert_to(float_type))
+
 
     def get_imag(self, orig_array):
         if self.dtype.is_complex_type():
@@ -104,14 +110,14 @@ class Scalar(base.BaseArrayImplementation):
                 "(%s) into shape ()" % (
                     ','.join([str(x) for x in w_arr.get_shape()],))))
         value = w_arr.get_scalar_value()
-        self._set_imag(value)
+        self._set_imag(self.value, value)
 
     @specialize.argtype(1)
-    def _set_imag(self, value):
+    def _set_imag(self, box, value):
         from pypy.module.micronumpy.interp_dtype import W_ComplexDtype
         assert isinstance(self.dtype, W_ComplexDtype)
-        dtype = self.dtype.float_type
-        self.value.imag = value.convert_to(dtype)
+        float_type = self.dtype.float_type
+        box.set_imag(value.convert_to(float_type))
 
     def descr_getitem(self, space, _, w_idx):
         raise OperationError(space.w_IndexError,
