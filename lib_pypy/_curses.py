@@ -12,7 +12,7 @@ typedef ... WINDOW;
 typedef ... SCREEN;
 typedef unsigned long mmask_t;
 typedef unsigned char bool;
-typedef unsigned int chtype;
+typedef unsigned long chtype;
 typedef chtype attr_t;
 
 typedef struct
@@ -121,7 +121,7 @@ int intrflush(WINDOW *, bool);
 bool isendwin(void);
 bool is_linetouched(WINDOW *, int);
 bool is_wintouched(WINDOW *);
-char * keyname(int);
+const char * keyname(int);
 int keypad(WINDOW *, bool);
 char killchar(void);
 int leaveok(WINDOW *, bool);
@@ -227,7 +227,7 @@ int tigetflag(char *);
 int tigetnum(char *);
 char * tigetstr(char *);
 int putp(const char *);
-char * tparm(char *, ...);
+char * tparm(const char *, ...);
 int getattrs(const WINDOW *);
 int getcurx(const WINDOW *);
 int getcury(const WINDOW *);
@@ -245,7 +245,7 @@ bool wenclose(const WINDOW *, int, int);
 int mouseinterval(int);
 
 void setsyx(int y, int x);
-char *unctrl(chtype);
+const char *unctrl(chtype);
 int use_default_colors(void);
 
 int has_key(int);
@@ -273,7 +273,7 @@ PANEL *new_panel(WINDOW *);
 PANEL *panel_above(const PANEL *);
 PANEL *panel_below(const PANEL *);
 int set_panel_userptr(PANEL *, void *);
-void *panel_userptr(const PANEL *);
+const void *panel_userptr(const PANEL *);
 int move_panel(PANEL *, int, int);
 int replace_panel(PANEL *,WINDOW *);
 int panel_hidden(const PANEL *);
