@@ -42,7 +42,11 @@ class AbstractARMv7Builder(object):
 
     def PUSH(self, regs, cond=cond.AL):
         assert reg.sp.value not in regs
-        instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
+        instr = 0
+        if len(regs) == 1:
+            instr = cond << 28 | 0x52D0004 | (regs[0] & 0xF)  << 12
+        else:
+            instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
         self.write32(instr)
 
     def VPUSH(self, regs, cond=cond.AL):
