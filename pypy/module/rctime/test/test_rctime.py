@@ -155,6 +155,11 @@ class AppTestRCTime:
                               (0,) * 8) == 'Mon Jan  1 00:00:00 12345'
         assert rctime.asctime((123456789,) +
                               (0,) * 8) == 'Mon Jan  1 00:00:00 123456789'
+        sizeof_int = 4
+        bigyear = (1 << 8 * sizeof_int - 1) - 1
+        asc = rctime.asctime((bigyear, 6, 1) + (0,)*6)
+        assert asc[-len(str(bigyear)):] == str(bigyear)
+        raises(OverflowError, rctime.asctime, (bigyear + 1,) + (0,)*8)
 
     def test_accept2dyear_access(self):
         import time as rctime
