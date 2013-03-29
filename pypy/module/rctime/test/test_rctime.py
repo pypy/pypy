@@ -43,6 +43,15 @@ class AppTestRCTime:
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
         raises(ValueError, rctime.ctime, 1E200)
+        for year in [-100, 100, 1000, 2000, 10000]:
+            try:
+                testval = rctime.mktime((year, 1, 10) + (0,)*6)
+            except (ValueError, OverflowError):
+                # If mktime fails, ctime will fail too.  This may happen
+                # on some platforms.
+                pass
+            else:
+                assert rctime.ctime(testval)[20:] == str(year)
 
     def test_gmtime(self):
         import time as rctime
@@ -138,6 +147,13 @@ class AppTestRCTime:
             assert rctime.ctime(t) != rctime.asctime(rctime.gmtime(t))
         ltime = rctime.localtime()
         assert rctime.asctime(tuple(ltime)) == rctime.asctime(ltime)
+
+    def test_asctime_large_year(self):
+        import time as rctime
+        assert rctime.asctime((12345,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 12345'
+        assert rctime.asctime((123456789,) +
+                              (0,) * 8) == 'Mon Jan  1 00:00:00 123456789'
 
     def test_accept2dyear_access(self):
         import time as rctime

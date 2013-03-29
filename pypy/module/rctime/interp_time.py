@@ -167,10 +167,8 @@ if cConfig.has_gettimeofday:
 TM_P = lltype.Ptr(tm)
 c_clock = external('clock', [rffi.TIME_TP], clock_t)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
-c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
-c_asctime = external('asctime', [TM_P], rffi.CCHARP)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
@@ -496,16 +494,13 @@ def ctime(space, w_seconds=None):
     not present, current time as returned by localtime() is used."""
 
     seconds = _get_inttime(space, w_seconds)
-
-    t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
-    t_ref[0] = seconds
-    p = c_ctime(t_ref)
-    lltype.free(t_ref, flavor='raw')
+    with lltype.scoped_alloc(rffi.TIME_TP.TO, 1) as t_ref:
+        t_ref[0] = seconds
+        p = c_localtime(t_ref)
     if not p:
         raise OperationError(space.w_ValueError,
-            space.wrap("unconvertible time"))
-
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+                             space.wrap("unconvertible time"))
+    return _asctime(space, p)
 
 # by now w_tup is an optional argument (and not *args)
 # because of the ext. compiler bugs in handling such arguments (*args, **kwds)
@@ -516,12 +511,25 @@ def asctime(space, w_tup=None):
     When the time tuple is not present, current time as returned by localtime()
     is used."""
     buf_value = _gettmarg(space, w_tup)
-    p = c_asctime(buf_value)
-    if not p:
-        raise OperationError(space.w_ValueError,
-            space.wrap("unconvertible time"))
+    return _asctime(space, buf_value)
 
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+_wday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+_mon_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+              "Oct", "Nov", "Dec"]
+
+def _asctime(space, t_ref):
+    # Inspired by Open Group reference implementation available at
+    # http://pubs.opengroup.org/onlinepubs/009695399/functions/asctime.html
+    w, getif = space.wrap, rffi.getintfield
+    args = [w(_wday_names[getif(t_ref, 'c_tm_wday')]),
+            w(_mon_names[getif(t_ref, 'c_tm_mon')]),
+            w(getif(t_ref, 'c_tm_mday')),
+            w(getif(t_ref, 'c_tm_hour')),
+            w(getif(t_ref, 'c_tm_min')),
+            w(getif(t_ref, 'c_tm_sec')),
+            w(getif(t_ref, 'c_tm_year') + 1900)]
+    return space.mod(w("%.3s %.3s%3d %.2d:%.2d:%.2d %d"),
+                     space.newtuple(args))
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
