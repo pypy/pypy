@@ -166,6 +166,17 @@ class AppTestRCTime:
         finally:
             rctime.accept2dyear = accept2dyear
 
+    def test_accept2dyear_bad(self):
+        import time as rctime
+        class X:
+            def __bool__(self):
+                raise RuntimeError('boo')
+        orig, rctime.accept2dyear = rctime.accept2dyear, X()
+        try:
+            raises(RuntimeError, rctime.asctime, (200,)  + (0,) * 8)
+        finally:
+            rctime.accept2dyear = orig
+
     def test_struct_time(self):
         import time as rctime
         raises(TypeError, rctime.struct_time)

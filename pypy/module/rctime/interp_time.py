@@ -432,7 +432,7 @@ def _gettmarg(space, w_tup, allowNone=True):
 
     if y < 1000:
         w_accept2dyear = _get_module_object(space, "accept2dyear")
-        accept2dyear = space.int_w(w_accept2dyear)
+        accept2dyear = space.is_true(w_accept2dyear)
 
         if accept2dyear:
             if 69 <= y <= 99:
