@@ -250,7 +250,7 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         raise NotImplementedError
 
-    max_size_of_gen_load_int = 2 * WORD
+    max_size_of_gen_load_int = 2
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
@@ -275,7 +275,7 @@ class AbstractARMv6Builder(AbstractARMv7Builder):
           self.MOV_rr(reg.pc.value, reg.pc.value)
           self.write32(value)
 
-    max_size_of_gen_load_int = 4 * WORD
+    max_size_of_gen_load_int = 4
     ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
     def _load_by_shifting(self, r, value, c=cond.AL):
         # to be sure it is only called for the correct cases
