@@ -182,14 +182,15 @@ class AppTestWidthPrec:
         assert "%3s" % a == '  a'
         assert "%-3s"% a == 'a  '
 
-    def test_prec_cornercase(self):
+    def test_prec_zero(self):
         z = 0
-        assert "%.0x" % z == ''
-        assert "%.x" % z == ''
-        assert "%.0d" % z == ''
-        assert "%.i" % z == ''
-        assert "%.0o" % z == ''
-        assert "%.o" % z == ''
+        assert "%.0x" % z == '0'
+        assert "%.0X" % z == '0'
+        assert "%.x" % z == '0'
+        assert "%.0d" % z == '0'
+        assert "%.i" % z == '0'
+        assert "%.0o" % z == '0'
+        assert "%.o" % z == '0'
 
     def test_prec_string(self):
         a = 'a'
