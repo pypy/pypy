@@ -6,6 +6,9 @@ Getting Started with RPython
 
 
 This should really write a word of two about **WHAT** is RPython
+
+XXX ltratt blog post
+XXX "how to write interpreters" links
 XXX
 XXX
 XXX
