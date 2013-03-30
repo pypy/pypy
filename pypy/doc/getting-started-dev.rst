@@ -16,7 +16,7 @@ XXX
 .. _`try out the translator`:
 
 Trying out the translator
-------------------------- 
+-------------------------
 
 The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static RPython programs into low-level code (in particular it can
@@ -37,7 +37,7 @@ Test snippets of translatable code are provided in the file
 
     >>> t = Translation(snippet.is_perfect_number, [int])
     >>> t.view()
-        
+
 After that, the graph viewer pops up, that lets you interactively inspect the
 flow graph. To move around, click on something that you want to inspect.
 To get help about how to use it, press 'H'. To close it again, press 'Q'.
@@ -92,10 +92,10 @@ from the interactive translator shells as follows::
 The object returned by ``compile_cli`` or ``compile_jvm``
 is a wrapper around the real
 executable: the parameters are passed as command line arguments, and
-the returned value is read from the standard output.  
+the returned value is read from the standard output.
 
 Once you have compiled the snippet, you can also try to launch the
-executable directly from the shell. You will find the 
+executable directly from the shell. You will find the
 executable in one of the ``/tmp/usession-*`` directories::
 
     # For CLI:
