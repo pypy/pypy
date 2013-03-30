@@ -10,7 +10,7 @@
 
 import operator
 try:
-    from threading import _get_ident as _thread_ident
+    from _thread import _get_ident as _thread_ident
 except ImportError:
     def _thread_ident():
         return -1
