@@ -1172,10 +1172,10 @@ class AppTestW_ListObject(object):
         # strategies, to avoid surprizes depending on the strategy.
         class X: pass
         for base, arg in [
-                (list, []), (list, [5]), (list, ['x']), (list, [X]), (list, [u'x']),
-                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]), (set, [u'x']),
+                (list, []), (list, [5]), (list, ['x']), (list, [X]), (list, ['x']),
+                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]), (set, ['x']),
                 (dict, []), (dict, [(5,6)]), (dict, [('x',7)]), (dict, [(X,8)]),
-                (dict, [(u'x', 7)]),
+                (dict, [('x', 7)]),
                 ]:
             print(base, arg)
             class SubClass(base):
@@ -1258,17 +1258,17 @@ class AppTestW_ListObject(object):
         assert len(l1) == 0
 
     def test_use_method_for_wrong_object(self):
-        raises(TypeError, list.append.im_func, 1, 2)
+        raises(TypeError, list.append, 1, 2)
 
 
     def test_issue1266(self):
-        l = range(1)
+        l = list(range(1))
         l.pop()
         # would previously crash
         l.append(1)
         assert l == [1]
 
-        l = range(1)
+        l = list(range(1))
         l.pop()
         # would previously crash
         l.reverse()
@@ -1277,17 +1277,17 @@ class AppTestW_ListObject(object):
     def test_issue1266_ovf(self):
         import sys
 
-        l = range(0, sys.maxint, sys.maxint)
-        l.append(sys.maxint)
+        l = list(range(0, sys.maxsize, sys.maxsize))
+        l.append(sys.maxsize)
         # -2 would be next in the range sequence if overflow were
         # allowed
         l.append(-2)
-        assert l == [0, sys.maxint, -2]
+        assert l == [0, sys.maxsize, -2]
         assert -2 in l
 
-        l = range(-sys.maxint, sys.maxint, sys.maxint // 10)
+        l = list(range(-sys.maxsize, sys.maxsize, sys.maxsize // 10))
         item11 = l[11]
-        assert l[::11] == [-sys.maxint, item11]
+        assert l[::11] == [-sys.maxsize, item11]
         assert item11 in l[::11]
 
 
