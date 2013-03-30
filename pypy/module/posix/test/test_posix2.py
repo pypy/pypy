@@ -885,8 +885,8 @@ class AppTestPosix:
             bytes_dir = self.bytes_dir
             if bytes_dir is None:
                 skip("encoding not good enough")
-            dest = bytes_dir + b"%s/file.txt"
-            posix.symlink(bytes_dir + b"%s/somefile", dest)
+            dest = bytes_dir + b"/file.txt"
+            posix.symlink(bytes_dir + b"/somefile", dest)
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
