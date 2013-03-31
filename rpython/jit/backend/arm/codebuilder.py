@@ -267,7 +267,7 @@ class AbstractARMv6Builder(AbstractARMv7Builder):
       AbstractARMv7Builder.__init__(self)
 
     def gen_load_int(self, r, value, cond=cond.AL):
-      from pypy.jit.backend.arm.conditions import AL
+      from rpython.jit.backend.arm.conditions import AL
       if cond != AL or 0 <= value <= 0xFFFF:
           self._load_by_shifting(r, value, cond)
       else:
