@@ -299,19 +299,10 @@ class ResOpAssembler(BaseAssembler):
                                             is_guard_not_invalidated=True)
 
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
-        # The backend's logic assumes that the target code is in a piece of
-        # assembler that was also called with the same number of arguments,
-        # so that the locations [ebp+8..] of the input arguments are valid
-        # stack locations both before and after the jump.
-        #
         target_token = op.getdescr()
-        target = target_token._ll_loop_code
         assert isinstance(target_token, TargetToken)
+        target = target_token._ll_loop_code
         assert fcond == c.AL
-        my_nbargs = self.current_clt._debug_nbargs
-        target_nbargs = target_token._arm_clt._debug_nbargs
-        assert my_nbargs == target_nbargs
-
         if target_token in self.target_tokens_currently_compiling:
             self.mc.B_offs(target, fcond)
         else:
@@ -576,10 +567,12 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, fcond)
+        return fcond
 
     def emit_op_cond_call_gc_wb_array(self, op, arglocs, regalloc, fcond):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
                                                         fcond, array=True)
+        return fcond
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, fcond=c.AL, array=False,
                                                             is_frame=False):
