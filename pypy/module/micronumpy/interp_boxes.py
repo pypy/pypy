@@ -284,8 +284,8 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
-        if isinstance (read_val, W_StringBox):
+        read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype.native, dtype)
+        if isinstance(read_val, W_StringBox):
             # StringType returns a str
             return space.wrap(dtype.itemtype.to_str(read_val))
         return read_val
@@ -298,7 +298,7 @@ class W_VoidBox(W_FlexibleBox):
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
         dtype.itemtype.store(self.arr, self.ofs, ofs,
-                             dtype.coerce(space, w_value))
+                dtype.coerce(space, w_value), dtype.native)
 
     def convert_to(self, dtype):
         # if we reach here, the record fields are guarenteed to match.

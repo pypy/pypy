@@ -176,22 +176,47 @@ class Primitive(object):
     def _read(self, storage, i, offset):
         return raw_storage_getitem(self.spec.T, storage, i + offset)
 
-    def read(self, arr, i, offset, dtype=None):
-        return self.box(self._read(arr.storage, i, offset))
+    def _read_nn(self, storage, i, offset):
+        res = raw_storage_getitem(self.spec.T, storage, i + offset)
+        return byteswap(res)
 
-    def read_bool(self, arr, i, offset):
-        return bool(self.for_computation(self._read(arr.storage, i, offset)))
+    @specialize.arg(4)
+    def read(self, arr, i, offset, native, dtype=None):
+        if native:
+            value = self._read(arr.storage, i, offset)
+        else:
+            value = self._read_nn(arr.storage, i, offset)
+        return self.box(value)
+
+    def read_bool(self, arr, i, offset, native):
+        if native:
+            value = self.for_computation(self._read(arr.storage, i, offset))
+        else:
+            value = self.for_computation(self._read_nn(arr.storage, i, offset))
+        return bool(value)
 
     def _write(self, storage, i, offset, value):
         raw_storage_setitem(storage, i + offset, value)
 
-    def store(self, arr, i, offset, box):
-        self._write(arr.storage, i, offset, self.unbox(box))
+    def _write_nn(self, storage, i, offset, value):
+        value = byteswap(value)
+        raw_storage_setitem(storage, i + offset, value)
 
-    def fill(self, storage, width, box, start, stop, offset):
+    @specialize.arg(5)
+    def store(self, arr, i, offset, box, native):
+        if native:
+            self._write(arr.storage, i, offset, self.unbox(box))
+        else:
+            self._write_nn(arr.storage, i, offset, self.unbox(box))
+
+    @specialize.arg(7)
+    def fill(self, storage, width, box, start, stop, offset, native):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
-            self._write(storage, i, offset, value)
+            if native:
+                self._write(storage, i, offset, value)
+            else:
+                self._write_nn(storage, i, offset, value)
 
     def runpack_str(self, s):
         v = runpack(self.format_code, s)
@@ -307,13 +332,6 @@ class Primitive(object):
 class NonNativePrimitive(Primitive):
     _mixin_ = True
 
-    def _read(self, storage, i, offset):
-        res = raw_storage_getitem(self.spec.T, storage, i + offset)
-        return byteswap(res)
-
-    def _write(self, storage, i, offset, value):
-        value = byteswap(value)
-        raw_storage_setitem(storage, i + offset, value)
 
 class Bool(BaseType, Primitive):
     _attrs_ = ()
@@ -973,14 +991,11 @@ class Float(Primitive):
         else:
             return v1 + v2
 
-class NonNativeFloat(NonNativePrimitive, Float):
-    _mixin_ = True
-
-    def _read(self, storage, i, offset):
+    def _read_nn(self, storage, i, offset):
         res = raw_storage_getitem(self.spec.T, storage, i + offset)
         return rffi.cast(lltype.Float, byteswap(res))
 
-    def _write(self, storage, i, offset, value):
+    def _write_nn(self, storage, i, offset, value):
         swapped_value = byteswap(rffi.cast(self.spec.T, value))
         raw_storage_setitem(storage, i + offset, swapped_value)
 
@@ -991,12 +1006,6 @@ class Float32(BaseType, Float):
     format_code = "f"
 Float32_instance = Float32()
 
-class NonNativeFloat32(BaseType, NonNativeFloat):
-    _attrs_ = ()
-    spec = float32_spec
-    BoxType = interp_boxes.W_Float32Box
-    format_code = "f"
-
 class Float64(BaseType, Float):
     _attrs_ = ()
     spec = float64_spec
@@ -1004,11 +1013,6 @@ class Float64(BaseType, Float):
     format_code = "d"
 Float64_instance = Float64()
 
-class NonNativeFloat64(BaseType, NonNativeFloat):
-    _attrs_ = ()
-    spec = float64_spec
-    BoxType = interp_boxes.W_Float64Box
-    format_code = "d"
 
 class ComplexFloating(object):
     _mixin_ = True
@@ -1055,7 +1059,7 @@ class ComplexFloating(object):
         real,imag = self.for_computation(self.unbox(box))
         return space.newcomplex(real, imag)
 
-    def read_bool(self, arr, i, offset):
+    def read_bool(self, arr, i, offset, native):
         v = self.for_computation(self._read(arr.storage, i, offset))
         return bool(v[0]) or bool(v[1])
 
@@ -1086,7 +1090,7 @@ class ComplexFloating(object):
         real, imag = box.real, box.imag
         return real, imag
 
-    def store(self, arr, i, offset, box):
+    def store(self, arr, i, offset, box, native):
         real, imag = self.unbox(box)
         raw_storage_setitem(arr.storage, i+offset, real)
         raw_storage_setitem(arr.storage,
@@ -1098,7 +1102,7 @@ class ComplexFloating(object):
                               i + offset + self.FloatType.get_element_size())
         return real, imag
 
-    def read(self, arr, i, offset, dtype=None):
+    def read(self, arr, i, offset, native, dtype=None):
         real, imag = self._read(arr.storage, i, offset)
         return self.box_complex(real, imag)
 
@@ -1583,12 +1587,12 @@ class StringType(BaseType, BaseStringType):
         return interp_boxes.W_StringBox(arr,  0, arr.dtype)
 
     @jit.unroll_safe
-    def store(self, arr, i, offset, box):
+    def store(self, arr, i, offset, box, native):
         assert isinstance(box, interp_boxes.W_StringBox)
         for k in range(min(self.size, box.arr.size-offset)):
             arr.storage[k + i] = box.arr.storage[k + offset]
 
-    def read(self, arr, i, offset, dtype=None):
+    def read(self, arr, i, offset, native, dtype=None):
         if dtype is None:
             dtype = arr.dtype
         return interp_boxes.W_StringBox(arr, i + offset, dtype)
@@ -1654,7 +1658,7 @@ class RecordType(BaseType):
     def get_element_size(self):
         return self.size
 
-    def read(self, arr, i, offset, dtype=None):
+    def read(self, arr, i, offset, native, dtype=None):
         if dtype is None:
             dtype = arr.dtype
         return interp_boxes.W_VoidBox(arr, i + offset, dtype)
@@ -1678,11 +1682,11 @@ class RecordType(BaseType):
             ofs, itemtype = self.offsets_and_fields[i]
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
-            itemtype.store(arr, 0, ofs, w_box)
+            itemtype.store(arr, 0, ofs, w_box, subdtype.native)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
-    def store(self, arr, i, ofs, box):
+    def store(self, arr, i, ofs, box, native):
         assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(self.get_element_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
@@ -1697,7 +1701,12 @@ class RecordType(BaseType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
+            dtype = box.arr.dtype
+            if dtype.native:
+                p_box = tp.read(box.arr, box.ofs, ofs, True)
+            else:
+                p_box = tp.read(box.arr, box.ofs, ofs, False)
+            pieces.append(tp.str_format(p_box))
         pieces.append(")")
         return "".join(pieces)
 
@@ -1732,10 +1741,7 @@ def _setup():
 _setup()
 del _setup
 
-class BaseFloat16(Float):
-    _mixin_ = True
-
-    _attrs_ = ()
+class Float16(BaseType, Float):
     _STORAGE_T = rffi.USHORT
 
     spec = float16_spec
@@ -1759,7 +1765,6 @@ class BaseFloat16(Float):
         swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
-class Float16(BaseType, BaseFloat16):
     def _read(self, storage, i, offset):
         hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
         return float_unpack(r_ulonglong(hbits), 2)
@@ -1769,12 +1774,11 @@ class Float16(BaseType, BaseFloat16):
         raw_storage_setitem(storage, i + offset,
                 rffi.cast(self._STORAGE_T, hbits))
 
-class NonNativeFloat16(BaseType, BaseFloat16):
-    def _read(self, storage, i, offset):
+    def _read_nn(self, storage, i, offset):
         hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
         return float_unpack(r_ulonglong(byteswap(hbits)), 2)
 
-    def _write(self, storage, i, offset, value):
+    def _write_nn(self, storage, i, offset, value):
         hbits = float_pack(value,2)
         raw_storage_setitem(storage, i + offset,
                 byteswap(rffi.cast(self._STORAGE_T, hbits)))

@@ -70,9 +70,7 @@ class W_Dtype(W_Root):
         """NOT RPYTHON
         Return the non-native version of this dtype
         """
-        itemtypename = self.itemtype.__class__.__name__
-        itemtype = getattr(types, 'NonNative' + itemtypename)()
-        return W_Dtype(itemtype, self.num, self.kind, name, self.char,
+        return W_Dtype(self.itemtype, self.num, self.kind, name, self.char,
                 self.BoxType, native=False)
 
 
@@ -90,16 +88,30 @@ class W_Dtype(W_Root):
         return self.itemtype.coerce(space, self, w_item)
 
     def getitem(self, arr, i):
-        return self.itemtype.read(arr, i, 0)
+        if self.native:
+            return self.itemtype.read(arr, i, 0, True)
+        else:
+            return self.itemtype.read(arr, i, 0, False)
 
     def getitem_bool(self, arr, i):
-        return self.itemtype.read_bool(arr, i, 0)
+        if self.native:
+            return self.itemtype.read_bool(arr, i, 0, True)
+        else:
+            return self.itemtype.read_bool(arr, i, 0, False)
 
     def setitem(self, arr, i, box):
-        self.itemtype.store(arr, i, 0, box)
+        if self.native:
+            self.itemtype.store(arr, i, 0, box, True)
+        else:
+            self.itemtype.store(arr, i, 0, box, False)
 
     def fill(self, storage, box, start, stop):
-        self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)
+        if self.native:
+            self.itemtype.fill(storage, self.get_size(), box, start, stop, 0,
+                    True)
+        else:
+            self.itemtype.fill(storage, self.get_size(), box, start, stop, 0,
+                    False)
 
     def get_name(self):
         if self.char == 'S':
