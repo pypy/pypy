@@ -682,6 +682,7 @@ class Float(Primitive):
                             rfloat.DTSF_STR_PRECISION)
 
     @staticmethod
+    @specialize.argtype(0)
     def for_computation(v):
         return float(v)
 
@@ -992,19 +993,9 @@ Float32_instance = Float32()
 
 class NonNativeFloat32(BaseType, NonNativeFloat):
     _attrs_ = ()
-
-    T = rffi.FLOAT
     spec = float32_spec
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
-
-    def read_bool(self, arr, i, offset):
-        # it's not clear to me why this is needed
-        # but a hint might be that calling for_computation(v)
-        # causes translation to fail, and the assert is necessary
-        v = self._read(arr.storage, i, offset)
-        assert isinstance(v, float)
-        return bool(v)
 
 class Float64(BaseType, Float):
     _attrs_ = ()
