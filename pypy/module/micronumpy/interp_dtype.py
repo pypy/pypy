@@ -66,6 +66,16 @@ class W_Dtype(W_Root):
         self.native = native
         self.float_type = None
 
+    def _nonnative(self, name):
+        """NOT RPYTHON
+        Return the non-native version of this dtype
+        """
+        itemtypename = self.itemtype.__class__.__name__
+        itemtype = getattr(types, 'NonNative' + itemtypename)()
+        return W_Dtype(itemtype, self.num, self.kind, name, self.char,
+                self.BoxType, native=False)
+
+
     @specialize.argtype(1)
     def box(self, value):
         return self.itemtype.box(value)
@@ -636,21 +646,13 @@ class DtypeCache(object):
             self.dtypes_by_name[byteorder_prefix + can_name] = dtype
             self.dtypes_by_name['=' + can_name] = dtype
             new_name = nonnative_byteorder_prefix + can_name
-            itemtypename = dtype.itemtype.__class__.__name__
-            itemtype = getattr(types, 'NonNative' + itemtypename)()
-            self.dtypes_by_name[new_name] = W_Dtype(
-                itemtype,
-                dtype.num, dtype.kind, new_name, dtype.char, dtype.BoxType,
-                native=False)
+            self.dtypes_by_name[new_name] = dtype._nonnative(new_name)
             if dtype.kind != dtype.char:
                 can_name = dtype.char
                 self.dtypes_by_name[byteorder_prefix + can_name] = dtype
                 self.dtypes_by_name['=' + can_name] = dtype
                 new_name = nonnative_byteorder_prefix + can_name
-                self.dtypes_by_name[new_name] = W_Dtype(
-                    itemtype,
-                    dtype.num, dtype.kind, new_name, dtype.char, dtype.BoxType,
-                    native=False)
+                self.dtypes_by_name[new_name] = dtype._nonnative(new_name)
 
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
