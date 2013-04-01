@@ -39,7 +39,12 @@ class OperationError(Exception):
         from pypy.objspace.std.typeobject import W_TypeObject
         self.w_type = w_type
         self._w_value = w_value
-        if isinstance(w_type, W_TypeObject):
+        # HACK: isinstance(w_type, W_TypeObject) won't translate under
+        # the fake objspace, but w_type.__class__ is W_TypeObject does
+        # and short circuits to a False constant there, causing the
+        # isinstance to be ignored =[
+        if (w_type is not None and w_type.__class__ is W_TypeObject and
+            isinstance(w_type, W_TypeObject)):
             self.setup_context(w_type.space)
         if not we_are_translated():
             self.debug_excs = []
