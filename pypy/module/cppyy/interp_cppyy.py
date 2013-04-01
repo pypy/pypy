@@ -58,7 +58,7 @@ def scope_byname(space, name):
     except KeyError:
         pass
 
-    opaque_handle = capi.c_get_scope_opaque(true_name)
+    opaque_handle = capi.c_get_scope_opaque(space, true_name)
     assert lltype.typeOf(opaque_handle) == capi.C_SCOPE
     if opaque_handle:
         final_name = capi.c_final_name(opaque_handle)
@@ -496,7 +496,7 @@ class W_CPPOverload(W_Root):
 
         # The following code tries out each of the functions in order. If
         # argument conversion fails (or simply if the number of arguments do
-        # not match, that will lead to an exception, The JIT will snip out
+        # not match), that will lead to an exception, The JIT will snip out
         # those (always) failing paths, but only if they have no side-effects.
         # A second loop gathers all exceptions in the case all methods fail
         # (the exception gathering would otherwise be a side-effect as far as
@@ -795,7 +795,7 @@ class W_CPPNamespace(W_CPPScope):
         # The backend can filter by returning empty strings. Special care is
         # taken for functions, which need not be unique (overloading).
         alldir = []
-        for i in range(capi.c_num_scopes(self)):
+        for i in range(capi.c_num_scopes(self.space, self)):
             sname = capi.c_scope_name(self, i)
             if sname: alldir.append(self.space.wrap(sname))
         allmeth = {}
@@ -1139,11 +1139,11 @@ def wrap_cppobject(space, rawobject, cppclass,
     # cast to actual cast if requested and possible
     w_pycppclass = space.w_None
     if do_cast and rawobject:
-        actual = capi.c_actual_class(cppclass, rawobject)
+        actual = capi.c_actual_class(space, cppclass, rawobject)
         if actual != cppclass.handle:
             try:
                 w_pycppclass = get_pythonized_cppclass(space, actual)
-                offset = capi._c_base_offset(actual, cppclass.handle, rawobject, -1)
+                offset = capi.c_base_offset1(actual, cppclass, rawobject, -1)
                 rawobject = capi.direct_ptradd(rawobject, offset)
                 w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
                 cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)

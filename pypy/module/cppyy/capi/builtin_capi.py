@@ -34,6 +34,9 @@ WLAVC_INDEX = rffi.LONG
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
 C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
 
+def verify_backend(space):
+    return True                    # by definition
+
 def direct_ptradd(ptr, offset):
     offset = rffi.cast(rffi.SIZE_T, offset)
     jit.promote(offset)
@@ -52,7 +55,7 @@ _c_num_scopes = rffi.llexternal(
     [C_SCOPE], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_num_scopes(cppscope):
+def c_num_scopes(space, cppscope):
     return _c_num_scopes(cppscope.handle)
 _c_scope_name = rffi.llexternal(
     "cppyy_scope_name",
@@ -68,11 +71,13 @@ _c_resolve_name = rffi.llexternal(
     compilation_info=backend.eci)
 def c_resolve_name(name):
     return charp2str_free(_c_resolve_name(name))
-c_get_scope_opaque = rffi.llexternal(
+_c_get_scope_opaque = rffi.llexternal(
     "cppyy_get_scope",
     [rffi.CCHARP], C_SCOPE,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
+def c_get_scope_opaque(space, name):
+    return _c_get_scope_opaque(name)
 c_get_template = rffi.llexternal(
     "cppyy_get_template",
     [rffi.CCHARP], C_TYPE,
@@ -83,7 +88,7 @@ _c_actual_class = rffi.llexternal(
     [C_TYPE, C_OBJECT], C_TYPE,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_actual_class(cppclass, cppobj):
+def c_actual_class(space, cppclass, cppobj):
     return _c_actual_class(cppclass.handle, cppobj)
 
 # memory management ----------------------------------------------------------
@@ -282,6 +287,8 @@ def c_base_offset(derived, base, address, direction):
     if derived == base:
         return 0
     return _c_base_offset(derived.handle, base.handle, address, direction)
+def c_base_offset1(derived_h, base, address, direction):
+    return _c_base_offset(derived_h, base.handle, address, direction)
 
 # method/function reflection information -------------------------------------
 _c_num_methods = rffi.llexternal(

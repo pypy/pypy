@@ -1,5 +1,5 @@
 # NOT_RPYTHON
-import cppyy
+# do not load cppyy here, see _init_pythonify()
 import types, sys
 
 
@@ -22,12 +22,7 @@ class CppyyNamespaceMeta(CppyyScopeMeta):
 class CppyyClassMeta(CppyyScopeMeta):
     pass
 
-class CppyyClass(cppyy.CPPInstance):
-    __metaclass__ = CppyyClassMeta
-
-    def __init__(self, *args, **kwds):
-        pass   # ignored, for the C++ backend, ctor == __new__ + __init__
-
+# class CppyyClass defined in _init_pythonify()
 
 class CppyyTemplateType(object):
     def __init__(self, scope, name):
@@ -36,6 +31,7 @@ class CppyyTemplateType(object):
 
     def _arg_to_str(self, arg):
         if arg == str:
+            import cppyy
             arg = cppyy._std_string_name()
         elif type(arg) != str:
             arg = arg.__name__
@@ -53,7 +49,7 @@ class CppyyTemplateType(object):
 
 def clgen_callback(name):
     return get_pycppclass(name)
-cppyy._set_class_generator(clgen_callback)
+
 
 def make_static_function(func_name, cppol):
     def function(*args):
@@ -81,6 +77,7 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
     else:
         d = dict()
         def cpp_proxy_loader(cls):
+            import cppyy
             cpp_proxy = cppyy._scope_byname(cls.__name__ != '::' and cls.__name__ or '')
             del cls.__class__._cpp_proxy
             cls._cpp_proxy = cpp_proxy
@@ -179,11 +176,13 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
         # its base class, resulting in the __set__() of its base class being called
         # by setattr(); so, store directly on the dictionary
         pycppclass.__dict__[dm_name] = cppdm
-        if cppyy._is_static(cppdm):
+        import cppyy
+        if cppyy._is_static(cppdm):     # TODO: make this a method of cppdm
             metacpp.__dict__[dm_name] = cppdm
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
+    import cppyy
     cppyy._register_class(pycppclass)
     _pythonize(pycppclass)
     return pycppclass
@@ -193,6 +192,8 @@ def make_cpptemplatetype(scope, template_name):
 
 
 def get_pycppitem(scope, name):
+    import cppyy
+
     # resolve typedefs/aliases
     full_name = (scope == gbl) and name or (scope.__name__+'::'+name)
     true_name = cppyy._resolve_name(full_name)
@@ -232,7 +233,7 @@ def get_pycppitem(scope, name):
         try:
             cppdm = scope._cpp_proxy.get_datamember(name)
             setattr(scope, name, cppdm)
-            if cppyy._is_static(cppdm):
+            if cppyy._is_static(cppdm): # TODO: make this a method of cppdm
                 setattr(scope.__class__, name, cppdm)
             pycppitem = getattr(scope, name)      # gets actual property value
         except AttributeError:
@@ -300,6 +301,8 @@ def _pythonize(pyclass):
 
     # general note: use 'in pyclass.__dict__' rather than 'hasattr' to prevent
     # adding pythonizations multiple times in derived classes
+
+    import cppyy
 
     # map __eq__/__ne__ through a comparison to None
     if '__eq__' in pyclass.__dict__:
@@ -384,21 +387,44 @@ def load_reflection_info(name):
     try:
         return _loaded_dictionaries[name]
     except KeyError:
+        import cppyy
         lib = cppyy._load_dictionary(name)
         _loaded_dictionaries[name] = lib
         return lib
     
+def _init_pythonify():
+    # cppyy should not be loaded at the module level, as that will trigger a
+    # call to space.getbuiltinmodule(), which will cause cppyy to be loaded
+    # at pypy-c startup, rather than on the "import cppyy" statement
+    import cppyy
 
-# user interface objects (note the two-step of not calling scope_byname here:
-# creation of global functions may cause the creation of classes in the global
-# namespace, so gbl must exist at that point to cache them)
-gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
-gbl.__doc__ = "Global C++ namespace."
-sys.modules['cppyy.gbl'] = gbl
+    # top-level classes
+    global CppyyClass
+    class CppyyClass(cppyy.CPPInstance):
+        __metaclass__ = CppyyClassMeta
 
-# mostly for the benefit of the CINT backend, which treats std as special
-gbl.std = make_cppnamespace(None, "std", None, False)
-sys.modules['cppyy.gbl.std'] = gbl.std
+        def __init__(self, *args, **kwds):
+            pass   # ignored, for the C++ backend, ctor == __new__ + __init__
+
+    # class generator callback
+    cppyy._set_class_generator(clgen_callback)
+
+    # user interface objects (note the two-step of not calling scope_byname here:
+    # creation of global functions may cause the creation of classes in the global
+    # namespace, so gbl must exist at that point to cache them)
+    global gbl
+    gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
+    gbl.__doc__ = "Global C++ namespace."
+
+    # mostly for the benefit of the CINT backend, which treats std as special
+    gbl.std = make_cppnamespace(None, "std", None, False)
+
+    # install for user access
+    cppyy.gbl = gbl
+
+    # install as modules to allow importing from
+    sys.modules['cppyy.gbl'] = gbl
+    sys.modules['cppyy.gbl.std'] = gbl.std
 
 # user-defined pythonizations interface
 _pythonizations = {}

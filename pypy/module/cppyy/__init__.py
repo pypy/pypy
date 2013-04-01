@@ -20,7 +20,7 @@ class Module(MixedModule):
     }
 
     appleveldefs = {
-        'gbl'                    : 'pythonify.gbl',
+        '_init_pythonify'        : 'pythonify._init_pythonify',
         'load_reflection_info'   : 'pythonify.load_reflection_info',
         'add_pythonization'      : 'pythonify.add_pythonization',
     }
@@ -33,3 +33,9 @@ class Module(MixedModule):
         # code generation is not, so give it a chance to run now
         from pypy.module.cppyy import capi
         capi.register_pythonizations(space)
+
+    def startup(self, space):
+        from pypy.module.cppyy import capi
+        capi.verify_backend(space)      # may raise ImportError
+
+        space.call_method(space.wrap(self), '_init_pythonify')

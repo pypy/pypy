@@ -523,8 +523,9 @@ class AppTestADVANCEDCPP:
         # wrong (clear from the generated code). Keep this test as it should
         # be all better in the cling/llvm world ...
 
-        if self.capi_identity == 'Reflex':   # don't test anything
-            return
+        # TODO: get the capi-identify test selection right ...
+        if self.capi_identity != 'CINT':     # don't test anything for Reflex
+             return
 
         import cppyy
 
