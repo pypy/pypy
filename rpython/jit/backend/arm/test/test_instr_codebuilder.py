@@ -2,7 +2,10 @@ from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import codebuilder
 from rpython.jit.backend.arm import conditions
 from rpython.jit.backend.arm import instructions
-from rpython.jit.backend.arm.test.support import (requires_arm_as, define_test, gen_test_function)
+from rpython.jit.backend.arm.test.support import requires_arm_as
+from rpython.jit.backend.arm.test.support import get_as_version
+from rpython.jit.backend.arm.test.support import define_test
+from rpython.jit.backend.arm.test.support import gen_test_function
 from gen import assemble
 import py
 
@@ -80,6 +83,9 @@ class TestInstrCodeBuilder(ASMTest):
         self.assert_equal('ORR r0, r7, r12, lsl #8')
 
     def test_push_one_reg(self):
+        if get_as_version() < (2, 23):
+          py.test.xfail("GNU as before version 2.23 generates encoding A1 for "
+                        "pushing only one register")
         self.cb.PUSH([r.r1.value])
         self.assert_equal('PUSH {r1}')
 
