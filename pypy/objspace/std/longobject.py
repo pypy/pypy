@@ -6,13 +6,15 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.intobject import W_IntObject, W_AbstractIntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from rpython.rlib.rbigint import rbigint, SHIFT
+from rpython.rlib.rbigint import rbigint
+from pypy.objspace.std.longtype import long_typedef
 
 
 class W_LongObject(W_AbstractIntObject):
     """This is a wrapper of rbigint."""
-    from pypy.objspace.std.longtype import long_typedef as typedef
     _immutable_fields_ = ['num']
+
+    typedef = long_typedef
 
     def __init__(w_self, l):
         w_self.num = l # instance of rbigint

@@ -7,6 +7,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.udir import udir
+from rpython.jit.backend.detect_cpu import autodetect
 
 clear_cache = rffi.llexternal(
     "__clear_cache",
@@ -41,7 +42,11 @@ class AbstractARMv7Builder(object):
 
     def PUSH(self, regs, cond=cond.AL):
         assert reg.sp.value not in regs
-        instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
+        instr = 0
+        if len(regs) == 1:
+            instr = cond << 28 | 0x52D0004 | (regs[0] & 0xF)  << 12
+        else:
+            instr = self._encode_reg_list(cond << 28 | 0x92D << 16, regs)
         self.write32(instr)
 
     def VPUSH(self, regs, cond=cond.AL):
@@ -245,25 +250,32 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         raise NotImplementedError
 
+    max_size_of_gen_load_int = 2
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
-        if self.is_armv6:
-            from pypy.jit.backend.arm.conditions import AL
-            if cond != AL or 0 <= value <= 0xFFFF:
-                self._load_by_shifting(r, value, cond)
-            else:
-                self.LDR_ri(r, reg.pc.value)
-                self.MOV_rr(reg.pc.value, reg.pc.value)
-                self.write32(value)
-        else:
-            bottom = value & 0xFFFF
-            top = value >> 16
-            self.MOVW_ri(r, bottom, cond)
-            if top:
-                self.MOVT_ri(r, top, cond)
+        bottom = value & 0xFFFF
+        top = value >> 16
+        self.MOVW_ri(r, bottom, cond)
+        if top:
+            self.MOVT_ri(r, top, cond)
 
-    max_size_of_gen_load_int = 2 * WORD
+
+class AbstractARMv6Builder(AbstractARMv7Builder):
+
+    def __init__(self):
+      AbstractARMv7Builder.__init__(self)
+
+    def gen_load_int(self, r, value, cond=cond.AL):
+      from rpython.jit.backend.arm.conditions import AL
+      if cond != AL or 0 <= value <= 0xFFFF:
+          self._load_by_shifting(r, value, cond)
+      else:
+          self.LDR_ri(r, reg.pc.value)
+          self.MOV_rr(reg.pc.value, reg.pc.value)
+          self.write32(value)
+
+    max_size_of_gen_load_int = 4
     ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
     def _load_by_shifting(self, r, value, c=cond.AL):
         # to be sure it is only called for the correct cases
@@ -276,10 +288,15 @@ class AbstractARMv7Builder(object):
             t = b | (shift << 8)
             self.ORR_ri(r, r, imm=t, cond=c)
 
+if autodetect().startswith('armv7'):
+  AbstractBuilder = AbstractARMv7Builder
+else:
+  AbstractBuilder = AbstractARMv6Builder
 
-class OverwritingBuilder(AbstractARMv7Builder):
+
+class OverwritingBuilder(AbstractBuilder):
     def __init__(self, cb, start, size):
-        AbstractARMv7Builder.__init__(self)
+        AbstractBuilder.__init__(self)
         self.cb = cb
         self.index = start
         self.end = start + size
@@ -293,9 +310,9 @@ class OverwritingBuilder(AbstractARMv7Builder):
         self.index += 1
 
 
-class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
+class InstrBuilder(BlockBuilderMixin, AbstractBuilder):
     def __init__(self):
-        AbstractARMv7Builder.__init__(self)
+        AbstractBuilder.__init__(self)
         self.init_block_builder()
         #
         # ResOperation --> offset in the assembly.
@@ -349,4 +366,4 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
         return self.get_relative_pos()
 
 
-define_instructions(AbstractARMv7Builder)
+define_instructions(AbstractBuilder)

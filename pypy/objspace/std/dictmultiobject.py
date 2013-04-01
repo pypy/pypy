@@ -12,6 +12,8 @@ from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.rlib import rerased, jit
 
+UNROLL_CUTOFF = 5
+
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
 
@@ -35,7 +37,7 @@ def w_dict_unrolling_heuristic(w_dct):
     an actual dict
     """
     return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
-                                    w_dct.length() <= jit.UNROLL_CUTOFF)
+                                    w_dct.length() <= UNROLL_CUTOFF)
 
 
 class W_DictMultiObject(W_Object):

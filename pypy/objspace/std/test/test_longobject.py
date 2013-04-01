@@ -232,13 +232,13 @@ class AppTestLong:
 
     def test_math_log(self):
         import math
-        raises(ValueError, math.log, 0) 
-        raises(ValueError, math.log, -1) 
-        raises(ValueError, math.log, -2) 
+        raises(ValueError, math.log, 0)
+        raises(ValueError, math.log, -1)
+        raises(ValueError, math.log, -2)
         raises(ValueError, math.log, -(1 << 10000))
-        #raises(ValueError, math.log, 0) 
-        raises(ValueError, math.log, -1) 
-        raises(ValueError, math.log, -2) 
+        #raises(ValueError, math.log, 0)
+        raises(ValueError, math.log, -1)
+        raises(ValueError, math.log, -2)
 
     def test_long(self):
         import sys
@@ -346,6 +346,19 @@ class AppTestLong:
 
     def test_base_overflow(self):
         raises(ValueError, int, '42', 2**63)
+
+    def test_long_real(self):
+        class A(int): pass
+        b = A(5).real
+        assert type(b) is int
+
+    def test__int__(self):
+        class A(int):
+            def __int__(self):
+                return 42
+
+        assert int(int(3)) == int(3)
+        assert int(A(13)) == 42
 
     def test_large_identity(self):
         import sys

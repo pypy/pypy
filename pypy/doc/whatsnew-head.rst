@@ -42,6 +42,10 @@ Improved RPython typing
 .. branch: rpython-bytearray
 Rudimentary support for bytearray in RPython
 
+.. branch: refactor-call_release_gil
+Fix a bug which casused cffi to return the wrong result when calling a C
+function which calls a Python callback which forces the frames
+
 .. branches we don't care about
 .. branch: autoreds
 .. branch: reflex-support

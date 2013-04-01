@@ -830,6 +830,8 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     d = {}
     exec func_code.compile() in d
     f = d['f']
+    f.__module__ = func.__module__
+    # necessary for unique identifiers for pickling
     f.func_name = func.func_name
     if unwrap_spec is None:
         unwrap_spec = {}
@@ -896,9 +898,9 @@ class interp2app(W_Root):
         for i, (name, defaultval) in enumerate(self._staticdefs):
             if name.startswith('w_'):
                 assert defaultval is None, (
-                    "%s: default value for '%s' can only be None; "
+                    "%s: default value for '%s' can only be None, got %r; "
                     "use unwrap_spec(...=WrappedDefault(default))" % (
-                    self._code.identifier, name))
+                    self._code.identifier, name, defaultval))
                 defs_w.append(None)
             else:
                 spec = unwrap_spec[i]

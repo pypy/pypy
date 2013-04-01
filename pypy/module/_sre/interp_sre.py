@@ -332,6 +332,7 @@ W_SRE_Pattern.typedef = TypeDef(
     groups       = interp_attrproperty('num_groups', W_SRE_Pattern),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
 )
+W_SRE_Pattern.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
@@ -509,7 +510,7 @@ W_SRE_Match.typedef = TypeDef(
     lastindex    = GetSetProperty(W_SRE_Match.fget_lastindex),
     regs         = GetSetProperty(W_SRE_Match.fget_regs),
 )
-
+W_SRE_Match.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
@@ -565,3 +566,4 @@ W_SRE_Scanner.typedef = TypeDef(
     search   = interp2app(W_SRE_Scanner.search_w),
     pattern  = interp_attrproperty('srepat', W_SRE_Scanner),
 )
+W_SRE_Scanner.typedef.acceptable_as_base_class = False

@@ -52,7 +52,7 @@ def get_file():
         w_co = space.call_method(space.builtin, 'compile',
                                  w(source), w('uuu.py'), w('exec'))
 
-        tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
+        tmpdir = udir.ensure('zipimport_%s_%s' % (__name__, cls.__name__), dir=1)
         now = time.time()
         cls.w_now = w(now)
         test_pyc = cls.make_pyc(space, w_co, now)

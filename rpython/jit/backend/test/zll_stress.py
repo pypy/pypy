@@ -5,14 +5,18 @@ import platform
 
 CPU = getcpuclass()
 
-iterations = 1000
+total_iterations = 1000
 if platform.machine().startswith('arm'):
-    iterations = 100
+    total_iterations = 100
+
+pieces = 4
+per_piece = total_iterations / pieces
 
 
-def test_stress():
+def do_test_stress(piece):
     cpu = CPU(None, None)
     cpu.setup_once()
     r = Random()
-    for i in range(iterations):
-        check_random_function(cpu, LLtypeOperationBuilder, r, i, iterations)
+    r.jumpahead(piece*per_piece)
+    for i in range(piece*per_piece, (piece+1)*per_piece):
+        check_random_function(cpu, LLtypeOperationBuilder, r, i, total_iterations)
