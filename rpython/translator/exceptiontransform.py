@@ -284,13 +284,13 @@ class BaseExceptionTransformer(object):
         return need_exc_matching, n_gen_exc_checks
 
     def comes_from_last_exception(self, entrymap, link):
-        seen = {}
+        seen = set()
         pending = [(link, link.args[1])]
         while pending:
             link, v = pending.pop()
             if (link, v) in seen:
                 continue
-            seen[link, v] = True
+            seen.add((link, v))
             if link.last_exc_value is not None and v is link.last_exc_value:
                 return True
             block = link.prevblock
