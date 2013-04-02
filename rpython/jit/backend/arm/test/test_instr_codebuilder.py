@@ -12,7 +12,8 @@ import py
 requires_arm_as()
 
 class CodeBuilder(codebuilder.InstrBuilder):
-    def __init__(self):
+    def __init__(self, arch_version=7):
+        self.arch_version = arch_version
         self.buffer = []
 
     def writechar(self, char):
@@ -169,6 +170,13 @@ class TestInstrCodeBuilder(ASMTest):
     def test_movt(self):
         self.cb.MOVT_ri(r.r3.value, 0xFFFF, conditions.NE)
         self.assert_equal("MOVTNE r3, #65535")
+
+
+def test_size_of_gen_load_int():
+    for v, n in [(5, 4), (6, 4), (7, 2)]:
+        c = CodeBuilder(v)
+        assert c.get_max_size_of_gen_load_int() == n
+
 
 class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):
