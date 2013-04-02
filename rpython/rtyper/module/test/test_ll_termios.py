@@ -18,9 +18,11 @@ def setup_module(mod):
 import termios
 print str(termios.tcgetattr(2)[:-1])
 ''')
-    child = pexpect.spawn('python', [str(fname)])
+    child = pexpect.spawn('python', [str(fname)], logfile=sys.stderr)
     child.expect(pexpect.EOF)
     mod.TCGETATTR = child.before[:-2]
+    child.close()
+    assert child.exitstatus == 0
 
 class TestLLTermios(object):
 
@@ -29,7 +31,7 @@ class TestLLTermios(object):
         child = pexpect.spawn(str(arg.builder.executable_name))
         child.expect(re.escape(expected))
         assert child.status is None
-    
+
     def test_tcgetattr(self):
         from rpython.translator.c.test.test_genc import compile
         from rpython.rlib import rtermios
@@ -44,7 +46,7 @@ class TestLLTermios(object):
         from rpython.translator.c.test.test_genc import compile
         from rpython.rlib import rtermios
         import os, errno
-        def runs_tcgetattr(): 
+        def runs_tcgetattr():
             fd = os.open('.', 0, 0777)
             try:
                 rtermios.tcgetattr(fd)
@@ -54,7 +56,7 @@ class TestLLTermios(object):
 
         fn = compile(runs_tcgetattr, [], backendopt=False)
         self.run(fn, "ok")
-        
+
     def test_tcsetattr(self):
         # a test, which doesn't even check anything.
         # I've got no idea how to test it to be honest :-(
@@ -100,4 +102,3 @@ class TestTermios(ExpectTest):
             attr[3] |= termios.ICANON
             rtermios.tcsetattr(2, termios.TCSANOW, attr)
         self.run_test(f)
-
