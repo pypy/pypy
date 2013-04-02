@@ -189,7 +189,7 @@ class AppTestZlib(object):
         assert d.unused_data == 'spam' * 100
         assert s1 + s2 + s3 == self.expanded
         s4 = d.decompress('egg' * 50)
-        assert d.unused_data == 'egg' * 50
+        assert d.unused_data == ('spam' * 100) + ('egg' * 50)
         assert s4 == ''
 
 

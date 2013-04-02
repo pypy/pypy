@@ -303,7 +303,7 @@ class Decompress(ZLibObject):
         tail = data[unused_start:]
         if finished:
             self.unconsumed_tail = ''
-            self.unused_data = tail
+            self.unused_data += tail
         else:
             self.unconsumed_tail = tail
         return self.space.wrap(string)
