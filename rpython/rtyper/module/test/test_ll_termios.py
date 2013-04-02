@@ -19,10 +19,8 @@ import termios
 print str(termios.tcgetattr(2)[:-1])
 ''')
     child = pexpect.spawn('python', [str(fname)])
-    child.logfile = sys.stderr
-    x = child.wait()
-    assert x == 0
-    mod.TCGETATTR = child.readlines()[0][:-2]
+    child.expect(pexpect.EOF)
+    mod.TCGETATTR = child.before[:-2]
 
 class TestLLTermios(object):
 
