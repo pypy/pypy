@@ -26,6 +26,7 @@ class AbstractARMCPU(AbstractLLCPU):
     frame_reg = fp
 
     use_hf_abi = False        # use hard float abi flag
+    arch_version = 7
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -88,8 +89,8 @@ class AbstractARMCPU(AbstractLLCPU):
         old one that already has a bridge attached to it."""
         from rpython.jit.backend.arm.codebuilder import InstrBuilder
 
-        for jmp, tgt  in looptoken.compiled_loop_token.invalidate_positions:
-            mc = InstrBuilder()
+        for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
+            mc = InstrBuilder(self.arch_version)
             mc.B_offs(tgt)
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
@@ -126,6 +127,7 @@ class CPU_ARMHF(AbstractARMCPU):
 class CPU_ARMv6(AbstractARMCPU):
     """ ARM v6, uses hardfp ABI, requires vfp"""
     use_hf_abi = True
+    arch_version = 6
     backend_name = "armv6hf"
     supports_floats = False
     supports_singlefloats = False

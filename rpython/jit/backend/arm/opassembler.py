@@ -1212,7 +1212,7 @@ class ResOpAssembler(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        mc = InstrBuilder()
+        mc = InstrBuilder(self.cpu.arch_version)
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
 

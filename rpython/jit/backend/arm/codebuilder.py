@@ -28,10 +28,10 @@ def binary_helper_call(name):
     return f
 
 
-class AbstractARMv7Builder(object):
+class AbstractARMBuilder(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, arch_version=7):
+        self.arch_version = arch_version
 
     def align(self):
         while(self.currpos() % FUNC_ALIGN != 0):
@@ -250,8 +250,13 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         raise NotImplementedError
 
-    max_size_of_gen_load_int = 2
     def gen_load_int(self, r, value, cond=cond.AL):
+        if self.arch_version < 7:
+            self.gen_load_int_v6(r, value, cond)
+        else:
+            self.gen_load_int_v7(r, value, cond)
+
+    def gen_load_int_v7(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
         bottom = value & 0xFFFF
@@ -260,23 +265,20 @@ class AbstractARMv7Builder(object):
         if top:
             self.MOVT_ri(r, top, cond)
 
+    def gen_load_int_v6(self, r, value, cond=cond.AL):
+        from rpython.jit.backend.arm.conditions import AL
+        if cond != AL or 0 <= value <= 0xFFFF:
+            self._load_by_shifting(r, value, cond)
+        else:
+            self.LDR_ri(r, reg.pc.value)
+            self.MOV_rr(reg.pc.value, reg.pc.value)
+            self.write32(value)
 
-class AbstractARMv6Builder(AbstractARMv7Builder):
+    def get_max_size_of_gen_load_int(self):
+        return 4 if self.arch_version < 7 else 2
 
-    def __init__(self):
-      AbstractARMv7Builder.__init__(self)
-
-    def gen_load_int(self, r, value, cond=cond.AL):
-      from rpython.jit.backend.arm.conditions import AL
-      if cond != AL or 0 <= value <= 0xFFFF:
-          self._load_by_shifting(r, value, cond)
-      else:
-          self.LDR_ri(r, reg.pc.value)
-          self.MOV_rr(reg.pc.value, reg.pc.value)
-          self.write32(value)
-
-    max_size_of_gen_load_int = 4
     ofs_shift = zip(range(8, 25, 8), range(12, 0, -4))
+
     def _load_by_shifting(self, r, value, c=cond.AL):
         # to be sure it is only called for the correct cases
         assert c != cond.AL or 0 <= value <= 0xFFFF
@@ -288,15 +290,10 @@ class AbstractARMv6Builder(AbstractARMv7Builder):
             t = b | (shift << 8)
             self.ORR_ri(r, r, imm=t, cond=c)
 
-if autodetect().startswith('armv7'):
-  AbstractBuilder = AbstractARMv7Builder
-else:
-  AbstractBuilder = AbstractARMv6Builder
 
-
-class OverwritingBuilder(AbstractBuilder):
+class OverwritingBuilder(AbstractARMBuilder):
     def __init__(self, cb, start, size):
-        AbstractBuilder.__init__(self)
+        AbstractARMBuilder.__init__(self, cb.arch_version)
         self.cb = cb
         self.index = start
         self.end = start + size
@@ -310,9 +307,10 @@ class OverwritingBuilder(AbstractBuilder):
         self.index += 1
 
 
-class InstrBuilder(BlockBuilderMixin, AbstractBuilder):
-    def __init__(self):
-        AbstractBuilder.__init__(self)
+class InstrBuilder(BlockBuilderMixin, AbstractARMBuilder):
+
+    def __init__(self, arch_version=7):
+        AbstractARMBuilder.__init__(self, arch_version)
         self.init_block_builder()
         #
         # ResOperation --> offset in the assembly.
@@ -366,4 +364,4 @@ class InstrBuilder(BlockBuilderMixin, AbstractBuilder):
         return self.get_relative_pos()
 
 
-define_instructions(AbstractBuilder)
+define_instructions(AbstractARMBuilder)
