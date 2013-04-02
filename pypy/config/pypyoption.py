@@ -33,7 +33,7 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_minimal_curses",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect", "binascii", "_multiprocessing", '_warnings',
+     "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "_ffi",
      "_continuation", "_csv", "_cffi_backend", # "micronumpy",
      "_posixsubprocess",
