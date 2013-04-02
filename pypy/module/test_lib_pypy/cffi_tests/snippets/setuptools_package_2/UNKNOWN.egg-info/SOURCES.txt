@@ -1,0 +1,8 @@
+setup.py
+UNKNOWN.egg-info/PKG-INFO
+UNKNOWN.egg-info/SOURCES.txt
+UNKNOWN.egg-info/dependency_links.txt
+UNKNOWN.egg-info/not-zip-safe
+UNKNOWN.egg-info/top_level.txt
+snip_setuptools_verify2/__init__.py
+snip_setuptools_verify2/__pycache__/_cffi__gd39ab08bx8432a366.c

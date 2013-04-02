@@ -31,6 +31,7 @@ syntax: regexp
 ^pypy/module/cppyy/test/.+\.rootmap$
 ^pypy/module/cppyy/test/.+\.exe$
 ^pypy/module/cppyy/test/.+_cint.h$
+^pypy/module/test_lib_pypy/cffi_tests/__pycache__.+$
 ^pypy/doc/.+\.html$
 ^pypy/doc/config/.+\.rst$
 ^pypy/doc/basicblock\.asc$
