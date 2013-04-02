@@ -5,7 +5,7 @@ import os
 from rpython.jit.backend.arm import conditions as c, registers as r
 from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD, FUNC_ALIGN,
     JITFRAME_FIXED_SIZE)
-from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
+from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.locations import imm, StackLocation
 from rpython.jit.backend.arm.opassembler import ResOpAssembler
 from rpython.jit.backend.arm.regalloc import (Regalloc,
@@ -59,14 +59,13 @@ class AssemblerARM(ResOpAssembler):
         if we_are_translated():
             self.debug = False
         self.current_clt = looptoken.compiled_loop_token
-        self.mc = ARMv7Builder()
+        self.mc = InstrBuilder()
         self.pending_guards = []
         assert self.datablockwrapper is None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
         self.mc.datablockwrapper = self.datablockwrapper
-        self.mc.is_armv6 = self.cpu.backend_name == 'armv6'
         self.target_tokens_currently_compiling = {}
 
     def teardown(self):
@@ -157,7 +156,7 @@ class AssemblerARM(ResOpAssembler):
         if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
         #
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         # make sure ofs fits into a register
@@ -242,7 +241,7 @@ class AssemblerARM(ResOpAssembler):
         #    |  my own retaddr       |    <-- sp
         #    +-----------------------+
         #
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         # save argument registers and return address
         mc.PUSH([reg.value for reg in r.argument_regs] + [r.ip.value, r.lr.value])
         # stack is aligned here
@@ -283,7 +282,7 @@ class AssemblerARM(ResOpAssembler):
         # write barriers.  It must save all registers, and optionally
         # all vfp registers.  It takes a single argument which is in r0.
         # It must keep stack alignment accordingly.
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         #
         exc0 = exc1 = None
         mc.PUSH([r.ip.value, r.lr.value]) # push two words to keep alignment
@@ -327,7 +326,7 @@ class AssemblerARM(ResOpAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_malloc_slowpath(self):
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         self._push_all_regs_to_jitframe(mc, [r.r0, r.r1], self.cpu.supports_floats)
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         # store the gc pattern
@@ -439,7 +438,7 @@ class AssemblerARM(ResOpAssembler):
                 self.load_reg(mc, vfpr, r.fp, ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         self._push_all_regs_to_jitframe(mc, [], withfloats)
 
         if exc:
@@ -766,7 +765,7 @@ class AssemblerARM(ResOpAssembler):
         # f) store the address of the new jitframe in the shadowstack
         # c) set the gcmap field to 0 in the new jitframe
         # g) restore registers and return
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats)
         # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
         # and the expected_size pushed in _check_stack_frame
@@ -826,7 +825,7 @@ class AssemblerARM(ResOpAssembler):
         self.target_tokens_currently_compiling = None
 
     def _patch_stackadjust(self, adr, allocated_depth):
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         mc.gen_load_int(r.lr.value, allocated_depth)
         mc.copy_to_raw_memory(adr)
 
@@ -862,7 +861,7 @@ class AssemblerARM(ResOpAssembler):
                 # patch the guard jumpt to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
-                mc = ARMv7Builder()
+                mc = InstrBuilder()
                 mc.B_offs(relative_offset, c.get_opposite_of(tok.fcond))
                 mc.copy_to_raw_memory(guard_pos)
             else:
@@ -941,7 +940,7 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.ASR_ri(resloc.value, resloc.value, 16)
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
-        b = ARMv7Builder()
+        b = InstrBuilder()
         patch_addr = faildescr._arm_failure_recovery_block
         assert patch_addr != 0
         b.B(bridge_addr)

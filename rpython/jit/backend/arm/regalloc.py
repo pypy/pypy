@@ -752,6 +752,7 @@ class Regalloc(BaseRegalloc):
         #            self.frame_manager.hint_frame_locations[box] = loc
 
     def prepare_op_jump(self, op, fcond):
+        assert self.jump_target_descr is None
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         self.jump_target_descr = descr

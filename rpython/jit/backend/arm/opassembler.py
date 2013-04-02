@@ -17,7 +17,7 @@ from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call
                                                 saved_registers,
                                                 count_reg_args)
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
-from rpython.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
+from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempInt, TempPtr
 from rpython.jit.backend.arm.locations import imm
@@ -299,19 +299,10 @@ class ResOpAssembler(BaseAssembler):
                                             is_guard_not_invalidated=True)
 
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
-        # The backend's logic assumes that the target code is in a piece of
-        # assembler that was also called with the same number of arguments,
-        # so that the locations [ebp+8..] of the input arguments are valid
-        # stack locations both before and after the jump.
-        #
         target_token = op.getdescr()
-        target = target_token._ll_loop_code
         assert isinstance(target_token, TargetToken)
+        target = target_token._ll_loop_code
         assert fcond == c.AL
-        my_nbargs = self.current_clt._debug_nbargs
-        target_nbargs = target_token._arm_clt._debug_nbargs
-        assert my_nbargs == target_nbargs
-
         if target_token in self.target_tokens_currently_compiling:
             self.mc.B_offs(target, fcond)
         else:
@@ -576,10 +567,12 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, fcond)
+        return fcond
 
     def emit_op_cond_call_gc_wb_array(self, op, arglocs, regalloc, fcond):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs,
                                                         fcond, array=True)
+        return fcond
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, fcond=c.AL, array=False,
                                                             is_frame=False):
@@ -1219,7 +1212,7 @@ class ResOpAssembler(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        mc = ARMv7Builder()
+        mc = InstrBuilder()
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
 

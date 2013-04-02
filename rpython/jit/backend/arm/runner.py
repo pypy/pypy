@@ -86,10 +86,10 @@ class AbstractARMCPU(AbstractLLCPU):
         possible then to re-call invalidate_loop() on the same looptoken,
         which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
         old one that already has a bridge attached to it."""
-        from rpython.jit.backend.arm.codebuilder import ARMv7Builder
+        from rpython.jit.backend.arm.codebuilder import InstrBuilder
 
         for jmp, tgt  in looptoken.compiled_loop_token.invalidate_positions:
-            mc = ARMv7Builder()
+            mc = InstrBuilder()
             mc.B_offs(tgt)
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
@@ -106,27 +106,26 @@ class AbstractARMCPU(AbstractLLCPU):
         return l
 
     def build_regalloc(self):
-	''' for tests'''
-	from rpython.jit.backend.arm.regalloc import Regalloc
-	assert self.assembler is not None
-	return Regalloc(self.assembler)
+        ''' for tests'''
+        from rpython.jit.backend.arm.regalloc import Regalloc
+        assert self.assembler is not None
+        return Regalloc(self.assembler)
 
 class CPU_ARM(AbstractARMCPU):
     """ARM v7 uses softfp ABI, requires vfp"""
-    backend_name = "arm"
+    backend_name = "armv7"
 ArmCPU = CPU_ARM
 
 class CPU_ARMHF(AbstractARMCPU):
     """ARM v7 uses hardfp ABI, requires vfp"""
     use_hf_abi = True
-    backend_name = "armhf"
+    backend_name = "armv7hf"
     supports_floats = False
     supports_singlefloats = False
 
 class CPU_ARMv6(AbstractARMCPU):
     """ ARM v6, uses hardfp ABI, requires vfp"""
     use_hf_abi = True
-    backend_name = "armv6"
+    backend_name = "armv6hf"
     supports_floats = False
     supports_singlefloats = False
-    

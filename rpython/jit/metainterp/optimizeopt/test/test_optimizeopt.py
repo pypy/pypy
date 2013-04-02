@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from rpython.jit.metainterp.history import TreeLoop
 from rpython.jit.metainterp import compile, resume
-from rpython.jit.metainterp.resoperation import rop, opname, opargnum
+from rpython.jit.metainterp.resoperation import rop, opname, oparity
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import FakeMetaInterpStaticData
 
 def test_build_opt_chain():
@@ -188,7 +188,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
             if 'FLOAT' in op:
                 continue
             args = []
-            for _ in range(opargnum[opnum]):
+            for _ in range(oparity[opnum]):
                 args.append(random.randrange(1, 20))
             ops = """
             []

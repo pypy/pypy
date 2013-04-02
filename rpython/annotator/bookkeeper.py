@@ -235,7 +235,7 @@ class Bookkeeper(object):
                 if s_value_or_def in seen:
                     return
                 seen.add(s_value_or_def)
-                for attr in s_value_or_def.attrs.values():
+                for attr in s_value_or_def.attrs.itervalues():
                     s_attr = attr.s_value
                     check_no_flags(s_attr)
             elif isinstance(s_value_or_def, ListItem):
