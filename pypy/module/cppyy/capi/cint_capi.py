@@ -221,7 +221,7 @@ def ttree_getattr(space, w_self, args_w):
         # placeholder
         w_typename = space.call_method(w_leaf, "GetTypeName" )
         from pypy.module.cppyy import capi
-        typename = capi.c_resolve_name(space.str_w(w_typename))
+        typename = capi.c_resolve_name(space, space.str_w(w_typename))
         if typename == 'bool': typename = '_Bool'
         w_address = space.call_method(w_leaf, "GetValuePointer")
         from pypy.module._cffi_backend import cdataobj, newtype

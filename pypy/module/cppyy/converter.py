@@ -599,7 +599,7 @@ def get_converter(space, name, default):
     #   4) generalized cases (covers basically all user classes)
     #   5) void converter, which fails on use
 
-    name = capi.c_resolve_name(name)
+    name = capi.c_resolve_name(space, name)
 
     #   1) full, exact match
     try:
@@ -615,7 +615,7 @@ def get_converter(space, name, default):
 
     #   2) match of decorated, unqualified type
     compound = helper.compound(name)
-    clean_name = capi.c_resolve_name(helper.clean_type(name))
+    clean_name = capi.c_resolve_name(space, helper.clean_type(name))
     try:
         # array_index may be negative to indicate no size or no size found
         array_size = helper.array_size(name)

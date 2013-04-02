@@ -9,29 +9,11 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 # the selection of the desired backend (default is Reflex).
 
 # choose C-API access method:
-from loadable_capi import *
-#from builtin_capi import *
+#from pypy.module.cppyy.capi.loadable_capi import *
+from pypy.module.cppyy.capi.builtin_capi import *
 
-# shared definitions
-_C_OPAQUE_PTR = rffi.LONG
-_C_OPAQUE_NULL = lltype.nullptr(rffi.LONGP.TO)# ALT: _C_OPAQUE_PTR.TO
-
-C_SCOPE = _C_OPAQUE_PTR
-C_NULL_SCOPE = rffi.cast(C_SCOPE, _C_OPAQUE_NULL)
-
-C_TYPE = C_SCOPE
-C_NULL_TYPE = C_NULL_SCOPE
-
-C_OBJECT = _C_OPAQUE_PTR
-C_NULL_OBJECT = rffi.cast(C_OBJECT, _C_OPAQUE_NULL)
-
-C_METHOD = _C_OPAQUE_PTR
-C_INDEX = rffi.LONG
-C_INDEX_ARRAY = rffi.LONGP
-WLAVC_INDEX = rffi.LONG
-
-C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
-C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
+from pypy.module.cppyy.capi.capi_types import C_OBJECT,\
+    C_NULL_TYPE, C_NULL_OBJECT
 
 def direct_ptradd(ptr, offset):
     offset = rffi.cast(rffi.SIZE_T, offset)

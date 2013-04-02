@@ -4,6 +4,10 @@ from rpython.rlib import jit
 import reflex_capi as backend
 #import cint_capi as backend
 
+from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
+   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX,\
+   C_METHPTRGETTER, C_METHPTRGETTER_PTR
+
 identify  = backend.identify
 pythonize = backend.pythonize
 register_pythonizations = backend.register_pythonizations
@@ -14,38 +18,8 @@ ts_call    = backend.ts_call
 ts_memory  = backend.ts_memory
 ts_helper  = backend.ts_helper
 
-_C_OPAQUE_PTR = rffi.LONG
-_C_OPAQUE_NULL = lltype.nullptr(rffi.LONGP.TO)# ALT: _C_OPAQUE_PTR.TO
-
-C_SCOPE = _C_OPAQUE_PTR
-C_NULL_SCOPE = rffi.cast(C_SCOPE, _C_OPAQUE_NULL)
-
-C_TYPE = C_SCOPE
-C_NULL_TYPE = C_NULL_SCOPE
-
-C_OBJECT = _C_OPAQUE_PTR
-C_NULL_OBJECT = rffi.cast(C_OBJECT, _C_OPAQUE_NULL)
-
-C_METHOD = _C_OPAQUE_PTR
-C_INDEX = rffi.LONG
-C_INDEX_ARRAY = rffi.LONGP
-WLAVC_INDEX = rffi.LONG
-
-C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
-C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
-
 def verify_backend(space):
     return True                    # by definition
-
-def direct_ptradd(ptr, offset):
-    offset = rffi.cast(rffi.SIZE_T, offset)
-    jit.promote(offset)
-    assert lltype.typeOf(ptr) == C_OBJECT
-    address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(C_OBJECT, lltype.direct_ptradd(address, offset))
-
-def exchange_address(ptr, cif_descr, index):
-    return rffi.ptradd(ptr, cif_descr.exchange_args[index])
 
 c_load_dictionary = backend.c_load_dictionary
 
@@ -61,16 +35,16 @@ _c_scope_name = rffi.llexternal(
     "cppyy_scope_name",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info = backend.eci)
-def c_scope_name(cppscope, iscope):
-    return charp2str_free(_c_scope_name(cppscope.handle, iscope))
+def c_scope_name(space, cppscope, iscope):
+    return charp2str_free(space, _c_scope_name(cppscope.handle, iscope))
 
 _c_resolve_name = rffi.llexternal(
     "cppyy_resolve_name",
     [rffi.CCHARP], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_resolve_name(name):
-    return charp2str_free(_c_resolve_name(name))
+def c_resolve_name(space, name):
+    return charp2str_free(space, _c_resolve_name(name))
 _c_get_scope_opaque = rffi.llexternal(
     "cppyy_get_scope",
     [rffi.CCHARP], C_SCOPE,
@@ -78,11 +52,13 @@ _c_get_scope_opaque = rffi.llexternal(
     compilation_info=backend.eci)
 def c_get_scope_opaque(space, name):
     return _c_get_scope_opaque(name)
-c_get_template = rffi.llexternal(
+_c_get_template = rffi.llexternal(
     "cppyy_get_template",
     [rffi.CCHARP], C_TYPE,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
+def c_get_template(space, name):
+    return _c_get_template(name)
 _c_actual_class = rffi.llexternal(
     "cppyy_actual_class",
     [C_TYPE, C_OBJECT], C_TYPE,
@@ -97,92 +73,116 @@ _c_allocate = rffi.llexternal(
     [C_TYPE], C_OBJECT,
     threadsafe=ts_memory,
     compilation_info=backend.eci)
-def c_allocate(cppclass):
+def c_allocate(space, cppclass):
     return _c_allocate(cppclass.handle)
 _c_deallocate = rffi.llexternal(
     "cppyy_deallocate",
     [C_TYPE, C_OBJECT], lltype.Void,
     threadsafe=ts_memory,
     compilation_info=backend.eci)
-def c_deallocate(cppclass, cppobject):
+def c_deallocate(space, cppclass, cppobject):
     _c_deallocate(cppclass.handle, cppobject)
 _c_destruct = rffi.llexternal(
     "cppyy_destruct",
     [C_TYPE, C_OBJECT], lltype.Void,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-def c_destruct(cppclass, cppobject):
+def c_destruct(space, cppclass, cppobject):
     _c_destruct(cppclass.handle, cppobject)
 
 # method/function dispatching ------------------------------------------------
-c_call_v = rffi.llexternal(
+_c_call_v = rffi.llexternal(
     "cppyy_call_v",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], lltype.Void,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_b = rffi.llexternal(
+def c_call_v(space, cppmethod, cppobject, nargs, args):
+    _c_call_v(cppmethod, cppobject, nargs, args)
+_c_call_b = rffi.llexternal(
     "cppyy_call_b",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.UCHAR,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_c = rffi.llexternal(
+def c_call_b(space, cppmethod, cppobject, nargs, args):
+    return _c_call_b(cppmethod, cppobject, nargs, args)
+_c_call_c = rffi.llexternal(
     "cppyy_call_c",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CHAR,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_h = rffi.llexternal(
+def c_call_c(space, cppmethod, cppobject, nargs, args):
+    return _c_call_c(cppmethod, cppobject, nargs, args)
+_c_call_h = rffi.llexternal(
     "cppyy_call_h",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.SHORT,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_i = rffi.llexternal(
+def c_call_h(space, cppmethod, cppobject, nargs, args):
+    return _c_call_h(cppmethod, cppobject, nargs, args)
+_c_call_i = rffi.llexternal(
     "cppyy_call_i",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.INT,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_l = rffi.llexternal(
+def c_call_i(space, cppmethod, cppobject, nargs, args):
+    return _c_call_i(cppmethod, cppobject, nargs, args)
+_c_call_l = rffi.llexternal(
     "cppyy_call_l",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONG,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_ll = rffi.llexternal(
+def c_call_l(space, cppmethod, cppobject, nargs, args):
+    return _c_call_l(cppmethod, cppobject, nargs, args)
+_c_call_ll = rffi.llexternal(
     "cppyy_call_ll",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONGLONG,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_f = rffi.llexternal(
+def c_call_ll(space, cppmethod, cppobject, nargs, args):
+    return _c_call_ll(cppmethod, cppobject, nargs, args)
+_c_call_f = rffi.llexternal(
     "cppyy_call_f",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.FLOAT,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_d = rffi.llexternal(
+def c_call_f(space, cppmethod, cppobject, nargs, args):
+    return _c_call_f(cppmethod, cppobject, nargs, args)
+_c_call_d = rffi.llexternal(
     "cppyy_call_d",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
     threadsafe=ts_call,
     compilation_info=backend.eci)
+def c_call_d(space, cppmethod, cppobject, nargs, args):
+    return _c_call_d(cppmethod, cppobject, nargs, args)
 
-c_call_r = rffi.llexternal(
+_c_call_r = rffi.llexternal(
     "cppyy_call_r",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.VOIDP,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-c_call_s = rffi.llexternal(
+def c_call_r(space, cppmethod, cppobject, nargs, args):
+    return _c_call_r(cppmethod, cppobject, nargs, args)
+_c_call_s = rffi.llexternal(
     "cppyy_call_s",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
     threadsafe=ts_call,
     compilation_info=backend.eci)
+def c_call_s(space, cppmethod, cppobject, nargs, args):
+    return _c_call_s(cppmethod, cppobject, nargs, args)
 
-c_constructor = rffi.llexternal(
+_c_constructor = rffi.llexternal(
     "cppyy_constructor",
     [C_METHOD, C_TYPE, rffi.INT, rffi.VOIDP], C_OBJECT,
     threadsafe=ts_call,
     compilation_info=backend.eci)
+def c_constructor(space, cppmethod, cppobject, nargs, args):
+    return _c_constructor(cppmethod, cppobject, nargs, args)
 _c_call_o = rffi.llexternal(
     "cppyy_call_o",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, C_TYPE], rffi.LONG,
     threadsafe=ts_call,
     compilation_info=backend.eci)
-def c_call_o(method, cppobj, nargs, args, cppclass):
+def c_call_o(space, method, cppobj, nargs, args, cppclass):
     return _c_call_o(method, cppobj, nargs, args, cppclass.handle)
 
 _c_get_methptr_getter = rffi.llexternal(
@@ -236,34 +236,36 @@ _c_final_name = rffi.llexternal(
     [C_TYPE], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_final_name(cpptype):
-    return charp2str_free(_c_final_name(cpptype))
+def c_final_name(space, cpptype):
+    return charp2str_free(space, _c_final_name(cpptype))
 _c_scoped_final_name = rffi.llexternal(
     "cppyy_scoped_final_name",
     [C_TYPE], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_scoped_final_name(cpptype):
-    return charp2str_free(_c_scoped_final_name(cpptype))
-c_has_complex_hierarchy = rffi.llexternal(
+def c_scoped_final_name(space, cpptype):
+    return charp2str_free(space, _c_scoped_final_name(cpptype))
+_c_has_complex_hierarchy = rffi.llexternal(
     "cppyy_has_complex_hierarchy",
     [C_TYPE], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
+def c_has_complex_hierarchy(space, cpptype):
+    return _c_has_complex_hierarchy(cpptype)
 _c_num_bases = rffi.llexternal(
     "cppyy_num_bases",
     [C_TYPE], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_num_bases(cppclass):
+def c_num_bases(space, cppclass):
     return _c_num_bases(cppclass.handle)
 _c_base_name = rffi.llexternal(
     "cppyy_base_name",
     [C_TYPE, rffi.INT], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_base_name(cppclass, base_index):
-    return charp2str_free(_c_base_name(cppclass.handle, base_index))
+def c_base_name(space, cppclass, base_index):
+    return charp2str_free(space, _c_base_name(cppclass.handle, base_index))
 _c_is_subtype = rffi.llexternal(
     "cppyy_is_subtype",
     [C_TYPE, C_TYPE], rffi.INT,
@@ -310,7 +312,7 @@ _c_method_indices_from_name = rffi.llexternal(
     [C_SCOPE, rffi.CCHARP], C_INDEX_ARRAY,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_indices_from_name(cppscope, name):
+def c_method_indices_from_name(space, cppscope, name):
     indices = _c_method_indices_from_name(cppscope.handle, name)
     if not indices:
         return []
@@ -329,15 +331,15 @@ _c_method_name = rffi.llexternal(
     [C_SCOPE, C_INDEX], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_name(cppscope, index):
-    return charp2str_free(_c_method_name(cppscope.handle, index))
+def c_method_name(space, cppscope, index):
+    return charp2str_free(space, _c_method_name(cppscope.handle, index))
 _c_method_result_type = rffi.llexternal(
     "cppyy_method_result_type",
     [C_SCOPE, C_INDEX], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_result_type(cppscope, index):
-    return charp2str_free(_c_method_result_type(cppscope.handle, index))
+def c_method_result_type(space, cppscope, index):
+    return charp2str_free(space, _c_method_result_type(cppscope.handle, index))
 _c_method_num_args = rffi.llexternal(
     "cppyy_method_num_args",
     [C_SCOPE, C_INDEX], rffi.INT,
@@ -357,22 +359,22 @@ _c_method_arg_type = rffi.llexternal(
     [C_SCOPE, C_INDEX, rffi.INT], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_arg_type(cppscope, index, arg_index):
-    return charp2str_free(_c_method_arg_type(cppscope.handle, index, arg_index))
+def c_method_arg_type(space, cppscope, index, arg_index):
+    return charp2str_free(space, _c_method_arg_type(cppscope.handle, index, arg_index))
 _c_method_arg_default = rffi.llexternal(
     "cppyy_method_arg_default",
     [C_SCOPE, C_INDEX, rffi.INT], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_arg_default(cppscope, index, arg_index):
-    return charp2str_free(_c_method_arg_default(cppscope.handle, index, arg_index))
+def c_method_arg_default(space, cppscope, index, arg_index):
+    return charp2str_free(space, _c_method_arg_default(cppscope.handle, index, arg_index))
 _c_method_signature = rffi.llexternal(
     "cppyy_method_signature",
     [C_SCOPE, C_INDEX], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_signature(cppscope, index):
-    return charp2str_free(_c_method_signature(cppscope.handle, index))
+def c_method_signature(space, cppscope, index):
+    return charp2str_free(space, _c_method_signature(cppscope.handle, index))
 
 _c_method_is_template = rffi.llexternal(
     "cppyy_method_is_template",
@@ -391,10 +393,10 @@ _c_method_template_arg_name = rffi.llexternal(
     [C_SCOPE, C_INDEX, C_INDEX], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_template_args(cppscope, index):
+def c_template_args(space, cppscope, index):
     nargs = _c_method_num_template_args(cppscope.handle, index)
-    args = [c_resolve_name(
-        charp2str_free(_c_method_template_arg_name(cppscope.handle, index, iarg)))
+    args = [c_resolve_name(space,
+        charp2str_free(space, _c_method_template_arg_name(cppscope.handle, index, iarg)))
         for iarg in range(nargs)]
     return args
 
@@ -444,15 +446,15 @@ _c_datamember_name = rffi.llexternal(
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_datamember_name(cppscope, datamember_index):
-    return charp2str_free(_c_datamember_name(cppscope.handle, datamember_index))
+def c_datamember_name(space, cppscope, datamember_index):
+    return charp2str_free(space, _c_datamember_name(cppscope.handle, datamember_index))
 _c_datamember_type = rffi.llexternal(
     "cppyy_datamember_type",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_datamember_type(cppscope, datamember_index):
-    return charp2str_free(_c_datamember_type(cppscope.handle, datamember_index))
+def c_datamember_type(space, cppscope, datamember_index):
+    return charp2str_free(space, _c_datamember_type(cppscope.handle, datamember_index))
 _c_datamember_offset = rffi.llexternal(
     "cppyy_datamember_offset",
     [C_SCOPE, rffi.INT], rffi.SIZE_T,
@@ -502,7 +504,7 @@ c_free = rffi.llexternal(
     threadsafe=ts_memory,
     compilation_info=backend.eci)
 
-def charp2str_free(charp):
+def charp2str_free(space, charp):
     string = rffi.charp2str(charp)
     voidp = rffi.cast(rffi.VOIDP, charp)
     c_free(voidp)

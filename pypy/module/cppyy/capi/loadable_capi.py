@@ -6,55 +6,23 @@ from rpython.tool import leakfinder
 
 from pypy.interpreter.error import OperationError
 
-from pypy.module._cffi_backend.libraryobj import W_Library
-from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
-from pypy.module._cffi_backend.newtype import new_primitive_type, new_pointer_type
-from pypy.module._cffi_backend.cdataobj import W_CData
-
+from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
+   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX,\
+   C_METHPTRGETTER, C_METHPTRGETTER_PTR
 
 import reflex_capi as backend
-#import cint_capi as backend
+
+reflection_library = 'rflxlib.so'
 
 def identify():
     return 'loadable_capi'
-pythonize = backend.pythonize
-register_pythonizations = backend.register_pythonizations
+
 std_string_name = backend.std_string_name
 
 ts_reflect = backend.ts_reflect
 ts_call    = backend.ts_call
 ts_memory  = backend.ts_memory
 ts_helper  = backend.ts_helper
-
-_C_OPAQUE_PTR = rffi.LONG
-_C_OPAQUE_NULL = lltype.nullptr(rffi.LONGP.TO)# ALT: _C_OPAQUE_PTR.TO
-
-C_SCOPE = _C_OPAQUE_PTR
-C_NULL_SCOPE = rffi.cast(C_SCOPE, _C_OPAQUE_NULL)
-
-C_TYPE = C_SCOPE
-C_NULL_TYPE = C_NULL_SCOPE
-
-C_OBJECT = _C_OPAQUE_PTR
-C_NULL_OBJECT = rffi.cast(C_OBJECT, _C_OPAQUE_NULL)
-
-C_METHOD = _C_OPAQUE_PTR
-C_INDEX = rffi.LONG
-C_INDEX_ARRAY = rffi.LONGP
-WLAVC_INDEX = rffi.LONG
-
-C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
-C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
-
-def direct_ptradd(ptr, offset):
-    offset = rffi.cast(rffi.SIZE_T, offset)
-    jit.promote(offset)
-    assert lltype.typeOf(ptr) == C_OBJECT
-    address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(C_OBJECT, lltype.direct_ptradd(address, offset))
-
-def exchange_address(ptr, cif_descr, index):
-    return rffi.ptradd(ptr, cif_descr.exchange_args[index])
 
 c_load_dictionary = backend.c_load_dictionary
 
@@ -63,187 +31,214 @@ class State(object):
         self.library = None
         self.capi_calls = {}
 
-        c_scope_s = 'long'
-        c_type_s  = 'long'
+        import pypy.module._cffi_backend.newtype as nt
+
+        # TODO: the following need to match up with the globally defined C_XYZ low-level
+        # types (see capi/__init__.py), but by using strings here, that isn't guaranteed
+        c_opaque_ptr = nt.new_primitive_type(space, 'long')
+ 
+        c_scope  = c_opaque_ptr
+        c_type   = c_scope
+        c_object = c_opaque_ptr
+        c_method = c_opaque_ptr
+        c_index  = nt.new_primitive_type(space, 'long')
+
+        c_void   = nt.new_void_type(space)
+        c_char   = nt.new_primitive_type(space, 'char')
+        c_uchar  = nt.new_primitive_type(space, 'unsigned char')
+        c_short  = nt.new_primitive_type(space, 'short')
+        c_int    = nt.new_primitive_type(space, 'int')
+        c_long   = nt.new_primitive_type(space, 'long')
+        c_llong  = nt.new_primitive_type(space, 'long long')
+        c_float  = nt.new_primitive_type(space, 'float')
+        c_double = nt.new_primitive_type(space, 'double')
+
+        c_ccharp = nt.new_pointer_type(space, c_char)
+        c_voidp  = nt.new_primitive_type(space, 'unsigned long') # b/c voidp can not be wrapped
 
         self.capi_call_ifaces = {
-            'num_scopes'   : ([new_primitive_type(space, c_scope_s)],
-                               new_primitive_type(space, 'int')),
-            'scope_name'   : ([new_primitive_type(space, c_scope_s), new_primitive_type(space, 'int')],
-                               new_pointer_type(space, new_primitive_type(space, 'char'))),
+            # name to opaque C++ scope representation
+            'num_scopes'   : ([c_scope],                              c_int),
+            'scope_name'   : ([c_scope, c_int],                       c_ccharp),
 
-            'get_scope'    : ([new_pointer_type(space, new_primitive_type(space, 'char'))],
-                               new_primitive_type(space, c_scope_s)),
+            'resolve_name' : ([c_ccharp],                             c_ccharp),
+            'get_scope'    : ([c_ccharp],                             c_scope),
+            'get_template' : ([c_ccharp],                             c_type),
+            'actual_class' : ([c_type, c_object],                     c_type),
 
-            'actual_class' : ([new_primitive_type(space, c_type_s), new_primitive_type(space, c_scope_s)],
-                               new_primitive_type(space, c_type_s)),
+            # memory management
+            'allocate'     : ([c_type],                               c_object),
+            'deallocate'   : ([c_type, c_object],                     c_void),
+            'destruct'     : ([c_type, c_object],                     c_void),
+
+            # method/function dispatching
+            'call_v'       : ([c_method, c_object, c_int, c_voidp],   c_void),
+            'call_b'       : ([c_method, c_object, c_int, c_voidp],   c_uchar),
+            'call_c'       : ([c_method, c_object, c_int, c_voidp],   c_char),
+            'call_h'       : ([c_method, c_object, c_int, c_voidp],   c_short),
+            'call_i'       : ([c_method, c_object, c_int, c_voidp],   c_int),
+            'call_l'       : ([c_method, c_object, c_int, c_voidp],   c_long),
+            'call_ll'      : ([c_method, c_object, c_int, c_voidp],   c_llong),
+            'call_f'       : ([c_method, c_object, c_int, c_voidp],   c_float),
+            'call_d'       : ([c_method, c_object, c_int, c_voidp],   c_double),
+
+            'call_r'       : ([c_method, c_object, c_int, c_voidp],   c_voidp),
+            'call_s'       : ([c_method, c_object, c_int, c_voidp],   c_ccharp),
+
+            'constructor'  : ([c_method, c_object, c_int, c_voidp],   c_object),
+            'call_o'       : ([c_method, c_object, c_int, c_voidp, c_type],     c_object),
+
+            # type/class reflection information
+            'final_name'            : ([c_type],                      c_ccharp),
+            'scoped_final_name'     : ([c_type],                      c_ccharp),
+            'has_complex_hierarchy' : ([c_type],                      c_int),
+            'num_bases'             : ([c_type],                      c_int),
+            'base_name'             : ([c_type, c_int],               c_ccharp),
+
+            # method/function reflection information
+
+            'method_name'           : ([c_scope, c_index],            c_ccharp),
+            'method_result_type'    : ([c_scope, c_index],            c_ccharp),
+
+            'method_arg_type'       : ([c_scope, c_index, c_int],     c_ccharp),
+            'method_arg_default'    : ([c_scope, c_index, c_int],     c_ccharp),
+            'method_signature'      : ([c_scope, c_index],            c_ccharp),
+
+            'method_template_arg_name' : ([c_scope, c_index, c_index], c_ccharp),
+
+            # data member reflection information
+            'datamember_name'       : ([c_scope, c_int],              c_ccharp),
+            'datamember_type'       : ([c_scope, c_int],              c_ccharp),
+
+            # misc helpers
+            'free'         : ([c_voidp],                              c_void),
         }
 
-def verify_backend(space):
+def load_reflection_library(space):
     state = space.fromcache(State)
+    if state.library is None:
+        from pypy.module._cffi_backend.libraryobj import W_Library
+        state.library = W_Library(space, reflection_library, rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY)
+    return state.library
+
+def verify_backend(space):
     try:
-        if state.library is None:
-            state.library = W_Library(space, 'rflxlib.so', rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY)
+        load_reflection_library(space)
     except Exception:
         if objectmodel.we_are_translated():
             raise OperationError(space.w_ImportError,
-                                 space.wrap("missing reflection module rflxlib.so!"))
+                                 space.wrap("missing reflection library rflxlib.so"))
         return False
     return True
 
-def get_capi_call(space, name):
+def call_capi(space, name, args_w):
     state = space.fromcache(State)
     try:
-        return state.capi_calls[name]
+        c_call = state.capi_calls[name]
     except KeyError:
-        pass
-    try:
         if state.library is None:
-            state.library = W_Library(space, 'rflxlib.so', rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY)
+            load_reflection_library(space)
         iface = state.capi_call_ifaces[name]
+        from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
         cfunc = W_CTypeFunc(space, iface[0], iface[1], False)
-        capi_call = state.library.load_function(cfunc, 'cppyy_'+name)
+        c_call = state.library.load_function(cfunc, 'cppyy_'+name)
         # TODO: there must be a better way to trick the leakfinder ...
         if not objectmodel.we_are_translated():
-            leakfinder.remember_free(capi_call.ctype.cif_descr._obj0)
-        state.capi_calls[name] = capi_call
-        return capi_call
-    except Exception:
-        pass
-    return None
+            leakfinder.remember_free(c_call.ctype.cif_descr._obj0)
+        state.capi_calls[name] = c_call
+    return c_call.call(args_w)
 
 
 # name to opaque C++ scope representation ------------------------------------
 def c_num_scopes(space, cppscope):
-    num_scopes = get_capi_call(space, 'num_scopes')
-    if num_scopes:
-        return space.int_w(num_scopes.call([space.wrap(cppscope.handle)]))
-    return 0
-_c_scope_name = rffi.llexternal(
-    "cppyy_scope_name",
-    [C_SCOPE, rffi.INT], rffi.CCHARP,
-    compilation_info = backend.eci)
-def c_scope_name(cppscope, iscope):
-    return charp2str_free(_c_scope_name(cppscope.handle, iscope))
+    args_w = [space.wrap(cppscope.handle)]
+    return space.int_w(call_capi(space, 'num_scopes', args_w))
+def c_scope_name(space, cppscope, iscope):
+    args_w = [space.wrap(cppscope.handle), space.wrap(iscope)]
+    return charp2str_free(space, call_capi(space, 'scope_name', args_w))
 
-_c_resolve_name = rffi.llexternal(
-    "cppyy_resolve_name",
-    [rffi.CCHARP], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_resolve_name(name):
-    return charp2str_free(_c_resolve_name(name))
+def c_resolve_name(space, name):
+    args_w = [space.wrap(name)]
+    return charp2str_free(space, call_capi(space, 'resolve_name', args_w))
 def c_get_scope_opaque(space, name):
-    get_scope = get_capi_call(space, 'get_scope')
-    if get_scope:
-        return rffi.cast(C_SCOPE, space.int_w(get_scope.call([space.wrap(name)])))
-    return rffi.cast(C_SCOPE, 0)
-    
-c_get_template = rffi.llexternal(
-    "cppyy_get_template",
-    [rffi.CCHARP], C_TYPE,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
+    args_w = [space.wrap(name)]
+    return rffi.cast(C_SCOPE, space.int_w(call_capi(space, 'get_scope', args_w)))
+def c_get_template(space, name):
+    args_w = [space.wrap(name)]
+    return rffi.cast(C_TYPE, space.int_w(call_capi(space, 'get_template', args_w)))
 def c_actual_class(space, cppclass, cppobj):
-    actual_class = get_capi_call(space, 'actual_class')
-    if actual_class:
-        return rffi.cast(C_TYPE, space.int_w(
-            actual_class.call([space.wrap(cppclass.handle), space.wrap(cppobj)])))
-    return rffi.cast(C_TYPE, 0)
+    args_w = [space.wrap(cppclass.handle), space.wrap(cppobj)]
+    return rffi.cast(C_TYPE, space.int_w(call_capi(space, 'actual_class', args_w)))
 
 # memory management ----------------------------------------------------------
-_c_allocate = rffi.llexternal(
-    "cppyy_allocate",
-    [C_TYPE], C_OBJECT,
-    threadsafe=ts_memory,
-    compilation_info=backend.eci)
-def c_allocate(cppclass):
-    return _c_allocate(cppclass.handle)
-_c_deallocate = rffi.llexternal(
-    "cppyy_deallocate",
-    [C_TYPE, C_OBJECT], lltype.Void,
-    threadsafe=ts_memory,
-    compilation_info=backend.eci)
-def c_deallocate(cppclass, cppobject):
-    _c_deallocate(cppclass.handle, cppobject)
-_c_destruct = rffi.llexternal(
-    "cppyy_destruct",
-    [C_TYPE, C_OBJECT], lltype.Void,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-def c_destruct(cppclass, cppobject):
-    _c_destruct(cppclass.handle, cppobject)
+def c_allocate(space, cppclass):
+    args_w = [space.wrap(cppclass.handle)]
+    return rffi.cast(C_OBJECT, space.int_w(call_capi(space, 'allocate', args_w)))
+def c_deallocate(space, cppclass, cppobject):
+    args_w = [space.wrap(cppclass.handle), space.wrap(cppobject)]
+    call_capi(space, 'deallocate', args_w)
+def c_destruct(space, cppclass, cppobject):
+    args_w = [space.wrap(cppclass.handle), space.wrap(cppobject)]
+    call_capi(space, 'destruct', args_w)
 
 # method/function dispatching ------------------------------------------------
-c_call_v = rffi.llexternal(
-    "cppyy_call_v",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], lltype.Void,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_b = rffi.llexternal(
-    "cppyy_call_b",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.UCHAR,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_c = rffi.llexternal(
-    "cppyy_call_c",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CHAR,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_h = rffi.llexternal(
-    "cppyy_call_h",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.SHORT,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_i = rffi.llexternal(
-    "cppyy_call_i",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.INT,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_l = rffi.llexternal(
-    "cppyy_call_l",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONG,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_ll = rffi.llexternal(
-    "cppyy_call_ll",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONGLONG,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_f = rffi.llexternal(
-    "cppyy_call_f",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.FLOAT,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_d = rffi.llexternal(
-    "cppyy_call_d",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
+def c_call_v(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    call_capi(space, 'call_v', args_w)
+# TODO: these method do not actually need unwrapping, as the excutors simply
+# wrap the values again, but the other backends expect that ...
+def c_call_b(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.UCHAR, space.int_w(call_capi(space, 'call_b', args_w)))
+def c_call_c(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.CHAR, space.str_w(call_capi(space, 'call_c', args_w)))
+def c_call_h(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.SHORT, space.int_w(call_capi(space, 'call_h', args_w)))
+def c_call_i(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.INT, space.int_w(call_capi(space, 'call_i', args_w)))
+def c_call_l(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.LONG, space.int_w(call_capi(space, 'call_l', args_w)))
+def c_call_ll(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.LONGLONG, space.int_w(call_capi(space, 'call_ll', args_w)))
+def c_call_f(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.FLOAT, space.float_w(call_capi(space, 'call_f', args_w)))
+def c_call_d(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.DOUBLE, space.float_w(call_capi(space, 'call_d', args_w)))
 
-c_call_r = rffi.llexternal(
-    "cppyy_call_r",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.VOIDP,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-c_call_s = rffi.llexternal(
-    "cppyy_call_s",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
+def c_call_r(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(rffi.VOIDP, space.int_w(call_capi(space, 'call_r', args_w)))
+def c_call_s(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return call_capi(space, 'call_s', args_w)
 
-c_constructor = rffi.llexternal(
-    "cppyy_constructor",
-    [C_METHOD, C_TYPE, rffi.INT, rffi.VOIDP], C_OBJECT,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-_c_call_o = rffi.llexternal(
-    "cppyy_call_o",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, C_TYPE], rffi.LONG,
-    threadsafe=ts_call,
-    compilation_info=backend.eci)
-def c_call_o(method, cppobj, nargs, args, cppclass):
-    return _c_call_o(method, cppobj, nargs, args, cppclass.handle)
+def c_constructor(space, cppmethod, cppobject, nargs, args):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args))]
+    return rffi.cast(C_OBJECT, space.int_w(call_capi(space, 'constructor', args_w)))
+def c_call_o(space, cppmethod, cppobject, nargs, args, cppclass):
+    args_w = [space.wrap(cppmethod), space.wrap(cppobject),
+              space.wrap(nargs), space.wrap(rffi.cast(rffi.ULONG, args)),
+              space.wrap(cppclass.handle)]
+    return rffi.cast(C_OBJECT, space.int_w(call_capi(space, 'call_o', args_w)))
 
 _c_get_methptr_getter = rffi.llexternal(
     "cppyy_get_methptr_getter",
@@ -291,39 +286,21 @@ c_is_enum = rffi.llexternal(
     compilation_info=backend.eci)
 
 # type/class reflection information ------------------------------------------
-_c_final_name = rffi.llexternal(
-    "cppyy_final_name",
-    [C_TYPE], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_final_name(cpptype):
-    return charp2str_free(_c_final_name(cpptype))
-_c_scoped_final_name = rffi.llexternal(
-    "cppyy_scoped_final_name",
-    [C_TYPE], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_scoped_final_name(cpptype):
-    return charp2str_free(_c_scoped_final_name(cpptype))
-c_has_complex_hierarchy = rffi.llexternal(
-    "cppyy_has_complex_hierarchy",
-    [C_TYPE], rffi.INT,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-_c_num_bases = rffi.llexternal(
-    "cppyy_num_bases",
-    [C_TYPE], rffi.INT,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_num_bases(cppclass):
-    return _c_num_bases(cppclass.handle)
-_c_base_name = rffi.llexternal(
-    "cppyy_base_name",
-    [C_TYPE, rffi.INT], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_base_name(cppclass, base_index):
-    return charp2str_free(_c_base_name(cppclass.handle, base_index))
+def c_final_name(space, cpptype):
+    args_w = [space.wrap(cpptype)]
+    return charp2str_free(space, call_capi(space, 'final_name', args_w))
+def c_scoped_final_name(space, cpptype):
+    args_w = [space.wrap(cpptype)]
+    return charp2str_free(space, call_capi(space, 'scoped_final_name', args_w))
+def c_has_complex_hierarchy(space, handle):
+    args_w = [space.wrap(handle)]
+    return space.int_w(call_capi(space, 'has_complex_hierarchy', args_w))
+def c_num_bases(space, cppclass):
+    args_w = [space.wrap(cppclass.handle)]
+    return space.int_w(call_capi(space, 'num_bases', args_w))
+def c_base_name(space, cppclass, base_index):
+    args_w = [space.wrap(cppclass.handle), space.wrap(base_index)]
+    return charp2str_free(space, call_capi(space, 'base_name', args_w))
 _c_is_subtype = rffi.llexternal(
     "cppyy_is_subtype",
     [C_TYPE, C_TYPE], rffi.INT,
@@ -370,7 +347,7 @@ _c_method_indices_from_name = rffi.llexternal(
     [C_SCOPE, rffi.CCHARP], C_INDEX_ARRAY,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_indices_from_name(cppscope, name):
+def c_method_indices_from_name(space, cppscope, name):
     indices = _c_method_indices_from_name(cppscope.handle, name)
     if not indices:
         return []
@@ -381,23 +358,15 @@ def c_method_indices_from_name(cppscope, name):
         i += 1
         py_indices.append(index)
         index = indices[i]
-    c_free(rffi.cast(rffi.VOIDP, indices))   # c_free defined below
+    c_free(space, rffi.cast(rffi.VOIDP, indices))   # c_free defined below
     return py_indices
 
-_c_method_name = rffi.llexternal(
-    "cppyy_method_name",
-    [C_SCOPE, C_INDEX], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_method_name(cppscope, index):
-    return charp2str_free(_c_method_name(cppscope.handle, index))
-_c_method_result_type = rffi.llexternal(
-    "cppyy_method_result_type",
-    [C_SCOPE, C_INDEX], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_method_result_type(cppscope, index):
-    return charp2str_free(_c_method_result_type(cppscope.handle, index))
+def c_method_name(space, cppscope, index):
+    args_w = [space.wrap(cppscope.handle), space.wrap(index)]
+    return charp2str_free(space, call_capi(space, 'method_name', args_w))
+def c_method_result_type(space, cppscope, index):
+    args_w = [space.wrap(cppscope.handle), space.wrap(index)]
+    return charp2str_free(space, call_capi(space, 'method_result_type', args_w))
 _c_method_num_args = rffi.llexternal(
     "cppyy_method_num_args",
     [C_SCOPE, C_INDEX], rffi.INT,
@@ -412,27 +381,15 @@ _c_method_req_args = rffi.llexternal(
     compilation_info=backend.eci)
 def c_method_req_args(cppscope, index):
     return _c_method_req_args(cppscope.handle, index)
-_c_method_arg_type = rffi.llexternal(
-    "cppyy_method_arg_type",
-    [C_SCOPE, C_INDEX, rffi.INT], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_method_arg_type(cppscope, index, arg_index):
-    return charp2str_free(_c_method_arg_type(cppscope.handle, index, arg_index))
-_c_method_arg_default = rffi.llexternal(
-    "cppyy_method_arg_default",
-    [C_SCOPE, C_INDEX, rffi.INT], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_method_arg_default(cppscope, index, arg_index):
-    return charp2str_free(_c_method_arg_default(cppscope.handle, index, arg_index))
-_c_method_signature = rffi.llexternal(
-    "cppyy_method_signature",
-    [C_SCOPE, C_INDEX], rffi.CCHARP,
-    threadsafe=ts_reflect,
-    compilation_info=backend.eci)
-def c_method_signature(cppscope, index):
-    return charp2str_free(_c_method_signature(cppscope.handle, index))
+def c_method_arg_type(space, cppscope, index, arg_index):
+    args_w = [space.wrap(cppscope.handle), space.wrap(index), space.wrap(arg_index)]
+    return charp2str_free(space, call_capi(space, 'method_arg_type', args_w))
+def c_method_arg_default(space, cppscope, index, arg_index):
+    args_w = [space.wrap(cppscope.handle), space.wrap(index), space.wrap(arg_index)]
+    return charp2str_free(space, call_capi(space, 'method_arg_default', args_w))
+def c_method_signature(space, cppscope, index):
+    args_w = [space.wrap(cppscope.handle), space.wrap(index)]
+    return charp2str_free(space, call_capi(space, 'method_signature', args_w))
 
 _c_method_is_template = rffi.llexternal(
     "cppyy_method_is_template",
@@ -451,11 +408,13 @@ _c_method_template_arg_name = rffi.llexternal(
     [C_SCOPE, C_INDEX, C_INDEX], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_template_args(cppscope, index):
+def c_template_args(space, cppscope, index):
     nargs = _c_method_num_template_args(cppscope.handle, index)
-    args = [c_resolve_name(
-        charp2str_free(_c_method_template_arg_name(cppscope.handle, index, iarg)))
-        for iarg in range(nargs)]
+    args = [c_resolve_name(space, charp2str_free(space,
+                call_capi(space, 'method_template_arg_name',
+                          [space.wrap(cppscope.handle), space.wrap(index), space.wrap(iarg)])
+                                     )
+            ) for iarg in range(nargs)]
     return args
 
 _c_get_method = rffi.llexternal(
@@ -504,15 +463,17 @@ _c_datamember_name = rffi.llexternal(
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_datamember_name(cppscope, datamember_index):
-    return charp2str_free(_c_datamember_name(cppscope.handle, datamember_index))
+def c_datamember_name(space, cppscope, datamember_index):
+    args_w = [space.wrap(cppscope.handle), space.wrap(datamember_index)]
+    return charp2str_free(space, call_capi(space, 'datamember_name', args_w))
 _c_datamember_type = rffi.llexternal(
     "cppyy_datamember_type",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_datamember_type(cppscope, datamember_index):
-    return charp2str_free(_c_datamember_type(cppscope.handle, datamember_index))
+def c_datamember_type(space, cppscope, datamember_index):
+    args_w = [space.wrap(cppscope.handle), space.wrap(datamember_index)]
+    return charp2str_free(space, call_capi(space, 'datamember_type', args_w))
 _c_datamember_offset = rffi.llexternal(
     "cppyy_datamember_offset",
     [C_SCOPE, rffi.INT], rffi.SIZE_T,
@@ -556,17 +517,16 @@ c_strtoull = rffi.llexternal(
     [rffi.CCHARP], rffi.ULONGLONG,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
-c_free = rffi.llexternal(
-    "cppyy_free",
-    [rffi.VOIDP], lltype.Void,
-    threadsafe=ts_memory,
-    compilation_info=backend.eci)
+def c_free(space, voidp):
+    args_w = [space.wrap(rffi.cast(rffi.ULONG, voidp))]
+    call_capi(space, 'free', args_w)
 
-def charp2str_free(charp):
-    string = rffi.charp2str(charp)
+def charp2str_free(space, cdata):
+    charp = rffi.cast(rffi.CCHARP, cdata._cdata)
+    pystr = rffi.charp2str(charp)
     voidp = rffi.cast(rffi.VOIDP, charp)
-    c_free(voidp)
-    return string
+    c_free(space, voidp)
+    return pystr
 
 c_charp2stdstring = rffi.llexternal(
     "cppyy_charp2stdstring",
@@ -588,3 +548,12 @@ c_free_stdstring = rffi.llexternal(
     [C_OBJECT], lltype.Void,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
+
+
+# loadable-capi-specific pythonizations (none, as the capi isn't known until runtime)
+def register_pythonizations(space):
+    "NOT_RPYTHON"
+    pass
+
+def pythonize(space, name, w_pycppclass):
+    pass
