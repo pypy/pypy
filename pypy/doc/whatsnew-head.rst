@@ -101,7 +101,6 @@ Cleanup _numpypy and numpypy namespaces to more closely resemble numpy.
 Random cleanups to hide FlowObjSpace from public view.
 
 .. branch: vendor-rename
-Remove minor verison number from lib-python dirs to simplify stdlib upgrades.
 
 .. branch: jitframe-on-heap
 Moves optimized JIT frames from stack to heap. As a side effect it enables
