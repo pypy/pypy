@@ -15,7 +15,7 @@ debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
 debug_merge_point(0, '<code object f. file 'x.py'. line 2> #12 LOAD_CONST')
 debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
 +166: i6 = int_lt(i4, 10000)
-guard_true(i6, descr=<Guard3>) [p1, p0, p2, p3, i4]
+guard_true(i6, descr=<Guard0x3>) [p1, p0, p2, p3, i4]
 debug_merge_point(0, '<code object f. file 'x.py'. line 2> #18 POP_JUMP_IF_FALSE')
 debug_merge_point(0, '<code object f. file 'x.py'. line 2> #21 LOAD_FAST')
 debug_merge_point(0, '<code object f. file 'x.py'. line 2> #24 LOAD_CONST')
@@ -27,7 +27,7 @@ debug_merge_point(0, '<code object f. file 'x.py'. line 2> #31 JUMP_ABSOLUTE')
 +191: i12 = int_sub(i10, 1)
 +195: setfield_raw(40564608, i12, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
 +203: i14 = int_lt(i12, 0)
-guard_false(i14, descr=<Guard4>) [p1, p0, p2, p3, i8, None]
+guard_false(i14, descr=<Guard0x4>) [p1, p0, p2, p3, i8, None]
 debug_merge_point(0, '<code object f. file 'x.py'. line 2> #9 LOAD_FAST')
 +213: jump(p0, p1, p2, p3, i8, descr=<Loop0>)
 +218: --end of the loop--
