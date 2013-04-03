@@ -579,7 +579,6 @@ class Connection(object):
         return _iterdump(self)
 
     def _begin(self):
-        self._check_closed()
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
         ret = _lib.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
