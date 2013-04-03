@@ -1328,7 +1328,7 @@ def tigetnum(capname):
 def tigetstr(capname):
     _ensure_initialised_setupterm()
     val = lib.tigetstr(capname)
-    if val in (0, -1, ffi.NULL):
+    if int(ffi.cast("intptr_t", val)) in (0, -1):
         return None
     return ffi.string(val)
 
