@@ -145,6 +145,7 @@ int sqlite3_prepare_v2(
     const char **pzTail     /* OUT: Pointer to unused portion of zSql */
 );
 int sqlite3_finalize(sqlite3_stmt *pStmt);
+int sqlite3_data_count(sqlite3_stmt *pStmt);
 int sqlite3_column_count(sqlite3_stmt *pStmt);
 const char *sqlite3_column_name(sqlite3_stmt*, int N);
 int sqlite3_get_autocommit(sqlite3*);
@@ -1222,7 +1223,7 @@ class Statement(object):
 
     def _readahead(self, cursor):
         row = []
-        num_cols = _lib.sqlite3_column_count(self._statement)
+        num_cols = _lib.sqlite3_data_count(self._statement)
         for i in xrange(num_cols):
             if self.__con._detect_types:
                 converter = self.__row_cast_map[i]
