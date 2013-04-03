@@ -1,7 +1,8 @@
 import pytest
+import os, sys
 
 
-@pytest.mark.skipif("os.name != 'posix'")
+@pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform")
 def test_raw_input():
     import os
     import pty
