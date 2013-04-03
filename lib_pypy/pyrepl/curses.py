@@ -21,14 +21,18 @@
 
 # avoid importing the whole curses, if possible
 try:
-    import _curses
+    # pypy case
+    import _minimal_curses as _curses
 except ImportError:
     try:
-        import curses
+        import _curses
     except ImportError:
         # Who knows, maybe some environment has "curses" but not "_curses".
         # If not, at least the following import gives a clean ImportError.
-        import _curses
+        try:
+            import curses as _curses
+        except ImportError:
+            import _curses
 
 setupterm = _curses.setupterm
 tigetstr = _curses.tigetstr
