@@ -22,7 +22,7 @@ option_to_typename = {
 }
 
 IDTAG_INT     = 1
-#IDTAG_LONG    = 3
+IDTAG_LONG    = 3
 IDTAG_FLOAT   = 5
 IDTAG_COMPLEX = 7
 
