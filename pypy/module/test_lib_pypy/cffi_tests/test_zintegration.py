@@ -3,6 +3,18 @@ import imp
 import subprocess
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 
+def setup_module(mod):
+    if '__pypy__' in sys.builtin_module_names:
+        try:
+            ver = subprocess.check_output(['virtualenv', '--version'])
+        except OSError as e:
+            py.test.skip("Cannot execute virtualenv: %s" % (e,))
+        # this check is absolutely broken, but I can't think about a better
+        # idea
+        if ((ver.startswith('1.9') and ver <= "1.9.1") or
+            ver[2] != '1'):
+            py.test.skip("pypy requires virtualenv >= 1.9.2")
+
 def create_venv(name):
     tmpdir = udir.join(name)
     try:
