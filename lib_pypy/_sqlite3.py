@@ -1275,6 +1275,8 @@ class Statement(object):
             raise self.__con._get_exception(ret)
         elif ret == _lib.SQLITE_ROW:
             self._readahead(cursor)
+        else:
+            self._reset()
 
         return item
 
