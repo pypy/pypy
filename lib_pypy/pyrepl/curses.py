@@ -19,15 +19,12 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# Some try-import logic for two purposes: avoiding to bring in the whole
-# pure Python curses package if possible; and, in _curses is not actually
-# present, falling back to _minimal_curses (which is either a ctypes-based
-# pure Python module or a PyPy built-in module).
+# avoid importing the whole curses, if possible
 try:
     import _curses
 except ImportError:
     try:
-        import _minimal_curses as _curses
+        import curses
     except ImportError:
         # Who knows, maybe some environment has "curses" but not "_curses".
         # If not, at least the following import gives a clean ImportError.
