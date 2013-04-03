@@ -117,3 +117,7 @@ Documentation fixes after going through the docs at PyCon 2013 sprint.
 .. branch: curses_cffi
 
 cffi implementation of _curses
+
+.. branch: sqlite-cffi
+
+cffi implementation of sqlite3
