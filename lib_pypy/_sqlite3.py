@@ -581,9 +581,8 @@ class Connection(object):
 
     def _begin(self):
         statement_star = _ffi.new('sqlite3_stmt **')
-        next_char = _ffi.new('char **')
         ret = _lib.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
-                                      statement_star, next_char)
+                                      statement_star, _ffi.NULL)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -603,9 +602,8 @@ class Connection(object):
         self.__do_all_statements(Statement._reset, False)
 
         statement_star = _ffi.new('sqlite3_stmt **')
-        next_char = _ffi.new('char **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
-                                      statement_star, next_char)
+                                      statement_star, _ffi.NULL)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -625,9 +623,8 @@ class Connection(object):
         self.__do_all_statements(Statement._reset, True)
 
         statement_star = _ffi.new('sqlite3_stmt **')
-        next_char = _ffi.new('char **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
-                                      statement_star, next_char)
+                                      statement_star, _ffi.NULL)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
