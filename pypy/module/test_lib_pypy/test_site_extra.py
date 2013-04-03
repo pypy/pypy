@@ -2,7 +2,7 @@ import sys, os
 
 
 def test_preimported_modules():
-    lst = ['__builtin__', '_warnings',
+    lst = ['__builtin__', '_codecs', '_warnings', 'codecs', 'encodings',
            'exceptions', 'signal', 'sys', 'zipimport']
     g = os.popen("'%s' -c 'import sys; print sorted(sys.modules)'" %
                  (sys.executable,))
