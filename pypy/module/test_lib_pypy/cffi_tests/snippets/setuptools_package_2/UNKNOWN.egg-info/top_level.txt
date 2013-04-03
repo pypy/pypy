@@ -1,2 +1,0 @@
-snip_setuptools_verify2
-_cffi__gd39ab08bx8432a366
