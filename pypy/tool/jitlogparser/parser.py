@@ -34,7 +34,7 @@ class Op(object):
         self.descr = descr
         self._is_guard = name.startswith('guard_')
         if self._is_guard:
-            self.guard_no = int(self.descr[len('<Guard'):-1], 16)
+            self.guard_no = int(self.descr[len('<Guard0x'):-1], 16)
 
     def setfailargs(self, failargs):
         self.failargs = failargs
