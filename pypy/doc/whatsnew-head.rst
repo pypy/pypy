@@ -114,3 +114,4 @@ Documentation fixes after going through the docs at PyCon 2013 sprint.
 .. branch: extregistry-refactor
 
 .. branch: remove-list-smm
+.. branch: bridge-logging
