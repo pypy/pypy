@@ -879,9 +879,9 @@ class interp2app(W_Root):
         for name, defaultval in self._staticdefs:
             if name.startswith('w_'):
                 assert defaultval is None, (
-                    "%s: default value for '%s' can only be None; "
+                    "%s: default value for '%s' can only be None, got %r; "
                     "use unwrap_spec(...=WrappedDefault(default))" % (
-                    self._code.identifier, name))
+                    self._code.identifier, name, defaultval))
                 defs_w.append(None)
             else:
                 defs_w.append(space.wrap(defaultval))

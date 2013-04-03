@@ -240,9 +240,11 @@ class TestRunningAssembler(object):
         x = 0x60002224
         self.a.gen_func_prolog()
         self.a.mc.gen_load_int(r.r1.value, x)
+        self.a.mc.SUB_ri(r.sp.value, r.sp.value, 8)
         self.a.mc.MOV_ri(r.r3.value, 8)
-        self.a.mc.STR_rr(r.r1.value, r.fp.value, r.r3.value)
-        self.a.mc.LDR_ri(r.r0.value, r.fp.value, 8)
+        self.a.mc.STR_rr(r.r1.value, r.sp.value, r.r3.value)
+        self.a.mc.LDR_ri(r.r0.value, r.sp.value, 8)
+        self.a.mc.ADD_ri(r.sp.value, r.sp.value, 8)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == x
 

@@ -330,6 +330,7 @@ W_ReversedIterator.typedef = TypeDef("reversed",
     next            = interp2app(W_ReversedIterator.descr_next),
     __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
 )
+W_ReversedIterator.typedef.acceptable_as_base_class = False
 
 # exported through _pickle_support
 def _make_reversed(space, w_seq, w_remaining):
@@ -428,7 +429,7 @@ W_XRange.typedef = TypeDef("xrange",
     __reversed__     = interp2app(W_XRange.descr_reversed),
     __reduce__       = interp2app(W_XRange.descr_reduce),
 )
-
+W_XRange.typedef.acceptable_as_base_class = False
 
 class W_XRangeIterator(W_Root):
     def __init__(self, space, current, remaining, step):
@@ -475,6 +476,7 @@ W_XRangeIterator.typedef = TypeDef("rangeiterator",
     next            = interp2app(W_XRangeIterator.descr_next),
     __reduce__      = interp2app(W_XRangeIterator.descr_reduce),
 )
+W_XRangeIterator.typedef.acceptable_as_base_class = False
 
 class W_XRangeStepOneIterator(W_XRangeIterator):
     def __init__(self, space, start, stop):

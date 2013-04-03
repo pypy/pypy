@@ -105,6 +105,7 @@ long RPyThreadSetStackSize(long newsize)
 BOOL InitializeNonRecursiveMutex(PNRMUTEX mutex)
 {
     mutex->sem = CreateSemaphore(NULL, 1, 1, NULL);
+    return !!mutex->sem;
 }
 
 VOID DeleteNonRecursiveMutex(PNRMUTEX mutex)

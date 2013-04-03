@@ -22,7 +22,7 @@ if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
-STDLIB_VER = "2"
+STDLIB_VER = "2.7"
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.

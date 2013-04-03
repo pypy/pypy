@@ -342,12 +342,12 @@ class FunctionGcRootTracker(object):
 
     def walk_instructions_backwards(self, walker, initial_insn, initial_state):
         pending = []
-        seen = {}
+        seen = set()
         def schedule(insn, state):
             for previnsn in insn.previous_insns:
                 key = previnsn, state
                 if key not in seen:
-                    seen[key] = True
+                    seen.add(key)
                     pending.append(key)
         schedule(initial_insn, initial_state)
         while pending:
