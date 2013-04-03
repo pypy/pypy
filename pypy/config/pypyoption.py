@@ -31,7 +31,7 @@ working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
-     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
+     "struct", "_hashlib", "_md5", "_sha", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
@@ -45,7 +45,7 @@ translation_modules.update(dict.fromkeys(
      "binascii",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
-     "termios", "_minimal_curses",
+     "termios",
      ]))
 
 working_oo_modules = default_modules.copy()
@@ -62,7 +62,6 @@ if sys.platform == "win32":
     del working_modules["fcntl"]
     del working_modules["pwd"]
     del working_modules["termios"]
-    del working_modules["_minimal_curses"]
 
     # The _locale module is needed by site.py on Windows
     default_modules["_locale"] = None
@@ -72,7 +71,6 @@ if sys.platform == "sunos5":
     del working_modules['rctime'] # depend on ctypes, missing tm_zone/tm_gmtoff
     del working_modules['signal'] # depend on ctypes, can't get at c-level 'errono'
     del working_modules['fcntl']  # LOCK_NB not defined
-    del working_modules["_minimal_curses"]
     del working_modules["termios"]
     del working_modules["_multiprocessing"]   # depends on rctime
 
@@ -103,7 +101,6 @@ module_import_dependencies = {
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
-    "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
     }
 
