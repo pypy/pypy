@@ -1266,6 +1266,7 @@ class Statement(object):
         try:
             item = self._item
         except AttributeError:
+            self._reset()
             raise StopIteration
         del self._item
 
@@ -1275,8 +1276,6 @@ class Statement(object):
             raise self.__con._get_exception(ret)
         elif ret == _lib.SQLITE_ROW:
             self._readahead(cursor)
-        else:
-            self._reset()
 
         return item
 
