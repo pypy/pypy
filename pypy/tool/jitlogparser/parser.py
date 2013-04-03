@@ -364,7 +364,7 @@ def adjust_bridges(loop, bridges):
 
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
-    hex_re = '0x([\da-f]+)'
+    hex_re = '0x(-?[\da-f]+)'
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
         m = re.search('bootstrap ' + hex_re, entry)
@@ -416,7 +416,7 @@ def split_trace(trace):
     labels = [0]
     if trace.comment and 'Guard' in trace.comment:
         descrs = ['bridge %d' % int(
-            re.search('Guard 0x([\da-f]+)', trace.comment).group(1), 16)]
+            re.search('Guard 0x(-?[\da-f]+)', trace.comment).group(1), 16)]
     else:
         descrs = ['entry ' + re.search('Loop (\d+)', trace.comment).group(1)]
     for i, op in enumerate(trace.operations):
