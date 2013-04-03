@@ -68,7 +68,7 @@ class TestLogParser(BaseTestPyPyC):
                 bridge = bridges.get(mangle_descr(op.descr))
                 if bridge is not None:
                     mod_bridges.append(bridge)
-        assert len(mod_bridges) == 2
+        assert len(mod_bridges) in (1, 2)
         
         # check that counts are reasonable (precise # may change in the future)
         assert N - 2000 < sum(l.count for l in fn_with_bridges_loops) < N
