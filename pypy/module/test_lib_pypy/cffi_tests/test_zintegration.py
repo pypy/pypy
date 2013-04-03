@@ -62,6 +62,10 @@ def run_setup_and_program(dirname, python_snippet):
         really_run_setup_and_program(dirname, venv_dir, python_snippet)
     finally:
         del sys._force_generic_engine_
+    # the two files lextab.py and yacctab.py are created by not-correctly-
+    # installed versions of pycparser.
+    assert not os.path.exists(str(SNIPPET_DIR.join(dirname, 'lextab.py')))
+    assert not os.path.exists(str(SNIPPET_DIR.join(dirname, 'yacctab.py')))
 
 def test_infrastructure():
     run_setup_and_program('infrastructure', '''
