@@ -96,6 +96,9 @@ def get_config_vars(*args):
         else:
             _config_vars = {}
 
+        _config_vars['prefix'] = PREFIX
+        _config_vars['exec_prefix'] = EXEC_PREFIX
+
     if args:
         vals = []
         for name in args:
