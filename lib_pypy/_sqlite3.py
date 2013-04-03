@@ -309,7 +309,7 @@ PARSE_COLNAMES = 1
 PARSE_DECLTYPES = 2
 
 # SQLite version information
-sqlite_version = _ffi.string(_lib.sqlite3_libversion())
+sqlite_version = str(_ffi.string(_lib.sqlite3_libversion()).decode('ascii'))
 
 
 class Error(StandardError):
@@ -948,13 +948,12 @@ class Cursor(object):
         elif not isinstance(sql, str):
             raise ValueError("script argument must be unicode or string.")
         statement_star = _ffi.new('sqlite3_stmt **')
-        tail = _ffi.new('char **')
+        next_char = _ffi.new('char **')
 
         self.__connection.commit()
         while True:
             rc = _lib.sqlite3_prepare(self.__connection._db, sql, -1,
-                                      statement_star, tail)
-            sql = _ffi.string(tail[0])
+                                      statement_star, next_char)
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
@@ -976,6 +975,7 @@ class Cursor(object):
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
+            sql = _ffi.string(next_char[0])
             if not sql:
                 break
         return self
@@ -1080,7 +1080,8 @@ class Statement(object):
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
 
-        if _check_remaining_sql(_ffi.string(next_char[0])):
+        sql = _ffi.string(next_char[0]).decode('utf-8')
+        if _check_remaining_sql(sql):
             raise Warning("You can only execute one statement at a time.")
 
     def __del__(self):
@@ -1171,7 +1172,7 @@ class Statement(object):
                     raise ProgrammingError("Binding %d has no name, but you "
                                            "supplied a dictionary (which has "
                                            "only names)." % i)
-                param_name = _ffi.string(param_name)[1:]
+                param_name = _ffi.string(param_name).decode('utf-8')[1:]
                 try:
                     param = params[param_name]
                 except KeyError:
@@ -1195,7 +1196,7 @@ class Statement(object):
             if self.__con._detect_types & PARSE_COLNAMES:
                 colname = _lib.sqlite3_column_name(self._statement, i)
                 if colname is not None:
-                    colname = _ffi.string(colname)
+                    colname = _ffi.string(colname).decode('utf-8')
                     type_start = -1
                     key = None
                     for pos in range(len(colname)):
@@ -1208,7 +1209,7 @@ class Statement(object):
             if converter is None and self.__con._detect_types & PARSE_DECLTYPES:
                 decltype = _lib.sqlite3_column_decltype(self._statement, i)
                 if decltype is not None:
-                    decltype = _ffi.string(decltype)
+                    decltype = _ffi.string(decltype).decode('utf-8')
                     # if multiple words, use first, eg.
                     # "INTEGER NOT NULL" => "INTEGER"
                     decltype = decltype.split()[0]
@@ -1283,7 +1284,8 @@ class Statement(object):
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
-            name = _ffi.string(name).split("[")[0].strip()
+            if name is not None:
+                name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 
@@ -1378,7 +1380,7 @@ def _convert_params(con, nargs, params):
             val = _lib.sqlite3_value_double(params[i])
         elif typ == _lib.SQLITE_TEXT:
             val = _lib.sqlite3_value_text(params[i])
-            val = unicode(_ffi.string(val), 'utf-8')
+            val = _ffi.string(val).decode('utf-8')
         elif typ == _lib.SQLITE_BLOB:
             blob = _lib.sqlite3_value_blob(params[i])
             blob_len = _lib.sqlite3_value_bytes(params[i])
