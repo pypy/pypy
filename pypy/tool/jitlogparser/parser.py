@@ -396,7 +396,7 @@ def import_log(logname, ParserCls=SimpleParser):
         comm = loop.comment
         comm = comm.lower()
         if comm.startswith('# bridge'):
-            m = re.search('guard ([\da-f]+)', comm)
+            m = re.search('guard (-?[\da-f]+)', comm)
             name = 'guard ' + m.group(1)
         elif "(" in comm:
             name = comm[2:comm.find('(')-1]
