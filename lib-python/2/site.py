@@ -554,6 +554,8 @@ def execusercustomize():
 def import_builtin_stuff():
     """PyPy specific: pre-import a few built-in modules, because
     some programs actually rely on them to be in sys.modules :-("""
+    # encodings is imported sometimes but not always by app_main
+    import encodings
     import exceptions
     if 'zipimport' in sys.builtin_module_names:
         import zipimport
