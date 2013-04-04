@@ -200,6 +200,8 @@ def test_statement_param_checking():
 def test_explicit_begin():
     con = _sqlite3.connect(':memory:')
     con.execute('BEGIN')
+    con.execute('BEGIN ')
+    con.execute('BEGIN')
     con.commit()
     con.execute('BEGIN')
     con.commit()
