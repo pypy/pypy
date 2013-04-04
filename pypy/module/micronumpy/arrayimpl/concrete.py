@@ -281,7 +281,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
     def astype(self, space, dtype):
         new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
-        if dtype.is_str_or_unicode():
+        if self.dtype.is_str_or_unicode() and not dtype.is_str_or_unicode():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "astype(%s) not implemented yet" % self.dtype))
         else:

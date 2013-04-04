@@ -30,6 +30,11 @@ import string
 import sys
 import weakref
 from threading import _get_ident as _thread_get_ident
+try:
+    from __pypy__ import newlist_hint
+except ImportError:
+    assert '__pypy__' not in sys.builtin_module_names
+    newlist_hint = lambda sizehint: []
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
@@ -377,7 +382,7 @@ class _StatementCache(object):
         self.maxcount = maxcount
         self.cache = OrderedDict()
 
-    def get(self, sql, row_factory):
+    def get(self, sql):
         try:
             stat = self.cache[sql]
         except KeyError:
@@ -385,10 +390,10 @@ class _StatementCache(object):
             self.cache[sql] = stat
             if len(self.cache) > self.maxcount:
                 self.cache.popitem(0)
-
-        if stat._in_use:
-            stat = Statement(self.connection, sql)
-        stat._row_factory = row_factory
+        else:
+            if stat._in_use:
+                stat = Statement(self.connection, sql)
+                self.cache[sql] = stat
         return stat
 
 
@@ -551,7 +556,7 @@ class Connection(object):
     @_check_thread_wrap
     @_check_closed_wrap
     def __call__(self, sql):
-        return self._statement_cache.get(sql, self.row_factory)
+        return self._statement_cache.get(sql)
 
     def cursor(self, factory=None):
         self._check_thread()
@@ -855,10 +860,6 @@ class Cursor(object):
 
         self.__initialized = True
 
-    def __del__(self):
-        if self.__statement:
-            self.__statement._reset()
-
     def close(self):
         self.__connection._check_thread()
         self.__connection._check_closed()
@@ -884,16 +885,96 @@ class Cursor(object):
             return func(self, *args, **kwargs)
         return wrapper
 
+    def __check_reset(self):
+        if self._reset:
+            raise InterfaceError(
+                    "Cursor needed to be reset because of commit/rollback "
+                    "and can no longer be fetched from.")
+
+    def __build_row_cast_map(self):
+        if not self.__connection._detect_types:
+            return
+        self.__row_cast_map = []
+        for i in xrange(_lib.sqlite3_column_count(self.__statement._statement)):
+            converter = None
+
+            if self.__connection._detect_types & PARSE_COLNAMES:
+                colname = _lib.sqlite3_column_name(self.__statement._statement, i)
+                if colname:
+                    colname = _ffi.string(colname).decode('utf-8')
+                    type_start = -1
+                    key = None
+                    for pos in range(len(colname)):
+                        if colname[pos] == '[':
+                            type_start = pos + 1
+                        elif colname[pos] == ']' and type_start != -1:
+                            key = colname[type_start:pos]
+                            converter = converters[key.upper()]
+
+            if converter is None and self.__connection._detect_types & PARSE_DECLTYPES:
+                decltype = _lib.sqlite3_column_decltype(self.__statement._statement, i)
+                if decltype:
+                    decltype = _ffi.string(decltype).decode('utf-8')
+                    # if multiple words, use first, eg.
+                    # "INTEGER NOT NULL" => "INTEGER"
+                    decltype = decltype.split()[0]
+                    if '(' in decltype:
+                        decltype = decltype[:decltype.index('(')]
+                    converter = converters.get(decltype.upper(), None)
+
+            self.__row_cast_map.append(converter)
+
+    def __fetch_one_row(self):
+        num_cols = _lib.sqlite3_data_count(self.__statement._statement)
+        row = newlist_hint(num_cols)
+        for i in xrange(num_cols):
+            if self.__connection._detect_types:
+                converter = self.__row_cast_map[i]
+            else:
+                converter = None
+
+            if converter is not None:
+                blob = _lib.sqlite3_column_blob(self.__statement._statement, i)
+                if not blob:
+                    val = None
+                else:
+                    blob_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
+                    val = _ffi.buffer(blob, blob_len)[:]
+                    val = converter(val)
+            else:
+                typ = _lib.sqlite3_column_type(self.__statement._statement, i)
+                if typ == _lib.SQLITE_NULL:
+                    val = None
+                elif typ == _lib.SQLITE_INTEGER:
+                    val = _lib.sqlite3_column_int64(self.__statement._statement, i)
+                    val = int(val)
+                elif typ == _lib.SQLITE_FLOAT:
+                    val = _lib.sqlite3_column_double(self.__statement._statement, i)
+                elif typ == _lib.SQLITE_TEXT:
+                    text = _lib.sqlite3_column_text(self.__statement._statement, i)
+                    text_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
+                    val = _ffi.buffer(text, text_len)[:]
+                    val = self.__connection.text_factory(val)
+                elif typ == _lib.SQLITE_BLOB:
+                    blob = _lib.sqlite3_column_blob(self.__statement._statement, i)
+                    blob_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
+                    val = _BLOB_TYPE(_ffi.buffer(blob, blob_len))
+            row.append(val)
+        return tuple(row)
+
     def __execute(self, multiple, sql, many_params):
         self.__locked = True
+        self._reset = False
         try:
-            self._reset = False
+            del self.__next_row
+        except AttributeError:
+            pass
+        try:
             if not isinstance(sql, basestring):
                 raise ValueError("operation parameter must be str or unicode")
             self.__description = None
             self.__rowcount = -1
-            self.__statement = self.__connection._statement_cache.get(
-                sql, self.row_factory)
+            self.__statement = self.__connection._statement_cache.get(sql)
 
             if self.__connection._isolation_level is not None:
                 if self.__statement._kind == Statement._DDL:
@@ -918,9 +999,9 @@ class Cursor(object):
                 if self.__statement._kind == Statement._DML:
                     self.__statement._reset()
 
-                if self.__statement._kind == Statement._DQL and ret == _lib.SQLITE_ROW:
-                    self.__statement._build_row_cast_map()
-                    self.__statement._readahead(self)
+                if ret == _lib.SQLITE_ROW:
+                    self.__build_row_cast_map()
+                    self.__next_row = self.__fetch_one_row()
 
                 if self.__statement._kind == Statement._DML:
                     if self.__rowcount == -1:
@@ -981,12 +1062,6 @@ class Cursor(object):
                 break
         return self
 
-    def __check_reset(self):
-        if self._reset:
-            raise self.__connection.InterfaceError(
-                    "Cursor needed to be reset because of commit/rollback "
-                    "and can no longer be fetched from.")
-
     def __iter__(self):
         return self
 
@@ -995,7 +1070,25 @@ class Cursor(object):
         self.__check_reset()
         if not self.__statement:
             raise StopIteration
-        return self.__statement._next(self)
+
+        try:
+            next_row = self.__next_row
+        except AttributeError:
+            self.__statement._reset()
+            self.__statement = None
+            raise StopIteration
+        del self.__next_row
+
+        if self.row_factory is not None:
+            next_row = self.row_factory(self, next_row)
+
+        ret = _lib.sqlite3_step(self.__statement._statement)
+        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
+            self.__statement._reset()
+            raise self.__connection._get_exception(ret)
+        elif ret == _lib.SQLITE_ROW:
+            self.__next_row = self.__fetch_one_row()
+        return next_row
 
     if sys.version_info[0] < 3:
         next = __next__
@@ -1052,7 +1145,6 @@ class Statement(object):
         self.__con._remember_statement(self)
 
         self._in_use = False
-        self._row_factory = None
 
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
@@ -1188,98 +1280,6 @@ class Statement(object):
                                          param_name)
         else:
             raise ValueError("parameters are of unsupported type")
-
-    def _build_row_cast_map(self):
-        if not self.__con._detect_types:
-            return
-        self.__row_cast_map = []
-        for i in xrange(_lib.sqlite3_column_count(self._statement)):
-            converter = None
-
-            if self.__con._detect_types & PARSE_COLNAMES:
-                colname = _lib.sqlite3_column_name(self._statement, i)
-                if colname:
-                    colname = _ffi.string(colname).decode('utf-8')
-                    type_start = -1
-                    key = None
-                    for pos in range(len(colname)):
-                        if colname[pos] == '[':
-                            type_start = pos + 1
-                        elif colname[pos] == ']' and type_start != -1:
-                            key = colname[type_start:pos]
-                            converter = converters[key.upper()]
-
-            if converter is None and self.__con._detect_types & PARSE_DECLTYPES:
-                decltype = _lib.sqlite3_column_decltype(self._statement, i)
-                if decltype:
-                    decltype = _ffi.string(decltype).decode('utf-8')
-                    # if multiple words, use first, eg.
-                    # "INTEGER NOT NULL" => "INTEGER"
-                    decltype = decltype.split()[0]
-                    if '(' in decltype:
-                        decltype = decltype[:decltype.index('(')]
-                    converter = converters.get(decltype.upper(), None)
-
-            self.__row_cast_map.append(converter)
-
-    def _readahead(self, cursor):
-        row = []
-        num_cols = _lib.sqlite3_data_count(self._statement)
-        for i in xrange(num_cols):
-            if self.__con._detect_types:
-                converter = self.__row_cast_map[i]
-            else:
-                converter = None
-
-            if converter is not None:
-                blob = _lib.sqlite3_column_blob(self._statement, i)
-                if not blob:
-                    val = None
-                else:
-                    blob_len = _lib.sqlite3_column_bytes(self._statement, i)
-                    val = _ffi.buffer(blob, blob_len)[:]
-                    val = converter(val)
-            else:
-                typ = _lib.sqlite3_column_type(self._statement, i)
-                if typ == _lib.SQLITE_NULL:
-                    val = None
-                elif typ == _lib.SQLITE_INTEGER:
-                    val = _lib.sqlite3_column_int64(self._statement, i)
-                    val = int(val)
-                elif typ == _lib.SQLITE_FLOAT:
-                    val = _lib.sqlite3_column_double(self._statement, i)
-                elif typ == _lib.SQLITE_TEXT:
-                    text = _lib.sqlite3_column_text(self._statement, i)
-                    text_len = _lib.sqlite3_column_bytes(self._statement, i)
-                    val = _ffi.buffer(text, text_len)[:]
-                    val = self.__con.text_factory(val)
-                elif typ == _lib.SQLITE_BLOB:
-                    blob = _lib.sqlite3_column_blob(self._statement, i)
-                    blob_len = _lib.sqlite3_column_bytes(self._statement, i)
-                    val = _BLOB_TYPE(_ffi.buffer(blob, blob_len))
-            row.append(val)
-
-        row = tuple(row)
-        if self._row_factory is not None:
-            row = self._row_factory(cursor, row)
-        self._item = row
-
-    def _next(self, cursor):
-        try:
-            item = self._item
-        except AttributeError:
-            self._reset()
-            raise StopIteration
-        del self._item
-
-        ret = _lib.sqlite3_step(self._statement)
-        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
-            _lib.sqlite3_reset(self._statement)
-            raise self.__con._get_exception(ret)
-        elif ret == _lib.SQLITE_ROW:
-            self._readahead(cursor)
-
-        return item
 
     def _get_description(self):
         if self._kind == Statement._DML:

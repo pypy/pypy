@@ -15,7 +15,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
     items = []
     num_items = 0
     idx = 0
-    
+
     while (num_items < count or count == -1) and idx < len(s):
         nextidx = s.find(sep, idx)
         if nextidx < 0:
@@ -45,7 +45,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
             items.append(val)
             num_items += 1
         idx = nextidx + 1
-    
+
     if count > num_items:
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
@@ -70,7 +70,7 @@ def _fromstring_bin(space, s, count, length, dtype):
     if count * itemsize > length:
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
-        
+
     a = W_NDimArray.from_shape([count], dtype=dtype)
     loop.fromstring_loop(a, dtype, itemsize, s)
     return space.wrap(a)
