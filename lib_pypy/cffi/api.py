@@ -25,7 +25,6 @@ class CDefError(Exception):
             line = ''
         return '%s%s' % (line, self.args[0])
 
-
 class FFI(object):
     r'''
     The main top-level class that you instantiate once, or once per module.
