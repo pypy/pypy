@@ -196,3 +196,10 @@ def test_statement_param_checking():
         con.execute('insert into foo(x) values (?)', 2)
     assert str(e.value) == 'parameters are of unsupported type'
     con.close()
+
+def test_explicit_begin():
+    con = _sqlite3.connect(':memory:')
+    con.execute('BEGIN')
+    con.commit()
+    con.execute('BEGIN')
+    con.commit()
