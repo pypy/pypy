@@ -892,6 +892,11 @@ class Cursor(object):
                 raise ValueError("operation parameter must be str or unicode")
             self.__description = None
             self.__rowcount = -1
+
+            if sql == 'BEGIN':
+                self.__connection._begin()
+                return
+
             self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
@@ -1050,6 +1055,9 @@ class Statement(object):
         self.__con = connection
         self.__con._remember_statement(self)
 
+        self._in_use = False
+        self._row_factory = None
+
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
@@ -1059,9 +1067,6 @@ class Statement(object):
             self._kind = Statement._DQL
         else:
             self._kind = Statement._DDL
-
-        self._in_use = False
-        self._row_factory = None
 
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
