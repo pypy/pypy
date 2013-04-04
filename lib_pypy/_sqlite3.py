@@ -892,11 +892,6 @@ class Cursor(object):
                 raise ValueError("operation parameter must be str or unicode")
             self.__description = None
             self.__rowcount = -1
-
-            if sql == 'BEGIN':
-                self.__connection._begin()
-                return
-
             self.__statement = self.__connection._statement_cache.get(
                 sql, self.row_factory)
 
@@ -918,8 +913,6 @@ class Cursor(object):
                 ret = _lib.sqlite3_step(self.__statement._statement)
                 if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
                     self.__statement._reset()
-                    self.__connection._in_transaction = \
-                        not _lib.sqlite3_get_autocommit(self.__connection._db)
                     raise self.__connection._get_exception(ret)
 
                 if self.__statement._kind == Statement._DML:
@@ -934,6 +927,8 @@ class Cursor(object):
                         self.__rowcount = 0
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
         finally:
+            self.__connection._in_transaction = \
+                not _lib.sqlite3_get_autocommit(self.__connection._db)
             self.__locked = False
         return self
 
