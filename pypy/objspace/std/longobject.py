@@ -4,13 +4,13 @@ from pypy.objspace.std import model, newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
-from pypy.objspace.std.intobject import W_IntObject, W_AbstractIntObject
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from rpython.rlib.rbigint import rbigint
-from pypy.objspace.std.longtype import long_typedef
+from pypy.objspace.std.longtype import long_typedef, W_AbstractLongObject
 
 
-class W_LongObject(W_AbstractIntObject):
+class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
     _immutable_fields_ = ['num']
 

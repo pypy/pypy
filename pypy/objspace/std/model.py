@@ -86,7 +86,7 @@ class StdTypeModel:
         self.typeorder = {
             objectobject.W_ObjectObject: [],
             boolobject.W_BoolObject: [],
-            intobject.W_IntObject: [],
+            #intobject.W_IntObject: [],
             floatobject.W_FloatObject: [],
             tupleobject.W_TupleObject: [],
             listobject.W_ListObject: [],
@@ -161,24 +161,24 @@ class StdTypeModel:
             register_delegates(self.typeorder)
 
         self.typeorder[boolobject.W_BoolObject] += [
-            (intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
+            #(intobject.W_IntObject,     boolobject.delegate_Bool2IntObject),
             (floatobject.W_FloatObject, floatobject.delegate_Bool2Float),
             (longobject.W_LongObject,   longobject.delegate_Bool2Long),
             (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
             ]
-        self.typeorder[intobject.W_IntObject] += [
-            (longobject.W_LongObject,   longobject.delegate_Int2Long),
-            (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
-            (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
-            ]
+        #self.typeorder[intobject.W_IntObject] += [
+        #    (longobject.W_LongObject,   longobject.delegate_Int2Long),
+        #    (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
+        #    (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
+        #    ]
         if config.objspace.std.withsmalllong:
             from pypy.objspace.std import smalllongobject
             self.typeorder[boolobject.W_BoolObject] += [
                 (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Bool2SmallLong),
                 ]
-            self.typeorder[intobject.W_IntObject] += [
-                (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Int2SmallLong),
-                ]
+            #self.typeorder[intobject.W_IntObject] += [
+            #    (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Int2SmallLong),
+            #    ]
             self.typeorder[smalllongobject.W_SmallLongObject] += [
                 (longobject.W_LongObject, smalllongobject.delegate_SmallLong2Long),
                 (floatobject.W_FloatObject, smalllongobject.delegate_SmallLong2Float),
@@ -229,6 +229,7 @@ class StdTypeModel:
         # Prebuilt common integer values
 
         if config.objspace.std.withprebuiltint:
+            # XXX: currently broken on py3k
             intobject.W_IntObject.PREBUILT = []
             for i in range(config.objspace.std.prebuiltintfrom,
                            config.objspace.std.prebuiltintto):

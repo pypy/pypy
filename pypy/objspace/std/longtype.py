@@ -182,8 +182,8 @@ def descr___round__(space, w_long, w_ndigits=None):
     m - divmod_near(m, 10**n)[1]
 
     """
-    from pypy.objspace.std.longobject import W_AbstractIntObject, newlong
-    assert isinstance(w_long, W_AbstractIntObject)
+    from pypy.objspace.std.longobject import newlong
+    assert isinstance(w_long, W_AbstractLongObject)
 
     if w_ndigits is None:
         return space.int(w_long)

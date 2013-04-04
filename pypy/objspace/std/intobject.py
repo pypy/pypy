@@ -20,7 +20,7 @@ class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
 
-    from pypy.objspace.std.longtype import long_typedef as typedef
+#    from pypy.objspace.std.inttype import int_typedef as typedef
 
     def __init__(w_self, intval):
         assert is_valid_int(intval)
@@ -57,7 +57,7 @@ class W_IntObject(W_AbstractIntObject):
         a = self.intval
         return wrapint(space, a)
 
-registerimplementation(W_IntObject)
+#registerimplementation(W_IntObject)
 
 # NB: This code is shared by smallintobject.py, and thus no other Int
 # multimethods should be invoked from these implementations. Instead, add an
