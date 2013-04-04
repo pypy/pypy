@@ -436,6 +436,25 @@ class AppTestPyFrame:
         sys.settrace(None)
         assert res == 42
 
+    def test_trace_onliner_if(self):
+        import sys
+        l = []
+        def trace(frame, event, arg):
+            l.append((frame.f_lineno, event))
+            return trace
+        def onliners():
+            if True: False
+            else: True
+            return 0
+        sys.settrace(trace)
+        onliners()
+        sys.settrace(None)
+        firstlineno = onliners.__code__.co_firstlineno
+        assert l == [(firstlineno + 0, 'call'),
+                     (firstlineno + 1, 'line'),
+                     (firstlineno + 3, 'line'),
+                     (firstlineno + 3, 'return')]
+
     def test_set_unset_f_trace(self):
         import sys
         seen = []

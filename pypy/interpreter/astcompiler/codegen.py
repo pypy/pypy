@@ -844,8 +844,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.interactive:
             expr.value.walkabout(self)
             self.emit_op(ops.PRINT_EXPR)
-        # Only compile if the expression isn't constant.
-        elif not expr.value.constant:
+        elif not (isinstance(expr.value, ast.Num) or
+                  isinstance(expr.value, ast.Str)):
             expr.value.walkabout(self)
             self.emit_op(ops.POP_TOP)
 
