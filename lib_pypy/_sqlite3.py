@@ -30,6 +30,11 @@ import string
 import sys
 import weakref
 from threading import _get_ident as _thread_get_ident
+try:
+    from __pypy__ import newlist_hint
+except ImportError:
+    assert '__pypy__' not in sys.builtin_module_names
+    newlist_hint = lambda sizehint: []
 
 if sys.version_info[0] >= 3:
     StandardError = Exception
@@ -920,8 +925,8 @@ class Cursor(object):
             self.__row_cast_map.append(converter)
 
     def __fetch_one_row(self):
-        row = []
         num_cols = _lib.sqlite3_data_count(self.__statement._statement)
+        row = newlist_hint(num_cols)
         for i in xrange(num_cols):
             if self.__connection._detect_types:
                 converter = self.__row_cast_map[i]
