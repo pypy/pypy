@@ -48,13 +48,7 @@ else:
 
 from cffi import FFI as _FFI
 
-if '__pypy__' not in sys.builtin_module_names:
-    from cffi.backend_ctypes import CTypesBackend
-    backend = CTypesBackend()
-else:
-    backend = None
-
-_ffi = _FFI(backend=backend)
+_ffi = _FFI()
 
 _ffi.cdef("""
 #define SQLITE_OK ...
@@ -257,7 +251,7 @@ int sqlite3_value_numeric_type(sqlite3_value*);
 
 def _has_load_extension():
     """Only available since 3.3.6"""
-    unverified_ffi = _FFI(backend=backend)
+    unverified_ffi = _FFI()
     unverified_ffi.cdef("""
     typedef ... sqlite3;
     int sqlite3_enable_load_extension(sqlite3 *db, int onoff);
