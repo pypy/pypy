@@ -195,24 +195,14 @@ extern long pypy_asm_stackwalk(void*, void*);
                                              "g" (v))
 
 /* marker for trackgcroot.py, and inhibits tail calls */
-#define pypy_asm_stack_bottom()  { asm volatile ("/* GC_STACK_BOTTOM */" : : : \
-                                   "memory"); pypy_check_stack_count(); }
-
-static void pypy_check_stack_count(void)
-{
+#define pypy_asm_stack_bottom() { asm volatile ("/* GC_STACK_BOTTOM */" : : : \
+                                  "memory"); pypy_check_stack_count(); }
 #ifdef RPY_ASSERT
-    void *anchor = (void*)&pypy_g_ASM_FRAMEDATA_HEAD;
-    void *fd = ((void* *) (((char *)anchor) + sizeof(void*)))[0];
-    long got = 0;
-    long stacks_counter =
-       (&pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter)->sc_inst_stacks_counter;
-    while (fd != anchor) {
-        got += 1;
-        fd = ((void* *) (((char *)fd) + sizeof(void*)))[0];
-    }
-    assert(got == stacks_counter - 1);
+void pypy_check_stack_count(void);
+#else
+static void pypy_check_stack_count(void) { }
 #endif
-}
+
 
 #define OP_GC_ASMGCROOT_STATIC(i, r)   r =	       \
 	i == 0 ? (void*)&__gcmapstart :		       \
