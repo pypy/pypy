@@ -2,7 +2,7 @@
 from . import api, model
 from .commontypes import COMMON_TYPES, resolve_common_type
 try:
-    from cffi import _pycparser as pycparser
+    from . import _pycparser as pycparser
 except ImportError:
     import pycparser
 import weakref, re, sys
