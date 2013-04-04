@@ -1,5 +1,4 @@
 import pytest
-import os, sys
 
 
 @pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform")
