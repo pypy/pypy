@@ -385,10 +385,10 @@ class _StatementCache(object):
             self.cache[sql] = stat
             if len(self.cache) > self.maxcount:
                 self.cache.popitem(0)
-
-        if stat._in_use:
-            stat = Statement(self.connection, sql)
-            self.cache[sql] = stat
+        else:
+            if stat._in_use:
+                stat = Statement(self.connection, sql)
+                self.cache[sql] = stat
         stat._row_factory = row_factory
         return stat
 
