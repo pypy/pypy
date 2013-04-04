@@ -884,6 +884,10 @@ class Cursor(object):
     def __execute(self, multiple, sql, many_params):
         self.__locked = True
         try:
+            del self.__next_row
+        except AttributeError:
+            pass
+        try:
             self._reset = False
             if not isinstance(sql, basestring):
                 raise ValueError("operation parameter must be str or unicode")
@@ -915,9 +919,9 @@ class Cursor(object):
                 if self.__statement._kind == Statement._DML:
                     self.__statement._reset()
 
-                if self.__statement._kind == Statement._DQL and ret == _lib.SQLITE_ROW:
+                if ret == _lib.SQLITE_ROW:
                     self.__statement._build_row_cast_map()
-                    self.__statement._readahead(self)
+                    self.__next_row = self.__statement._readahead(self)
 
                 if self.__statement._kind == Statement._DML:
                     if self.__rowcount == -1:
@@ -992,7 +996,22 @@ class Cursor(object):
         self.__check_reset()
         if not self.__statement:
             raise StopIteration
-        return self.__statement._next(self)
+
+        try:
+            next_row = self.__next_row
+        except AttributeError:
+            self.__statement._reset()
+            self.__statement = None
+            raise StopIteration
+        del self.__next_row
+
+        ret = _lib.sqlite3_step(self.__statement._statement)
+        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
+            self.__statement._reset()
+            raise self.__connection._get_exception(ret)
+        elif ret == _lib.SQLITE_ROW:
+            self.__next_row = self.__statement._readahead(self)
+        return next_row
 
     if sys.version_info[0] < 3:
         next = __next__
@@ -1259,24 +1278,7 @@ class Statement(object):
         row = tuple(row)
         if self._row_factory is not None:
             row = self._row_factory(cursor, row)
-        self._item = row
-
-    def _next(self, cursor):
-        try:
-            item = self._item
-        except AttributeError:
-            self._reset()
-            raise StopIteration
-        del self._item
-
-        ret = _lib.sqlite3_step(self._statement)
-        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
-            _lib.sqlite3_reset(self._statement)
-            raise self.__con._get_exception(ret)
-        elif ret == _lib.SQLITE_ROW:
-            self._readahead(cursor)
-
-        return item
+        return row
 
     def _get_description(self):
         if self._kind == Statement._DML:
