@@ -145,6 +145,7 @@ int sqlite3_prepare_v2(
     const char **pzTail     /* OUT: Pointer to unused portion of zSql */
 );
 int sqlite3_finalize(sqlite3_stmt *pStmt);
+int sqlite3_data_count(sqlite3_stmt *pStmt);
 int sqlite3_column_count(sqlite3_stmt *pStmt);
 const char *sqlite3_column_name(sqlite3_stmt*, int N);
 int sqlite3_get_autocommit(sqlite3*);
@@ -308,7 +309,7 @@ PARSE_COLNAMES = 1
 PARSE_DECLTYPES = 2
 
 # SQLite version information
-sqlite_version = _ffi.string(_lib.sqlite3_libversion())
+sqlite_version = str(_ffi.string(_lib.sqlite3_libversion()).decode('ascii'))
 
 
 class Error(StandardError):
@@ -580,9 +581,8 @@ class Connection(object):
 
     def _begin(self):
         statement_star = _ffi.new('sqlite3_stmt **')
-        next_char = _ffi.new('char **')
         ret = _lib.sqlite3_prepare_v2(self._db, self.__begin_statement, -1,
-                                      statement_star, next_char)
+                                      statement_star, _ffi.NULL)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -602,9 +602,8 @@ class Connection(object):
         self.__do_all_statements(Statement._reset, False)
 
         statement_star = _ffi.new('sqlite3_stmt **')
-        next_char = _ffi.new('char **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
-                                      statement_star, next_char)
+                                      statement_star, _ffi.NULL)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -624,9 +623,8 @@ class Connection(object):
         self.__do_all_statements(Statement._reset, True)
 
         statement_star = _ffi.new('sqlite3_stmt **')
-        next_char = _ffi.new('char **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
-                                      statement_star, next_char)
+                                      statement_star, _ffi.NULL)
         try:
             if ret != _lib.SQLITE_OK:
                 raise self._get_exception(ret)
@@ -915,8 +913,6 @@ class Cursor(object):
                 ret = _lib.sqlite3_step(self.__statement._statement)
                 if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
                     self.__statement._reset()
-                    self.__connection._in_transaction = \
-                        not _lib.sqlite3_get_autocommit(self.__connection._db)
                     raise self.__connection._get_exception(ret)
 
                 if self.__statement._kind == Statement._DML:
@@ -931,6 +927,8 @@ class Cursor(object):
                         self.__rowcount = 0
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
         finally:
+            self.__connection._in_transaction = \
+                not _lib.sqlite3_get_autocommit(self.__connection._db)
             self.__locked = False
         return self
 
@@ -950,13 +948,13 @@ class Cursor(object):
         elif not isinstance(sql, str):
             raise ValueError("script argument must be unicode or string.")
         statement_star = _ffi.new('sqlite3_stmt **')
-        tail = _ffi.new('char **')
+        next_char = _ffi.new('char **')
 
         self.__connection.commit()
         while True:
-            rc = _lib.sqlite3_prepare(self.__connection._db, sql, -1,
-                                      statement_star, tail)
-            sql = _ffi.string(tail[0])
+            c_sql = _ffi.new("char[]", sql)
+            rc = _lib.sqlite3_prepare(self.__connection._db, c_sql, -1,
+                                      statement_star, next_char)
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
@@ -978,6 +976,7 @@ class Cursor(object):
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
 
+            sql = _ffi.string(next_char[0])
             if not sql:
                 break
         return self
@@ -1052,6 +1051,9 @@ class Statement(object):
         self.__con = connection
         self.__con._remember_statement(self)
 
+        self._in_use = False
+        self._row_factory = None
+
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
@@ -1062,27 +1064,27 @@ class Statement(object):
         else:
             self._kind = Statement._DDL
 
-        self._in_use = False
-        self._row_factory = None
-
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
-        ret = _lib.sqlite3_prepare_v2(self.__con._db, sql, -1,
+        c_sql = _ffi.new("char[]", sql)
+        ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                       statement_star, next_char)
         self._statement = statement_star[0]
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
-            ret = _lib.sqlite3_prepare_v2(self.__con._db, "select 42", -1,
+            c_sql = _ffi.new("char[]", "select 42")
+            ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
             self._kind = Statement._DQL
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
 
-        if _check_remaining_sql(_ffi.string(next_char[0])):
+        tail = _ffi.string(next_char[0]).decode('utf-8')
+        if _check_remaining_sql(tail):
             raise Warning("You can only execute one statement at a time.")
 
     def __del__(self):
@@ -1173,7 +1175,7 @@ class Statement(object):
                     raise ProgrammingError("Binding %d has no name, but you "
                                            "supplied a dictionary (which has "
                                            "only names)." % i)
-                param_name = _ffi.string(param_name)[1:]
+                param_name = _ffi.string(param_name).decode('utf-8')[1:]
                 try:
                     param = params[param_name]
                 except KeyError:
@@ -1196,8 +1198,8 @@ class Statement(object):
 
             if self.__con._detect_types & PARSE_COLNAMES:
                 colname = _lib.sqlite3_column_name(self._statement, i)
-                if colname is not None:
-                    colname = _ffi.string(colname)
+                if colname:
+                    colname = _ffi.string(colname).decode('utf-8')
                     type_start = -1
                     key = None
                     for pos in range(len(colname)):
@@ -1209,8 +1211,8 @@ class Statement(object):
 
             if converter is None and self.__con._detect_types & PARSE_DECLTYPES:
                 decltype = _lib.sqlite3_column_decltype(self._statement, i)
-                if decltype is not None:
-                    decltype = _ffi.string(decltype)
+                if decltype:
+                    decltype = _ffi.string(decltype).decode('utf-8')
                     # if multiple words, use first, eg.
                     # "INTEGER NOT NULL" => "INTEGER"
                     decltype = decltype.split()[0]
@@ -1222,7 +1224,7 @@ class Statement(object):
 
     def _readahead(self, cursor):
         row = []
-        num_cols = _lib.sqlite3_column_count(self._statement)
+        num_cols = _lib.sqlite3_data_count(self._statement)
         for i in xrange(num_cols):
             if self.__con._detect_types:
                 converter = self.__row_cast_map[i]
@@ -1266,6 +1268,7 @@ class Statement(object):
         try:
             item = self._item
         except AttributeError:
+            self._reset()
             raise StopIteration
         del self._item
 
@@ -1284,7 +1287,8 @@ class Statement(object):
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
-            name = _ffi.string(name).split("[")[0].strip()
+            if name:
+                name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 
@@ -1379,7 +1383,7 @@ def _convert_params(con, nargs, params):
             val = _lib.sqlite3_value_double(params[i])
         elif typ == _lib.SQLITE_TEXT:
             val = _lib.sqlite3_value_text(params[i])
-            val = unicode(_ffi.string(val), 'utf-8')
+            val = _ffi.string(val).decode('utf-8')
         elif typ == _lib.SQLITE_BLOB:
             blob = _lib.sqlite3_value_blob(params[i])
             blob_len = _lib.sqlite3_value_bytes(params[i])
