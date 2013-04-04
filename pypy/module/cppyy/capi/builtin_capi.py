@@ -358,14 +358,14 @@ _c_method_num_args = rffi.llexternal(
     [C_SCOPE, C_INDEX], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_num_args(cppscope, index):
+def c_method_num_args(space, cppscope, index):
     return _c_method_num_args(cppscope.handle, index)
 _c_method_req_args = rffi.llexternal(
     "cppyy_method_req_args",
     [C_SCOPE, C_INDEX], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_req_args(cppscope, index):
+def c_method_req_args(space, cppscope, index):
     return _c_method_req_args(cppscope.handle, index)
 _c_method_arg_type = rffi.llexternal(
     "cppyy_method_arg_type",
@@ -394,7 +394,7 @@ _c_method_is_template = rffi.llexternal(
     [C_SCOPE, C_INDEX], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_is_template(cppscope, index):
+def c_method_is_template(space, cppscope, index):
     return _c_method_is_template(cppscope.handle, index)
 _c_method_num_template_args = rffi.llexternal(
     "cppyy_method_num_template_args",
@@ -418,14 +418,14 @@ _c_get_method = rffi.llexternal(
     [C_SCOPE, C_INDEX], C_METHOD,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_get_method(cppscope, index):
+def c_get_method(space, cppscope, index):
     return _c_get_method(cppscope.handle, index)
 _c_get_global_operator = rffi.llexternal(
     "cppyy_get_global_operator",
     [C_SCOPE, C_SCOPE, C_SCOPE, rffi.CCHARP], WLAVC_INDEX,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_get_global_operator(nss, lc, rc, op):
+def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
         return _c_get_global_operator(nss.handle, lc.handle, rc.handle, op)
     return rffi.cast(WLAVC_INDEX, -1)
@@ -436,14 +436,14 @@ _c_is_constructor = rffi.llexternal(
     [C_TYPE, C_INDEX], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_is_constructor(cppclass, index):
+def c_is_constructor(space, cppclass, index):
     return _c_is_constructor(cppclass.handle, index)
 _c_is_staticmethod = rffi.llexternal(
     "cppyy_is_staticmethod",
     [C_TYPE, C_INDEX], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_is_staticmethod(cppclass, index):
+def c_is_staticmethod(space, cppclass, index):
     return _c_is_staticmethod(cppclass.handle, index)
 
 # data member reflection information -----------------------------------------
@@ -452,7 +452,7 @@ _c_num_datamembers = rffi.llexternal(
     [C_SCOPE], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_num_datamembers(cppscope):
+def c_num_datamembers(space, cppscope):
     return _c_num_datamembers(cppscope.handle)
 _c_datamember_name = rffi.llexternal(
     "cppyy_datamember_name",
@@ -473,7 +473,7 @@ _c_datamember_offset = rffi.llexternal(
     [C_SCOPE, rffi.INT], rffi.SIZE_T,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_datamember_offset(cppscope, datamember_index):
+def c_datamember_offset(space, cppscope, datamember_index):
     return _c_datamember_offset(cppscope.handle, datamember_index)
 
 _c_datamember_index = rffi.llexternal(
@@ -481,7 +481,7 @@ _c_datamember_index = rffi.llexternal(
     [C_SCOPE, rffi.CCHARP], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_datamember_index(cppscope, name):
+def c_datamember_index(space, cppscope, name):
     return _c_datamember_index(cppscope.handle, name)
 
 # data member properties -----------------------------------------------------
@@ -490,27 +490,31 @@ _c_is_publicdata = rffi.llexternal(
     [C_SCOPE, rffi.INT], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_is_publicdata(cppscope, datamember_index):
+def c_is_publicdata(space, cppscope, datamember_index):
     return _c_is_publicdata(cppscope.handle, datamember_index)
 _c_is_staticdata = rffi.llexternal(
     "cppyy_is_staticdata",
     [C_SCOPE, rffi.INT], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_is_staticdata(cppscope, datamember_index):
+def c_is_staticdata(space, cppscope, datamember_index):
     return _c_is_staticdata(cppscope.handle, datamember_index)
 
 # misc helpers ---------------------------------------------------------------
-c_strtoll = rffi.llexternal(
+_c_strtoll = rffi.llexternal(
     "cppyy_strtoll",
     [rffi.CCHARP], rffi.LONGLONG,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
-c_strtoull = rffi.llexternal(
+def c_strtoll(space, svalue):
+    return _c_strtoll(svalue)
+_c_strtoull = rffi.llexternal(
     "cppyy_strtoull",
     [rffi.CCHARP], rffi.ULONGLONG,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
+def c_strtoull(space, svalue):
+    return _c_strtoull(svalue)
 c_free = rffi.llexternal(
     "cppyy_free",
     [rffi.VOIDP], lltype.Void,
@@ -523,23 +527,36 @@ def charp2str_free(space, charp):
     c_free(voidp)
     return string
 
-c_charp2stdstring = rffi.llexternal(
+_c_charp2stdstring = rffi.llexternal(
     "cppyy_charp2stdstring",
     [rffi.CCHARP], C_OBJECT,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
-c_stdstring2stdstring = rffi.llexternal(
+def c_charp2stdstring(space, svalue):
+    charp = rffi.str2charp(svalue)
+    result = _c_charp2stdstring(charp)
+    rffi.free_charp(charp)
+    return result
+_c_stdstring2stdstring = rffi.llexternal(
     "cppyy_stdstring2stdstring",
     [C_OBJECT], C_OBJECT,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
-c_assign2stdstring = rffi.llexternal(
+def c_stdstring2stdstring(space, cppobject):
+    return _c_stdstring2stdstring(cppobject)
+_c_assign2stdstring = rffi.llexternal(
     "cppyy_assign2stdstring",
     [C_OBJECT, rffi.CCHARP], lltype.Void,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
-c_free_stdstring = rffi.llexternal(
+def c_assign2stdstring(space, cppobject, svalue):
+    charp = rffi.str2charp(svalue)
+    _c_assign2stdstring(cppobject, charp)
+    rffi.free_charp(charp)
+_c_free_stdstring = rffi.llexternal(
     "cppyy_free_stdstring",
     [C_OBJECT], lltype.Void,
     threadsafe=ts_helper,
     compilation_info=backend.eci)
+def c_free_stdstring(space, cppobject):
+    _c_free_stdstring(cppobject)

@@ -139,7 +139,7 @@ class CPPMethod(object):
         self.space = space
         self.scope = containing_scope
         self.index = method_index
-        self.cppmethod = capi.c_get_method(self.scope, method_index)
+        self.cppmethod = capi.c_get_method(self.space, self.scope, method_index)
         self.arg_defs = arg_defs
         self.args_required = args_required
         self.args_expected = len(arg_defs)
@@ -663,7 +663,7 @@ class W_CPPScope(W_Root):
             idx = capi.c_method_index_at(self.space, self, i)
             pyname = helper.map_operator_name(self.space,
                 capi.c_method_name(self.space, self, idx),
-                capi.c_method_num_args(self, idx),
+                capi.c_method_num_args(self.space, self, idx),
                 capi.c_method_result_type(self.space, self, idx))
             cppmethod = self._make_cppfunction(pyname, idx)
             methods_temp.setdefault(pyname, []).append(cppmethod)
@@ -744,8 +744,8 @@ class W_CPPNamespace(W_CPPScope):
     kind = "namespace"
 
     def _make_cppfunction(self, pyname, index):
-        num_args = capi.c_method_num_args(self, index)
-        args_required = capi.c_method_req_args(self, index)
+        num_args = capi.c_method_num_args(self.space, self, index)
+        args_required = capi.c_method_req_args(self.space, self, index)
         arg_defs = []
         for i in range(num_args):
             arg_type = capi.c_method_arg_type(self.space, self, index, i)
@@ -755,15 +755,15 @@ class W_CPPNamespace(W_CPPScope):
 
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self.space, self, dm_idx)
-        offset = capi.c_datamember_offset(self, dm_idx)
+        offset = capi.c_datamember_offset(self.space, self, dm_idx)
         datamember = W_CPPStaticData(self.space, self, type_name, offset)
         self.datamembers[dm_name] = datamember
         return datamember
 
     def _find_datamembers(self):
-        num_datamembers = capi.c_num_datamembers(self)
+        num_datamembers = capi.c_num_datamembers(self.space, self)
         for i in range(num_datamembers):
-            if not capi.c_is_publicdata(self, i):
+            if not capi.c_is_publicdata(self.space, self, i):
                 continue
             datamember_name = capi.c_datamember_name(self.space, self, i)
             if not datamember_name in self.datamembers:
@@ -781,7 +781,7 @@ class W_CPPNamespace(W_CPPScope):
         return overload
 
     def find_datamember(self, dm_name):
-        dm_idx = capi.c_datamember_index(self, dm_name)
+        dm_idx = capi.c_datamember_index(self.space, self, dm_name)
         if dm_idx < 0:
             raise self.missing_attribute_error(dm_name)
         datamember = self._make_datamember(dm_name, dm_idx)
@@ -805,7 +805,7 @@ class W_CPPNamespace(W_CPPScope):
             if mname: allmeth.setdefault(mname, 0)
         for m in allmeth.keys():
             alldir.append(self.space.wrap(m))
-        for i in range(capi.c_num_datamembers(self)):
+        for i in range(capi.c_num_datamembers(self.space, self)):
             dname = capi.c_datamember_name(self.space, self, i)
             if dname: alldir.append(self.space.wrap(dname))
         return self.space.newlist(alldir)
@@ -834,21 +834,21 @@ class W_CPPClass(W_CPPScope):
         self.default_constructor = None
 
     def _make_cppfunction(self, pyname, index):
-        num_args = capi.c_method_num_args(self, index)
-        args_required = capi.c_method_req_args(self, index)
+        num_args = capi.c_method_num_args(self.space, self, index)
+        args_required = capi.c_method_req_args(self.space, self, index)
         arg_defs = []
         for i in range(num_args):
             arg_type = capi.c_method_arg_type(self.space, self, index, i)
             arg_dflt = capi.c_method_arg_default(self.space, self, index, i)
             arg_defs.append((arg_type, arg_dflt))
-        if capi.c_is_constructor(self, index):
+        if capi.c_is_constructor(self.space, self, index):
             cppfunction = CPPConstructor(self.space, self, index, arg_defs, args_required)
             if args_required == 0:
                 self.default_constructor = cppfunction
-        elif capi.c_method_is_template(self, index):
+        elif capi.c_method_is_template(self.space, self, index):
             templ_args = capi.c_template_args(self.space, self, index)
             cppfunction = CPPTemplatedCall(self.space, templ_args, self, index, arg_defs, args_required)
-        elif capi.c_is_staticmethod(self, index):
+        elif capi.c_is_staticmethod(self.space, self, index):
             cppfunction = CPPFunction(self.space, self, index, arg_defs, args_required)
         elif pyname == "__setitem__":
             cppfunction = CPPSetItem(self.space, self, index, arg_defs, args_required)
@@ -857,14 +857,14 @@ class W_CPPClass(W_CPPScope):
         return cppfunction
 
     def _find_datamembers(self):
-        num_datamembers = capi.c_num_datamembers(self)
+        num_datamembers = capi.c_num_datamembers(self.space, self)
         for i in range(num_datamembers):
-            if not capi.c_is_publicdata(self, i):
+            if not capi.c_is_publicdata(self.space, self, i):
                 continue
             datamember_name = capi.c_datamember_name(self.space, self, i)
             type_name = capi.c_datamember_type(self.space, self, i)
-            offset = capi.c_datamember_offset(self, i)
-            is_static = bool(capi.c_is_staticdata(self, i))
+            offset = capi.c_datamember_offset(self.space, self, i)
+            is_static = bool(capi.c_is_staticdata(self.space, self, i))
             if is_static:
                 datamember = W_CPPStaticData(self.space, self, type_name, offset)
             else:
@@ -1017,7 +1017,7 @@ class W_CPPInstance(W_Root):
             other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
             for name in ["", "__gnu_cxx"]:
                 nss = scope_byname(self.space, name)
-                meth_idx = capi.c_get_global_operator(nss, self.cppclass, other.cppclass, "==")
+                meth_idx = capi.c_get_global_operator(self.space, nss, self.cppclass, other.cppclass, "==")
                 if meth_idx != -1:
                     f = nss._make_cppfunction("operator==", meth_idx)
                     ol = W_CPPOverload(self.space, nss, [f])

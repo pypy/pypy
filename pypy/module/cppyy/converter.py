@@ -511,27 +511,23 @@ class StdStringConverter(InstanceConverter):
 
     def _unwrap_object(self, space, w_obj):
         try:
-            charp = rffi.str2charp(space.str_w(w_obj))
-            arg = capi.c_charp2stdstring(charp)
-            rffi.free_charp(charp)
-            return arg
-        except OperationError:
+            return capi.c_charp2stdstring(space, space.str_w(w_obj))
+        except Exception, e:
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
-            return capi.c_stdstring2stdstring(arg)
+            result = capi.c_stdstring2stdstring(space, arg)
+            return result
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
             address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-            charp = rffi.str2charp(space.str_w(w_value))
-            capi.c_assign2stdstring(address, charp)
-            rffi.free_charp(charp)
+            capi.c_assign2stdstring(space, address, space.str_w(w_value))
             return
         except Exception:
             pass
         return InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
     def free_argument(self, space, arg, call_local):
-        capi.c_free_stdstring(rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
+        capi.c_free_stdstring(space, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 class StdStringRefConverter(InstancePtrConverter):
     _immutable_fields_ = ['cppclass']
@@ -685,7 +681,7 @@ def _build_basic_converters():
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
             def __init__(self, space, default):
-                self.default = rffi.cast(self.c_type, capi.c_strtoll(default))
+                self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
             libffitype = jit_libffi.types.pointer
@@ -702,7 +698,7 @@ def _build_basic_converters():
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
             def __init__(self, space, default):
-                self.default = rffi.cast(self.c_type, capi.c_strtoll(default))
+                self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
             libffitype = jit_libffi.types.pointer
@@ -728,7 +724,7 @@ def _build_basic_converters():
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
             def __init__(self, space, default):
-                self.default = rffi.cast(self.c_type, capi.c_strtoull(default))
+                self.default = rffi.cast(self.c_type, capi.c_strtoull(space, default))
         class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
             _immutable_ = True
             libffitype = jit_libffi.types.pointer
