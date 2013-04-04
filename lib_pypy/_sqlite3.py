@@ -952,7 +952,8 @@ class Cursor(object):
 
         self.__connection.commit()
         while True:
-            rc = _lib.sqlite3_prepare(self.__connection._db, sql, -1,
+            c_sql = _ffi.new("char[]", sql)
+            rc = _lib.sqlite3_prepare(self.__connection._db, c_sql, -1,
                                       statement_star, next_char)
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
@@ -1067,22 +1068,23 @@ class Statement(object):
             sql = sql.encode('utf-8')
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
-        llsql = _ffi.new("char[]", sql)
-        ret = _lib.sqlite3_prepare_v2(self.__con._db, llsql, -1,
+        c_sql = _ffi.new("char[]", sql)
+        ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                       statement_star, next_char)
         self._statement = statement_star[0]
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
-            ret = _lib.sqlite3_prepare_v2(self.__con._db, "select 42", -1,
+            c_sql = _ffi.new("char[]", "select 42")
+            ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
             self._kind = Statement._DQL
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
 
-        remaining_sql = _ffi.string(next_char[0]).decode('utf-8')
-        if _check_remaining_sql(remaining_sql):
+        tail = _ffi.string(next_char[0]).decode('utf-8')
+        if _check_remaining_sql(tail):
             raise Warning("You can only execute one statement at a time.")
 
     def __del__(self):
