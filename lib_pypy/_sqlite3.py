@@ -388,6 +388,7 @@ class _StatementCache(object):
 
         if stat._in_use:
             stat = Statement(self.connection, sql)
+            self.cache[sql] = stat
         stat._row_factory = row_factory
         return stat
 
@@ -854,10 +855,6 @@ class Cursor(object):
         con._remember_cursor(self)
 
         self.__initialized = True
-
-    def __del__(self):
-        if self.__statement:
-            self.__statement._reset()
 
     def close(self):
         self.__connection._check_thread()
