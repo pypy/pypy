@@ -210,7 +210,7 @@ static void pypy_check_stack_count(void)
         got += 1;
         fd = ((void* *) (((char *)fd) + sizeof(void*)))[0];
     }
-    assert(got == stacks_counter || ((got == 0) && (stacks_counter == 1)));
+    assert(got == stacks_counter - 1);
 #endif
 }
 

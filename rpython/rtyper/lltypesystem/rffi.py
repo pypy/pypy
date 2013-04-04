@@ -282,13 +282,13 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
-            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
                 if after:
                     after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
+            llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             try:
                 result = callable(%(args)s)
             except Exception, e:
