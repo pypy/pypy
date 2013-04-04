@@ -200,8 +200,8 @@ class InstanceExecutor(InstancePtrExecutor):
 class StdStringExecutor(InstancePtrExecutor):
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        charp_result = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
-        return space.wrap(capi.charp2str_free(space, charp_result))
+        cstr_result = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
+        return space.wrap(capi.charp2str_free(space, cstr_result))
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -281,7 +281,7 @@ def get_executor(space, name):
             return InstancePtrExecutor(space, cppclass)
         elif compound == '**' or compound == '*&':
             return InstancePtrPtrExecutor(space, cppclass)
-    elif capi.c_is_enum(clean_name):
+    elif capi.c_is_enum(space, clean_name):
         return _executors['unsigned int'](space, None)
 
     # 4) additional special cases

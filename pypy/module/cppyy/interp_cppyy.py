@@ -62,7 +62,7 @@ def scope_byname(space, name):
     assert lltype.typeOf(opaque_handle) == capi.C_SCOPE
     if opaque_handle:
         final_name = capi.c_final_name(space, opaque_handle)
-        if capi.c_is_namespace(opaque_handle):
+        if capi.c_is_namespace(space, opaque_handle):
             cppscope = W_CPPNamespace(space, final_name, opaque_handle)
         elif capi.c_has_complex_hierarchy(space, opaque_handle):
             cppscope = W_ComplexCPPClass(space, final_name, opaque_handle)
@@ -246,7 +246,7 @@ class CPPMethod(object):
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
-        methgetter = capi.c_get_methptr_getter(self.scope, self.index)
+        methgetter = capi.c_get_methptr_getter(self.space, self.scope, self.index)
         if methgetter and cppthis:      # methods only for now
             cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
             try:
@@ -328,8 +328,8 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w, call_local):
-        args = capi.c_allocate_function_args(len(args_w))
-        stride = capi.c_function_arg_sizeof()
+        args = capi.c_allocate_function_args(self.space, len(args_w))
+        stride = capi.c_function_arg_sizeof(self.space)
         for i in range(len(args_w)):
             conv = self.converters[i]
             w_arg = args_w[i]
@@ -344,20 +344,20 @@ class CPPMethod(object):
                     arg_j = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), j*stride)
                     loc_j = self._address_from_local_buffer(call_local, j)
                     conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_j), loc_j)
-                capi.c_deallocate_function_args(args)
+                capi.c_deallocate_function_args(self.space, args)
                 raise
         return args
 
     @jit.unroll_safe
     def finalize_call(self, args, args_w, call_local):
-        stride = capi.c_function_arg_sizeof()
+        stride = capi.c_function_arg_sizeof(self.space)
         for i in range(len(args_w)):
             conv = self.converters[i]
             arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
             loc_i = self._address_from_local_buffer(call_local, i)
             conv.finalize_call(self.space, args_w[i], loc_i)
             conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_i), loc_i)
-        capi.c_deallocate_function_args(args)
+        capi.c_deallocate_function_args(self.space, args)
 
     def signature(self):
         return capi.c_method_signature(self.space, self.scope, self.index)
@@ -584,7 +584,7 @@ class W_CPPDataMember(W_Root):
     def _get_offset(self, cppinstance):
         if cppinstance:
             assert lltype.typeOf(cppinstance.cppclass.handle) == lltype.typeOf(self.scope.handle)
-            offset = self.offset + capi.c_base_offset(
+            offset = self.offset + capi.c_base_offset(self.space,
                 cppinstance.cppclass, self.scope, cppinstance.get_rawobject(), 1)
         else:
             offset = self.offset
@@ -659,8 +659,8 @@ class W_CPPScope(W_Root):
     def _build_methods(self):
         assert len(self.methods) == 0
         methods_temp = {}
-        for i in range(capi.c_num_methods(self)):
-            idx = capi.c_method_index_at(self, i)
+        for i in range(capi.c_num_methods(self.space, self)):
+            idx = capi.c_method_index_at(self.space, self, i)
             pyname = helper.map_operator_name(self.space,
                 capi.c_method_name(self.space, self, idx),
                 capi.c_method_num_args(self, idx),
@@ -799,8 +799,8 @@ class W_CPPNamespace(W_CPPScope):
             sname = capi.c_scope_name(self.space, self, i)
             if sname: alldir.append(self.space.wrap(sname))
         allmeth = {}
-        for i in range(capi.c_num_methods(self)):
-            idx = capi.c_method_index_at(self, i)
+        for i in range(capi.c_num_methods(self.space, self)):
+            idx = capi.c_method_index_at(self.space, self, i)
             mname = capi.c_method_name(self.space, self, idx)
             if mname: allmeth.setdefault(mname, 0)
         for m in allmeth.keys():
@@ -915,7 +915,8 @@ class W_ComplexCPPClass(W_CPPClass):
 
     def get_cppthis(self, cppinstance, calling_scope):
         assert self == cppinstance.cppclass
-        offset = capi.c_base_offset(self, calling_scope, cppinstance.get_rawobject(), 1)
+        offset = capi.c_base_offset(self.space,
+                                    self, calling_scope, cppinstance.get_rawobject(), 1)
         return capi.direct_ptradd(cppinstance.get_rawobject(), offset)
 
 W_ComplexCPPClass.typedef = TypeDef(
@@ -1143,7 +1144,7 @@ def wrap_cppobject(space, rawobject, cppclass,
         if actual != cppclass.handle:
             try:
                 w_pycppclass = get_pythonized_cppclass(space, actual)
-                offset = capi.c_base_offset1(actual, cppclass, rawobject, -1)
+                offset = capi.c_base_offset1(space, actual, cppclass, rawobject, -1)
                 rawobject = capi.direct_ptradd(rawobject, offset)
                 w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
                 cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
@@ -1164,7 +1165,7 @@ def wrap_cppobject(space, rawobject, cppclass,
 
     # fresh creation
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
-    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
     cppinstance.__init__(space, cppclass, rawobject, is_ref, python_owns)
     memory_regulator.register(cppinstance)
     return w_cppinstance

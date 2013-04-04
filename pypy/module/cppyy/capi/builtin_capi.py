@@ -191,44 +191,56 @@ _c_get_methptr_getter = rffi.llexternal(
     threadsafe=ts_reflect,
     compilation_info=backend.eci,
     elidable_function=True)
-def c_get_methptr_getter(cppscope, index):
+def c_get_methptr_getter(space, cppscope, index):
     return _c_get_methptr_getter(cppscope.handle, index)
 
 # handling of function argument buffer ---------------------------------------
-c_allocate_function_args = rffi.llexternal(
+_c_allocate_function_args = rffi.llexternal(
     "cppyy_allocate_function_args",
     [rffi.SIZE_T], rffi.VOIDP,
     threadsafe=ts_memory,
     compilation_info=backend.eci)
-c_deallocate_function_args = rffi.llexternal(
+def c_allocate_function_args(space, size):
+    return _c_allocate_function_args(size)
+_c_deallocate_function_args = rffi.llexternal(
     "cppyy_deallocate_function_args",
     [rffi.VOIDP], lltype.Void,
     threadsafe=ts_memory,
     compilation_info=backend.eci)
-c_function_arg_sizeof = rffi.llexternal(
+def c_deallocate_function_args(space, args):
+    _c_deallocate_function_args(args)
+_c_function_arg_sizeof = rffi.llexternal(
     "cppyy_function_arg_sizeof",
     [], rffi.SIZE_T,
     threadsafe=ts_memory,
     compilation_info=backend.eci,
     elidable_function=True)
-c_function_arg_typeoffset = rffi.llexternal(
+def c_function_arg_sizeof(space):
+    return _c_function_arg_sizeof()
+_c_function_arg_typeoffset = rffi.llexternal(
     "cppyy_function_arg_typeoffset",
     [], rffi.SIZE_T,
     threadsafe=ts_memory,
     compilation_info=backend.eci,
     elidable_function=True)
+def c_function_arg_typeoffset(space):
+    return _c_function_arg_typeoffset()
 
 # scope reflection information -----------------------------------------------
-c_is_namespace = rffi.llexternal(
+_c_is_namespace = rffi.llexternal(
     "cppyy_is_namespace",
     [C_SCOPE], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-c_is_enum = rffi.llexternal(
+def c_is_namespace(space, scope):
+    return _c_is_namespace(scope)
+_c_is_enum = rffi.llexternal(
     "cppyy_is_enum",
     [rffi.CCHARP], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
+def c_is_enum(space, name):
+    return _c_is_enum(name)
 
 # type/class reflection information ------------------------------------------
 _c_final_name = rffi.llexternal(
@@ -273,7 +285,7 @@ _c_is_subtype = rffi.llexternal(
     compilation_info=backend.eci,
     elidable_function=True)
 @jit.elidable_promote()
-def c_is_subtype(derived, base):
+def c_is_subtype(space, derived, base):
     if derived == base:
         return 1
     return _c_is_subtype(derived.handle, base.handle)
@@ -285,11 +297,12 @@ _c_base_offset = rffi.llexternal(
     compilation_info=backend.eci,
     elidable_function=True)
 @jit.elidable_promote()
-def c_base_offset(derived, base, address, direction):
+def c_base_offset(space, derived, base, address, direction):
     if derived == base:
         return 0
     return _c_base_offset(derived.handle, base.handle, address, direction)
-def c_base_offset1(derived_h, base, address, direction):
+@jit.elidable_promote()
+def c_base_offset1(space, derived_h, base, address, direction):
     return _c_base_offset(derived_h, base.handle, address, direction)
 
 # method/function reflection information -------------------------------------
@@ -298,14 +311,14 @@ _c_num_methods = rffi.llexternal(
     [C_SCOPE], rffi.INT,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_num_methods(cppscope):
+def c_num_methods(space, cppscope):
     return _c_num_methods(cppscope.handle)
 _c_method_index_at = rffi.llexternal(
     "cppyy_method_index_at",
     [C_SCOPE, rffi.INT], C_INDEX,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_method_index_at(cppscope, imethod):
+def c_method_index_at(space, cppscope, imethod):
     return _c_method_index_at(cppscope.handle, imethod)
 _c_method_indices_from_name = rffi.llexternal(
     "cppyy_method_indices_from_name",
