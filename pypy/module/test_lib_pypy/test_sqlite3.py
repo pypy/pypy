@@ -193,3 +193,8 @@ def test_explicit_begin():
     con.commit()
     con.execute('BEGIN')
     con.commit()
+
+def test_row_factory_use():
+    con = _sqlite3.connect(':memory:')
+    con.row_factory = 42
+    con.execute('select 1')
