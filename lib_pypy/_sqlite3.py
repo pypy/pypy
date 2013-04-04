@@ -1284,7 +1284,7 @@ class Statement(object):
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
-            if name is not None:
+            if name:
                 name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
