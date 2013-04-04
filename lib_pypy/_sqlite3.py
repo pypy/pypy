@@ -1067,7 +1067,8 @@ class Statement(object):
             sql = sql.encode('utf-8')
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
-        ret = _lib.sqlite3_prepare_v2(self.__con._db, sql, -1,
+        llsql = _ffi.new("char[]", sql)
+        ret = _lib.sqlite3_prepare_v2(self.__con._db, llsql, -1,
                                       statement_star, next_char)
         self._statement = statement_star[0]
 
@@ -1080,8 +1081,8 @@ class Statement(object):
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
 
-        sql = _ffi.string(next_char[0]).decode('utf-8')
-        if _check_remaining_sql(sql):
+        remaining_sql = _ffi.string(next_char[0]).decode('utf-8')
+        if _check_remaining_sql(remaining_sql):
             raise Warning("You can only execute one statement at a time.")
 
     def __del__(self):
