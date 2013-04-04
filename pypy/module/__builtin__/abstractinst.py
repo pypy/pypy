@@ -87,9 +87,8 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
 
     return _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple)
 
-@jit.dont_look_inside
-def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
 
+def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
     # -- case (anything, abstract-class)
     check_class(space, w_klass_or_tuple,
                 "isinstance() arg 2 must be a class, type,"
@@ -104,7 +103,7 @@ def _abstract_isinstance_w_helper(space, w_obj, w_klass_or_tuple):
         return _issubclass_recurse(space, w_abstractclass, w_klass_or_tuple)
 
 
-@jit.dont_look_inside
+@jit.unroll_safe
 def _issubclass_recurse(space, w_derived, w_top):
     """Internal helper for abstract cases.  Here, w_top cannot be a tuple."""
     if space.is_w(w_derived, w_top):
