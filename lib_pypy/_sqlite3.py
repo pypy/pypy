@@ -1195,7 +1195,7 @@ class Statement(object):
 
             if self.__con._detect_types & PARSE_COLNAMES:
                 colname = _lib.sqlite3_column_name(self._statement, i)
-                if colname is not None:
+                if colname:
                     colname = _ffi.string(colname).decode('utf-8')
                     type_start = -1
                     key = None
@@ -1208,7 +1208,7 @@ class Statement(object):
 
             if converter is None and self.__con._detect_types & PARSE_DECLTYPES:
                 decltype = _lib.sqlite3_column_decltype(self._statement, i)
-                if decltype is not None:
+                if decltype:
                     decltype = _ffi.string(decltype).decode('utf-8')
                     # if multiple words, use first, eg.
                     # "INTEGER NOT NULL" => "INTEGER"
