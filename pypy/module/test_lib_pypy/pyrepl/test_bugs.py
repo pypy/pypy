@@ -24,7 +24,6 @@ from .infrastructure import EA, BaseTestReader, read_spec
 # (applicable) bug reports
 
 import pytest
-import os, sys
 
 
 class HistoricalTestReader(HistoricalReader, BaseTestReader):
