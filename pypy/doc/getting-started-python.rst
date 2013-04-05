@@ -62,7 +62,7 @@ the version you have is not 4.2 or you will run into `this bug`_.
    * ``pkg-config`` (to help us locate libffi files)
    * ``libz-dev`` (for the optional ``zlib`` module)
    * ``libbz2-dev`` (for the optional ``bz2`` module)
-   * ``libsqlite3-dev`` (for the optional ``sqlite3`` modulei via cffi)
+   * ``libsqlite3-dev`` (for the optional ``sqlite3`` module via cffi)
    * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
    * ``libssl-dev`` (for the optional ``_ssl`` module)
