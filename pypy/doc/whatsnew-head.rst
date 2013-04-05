@@ -101,7 +101,6 @@ Cleanup _numpypy and numpypy namespaces to more closely resemble numpy.
 Random cleanups to hide FlowObjSpace from public view.
 
 .. branch: vendor-rename
-Remove minor verison number from lib-python dirs to simplify stdlib upgrades.
 
 .. branch: jitframe-on-heap
 Moves optimized JIT frames from stack to heap. As a side effect it enables
@@ -114,3 +113,11 @@ Documentation fixes after going through the docs at PyCon 2013 sprint.
 .. branch: extregistry-refactor
 
 .. branch: remove-list-smm
+.. branch: bridge-logging
+.. branch: curses_cffi
+
+cffi implementation of _curses
+
+.. branch: sqlite-cffi
+
+cffi implementation of sqlite3

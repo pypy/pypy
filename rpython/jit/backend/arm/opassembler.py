@@ -342,7 +342,7 @@ class ResOpAssembler(BaseAssembler):
     def _emit_call(self, adr, arglocs, fcond=c.AL, resloc=None,
                                             result_info=(-1, -1),
                                             can_collect=1):
-        if self.cpu.use_hf_abi:
+        if self.cpu.hf_abi:
             stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
                                             resloc, result_info)
         else:
@@ -368,7 +368,7 @@ class ResOpAssembler(BaseAssembler):
 
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None:
-            if resloc.is_vfp_reg() and not self.cpu.use_hf_abi:
+            if resloc.is_vfp_reg() and not self.cpu.hf_abi:
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
             elif resloc.is_reg() and result_info != (-1, -1):
@@ -1212,7 +1212,7 @@ class ResOpAssembler(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        mc = InstrBuilder()
+        mc = InstrBuilder(self.cpu.arch_version)
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
 

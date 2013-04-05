@@ -75,16 +75,7 @@ def render(text):
     return text % MODULE.__dict__
 
 try:
-    if '__pypy__' in sys.builtin_module_names:
-        # this is not really the whole curses, but our _minimal_curses it's
-        # better than nothing
-        import _minimal_curses as curses
-        # a bit of a hack: we have tigetstr but not tigetnum, so we call
-        # default() to have default values, then setup() will overwrite the
-        # ones it can
-        default()
-    else:
-        import curses
+    import curses
     setup()
 except Exception, e:
     # There is a failure; set all attributes to default

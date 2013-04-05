@@ -96,18 +96,6 @@ def test_cursor_after_close():
      pytest.raises(_sqlite3.ProgrammingError, "cur.executemany(1,2,3,4,5)")
 
 @pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
-def test_cursor_del():
-    con = _sqlite3.connect(':memory:')
-    cur = con.execute('select 1')
-    stmt = cur._Cursor__statement
-    cur.close()
-    cur = con.execute('select 1')
-    assert cur._Cursor__statement is stmt
-    del cur; import gc; gc.collect(); gc.collect()
-    cur = con.execute('select 1')
-    assert cur._Cursor__statement is stmt
-
-@pytest.mark.skipif("not hasattr(sys, 'pypy_translation_info')")
 def test_connection_del(tmpdir):
     """For issue1325."""
     import os
@@ -196,3 +184,17 @@ def test_statement_param_checking():
         con.execute('insert into foo(x) values (?)', 2)
     assert str(e.value) == 'parameters are of unsupported type'
     con.close()
+
+def test_explicit_begin():
+    con = _sqlite3.connect(':memory:')
+    con.execute('BEGIN')
+    con.execute('BEGIN ')
+    con.execute('BEGIN')
+    con.commit()
+    con.execute('BEGIN')
+    con.commit()
+
+def test_row_factory_use():
+    con = _sqlite3.connect(':memory:')
+    con.row_factory = 42
+    con.execute('select 1')
