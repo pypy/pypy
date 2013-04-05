@@ -7609,6 +7609,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, ops)
 
+    def test_setarrayitem_followed_by_arraycopy_2(self):
+        ops = """
+        [i1, i2]
+        p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i2, descr=arraydescr)
+        p3 = new_array(5, descr=arraydescr)
+        call(0, p1, p3, 0, 1, 1, descr=arraycopydescr)
+        i4 = getarrayitem_gc(p3, 1, descr=arraydescr)
+        jump(i1, i4)
+        """
+        expected = """
+        [i1, i2]
+        p1 = new_array(i1, descr=arraydescr)
+        # operations are not all removed because this new_array() is var-sized
+        # unsure exactly which operations should be left, but right now it's
+        # really buggy
+        jump(i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_heap_cache_virtuals_forced_by_delayed_setfield(self):
         py.test.skip('not yet supoprted')
         ops = """
