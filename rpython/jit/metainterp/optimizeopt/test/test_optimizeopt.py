@@ -4282,9 +4282,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_add_sub_ovf_second_operation_regular(self):
-	py.test.skip("Smalltalk would like this to pass")
-	# This situation occurs in Smalltalk because it uses 1-based indexing.
-	# The below code is equivalent to a loop over an array.
+        py.test.skip("Smalltalk would like this to pass")
+        # This situation occurs in Smalltalk because it uses 1-based indexing.
+        # The below code is equivalent to a loop over an array.
         ops = """
         [i1]
         i2 = int_sub(i1, 1)

@@ -305,7 +305,7 @@ class AssemblerARM(ResOpAssembler):
             self._restore_exception(mc, exc0, exc1)
             mc.VPOP([vfpr.value for vfpr in r.caller_vfp_resp])
             assert exc0 is not None
-	    assert exc1 is not None
+            assert exc1 is not None
             mc.POP([gpr.value for gpr in r.caller_resp] +
                             [exc0.value, exc1.value])
         #
@@ -1060,8 +1060,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.PUSH([helper.value], cond=cond)
         self.load_reg(self.mc, loc, r.fp, offset, cond=cond, helper=helper)
         if save_helper:
-	    self.mc.POP([helper.value], cond=cond)
-
+            self.mc.POP([helper.value], cond=cond)
 
     def _mov_imm_float_to_loc(self, prev_loc, loc, cond=c.AL):
         if loc.is_vfp_reg():
