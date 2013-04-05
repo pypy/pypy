@@ -43,6 +43,7 @@ class PyPyCNotFound(Exception):
 def fix_permissions(basedir):
     if sys.platform != 'win32':
         os.system("chmod -R a+rX %s" % basedir)
+        os.system("chmod -R g-w %s" % basedir)
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir = None, override_pypy_c = None, nostrip=False):

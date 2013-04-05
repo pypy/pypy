@@ -934,10 +934,8 @@ def sizeof(tp):
     if tp is lltype.SingleFloat:
         return 4
     if tp is lltype.LongFloat:
-        if globals()['r_void*'].BITS == 32:
-            return 12
-        else:
-            return 16
+        import ctypes    # :-/
+        return ctypes.sizeof(ctypes.c_longdouble)
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8

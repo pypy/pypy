@@ -384,7 +384,7 @@ class CallingConvTests(Runner):
 
     def test_call_aligned_explicit_check(self):
         if (not platform.machine().startswith('arm') and
-		sys.maxint == 2 ** 31 - 1): # XXX is still necessary on x86?
+                sys.maxint == 2 ** 31 - 1): # XXX is still necessary on x86?
             py.test.skip("libffi on 32bit is broken")
         cpu = self.cpu
         if not cpu.supports_floats:

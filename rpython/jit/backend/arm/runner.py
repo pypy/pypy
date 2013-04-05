@@ -120,7 +120,7 @@ class CPU_ARMHF(AbstractARMCPU):
     """ARM v7 uses hardfp ABI, requires vfp"""
     hf_abi = True
     backend_name = "armv7hf"
-    supports_floats = False
+    supports_floats = True
     supports_singlefloats = False
 
 
@@ -129,5 +129,5 @@ class CPU_ARMv6HF(AbstractARMCPU):
     hf_abi = True
     arch_version = 6
     backend_name = "armv6hf"
-    supports_floats = False
+    supports_floats = True
     supports_singlefloats = False

@@ -48,13 +48,7 @@ else:
 
 from cffi import FFI as _FFI
 
-if '__pypy__' not in sys.builtin_module_names:
-    from cffi.backend_ctypes import CTypesBackend
-    backend = CTypesBackend()
-else:
-    backend = None
-
-_ffi = _FFI(backend=backend)
+_ffi = _FFI()
 
 _ffi.cdef("""
 #define SQLITE_OK ...
@@ -224,7 +218,7 @@ int sqlite3_prepare(
     const char **pzTail     /* OUT: Pointer to unused portion of zSql */
 );
 
-void sqlite3_result_blob(sqlite3_context*, const void*, int, void(*)(void*));
+void sqlite3_result_blob(sqlite3_context*, const char*, int, void(*)(void*));
 void sqlite3_result_double(sqlite3_context*, double);
 void sqlite3_result_error(sqlite3_context*, const char*, int);
 void sqlite3_result_error16(sqlite3_context*, const void*, int);
@@ -257,7 +251,7 @@ int sqlite3_value_numeric_type(sqlite3_value*);
 
 def _has_load_extension():
     """Only available since 3.3.6"""
-    unverified_ffi = _FFI(backend=backend)
+    unverified_ffi = _FFI()
     unverified_ffi.cdef("""
     typedef ... sqlite3;
     int sqlite3_enable_load_extension(sqlite3 *db, int onoff);
@@ -858,7 +852,7 @@ class Cursor(object):
         self._reset = False
         self.__locked = False
         self.__closed = False
-        self.__description = None
+        self.__lastrowid = None
         self.__rowcount = -1
 
         con._check_thread()
@@ -964,7 +958,7 @@ class Cursor(object):
                 elif typ == _lib.SQLITE_BLOB:
                     blob = _lib.sqlite3_column_blob(self.__statement._statement, i)
                     blob_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
-                    val = _BLOB_TYPE(_ffi.buffer(blob, blob_len))
+                    val = _BLOB_TYPE(_ffi.buffer(blob, blob_len)[:])
             row.append(val)
         return tuple(row)
 
@@ -978,20 +972,24 @@ class Cursor(object):
         try:
             if not isinstance(sql, basestring):
                 raise ValueError("operation parameter must be str or unicode")
-            self.__description = None
+            try:
+                del self.__description
+            except AttributeError:
+                pass
             self.__rowcount = -1
             self.__statement = self.__connection._statement_cache.get(sql)
 
             if self.__connection._isolation_level is not None:
-                if self.__statement._kind == Statement._DDL:
-                    if self.__connection._in_transaction:
-                        self.__connection.commit()
-                elif self.__statement._kind == Statement._DML:
+                if self.__statement._type in ("UPDATE", "DELETE", "INSERT", "REPLACE"):
                     if not self.__connection._in_transaction:
                         self.__connection._begin()
-
-            if multiple and self.__statement._kind != Statement._DML:
-                raise ProgrammingError("executemany is only for DML statements")
+                elif self.__statement._type == "OTHER":
+                    if self.__connection._in_transaction:
+                        self.__connection.commit()
+                elif self.__statement._type == "SELECT":
+                    if multiple:
+                        raise ProgrammingError("You cannot execute SELECT "
+                                               "statements in executemany().")
 
             for params in many_params:
                 self.__statement._set_params(params)
@@ -1002,17 +1000,26 @@ class Cursor(object):
                     self.__statement._reset()
                     raise self.__connection._get_exception(ret)
 
-                if self.__statement._kind == Statement._DML:
-                    self.__statement._reset()
-
                 if ret == _lib.SQLITE_ROW:
+                    if multiple:
+                        raise ProgrammingError("executemany() can only execute DML statements.")
                     self.__build_row_cast_map()
                     self.__next_row = self.__fetch_one_row()
+                elif ret == _lib.SQLITE_DONE and not multiple:
+                    self.__statement._reset()
 
-                if self.__statement._kind == Statement._DML:
+                if self.__statement._type in ("UPDATE", "DELETE", "INSERT", "REPLACE"):
                     if self.__rowcount == -1:
                         self.__rowcount = 0
                     self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
+
+                if not multiple and self.__statement._type == "INSERT":
+                    self.__lastrowid = _lib.sqlite3_last_insert_rowid(self.__connection._db)
+                else:
+                    self.__lastrowid = None
+
+                if multiple:
+                    self.__statement._reset()
         finally:
             self.__connection._in_transaction = \
                 not _lib.sqlite3_get_autocommit(self.__connection._db)
@@ -1081,7 +1088,6 @@ class Cursor(object):
             next_row = self.__next_row
         except AttributeError:
             self.__statement._reset()
-            self.__statement = None
             raise StopIteration
         del self.__next_row
 
@@ -1125,13 +1131,15 @@ class Cursor(object):
     rowcount = property(__get_rowcount)
 
     def __get_description(self):
-        if self.__description is None:
+        try:
+            return self.__description
+        except AttributeError:
             self.__description = self.__statement._get_description()
-        return self.__description
+            return self.__description
     description = property(__get_description)
 
     def __get_lastrowid(self):
-        return _lib.sqlite3_last_insert_rowid(self.__connection._db)
+        return self.__lastrowid
     lastrowid = property(__get_lastrowid)
 
     def setinputsizes(self, *args):
@@ -1142,8 +1150,6 @@ class Cursor(object):
 
 
 class Statement(object):
-    _DML, _DQL, _DDL = range(3)
-
     _statement = None
 
     def __init__(self, connection, sql):
@@ -1154,13 +1160,14 @@ class Statement(object):
 
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
-        first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
-        if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
-            self._kind = Statement._DML
-        elif first_word in ("SELECT", "PRAGMA"):
-            self._kind = Statement._DQL
+
+        first_word = sql.lstrip().split(" ")[0].upper()
+        if first_word == "":
+            self._type = "INVALID"
+        elif first_word in ("SELECT", "INSERT", "UPDATE", "DELETE", "REPLACE"):
+            self._type = first_word
         else:
-            self._kind = Statement._DDL
+            self._type = "OTHER"
 
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
@@ -1173,11 +1180,12 @@ class Statement(object):
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
+            self._type = "SELECT"
             c_sql = _ffi.new("char[]", b"select 42")
             ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
-            self._kind = Statement._DQL
+
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
 
@@ -1288,7 +1296,7 @@ class Statement(object):
             raise ValueError("parameters are of unsupported type")
 
     def _get_description(self):
-        if self._kind == Statement._DML:
+        if self._type in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
             return None
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
@@ -1393,7 +1401,7 @@ def _convert_params(con, nargs, params):
         elif typ == _lib.SQLITE_BLOB:
             blob = _lib.sqlite3_value_blob(params[i])
             blob_len = _lib.sqlite3_value_bytes(params[i])
-            val = _BLOB_TYPE(_ffi.buffer(blob, blob_len))
+            val = _BLOB_TYPE(_ffi.buffer(blob, blob_len)[:])
         else:
             raise NotImplementedError
         _params.append(val)
