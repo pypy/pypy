@@ -1167,7 +1167,7 @@ class Statement(object):
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
-            c_sql = _ffi.new("char[]", "select 42")
+            c_sql = _ffi.new("char[]", b"select 42")
             ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
