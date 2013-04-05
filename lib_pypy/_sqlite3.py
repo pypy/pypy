@@ -29,7 +29,6 @@ import datetime
 import string
 import sys
 import weakref
-import array
 from threading import _get_ident as _thread_get_ident
 try:
     from __pypy__ import newlist_hint
@@ -959,11 +958,7 @@ class Cursor(object):
                 elif typ == _lib.SQLITE_BLOB:
                     blob = _lib.sqlite3_column_blob(self.__statement._statement, i)
                     blob_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
-                    # make a copy of the data into an array, in order to get
-                    # a read-write buffer in the end, and one that own the
-                    # memory for a more predictable length of time than 'blob'
-                    copy = array.array("c", _ffi.buffer(blob, blob_len))
-                    val = _BLOB_TYPE(copy)
+                    val = _BLOB_TYPE(_ffi.buffer(blob, blob_len)[:])
             row.append(val)
         return tuple(row)
 
@@ -1391,7 +1386,7 @@ def _convert_params(con, nargs, params):
         elif typ == _lib.SQLITE_BLOB:
             blob = _lib.sqlite3_value_blob(params[i])
             blob_len = _lib.sqlite3_value_bytes(params[i])
-            val = _BLOB_TYPE(_ffi.buffer(blob, blob_len))
+            val = _BLOB_TYPE(_ffi.buffer(blob, blob_len)[:])
         else:
             raise NotImplementedError
         _params.append(val)
