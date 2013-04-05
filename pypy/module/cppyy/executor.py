@@ -91,7 +91,6 @@ class NumericExecutorMixin(object):
         return self._wrap_object(space, rffi.cast(self.c_type, result))
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
-        data = rffi.ptradd(buffer, cif_descr.exchange_args[1])
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
         result = rffi.ptradd(buffer, cif_descr.exchange_result)
         return self._wrap_object(space, rffi.cast(self.c_ptrtype, result)[0])
