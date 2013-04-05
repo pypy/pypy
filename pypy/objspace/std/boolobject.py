@@ -6,6 +6,7 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.intobject import W_IntObject
 
+
 class W_BoolObject(W_Object):
     from pypy.objspace.std.booltype import bool_typedef as typedef
     _immutable_fields_ = ['boolval']
@@ -37,7 +38,7 @@ class W_BoolObject(W_Object):
         return float(self.boolval)
 
     def int(self, space):
-        return self
+        return space.newint(int(self.boolval))
 
 registerimplementation(W_BoolObject)
 

@@ -32,13 +32,23 @@ class defaultproperty(object):
         else:
             return self.fget(obj)
 
+class Node(object):
+    __slots__ = ("db", )
+    def __init__(self, db):
+        self.db = db
 
-class StructDefNode:
+class NodeWithDependencies(Node):
+    __slots__ = ("dependencies", )
+    def __init__(self, db):
+        Node.__init__(self, db)
+        self.dependencies = set()
+
+class StructDefNode(NodeWithDependencies):
     typetag = 'struct'
     extra_union_for_varlength = True
 
     def __init__(self, db, STRUCT, varlength=1):
-        self.db = db
+        NodeWithDependencies.__init__(self, db)
         self.STRUCT = STRUCT
         self.LLTYPE = STRUCT
         self.varlength = varlength
@@ -66,7 +76,6 @@ class StructDefNode:
                                                   with_number=with_number,
                                                   bare=True)
             self.prefix = somelettersfrom(STRUCT._name) + '_'
-        self.dependencies = {}
         #
         self.fieldnames = STRUCT._names
         if STRUCT._hints.get('typeptr', False):
@@ -188,12 +197,12 @@ class StructDefNode:
                                                    self.name, cname)
 
 
-class ArrayDefNode:
+class ArrayDefNode(NodeWithDependencies):
     typetag = 'struct'
     extra_union_for_varlength = True
 
     def __init__(self, db, ARRAY, varlength=1):
-        self.db = db
+        NodeWithDependencies.__init__(self, db)
         self.ARRAY = ARRAY
         self.LLTYPE = ARRAY
         self.gcfields = []
@@ -208,7 +217,6 @@ class ArrayDefNode:
         (self.barename,
          self.name) = db.namespace.uniquename(basename, with_number=with_number,
                                               bare=True)
-        self.dependencies = {}
         self.fulltypename =  '%s %s @' % (self.typetag, self.name)
         self.fullptrtypename = '%s %s *@' % (self.typetag, self.name)
 
@@ -315,7 +323,7 @@ class ArrayDefNode:
             yield '-1'
 
 
-class BareBoneArrayDefNode:
+class BareBoneArrayDefNode(NodeWithDependencies):
     """For 'simple' array types which don't need a length nor GC headers.
     Implemented directly as a C array instead of a struct with an items field.
     rffi kind of expects such arrays to be 'bare' C arrays.
@@ -326,11 +334,10 @@ class BareBoneArrayDefNode:
     extra_union_for_varlength = False
 
     def __init__(self, db, ARRAY, varlength=1):
-        self.db = db
+        NodeWithDependencies.__init__(self, db)
         self.ARRAY = ARRAY
         self.LLTYPE = ARRAY
         self.varlength = varlength
-        self.dependencies = {}
         contained_type = ARRAY.OF
         # There is no such thing as an array of voids:
         # we use a an array of chars instead; only the pointer can be void*.
@@ -379,17 +386,16 @@ class BareBoneArrayDefNode:
         yield 'sizeof(%s)' % (cdecl(self.itemtypename, ''),)
 
 
-class FixedSizeArrayDefNode:
+class FixedSizeArrayDefNode(NodeWithDependencies):
     gcinfo = None
     name = None
     typetag = 'struct'
     extra_union_for_varlength = False
 
     def __init__(self, db, FIXEDARRAY):
-        self.db = db
+        NodeWithDependencies.__init__(self, db)
         self.FIXEDARRAY = FIXEDARRAY
         self.LLTYPE = FIXEDARRAY
-        self.dependencies = {}
         self.itemtypename = db.gettype(FIXEDARRAY.OF, who_asks=self)
         self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
                                                       FIXEDARRAY.length)
@@ -456,14 +462,13 @@ class FixedSizeArrayDefNode:
         return []
 
 
-class ExtTypeOpaqueDefNode:
+class ExtTypeOpaqueDefNode(NodeWithDependencies):
     """For OpaqueTypes created with the hint render_structure."""
     typetag = 'struct'
 
     def __init__(self, db, T):
-        self.db = db
+        NodeWithDependencies.__init__(self, db)
         self.T = T
-        self.dependencies = {}
         self.name = 'RPyOpaque_%s' % (T.tag,)
 
     def setup(self):
@@ -475,7 +480,7 @@ class ExtTypeOpaqueDefNode:
 # ____________________________________________________________
 
 
-class ContainerNode(object):
+class ContainerNode(Node):
     if USESLOTS:      # keep the number of slots down!
         __slots__ = """db obj 
                        typename implementationtypename
@@ -485,9 +490,8 @@ class ContainerNode(object):
     eci_name = '_compilation_info'
 
     def __init__(self, db, T, obj):
-        self.db = db
+        Node.__init__(self, db)
         self.obj = obj
-        #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
         self.implementationtypename = db.gettype(T, varlength=self.getlength())
         parent, parentindex = parentlink(obj)
@@ -813,8 +817,8 @@ class FuncNode(ContainerNode):
     # be necessary
 
     def __init__(self, db, T, obj, forcename=None):
+        Node.__init__(self, db)
         self.globalcontainer = True
-        self.db = db
         self.T = T
         self.obj = obj
         callable = getattr(obj, '_callable', None)
@@ -827,7 +831,6 @@ class FuncNode(ContainerNode):
             self.name = (forcename or
                          db.namespace.uniquename('g_' + self.basename()))
         self.make_funcgens()
-        #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
 
     def getptrname(self):

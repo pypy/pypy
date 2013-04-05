@@ -1,5 +1,5 @@
 import py
-from rpython.rlib.signature import signature, finishsigs
+from rpython.rlib.signature import signature, finishsigs, FieldSpec, ClassSpec
 from rpython.rlib import types
 from rpython.annotator import model
 from rpython.translator.translator import TranslationContext, graphof
@@ -284,3 +284,64 @@ def test_return_any():
     exc = py.test.raises(Exception, annotate_at, cannot_add_string).value
     assert 'Blocked block' in repr(exc.args)
     assert 'cannot_add_string' in repr(exc.args)
+
+
+
+@py.test.mark.xfail
+def test_class_basic():
+    class C(object):
+        _fields_ = ClassSpec({'x': FieldSpec(types.int)})
+
+    def wrong_type():
+        c = C()
+        c.x = 'a'
+    check_annotator_fails(wrong_type)
+
+    def bad_field():
+        c = C()
+        c.y = 3
+    check_annotator_fails(bad_field)
+
+
+@py.test.mark.xfail
+def test_class_shorthand():
+    class C1(object):
+        _fields_ = {'x': FieldSpec(types.int)}
+    def wrong_type_1():
+        c = C1()
+        c.x = 'a'
+    check_annotator_fails(wrong_type_1)
+
+    class C2(object):
+        _fields_ = ClassSpec({'x': types.int})
+    def wrong_type_2():
+        c = C2()
+        c.x = 'a'
+    check_annotator_fails(wrong_type_1)
+
+
+@py.test.mark.xfail
+def test_class_inherit():
+    class C(object):
+        _fields_ = ClassSpec({'x': FieldSpec(types.int)})
+
+    class C1(object):
+        _fields_ = ClassSpec({'y': FieldSpec(types.int)})
+
+    class C2(object):
+        _fields_ = ClassSpec({'y': FieldSpec(types.int)}, inherit=True)
+
+    def no_inherit():
+        c = C1()
+        c.x = 3
+    check_annotator_fails(no_inherit)
+
+    def good():
+        c = C2()
+        c.x = 3
+    annotate_at(good)
+
+    def wrong_type():
+        c = C2()
+        c.x = 'a'
+    check_annotator_fails(wrong_type)

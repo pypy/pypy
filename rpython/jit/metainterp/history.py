@@ -1,4 +1,3 @@
-
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.ootypesystem import ootype

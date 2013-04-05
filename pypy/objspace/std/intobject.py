@@ -183,7 +183,8 @@ def divmod__Int_Int(space, w_int1, w_int2):
 
 
 # helper for pow()
-@jit.look_inside_iff(lambda space, iv, iw, iz: jit.isconstant(iw) and jit.isconstant(iz))
+@jit.look_inside_iff(lambda space, iv, iw, iz:
+                     jit.isconstant(iw) and jit.isconstant(iz))
 def _impl_int_int_pow(space, iv, iw, iz):
     if iw < 0:
         if iz != 0:

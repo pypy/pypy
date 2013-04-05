@@ -2,14 +2,18 @@ from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import codebuilder
 from rpython.jit.backend.arm import conditions
 from rpython.jit.backend.arm import instructions
-from rpython.jit.backend.arm.test.support import (requires_arm_as, define_test, gen_test_function)
+from rpython.jit.backend.arm.test.support import requires_arm_as
+from rpython.jit.backend.arm.test.support import get_as_version
+from rpython.jit.backend.arm.test.support import define_test
+from rpython.jit.backend.arm.test.support import gen_test_function
 from gen import assemble
 import py
 
 requires_arm_as()
 
-class CodeBuilder(codebuilder.ARMv7Builder):
-    def __init__(self):
+class CodeBuilder(codebuilder.InstrBuilder):
+    def __init__(self, arch_version=7):
+        self.arch_version = arch_version
         self.buffer = []
 
     def writechar(self, char):
@@ -80,6 +84,9 @@ class TestInstrCodeBuilder(ASMTest):
         self.assert_equal('ORR r0, r7, r12, lsl #8')
 
     def test_push_one_reg(self):
+        if get_as_version() < (2, 23):
+          py.test.xfail("GNU as before version 2.23 generates encoding A1 for "
+                        "pushing only one register")
         self.cb.PUSH([r.r1.value])
         self.assert_equal('PUSH {r1}')
 
@@ -163,6 +170,13 @@ class TestInstrCodeBuilder(ASMTest):
     def test_movt(self):
         self.cb.MOVT_ri(r.r3.value, 0xFFFF, conditions.NE)
         self.assert_equal("MOVTNE r3, #65535")
+
+
+def test_size_of_gen_load_int():
+    for v, n in [(5, 4), (6, 4), (7, 2)]:
+        c = CodeBuilder(v)
+        assert c.get_max_size_of_gen_load_int() == n
+
 
 class TestInstrCodeBuilderForGeneratedInstr(ASMTest):
     def setup_method(self, ffuu_method):

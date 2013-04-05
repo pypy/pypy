@@ -17,12 +17,13 @@ sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirnam
 import py
 import fnmatch
 from rpython.tool.udir import udir
+import subprocess
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
-STDLIB_VER = "2"
+STDLIB_VER = "2.7"
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
@@ -42,6 +43,7 @@ class PyPyCNotFound(Exception):
 def fix_permissions(basedir):
     if sys.platform != 'win32':
         os.system("chmod -R a+rX %s" % basedir)
+        os.system("chmod -R g-w %s" % basedir)
 
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir = None, override_pypy_c = None, nostrip=False):
@@ -64,6 +66,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             raise PyPyCNotFound(
                 'Bogus path: %r does not exist (see docstring for more info)'
                 % (os.path.dirname(str(pypy_c)),))
+    subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
+    subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -73,9 +77,9 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         #Instructions are provided on the website.
 
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
-        
+
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 
+                      'libexpat.dll', 'sqlite3.dll',
                       'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
@@ -93,7 +97,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
-                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
+                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
+                                           '*.c', '*.o'))
     for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)

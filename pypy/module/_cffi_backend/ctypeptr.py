@@ -152,10 +152,6 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
     def convert_from_object(self, cdata, w_ob):
         space = self.space
         if not isinstance(w_ob, cdataobj.W_CData):
-            if misc.is_zero(space, w_ob):
-                NULL = lltype.nullptr(rffi.CCHARP.TO)
-                rffi.cast(rffi.CCHARPP, cdata)[0] = NULL
-                return
             raise self._convert_error("cdata pointer", w_ob)
         other = w_ob.ctype
         if not isinstance(other, W_CTypePtrBase):
@@ -257,15 +253,7 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if misc.is_zero(space, w_init):
-            # Convert 0 to NULL.  Note that passing 0 is not ambigous,
-            # despite the potential confusion: as a 'T*' argument, 0 means
-            # NULL, but as a 'T[]' argument it would mean "array of size 0"
-            # --- except that we specifically refuse to interpret numbers
-            # as the array size when passing arguments.
-            rffi.cast(rffi.CCHARPP, cdata)[0] = lltype.nullptr(rffi.CCHARP.TO)
-            return 3
-        elif (space.isinstance_w(w_init, space.w_list) or
+        if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
         elif space.isinstance_w(w_init, space.w_basestring):

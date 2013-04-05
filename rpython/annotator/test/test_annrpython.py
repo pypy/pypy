@@ -3922,6 +3922,28 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         assert a.build_types(f, []).const is True
 
+    def test_specific_attributes(self):
+        class A(object):
+            pass
+
+        class B(A):
+            def __init__(self, x):
+                assert x >= 0
+                self.x = x
+
+        def fn(i):
+            if i % 2:
+                a = A()
+            else:
+                a = B(3)
+            if i % 3:
+                a.x = -3
+            if isinstance(a, B):
+                return a.x
+            return 0
+
+        a = self.RPythonAnnotator()
+        assert not a.build_types(fn, [int]).nonneg
 
 def g(n):
     return [0, 1, 2, n]

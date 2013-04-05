@@ -2,7 +2,8 @@
 
 Environment variables can be used to fine-tune the following parameters:
 
- PYPY_GC_NURSERY         The nursery size.  Defaults to '4MB'.  Small values
+ PYPY_GC_NURSERY         The nursery size.  Defaults to 1/2 of your cache or
+                         '4M'.  Small values
                          (like 1 or 1KB) are useful for debugging.
 
  PYPY_GC_NURSERY_CLEANUP The interval at which nursery is cleaned up. Must
@@ -348,7 +349,8 @@ class MiniMarkGC(MovingGCBase):
             # size (needed to handle mallocs just below 'large_objects') but
             # hacking at the current nursery position in collect_and_reserve().
             if newsize <= 0:
-                newsize = 4*1024*1024   # fixed to 4MB by default
+                newsize = env.estimate_best_nursery_size()
+                #         4*1024*1024   # fixed to 4MB by default
                 #        (it was env.estimate_best_nursery_size())
                 if newsize <= 0:
                     newsize = defaultsize
@@ -624,7 +626,7 @@ class MiniMarkGC(MovingGCBase):
         """To call when nursery_free overflows nursery_top.
         First check if the nursery_top is the real top, otherwise we
         can just move the top of one cleanup and continue
-        
+
         Do a minor collection, and possibly also a major collection,
         and finally reserve 'totalsize' bytes at the start of the
         now-empty nursery.
