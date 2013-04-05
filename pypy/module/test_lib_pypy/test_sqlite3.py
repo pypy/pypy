@@ -210,3 +210,9 @@ def test_returning_blob_must_own_memory():
         gc.collect()
         got = (val[0], val[1], val[2], val[3])
         assert got == ('b', 'l', 'o', 'b')
+
+def test_description_after_fetchall():
+    con = _sqlite3.connect(":memory:")
+    cur = con.cursor()
+    cur.execute("select 42").fetchall()
+    assert cur.description is not None

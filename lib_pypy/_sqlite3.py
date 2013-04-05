@@ -1080,7 +1080,6 @@ class Cursor(object):
             next_row = self.__next_row
         except AttributeError:
             self.__statement._reset()
-            self.__statement = None
             raise StopIteration
         del self.__next_row
 
