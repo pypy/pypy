@@ -170,11 +170,13 @@ void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 }
 
 char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-    std::string result("");
+    std::string* cppresult = (std::string*)malloc(sizeof(std::string));
     std::vector<void*> arguments = build_args(nargs, args);
     Reflex::StubFunction stub = (Reflex::StubFunction)method;
-    stub(&result, (void*)self, arguments, NULL /* stub context */);
-    return cppstring_to_cstring(result);
+    stub(cppresult, (void*)self, arguments, NULL /* stub context */);
+    char* cstr = cppstring_to_cstring(*cppresult);
+    delete cppresult;         // the stub will have performed a placement-new
+    return cstr;
 }
 
 cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
