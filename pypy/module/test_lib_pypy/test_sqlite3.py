@@ -216,3 +216,10 @@ def test_description_after_fetchall():
     cur = con.cursor()
     cur.execute("select 42").fetchall()
     assert cur.description is not None
+
+def test_executemany_lastrowid():
+    con = _sqlite3.connect(':memory:')
+    cur = con.cursor()
+    cur.execute("create table test(a)")
+    cur.executemany("insert into test values (?)", [[1], [2], [3]])
+    assert cur.lastrowid is None
