@@ -218,7 +218,7 @@ int sqlite3_prepare(
     const char **pzTail     /* OUT: Pointer to unused portion of zSql */
 );
 
-void sqlite3_result_blob(sqlite3_context*, const void*, int, void(*)(void*));
+void sqlite3_result_blob(sqlite3_context*, const char*, int, void(*)(void*));
 void sqlite3_result_double(sqlite3_context*, double);
 void sqlite3_result_error(sqlite3_context*, const char*, int);
 void sqlite3_result_error16(sqlite3_context*, const void*, int);

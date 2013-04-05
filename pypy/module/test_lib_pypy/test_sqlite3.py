@@ -198,3 +198,15 @@ def test_row_factory_use():
     con = _sqlite3.connect(':memory:')
     con.row_factory = 42
     con.execute('select 1')
+
+def test_returning_blob_must_own_memory():
+    import gc
+    con = _sqlite3.connect(":memory:")
+    con.create_function("returnblob", 0, lambda: buffer("blob"))
+    cur = con.cursor()
+    cur.execute("select returnblob()")
+    val = cur.fetchone()[0]
+    for i in range(5):
+        gc.collect()
+        got = (val[0], val[1], val[2], val[3])
+        assert got == ('b', 'l', 'o', 'b')
