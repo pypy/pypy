@@ -526,9 +526,7 @@ class AssemblerARM(ResOpAssembler):
             self.gen_shadowstack_header(gcrootmap)
 
     def gen_shadowstack_header(self, gcrootmap):
-        # we need to put two words into the shadowstack: the MARKER_FRAME
-        # and the address of the frame (fp, actually)
-        # lr = rst addr
+        # lr = shadow stack top addr
         # ip = *lr
         rst = gcrootmap.get_root_stack_top_addr()
         self.mc.gen_load_int(r.lr.value, rst)
