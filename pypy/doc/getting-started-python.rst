@@ -46,14 +46,14 @@ the version you have is not 4.2 or you will run into `this bug`_.
 2. Install build-time dependencies.  On a Debian box these are::
 
      [user@debian-box ~]$ sudo apt-get install \
-     gcc make python-dev libffi-dev pkg-config \
+     gcc make python-dev libffi-dev lib-sqlite3-dev pkg-config \
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 
    On a Fedora-16 box these are::
 
      [user@fedora-or-rh-box ~]$ sudo yum install \
-     gcc make python-devel libffi-devel pkgconfig \
+     gcc make python-devel libffi-devel lib-sqlite3-devel pkgconfig \
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
 
@@ -62,6 +62,7 @@ the version you have is not 4.2 or you will run into `this bug`_.
    * ``pkg-config`` (to help us locate libffi files)
    * ``libz-dev`` (for the optional ``zlib`` module)
    * ``libbz2-dev`` (for the optional ``bz2`` module)
+   * ``libsqlite3-dev`` (for the optional ``sqlite3`` modulei via cffi)
    * ``libncurses-dev`` (for the optional ``_minimal_curses`` module)
    * ``libexpat1-dev`` (for the optional ``pyexpat`` module)
    * ``libssl-dev`` (for the optional ``_ssl`` module)
