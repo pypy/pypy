@@ -214,7 +214,7 @@ class W_AbstractLongObject(W_Object):
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        from pypy.objspace.std.model import IDTAG_LONG as tag
+        from pypy.objspace.std.model import IDTAG_INT as tag
         b = space.bigint_w(self)
         b = b.lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(b)
