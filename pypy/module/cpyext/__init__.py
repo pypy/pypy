@@ -38,7 +38,6 @@ import pypy.module.cpyext.bytesobject
 import pypy.module.cpyext.tupleobject
 import pypy.module.cpyext.setobject
 import pypy.module.cpyext.dictobject
-import pypy.module.cpyext.intobject
 import pypy.module.cpyext.longobject
 import pypy.module.cpyext.listobject
 import pypy.module.cpyext.sequence

@@ -123,6 +123,12 @@ class TestLongObject(BaseApiTest):
         assert api._PyLong_NumBits(space.wrap(3)) == 2
         assert api._PyLong_NumBits(space.wrap(-3)) == 2
 
+    def test_as_ulongmask(self, space, api):
+        assert api.PyLong_AsUnsignedLongMask(
+            space.wrap(sys.maxsize * 2 + 1)) == 18446744073709551615
+        assert api.PyLong_AsUnsignedLongMask(
+            space.wrap(sys.maxsize * 2 + 2)) == 0
+
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
         module = self.import_extension('foo', [
@@ -153,7 +159,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  return PyLong_FromSize_t((size_t)-1);
              """)])
         import sys
-        assert module.from_unsignedlong() == 2 * sys.maxint + 1
+        assert module.from_unsignedlong() == 2 * sys.maxsize + 1
 
     def test_fromstring(self):
         module = self.import_extension('foo', [

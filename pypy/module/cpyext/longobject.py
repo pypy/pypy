@@ -4,7 +4,6 @@ from pypy.module.cpyext.api import (
     CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rarithmetic import intmask
 
@@ -66,7 +65,8 @@ def PyLong_AsUnsignedLongMask(space, w_long):
     """Return a C unsigned long from a Python long integer, without checking
     for overflow.
     """
-    return PyInt_AsUnsignedLongMask(space, w_long)
+    num = space.bigint_w(w_long)
+    return num.ulonglongmask()
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyLong_AsLong(space, w_long):
