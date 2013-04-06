@@ -196,6 +196,11 @@ def test_returning_blob_must_own_memory(con):
         gc.collect()
         got = (val[0], val[1], val[2], val[3])
         assert got == ('b', 'l', 'o', 'b')
+    # in theory 'val' should be a read-write buffer
+    # but it's not right now
+    pytest.skip("in theory 'val' should be a read-write buffer")
+    val[1] = 'X'
+    assert got == ('b', 'X', 'o', 'b')
 
 def test_description_after_fetchall(con):
     cur = con.cursor()
