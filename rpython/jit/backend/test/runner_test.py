@@ -3475,6 +3475,8 @@ class LLtypeBackendTest(BaseBackendTest):
         def checkops(mc, ops):
             assert len(mc) == len(ops)
             for i in range(len(mc)):
+                if ops[i] == '*':
+                    continue # ingore ops marked as '*', i.e. inline constants
                 assert mc[i].split("\t")[2].startswith(ops[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
