@@ -342,6 +342,7 @@ class CFuncPtr(_CData):
         if not outargs:
             return result
 
+        from ctypes import c_void_p
         simple_cdata = type(c_void_p()).__bases__[0]
         outargs = [x.value if type(x).__bases__[0] is simple_cdata else x
                    for x in outargs]
