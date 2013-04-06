@@ -50,11 +50,11 @@ class TestLongObject(BaseApiTest):
         assert api.PyLong_CheckExact(w_l)
 
         w_i = space.wrap(sys.maxint)
-        assert not api.PyLong_Check(w_i)
-        assert not api.PyLong_CheckExact(w_i)
+        assert api.PyLong_Check(w_i)
+        assert api.PyLong_CheckExact(w_i)
 
         L = space.appexec([], """():
-            class L(long):
+            class L(int):
                 pass
             return L
         """)
