@@ -359,9 +359,12 @@ def _setup():
     if not lib._m_NetBSD:
         for key in range(lib.KEY_MIN, lib.KEY_MAX):
             key_n = lib.keyname(key)
-            if key_n == ffi.NULL or ffi.string(key_n) == "UNKNOWN KEY":
+            if key_n == ffi.NULL:
                 continue
-            key_n = ffi.string(key_n).replace('(', '').replace(')', '')
+            key_n = ffi.string(key_n)
+            if key_n == b"UNKNOWN KEY":
+                continue
+            key_n = key_n.decode().replace('(', '').replace(')', '')
             globals()[key_n] = key
 
 _setup()
