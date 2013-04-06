@@ -73,7 +73,6 @@ def run_simple_interactive_console(mainmodule):
 # ____________________________________________________________
 
 if __name__ == '__main__':    # for testing
-    import os
     if os.getenv('PYTHONSTARTUP'):
         exec(compile(open(os.getenv('PYTHONSTARTUP')).read(), os.getenv('PYTHONSTARTUP'), 'exec'))
     interactive_console()
