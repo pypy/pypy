@@ -7621,10 +7621,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i1, i2]
-        p1 = new_array(i1, descr=arraydescr)
         # operations are not all removed because this new_array() is var-sized
-        # unsure exactly which operations should be left, but right now it's
-        # really buggy
+        p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i2, descr=arraydescr)
         jump(i1, i2)
         """
         self.optimize_loop(ops, expected)
