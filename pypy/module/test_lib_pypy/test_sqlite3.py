@@ -1,9 +1,5 @@
 """Tests for _sqlite3.py"""
 
-import sys
-if sys.version_info < (2, 7):
-    skip("lib_pypy._sqlite3 doesn't work with python < 2.7")
-
 import pytest
 from lib_pypy import _sqlite3
 
