@@ -884,12 +884,30 @@ class TestCompiler:
                 return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3], 4)
-        py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
-                       None, None)
-        py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
-                       None, None)
-        py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
-                       None, None)
+
+    def test_extended_unpacking_fail(self):
+        exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
+                             None, None).value
+        assert exc.msg == "two starred expressions in assignment"
+        exc = py.test.raises(SyntaxError, self.simple_test,
+                             "[*b, *c] = range(10)", None, None).value
+        assert exc.msg == "two starred expressions in assignment"
+
+        exc = py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
+                             None, None).value
+        assert exc.msg == "can use starred expression only as assignment target"
+        exc = py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
+                             None, None).value
+        assert exc.msg == "starred assignment target must be in a list or tuple"
+
+        s = ", ".join("a%d" % i for i in range(1<<8)) + ", *rest = range(1<<8 + 1)"
+        exc = py.test.raises(SyntaxError, self.simple_test, s, None,
+                             None).value
+        assert exc.msg == "too many expressions in star-unpacking assignment"
+        s = ", ".join("a%d" % i for i in range(1<<8 + 1)) + ", *rest = range(1<<8 + 2)"
+        exc = py.test.raises(SyntaxError, self.simple_test, s, None,
+                             None).value
+        assert exc.msg == "too many expressions in star-unpacking assignment"
 
 
 class AppTestCompiler:

@@ -6,6 +6,7 @@ Generate Python bytecode from a Abstract Syntax Tree.
 # help the annotator.  To it, unfortunately, everything is not so obvious.  If
 # you figure out a way to remove them, great, but try a translation first,
 # please.
+import struct
 
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
 from pypy.interpreter.astcompiler import optimize # For side effects
@@ -13,6 +14,7 @@ from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 
+C_INT_MAX = (2 ** (struct.calcsize('i') * 8)) / 2 - 1
 
 def compile_ast(space, module, info):
     """Generate a code object from AST."""
@@ -771,6 +773,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return False
         for target in targets:
             if not isinstance(target, ast.Name):
+                if isinstance(target, ast.Starred):
+                    # these require extra checks
+                    return False
                 break
         else:
             self.visit_sequence(values)
@@ -935,28 +940,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _visit_list_or_tuple(self, node, elts, ctx, op):
         elt_count = len(elts) if elts else 0
-        star_pos = -1
         if ctx == ast.Store:
-            if elt_count > 0:
-                for i, elt in enumerate(elts):
-                    if isinstance(elt, ast.Starred):
-                        if star_pos != -1:
-                            msg = "too many starred expressions in assignment"
-                            self.error(msg, node)
-                        star_pos = i
-            if star_pos != -1:
-                self.emit_op_arg(ops.UNPACK_EX, star_pos | (elt_count-star_pos-1)<<8)
-            else:
+            seen_star = False
+            for i in range(elt_count):
+                elt = elts[i]
+                is_starred = isinstance(elt, ast.Starred)
+                if is_starred and not seen_star:
+                    if i >= 1 << 8 or elt_count - i - 1 >= (C_INT_MAX >> 8):
+                        self.error("too many expressions in star-unpacking "
+                                   "assignment", node)
+                    self.emit_op_arg(ops.UNPACK_EX,
+                                     i + ((elt_count - i - 1) << 8))
+                    seen_star = True
+                    elts[i] = elt.value
+                elif is_starred:
+                    self.error("two starred expressions in assignment", node)
+            if not seen_star:
                 self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        if elt_count > 0:
-            if star_pos != -1:
-                for elt in elts:
-                    if isinstance(elt, ast.Starred):
-                        elt.value.walkabout(self)
-                    else:
-                        elt.walkabout(self)
-            else:
-                self.visit_sequence(elts)
+        self.visit_sequence(elts)
         if ctx == ast.Load:
             self.emit_op_arg(op, elt_count)
 
