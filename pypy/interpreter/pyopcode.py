@@ -604,15 +604,15 @@ class __extend__(pyframe.PyFrame):
         w_iterable = self.popvalue()
         items = self.space.fixedview(w_iterable)
         itemcount = len(items)
-        if right > itemcount:
-            count = left + right
+        count = left + right
+        if count > itemcount:
             if count == 1:
                 plural = ''
             else:
                 plural = 's'
             raise operationerrfmt(self.space.w_ValueError,
                                   "need more than %d value%s to unpack",
-                                  left + right, plural)
+                                  itemcount, plural)
         right = itemcount - right
         assert right >= 0
         # push values in reverse order
