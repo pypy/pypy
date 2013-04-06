@@ -48,11 +48,11 @@ class ARM(Linux):
 
     def include_dirs_for_libffi(self):
         return [SB2 + '/usr/include/arm-linux-gnueabi/',
-		SB2 + '/usr/include/arm-linux-gnueabihf/']
+                SB2 + '/usr/include/arm-linux-gnueabihf/']
 
     def library_dirs_for_libffi(self):
         return [SB2 + '/usr/lib/arm-linux-gnueabi/',
-		SB2 + '/usr/lib/arm-linux-gnueabihf/']
+                SB2 + '/usr/lib/arm-linux-gnueabihf/']
 
     def execute_makefile(self, path_to_makefile, extra_opts=[]):
         if isinstance(path_to_makefile, GnuMakefile):
