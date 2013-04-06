@@ -1,6 +1,15 @@
 """Tests for _sqlite3.py"""
 
-import pytest
+import pytest, sys
+
+if sys.version_info < (2, 7):
+    pytest.skip("_sqlite3 requires Python 2.7")
+try:
+    import _cffi_backend
+except ImportError:
+    # On CPython, "pip install cffi".  On old PyPy's, no chance
+    pytest.skip("_sqlite3 requires _cffi_backend to be installed")
+
 from lib_pypy import _sqlite3
 
 def pytest_funcarg__con(request):
