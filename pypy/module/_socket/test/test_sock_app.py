@@ -233,7 +233,7 @@ def test_getaddrinfo():
 
 def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
-    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
+    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw', track_allocation=False)
     c_addr.c_sa_data[0] = 'c'
     rffi.setintfield(c_addr, 'c_sa_family', 15)
     # XXX what size to pass here? for the purpose of this test it has
