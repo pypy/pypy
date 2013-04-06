@@ -115,9 +115,9 @@ Documentation fixes after going through the docs at PyCon 2013 sprint.
 .. branch: remove-list-smm
 .. branch: bridge-logging
 .. branch: curses_cffi
-
 cffi implementation of _curses
 
 .. branch: sqlite-cffi
-
 cffi implementation of sqlite3
+
+.. branch: release-2.0-beta2
