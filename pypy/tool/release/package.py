@@ -67,7 +67,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
                 'Bogus path: %r does not exist (see docstring for more info)'
                 % (os.path.dirname(str(pypy_c)),))
     subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
-    subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
+    if not sys.platform == 'win32':
+        subprocess.check_call([str(pypy_c), '-c', 'import _curses'])
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
