@@ -96,6 +96,9 @@ def run():
         tpool.teardown()
     tpool.reraise()
 
+def number_of_transactions_in_last_run():
+    return _thread_pool.transactions_run
+
 # ____________________________________________________________
 
 
@@ -104,6 +107,7 @@ class _ThreadPool(object):
     def __init__(self):
         self.num_threads = 4    # XXX default value, tweak
         self.in_transaction = False
+        self.transactions_run = None
 
     def setup(self):
         # a mutex to protect parts of _grab_next_thing_to_do()
@@ -122,17 +126,20 @@ class _ThreadPool(object):
         _thread_local.pending = None
         #
         self.num_waiting_threads = 0
+        self.transactions_run = 0
         self.finished = False
         self.got_exception = []
         self.in_transaction = True
 
     def run(self):
         # start the N threads
-        for i in range(self.num_threads):
-            thread.start_new_thread(self._run_thread, ())
+        task_counters = [[0] for i in range(self.num_threads)]
+        for counter in task_counters:
+            thread.start_new_thread(self._run_thread, (counter,))
         # now wait.  When we manage to acquire the following lock, then
         # we are finished.
         self.lock_if_released_then_finished.acquire()
+        self.transactions_run = sum(x[0] for x in task_counters)
 
     def teardown(self):
         self.in_transaction = False
@@ -148,13 +155,14 @@ class _ThreadPool(object):
         if exc:
             raise exc[0], exc[1], exc[2]    # exception, value, traceback
 
-    def _run_thread(self):
+    def _run_thread(self, counter):
         tloc_pending = _thread_local.pending
         got_exception = self.got_exception
         try:
             while True:
                 self._do_it(self._grab_next_thing_to_do(tloc_pending),
                             got_exception)
+                counter[0] += 1
         except _Done:
             pass
 
@@ -249,7 +257,7 @@ def report_abort_info(info):
     header = info[0]
     f = cStringIO.StringIO()
     if len(info) > 1:
-        print >> f, 'Traceback from detected conflict:'
+        print >> f, 'Detected conflict:'
         for tb in info[1:]:
             filename = tb[0]
             coname = tb[1]

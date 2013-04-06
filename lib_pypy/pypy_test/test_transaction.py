@@ -76,6 +76,21 @@ def test_raise():
         assert num_foos == 1, lsts
 
 
+def test_number_of_transactions_reported():
+    transaction.add(lambda: None)
+    transaction.run()
+    assert transaction.number_of_transactions_in_last_run() == 1
+
+    def add_transactions(l):
+        if l:
+            for x in range(l[0]):
+                transaction.add(add_transactions, l[1:])
+
+    transaction.add(add_transactions, [10, 10, 10])
+    transaction.run()
+    assert transaction.number_of_transactions_in_last_run() == 1111
+
+
 def run_tests():
     for name in sorted(globals().keys()):
         if name.startswith('test_'):

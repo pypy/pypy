@@ -93,7 +93,6 @@ void DescriptorDone(void);
 
 //gcptr Allocate(size_t size, int gctid);
 _Bool stm_PtrEq(gcptr P1, gcptr P2);
-gcptr stm_HashObject(gcptr P);
 
 void *stm_DirectReadBarrier(void *);
 void *stm_DirectReadBarrierFromR(void *, void *, size_t);
