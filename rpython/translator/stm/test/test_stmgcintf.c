@@ -1,3 +1,6 @@
+#define _GNU_SOURCE
+#define _XOPEN_SOURCE 500
+
 #include <stddef.h>
 
 #define PYPY_LONG_BIT   (sizeof(long) * 8)
@@ -25,6 +28,10 @@ typedef struct {
 } S1;
 
 typedef char bool_t;
+typedef char RPyString;
+
+#define _RPyString_AsString(x) x
+#define RPyString_Size(x) strlen(x)
 
 
 #include "src_stm/et.h"

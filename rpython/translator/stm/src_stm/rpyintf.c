@@ -105,7 +105,7 @@ long stm_should_break_transaction(void)
     assert(d->reads_size_limit_nonatomic == 0);
 #endif
 
-  return d->count_reads > d->reads_size_limit;
+  return d->count_reads >= d->reads_size_limit;
 }
 
 void stm_set_transaction_length(long length_max)

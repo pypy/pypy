@@ -5,6 +5,13 @@
  * runs for long enough.
  */
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#ifndef _XOPEN_SOURCE
+# define _XOPEN_SOURCE 500
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

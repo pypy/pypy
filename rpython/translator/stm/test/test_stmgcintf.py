@@ -9,7 +9,7 @@ def test_all():
     try:
         os.chdir(thisdir)
         exitcode = os.system(
-            "gcc -g -o '%s' -pthread -I.. test_stmgcintf.c" % (
+            "gcc -lrt -g -o '%s' -pthread -I.. test_stmgcintf.c" % (
             executable,))
         assert exitcode == 0
     finally:
