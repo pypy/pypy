@@ -499,7 +499,7 @@ static void init_transaction(struct tx_descriptor *d)
   assert(d->list_of_read_objects.size == 0);
   assert(d->gcroots.size == 0);
   assert(!g2l_any_entry(&d->global_to_local));
-  d->count_reads = 0;
+  d->count_reads = 1;
   fxcache_clear(&d->recent_reads_cache);
   gcptrlist_clear(&d->undolog);
   gcptrlist_clear(&d->abortinfo);

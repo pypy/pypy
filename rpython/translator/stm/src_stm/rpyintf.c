@@ -84,7 +84,8 @@ long stm_should_break_transaction(void)
   /* a single comparison to handle all cases:
 
      - if d->atomic, then we should return False.  This is done by
-       forcing reads_size_limit to ULONG_MAX as soon as atomic > 0.
+       forcing reads_size_limit to ULONG_MAX as soon as atomic > 0,
+       and no possible value of 'count_reads' is greater than ULONG_MAX.
 
      - otherwise, if is_inevitable(), then we should return True.
        This is done by forcing both reads_size_limit and
@@ -105,7 +106,7 @@ long stm_should_break_transaction(void)
     assert(d->reads_size_limit_nonatomic == 0);
 #endif
 
-  return d->count_reads >= d->reads_size_limit;
+  return d->count_reads > d->reads_size_limit;
 }
 
 void stm_set_transaction_length(long length_max)
