@@ -57,11 +57,11 @@ class FakeStmOperations:
         if self.threadnum == 0:
             assert not hasattr(self, '_tls_dict')
             self._tls_dict = {0: tls}
-            self._tldicts = {0: {}}
+            self._tldicts = {0: []}
             self._transactional_copies = []
         else:
             self._tls_dict[self.threadnum] = tls
-            self._tldicts[self.threadnum] = {}
+            self._tldicts[self.threadnum] = []
 
     def get_tls(self):
         return self._tls_dict[self.threadnum]
@@ -74,20 +74,27 @@ class FakeStmOperations:
         assert lltype.typeOf(obj) == llmemory.Address
         assert obj
         tldict = self._tldicts[self.threadnum]
-        return tldict.get(obj, llmemory.NULL)
+        for key, value in tldict:
+            if obj == key:
+                return value
+        else:
+            return llmemory.NULL
 
     def tldict_add(self, obj, localobj):
         assert lltype.typeOf(obj) == llmemory.Address
         assert lltype.typeOf(localobj) == llmemory.Address
+        assert obj
+        assert localobj
         tldict = self._tldicts[self.threadnum]
-        assert obj not in tldict
-        tldict[obj] = localobj
+        for key, _ in tldict:
+            assert obj != key
+        tldict.append((obj, localobj))
 
     def tldict_enum(self):
         from rpython.memory.gc.stmtls import StmGCTLS
         callback = StmGCTLS._stm_enum_callback
         tls = self.get_tls()
-        for key, value in self._tldicts[self.threadnum].iteritems():
+        for key, value in self._tldicts[self.threadnum]:
             assert (llmemory.cast_int_to_adr(self._gc.header(value).revision)
                     == key)
             callback(tls, value)
@@ -159,11 +166,9 @@ class StmGCTests:
 
     # ----------
     # test helpers
-    def malloc(self, STRUCT, weakref=False, globl='auto'):
+    def malloc(self, STRUCT, weakref=False, globl=False):
         size = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
         tid = lltype.cast_primitive(llgroup.HALFWORD, 123 + weakref)
-        if globl == 'auto':
-            globl = (self.gc.stm_operations.threadnum == 0)
         if globl:
             totalsize = self.gc.gcheaderbuilder.size_gc_header + size
             adr1 = llarena.arena_malloc(llmemory.raw_malloc_usage(totalsize),
@@ -179,6 +184,9 @@ class StmGCTests:
                                                    contains_weakptr=weakref)
             realobj = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
         return realobj
+    def settldict(self, globl, locl):
+        self.gc.stm_operations.tldict_add(llmemory.cast_ptr_to_adr(globl),
+                                          llmemory.cast_ptr_to_adr(locl))
     def select_thread(self, threadnum):
         self.gc.stm_operations.threadnum = threadnum
         if threadnum not in self.gc.stm_operations._tls_dict:
@@ -187,16 +195,16 @@ class StmGCTests:
     def gcsize(self, S):
         return (llmemory.raw_malloc_usage(llmemory.sizeof(self.gc.HDR)) +
                 llmemory.raw_malloc_usage(llmemory.sizeof(S)))
-    def checkflags(self, obj, must_have_global, must_have_was_copied,
-                              must_have_version='?'):
+    def checkflags(self, obj, globl='?', localcopy='?', version='?'):
         if lltype.typeOf(obj) != llmemory.Address:
             obj = llmemory.cast_ptr_to_adr(obj)
         hdr = self.gc.header(obj)
-        assert (hdr.tid & GCFLAG_GLOBAL != 0) == must_have_global
-        if must_have_was_copied != '?':
-            assert (hdr.tid & GCFLAG_LOCAL_COPY != 0) == must_have_was_copied
-        if must_have_version != '?':
-            assert hdr.version == must_have_version
+        if globl != '?':
+            assert (hdr.tid & GCFLAG_GLOBAL != 0) == globl
+        if localcopy != '?':
+            assert (hdr.tid & GCFLAG_LOCAL_COPY != 0) == localcopy
+        if version != '?':
+            assert hdr.version == version
 
     def header(self, P):
         if lltype.typeOf(P) != llmemory.Address:
@@ -230,6 +238,7 @@ class StmGCTests:
         return G
 
     def stm_writebarrier(self, P):
+        P = llmemory.cast_ptr_to_adr(P)
         hdr = self.header(P)
         if hdr.tid & GCFLAG_NOT_WRITTEN == 0:
             # already a local, written-to object
@@ -246,7 +255,7 @@ class StmGCTests:
                 W = self.stm_localize(R)
             self.gc.header(W).tid &= ~GCFLAG_NOT_WRITTEN
             self.gc.header(R).tid |= GCFLAG_POSSIBLY_OUTDATED
-        return W
+        return W.ptr
 
     def stm_localize(self, R):
         L = self.gc.stm_operations.tldict_lookup(R)
@@ -261,7 +270,7 @@ class StmGCTests:
             assert hdr.tid & GCFLAG_NOT_WRITTEN
             set_hdr_revision(hdr, R)     # back-reference to the original
             self.gc.stm_operations.tldict_add(R, L)
-            self.gc.stm_operations._transactional_copies.append((R, L))
+            self.gc.stm_operations._transactional_copies.append((R.ptr, L.ptr))
         return L
 
 
@@ -305,7 +314,7 @@ class TestBasic(StmGCTests):
         assert obj == t
         #
         self.select_thread(0)
-        s = self.malloc(S)
+        s = self.malloc(S, globl=True)
         #
         self.select_thread(1)
         assert self.header(s).tid & GCFLAG_GLOBAL != 0
@@ -313,37 +322,36 @@ class TestBasic(StmGCTests):
         self.header(s).tid |= GCFLAG_POSSIBLY_OUTDATED
         self.header(t).tid |= GCFLAG_LOCAL_COPY | GCFLAG_VISITED
         self.set_hdr_revision(self.header(t), s)
-        self.gc.stm_operations._tldicts[1][s_adr] = t_adr
+        self.settldict(s, t)
         obj = self.stm_writebarrier(s)     # global copied object
         assert obj == t
         assert self.gc.stm_operations._transactional_copies == []
 
     def test_write_barrier_new(self):
         self.select_thread(0)
-        s, s_adr = self.malloc(S)
+        s = self.malloc(S, globl=True)     # global object, not copied so far
         s.a = 12
         s.b = 34
         #
-        self.select_thread(1)                # global object, not copied so far
-        t_adr = self.stm_writebarrier(s_adr)
-        assert t_adr != s_adr
-        t = t_adr.ptr
+        self.select_thread(1)
+        t = self.stm_writebarrier(s)
+        assert t != s
         assert t.a == 12
         assert t.b == 34
-        assert self.gc.stm_operations._transactional_copies == [(s_adr, t_adr)]
+        assert self.gc.stm_operations._transactional_copies == [(s, t)]
         #
-        u_adr = self.stm_writebarrier(s_adr)  # again
-        assert u_adr == t_adr
+        u = self.stm_writebarrier(s)          # again
+        assert u == t
         #
-        u_adr = self.stm_writebarrier(u_adr)  # local object
-        assert u_adr == t_adr
+        u = self.stm_writebarrier(u)          # local object
+        assert u == t
 
     def test_write_barrier_main_thread(self):
-        t, t_adr = self.malloc(S, globl=False)
-        self.checkflags(t_adr, False, False)
-        obj = self.stm_writebarrier(t_adr)     # main thread, but not global
-        assert obj == t_adr
-        self.checkflags(obj, False, False)
+        t = self.malloc(S, globl=False)
+        self.checkflags(t, globl=False, localcopy=False)
+        obj = self.stm_writebarrier(t)        # main thread, but not global
+        assert obj == t
+        self.checkflags(obj, globl=False, localcopy=False)
 
     def test_random_gc_usage(self):
         import random
