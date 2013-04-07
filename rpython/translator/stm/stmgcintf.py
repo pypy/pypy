@@ -73,5 +73,8 @@ class StmOperations(object):
     inspect_abort_info = smexternal('stm_inspect_abort_info',
                                     [], rffi.CCHARP)
 
+    start_single_thread = smexternal('stm_start_single_thread',[], lltype.Void)
+    stop_single_thread  = smexternal('stm_stop_single_thread', [], lltype.Void)
+
     # for testing
     abort_and_retry = smexternal('stm_abort_and_retry', [], lltype.Void)
