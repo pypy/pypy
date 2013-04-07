@@ -344,6 +344,22 @@ void test_should_break_transaction(void)
 
 /************************************************************/
 
+void single_thread_1(void)
+{
+    stm_start_single_thread();
+    stm_stop_single_thread();
+    stm_start_single_thread();
+    stm_stop_single_thread();
+    /* check that the assert() included in these functions don't trigger */
+}
+
+void test_single_thread(void)
+{
+    run_in_transaction(single_thread_1, '.');
+}
+
+/************************************************************/
+
 
 #define XTEST(name)  if (!strcmp(argv[1], #name)) { test_##name(); return 0; }
 
@@ -361,6 +377,7 @@ int main(int argc, char **argv)
     XTEST(duplicator);
     XTEST(try_inevitable);
     XTEST(should_break_transaction);
+    XTEST(single_thread);
     printf("bad test name\n");
     return 1;
 }

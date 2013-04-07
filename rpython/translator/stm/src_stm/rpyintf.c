@@ -63,6 +63,9 @@ long stm_is_inevitable(void)
 }
 
 static unsigned long stm_regular_length_limit = ULONG_MAX;
+static volatile int break_please = 0;
+
+static void reached_safe_point(void);
 
 void stm_add_atomic(long delta)
 {
@@ -105,6 +108,9 @@ long stm_should_break_transaction(void)
   if (is_inevitable(d))
     assert(d->reads_size_limit_nonatomic == 0);
 #endif
+
+  if (break_please)
+    reached_safe_point();
 
   return d->count_reads > d->reads_size_limit;
 }
@@ -173,6 +179,9 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
       if (!d->atomic)
         BeginTransaction(&_jmpbuf);
 
+      if (break_please)
+        reached_safe_point();
+
       /* invoke the callback in the new transaction */
       result = callback(arg, counter);
 
@@ -190,6 +199,53 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   *(void***)save_and_restore = v_saved_value;
 #endif
   PYPY_DEBUG_STOP("stm-perform-transaction");
+}
+
+static struct tx_descriptor *in_single_thread = NULL;  /* for debugging */
+
+void stm_start_single_thread(void)
+{
+  /* Called by the GC, just after a minor collection, when we need to do
+     a major collection.  When it returns, it acquired the "write lock"
+     which prevents any other thread from running a transaction. */
+  int err;
+  break_please = 1;
+  err = pthread_rwlock_unlock(&rwlock_in_transaction);
+  assert(err == 0);
+  err = pthread_rwlock_wrlock(&rwlock_in_transaction);
+  assert(err == 0);
+  break_please = 0;
+
+  assert(in_single_thread == NULL);
+  in_single_thread = thread_descriptor;
+  assert(in_single_thread != NULL);
+}
+
+void stm_stop_single_thread(void)
+{
+  int err;
+
+  assert(in_single_thread == thread_descriptor);
+  in_single_thread = NULL;
+
+  err = pthread_rwlock_unlock(&rwlock_in_transaction);
+  assert(err == 0);
+  err = pthread_rwlock_rdlock(&rwlock_in_transaction);
+  assert(err == 0);
+}
+
+static void reached_safe_point(void)
+{
+  int err;
+  struct tx_descriptor *d = thread_descriptor;
+  assert(in_single_thread != d);
+  if (d->active)
+    {
+      err = pthread_rwlock_unlock(&rwlock_in_transaction);
+      assert(err == 0);
+      err = pthread_rwlock_rdlock(&rwlock_in_transaction);
+      assert(err == 0);
+    }
 }
 
 void stm_abort_and_retry(void)

@@ -393,6 +393,8 @@ static void AbortTransaction(int num)
   size_t size;
   struct timespec now;
   long long elapsed_time;
+  int err;
+
   assert(d->active);
   assert(!is_inevitable(d));
   assert(num < ABORT_REASONS);
@@ -476,7 +478,8 @@ static void AbortTransaction(int num)
   SpinLoop(0);
   // jump back to the setjmp_buf (this call does not return)
   d->active = 0;
-  pthread_rwlock_unlock(&rwlock_in_transaction);
+  err = pthread_rwlock_unlock(&rwlock_in_transaction);
+  assert(err == 0);
   longjmp(*d->setjmp_buf, 1);
 }
 
@@ -491,8 +494,11 @@ static void update_reads_size_limit(struct tx_descriptor *d)
 
 static void init_transaction(struct tx_descriptor *d)
 {
+  int err;
   assert(d->active == 0);
-  pthread_rwlock_rdlock(&rwlock_in_transaction);
+  err = pthread_rwlock_rdlock(&rwlock_in_transaction);
+  assert(err == 0);
+
   if (clock_gettime(CLOCK_MONOTONIC, &d->start_real_time) < 0) {
     d->start_real_time.tv_nsec = -1;
   }
@@ -643,6 +649,7 @@ void CommitTransaction(void)
 {
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
+  int err;
   assert(d->active != 0);
 
   FindRootsForLocalCollect(d);
@@ -689,7 +696,8 @@ void CommitTransaction(void)
   gcptrlist_clear(&d->gcroots);
   d->num_commits++;
   d->active = 0;
-  pthread_rwlock_unlock(&rwlock_in_transaction);
+  err = pthread_rwlock_unlock(&rwlock_in_transaction);
+  assert(err == 0);
 }
 
 /************************************************************/
