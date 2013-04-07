@@ -67,6 +67,9 @@ static volatile revision_t global_cur_time = 2;        /* always mult of 2 */
 static volatile revision_t next_locked_value = LOCKED + 3;   /* always odd */
 static __thread struct tx_descriptor *thread_descriptor = NULL;
 
+static pthread_rwlock_t rwlock_in_transaction =
+         PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
+
 /************************************************************/
 
 static void ValidateNow(struct tx_descriptor *);
@@ -466,6 +469,7 @@ static void AbortTransaction(int num)
   SpinLoop(0);
   // jump back to the setjmp_buf (this call does not return)
   d->active = 0;
+  pthread_rwlock_unlock(&rwlock_in_transaction);
   longjmp(*d->setjmp_buf, 1);
 }
 
@@ -480,10 +484,11 @@ static void update_reads_size_limit(struct tx_descriptor *d)
 
 static void init_transaction(struct tx_descriptor *d)
 {
+  assert(d->active == 0);
+  pthread_rwlock_rdlock(&rwlock_in_transaction);
   if (clock_gettime(CLOCK_MONOTONIC, &d->start_real_time) < 0) {
     d->start_real_time.tv_nsec = -1;
   }
-  assert(d->active == 0);
   assert(d->list_of_read_objects.size == 0);
   assert(d->gcroots.size == 0);
   assert(!g2l_any_entry(&d->global_to_local));
@@ -677,6 +682,7 @@ void CommitTransaction(void)
   gcptrlist_clear(&d->gcroots);
   d->num_commits++;
   d->active = 0;
+  pthread_rwlock_unlock(&rwlock_in_transaction);
 }
 
 /************************************************************/
