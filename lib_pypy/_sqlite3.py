@@ -256,7 +256,12 @@ def _has_load_extension():
     typedef ... sqlite3;
     int sqlite3_enable_load_extension(sqlite3 *db, int onoff);
     """)
-    unverified_lib = unverified_ffi.dlopen('sqlite3')
+    libname = 'sqlite3'
+    if sys.platform == 'win32':
+        _libname = os.path.join(os.path.dirname(sys.executable), libname)
+        if os.path.exists(_libname + '.dll'):
+            libname = _libname
+    unverified_lib = unverified_ffi.dlopen(libname)
     return hasattr(unverified_lib, 'sqlite3_enable_load_extension')
 
 if _has_load_extension():
