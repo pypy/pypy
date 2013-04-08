@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT
-from rpython.rlib.objectmodel import free_non_gc_object
-from rpython.rlib.debug import fatalerror
+from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
+from rpython.rlib.debug import ll_assert, fatalerror
 from rpython.rlib import rthread
 
 WORD = LONG_BIT // 8
@@ -109,6 +109,9 @@ class StmGCThreadLocalAllocator(object):
         self.full_page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
                                                 flavor='raw', zero=True,
                                                 immortal=True)
+        #
+        if not we_are_translated():
+            self._seen_pages = set()
 
     def _malloc_size_class(self, size_class):
         """Malloc one object of the given size_class (== number of WORDs)."""
@@ -123,6 +126,7 @@ class StmGCThreadLocalAllocator(object):
         #
         # The result is simply 'page.freeblock'
         result = page.freeblock
+        nsize = size_class << WORD_POWER_2
         if page.nfree > 0:
             #
             # The 'result' was part of the chained list; read the next.
@@ -139,7 +143,7 @@ class StmGCThreadLocalAllocator(object):
         page.freeblock = freeblock
         #
         pageaddr = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
-        if freeblock - pageaddr > self.page_size - nsize:
+        if freeblock - pageaddr > self.sharedarea.page_size - nsize:
             # This was the last free block, so unlink the page from the
             # chained list and put it in the 'full_page_for_size' list.
             self.page_for_size[size_class] = page.nextpage
@@ -166,6 +170,8 @@ class StmGCThreadLocalAllocator(object):
             if not result:
                 fatalerror("FIXME: Out of memory! (should raise MemoryError)")
                 return PAGE_NULL
+            if not we_are_translated():
+                self._seen_pages.add(result)
             llarena.arena_reserve(result, llmemory.sizeof(PAGE_HEADER))
         #
         # Initialize the fields of the resulting page
@@ -184,7 +190,8 @@ class StmGCThreadLocalAllocator(object):
         some other data structure.  Note that it is not zero-filled."""
         nsize = llmemory.raw_malloc_usage(totalsize)
         if nsize <= self.sharedarea.small_request_threshold:
-            result = self._malloc_size_class(nsize >> WORD_POWER_2)
+            size_class = (nsize + WORD_POWER_2 - 1) >> WORD_POWER_2
+            result = self._malloc_size_class(size_class)
             llarena.arena_reserve(result, _dummy_size(totalsize))
             return result
         else:
