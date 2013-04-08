@@ -40,7 +40,7 @@ class AppTestPyexpat:
         import pyexpat
         for encoding_arg in (None, 'utf-8', 'iso-8859-1'):
             for namespace_arg in (None, '{'):
-                print encoding_arg, namespace_arg
+                print(encoding_arg, namespace_arg)
                 p = pyexpat.ParserCreate(encoding_arg, namespace_arg)
                 data = []
                 p.CharacterDataHandler = lambda s: data.append(s)
@@ -205,7 +205,7 @@ class AppTestPyexpat2:
 
         try:
             for event, node in stream:
-                print event, node
+                print(event, node)
         except DTDForbidden:
             pass
         else:
