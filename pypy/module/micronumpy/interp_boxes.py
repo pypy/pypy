@@ -5,15 +5,15 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.stringtype import str_typedef
 from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
-from pypy.objspace.std.inttype import int_typedef
+from pypy.objspace.std.longtype import long_typedef
 from pypy.objspace.std.complextype import complex_typedef
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
-MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
-MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
+MIXIN_32 = (long_typedef,) if LONG_BIT == 32 else ()
+MIXIN_64 = (long_typedef,) if LONG_BIT == 64 else ()
 
 # Is this the proper place for this?
 ENABLED_LONG_DOUBLE = False
