@@ -7,6 +7,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from rpython.rlib.debug import debug_print
+from rpython.rlib import rthread
 
 
 WORD = LONG_BIT // 8
@@ -206,6 +207,9 @@ class StmGC(MovingGCBase):
         #
         self.sharedarea.setup()
         #
+        self.linked_list_stmtls = None
+        self.ll_global_lock = rthread.allocate_ll_lock()
+        #
         self.stm_operations.descriptor_init()
         self.stm_operations.begin_inevitable_transaction()
         self.setup_thread()
@@ -217,6 +221,7 @@ class StmGC(MovingGCBase):
                   "setup_thread: not in a transaction")
         from rpython.memory.gc.stmtls import StmGCTLS
         stmtls = StmGCTLS(self)
+        self.add_in_linked_list(stmtls)
         stmtls.start_transaction()
 
     def teardown_thread(self):
@@ -229,8 +234,38 @@ class StmGC(MovingGCBase):
         stmtls = self.get_tls()
         stmtls.stop_transaction()
         self.stm_operations.commit_transaction()
+        self.remove_from_linked_list(stmtls)
         self.stm_operations.begin_inevitable_transaction()
         stmtls.delete()
+
+    def acquire_global_lock(self):
+        rthread.acquire_NOAUTO(self.ll_global_lock, True)
+
+    def release_global_lock(self):
+        rthread.release_NOAUTO(self.ll_global_lock)
+
+    def add_in_linked_list(self, stmtls):
+        self.acquire_global_lock()
+        stmtls.linked_list_prev = None
+        stmtls.linked_list_next = self.linked_list_stmtls
+        self.linked_list_stmtls = stmtls
+        self.release_global_lock()
+
+    def remove_from_linked_list(self, stmtls):
+        self.acquire_global_lock()
+        c = 0
+        stmprev = stmtls.linked_list_prev
+        stmnext = stmtls.linked_list_next
+        if stmnext:
+            stmnext.linked_list_prev = stmprev
+        if stmprev:
+            stmprev.linked_list_next = stmnext
+            c += 1
+        if stmtls is self.linked_list_stmtls:
+            self.linked_list_stmtls = stmnext
+            c += 1
+        ll_assert(c == 1, "remove_from_linked_list: bad linked list")
+        self.release_global_lock()
 
     @always_inline
     def get_tls(self):
