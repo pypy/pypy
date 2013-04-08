@@ -70,6 +70,7 @@ syntax: regexp
 ^rpython/translator/cli/src/pypylib\.dll$
 ^rpython/translator/cli/src/query\.exe$
 ^rpython/translator/cli/src/main\.exe$
+^lib_pypy/__pycache__$
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
 ^rpython/translator/cli/query-descriptions$

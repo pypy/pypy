@@ -219,7 +219,7 @@ class AppTestPyexpat2:
 
         try:
             for event, node in stream:
-                print event, node
+                print(event, node)
         except DTDForbidden:
             pass
         else:

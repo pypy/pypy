@@ -654,6 +654,13 @@ def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
 
+def op_debug_fatalerror(ll_msg):
+    from rpython.rtyper.lltypesystem import lltype, rstr
+    from rpython.rtyper.llinterp import LLFatalError
+    assert lltype.typeOf(ll_msg) == lltype.Ptr(rstr.STR)
+    msg = ''.join(ll_msg.chars)
+    raise LLFatalError(msg)
+
 # ____________________________________________________________
 
 def get_op_impl(opname):
