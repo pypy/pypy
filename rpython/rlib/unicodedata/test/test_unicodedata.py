@@ -102,29 +102,19 @@ class TestUnicodeData(object):
 
 
 class TestUnicodeData600(object):
-    def setup_class(cls):
-        # XXX: this can only be tested on Python3!
-        if unicodedata.unidata_version != '6.0.0':
-            py.test.skip('Needs python with unicode 6.0.0 database.')
 
-        seed = random.getrandbits(32)
-        print("random seed: ", seed)
-        random.seed(seed)
-        cls.charlist = charlist = []
-        cls.nocharlist = nocharlist = []
-        while len(charlist) < 1000 or len(nocharlist) < 1000:
-            chr = unichr(random.randrange(65536))
-            try:
-                charlist.append((chr, unicodedata.name(chr)))
-            except ValueError:
-                nocharlist.append(chr)
-
-    def test_random_charnames(self):
-        for chr, name in self.charlist:
-            assert unicodedb_6_0_0.name(ord(chr)) == name
-            assert unicodedb_6_0_0.lookup(name) == ord(chr)
-
-    def test_random_missing_chars(self):
-        for chr in self.nocharlist:
-            py.test.raises(KeyError, unicodedb_6_0_0.name, ord(chr))
-
+    def test_some_additions(self):
+        additions = {
+            ord(u"\u20B9"): 'INDIAN RUPEE SIGN',
+            # u'\U0001F37A'
+            127866: 'BEER MUG',
+            # u'\U0001F37B'
+            127867: 'CLINKING BEER MUGS',
+            # u"\U0001F0AD"
+            127149: 'PLAYING CARD QUEEN OF SPADES',
+            # u"\U0002B740"
+            177984: "CJK UNIFIED IDEOGRAPH-2B740",
+            }
+        for un, name in additions.iteritems():
+            assert unicodedb_6_0_0.name(un) == name
+            assert unicodedb_6_0_0.isprintable(un)

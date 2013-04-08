@@ -305,14 +305,15 @@ for index, (name, params) in enumerate(HANDLERS.items()):
             w_result = space.call_function(handler, %(wargs)s)
             %(post_code)s
         except OperationError, e:
-            parser._exc_info = e
+            if not parser._exc_info: # don't override an existing exception
+                 parser._exc_info = e
             XML_StopParser(parser.itself, XML_FALSE)
             return %(result_error)s
         return %(result_converter)s
     callback = %(name)s_callback
     """ % locals())
 
-    exec str(src)
+    exec src.compile()
 
     c_name = 'XML_Set' + name
     callback_type = lltype.Ptr(lltype.FuncType(
@@ -335,7 +336,8 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     try:
         parser.UnknownEncodingHandler(space, name, info)
     except OperationError, e:
-        parser._exc_info = e
+        if parser._exc_info:
+            parser._exc_info = e
         XML_StopParser(parser.itself, XML_FALSE)
         result = 0
     else:

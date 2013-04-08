@@ -18,6 +18,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from sys import maxint
 
+UNROLL_CUTOFF = 5
 
 class W_AbstractListObject(W_Object):
     __slots__ = ()
@@ -42,7 +43,7 @@ def make_empty_list_with_size(space, hint):
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 @jit.look_inside_iff(lambda space, list_w, sizehint:
-                     jit.loop_unrolling_heuristic(list_w, len(list_w)))
+        jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
 def get_strategy_from_list_objects(space, list_w, sizehint):
     if not list_w:
         if sizehint != -1:
@@ -956,7 +957,7 @@ class AbstractUnwrappedStrategy(object):
         raise NotImplementedError("abstract base class")
 
     @jit.look_inside_iff(lambda space, w_list, list_w:
-                         jit.loop_unrolling_heuristic(list_w, len(list_w)))
+            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
@@ -1005,7 +1006,7 @@ class AbstractUnwrappedStrategy(object):
         return self.wrap(r)
 
     @jit.look_inside_iff(lambda self, w_list:
-                         jit.loop_unrolling_heuristic(w_list, w_list.length()))
+            jit.loop_unrolling_heuristic(w_list, w_list.length(), UNROLL_CUTOFF))
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
 
@@ -1014,7 +1015,7 @@ class AbstractUnwrappedStrategy(object):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
 
     @jit.look_inside_iff(lambda self, w_list:
-                         jit.loop_unrolling_heuristic(w_list, w_list.length()))
+            jit.loop_unrolling_heuristic(w_list, w_list.length(), UNROLL_CUTOFF))
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
@@ -1476,8 +1477,8 @@ def inplace_mul__List_ANY(space, w_list, w_times):
     return w_list
 
 def list_unroll_condition(space, w_list1, w_list2):
-    return jit.loop_unrolling_heuristic(w_list1, w_list1.length()) or \
-           jit.loop_unrolling_heuristic(w_list2, w_list2.length())
+    return jit.loop_unrolling_heuristic(w_list1, w_list1.length(), UNROLL_CUTOFF) or \
+           jit.loop_unrolling_heuristic(w_list2, w_list2.length(), UNROLL_CUTOFF)
 
 @jit.look_inside_iff(list_unroll_condition)
 def eq__List_List(space, w_list1, w_list2):

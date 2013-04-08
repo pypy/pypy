@@ -1,6 +1,6 @@
 import weakref
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype
 
 class CPUTotalTracker(object):
     total_compiled_loops = 0
@@ -193,11 +193,6 @@ class AbstractCPU(object):
 
     def typedescrof(self, TYPE):
         raise NotImplementedError
-
-    @staticmethod
-    def cast_int_to_ptr(x, TYPE):
-        x = llmemory.cast_int_to_adr(x)
-        return llmemory.cast_adr_to_ptr(x, TYPE)
 
     # ---------- the backend-dependent operations ----------
 

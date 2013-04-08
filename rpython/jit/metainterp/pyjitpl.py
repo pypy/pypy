@@ -1185,30 +1185,6 @@ class MIFrame(object):
     def opimpl_ll_read_timestamp(self):
         return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
 
-    @arguments("box", "box", "box")
-    def opimpl_libffi_save_result_int(self, box_cif_description, box_exchange_buffer,
-                                      box_result):
-        from rpython.rtyper.lltypesystem import llmemory
-        from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
-        from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
-
-        cif_description = box_cif_description.getint()
-        cif_description = llmemory.cast_int_to_adr(cif_description)
-        cif_description = llmemory.cast_adr_to_ptr(cif_description,
-                                                   CIF_DESCRIPTION_P)
-
-        kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
-        
-        if kind != 'v':
-            ofs = cif_description.exchange_result
-            assert ofs % itemsize == 0     # alignment check (result)
-            self.metainterp.history.record(rop.SETARRAYITEM_RAW,
-                                           [box_exchange_buffer,
-                                            ConstInt(ofs // itemsize), box_result],
-                                           None, descr)
-
-    opimpl_libffi_save_result_float = opimpl_libffi_save_result_int
-
     # ------------------------------
 
     def setup_call(self, argboxes):
@@ -2613,15 +2589,27 @@ class MetaInterp(object):
                                 box_arg, descr)
             arg_boxes.append(box_arg)
         #
-        box_result = op.result
+        kind, descr, itemsize = get_arg_descr(self.cpu, cif_description.rtype)
+        if kind == 'i':
+            box_result = history.BoxInt()
+        elif kind == 'f':
+            box_result = history.BoxFloat()
+        else:
+            assert kind == 'v'
+            box_result = None
         self.history.record(rop.CALL_RELEASE_GIL,
                             [op.getarg(2)] + arg_boxes,
                             box_result, calldescr)
         #
         self.history.operations.extend(extra_guards)
         #
-        # note that the result is written back to the exchange_buffer by the
-        # special op libffi_save_result_{int,float}
+        if box_result is not None:
+            ofs = cif_description.exchange_result
+            assert ofs % itemsize == 0     # alignment check (result)
+            self.history.record(rop.SETARRAYITEM_RAW,
+                                [box_exchange_buffer,
+                                 ConstInt(ofs // itemsize), box_result],
+                                None, descr)
 
     def direct_call_release_gil(self):
         op = self.history.operations.pop()

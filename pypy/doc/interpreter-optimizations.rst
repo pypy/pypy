@@ -55,7 +55,7 @@ are represented as tagged pointers by setting their lowest bits to distinguish
 them from normal pointers. This completely avoids the boxing step, saving
 time and memory.
 
-You can enable this feature with the :config:`objspace.std.withsmallint` option.
+You can enable this feature with the :config:`objspace.std.withsmalllong` option.
 
 Dictionary Optimizations
 ------------------------

@@ -2,7 +2,7 @@ from rpython.flowspace.model import Variable, Constant
 from rpython.rlib.unroll import SpecTag
 
 
-class FrameState:
+class FrameState(object):
     def __init__(self, mergeable, blocklist, next_instr):
         self.mergeable = mergeable
         self.blocklist = blocklist
@@ -63,6 +63,7 @@ class FrameState:
 class UnionError(Exception):
     "The two states should be merged."
 
+
 def union(w1, w2):
     "Union of two variables or constants."
     if w1 is None or w2 is None:
@@ -117,7 +118,7 @@ def recursively_flatten(space, lst):
             key = unroller.__class__, len(vars)
             try:
                 tag = PICKLE_TAGS[key]
-            except:
+            except KeyError:
                 tag = PICKLE_TAGS[key] = Constant(PickleTag())
                 UNPICKLE_TAGS[tag] = key
             lst[i:i + 1] = [tag] + vars

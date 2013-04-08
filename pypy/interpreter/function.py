@@ -22,7 +22,6 @@ def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code
 
-
 class Function(W_Root):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,

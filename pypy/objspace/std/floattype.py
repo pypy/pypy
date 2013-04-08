@@ -3,13 +3,15 @@ import sys
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import rfloat, rarithmetic
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
+     interpindirect2app
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import ParseStringError
 from pypy.objspace.std.strutil import string_to_float
+from pypy.objspace.std.model import W_Object
+from rpython.rlib.rbigint import rbigint
 
 
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
@@ -270,6 +272,32 @@ def descr_get_imag(space, w_obj):
 
 # ____________________________________________________________
 
+class W_AbstractFloatObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        from rpython.rlib.longlong2float import float2longlong
+        if not isinstance(w_other, W_AbstractFloatObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        one = float2longlong(space.float_w(self))
+        two = float2longlong(space.float_w(w_other))
+        return one == two
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from rpython.rlib.longlong2float import float2longlong
+        from pypy.objspace.std.model import IDTAG_FLOAT as tag
+        val = float2longlong(space.float_w(self))
+        b = rbigint.fromrarith_int(val)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+    def int(self, space):
+        raise NotImplementedError
+
 float_typedef = StdTypeDef("float",
     __doc__ = '''float(x) -> floating point number
 
@@ -280,5 +308,6 @@ Convert a string or number to a floating point number, if possible.''',
     conjugate = interp2app(descr_conjugate),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
+    __int__ = interpindirect2app(W_AbstractFloatObject.int),
 )
 float_typedef.registermethods(globals())
