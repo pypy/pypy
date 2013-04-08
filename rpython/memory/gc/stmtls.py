@@ -36,6 +36,11 @@ class StmGCTLS(object):
         self.null_address_dict = self.gc.null_address_dict
         self.AddressStack = self.gc.AddressStack
         self.AddressDict = self.gc.AddressDict
+        if we_are_translated():
+            self.adr_of_stack_base = llop.gc_adr_of_root_stack_base(
+                llmemory.Address)
+            self.adr_of_stack_top  = llop.gc_adr_of_root_stack_top(
+                llmemory.Address)
         #
         # --- current position, or NULL when mallocs are forbidden
         self.nursery_free = NULL

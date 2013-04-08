@@ -119,6 +119,7 @@ class StmShadowStackRootWalker(BaseRootWalker):
                 if addr.signed[0] == END_MARKER:
                     break
                 callback(arg, addr)
+            return addr
         self.rootstackhook = walk_stack_root
 
         rsd = gctransformer.root_stack_depth
@@ -188,3 +189,19 @@ class StmShadowStackRootWalker(BaseRootWalker):
             if gc.points_to_valid_gc_object(result):
                 collect_nongc_root(arg, result)
             addr += sizeofaddr
+
+    @specialize.argtype(2)
+    def walk_all_stack_roots(self, collect_stack_root, arg):
+        # assume that we have the ll_global_lock here
+        stmtls = self.gc.linked_list_stmtls
+        while stmtls is not None:
+            # for every stmtls:
+            root_stack_base = stmtls.adr_of_stack_base.address[0]
+            root_stack_top  = stmtls.adr_of_stack_top.address[0]
+            # we walk all segments of the shadow stack, each of them
+            # with an END_MARKER at the bottom, until we reach the
+            # marker that is at root_stack_base.
+            while root_stack_top != root_stack_base:
+                root_stack_top = self.rootstackhook(collect_stack_root, arg,
+                                                    root_stack_top)
+            stmtls = stmtls.linked_list_next
