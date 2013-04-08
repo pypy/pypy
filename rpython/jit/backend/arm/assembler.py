@@ -1035,7 +1035,8 @@ class AssemblerARM(ResOpAssembler):
             assert 0, 'unsupported case'
 
     def _mov_stack_to_loc(self, prev_loc, loc, cond=c.AL):
-        helper = self._regalloc.get_free_reg()
+        # disabled for now, has side effects in combination with remap_frame_layout when called from a jump
+        helper = None # self._regalloc.get_free_reg()
         if loc.is_reg():
             assert prev_loc.type != FLOAT, 'trying to load from an \
                 incompatible location into a core register'
