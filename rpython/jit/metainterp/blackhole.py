@@ -857,6 +857,8 @@ class BlackholeInterpreter(object):
 
     @arguments("r")
     def bhimpl_debug_fatalerror(msg):
+        from rpython.rtyper.lltypesystem import rstr
+        msg = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), msg)
         llop.debug_fatalerror(lltype.Void, msg)
 
     @arguments("r", "i", "i", "i", "i")

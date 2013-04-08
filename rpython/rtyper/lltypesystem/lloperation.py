@@ -555,7 +555,7 @@ LL_OPERATIONS = {
     'debug_offset':         LLOp(canrun=True),
     'debug_flush':          LLOp(canrun=True),
     'debug_assert':         LLOp(tryfold=True),
-    'debug_fatalerror':     LLOp(),
+    'debug_fatalerror':     LLOp(canrun=True),
     'debug_llinterpcall':   LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine
