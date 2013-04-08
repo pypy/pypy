@@ -709,7 +709,8 @@ class ObjSpace(object):
 
     def new_interned_w_str(self, w_s):
         s = self.str_w(w_s)
-        assert type(s) is str
+        if not we_are_translated():
+            assert type(s) is str
         try:
             return self.interned_strings[s]
         except KeyError:
@@ -718,7 +719,8 @@ class ObjSpace(object):
         return w_s
 
     def new_interned_str(self, s):
-        assert type(s) is str
+        if not we_are_translated():
+            assert type(s) is str
         try:
             return self.interned_strings[s]
         except KeyError:
