@@ -364,7 +364,9 @@ def _setup():
             key_n = ffi.string(key_n)
             if key_n == b"UNKNOWN KEY":
                 continue
-            key_n = key_n.decode().replace('(', '').replace(')', '')
+            if not isinstance(key_n, str):   # python 3
+                key_n = key_n.decode()
+            key_n = key_n.replace('(', '').replace(')', '')
             globals()[key_n] = key
 
 _setup()

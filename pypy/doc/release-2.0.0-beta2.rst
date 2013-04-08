@@ -82,3 +82,13 @@ Improvements since 1.9
 * we now have special strategies for ``dict``/``set``/``list`` which contain
   unicode strings, which means that now such collections will be both faster
   and more compact.
+
+.. _`eventlet`: http://eventlet.net/
+.. _`gevent`: http://www.gevent.org/
+.. _`cffi`: http://cffi.readthedocs.org/en/release-0.6/
+.. _`JIT hooks`: http://doc.pypy.org/en/latest/jit-hooks.html
+.. _`pypycore`: https://github.com/gevent-on-pypy/pypycore
+.. _`pypy-hacks`: https://github.com/schmir/gevent/tree/pypy-hacks
+.. _`_curses.py`: https://bitbucket.org/pypy/pypy/src/aefddd47f224e3c12e2ea74f5c796d76f4355bdb/lib_pypy/_curses.py?at=default
+.. _`_sqlite3.py`: https://bitbucket.org/pypy/pypy/src/aefddd47f224e3c12e2ea74f5c796d76f4355bdb/lib_pypy/_sqlite3.py?at=default
+
