@@ -664,6 +664,12 @@ class FunctionGcRootTracker(object):
     def visit_ret(self, line):
         return InsnRet(self.CALLEE_SAVE_REGISTERS)
 
+    def visit_rep(self, line):
+        # 'rep ret': bad reasons for this bogus 'rep' here
+        if line.split()[:2] == ['rep', 'ret']:
+            return self.visit_ret(line)
+        return []
+
     def visit_jmp(self, line):
         tablelabels = []
         match = self.r_jmp_switch.match(line)
