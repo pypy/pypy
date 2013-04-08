@@ -1,4 +1,4 @@
-import _continuation, sys
+import _continuation
 
 __version__ = "0.4.0"
 

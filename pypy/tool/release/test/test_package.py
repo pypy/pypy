@@ -17,7 +17,7 @@ def test_dir_structure(test='test'):
         exe_name_in_archive = 'bin/pypy'
     pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
-        os.system("echo faked_pypy_c> %s" % (pypy_c,))
+        pypy_c.write("#!/bin/sh")
         pypy_c.chmod(0755)
         fake_pypy_c = True
     else:

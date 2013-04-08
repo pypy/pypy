@@ -34,11 +34,11 @@ class TestARM(LLtypeBackendTest):
     else:
         bridge_loop_instructions = ['ldr', 'mov', 'nop', 'nop', 'nop', 'cmp', 'bge',
                               'push', 'ldr', 'mov',
-                              '', # inline constant
+                              '*', # inline constant
                               'push', 'ldr', 'mov',
-                              'ldrsblt', #inline constant (decodes as instruction)
+                              '*', # inline constant
                               'blx', 'ldr', 'mov',
-                              '', # inline constant
+                              '*', # inline constant
                               'bx']
 
     def get_cpu(self):

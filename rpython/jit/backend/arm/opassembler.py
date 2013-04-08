@@ -628,12 +628,14 @@ class ResOpAssembler(BaseAssembler):
                                     bool(self._regalloc.vfprm.reg_bindings))
             assert self.wb_slowpath[helper_num] != 0
         #
-        if not is_frame and loc_base is not r.r0:
+        if loc_base is not r.r0:
             # push two registers to keep stack aligned
             mc.PUSH([r.r0.value, loc_base.value])
-            remap_frame_layout(self, [loc_base], [r.r0], r.ip)
+            mc.MOV_rr(r.r0.value, loc_base.value)
+            if is_frame:
+                assert loc_base is r.fp
         mc.BL(self.wb_slowpath[helper_num])
-        if not is_frame and loc_base is not r.r0:
+        if loc_base is not r.r0:
             mc.POP([r.r0.value, loc_base.value])
 
         if card_marking:
