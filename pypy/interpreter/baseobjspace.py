@@ -709,6 +709,7 @@ class ObjSpace(object):
 
     def new_interned_w_str(self, w_s):
         s = self.str_w(w_s)
+        assert isinstance(s, str)
         try:
             return self.interned_strings[s]
         except KeyError:
@@ -717,6 +718,7 @@ class ObjSpace(object):
         return w_s
 
     def new_interned_str(self, s):
+        assert isinstance(s, str)
         try:
             return self.interned_strings[s]
         except KeyError:
