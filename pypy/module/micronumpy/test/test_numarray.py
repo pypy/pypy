@@ -422,11 +422,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+        a[1] = array(100)
+        a[2] = array([100])
+        assert a[1] == 100
+        assert a[2] == 100
         a = array(range(5), dtype=float)
         a[0] = 0.005
         assert a[0] == 0.005
         a[1] = array(-0.005)
+        a[2] = array([-0.005])
         assert a[1] == -0.005
+        assert a[2] == -0.005
 
 
     def test_setitem_tuple(self):
