@@ -183,8 +183,8 @@ class AppTestPyexpat:
             assert fake_reader.read_count == 4
 
 class AppTestPyexpat2:
-    spaceconfig = dict(usemodules=['pyexpat', 'itertools', '_socket',
-                                   'rctime', 'struct', 'binascii'])
+    spaceconfig = dict(usemodules=['_ffi', '_rawffi', 'pyexpat', 'itertools',
+                                   '_socket', 'rctime', 'struct', 'binascii'])
 
     def test_django_bug(self):
         xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'
@@ -192,7 +192,7 @@ class AppTestPyexpat2:
         from xml.dom import pulldom
         from xml.sax import handler
         from xml.sax.expatreader import ExpatParser as _ExpatParser
-        from StringIO import StringIO
+        from io import StringIO
 
         class DefusedExpatParser(_ExpatParser):
             def start_doctype_decl(self, name, sysid, pubid, has_internal_subset):
