@@ -114,7 +114,13 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
         result = jit_ffi_call_impl_int(cif_description, func_addr, exchange_buffer)
         jit_ffi_save_result('int', cif_description, exchange_buffer, result)
     else:
-        assert False, 'Unsupported result kind'
+        # the result kind is not supported: we disable the jit_ffi_call
+        # optimization by calling directly jit_ffi_call_impl_any, so the JIT
+        # does not see any libffi_call oopspec.
+        #
+        # Since call_release_gil is not generated, there is no need to
+        # jit_ffi_save_result
+        jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
 
 
 # we must return a NonConstant else we get the constant -1 as the result of

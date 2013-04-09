@@ -45,7 +45,7 @@ class FakeFFI(object):
 
 class FfiCallTests(object):
 
-    def _run(self, atypes, rtype, avalues, rvalue):
+    def _run(self, atypes, rtype, avalues, rvalue, expected_call_release_gil=1):
         cif_description = get_description(atypes, rtype)
 
         def verify(*args):
@@ -108,7 +108,7 @@ class FfiCallTests(object):
                 res = float2longlong(res)
             assert res == rvalue or (res, rvalue) == (654321, None)
             self.check_operations_history(call_may_force=0,
-                                          call_release_gil=1)
+                                          call_release_gil=expected_call_release_gil)
 
     def test_simple_call_int(self):
         self._run([types.signed] * 2, types.signed, [456, 789], -42)
@@ -127,6 +127,11 @@ class FfiCallTests(object):
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2
         self._run([types.slonglong] * 2, types.slonglong, [a, b], a)
+
+    def test_simple_call_longdouble(self):
+        # longdouble is not supported, so we expect NOT to generate a call_release_gil
+        self._run([types.longdouble] * 2, types.longdouble, [12.3, 45.6], 78.9,
+                  expected_call_release_gil=0)
 
     def test_returns_none(self):
         self._run([types.signed] * 2, types.void, [456, 789], None)
