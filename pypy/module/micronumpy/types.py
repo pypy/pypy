@@ -1682,7 +1682,10 @@ class RecordType(BaseType):
             ofs, itemtype = self.offsets_and_fields[i]
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
-            itemtype.store(arr, 0, ofs, w_box, subdtype.native)
+            if subdtype.native:
+                itemtype.store(arr, 0, ofs, w_box, True)
+            else:
+                itemtype.store(arr, 0, ofs, w_box, False)
         return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
