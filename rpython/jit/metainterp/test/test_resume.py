@@ -249,7 +249,7 @@ def test_prepare_virtuals():
     reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage(),
                                     "deadframe")
     cache = reader.force_all_virtuals()
-    assert cache.virtuals_ptr_cache == ["allocated", reader.virtual_default]
+    assert cache.virtuals_ptr_cache == ["allocated", reader.virtual_ptr_default]
 
 # ____________________________________________________________
 
