@@ -113,7 +113,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         # gc_thread_run and gc_thread_die.  See docstrings below.
 
         shadow_stack_pool = self.shadow_stack_pool
-        SHADOWSTACKREF = get_shadowstackref(gctransformer)
+        SHADOWSTACKREF = get_shadowstackref(self, gctransformer)
 
         # this is a dict {tid: SHADOWSTACKREF}, where the tid for the
         # current thread may be missing so far
@@ -217,7 +217,7 @@ class ShadowStackRootWalker(BaseRootWalker):
 
     def need_stacklet_support(self, gctransformer, getfn):
         shadow_stack_pool = self.shadow_stack_pool
-        SHADOWSTACKREF = get_shadowstackref(gctransformer)
+        SHADOWSTACKREF = get_shadowstackref(self, gctransformer)
 
         def gc_shadowstackref_new():
             ssref = shadow_stack_pool.allocate(SHADOWSTACKREF)
@@ -366,7 +366,7 @@ def get_root_iterator(gctransformer):
     return result
 
 
-def get_shadowstackref(gctransformer):
+def get_shadowstackref(root_walker, gctransformer):
     if hasattr(gctransformer, '_SHADOWSTACKREF'):
         return gctransformer._SHADOWSTACKREF
 
@@ -394,16 +394,20 @@ def get_shadowstackref(gctransformer):
     customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
 
     def shadowstack_destructor(shadowstackref):
-        from rpython.rlib import _rffi_stacklet as _c
-        h = shadowstackref.context
-        h = llmemory.cast_adr_to_ptr(h, _c.handle)
+        if root_walker.stacklet_support:
+            from rpython.rlib import _rffi_stacklet as _c
+            h = shadowstackref.context
+            h = llmemory.cast_adr_to_ptr(h, _c.handle)
+            shadowstackref.context = llmemory.NULL
+        #
         base = shadowstackref.base
         shadowstackref.base    = llmemory.NULL
         shadowstackref.top     = llmemory.NULL
-        shadowstackref.context = llmemory.NULL
         llmemory.raw_free(base)
-        if h:
-            _c.destroy(h)
+        #
+        if root_walker.stacklet_support:
+            if h:
+                _c.destroy(h)
 
     destrptr = gctransformer.annotate_helper(shadowstack_destructor,
                                              [SHADOWSTACKREFPTR], lltype.Void)

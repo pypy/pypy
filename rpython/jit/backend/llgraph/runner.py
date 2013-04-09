@@ -840,22 +840,10 @@ class LLFrame(object):
             # manipulation here (as a hack, instead of really doing
             # the aroundstate manipulation ourselves)
             return self.execute_call_may_force(descr, func, *args)
-        guard_op = self.lltrace.operations[self.current_index + 1]
-        assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
-        self.force_guard_op = guard_op
         call_args = support.cast_call_args_in_order(descr.ARGS, args)
-        #
-        func_adr = llmemory.cast_int_to_adr(func)
-        if hasattr(func_adr.ptr._obj, '_callable'):
-            # this is needed e.g. by test_fficall.test_guard_not_forced_fails,
-            # because to actually force the virtualref we need to llinterp the
-            # graph, not to directly execute the python function
-            result = self.cpu.maybe_on_top_of_llinterp(func, call_args, descr.RESULT)
-        else:
-            FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
-            func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
-            result = func_to_call(*call_args)
-        del self.force_guard_op
+        FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
+        func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
+        result = func_to_call(*call_args)
         return support.cast_result(descr.RESULT, result)
 
     def execute_call_assembler(self, descr, *args):

@@ -468,6 +468,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         # thread support
         if translator.config.translation.continuation:
+            root_walker.stacklet_support = True
             root_walker.need_stacklet_support(self, getfn)
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)
@@ -1275,6 +1276,7 @@ class BaseRootWalker(object):
     def __init__(self, gctransformer):
         self.gcdata = gctransformer.gcdata
         self.gc = self.gcdata.gc
+        self.stacklet_support = False
 
     def _freeze_(self):
         return True

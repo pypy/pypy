@@ -68,10 +68,12 @@ class ReleaseGILTests(BaseFrameworkTests):
         c_qsort = rffi.llexternal('qsort', [rffi.VOIDP, rffi.SIZE_T,
                                             rffi.SIZE_T, CALLBACK], lltype.Void)
         #
-        def f42():
+        def f42(n):
             length = len(glob.lst)
             raw = alloc1()
             fn = llhelper(CALLBACK, rffi._make_wrapper_for(CALLBACK, callback))
+            if n & 1:    # to create a loop and a bridge, and also
+                pass     # to run the qsort() call in the blackhole interp
             c_qsort(rffi.cast(rffi.VOIDP, raw), rffi.cast(rffi.SIZE_T, 2),
                     rffi.cast(rffi.SIZE_T, 8), fn)
             free1(raw)
@@ -85,7 +87,7 @@ class ReleaseGILTests(BaseFrameworkTests):
                     None, None, None, None, None, None)
         #
         def f(n, x, *args):
-            f42()
+            f42(n)
             n -= 1
             return (n, x) + args
         return before, f, None

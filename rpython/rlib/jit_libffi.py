@@ -1,8 +1,6 @@
 
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib import clibffi, jit
-from rpython.rlib.nonconst import NonConstant
 
 
 FFI_CIF = clibffi.FFI_CIFP.TO
@@ -67,78 +65,10 @@ def jit_ffi_prep_cif(cif_description):
     return rffi.cast(lltype.Signed, res)
 
 
-# =============================
-# jit_ffi_call and its helpers
-# =============================
-
-## Problem: jit_ffi_call is turned into call_release_gil by pyjitpl. Before
-## the refactor-call_release_gil branch, the resulting code looked like this:
-##
-##     buffer = ...
-##     i0 = call_release_gil(...)
-##     guard_not_forced()
-##     setarray_item_raw(buffer, ..., i0)
-##
-## The problem is that the result box i0 was generated freshly inside pyjitpl,
-## and the codewriter did not know about its liveness: the result was that i0
-## was not in the fail_args of guard_not_forced. See
-## test_fficall::test_guard_not_forced_fails for a more detalied explanation
-## of the problem.
-##
-## The solution is to create a new separate operation libffi_save_result whose
-## job is to write the result in the exchange_buffer: during normal execution
-## this is a no-op because the buffer is already filled by libffi, but during
-## jitting the behavior is to actually write into the buffer.
-##
-## The result is that now the jitcode looks like this:
-##
-##     %i0 = libffi_call_int(...)
-##     -live-
-##     libffi_save_result_int(..., %i0)
-##
-## the "-live-" is the key, because it make sure that the value is not lost if
-## guard_not_forced fails.
-
-
+@jit.oopspec("libffi_call(cif_description, func_addr, exchange_buffer)")
 def jit_ffi_call(cif_description, func_addr, exchange_buffer):
     """Wrapper around ffi_call().  Must receive a CIF_DESCRIPTION_P that
     describes the layout of the 'exchange_buffer'.
-    """
-    if cif_description.rtype == types.void:
-        jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer)
-    elif cif_description.rtype == types.double:
-        result = jit_ffi_call_impl_float(cif_description, func_addr, exchange_buffer)
-        jit_ffi_save_result('float', cif_description, exchange_buffer, result)
-    else:
-        result = jit_ffi_call_impl_int(cif_description, func_addr, exchange_buffer)
-        jit_ffi_save_result('int', cif_description, exchange_buffer, result)
-
-
-# we must return a NonConstant else we get the constant -1 as the result of
-# the flowgraph, and the codewriter does not produce a box for the
-# result. Note that when not-jitted, the result is unused, but when jitted the
-# box of the result contains the actual value returned by the C function.
-
-@jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
-def jit_ffi_call_impl_int(cif_description, func_addr, exchange_buffer):
-    jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
-    return NonConstant(-1)
-
-@jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
-def jit_ffi_call_impl_float(cif_description, func_addr, exchange_buffer):
-    jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
-    return NonConstant(-1.0)
-
-@jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
-def jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer):
-    jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
-    return None
-
-def jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer):
-    """
-    This is the function which actually calls libffi. All the rest if just
-    infrastructure to convince the JIT to pass a typed result box to
-    jit_ffi_save_result
     """
     buffer_array = rffi.cast(rffi.VOIDPP, exchange_buffer)
     for i in range(cif_description.nargs):
@@ -149,31 +79,6 @@ def jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer):
     clibffi.c_ffi_call(cif_description.cif, func_addr,
                        rffi.cast(rffi.VOIDP, resultdata),
                        buffer_array)
-    return -1
-
-
-
-def jit_ffi_save_result(kind, cif_description, exchange_buffer, result):
-    """
-    This is a no-op during normal execution, but actually fills the buffer
-    when jitted
-    """
-    pass
-
-class Entry(ExtRegistryEntry):
-    _about_ = jit_ffi_save_result
-
-    def compute_result_annotation(self, kind_s, *args_s):
-        from rpython.annotator import model as annmodel
-        assert isinstance(kind_s, annmodel.SomeString)
-        assert kind_s.const in ('int', 'float')
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        vlist = hop.inputargs(lltype.Void, *hop.args_r[1:])
-        return hop.genop('jit_ffi_save_result', vlist,
-                         resulttype=lltype.Void)
-    
 
 # ____________________________________________________________
 
