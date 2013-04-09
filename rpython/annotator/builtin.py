@@ -1,10 +1,10 @@
 """
 Built-in functions.
 """
-
 import sys
+
 from rpython.annotator.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from rpython.annotator.model import SomeString, SomeTuple, s_Bool, SomeBuiltin
+from rpython.annotator.model import SomeString, SomeTuple, s_Bool
 from rpython.annotator.model import SomeUnicodeCodePoint, SomeAddress
 from rpython.annotator.model import SomeFloat, unionof, SomeUnicodeString
 from rpython.annotator.model import SomePBC, SomeInstance, SomeDict, SomeList
@@ -178,15 +178,9 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                                                    # from bool to int, notice that isinstance( , bool|int)
                                                    # is quite border case for RPython
                 r.const = False
-        # XXX HACK HACK HACK
-        # XXX HACK HACK HACK
-        # XXX HACK HACK HACK
         bk = getbookkeeper()
         if variables is None:
-            fn, block, i = bk.position_key
-            op = block.operations[i]
-            assert op.opname == "simple_call" 
-            assert len(op.args) == 3
+            op = bk._find_current_op("simple_call", 3)
             assert op.args[0] == Constant(isinstance)
             variables = [op.args[1]]
         for variable in variables:

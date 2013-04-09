@@ -1,7 +1,6 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.ootypesystem import ootype
-from rpython.flowspace.model import Constant, Variable
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib import rstack
@@ -10,11 +9,10 @@ from rpython.conftest import option
 from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from rpython.jit.metainterp.history import TreeLoop, Box, History, JitCellToken, TargetToken
+from rpython.jit.metainterp.history import TreeLoop, Box, JitCellToken, TargetToken
 from rpython.jit.metainterp.history import AbstractFailDescr, BoxInt
-from rpython.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const, ConstInt
+from rpython.jit.metainterp.history import BoxPtr, BoxFloat, ConstInt
 from rpython.jit.metainterp import history, resume
-from rpython.jit.metainterp.typesystem import llhelper, oohelper
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
@@ -26,7 +24,7 @@ def giveup():
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
-    if option.view or option.viewloops:
+    if option and (option.view or option.viewloops):
         if error:
             errmsg = error.__class__.__name__
             if str(error):
@@ -141,7 +139,7 @@ def compile_loop(metainterp, greenkey, start,
     assert isinstance(target_token, TargetToken)
     all_target_tokens = [target_token]
 
-    loop = create_empty_loop(metainterp)        
+    loop = create_empty_loop(metainterp)
     loop.inputargs = part.inputargs
     loop.operations = part.operations
     loop.quasi_immutable_deps = {}
@@ -164,7 +162,7 @@ def compile_loop(metainterp, greenkey, start,
             optimize_trace(metainterp_sd, part, enable_opts)
         except InvalidLoop:
             return None
-            
+
         loop.operations = loop.operations[:-1] + part.operations
         if part.quasi_immutable_deps:
             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
@@ -225,7 +223,6 @@ def compile_retrace(metainterp, greenkey, start,
         try:
             optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
                            inline_short_preamble=False)
-            
         except InvalidLoop:
             return None
     assert part.operations[-1].getopnum() != rop.LABEL
@@ -250,9 +247,9 @@ def compile_retrace(metainterp, greenkey, start,
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
-    target_token = loop.operations[-1].getdescr()    
+    target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop)
-    
+
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)
     record_loop_or_bridge(metainterp_sd, loop)
@@ -309,7 +306,8 @@ def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True):
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, -2)
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
+    assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log)
 
@@ -368,7 +366,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
-    n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
     if not we_are_translated():
         show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)
@@ -377,7 +374,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         hooks = metainterp_sd.warmrunnerdesc.hooks
         debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
                                   original_loop_token, operations, 'bridge',
-                                  fail_descr_no=n)
+                                  fail_descr=faildescr)
         hooks.before_compile_bridge(debug_info)
     else:
         hooks = None
@@ -403,7 +400,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         ops_offset = asminfo.ops_offset
     else:
         ops_offset = None
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,
+                                        ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests
     #    metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
@@ -412,7 +410,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
 # ____________________________________________________________
 
 class _DoneWithThisFrameDescr(AbstractFailDescr):
-    pass
+    final_descr = True
 
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
@@ -422,26 +420,26 @@ class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
-        result = metainterp_sd.cpu.get_latest_value_int(deadframe, 0)
+        result = metainterp_sd.cpu.get_int_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameInt(result)
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
-        result = cpu.get_latest_value_ref(deadframe, 0)
+        result = cpu.get_ref_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
-        result = metainterp_sd.cpu.get_latest_value_float(deadframe, 0)
+        result = metainterp_sd.cpu.get_float_value(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameFloat(result)
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
-        value = cpu.get_latest_value_ref(deadframe, 0)
+        value = cpu.get_ref_value(deadframe, 0)
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
@@ -459,7 +457,7 @@ def make_done_loop_tokens():
     exit_frame_with_exception_descr_ref = ExitFrameWithExceptionDescrRef()
 
     # pseudo loop tokens to make the life of optimize.py easier
-    return {'loop_tokens_done_with_this_frame_int': [
+    d = {'loop_tokens_done_with_this_frame_int': [
                 TerminatingLoopToken(1, done_with_this_frame_descr_int)
                 ],
             'loop_tokens_done_with_this_frame_ref': [
@@ -474,7 +472,9 @@ def make_done_loop_tokens():
             'loop_tokens_exit_frame_with_exception_ref': [
                 TerminatingLoopToken(1, exit_frame_with_exception_descr_ref)
                 ],
-            }
+    }
+    d.update(locals())
+    return d
 
 class ResumeDescr(AbstractFailDescr):
     pass
@@ -484,9 +484,13 @@ class ResumeGuardDescr(ResumeDescr):
     _counters = None    # they get stored in _counters then.
 
     # this class also gets the following attributes stored by resume.py code
+
+    # XXX move all of unused stuff to guard_op, now that we can have
+    #     a separate class, so it does not survive that long
     rd_snapshot = None
     rd_frame_info_list = None
     rd_numb = lltype.nullptr(NUMBERING)
+    rd_count = 0
     rd_consts = None
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
@@ -501,6 +505,7 @@ class ResumeGuardDescr(ResumeDescr):
 
     def store_final_boxes(self, guard_op, boxes):
         guard_op.setfailargs(boxes)
+        self.rd_count = len(boxes)
         self.guard_opnum = guard_op.getopnum()
 
     def make_a_counter_per_value(self, guard_value_op):
@@ -568,7 +573,7 @@ class ResumeGuardDescr(ResumeDescr):
             typetag = self._counter & self.CNT_TYPE_MASK
             counters = self._counters
             if typetag == self.CNT_INT:
-                intvalue = metainterp_sd.cpu.get_latest_value_int(
+                intvalue = metainterp_sd.cpu.get_int_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersInt()
@@ -576,7 +581,7 @@ class ResumeGuardDescr(ResumeDescr):
                     assert isinstance(counters, ResumeGuardCountersInt)
                 counter = counters.see_int(intvalue)
             elif typetag == self.CNT_REF:
-                refvalue = metainterp_sd.cpu.get_latest_value_ref(
+                refvalue = metainterp_sd.cpu.get_ref_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersRef()
@@ -584,7 +589,7 @@ class ResumeGuardDescr(ResumeDescr):
                     assert isinstance(counters, ResumeGuardCountersRef)
                 counter = counters.see_ref(refvalue)
             elif typetag == self.CNT_FLOAT:
-                floatvalue = metainterp_sd.cpu.get_latest_value_float(
+                floatvalue = metainterp_sd.cpu.get_float_value(
                     deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersFloat()
@@ -630,6 +635,7 @@ class ResumeGuardDescr(ResumeDescr):
         res.rd_consts = self.rd_consts
         res.rd_virtuals = self.rd_virtuals
         res.rd_pendingfields = self.rd_pendingfields
+        res.rd_count = self.rd_count
 
     def _clone_if_mutable(self):
         res = ResumeGuardDescr()
@@ -795,7 +801,6 @@ class ResumeFromInterpDescr(ResumeDescr):
         # with completely unoptimized arguments, as in the interpreter.
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
-        redargs = new_loop.inputargs
         new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
         propagate_original_jitcell_token(new_loop)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
@@ -811,14 +816,14 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     to some existing place.
     """
     from rpython.jit.metainterp.optimizeopt import optimize_trace
-    
+
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
     # 
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_trace = create_empty_loop(metainterp)
-    new_trace.inputargs = inputargs = metainterp.history.inputargs[:]
+    new_trace.inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
 
     new_trace.operations = [op.clone() for op in metainterp.history.operations]
@@ -848,14 +853,17 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     else:
         metainterp.retrace_needed(new_trace)
         return None
-        
 
 # ____________________________________________________________
+
+memory_error = MemoryError()
 
 class PropagateExceptionDescr(AbstractFailDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         exception = cpu.grab_exc_value(deadframe)
+        if not exception:
+            exception = cast_instance_to_gcref(memory_error)
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 

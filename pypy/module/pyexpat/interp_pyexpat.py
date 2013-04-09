@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
@@ -212,7 +212,7 @@ class Storage:
 
 global_storage = Storage()
 
-class CallbackData(Wrappable):
+class CallbackData(W_Root):
     def __init__(self, space, parser):
         self.space = space
         self.parser = weakref.ref(parser)
@@ -305,14 +305,15 @@ for index, (name, params) in enumerate(HANDLERS.items()):
             w_result = space.call_function(handler, %(wargs)s)
             %(post_code)s
         except OperationError, e:
-            parser._exc_info = e
+            if not parser._exc_info: # don't override an existing exception
+                 parser._exc_info = e
             XML_StopParser(parser.itself, XML_FALSE)
             return %(result_error)s
         return %(result_converter)s
     callback = %(name)s_callback
     """ % locals())
 
-    exec str(src)
+    exec src.compile()
 
     c_name = 'XML_Set' + name
     callback_type = lltype.Ptr(lltype.FuncType(
@@ -335,7 +336,8 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     try:
         parser.UnknownEncodingHandler(space, name, info)
     except OperationError, e:
-        parser._exc_info = e
+        if parser._exc_info:
+            parser._exc_info = e
         XML_StopParser(parser.itself, XML_FALSE)
         result = 0
     else:
@@ -414,8 +416,8 @@ class Cache:
     def __init__(self, space):
         self.w_error = space.new_exception_class("pyexpat.ExpatError")
 
-class W_XMLParserType(Wrappable):
 
+class W_XMLParserType(W_Root):
     def __init__(self, space, parser, w_intern):
         self.itself = parser
 
@@ -443,7 +445,10 @@ class W_XMLParserType(Wrappable):
         if XML_ParserFree: # careful with CPython interpreter shutdown
             XML_ParserFree(self.itself)
         if global_storage:
-            global_storage.free_nonmoving_id(self.id)
+            try:
+                global_storage.free_nonmoving_id(self.id)
+            except KeyError:
+                pass    # maybe global_storage.clear() was already called
 
     @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):
@@ -636,10 +641,13 @@ Parse XML data.  `isfinal' should be true at end of input."""
     def ParseFile(self, space, w_file):
         """ParseFile(file)
 Parse XML data from file-like object."""
-        # XXX not the more efficient method
-        w_data = space.call_method(w_file, 'read')
-        data = space.str_w(w_data)
-        return self.Parse(space, data, isfinal=True)
+        eof = False
+        while not eof:
+            w_data = space.call_method(w_file, 'read', space.wrap(2048))
+            data = space.str_w(w_data)
+            eof = len(data) == 0
+            w_res = self.Parse(space, data, isfinal=eof)
+        return w_res
 
     @unwrap_spec(base=str)
     def SetBase(self, space, base):
@@ -790,7 +798,7 @@ def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
 Return a new XML parser object."""
     if space.is_none(w_encoding):
         encoding = None
-    elif space.is_true(space.isinstance(w_encoding, space.w_str)):
+    elif space.isinstance_w(w_encoding, space.w_str):
         encoding = space.str_w(w_encoding)
     else:
         type_name = space.type(w_encoding).getname(space)
@@ -801,7 +809,7 @@ Return a new XML parser object."""
 
     if space.is_none(w_namespace_separator):
         namespace_separator = 0
-    elif space.is_true(space.isinstance(w_namespace_separator, space.w_str)):
+    elif space.isinstance_w(w_namespace_separator, space.w_str):
         separator = space.str_w(w_namespace_separator)
         if len(separator) == 0:
             namespace_separator = 0

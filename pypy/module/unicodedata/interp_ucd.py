@@ -1,8 +1,9 @@
 """
 Implementation of the interpreter-level functions in the module unicodedata.
 """
-from pypy.interpreter.gateway import  interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
+
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
@@ -32,7 +33,7 @@ SCount = (LCount*NCount)
 if MAXUNICODE > 0xFFFF:
     # Target is wide build
     def unichr_to_code_w(space, w_unichr):
-        if not space.is_true(space.isinstance(w_unichr, space.w_unicode)):
+        if not space.isinstance_w(w_unichr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap(
                 'argument 1 must be unicode'))
 
@@ -40,7 +41,7 @@ if MAXUNICODE > 0xFFFF:
             # Host CPython is narrow build, accept surrogates
             try:
                 return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except ValueError:
+            except TypeError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
         else:
@@ -52,7 +53,7 @@ if MAXUNICODE > 0xFFFF:
 else:
     # Target is narrow build
     def unichr_to_code_w(space, w_unichr):
-        if not space.is_true(space.isinstance(w_unichr, space.w_unicode)):
+        if not space.isinstance_w(w_unichr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap(
                 'argument 1 must be unicode'))
 
@@ -67,12 +68,12 @@ else:
             # Accept surrogates
             try:
                 return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except ValueError:
+            except TypeError:
                 raise OperationError(space.w_TypeError, space.wrap(
                     'need a single Unicode character as parameter'))
 
 
-class UCD(Wrappable):
+class UCD(W_Root):
     def __init__(self, unicodedb):
         self._lookup = unicodedb.lookup
         self._name = unicodedb.name
@@ -118,7 +119,6 @@ class UCD(Wrappable):
                 return w_default
             raise OperationError(space.w_ValueError, space.wrap('no such name'))
         return space.wrap(name)
-
 
     def decimal(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -178,7 +178,7 @@ class UCD(Wrappable):
 
     @unwrap_spec(form=str)
     def normalize(self, space, form, w_unistr):
-        if not space.is_true(space.isinstance(w_unistr, space.w_unicode)):
+        if not space.isinstance_w(w_unistr, space.w_unicode):
             raise OperationError(space.w_TypeError, space.wrap('argument 2 must be unicode'))
         if form == 'NFC':
             composed = True
@@ -205,10 +205,10 @@ class UCD(Wrappable):
             ch = space.int_w(space.ord(space.getitem(w_unistr, space.wrap(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
-                SIndex = ch - SBase;
-                L = LBase + SIndex / NCount;
-                V = VBase + (SIndex % NCount) / TCount;
-                T = TBase + SIndex % TCount;
+                SIndex = ch - SBase
+                L = LBase + SIndex / NCount
+                V = VBase + (SIndex % NCount) / TCount
+                T = TBase + SIndex % TCount
                 if T == TBase:
                     if j + 2 > resultlen:
                         result.extend([0] * (j + 2 - resultlen + 10))
@@ -299,7 +299,6 @@ class UCD(Wrappable):
                 prev_combining = 0
                 current = next
                 continue
-
 
             result[next_insert] = next
             next_insert += 1

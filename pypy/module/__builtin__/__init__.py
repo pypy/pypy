@@ -114,11 +114,10 @@ class Module(MixedModule):
        else:
            if w_builtin is space.builtin:   # common case
                return space.builtin
-           if space.is_true(space.isinstance(w_builtin, space.w_dict)):
+           if space.isinstance_w(w_builtin, space.w_dict):
                 return module.Module(space, None, w_builtin)
-           builtin = space.interpclass_w(w_builtin)
-           if isinstance(builtin, module.Module):
-               return builtin
+           if isinstance(w_builtin, module.Module):
+               return w_builtin
        # no builtin! make a default one.  Give them None, at least.
        builtin = module.Module(space, None)
        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)

@@ -1,7 +1,5 @@
 """Support for OS X."""
 
-import os
-
 from rpython.translator.platform import posix
 
 class Darwin(posix.BasePosix):
@@ -21,7 +19,7 @@ class Darwin(posix.BasePosix):
         return (list(self.shared_only)
                 + ['-dynamiclib', '-undefined', 'dynamic_lookup']
                 + args)
-    
+
     def _include_dirs_for_libffi(self):
         return ['/usr/include/ffi']
 

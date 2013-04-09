@@ -1,13 +1,14 @@
 
 import py
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.objspace.std.test.test_proxy_internals import AppProxy
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.transparent import register_proxyable
 from pypy.conftest import option
 
-class W_Wrapped(Wrappable):
+
+class W_Wrapped(W_Root):
     def new(space, w_type):
         return space.wrap(W_Wrapped())
 
@@ -21,6 +22,7 @@ W_Wrapped.typedef = TypeDef(
     __name__ = interp2app(W_Wrapped.name),
 )
 
+
 class AppTestProxyNewtype(AppProxy):
     def setup_class(cls):
         if option.runappdirect:
@@ -28,7 +30,7 @@ class AppTestProxyNewtype(AppProxy):
         AppProxy.setup_class.im_func(cls)
         cls.w_wrapped = cls.space.wrap(W_Wrapped())
         register_proxyable(cls.space, W_Wrapped)
-        
+
     def test_one(self):
         x = type(self.wrapped)()
         from __pypy__ import tproxy

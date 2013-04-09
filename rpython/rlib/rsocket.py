@@ -80,7 +80,7 @@ class Address(object):
 
     def __del__(self):
         if self.addr_p:
-            lltype.free(self.addr_p, flavor='raw')
+            lltype.free(self.addr_p, flavor='raw', track_allocation=False)
 
     def setdata(self, addr, addrlen):
         # initialize self.addr and self.addrlen.  'addr' can be a different
@@ -271,7 +271,8 @@ class INETAddress(IPAddress):
         result = instantiate(INETAddress)
         # store the malloc'ed data into 'result' as soon as possible
         # to avoid leaks if an exception occurs inbetween
-        sin = lltype.malloc(_c.sockaddr_in, flavor='raw', zero=True)
+        sin = lltype.malloc(_c.sockaddr_in, flavor='raw', zero=True,
+                            track_allocation=False)
         result.setdata(sin, sizeof(_c.sockaddr_in))
         # PLAT sin_len
         rffi.setintfield(sin, 'c_sin_family', AF_INET)
@@ -337,9 +338,10 @@ class INET6Address(IPAddress):
         result = instantiate(INET6Address)
         # store the malloc'ed data into 'result' as soon as possible
         # to avoid leaks if an exception occurs inbetween
-        sin = lltype.malloc(_c.sockaddr_in6, flavor='raw', zero=True)
+        sin = lltype.malloc(_c.sockaddr_in6, flavor='raw', zero=True,
+                            track_allocation=False)
         result.setdata(sin, sizeof(_c.sockaddr_in6))
-        rffi.setintfield(sin, 'c_sin6_family', AF_INET)
+        rffi.setintfield(sin, 'c_sin6_family', AF_INET6)
         rffi.structcopy(sin.c_sin6_addr, in6_addr)
         return result
     from_in6_addr = staticmethod(from_in6_addr)
@@ -360,7 +362,8 @@ if HAS_AF_UNIX:
         maxlen = sizeof(struct)
 
         def __init__(self, path):
-            sun = lltype.malloc(_c.sockaddr_un, flavor='raw', zero=True)
+            sun = lltype.malloc(_c.sockaddr_un, flavor='raw', zero=True,
+                                track_allocation=False)
             baseofs = offsetof(_c.sockaddr_un, 'c_sun_path')
             self.setdata(sun, baseofs + len(path))
             rffi.setintfield(sun, 'c_sun_family', AF_UNIX)
@@ -409,7 +412,8 @@ if HAS_AF_NETLINK:
         maxlen = minlen = sizeof(struct)
 
         def __init__(self, pid, groups):
-            addr = lltype.malloc(_c.sockaddr_nl, flavor='raw', zero=True)
+            addr = lltype.malloc(_c.sockaddr_nl, flavor='raw', zero=True,
+                                 track_allocation=False)
             self.setdata(addr, NETLINKAddress.maxlen)
             rffi.setintfield(addr, 'c_nl_family', AF_NETLINK)
             rffi.setintfield(addr, 'c_nl_pid', pid)
@@ -444,7 +448,8 @@ def make_address(addrptr, addrlen, result=None):
         raise RSocketError("address family mismatched")
     # copy into a new buffer the address that 'addrptr' points to
     addrlen = rffi.cast(lltype.Signed, addrlen)
-    buf = lltype.malloc(rffi.CCHARP.TO, addrlen, flavor='raw')
+    buf = lltype.malloc(rffi.CCHARP.TO, addrlen, flavor='raw',
+                        track_allocation=False)
     src = rffi.cast(rffi.CCHARP, addrptr)
     for i in range(addrlen):
         buf[i] = src[i]
@@ -456,7 +461,8 @@ def makeipv4addr(s_addr, result=None):
         result = instantiate(INETAddress)
     elif result.family != AF_INET:
         raise RSocketError("address family mismatched")
-    sin = lltype.malloc(_c.sockaddr_in, flavor='raw', zero=True)
+    sin = lltype.malloc(_c.sockaddr_in, flavor='raw', zero=True,
+                        track_allocation=False)
     result.setdata(sin, sizeof(_c.sockaddr_in))
     rffi.setintfield(sin, 'c_sin_family', AF_INET)   # PLAT sin_len
     rffi.setintfield(sin.c_sin_addr, 'c_s_addr', s_addr)
@@ -465,7 +471,8 @@ def makeipv4addr(s_addr, result=None):
 def make_null_address(family):
     klass = familyclass(family)
     result = instantiate(klass)
-    buf = lltype.malloc(rffi.CCHARP.TO, klass.maxlen, flavor='raw', zero=True)
+    buf = lltype.malloc(rffi.CCHARP.TO, klass.maxlen, flavor='raw', zero=True,
+                        track_allocation=False)
     # Initialize the family to the correct value.  Avoids surprizes on
     # Windows when calling a function that unexpectedly does not set
     # the output address (e.g. recvfrom() on a connected IPv4 socket).

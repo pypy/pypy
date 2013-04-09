@@ -524,9 +524,12 @@ def op_gc_writebarrier_before_copy(source, dest,
                                    source_start, dest_start, length):
     A = lltype.typeOf(source)
     assert A == lltype.typeOf(dest)
-    assert isinstance(A.TO, lltype.GcArray)
-    assert isinstance(A.TO.OF, lltype.Ptr)
-    assert A.TO.OF.TO._gckind == 'gc'
+    if isinstance(A.TO, lltype.GcArray):
+        assert isinstance(A.TO.OF, lltype.Ptr)
+        assert A.TO.OF.TO._gckind == 'gc'
+    else:
+        assert isinstance(A.TO, lltype.GcStruct)
+        assert A.TO._arrayfld is not None
     assert type(source_start) is int
     assert type(dest_start) is int
     assert type(length) is int
@@ -644,15 +647,19 @@ def op_get_member_index(memberoffset):
 def op_gc_assume_young_pointers(addr):
     pass
 
-def op_gc_set_extra_threshold(threshold):
-    pass
-
 def op_shrink_array(array, smallersize):
     return False
 
 def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
+
+def op_debug_fatalerror(ll_msg):
+    from rpython.rtyper.lltypesystem import lltype, rstr
+    from rpython.rtyper.llinterp import LLFatalError
+    assert lltype.typeOf(ll_msg) == lltype.Ptr(rstr.STR)
+    msg = ''.join(ll_msg.chars)
+    raise LLFatalError(msg)
 
 # ____________________________________________________________
 

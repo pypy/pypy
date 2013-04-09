@@ -3,8 +3,8 @@ import types, py
 from rpython.annotator.signature import enforce_signature_args, enforce_signature_return
 from rpython.flowspace.model import Constant, FunctionGraph
 from rpython.flowspace.bytecode import cpython_code_signature
-from rpython.flowspace.argument import rawshape, ArgErr
-from rpython.tool.sourcetools import valid_identifier
+from rpython.annotator.argument import rawshape, ArgErr
+from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
 
 class CallFamily(object):
@@ -282,7 +282,7 @@ class FunctionDesc(Desc):
             raise Exception("%r: signature and enforceargs cannot both be used" % (self,))
         if enforceargs:
             if not callable(enforceargs):
-                from rpython.annotator.policy import Sig
+                from rpython.annotator.signature import Sig
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
@@ -306,8 +306,10 @@ class FunctionDesc(Desc):
             result = schedule(graph, inputcells)
             signature = getattr(self.pyobj, '_signature_', None)
             if signature:
-                result = enforce_signature_return(self, signature[1], result)
-                self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [result])
+                sigresult = enforce_signature_return(self, signature[1], result)
+                if sigresult is not None:
+                    self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [sigresult])
+                    result = sigresult
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:
@@ -351,6 +353,7 @@ class FunctionDesc(Desc):
                 row[desc.rowkey()] = graph
                 return s_ImpossibleValue   # meaningless
             desc.pycall(enlist, args, s_ImpossibleValue, op)
+            assert row
         return row
     row_to_consider = staticmethod(row_to_consider)
 
@@ -495,6 +498,10 @@ class ClassDesc(Desc):
             # that the py lib has its own AssertionError.__init__ which
             # is of type FunctionType.  But bookkeeper.immutablevalue()
             # will do the right thing in s_get_value().
+        if isinstance(value, staticmethod) and mixin:
+            # make a new copy of staticmethod
+            func = value.__get__(42)
+            value =  staticmethod(func_with_new_name(func, func.__name__))
 
         if type(value) in MemberDescriptorTypes:
             # skip __slots__, showing up in the class as 'member' objects
@@ -860,7 +867,6 @@ class MethodDesc(Desc):
 
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)     # account for the extra 'self'
-        funcdescs = [methoddesc.funcdesc for methoddesc in descs]
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
@@ -1021,7 +1027,6 @@ class MethodOfFrozenDesc(Desc):
 
     def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)    # account for the extra 'self'
-        funcdescs = [mofdesc.funcdesc for mofdesc in descs]
         row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)

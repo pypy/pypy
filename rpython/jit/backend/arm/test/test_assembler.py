@@ -1,6 +1,6 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.arch import arm_int_div
+from rpython.jit.backend.arm.support import arm_int_div
 from rpython.jit.backend.arm.assembler import AssemblerARM
 from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.arm.test.support import run_asm
@@ -24,7 +24,7 @@ class TestRunningAssembler(object):
         clt = CompiledLoopToken(cpu, 0)
         clt.allgcrefs = []
         token.compiled_loop_token = clt
-        self.a.setup(token, [])
+        self.a.setup(token)
 
     def test_make_operation_list(self):
         i = rop.INT_ADD
@@ -240,9 +240,11 @@ class TestRunningAssembler(object):
         x = 0x60002224
         self.a.gen_func_prolog()
         self.a.mc.gen_load_int(r.r1.value, x)
+        self.a.mc.SUB_ri(r.sp.value, r.sp.value, 8)
         self.a.mc.MOV_ri(r.r3.value, 8)
-        self.a.mc.STR_rr(r.r1.value, r.fp.value, r.r3.value)
-        self.a.mc.LDR_ri(r.r0.value, r.fp.value, 8)
+        self.a.mc.STR_rr(r.r1.value, r.sp.value, r.r3.value)
+        self.a.mc.LDR_ri(r.r0.value, r.sp.value, 8)
+        self.a.mc.ADD_ri(r.sp.value, r.sp.value, 8)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == x
 

@@ -3,7 +3,7 @@ Interp-level definition of frequently used functionals.
 
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
@@ -47,7 +47,8 @@ def get_len_of_range(space, lo, hi, step):
         n = 0
     return n
 
-@unwrap_spec(w_step = WrappedDefault(1))
+
+@unwrap_spec(w_step=WrappedDefault(1))
 def range_int(space, w_x, w_y=None, w_step=None):
     """Return a list of integers in arithmetic position from start (defaults
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
@@ -60,24 +61,24 @@ get a list in decending order."""
         w_start = w_x
         w_stop = w_y
 
-    if space.is_true(space.isinstance(w_stop, space.w_float)):
+    if space.isinstance_w(w_stop, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer end argument expected, got float."))
-    if space.is_true(space.isinstance(w_start, space.w_float)):
+    if space.isinstance_w(w_start, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer start argument expected, got float."))
-    if space.is_true(space.isinstance(w_step, space.w_float)):
+    if space.isinstance_w(w_step, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("range() integer step argument expected, got float."))
 
     w_start = space.int(w_start)
-    w_stop  = space.int(w_stop)
-    w_step  = space.int(w_step)
+    w_stop = space.int(w_stop)
+    w_step = space.int(w_step)
 
     try:
         start = space.int_w(w_start)
-        stop  = space.int_w(w_stop)
-        step  = space.int_w(w_step)
+        stop = space.int_w(w_stop)
+        step = space.int_w(w_step)
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
@@ -107,7 +108,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
 
     start = lo = space.bigint_w(w_start)
     hi = space.bigint_w(w_stop)
-    step  = st = space.bigint_w(w_step)
+    step = st = space.bigint_w(w_step)
 
     if not step.tobool():
         raise OperationError(space.w_ValueError,
@@ -133,56 +134,80 @@ def range_with_longs(space, w_start, w_stop, w_step):
         v = v.add(step)
     return space.newlist(res_w)
 
+min_jitdriver = jit.JitDriver(name='min',
+        greens=['has_key', 'has_item', 'w_type'], reds='auto')
+max_jitdriver = jit.JitDriver(name='max',
+        greens=['has_key', 'has_item', 'w_type'], reds='auto')
+
+def make_min_max(unroll):
+    @specialize.arg(2)
+    def min_max_impl(space, args, implementation_of):
+        if implementation_of == "max":
+            compare = space.gt
+            jitdriver = max_jitdriver
+        else:
+            compare = space.lt
+            jitdriver = min_jitdriver
+        args_w = args.arguments_w
+        if len(args_w) > 1:
+            w_sequence = space.newtuple(args_w)
+        elif len(args_w):
+            w_sequence = args_w[0]
+        else:
+            msg = "%s() expects at least one argument" % (implementation_of,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        w_key = None
+        kwds = args.keywords
+        if kwds:
+            if kwds[0] == "key" and len(kwds) == 1:
+                w_key = args.keywords_w[0]
+            else:
+                msg = "%s() got unexpected keyword argument" % (implementation_of,)
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+
+        w_iter = space.iter(w_sequence)
+        w_type = space.type(w_iter)
+        has_key = w_key is not None
+        has_item = False
+        w_max_item = None
+        w_max_val = None
+        while True:
+            if not unroll:
+                jitdriver.jit_merge_point(has_key=has_key, has_item=has_item, w_type=w_type)
+            try:
+                w_item = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            if has_key:
+                w_compare_with = space.call_function(w_key, w_item)
+            else:
+                w_compare_with = w_item
+            if not has_item or \
+                    space.is_true(compare(w_compare_with, w_max_val)):
+                has_item = True
+                w_max_item = w_item
+                w_max_val = w_compare_with
+        if w_max_item is None:
+            msg = "arg is an empty sequence"
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        return w_max_item
+    if unroll:
+        min_max_impl = jit.unroll_safe(min_max_impl)
+    return min_max_impl
+
+min_max_unroll = make_min_max(True)
+min_max_normal = make_min_max(False)
 
 @specialize.arg(2)
-@jit.look_inside_iff(lambda space, args, implementation_of:
-    jit.isconstant(len(args.arguments_w)) and
-    len(args.arguments_w) == 2
-)
 def min_max(space, args, implementation_of):
-    if implementation_of == "max":
-        compare = space.gt
+    if not jit.we_are_jitted() or len(args.arguments_w) != 1 and \
+            jit.loop_unrolling_heuristic(args.arguments_w, len(args.arguments_w)):
+        return min_max_unroll(space, args, implementation_of)
     else:
-        compare = space.lt
-    args_w = args.arguments_w
-    if len(args_w) > 1:
-        w_sequence = space.newtuple(args_w)
-    elif len(args_w):
-        w_sequence = args_w[0]
-    else:
-        msg = "%s() expects at least one argument" % (implementation_of,)
-        raise OperationError(space.w_TypeError, space.wrap(msg))
-    w_key = None
-    kwds = args.keywords
-    if kwds:
-        if kwds[0] == "key" and len(kwds) == 1:
-            w_key = args.keywords_w[0]
-        else:
-            msg = "%s() got unexpected keyword argument" % (implementation_of,)
-            raise OperationError(space.w_TypeError, space.wrap(msg))
-
-    w_iter = space.iter(w_sequence)
-    w_max_item = None
-    w_max_val = None
-    while True:
-        try:
-            w_item = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        if w_key is not None:
-            w_compare_with = space.call_function(w_key, w_item)
-        else:
-            w_compare_with = w_item
-        if w_max_item is None or \
-                space.is_true(compare(w_compare_with, w_max_val)):
-            w_max_item = w_item
-            w_max_val = w_compare_with
-    if w_max_item is None:
-        msg = "arg is an empty sequence"
-        raise OperationError(space.w_ValueError, space.wrap(msg))
-    return w_max_item
+        return min_max_normal(space, args, implementation_of)
+min_max._always_inline = True
 
 def max(space, __args__):
     """max(iterable[, key=func]) -> value
@@ -202,8 +227,8 @@ def min(space, __args__):
     """
     return min_max(space, __args__, "min")
 
-class W_Enumerate(Wrappable):
 
+class W_Enumerate(W_Root):
     def __init__(self, w_iter, w_start):
         self.w_iter = w_iter
         self.w_index = w_start
@@ -259,8 +284,8 @@ def reversed(space, w_sequence):
         return space.call_function(w_reversed)
     return space.wrap(W_ReversedIterator(space, w_sequence))
 
-class W_ReversedIterator(Wrappable):
 
+class W_ReversedIterator(W_Root):
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
@@ -305,6 +330,7 @@ W_ReversedIterator.typedef = TypeDef("reversed",
     next            = interp2app(W_ReversedIterator.descr_next),
     __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
 )
+W_ReversedIterator.typedef.acceptable_as_base_class = False
 
 # exported through _pickle_support
 def _make_reversed(space, w_seq, w_remaining):
@@ -315,8 +341,7 @@ def _make_reversed(space, w_seq, w_remaining):
     return space.wrap(iterator)
 
 
-
-class W_XRange(Wrappable):
+class W_XRange(W_Root):
     def __init__(self, space, start, len, step, promote_step=False):
         self.space = space
         self.start = start
@@ -404,8 +429,9 @@ W_XRange.typedef = TypeDef("xrange",
     __reversed__     = interp2app(W_XRange.descr_reversed),
     __reduce__       = interp2app(W_XRange.descr_reduce),
 )
+W_XRange.typedef.acceptable_as_base_class = False
 
-class W_XRangeIterator(Wrappable):
+class W_XRangeIterator(W_Root):
     def __init__(self, space, current, remaining, step):
         self.space = space
         self.current = current
@@ -417,7 +443,7 @@ class W_XRangeIterator(Wrappable):
 
     def descr_next(self):
         return self.next()
-    
+
     def next(self):
         if self.remaining > 0:
             item = self.current
@@ -450,6 +476,7 @@ W_XRangeIterator.typedef = TypeDef("rangeiterator",
     next            = interp2app(W_XRangeIterator.descr_next),
     __reduce__      = interp2app(W_XRangeIterator.descr_reduce),
 )
+W_XRangeIterator.typedef.acceptable_as_base_class = False
 
 class W_XRangeStepOneIterator(W_XRangeIterator):
     def __init__(self, space, start, stop):

@@ -1,9 +1,10 @@
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
+
 from rpython.tool.error import offset2lineno
 
 
-class PyTraceback(baseobjspace.Wrappable):
+class PyTraceback(baseobjspace.W_Root):
     """Traceback object
 
     Public app-level fields:
@@ -27,17 +28,17 @@ class PyTraceback(baseobjspace.Wrappable):
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('traceback_new')
-        w        = space.wrap
+        w = space.wrap
 
         tup_base = []
         tup_state = [
             w(self.frame),
             w(self.lasti),
             w(self.next),
-            ]
+        ]
         nt = space.newtuple
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 
@@ -49,6 +50,7 @@ class PyTraceback(baseobjspace.Wrappable):
         self.lasti = space.int_w(w_lasti)
         self.next = space.interp_w(PyTraceback, w_next, can_be_None=True)
 
+
 def record_application_traceback(space, operror, frame, last_instruction):
     if frame.pycode.hidden_applevel:
         return
@@ -56,10 +58,9 @@ def record_application_traceback(space, operror, frame, last_instruction):
     tb = PyTraceback(space, frame, last_instruction, tb)
     operror.set_traceback(tb)
 
+
 def check_traceback(space, w_tb, msg):
     from pypy.interpreter.typedef import PyTraceback
-    tb = space.interpclass_w(w_tb)
-    if tb is None or not space.is_true(space.isinstance(tb, 
-            space.gettypeobject(PyTraceback.typedef))):
+    if w_tb is None or not space.isinstance_w(w_tb, space.gettypeobject(PyTraceback.typedef)):
         raise OperationError(space.w_TypeError, space.wrap(msg))
-    return tb
+    return w_tb

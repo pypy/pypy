@@ -1,7 +1,12 @@
 import os
-from rpython.jit.metainterp.history import Const, Box, REF
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.metainterp.history import Const, Box, REF, JitCellToken
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.resoperation import rop
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    OrderedDict = dict # too bad
 
 class TempBox(Box):
     def __init__(self):
@@ -13,18 +18,123 @@ class TempBox(Box):
 class NoVariableToSpill(Exception):
     pass
 
+class Node(object):
+    def __init__(self, val, next):
+        self.val = val
+        self.next = next
+
+    def __repr__(self):
+        return '<Node %d %r>' % (self.val, next)
+
+class LinkedList(object):
+    def __init__(self, fm, lst=None):
+        # assume the list is sorted
+        if lst is not None:
+            node = None
+            for i in range(len(lst) - 1, -1, -1):
+                item = lst[i]
+                node = Node(item, node)
+            self.master_node = node
+        else:
+            self.master_node = None
+        self.fm = fm
+
+    def append(self, size, item):
+        key = self.fm.get_loc_index(item)
+        if size == 2:
+            self._append(key)
+            self._append(key + 1)
+        else:
+            assert size == 1
+            self._append(key)
+
+    def _append(self, key):
+        if self.master_node is None or self.master_node.val > key:
+            self.master_node = Node(key, self.master_node)
+        else:
+            node = self.master_node
+            prev_node = self.master_node
+            while node and node.val < key:
+                prev_node = node
+                node = node.next
+            prev_node.next = Node(key, node)
+
+    @specialize.arg(1)
+    def foreach(self, function, arg):
+        node = self.master_node
+        while node is not None:
+            function(arg, node.val)
+            node = node.next
+
+    def pop(self, size, tp):
+        if size == 2:
+            return self._pop_two(tp)
+        assert size == 1
+        if not self.master_node:
+            return None
+        node = self.master_node
+        self.master_node = node.next
+        return self.fm.frame_pos(node.val, tp)
+
+    def _candidate(self, node):
+        return (node.val & 1 == 0) and (node.val + 1 == node.next.val)
+        
+    def _pop_two(self, tp):
+        node = self.master_node
+        if node is None or node.next is None:
+            return None
+        if self._candidate(node):
+            self.master_node = node.next.next
+            return self.fm.frame_pos(node.val, tp)
+        prev_node = node
+        node = node.next
+        while True:
+            if node.next is None:
+                return None
+            if self._candidate(node):
+                # pop two
+                prev_node.next = node.next.next
+                return self.fm.frame_pos(node.val, tp)
+            node = node.next
+
+    def len(self):
+        node = self.master_node
+        c = 0
+        while node:
+            node = node.next
+            c += 1
+        return c
+
+    def __len__(self):
+        """ For tests only
+        """
+        return self.len()
+
+    def __repr__(self):
+        if not self.master_node:
+            return 'LinkedList(<empty>)'
+        node = self.master_node
+        l = []
+        while node:
+            l.append(str(node.val))
+            node = node.next
+        return 'LinkedList(%s)' % '->'.join(l)
+
 class FrameManager(object):
     """ Manage frame positions
-    """
-    def __init__(self):
-        self.bindings = {}
-        self.used = []      # list of bools
-        self.hint_frame_locations = {}
 
-    frame_depth = property(lambda:xxx, lambda:xxx)   # XXX kill me
+    start_free_depth is the start where we can allocate in whatever order
+    we like.
+    """
+    def __init__(self, start_free_depth=0, freelist=None):
+        self.bindings = {}
+        self.current_frame_depth = start_free_depth
+        # we disable hints for now
+        #self.hint_frame_locations = {}
+        self.freelist = LinkedList(self, freelist)
 
     def get_frame_depth(self):
-        return len(self.used)
+        return self.current_frame_depth
 
     def get(self, box):
         return self.bindings.get(box, None)
@@ -37,12 +147,12 @@ class FrameManager(object):
         except KeyError:
             pass
         # check if we have a hint for this box
-        if box in self.hint_frame_locations:
-            # if we do, try to reuse the location for this box
-            loc = self.hint_frame_locations[box]
-            if self.try_to_reuse_location(box, loc):
-                return loc
-        # no valid hint.  make up a new free location
+        #if box in self.hint_frame_locations:
+        #    # if we do, try to reuse the location for this box
+        #    loc = self.hint_frame_locations[box]
+        #    if self.try_to_reuse_location(box, loc):
+        #        return loc
+        ## no valid hint.  make up a new free location
         return self.get_new_loc(box)
 
     def get_new_loc(self, box):
@@ -51,39 +161,49 @@ class FrameManager(object):
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        while self.get_frame_depth() & (size - 1):
-            self.used.append(False)
-        #
-        index = self.get_frame_depth()
-        newloc = self.frame_pos(index, box.type)
-        for i in range(size):
-            self.used.append(True)
-        #
-        if not we_are_translated():    # extra testing
-            testindex = self.get_loc_index(newloc)
-            assert testindex == index
-        #
+        newloc = self.freelist.pop(size, box.type)
+        if newloc is None:
+            #
+            index = self.get_frame_depth()
+            if index & 1 and size == 2:
+                # we can't allocate it at odd position
+                self.freelist._append(index)
+                newloc = self.frame_pos(index + 1, box.type)
+                self.current_frame_depth += 3
+                index += 1 # for test
+            else:
+                newloc = self.frame_pos(index, box.type)
+                self.current_frame_depth += size
+            #
+            if not we_are_translated():    # extra testing
+                testindex = self.get_loc_index(newloc)
+                assert testindex == index
+            #
+
         self.bindings[box] = newloc
+        if not we_are_translated():
+            self._check_invariants()
         return newloc
 
-    def set_binding(self, box, loc):
+    def bind(self, box, loc):
+        pos = self.get_loc_index(loc)
+        size = self.frame_size(box.type)
+        self.current_frame_depth = max(pos + size, self.current_frame_depth)
         self.bindings[box] = loc
-        #
-        index = self.get_loc_index(loc)
-        if index < 0:
-            return
-        endindex = index + self.frame_size(box.type)
-        while len(self.used) < endindex:
-            self.used.append(False)
-        while index < endindex:
-            self.used[index] = True
-            index += 1
 
-    def reserve_location_in_frame(self, size):
-        frame_depth = self.get_frame_depth()
-        for i in range(size):
-            self.used.append(True)
-        return frame_depth
+    def finish_binding(self):
+        all = [0] * self.get_frame_depth()
+        for b, loc in self.bindings.iteritems():
+            size = self.frame_size(b.type)
+            pos = self.get_loc_index(loc)
+            for i in range(pos, pos + size):
+                all[i] = 1
+        self.freelist = LinkedList(self) # we don't care
+        for elem in range(len(all)):
+            if not all[elem]:
+                self.freelist._append(elem)
+        if not we_are_translated():
+            self._check_invariants()
 
     def mark_as_free(self, box):
         try:
@@ -91,17 +211,27 @@ class FrameManager(object):
         except KeyError:
             return    # already gone
         del self.bindings[box]
-        #
         size = self.frame_size(box.type)
-        baseindex = self.get_loc_index(loc)
-        if baseindex < 0:
-            return
-        for i in range(size):
-            index = baseindex + i
-            assert 0 <= index < len(self.used)
-            self.used[index] = False
+        self.freelist.append(size, loc)
+        if not we_are_translated():
+            self._check_invariants()
+
+    def _check_invariants(self):
+        all = [0] * self.get_frame_depth()
+        for b, loc in self.bindings.iteritems():
+            size = self.frame_size(b)
+            pos = self.get_loc_index(loc)
+            for i in range(pos, pos + size):
+                assert not all[i]
+                all[i] = 1
+        node = self.freelist.master_node
+        while node is not None:
+            assert not all[node.val]
+            all[node.val] = 1
+            node = node.next
 
     def try_to_reuse_location(self, box, loc):
+        xxx
         index = self.get_loc_index(loc)
         if index < 0:
             return False
@@ -117,17 +247,28 @@ class FrameManager(object):
         self.bindings[box] = loc
         return True
 
-    # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
+    def _gather_gcroots(lst, var):
+        lst.append(var)
+
+    # abstract methods that need to be overwritten for specific assemblers
+
     def frame_pos(loc, type):
         raise NotImplementedError("Purely abstract")
+
     @staticmethod
     def frame_size(type):
         return 1
+
     @staticmethod
     def get_loc_index(loc):
         raise NotImplementedError("Purely abstract")
 
+    @staticmethod
+    def newloc(pos, size, tp):
+        """ Reverse of get_loc_index
+        """
+        raise NotImplementedError("Purely abstract")
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
@@ -137,12 +278,15 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
-    temp_boxes            = []
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.longevity = longevity
-        self.reg_bindings = {}
+        self.temp_boxes = []
+        if not we_are_translated():
+            self.reg_bindings = OrderedDict()
+        else:
+            self.reg_bindings = {}
         self.bindings_to_frame_reg = {}
         self.position = -1
         self.frame_manager = frame_manager
@@ -482,6 +626,56 @@ class RegisterManager(object):
     def get_scratch_reg(self, type, forbidden_vars=[], selected_reg=None):
         """ Platform specific - Allocates a temporary register """
         raise NotImplementedError("Abstract")
+
+class BaseRegalloc(object):
+    """ Base class on which all the backend regallocs should be based
+    """
+    def _set_initial_bindings(self, inputargs, looptoken):
+        """ Set the bindings at the start of the loop
+        """
+        locs = []
+        base_ofs = self.assembler.cpu.get_baseofs_of_frame_field()
+        for box in inputargs:
+            assert isinstance(box, Box)
+            loc = self.fm.get_new_loc(box)
+            locs.append(loc.value - base_ofs)
+        if looptoken.compiled_loop_token is not None:
+            # for tests
+            looptoken.compiled_loop_token._ll_initial_locs = locs
+
+    def can_merge_with_next_guard(self, op, i, operations):
+        if (op.getopnum() == rop.CALL_MAY_FORCE or
+            op.getopnum() == rop.CALL_ASSEMBLER or
+            op.getopnum() == rop.CALL_RELEASE_GIL):
+            assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
+            return True
+        if not op.is_comparison():
+            if op.is_ovf():
+                if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
+                    operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
+                    not_implemented("int_xxx_ovf not followed by "
+                                    "guard_(no)_overflow")
+                return True
+            return False
+        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
+            operations[i + 1].getopnum() != rop.GUARD_FALSE):
+            return False
+        if operations[i + 1].getarg(0) is not op.result:
+            return False
+        if (self.longevity[op.result][1] > i + 1 or
+            op.result in operations[i + 1].getfailargs()):
+            return False
+        return True
+
+    def locs_for_call_assembler(self, op, guard_op):
+        descr = op.getdescr()
+        assert isinstance(descr, JitCellToken)
+        if op.numargs() == 2:
+            self.rm._sync_var(op.getarg(1))
+            return [self.loc(op.getarg(0)), self.fm.loc(op.getarg(1))]
+        else:
+            return [self.loc(op.getarg(0))]
+
 
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in

@@ -1,18 +1,15 @@
 import types
-import sys
-from rpython.tool.pairtype import pair, pairtype
-from rpython.annotator import model as annmodel
-from rpython.annotator import description
-from rpython.flowspace.model import Constant
-from rpython.rtyper.lltypesystem.lltype import \
-     typeOf, Void, Bool, nullptr, frozendict, Ptr, Struct, malloc
-from rpython.rtyper.error import TyperError
-from rpython.rtyper.rmodel import Repr, inputconst, CanBeNull, \
-        mangle, inputdesc, warning, impossible_repr
-from rpython.rtyper import rclass
-from rpython.rtyper.annlowlevel import llstr, llunicode
 
-from rpython.rtyper import callparse
+from rpython.annotator import model as annmodel, description
+from rpython.flowspace.model import Constant
+from rpython.rtyper import rclass, callparse
+from rpython.rtyper.annlowlevel import llstr
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lltype import typeOf, Void, Bool
+from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
+    inputdesc, warning, impossible_repr)
+from rpython.tool.pairtype import pair, pairtype
+
 
 def small_cand(rtyper, s_pbc):
     if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets and \
@@ -26,7 +23,7 @@ def small_cand(rtyper, s_pbc):
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
         if self.isNone():
-            return none_frozen_pbc_repr 
+            return none_frozen_pbc_repr
         kind = self.getKind()
         if issubclass(kind, description.FunctionDesc):
             sample = self.any_description()
@@ -50,7 +47,7 @@ class __extend__(annmodel.SomePBC):
         elif issubclass(kind, description.MethodOfFrozenDesc):
             getRepr = rtyper.type_system.rpbc.MethodOfFrozenPBCRepr
         else:
-            raise TyperError("unexpected PBC kind %r"%(kind,))
+            raise TyperError("unexpected PBC kind %r" % (kind,))
 
         return getRepr(rtyper, self)
 
@@ -82,7 +79,7 @@ def build_concrete_calltable(rtyper, callfamily):
     """
     concretetable = {}   # (shape,index): row, maybe with duplicates
     uniquerows = []      # list of rows, without duplicates
-    
+
     def lookuprow(row):
         # a 'matching' row is one that has the same llfn, expect
         # that it may have more or less 'holes'
@@ -333,15 +330,15 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
             return hop.llops.convertvar(v, rresult, hop.r_result)
 
 class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
-        def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
-            # this check makes sense because both source and dest repr are FunctionsPBCRepr
-            if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
-                return v
-            if r_fpbc1.lowleveltype is Void:
-                return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
-            if r_fpbc2.lowleveltype is Void:
-                return inputconst(Void, None)
-            return NotImplemented
+    def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
+        # this check makes sense because both source and dest repr are FunctionsPBCRepr
+        if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
+            return v
+        if r_fpbc1.lowleveltype is Void:
+            return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
+        if r_fpbc2.lowleveltype is Void:
+            return inputconst(Void, None)
+        return NotImplemented
 
 class OverriddenFunctionPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
@@ -377,7 +374,7 @@ def getFrozenPBCRepr(rtyper, s_pbc):
             result = rtyper.type_system.rpbc.MultipleFrozenPBCRepr(rtyper,
                                                                    access)
             rtyper.pbc_reprs[access] = result
-            rtyper.add_pendingsetup(result) 
+            rtyper.add_pendingsetup(result)
             return result
 
 
@@ -429,7 +426,7 @@ class AbstractMultipleUnrelatedFrozenPBCRepr(CanBeNull, Repr):
 
     def convert_const(self, pbc):
         if pbc is None:
-            return self.null_instance() 
+            return self.null_instance()
         if isinstance(pbc, types.MethodType) and pbc.im_self is None:
             value = pbc.im_func   # unbound method -> bare function
         frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
@@ -455,7 +452,7 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
                 mangled_name = mangle('pbc', attr)
                 fields.append((mangled_name, r_value.lowleveltype))
                 self.fieldmap[attr] = mangled_name, r_value
-        return fields 
+        return fields
 
     def convert_desc(self, frozendesc):
         if (self.access_set is not None and
@@ -525,7 +522,7 @@ class MethodOfFrozenPBCRepr(Repr):
         # XXX sort this out
         #call_families = rtyper.annotator.getpbccallfamilies()
         #call_families.find((None, self.function))
-        
+
         if s_pbc.can_be_none():
             raise TyperError("unsupported: variable of type "
                              "method-of-frozen-PBC or None")
@@ -534,7 +531,7 @@ class MethodOfFrozenPBCRepr(Repr):
         for desc in s_pbc.descriptions:
             assert desc.funcdesc is self.funcdesc
             im_selves.append(desc.frozendesc)
-            
+
         self.s_im_self = annmodel.SomePBC(im_selves)
         self.r_im_self = rtyper.getrepr(self.s_im_self)
         self.lowleveltype = self.r_im_self.lowleveltype
@@ -548,7 +545,7 @@ class MethodOfFrozenPBCRepr(Repr):
 
     def convert_desc(self, mdesc):
         if mdesc.funcdesc is not self.funcdesc:
-            raise TyperError("not a method bound on %r: %r" % (self.funcdesc, 
+            raise TyperError("not a method bound on %r: %r" % (self.funcdesc,
                                                                mdesc))
         return self.r_im_self.convert_desc(mdesc.frozendesc)
 
@@ -615,7 +612,7 @@ class __extend__(pairtype(Repr, NoneFrozenPBCRepr)):
 
     def convert_from_to((r_from, _), v, llops):
         return inputconst(Void, None)
-    
+
     def rtype_is_((robj1, rnone2), hop):
         if hop.s_result.is_constant():
             return hop.inputconst(Bool, hop.s_result.const)
@@ -666,7 +663,7 @@ class AbstractClassesPBCRepr(Repr):
 
     def convert_desc(self, desc):
         if desc not in self.s_pbc.descriptions:
-            raise TyperError("%r not in %r" % (cls, self))
+            raise TyperError("%r not in %r" % (desc, self))
         if self.lowleveltype is Void:
             return None
         subclassdef = desc.getuniqueclassdef()
@@ -726,7 +723,7 @@ class AbstractClassesPBCRepr(Repr):
             s_init = classdef.classdesc.s_read_attribute('__init__')
             v_init = Constant("init-func-dummy")   # this value not really used
 
-            if (isinstance(s_init, annmodel.SomeImpossibleValue) and 
+            if (isinstance(s_init, annmodel.SomeImpossibleValue) and
                 classdef.classdesc.is_exception_class() and
                 classdef.has_no_attrs()):
                 # special case for instanciating simple built-in
@@ -753,7 +750,7 @@ class AbstractClassesPBCRepr(Repr):
             else:
                 s_init = access_set.s_value
                 v_init = r_class.getpbcfield(vtypeptr, access_set, '__init__',
-                                             hop.llops)                
+                                             hop.llops)
             v_instance = self._instantiate_runtime_class(hop, vtypeptr, r_instance)
 
         if isinstance(s_init, annmodel.SomeImpossibleValue):
@@ -769,7 +766,6 @@ class AbstractClassesPBCRepr(Repr):
             # now hop2 looks like simple_call(initfunc, instance, args...)
             hop2.dispatch()
         return v_instance
-
 
 
 class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
@@ -904,4 +900,3 @@ def allattributenames(classdef):
     for cdef1 in classdef.getmro():
         for attrname in cdef1.attrs:
             yield cdef1, attrname
-

@@ -1,9 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 
-class W_IdentityDict(Wrappable):
+
+class W_IdentityDict(W_Root):
     def __init__(self, space):
         self.dict = {}
 
@@ -33,6 +34,11 @@ class W_IdentityDict(Wrappable):
         except KeyError:
             raise OperationError(space.w_KeyError, w_key)
 
+    def descr_iter(self, space):
+        raise OperationError(space.w_TypeError,
+            space.wrap("'identity_dict' object does not support iteration; "
+                       "iterate over x.keys()"))
+
     def get(self, space, w_key, w_default=None):
         if w_default is None:
             w_default = space.w_None
@@ -50,8 +56,11 @@ class W_IdentityDict(Wrappable):
 W_IdentityDict.typedef = TypeDef("identity_dict",
     __doc__="""\
 A dictionary that considers keys by object identity.
-Distinct objects that compare equal will have separate entries.
-All objects can be used as keys, even non-hashable ones.
+Distinct objects will have separate entries even if they
+compare equal.  All objects can be used as keys, even
+non-hashable ones --- but avoid using immutable objects
+like integers: two int objects 42 may or may not be
+internally the same object.
 """,
     __new__ = interp2app(W_IdentityDict.descr_new.im_func),
     __len__ = interp2app(W_IdentityDict.descr_len),
@@ -59,6 +68,7 @@ All objects can be used as keys, even non-hashable ones.
     __setitem__ = interp2app(W_IdentityDict.descr_setitem),
     __getitem__ = interp2app(W_IdentityDict.descr_getitem),
     __delitem__ = interp2app(W_IdentityDict.descr_delitem),
+    __iter__ = interp2app(W_IdentityDict.descr_iter),
     get = interp2app(W_IdentityDict.get),
     keys = interp2app(W_IdentityDict.keys),
     values = interp2app(W_IdentityDict.values),

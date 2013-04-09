@@ -40,7 +40,7 @@ class AppTestPyexpat:
         import pyexpat
         for encoding_arg in (None, 'utf-8', 'iso-8859-1'):
             for namespace_arg in (None, '{'):
-                print encoding_arg, namespace_arg
+                print(encoding_arg, namespace_arg)
                 p = pyexpat.ParserCreate(encoding_arg, namespace_arg)
                 data = []
                 p.CharacterDataHandler = lambda s: data.append(s)
@@ -146,3 +146,67 @@ class AppTestPyexpat:
     def test_model(self):
         import pyexpat
         assert isinstance(pyexpat.model.XML_CTYPE_EMPTY, int)
+
+    def test_read_chunks(self):
+        import pyexpat
+        import StringIO
+        from contextlib import closing
+
+        xml = '<xml>' + (' ' * 4096) + '</xml>'
+        with closing(StringIO.StringIO(xml)) as sio:
+            class FakeReader():
+                def __init__(self):
+                    self.read_count = 0
+
+                def read(self, size):
+                    self.read_count += 1
+                    assert size > 0
+                    return sio.read(size)
+
+            fake_reader = FakeReader()
+            p = pyexpat.ParserCreate()
+            p.ParseFile(fake_reader)
+            assert fake_reader.read_count == 4
+
+class AppTestPyexpat2:
+    spaceconfig = dict(usemodules=['pyexpat', 'itertools', '_socket',
+                                   'rctime', 'struct', 'binascii'])
+
+    def test_django_bug(self):
+        xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'
+
+        from xml.dom import pulldom
+        from xml.sax import handler
+        from xml.sax.expatreader import ExpatParser as _ExpatParser
+        from StringIO import StringIO
+
+        class DefusedExpatParser(_ExpatParser):
+            def start_doctype_decl(self, name, sysid, pubid, has_internal_subset):
+                raise DTDForbidden(name, sysid, pubid)
+
+            def external_entity_ref_handler(self, context, base, sysid, pubid):
+                raise ExternalReferenceForbidden(context, base, sysid, pubid)
+
+            def reset(self):
+                _ExpatParser.reset(self)
+                parser = self._parser
+                parser.StartDoctypeDeclHandler = self.start_doctype_decl
+                parser.ExternalEntityRefHandler = self.external_entity_ref_handler
+
+
+        class DTDForbidden(ValueError):
+            pass
+
+
+        class ExternalReferenceForbidden(ValueError):
+            pass
+
+        stream = pulldom.parse(StringIO(xml_str), DefusedExpatParser())
+
+        try:
+            for event, node in stream:
+                print(event, node)
+        except DTDForbidden:
+            pass
+        else:
+            raise Exception("should raise DTDForbidden")

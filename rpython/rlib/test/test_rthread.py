@@ -159,16 +159,45 @@ class AbstractThreadTests(AbstractGCTestClass):
             l = allocate_lock()
             l.acquire(True)
             t1 = time.time()
-            ok = l.acquire_timed(1000000)
+            ok = l.acquire_timed(1000001)
             t2 = time.time()
             delay = t2 - t1
-            if ok:
-                return delay
-            else:
+            if ok == 0:        # RPY_LOCK_FAILURE
                 return -delay
+            elif ok == 2:      # RPY_LOCK_INTR
+                return delay
+            else:              # RPY_LOCK_ACQUIRED
+                return 0.0
         fn = self.getcompiled(f, [])
         res = fn()
         assert res < -1.0
+
+    def test_acquire_timed_alarm(self):
+        import sys
+        if not sys.platform.startswith('linux'):
+            py.test.skip("skipped on non-linux")
+        import time
+        from rpython.rlib import rsignal
+        def f():
+            l = allocate_lock()
+            l.acquire(True)
+            #
+            rsignal.pypysig_setflag(rsignal.SIGALRM)
+            rsignal.c_alarm(1)
+            #
+            t1 = time.time()
+            ok = l.acquire_timed(2500000)
+            t2 = time.time()
+            delay = t2 - t1
+            if ok == 0:        # RPY_LOCK_FAILURE
+                return -delay
+            elif ok == 2:      # RPY_LOCK_INTR
+                return delay
+            else:              # RPY_LOCK_ACQUIRED
+                return 0.0
+        fn = self.getcompiled(f, [])
+        res = fn()
+        assert res >= 0.95
 
 #class TestRunDirectly(AbstractThreadTests):
 #    def getcompiled(self, f, argtypes):

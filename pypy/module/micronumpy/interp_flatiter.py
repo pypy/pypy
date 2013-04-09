@@ -9,15 +9,19 @@ class FakeArrayImplementation(BaseArrayImplementation):
     like a real array for descr_eq and friends
     """
     def __init__(self, base):
-        self.base = base
+        self._base = base
         self.dtype = base.get_dtype()
         self.shape = [base.get_size()]
+
+    def base(self):
+        return self._base
 
     def get_shape(self):
         return self.shape
 
-    def create_iter(self, shape=None):
-        return self.base.create_iter()
+    def create_iter(self, shape=None, backward_broadcast=False):
+        assert isinstance(self.base(), W_NDimArray)
+        return self.base().create_iter()
 
 class W_FlatIterator(W_NDimArray):
     def __init__(self, arr):
@@ -72,7 +76,7 @@ class W_FlatIterator(W_NDimArray):
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
         arr = convert_to_array(space, w_value)
-        loop.flatiter_setitem(self.base, arr, start, step, length)
+        loop.flatiter_setitem(space, self.base, arr, start, step, length)
 
     def descr_iter(self):
         return self

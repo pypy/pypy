@@ -5,15 +5,15 @@ and the various cases of write barrier.
 """
 
 import weakref
-import py, os
-from rpython.annotator import policy as annpolicy
+import os
 from rpython.rlib import rgc
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
+
 
 class X(object):
     def __init__(self, x=0):
@@ -27,18 +27,6 @@ class CheckError(Exception):
 def check(flag):
     if not flag:
         raise CheckError
-
-def get_g(main):
-    main._dont_inline_ = True
-    def g(name, n):
-        x = X()
-        x.foo = 2
-        main(n, x)
-        x.foo = 5
-        return weakref.ref(x)
-    g._dont_inline_ = True
-    return g
-
 
 def get_entry(g):
 
@@ -65,7 +53,6 @@ def get_entry(g):
 
     return entrypoint
 
-
 def get_functions_to_patch():
     from rpython.jit.backend.llsupport import gc
     #
@@ -81,7 +68,7 @@ def get_functions_to_patch():
     return {(gc.GcLLDescr_framework, 'can_use_nursery_malloc'):
                 can_use_nursery_malloc2}
 
-def compile(f, gc, enable_opts='', **kwds):
+def compile(f, gc, **kwds):
     from rpython.annotator.listdef import s_list_of_strings
     from rpython.translator.translator import TranslationContext
     from rpython.jit.metainterp.warmspot import apply_jit
@@ -105,7 +92,7 @@ def compile(f, gc, enable_opts='', **kwds):
                 old_value[obj, attr] = getattr(obj, attr)
                 setattr(obj, attr, value)
             #
-            apply_jit(t, enable_opts=enable_opts)
+            apply_jit(t)
             #
         finally:
             for (obj, attr), oldvalue in old_value.items():
@@ -122,36 +109,10 @@ def run(cbuilder, args=''):
     data = cbuilder.cmdexec(args, env={'PYPYLOG': ':%s' % pypylog})
     return data.strip()
 
-def compile_and_run(f, gc, **kwds):
-    cbuilder = compile(f, gc, **kwds)
-    return run(cbuilder)
-
-
-
-def test_compile_boehm():
-    myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
-    @dont_look_inside
-    def see(lst, n):
-        assert len(lst) == 3
-        assert lst[0] == n+10
-        assert lst[1] == n+20
-        assert lst[2] == n+30
-    def main(n, x):
-        while n > 0:
-            myjitdriver.can_enter_jit(n=n, x=x)
-            myjitdriver.jit_merge_point(n=n, x=x)
-            y = X()
-            y.foo = x.foo
-            n -= y.foo
-            see([n+10, n+20, n+30], n)
-    res = compile_and_run(get_entry(get_g(main)), "boehm", jit=True)
-    assert int(res) >= 16
-
 # ______________________________________________________________________
 
 
 class BaseFrameworkTests(object):
-    compile_kwds = {}
 
     def setup_class(cls):
         funcs = []
@@ -203,7 +164,7 @@ class BaseFrameworkTests(object):
             GcLLDescr_framework.DEBUG = True
             cls.cbuilder = compile(get_entry(allfuncs), DEFL_GC,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
-                                   **cls.compile_kwds)
+                                   thread=True)
         finally:
             GcLLDescr_framework.DEBUG = OLD_DEBUG
 
@@ -789,9 +750,26 @@ class CompileFrameworkTests(BaseFrameworkTests):
     def test_compile_framework_minimal_size_in_nursery(self):
         self.run('compile_framework_minimal_size_in_nursery')
 
+    def define_compile_framework_call_assembler(self):
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('S', ('s', lltype.Ptr(S))))
+        driver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0):
+            driver.jit_merge_point()
+            i = 0
+            prev_s = lltype.nullptr(S)
+            while i < 100:
+                s = lltype.malloc(S)
+                s.s = prev_s
+                prev_s = s
+                i += 1
+            return n - 1, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s0
+
+        return None, f, None
+
+    def test_compile_framework_call_assembler(self):
+        self.run('compile_framework_call_assembler')
 
 class TestShadowStack(CompileFrameworkTests):
     gcrootfinder = "shadowstack"
-
-class TestAsmGcc(CompileFrameworkTests):
-    gcrootfinder = "asmgcc"

@@ -145,7 +145,7 @@ and call the translator
 
 ::
 
-  pypy ~/path_to_pypy_checkout/pypy/translator/goal/translate.py -O1 --platform=arm target.py
+  pypy ~/path_to_pypy_checkout/rpython/bin/rpython -O1 --platform=arm target.py
 
 If everything worked correctly this should yield an ARM binary. Running this binary in the ARM chroot or on an ARM device should produce the output ``"Hello World"``.
 
@@ -153,7 +153,7 @@ To translate the full python pypy interpreter with a jit, you can cd into pypy/g
 
 ::
 
-  pypy <path to rpython>/rpython/translator/goal/translate.py -Ojit --platform=arm --gcrootfinder=shadowstack --jit-backend=arm targetpypystandalone.py
+  pypy <path to rpython>/rpython/bin/rpython -Ojit --platform=arm --gcrootfinder=shadowstack --jit-backend=armv7 targetpypystandalone.py
 
 The gcrootfinder option is needed to work around `issue 1377`_ and the jit-backend works around `issue 1376`_
 

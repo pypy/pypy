@@ -120,8 +120,7 @@ def print_info(*args):
     except AttributeError:
         print >> sys.stderr, 'no translation information found'
     else:
-        optitems = options.items()
-        optitems.sort()
+        optitems = sorted(options.items())
         current = []
         for key, value in optitems:
             group = key.split('.')
@@ -151,8 +150,7 @@ def _print_jit_help():
     except ImportError:
         print >> sys.stderr, "No jit support in %s" % (sys.executable,)
         return
-    items = pypyjit.defaults.items()
-    items.sort()
+    items = sorted(pypyjit.defaults.items())
     print 'Advanced JIT options: a comma-separated list of OPTION=VALUE:'
     for key, value in items:
         print
@@ -218,11 +216,7 @@ def we_are_translated():
     # app-level, very different from rpython.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
 
-if 'nt' in sys.builtin_module_names:
-    IS_WINDOWS = True
-else:
-    IS_WINDOWS = False
-
+IS_WINDOWS = 'nt' in sys.builtin_module_names
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os
@@ -303,7 +297,6 @@ sys_flags = (
     "hash_randomization",
 )
 
-
 default_options = dict.fromkeys(
     sys_flags +
     ("run_command",
@@ -311,9 +304,6 @@ default_options = dict.fromkeys(
     "run_stdin",
     "warnoptions",
     "unbuffered"), 0)
-
-
-PYTHON26 = True
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -344,42 +334,38 @@ def end_options(options, _, iterargv):
 
 cmdline_options = {
     # simple options just increment the counter of the options listed above
+    'b': (simple_option, 'bytes_warning'),
+    'B': (simple_option, 'dont_write_bytecode'),
     'd': (simple_option, 'debug'),
+    'E': (simple_option, 'ignore_environment'),
     'i': (simple_option, 'interactive'),
     'O': (simple_option, 'optimize'),
+    'R': (simple_option, 'hash_randomization'),
+    's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
-    'E': (simple_option, 'ignore_environment'),
     't': (simple_option, 'tabcheck'),
-    'v': (simple_option, 'verbose'),
     'U': (simple_option, 'unicode'),
     'u': (simple_option, 'unbuffered'),
+    'v': (simple_option, 'verbose'),
+    '3': (simple_option, 'py3k_warning'),
     # more complex options
-    'Q':         (div_option,      Ellipsis),
     'c':         (c_option,        Ellipsis),
+    '?':         (print_help,      None),
+    'h':         (print_help,      None),
+    '--help':    (print_help,      None),
     'm':         (m_option,        Ellipsis),
     'W':         (W_option,        Ellipsis),
     'V':         (print_version,   None),
     '--version': (print_version,   None),
+    'Q':         (div_option,      Ellipsis),
     '--info':    (print_info,      None),
-    'h':         (print_help,      None),
-    '--help':    (print_help,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '--':        (end_options,     None),
     }
 
-if PYTHON26:
-    cmdline_options.update({
-        '3': (simple_option, 'py3k_warning'),
-        'B': (simple_option, 'dont_write_bytecode'),
-        's': (simple_option, 'no_user_site'),
-        'b': (simple_option, 'bytes_warning'),
-        'R': (simple_option, 'hash_randomization'),
-        })
-
-
 def handle_argument(c, options, iterargv, iterarg=iter(())):
     function, funcarg = cmdline_options[c]
-    #
+
     # If needed, fill in the real argument by taking it from the command line
     if funcarg is Ellipsis:
         remaining = list(iterarg)
@@ -392,15 +378,14 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
                 if len(c) == 1:
                     c = '-' + c
                 raise CommandLineError('Argument expected for the %r option' % c)
-    #
-    return function(options, funcarg, iterargv)
 
+    return function(options, funcarg, iterargv)
 
 def parse_command_line(argv):
     import os
     options = default_options.copy()
     options['warnoptions'] = []
-    #
+
     iterargv = iter(argv)
     argv = None
     for arg in iterargv:
@@ -436,11 +421,17 @@ def parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if PYTHON26 and not options["ignore_environment"]:
-        if os.getenv('PYTHONNOUSERSITE'):
-            options["no_user_site"] = 1
+    if not options["ignore_environment"]:
+        if os.getenv('PYTHONDEBUG'):
+            options["debug"] = 1
         if os.getenv('PYTHONDONTWRITEBYTECODE'):
             options["dont_write_bytecode"] = 1
+        if os.getenv('PYTHONNOUSERSITE'):
+            options["no_user_site"] = 1
+        if os.getenv('PYTHONUNBUFFERED'):
+            options["unbuffered"] = 1
+        if os.getenv('PYTHONVERBOSE'):
+            options["verbose"] = 1
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
@@ -452,7 +443,7 @@ def parse_command_line(argv):
 ##        print >> sys.stderr, (
 ##            "Warning: pypy does not implement hash randomization")
 
-    if PYTHON26 and we_are_translated():
+    if we_are_translated():
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = bool(sys.flags.py3k_warning)
@@ -479,7 +470,7 @@ def run_command_line(interactive,
                      unbuffered,
                      ignore_environment,
                      **ignored):
-    # with PyPy in top of CPython we can only have around 100 
+    # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
     if '__pypy__' not in sys.builtin_module_names:
         sys.setrecursionlimit(5000)
@@ -568,7 +559,7 @@ def run_command_line(interactive,
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print
                 # a banner and run $PYTHONSTARTUP.
-                print_banner()
+                print_banner(not no_site)
                 python_startup = readenv and os.getenv('PYTHONSTARTUP')
                 if python_startup:
                     try:
@@ -638,7 +629,6 @@ def run_command_line(interactive,
 
     # start a prompt if requested
     if inspect_requested():
-        inteactive = False
         try:
             from _pypy_interact import interactive_console
             success = run_toplevel(interactive_console, mainmodule)
@@ -649,10 +639,11 @@ def run_command_line(interactive,
 
     return status
 
-def print_banner():
+def print_banner(copyright):
     print 'Python %s on %s' % (sys.version, sys.platform)
-    print ('Type "help", "copyright", "credits" or '
-           '"license" for more information.')
+    if copyright:
+        print ('Type "help", "copyright", "credits" or '
+               '"license" for more information.')
 
 STDLIB_WARNING = """\
 debug: WARNING: Library path not found, using compiled-in sys.path.
@@ -716,7 +707,7 @@ if __name__ == '__main__':
         root = dn(dn(dn(thisfile)))
         return [join(root, 'lib-python', '2.7'),
                 join(root, 'lib_pypy')]
-    
+
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
         # interpreter/app_main.py anyway
@@ -755,6 +746,10 @@ if __name__ == '__main__':
         os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
     del os # make sure that os is not available globally, because this is what
            # happens in "real life" outside the tests
+
+    if 'time' not in sys.builtin_module_names:
+        # make some tests happy by loading this before we clobber sys.path
+        import time; del time
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv

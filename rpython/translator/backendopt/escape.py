@@ -226,9 +226,6 @@ class AbstractDataFlowInterpreter(object):
             return NotImplemented
         return VarState(self.get_creationpoint(op.result, "malloc_varsize", op))
 
-    def op_keepalive(self, op, state):
-        return None
-
     def op_cast_pointer(self, op, state):
         return state
 

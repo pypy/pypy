@@ -133,11 +133,12 @@ static int _testfunc18(struct _testfunc17_s *ptr)
     return ptr->a1 + (int)ptr->a2;
 }
 
-static long double _testfunc19(long double x)
+static long double _testfunc19(long double x, int count)
 {
     int i;
-    for (i=0; i<28; i++)
-        x += x;
+    for (i=0; i<count; i++) {
+        x = 4*x - x*x;
+    }
     return x;
 }
 
@@ -174,7 +175,9 @@ static struct _testfunc22_s _testfunc22(struct _testfunc22_s s1,
 
 static int _testfunc23(char *p)
 {
-    return 1000 * p[0];
+    if (p)
+        return 1000 * p[0];
+    return -42;
 }
 
 DLLEXPORT void *gettestfunc(int num)

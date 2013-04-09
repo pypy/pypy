@@ -73,7 +73,11 @@ class AbstractTestAsmGCRoot:
             else:
                 redirect = ''
             if config.translation.shared and os.name == 'posix':
-                env = 'LD_LIBRARY_PATH="%s" ' % (exe_name.dirpath(),)
+                library_path = exe_name.dirpath()
+                if sys.platform == 'darwin':
+                    env = 'DYLD_LIBRARY_PATH="%s" ' % library_path
+                else:
+                    env = 'LD_LIBRARY_PATH="%s" ' % library_path
             else:
                 env = ''
             cwd = os.getcwd()
@@ -191,8 +195,8 @@ class TestAsmGCRootWithSemiSpaceGC(AbstractTestAsmGCRoot,
         
         @entrypoint("x42", [lltype.Signed, lltype.Signed], c_name='callback')
         def mycallback(a, b):
-            llop.gc_stack_bottom(lltype.Void)
             rffi.stackcounter.stacks_counter += 1
+            llop.gc_stack_bottom(lltype.Void)
             gc.collect()
             rffi.stackcounter.stacks_counter -= 1
             return a + b

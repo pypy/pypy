@@ -3,7 +3,7 @@
 # For now this is here, living at app-level.
 #
 # The issue is that for now we don't support writing interp-level
-# subclasses of Wrappable that inherit at app-level from a type like
+# subclasses of W_Root that inherit at app-level from a type like
 # 'dict'.  But what we can do is write individual methods at
 # interp-level.
 
@@ -11,7 +11,7 @@ import _collections
 
 
 class defaultdict(dict):
-    
+
     def __init__(self, *args, **kwds):
         if len(args) > 0:
             default_factory = args[0]
@@ -22,7 +22,7 @@ class defaultdict(dict):
             default_factory = None
         self.default_factory = default_factory
         super(defaultdict, self).__init__(*args, **kwds)
- 
+
     def __missing__(self, key):
         pass    # this method is written at interp-level
     __missing__.func_code = _collections.__missing__.func_code
@@ -39,7 +39,7 @@ class defaultdict(dict):
 
     def copy(self):
         return type(self)(self.default_factory, self)
-    
+
     def __copy__(self):
         return self.copy()
 

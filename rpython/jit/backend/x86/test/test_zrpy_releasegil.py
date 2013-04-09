@@ -1,13 +1,13 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit import dont_look_inside
+from rpython.rlib.objectmodel import invoke_around_extcall
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
-from rpython.rlib.libffi import CDLL, types, ArgChain, clibffi
-from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
 from rpython.rtyper.annlowlevel import llhelper
 
 from rpython.jit.backend.x86.test.test_zrpy_gc import BaseFrameworkTests
 from rpython.jit.backend.x86.test.test_zrpy_gc import check
+from rpython.tool.udir import udir
 
 
 class ReleaseGILTests(BaseFrameworkTests):
@@ -15,35 +15,33 @@ class ReleaseGILTests(BaseFrameworkTests):
 
     def define_simple(self):
         class Glob:
-            pass
+            def __init__(self):
+                self.event = 0
         glob = Glob()
         #
-        def f42(n):
-            c_strchr = glob.c_strchr
-            raw = rffi.str2charp("foobar" + chr((n & 63) + 32))
-            argchain = ArgChain()
-            argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
-            argchain = argchain.arg(rffi.cast(rffi.INT, ord('b')))
-            res = c_strchr.call(argchain, rffi.CCHARP)
-            check(rffi.charp2str(res) == "bar" + chr((n & 63) + 32))
-            rffi.free_charp(raw)
-        #
+
+        c_strchr = rffi.llexternal('strchr', [rffi.CCHARP, lltype.Signed],
+                                   rffi.CCHARP)
+
+        def func():
+            glob.event += 1
+
         def before(n, x):
-            libc = CDLL(libc_name)
-            c_strchr = libc.getpointer('strchr', [types.pointer, types.sint],
-                                       types.pointer)
-            glob.c_strchr = c_strchr
+            invoke_around_extcall(func, func)
             return (n, None, None, None, None, None,
                     None, None, None, None, None, None)
         #
         def f(n, x, *args):
-            f42(n)
+            a = rffi.str2charp(str(n))
+            c_strchr(a, ord('0'))
+            lltype.free(a, flavor='raw')
             n -= 1
             return (n, x) + args
         return before, f, None
 
     def test_simple(self):
         self.run('simple')
+        assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
 
     def define_close_stack(self):
         #
@@ -66,41 +64,37 @@ class ReleaseGILTests(BaseFrameworkTests):
         @dont_look_inside
         def free1(p):
             llmemory.raw_free(p)
+
+        c_qsort = rffi.llexternal('qsort', [rffi.VOIDP, rffi.SIZE_T,
+                                            rffi.SIZE_T, CALLBACK], lltype.Void)
         #
-        def f42():
+        def f42(n):
             length = len(glob.lst)
-            c_qsort = glob.c_qsort
             raw = alloc1()
             fn = llhelper(CALLBACK, rffi._make_wrapper_for(CALLBACK, callback))
-            argchain = ArgChain()
-            argchain = argchain.arg(rffi.cast(lltype.Signed, raw))
-            argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 2))
-            argchain = argchain.arg(rffi.cast(rffi.SIZE_T, 8))
-            argchain = argchain.arg(rffi.cast(lltype.Signed, fn))
-            c_qsort.call(argchain, lltype.Void)
+            if n & 1:    # to create a loop and a bridge, and also
+                pass     # to run the qsort() call in the blackhole interp
+            c_qsort(rffi.cast(rffi.VOIDP, raw), rffi.cast(rffi.SIZE_T, 2),
+                    rffi.cast(rffi.SIZE_T, 8), fn)
             free1(raw)
             check(len(glob.lst) > length)
             del glob.lst[:]
         #
         def before(n, x):
-            libc = CDLL(libc_name)
-            types_size_t = clibffi.cast_type_to_ffitype(rffi.SIZE_T)
-            c_qsort = libc.getpointer('qsort', [types.pointer, types_size_t,
-                                                types_size_t, types.pointer],
-                                      types.void)
-            glob.c_qsort = c_qsort
             glob.lst = []
+            
             return (n, None, None, None, None, None,
                     None, None, None, None, None, None)
         #
         def f(n, x, *args):
-            f42()
+            f42(n)
             n -= 1
             return (n, x) + args
         return before, f, None
 
     def test_close_stack(self):
         self.run('close_stack')
+        assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
 
 
 class TestShadowStack(ReleaseGILTests):

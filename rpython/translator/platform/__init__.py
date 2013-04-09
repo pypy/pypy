@@ -2,7 +2,6 @@
 
 import py, os, sys
 
-from rpython.tool.ansi_print import ansi_log
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
 
@@ -53,9 +52,18 @@ class Platform(object):
         ofiles = self._compile_o_files(cfiles, eci, standalone)
         return self._finish_linking(ofiles, eci, outputfilename, standalone)
 
+    def _all_cfiles(self, cfiles, eci):
+        seen = set()
+        result = []
+        for cfile in list(cfiles) + list(eci.separate_module_files):
+            cfile = py.path.local(cfile)
+            if cfile not in seen:
+                seen.add(cfile)
+                result.append(cfile)
+        return result
+
     def _compile_o_files(self, cfiles, eci, standalone=True):
-        cfiles = [py.path.local(f) for f in cfiles]
-        cfiles += [py.path.local(f) for f in eci.separate_module_files]
+        cfiles = self._all_cfiles(cfiles, eci)
         compile_args = self._compile_args_from_eci(eci, standalone)
         ofiles = []
         for cfile in cfiles:
@@ -80,8 +88,11 @@ class Platform(object):
 
         # Set LD_LIBRARY_PATH on posix platforms
         if os.name == 'posix' and compilation_info is not None:
-            env['LD_LIBRARY_PATH'] = ':'.join(
-                [str(i) for i in compilation_info.library_dirs])
+            library_path = ':'.join([str(i) for i in compilation_info.library_dirs])
+            if sys.platform == 'darwin':
+                env['DYLD_LIBRARY_PATH'] = library_path
+            else:
+                env['LD_LIBRARY_PATH'] = library_path
 
         returncode, stdout, stderr = _run_subprocess(str(executable), args,
                                                      env)
@@ -274,6 +285,13 @@ elif "freebsd" in sys.platform:
         host_factory = Freebsd
     else:
         host_factory = Freebsd_64
+elif sys.platform.startswith('netbsd'):
+    from rpython.translator.platform.netbsd import Netbsd, Netbsd_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Netbsd
+    else:
+        host_factory = Netbsd_64
 elif "openbsd" in sys.platform:
     from rpython.translator.platform.openbsd import OpenBSD, OpenBSD_64
     import platform

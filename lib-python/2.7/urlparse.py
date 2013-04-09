@@ -326,15 +326,17 @@ def unquote(s):
     # fastpath
     if len(res) == 1:
         return s
-    s = res[0]
-    for item in res[1:]:
+    res_list = [res[0]]
+    for j in xrange(1, len(res)):
+        item = res[j]
         try:
-            s += _hextochr[item[:2]] + item[2:]
+            x = _hextochr[item[:2]] + item[2:]
         except KeyError:
-            s += '%' + item
+            x = '%' + item
         except UnicodeDecodeError:
-            s += unichr(int(item[:2], 16)) + item[2:]
-    return s
+            x = unichr(int(item[:2], 16)) + item[2:]
+        res_list.append(x)
+    return ''.join(res_list)
 
 def parse_qs(qs, keep_blank_values=0, strict_parsing=0):
     """Parse a query given as a string argument.

@@ -499,7 +499,6 @@ LL_OPERATIONS = {
     'gc_typeids_z'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
-    'gc_set_extra_threshold': LLOp(canrun=True, canmallocgc=True),
 
     # ------- JIT & GC interaction, only for some GCs ----------
 
@@ -519,7 +518,6 @@ LL_OPERATIONS = {
     # for stacklet+shadowstack support
     'gc_shadowstackref_new':      LLOp(canmallocgc=True),
     'gc_shadowstackref_context':  LLOp(),
-    'gc_shadowstackref_destroy':  LLOp(),
     'gc_save_current_state_away': LLOp(),
     'gc_forget_current_state':    LLOp(),
     'gc_restore_state_from':      LLOp(),
@@ -557,7 +555,7 @@ LL_OPERATIONS = {
     'debug_offset':         LLOp(canrun=True),
     'debug_flush':          LLOp(canrun=True),
     'debug_assert':         LLOp(tryfold=True),
-    'debug_fatalerror':     LLOp(),
+    'debug_fatalerror':     LLOp(canrun=True),
     'debug_llinterpcall':   LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine

@@ -1,91 +1,89 @@
 """
 
 test configuration(s) for running CPython's regression
-test suite on top of PyPy 
+test suite on top of PyPy
 
 """
 import py
 import sys
 import pypy
 import re
-from pypy.interpreter.gateway import ApplevelClass 
+from pypy.interpreter.gateway import ApplevelClass
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.module import Module as PyPyModule 
+from pypy.interpreter.module import Module as PyPyModule
 from pypy.interpreter.main import run_string, run_file
 
-# the following adds command line options as a side effect! 
-from pypy.conftest import option as pypy_option 
+# the following adds command line options as a side effect!
+from pypy.conftest import option as pypy_option
 
-from pypy.tool.pytest import appsupport 
+from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.confpath import pypydir, rpythondir, testdir, testresultdir
 from rpython.config.parse import parse_info
 
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../pypy/']
 
-# 
-# Interfacing/Integrating with py.test's collection process 
+#
+# Interfacing/Integrating with py.test's collection process
 #
 
 def pytest_addoption(parser):
-    group = parser.getgroup("complicance testing options") 
-    group.addoption('-T', '--timeout', action="store", type="string", 
-       default="1000", dest="timeout", 
-       help="fail a test module after the given timeout. "
-            "specify in seconds or 'NUMmp' aka Mega-Pystones")
-    group.addoption('--pypy', action="store", type="string",
-       dest="pypy",  help="use given pypy executable to run lib-python tests. "
-                          "This will run the tests directly (i.e. not through py.py)")
+    group = parser.getgroup("complicance testing options")
+    group.addoption('-T', '--timeout', action="store", type="string",
+                    default="1000", dest="timeout",
+                    help="fail a test module after the given timeout. "
+                         "specify in seconds or 'NUMmp' aka Mega-Pystones")
+    group.addoption('--pypy', action="store", type="string", dest="pypy",
+                    help="use given pypy executable to run lib-python tests. "
+                         "This will run the tests directly (i.e. not through py.py)")
     group.addoption('--filter', action="store", type="string", default=None,
-                    dest="unittest_filter",  help="Similar to -k, XXX")
+                    dest="unittest_filter", help="Similar to -k, XXX")
 
-def gettimeout(timeout): 
+def gettimeout(timeout):
     from rpython.translator.test import rpystone
-    if timeout.endswith('mp'): 
+    if timeout.endswith('mp'):
         megapystone = float(timeout[:-2])
         t, stone = pystone.Proc0(10000)
-        pystonetime = t/stone 
-        seconds = megapystone  * 1000000 * pystonetime
-        return seconds 
-    return float(timeout) 
+        pystonetime = t/stone
+        seconds = megapystone * 1000000 * pystonetime
+        return seconds
+    return float(timeout)
 
 # ________________________________________________________________________
 #
-# classification of all tests files (this is ongoing work) 
+# classification of all tests files (this is ongoing work)
 #
 
-class RegrTest: 
-    """ Regression Test Declaration.""" 
-    def __init__(self, basename, core=False,
-                                 compiler=None, 
-                                 usemodules = '',
-                                 skip=None): 
-        self.basename = basename 
+class RegrTest:
+    """ Regression Test Declaration."""
+    def __init__(self, basename, core=False, compiler=None, usemodules='',
+                 skip=None):
+        self.basename = basename
         self._usemodules = usemodules.split() + ['signal', 'rctime', 'itertools', '_socket']
-        self._compiler = compiler 
+        self._compiler = compiler
         self.core = core
         self.skip = skip
         assert self.getfspath().check(), "%r not found!" % (basename,)
 
     def usemodules(self):
-        return self._usemodules #+ pypy_option.usemodules
+        return self._usemodules  # + pypy_option.usemodules
     usemodules = property(usemodules)
 
-    def compiler(self): 
-        return self._compiler #or pypy_option.compiler 
+    def compiler(self):
+        return self._compiler  # or pypy_option.compiler
     compiler = property(compiler)
 
-    def ismodified(self): 
+    def ismodified(self):
         #XXX: ask hg
         return None
 
-    def getfspath(self): 
+    def getfspath(self):
         return testdir.join(self.basename)
 
-    def run_file(self, space): 
+    def run_file(self, space):
         fspath = self.getfspath()
         assert fspath.check()
-        modname = fspath.purebasename 
+        modname = fspath.purebasename
         space.appexec([], '''():
             from test import %(modname)s
             m = %(modname)s
@@ -160,7 +158,7 @@ testmap = [
     RegrTest('test_codeop.py', core=True),
     RegrTest('test_coding.py', core=True),
     RegrTest('test_coercion.py', core=True),
-    RegrTest('test_collections.py'),
+    RegrTest('test_collections.py', usemodules='binascii struct'),
     RegrTest('test_colorsys.py'),
     RegrTest('test_commands.py'),
     RegrTest('test_compare.py', core=True),
@@ -181,7 +179,7 @@ testmap = [
     RegrTest('test_csv.py', usemodules='_csv'),
     RegrTest('test_ctypes.py', usemodules="_rawffi thread"),
     RegrTest('test_curses.py'),
-    RegrTest('test_datetime.py'),
+    RegrTest('test_datetime.py', usemodules='binascii struct'),
     RegrTest('test_dbm.py'),
     RegrTest('test_decimal.py'),
     RegrTest('test_decorators.py', core=True),
@@ -273,7 +271,7 @@ testmap = [
     RegrTest('test_inspect.py'),
     RegrTest('test_int.py', core=True),
     RegrTest('test_int_literal.py', core=True),
-    RegrTest('test_io.py'),
+    RegrTest('test_io.py', usemodules='array binascii'),
     RegrTest('test_ioctl.py'),
     RegrTest('test_isinstance.py', core=True),
     RegrTest('test_iter.py', core=True),
@@ -425,7 +423,7 @@ testmap = [
     RegrTest('test_textwrap.py'),
     RegrTest('test_thread.py', usemodules="thread", core=True),
     RegrTest('test_threaded_import.py', usemodules="thread", core=True),
-    RegrTest('test_threadedtempfile.py', 
+    RegrTest('test_threadedtempfile.py',
              usemodules="thread", core=False),
     RegrTest('test_threading.py', usemodules="thread", core=True),
     RegrTest('test_threading_local.py', usemodules="thread", core=True),
@@ -506,7 +504,7 @@ check_testmap_complete()
 
 def pytest_configure(config):
     config._basename2spec = cache = {}
-    for x in testmap: 
+    for x in testmap:
         cache[x.basename] = x
 
 def pytest_collect_file(path, parent, __multicall__):
@@ -522,33 +520,33 @@ def pytest_collect_file(path, parent, __multicall__):
     return RunFileExternal(path.basename, parent=parent, regrtest=regrtest)
 
 class RunFileExternal(py.test.collect.File):
-    def __init__(self, name, parent, regrtest): 
-        super(RunFileExternal, self).__init__(name, parent) 
-        self.regrtest = regrtest 
+    def __init__(self, name, parent, regrtest):
+        super(RunFileExternal, self).__init__(name, parent)
+        self.regrtest = regrtest
         self.fspath = regrtest.getfspath()
 
-    def collect(self): 
-        if self.regrtest.ismodified(): 
+    def collect(self):
+        if self.regrtest.ismodified():
             name = 'modified'
         else:
             name = 'unmodified'
-        return [ReallyRunFileExternal(name, parent=self)] 
+        return [ReallyRunFileExternal(name, parent=self)]
 
 #
-# testmethod: 
+# testmethod:
 # invoking in a separate process: py.py TESTFILE
 #
 import os
 import time
 import getpass
 
-class ReallyRunFileExternal(py.test.collect.Item): 
+class ReallyRunFileExternal(py.test.collect.Item):
     class ExternalFailure(Exception):
         """Failure in running subprocess"""
 
-    def getinvocation(self, regrtest): 
-        fspath = regrtest.getfspath() 
-        python = sys.executable 
+    def getinvocation(self, regrtest):
+        fspath = regrtest.getfspath()
+        python = sys.executable
         pypy_script = pypydir.join('bin', 'pyinteractive.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
         if sys.platform == 'win32':
@@ -557,9 +555,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
             watchdog_name = 'watchdog.py'
         watchdog_script = rpythondir.join('tool', watchdog_name)
 
-        regr_script = pypydir.join('tool', 'pytest', 
+        regr_script = pypydir.join('tool', 'pytest',
                                    'run-script', 'regrverbose.py')
-        
+
         regrrun = str(regr_script)
         option = self.config.option
         TIMEOUT = gettimeout(option.timeout.lower())
@@ -568,8 +566,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
             if not execpath.check():
                 execpath = py.path.local.sysfind(option.pypy)
             if not execpath:
-                raise LookupError("could not find executable %r" %
-                                  (option.pypy,))
+                raise LookupError("could not find executable %r" % option.pypy)
 
             # check modules
             info = py.process.cmdexec("%s --info" % execpath)
@@ -578,34 +575,29 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 if info.get('objspace.usemodules.%s' % mod) is not True:
                     py.test.skip("%s module not included in %s" % (mod,
                                                                    execpath))
-                    
-            cmd = "%s %s %s" %(
-                execpath, 
-                regrrun, fspath.purebasename)
 
+            cmd = "%s %s %s" % (execpath, regrrun, fspath.purebasename)
             # add watchdog for timing out
-            cmd = "%s %s %s %s" %(
-                python, watchdog_script, TIMEOUT,
-                cmd)
+            cmd = "%s %s %s %s" % (python, watchdog_script, TIMEOUT, cmd)
         else:
             pypy_options = []
             pypy_options.extend(
                 ['--withmod-%s' % mod for mod in regrtest.usemodules])
-            sopt = " ".join(pypy_options) 
-            cmd = "%s %s %d %s -S %s %s %s -v" %(
-                python, alarm_script, TIMEOUT, 
-                pypy_script, sopt, 
+            sopt = " ".join(pypy_options)
+            cmd = "%s %s %d %s -S %s %s %s -v" % (
+                python, alarm_script, TIMEOUT,
+                pypy_script, sopt,
                 regrrun, fspath.purebasename)
-        return cmd 
+        return cmd
 
-    def runtest(self): 
-        """ invoke a subprocess running the test file via PyPy. 
-            record its output into the 'result/user@host' subdirectory. 
-            (we might want to create subdirectories for 
-            each user, because we will probably all produce 
+    def runtest(self):
+        """ invoke a subprocess running the test file via PyPy.
+            record its output into the 'result/user@host' subdirectory.
+            (we might want to create subdirectories for
+            each user, because we will probably all produce
             such result runs and they will not be the same
-            i am afraid. 
-        """ 
+            i am afraid.
+        """
         regrtest = self.parent.regrtest
         if regrtest.skip:
             if regrtest.skip is True:
@@ -613,8 +605,8 @@ class ReallyRunFileExternal(py.test.collect.Item):
             else:
                 msg = regrtest.skip
             py.test.skip(msg)
-        (skipped, exit_status, test_stdout,
-                               test_stderr) = self.getresult(regrtest)
+        (skipped, exit_status, test_stdout, test_stderr) = \
+            self.getresult(regrtest)
         if skipped:
             py.test.skip(test_stderr.splitlines()[-1])
         if exit_status:
@@ -626,13 +618,13 @@ class ReallyRunFileExternal(py.test.collect.Item):
         out, err = excinfo.value.args
         return out + err
 
-    def getstatusouterr(self, cmd): 
+    def getstatusouterr(self, cmd):
         tempdir = py.test.ensuretemp(self.fspath.basename)
         stdout = tempdir.join(self.fspath.basename) + '.out'
         stderr = tempdir.join(self.fspath.basename) + '.err'
         if sys.platform == 'win32':
-            status = os.system("%s >%s 2>%s" %(cmd, stdout, stderr))
-            if status>=0:
+            status = os.system("%s >%s 2>%s" % (cmd, stdout, stderr))
+            if status >= 0:
                 status = status
             else:
                 status = 'abnormal termination 0x%x' % status
@@ -646,22 +638,22 @@ class ReallyRunFileExternal(py.test.collect.Item):
                 stdout.write('')
                 stderr.write('')
             else:
-                status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
+                status = os.system("%s >>%s 2>>%s" % (cmd, stdout, stderr))
             if os.WIFEXITED(status):
                 status = os.WEXITSTATUS(status)
             else:
                 status = 'abnormal termination 0x%x' % status
         return status, stdout.read(mode='rU'), stderr.read(mode='rU')
 
-    def getresult(self, regrtest): 
+    def getresult(self, regrtest):
         cmd = self.getinvocation(regrtest)
         tempdir = py.test.ensuretemp(self.fspath.basename)
         oldcwd = tempdir.chdir()
         exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd)
         oldcwd.chdir()
         skipped = False
-        timedout = test_stderr.rfind(26*"=" + "timedout" + 26*"=") != -1 
-        if not timedout: 
+        timedout = test_stderr.rfind(26*"=" + "timedout" + 26*"=") != -1
+        if not timedout:
             timedout = test_stderr.rfind("KeyboardInterrupt") != -1
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
@@ -671,12 +663,12 @@ class ReallyRunFileExternal(py.test.collect.Item):
             # test in test_zipimport_support.py
             if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
                 outcome = 'FAIL'
-                exit_status = 2  
-        elif timedout: 
-            outcome = "T/O"    
-        else: 
+                exit_status = 2
+        elif timedout:
+            outcome = "T/O"
+        else:
             outcome = "ERR"
-        
+
         return skipped, exit_status, test_stdout, test_stderr
 
     def _keywords(self):
@@ -685,4 +677,3 @@ class ReallyRunFileExternal(py.test.collect.Item):
         if regrtest.core:
             lst.append('core')
         return lst
-

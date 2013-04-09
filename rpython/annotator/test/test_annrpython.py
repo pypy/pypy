@@ -6,14 +6,15 @@ from rpython.conftest import option
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator as _RPythonAnnotator
 from rpython.translator.translator import graphof as tgraphof
-from rpython.annotator import policy
+from rpython.annotator.policy import AnnotatorPolicy
+from rpython.annotator.signature import Sig
 from rpython.annotator.listdef import ListDef, ListChangeUnallowed
 from rpython.annotator.dictdef import DictDef
 from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import FlowObjSpace, FlowingError
+from rpython.flowspace.objspace import build_flow, FlowingError
 
 from rpython.translator.test import snippet
 
@@ -40,9 +41,6 @@ def somedict(s_key, s_value):
 
 
 class TestAnnotateTestCase:
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-
     def teardown_method(self, meth):
         assert annmodel.s_Bool == annmodel.SomeBool()
 
@@ -60,7 +58,7 @@ class TestAnnotateTestCase:
         except AttributeError:
             pass
         name = func.func_name
-        funcgraph = self.space.build_flow(func)
+        funcgraph = build_flow(func)
         funcgraph.source = inspect.getsource(func)
         return funcgraph
 
@@ -449,6 +447,25 @@ class TestAnnotateTestCase:
         s_item = s.listdef.listitem.s_value
         assert s_item.no_nul
 
+    def test_str_split_nul(self):
+        def f(n):
+            return n.split('\0')[0]
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeString(no_nul=False, can_be_None=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
+        assert s.no_nul
+
+        def g(n):
+            return n.split('\0', 1)[0]
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(g, [annmodel.SomeString(no_nul=False, can_be_None=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
+        assert not s.no_nul
+
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
         def f(a_str):
@@ -670,17 +687,17 @@ class TestAnnotateTestCase:
         assert s == a.bookkeeper.immutablevalue(42)
 
     def test_call_star_args(self):
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(snippet.call_star_args, [int])
         assert s.knowntype == int
 
     def test_call_star_args_multiple(self):
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(snippet.call_star_args_multiple, [int])
         assert s.knowntype == int
 
     def test_class_spec(self):
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(snippet.class_spec, [])
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == str
@@ -689,7 +706,7 @@ class TestAnnotateTestCase:
         x = snippet.PolyStk()
         def f():
             return x
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         py.test.raises(Exception, a.build_types, f, [])
 
     def test_exception_deduction_with_raise1(self):
@@ -775,7 +792,7 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomePBC)
         assert s.const == myobj
 
-    def test_cleanup_protocol(self): 
+    def test_cleanup_protocol(self):
         class Stuff:
             def __init__(self):
                 self.called = False
@@ -1983,13 +2000,9 @@ class TestAnnotateTestCase:
                 return None
         def g(a):
             x = f(a)
-            #assert x is not None
             if x is None:
                 return "abcd"
             return x
-            if isinstance(x, str):
-                return x
-            return "impossible"
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
@@ -2346,6 +2359,41 @@ class TestAnnotateTestCase:
             _mixin_ = True
 
             def m(self, v):
+                return v
+
+        class Base(object):
+            pass
+
+        class A(Base, Mixin):
+            pass
+
+        class B(Base, Mixin):
+            pass
+
+        class C(B):
+            pass
+
+        def f():
+            a = A()
+            v0 = a.m(2)
+            b = B()
+            v1 = b.m('x')
+            c = C()
+            v2 = c.m('y')
+            return v0, v1, v2
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s.items[0], annmodel.SomeInteger)
+        assert isinstance(s.items[1], annmodel.SomeChar)
+        assert isinstance(s.items[2], annmodel.SomeChar)
+
+    def test_mixin_staticmethod(self):
+        class Mixin(object):
+            _mixin_ = True
+
+            @staticmethod
+            def m(v):
                 return v
 
         class Base(object):
@@ -2742,7 +2790,7 @@ class TestAnnotateTestCase:
         def fun(x, y):
             return x+y
         s_nonneg = annmodel.SomeInteger(nonneg=True)
-        fun._annenforceargs_ = policy.Sig(int, s_nonneg)
+        fun._annenforceargs_ = Sig(int, s_nonneg)
 
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [s_nonneg, s_nonneg])
@@ -2766,7 +2814,7 @@ class TestAnnotateTestCase:
         def fun(x, y):
             return y
         s_nonneg = annmodel.SomeInteger(nonneg=True)
-        fun._annenforceargs_ = policy.Sig(lambda s1,s2: s1, lambda s1,s2: s1)
+        fun._annenforceargs_ = Sig(lambda s1,s2: s1, lambda s1,s2: s1)
         # means: the 2nd argument's annotation becomes the 1st argument's
         #        input annotation
 
@@ -2969,7 +3017,7 @@ class TestAnnotateTestCase:
                     x > y,
                     x >= y)
 
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(fun, [float, float])
         assert [s_item.knowntype for s_item in s.items] == [bool] * 6
 
@@ -2982,41 +3030,14 @@ class TestAnnotateTestCase:
         def fun():
             return g([])
 
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(fun, [])
         assert s.const == 0
-
-    def test_some_generic_function_call(self):
-        def h(x):
-            return int(x)
-
-        def c(x):
-            return int(x)
-
-        def g(a, x):
-            if x == -1:
-                a = None
-            if x < 0:
-                if x == -1:
-                    a = h
-                else:
-                    a = c
-                x = x + .01
-            return a(x)
-
-        #def fun(x):
-
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
-        s = a.build_types(g, [annmodel.SomeGenericCallable(
-            args=[annmodel.SomeFloat()], result=annmodel.SomeInteger()),
-                              annmodel.SomeFloat()])
-        assert isinstance(s, annmodel.SomeInteger)
-        assert not hasattr(s, 'const')
 
     def test_compare_int_bool(self):
         def fun(x):
             return 50 < x
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(fun, [bool])
         assert isinstance(s, annmodel.SomeBool)
 
@@ -3029,7 +3050,7 @@ class TestAnnotateTestCase:
             else:
                 v = -maxint
             return intmask(v * 10)
-        P = policy.AnnotatorPolicy()
+        P = AnnotatorPolicy()
         a = self.RPythonAnnotator(policy=P)
         s = a.build_types(fun, [bool])
         assert isinstance(s, annmodel.SomeInteger)
@@ -3133,8 +3154,6 @@ class TestAnnotateTestCase:
         py.test.raises(AssertionError, a.build_types, f, [])
 
     def test_ctr_location(self):
-        from rpython.rlib.jit import hint
-
         class A:
             _annspecialcase_ = 'specialize:ctr_location'
             def __init__(self, x):
@@ -3723,7 +3742,7 @@ class TestAnnotateTestCase:
 
     def test_join_none_and_nonnull(self):
         from rpython.rlib.rstring import assert_str0
-        
+
         def f(i):
             a = str(i)
             a = assert_str0(a)
@@ -3733,6 +3752,19 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_None
+
+    def test_contains_no_nul(self):
+        def f(i):
+            if "\0" in i:
+                return None
+            else:
+                return i
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeString(no_nul=False)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+        assert s.no_nul
 
     def test_no___call__(self):
         class X(object):
@@ -3767,7 +3799,7 @@ class TestAnnotateTestCase:
         class A(object):
             def __iter__(self):
                 return self
-        
+
         def fn():
             return iter(A())
 
@@ -3826,7 +3858,7 @@ class TestAnnotateTestCase:
                 return True
 
         x = X()
-        
+
         def f(i):
             if i:
                 x1 = x
@@ -3884,8 +3916,38 @@ class TestAnnotateTestCase:
                                             int, int]),
                           annmodel.SomeInteger)
 
+    def test_constant_startswith_endswith(self):
+        def f():
+            return "abc".startswith("ab") and "abc".endswith("bc")
+        a = self.RPythonAnnotator()
+        assert a.build_types(f, []).const is True
+
+    def test_specific_attributes(self):
+        class A(object):
+            pass
+
+        class B(A):
+            def __init__(self, x):
+                assert x >= 0
+                self.x = x
+
+        def fn(i):
+            if i % 2:
+                a = A()
+            else:
+                a = B(3)
+            if i % 3:
+                a.x = -3
+            if isinstance(a, B):
+                return a.x
+            return 0
+
+        a = self.RPythonAnnotator()
+        assert not a.build_types(fn, [int]).nonneg
+
 def g(n):
-    return [0,1,2,n]
+    return [0, 1, 2, n]
+
 
 def f_calls_g(n):
     total = 0
@@ -3901,4 +3963,3 @@ constant_unsigned_five = r_uint(5)
 class Freezing:
     def _freeze_(self):
         return True
-

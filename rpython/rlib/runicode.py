@@ -18,7 +18,7 @@ BYTEORDER = sys.byteorder
 # or in unicodedata in pypy
 
 def unichr_returns_surrogate(c):
-    if c <= sys.maxunicode or c > MAXUNICODE:
+    if c <= 0xffff or c > 0x10ffff:
         return unichr(c)
     else:
         c -= 0x10000
@@ -31,8 +31,12 @@ def ord_accepts_surrogate(u):
         ch2 = ord(u[1])
         if 0xD800 <= ch1 <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
             return (((ch1 - 0xD800) << 10) | (ch2 - 0xDC00)) + 0x10000
-    assert len(u) == 1
-    return ord(u[0])
+    if not we_are_translated():
+        return ord(u)
+    else:
+        if len(u) == 1:
+            return ord(u[0])
+        raise TypeError
 
 if MAXUNICODE > sys.maxunicode:
     # A version of unichr which allows codes outside the BMP
@@ -872,7 +876,6 @@ def str_decode_utf_7(s, size, errors, final=False,
             else: # begin base64-encoded section
                 inShift = 1
                 shiftOutStartPos = pos - 1
-                bitsleft = 0
 
         elif _utf7_DECODE_DIRECT(oc): # character decodes at itself
             result.append(unichr(oc))
@@ -890,7 +893,6 @@ def str_decode_utf_7(s, size, errors, final=False,
         if (surrogate or
             base64bits >= 6 or
             (base64bits > 0 and base64buffer != 0)):
-            endinpos = size
             msg = "unterminated shift sequence"
             res, pos = errorhandler(errors, 'utf-7', msg, s, shiftOutStartPos, pos)
             result.append(res)
@@ -1114,7 +1116,6 @@ hexdigits = "0123456789ABCDEFabcdef"
 
 def hexescape(builder, s, pos, digits,
               encoding, errorhandler, message, errors):
-    import sys
     chr = 0
     if pos + digits > len(s):
         message = "end of string in escape sequence"

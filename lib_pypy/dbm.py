@@ -1,4 +1,4 @@
-from ctypes import Structure, c_char_p, c_int, c_void_p, CDLL
+from ctypes import Structure, c_char_p, c_int, c_void_p, CDLL, POINTER, c_char
 import ctypes.util
 import os, sys
 
@@ -11,7 +11,7 @@ class error(Exception):
 
 class datum(Structure):
     _fields_ = [
-    ('dptr', c_char_p),
+    ('dptr', POINTER(c_char)),
     ('dsize', c_int),
     ]
 
@@ -126,8 +126,8 @@ if sys.platform != 'darwin':
     libpath = ctypes.util.find_library('db')
     if not libpath:
         # XXX this is hopeless...
-        for c in '56789':
-            libpath = ctypes.util.find_library('db-4.%s' % c)
+        for c in ['5.3', '5.2', '5.1', '5.0', '4.9', '4.8', '4.7', '4.6', '4.5']:
+            libpath = ctypes.util.find_library('db-%s' % c)
             if libpath:
                 break
         else:
@@ -168,7 +168,7 @@ def open(filename, flag='r', mode=0666):
             'c': os.O_RDWR | os.O_CREAT,
             'n': os.O_RDWR | os.O_CREAT | os.O_TRUNC,
             }[flag]
-    except KeyError, e:
+    except KeyError:
         raise error("arg 2 to open should be 'r', 'w', 'c', or 'n'")
 
     a_db = getattr(lib, funcs['open'])(filename, openflag, mode)

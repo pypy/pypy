@@ -32,10 +32,10 @@ class FailedToImplement(Exception):
 
     def get_w_value(self, space):
         return None
-    
+
     def get_w_type(self, space):
         return None
-    
+
     def __str__(self):
         return '<FailedToImplement(None, None)>'
 
@@ -47,13 +47,13 @@ class FailedToImplementArgs(FailedToImplement):
     def get_w_value(self, space):
         # convenience: same semantics as with OperationError
         return self.w_value
-    
+
     def get_w_type(self, space):
         return self.w_type
 
     def __str__(self):
         return '<FailedToImplement(%s, %s)>' % (self.w_type, self.w_value)
-    
+
 
 
 def raiseFailedToImplement():
@@ -108,9 +108,9 @@ class MultiMethodTable:
         if installer.is_empty():
             return None
         else:
-            return installer.install()        
-        
-    
+            return installer.install()
+
+
 
     # ____________________________________________________________
     # limited dict-like interface to the dispatch table
@@ -176,7 +176,7 @@ class InstallerVersion1:
         self.non_empty = self.build_tree([], multimethod.dispatch_tree)
 
         self.baked_perform_call = baked_perform_call
-        
+
         if self.non_empty:
             perform = [(None, prefix, 0)]
         else:
@@ -353,18 +353,18 @@ class InstallerVersion1:
         bodylines.append('')
         source = '\n'.join(bodylines)
 
-        # XXX find a better place (or way) to avoid duplicate functions 
+        # XXX find a better place (or way) to avoid duplicate functions
         l = miniglobals.items()
         l.sort()
         l = tuple(l)
         key = (source, l)
-        try: 
+        try:
             func = self.mmfunccache[key]
-        except KeyError: 
+        except KeyError:
             exec compile2(source) in miniglobals
             func = miniglobals[funcname]
-            self.mmfunccache[key] = func 
-        #else: 
+            self.mmfunccache[key] = func
+        #else:
         #    print "avoided duplicate function", func
         self.to_install.append((target, funcname, func, source, fallback))
         return func
@@ -791,7 +791,7 @@ def commonbase(classlist):
             if '_mixin_' not in base.__dict__:
                 result |= baseclasses(base)
         return result
-    
+
     bag = baseclasses(classlist[0])
     for cls in classlist[1:]:
         bag &= baseclasses(cls)
@@ -959,6 +959,7 @@ class InstallerVersion2(object):
         miniglobals['__name__'] = __name__
         entry = FuncEntry(bodylines, miniglobals, fallback)
         key = entry.key()
+
         try:
             entry = self.mmfunccache[key]
         except KeyError:

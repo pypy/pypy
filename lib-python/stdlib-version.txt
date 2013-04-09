@@ -1,9 +1,9 @@
 in here there are copies of the Lib/ directory of the CPython HG repository
 at http://hg.python.org/cpython/
 
-the putputs for hg id of each are:
+the outputs for hg id of each are:
 
     2.7::
         6904e229833d (2.7) tip
-    3.2::
+    3::
         3d0686d90f55 (3.2) v3.2.3

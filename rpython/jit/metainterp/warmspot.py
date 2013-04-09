@@ -6,7 +6,6 @@ from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator,\
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
-from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.flowspace.model import checkgraph, Link, copygraph
 from rpython.rlib.objectmodel import we_are_translated
@@ -921,11 +920,8 @@ class WarmRunnerDesc(object):
             EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
-        gc_set_extra_threshold = getattr(self.cpu, 'gc_set_extra_threshold',
-                                         lambda: None)
 
         def assembler_call_helper(deadframe, virtualizableref):
-            gc_set_extra_threshold()    # XXX temporary hack
             fail_descr = self.cpu.get_latest_descr(deadframe)
             if vinfo is not None:
                 virtualizable = lltype.cast_opaque_ptr(

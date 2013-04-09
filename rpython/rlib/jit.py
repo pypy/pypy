@@ -206,13 +206,11 @@ def isvirtual(value):
     return NonConstant(False)
 isvirtual._annspecialcase_ = "specialize:call_location"
 
-LIST_CUTOFF = 2
-
 @specialize.call_location()
-def loop_unrolling_heuristic(lst, size):
+def loop_unrolling_heuristic(lst, size, cutoff=2):
     """ In which cases iterating over items of lst can be unrolled
     """
-    return isvirtual(lst) or (isconstant(size) and size <= LIST_CUTOFF)
+    return isvirtual(lst) or (isconstant(size) and size <= cutoff)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -476,7 +474,7 @@ class JitDriver(object):
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver'):
+                 name='jitdriver', check_untranslated=True):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -511,6 +509,7 @@ class JitDriver(object):
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
+        self.check_untranslated = check_untranslated
 
     def _freeze_(self):
         return True
@@ -565,13 +564,15 @@ class JitDriver(object):
 
     def jit_merge_point(_self, **livevars):
         # special-cased by ExtRegistryEntry
-        _self._check_arguments(livevars)
+        if _self.check_untranslated:
+            _self._check_arguments(livevars)
 
     def can_enter_jit(_self, **livevars):
         if _self.autoreds:
             raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
         # special-cased by ExtRegistryEntry
-        _self._check_arguments(livevars)
+        if _self.check_untranslated:
+            _self._check_arguments(livevars)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry
@@ -595,7 +596,7 @@ class JitDriver(object):
             return result
 
         return decorate
-        
+
 
     def clone(self):
         assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
@@ -841,7 +842,7 @@ class ExtSetParam(ExtRegistryEntry):
         assert s_name.is_constant()
         if s_name.const == 'enable_opts':
             assert annmodel.SomeString(can_be_None=True).contains(s_value)
-        else: 
+        else:
             assert (s_value == annmodel.s_None or
                     annmodel.SomeInteger().contains(s_value))
         return annmodel.s_None
@@ -873,7 +874,7 @@ class ExtSetParam(ExtRegistryEntry):
 
 class AsmInfo(object):
     """ An addition to JitDebugInfo concerning assembler. Attributes:
-    
+
     ops_offset - dict of offsets of operations or None
     asmaddr - (int) raw address of assembler block
     asmlen - assembler block length
@@ -890,24 +891,24 @@ class JitDebugInfo(object):
     logger - an instance of jit.metainterp.logger.LogOperations
     type - either 'loop', 'entry bridge' or 'bridge'
     looptoken - description of a loop
-    fail_descr_no - number of failing descr for bridges, -1 otherwise
+    fail_descr - fail descr or None
     asminfo - extra assembler information
     """
 
     asminfo = None
     def __init__(self, jitdriver_sd, logger, looptoken, operations, type,
-                 greenkey=None, fail_descr_no=-1):
+                 greenkey=None, fail_descr=None):
         self.jitdriver_sd = jitdriver_sd
         self.logger = logger
         self.looptoken = looptoken
         self.operations = operations
         self.type = type
         if type == 'bridge':
-            assert fail_descr_no != -1
+            assert fail_descr is not None
         else:
             assert greenkey is not None
         self.greenkey = greenkey
-        self.fail_descr_no = fail_descr_no
+        self.fail_descr = fail_descr
 
     def get_jitdriver(self):
         """ Return where the jitdriver on which the jitting started
@@ -983,7 +984,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import rclass, lltype
-        
+
         classrepr = rclass.get_type_repr(hop.rtyper)
 
         hop.exception_cannot_occur()

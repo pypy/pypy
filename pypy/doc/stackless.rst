@@ -17,8 +17,8 @@ This feature is based on a custom primitive called a continulet_.
 Continulets can be directly used by application code, or it is possible
 to write (entirely at app-level) more user-friendly interfaces.
 
-Currently PyPy implements greenlets_ on top of continulets.  It would be
-easy to implement tasklets and channels as well, emulating the model
+Currently PyPy implements greenlets_ on top of continulets.  It also
+implements (an approximation of) tasklets and channels, emulating the model
 of `Stackless Python`_.
 
 Continulets are extremely light-weight, which means that PyPy should be
@@ -29,7 +29,7 @@ memory (4KB) per live continulet, and half a megabyte of virtual memory
 on 32-bit or a complete megabyte on 64-bit.  Moreover, the feature is
 only available (so far) on x86 and x86-64 CPUs; for other CPUs you need
 to add a short page of custom assembler to
-`pypy/translator/c/src/stacklet/`_.
+`rpython/translator/c/src/stacklet/`_.
 
 
 Theory
@@ -271,9 +271,9 @@ Stacklets
 Continulets are internally implemented using stacklets, which is the
 generic RPython-level building block for "one-shot continuations".  For
 more information about them please see the documentation in the C source
-at `pypy/translator/c/src/stacklet/stacklet.h`_.
+at `rpython/translator/c/src/stacklet/stacklet.h`_.
 
-The module ``pypy.rlib.rstacklet`` is a thin wrapper around the above
+The module ``rpython.rlib.rstacklet`` is a thin wrapper around the above
 functions.  The key point is that new() and switch() always return a
 fresh stacklet handle (or an empty one), and switch() additionally
 consumes one.  It makes no sense to have code in which the returned

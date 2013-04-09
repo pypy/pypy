@@ -1,23 +1,21 @@
 from weakref import WeakValueDictionary
+
 from rpython.annotator import model as annmodel
-from rpython.rtyper.error import TyperError
-from rpython.rlib.objectmodel import malloc_zero_filled, we_are_translated
-from rpython.rlib.objectmodel import _hash_string, enforceargs
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib import jit, types
 from rpython.rlib.debug import ll_assert
-from rpython.rlib import jit
+from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
+    _hash_string, keepalive_until_here, specialize)
+from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.rmodel import inputconst, IntegerRepr
+from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem import ll_str, llmemory
+from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
+    UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
+    typeOf, staticAdtMethod, GcForwardReference)
+from rpython.rtyper.rmodel import inputconst, Repr, IntegerRepr
 from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
-     AbstractUniCharRepr, AbstractStringIteratorRepr,
-     AbstractLLHelpers, AbstractUnicodeRepr)
-from rpython.rtyper.lltypesystem import ll_str
-from rpython.rtyper.lltypesystem.lltype import \
-     GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
-     Bool, Void, GcArray, nullptr, cast_primitive, typeOf,\
-     staticAdtMethod, GcForwardReference, malloc
-from rpython.rtyper.rmodel import Repr
-from rpython.rtyper.lltypesystem import llmemory
+    AbstractUniCharRepr, AbstractStringIteratorRepr, AbstractLLHelpers,
+    AbstractUnicodeRepr)
 from rpython.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
@@ -63,7 +61,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
                 llmemory.sizeof(CHAR_TP) * item)
 
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
-    @enforceargs(None, None, int, int, int)
+    @signature(types.any(), types.any(), types.int(), types.int(), types.int(), returns=types.none())
     def copy_string_contents(src, dst, srcstart, dststart, length):
         """Copies 'length' characters from the 'src' string to the 'dst'
         string, starting at position 'srcstart' and 'dststart'."""
@@ -266,12 +264,12 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strlen(s):
         return len(s.chars)
 
+    @signature(types.any(), types.int(), returns=types.any())
     def ll_stritem_nonneg(s, i):
         chars = s.chars
         ll_assert(i >= 0, "negative str getitem index")
         ll_assert(i < len(chars), "str getitem index out of bound")
         return chars[i]
-    ll_stritem_nonneg._annenforceargs_ = [None, int]
 
     def ll_chr2str(ch):
         if typeOf(ch) is Char:
@@ -511,6 +509,7 @@ class LLHelpers(AbstractLLHelpers):
         return s.chars[len(s.chars) - 1] == ch
 
     @jit.elidable
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_find_char(s, ch, start, end):
         i = start
         if end > len(s.chars):
@@ -520,7 +519,6 @@ class LLHelpers(AbstractLLHelpers):
                 return i
             i += 1
         return -1
-    ll_find_char._annenforceargs_ = [None, None, int, int]
 
     @jit.elidable
     def ll_rfind_char(s, ch, start, end):
@@ -680,7 +678,7 @@ class LLHelpers(AbstractLLHelpers):
             return -1
         return count
 
-    @enforceargs(int, None)
+    @signature(types.int(), types.any(), returns=types.any())
     @jit.look_inside_iff(lambda length, items: jit.loop_unrolling_heuristic(
         items, length))
     def ll_join_strs(length, items):
@@ -733,6 +731,8 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
+    @jit.oopspec('stroruni.slice(s1, start, stop)')
+    @signature(types.any(), types.int(), types.int(), returns=types.any())
     @jit.elidable
     def _ll_stringslice(s1, start, stop):
         lgt = stop - start
@@ -745,8 +745,6 @@ class LLHelpers(AbstractLLHelpers):
         newstr = s1.malloc(lgt)
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr
-    _ll_stringslice.oopspec = 'stroruni.slice(s1, start, stop)'
-    _ll_stringslice._annenforceargs_ = [None, int, int]
 
     def ll_stringslice_startonly(s1, start):
         return LLHelpers._ll_stringslice(s1, start, len(s1.chars))
@@ -1054,15 +1052,18 @@ class BaseStringIteratorRepr(AbstractStringIteratorRepr):
     def __init__(self):
         self.ll_striter = ll_striter
         self.ll_strnext = ll_strnext
+        self.ll_getnextindex = ll_getnextindex
 
 class StringIteratorRepr(BaseStringIteratorRepr):
 
+    external_item_repr = char_repr
     lowleveltype = Ptr(GcStruct('stringiter',
                                 ('string', string_repr.lowleveltype),
                                 ('index', Signed)))
 
 class UnicodeIteratorRepr(BaseStringIteratorRepr):
 
+    external_item_repr = unichar_repr
     lowleveltype = Ptr(GcStruct('unicodeiter',
                                 ('string', unicode_repr.lowleveltype),
                                 ('index', Signed)))
@@ -1086,6 +1087,9 @@ def ll_strnext(iter):
         raise StopIteration
     iter.index = index + 1
     return chars[index]
+
+def ll_getnextindex(iter):
+    return iter.index
 
 string_repr.iterator_repr = StringIteratorRepr()
 unicode_repr.iterator_repr = UnicodeIteratorRepr()

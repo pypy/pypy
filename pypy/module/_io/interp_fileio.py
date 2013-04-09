@@ -117,9 +117,6 @@ def new_buffersize(fd, currentsize):
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
 
-def verify_fd(fd):
-    return
-
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
         W_RawIOBase.__init__(self, space)
@@ -156,7 +153,6 @@ class W_FileIO(W_RawIOBase):
         fd_is_own = False
         try:
             if fd >= 0:
-                verify_fd(fd)
                 try:
                     os.fstat(fd)
                 except OSError, e:
@@ -237,7 +233,6 @@ class W_FileIO(W_RawIOBase):
         self.fd = -1
 
         try:
-            verify_fd(fd)
             os.close(fd)
         except OSError, e:
             raise wrap_oserror(space, e,
@@ -295,7 +290,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         if self.seekable < 0:
             try:
-                pos = os.lseek(self.fd, 0, os.SEEK_CUR)
+                os.lseek(self.fd, 0, os.SEEK_CUR)
             except OSError:
                 self.seekable = 0
             else:

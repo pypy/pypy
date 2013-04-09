@@ -3,13 +3,14 @@ Primitives.
 """
 
 from pypy.interpreter.error import operationerrfmt
-from rpython.rtyper.lltypesystem import lltype, rffi
+
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib import jit
+from rpython.rtyper.lltypesystem import lltype, rffi
 
-from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, misc
+from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypePrimitive(W_CType):
@@ -49,10 +50,9 @@ class W_CTypePrimitive(W_CType):
     def cast(self, w_ob):
         from pypy.module._cffi_backend import ctypeptr
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if (isinstance(ob, cdataobj.W_CData) and
-               isinstance(ob.ctype, ctypeptr.W_CTypePtrOrArray)):
-            value = rffi.cast(lltype.Signed, ob._cdata)
+        if (isinstance(w_ob, cdataobj.W_CData) and
+               isinstance(w_ob.ctype, ctypeptr.W_CTypePtrOrArray)):
+            value = rffi.cast(lltype.Signed, w_ob._cdata)
             value = self._cast_result(value)
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
@@ -99,7 +99,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
     cast_anything = True
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.space.wrap(ord(cdata[0]))
 
     def convert_to_object(self, cdata):
@@ -111,10 +111,9 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
             s = space.str_w(w_ob)
             if len(s) == 1:
                 return s[0]
-        ob = space.interpclass_w(w_ob)
-        if (isinstance(ob, cdataobj.W_CData) and
-               isinstance(ob.ctype, W_CTypePrimitiveChar)):
-            return ob._cdata[0]
+        if (isinstance(w_ob, cdataobj.W_CData) and
+               isinstance(w_ob.ctype, W_CTypePrimitiveChar)):
+            return w_ob._cdata[0]
         raise self._convert_error("string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
@@ -125,7 +124,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)
         return self.space.wrap(ord(unichardata[0]))
 
@@ -145,10 +144,9 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
             s = space.unicode_w(w_ob)
             if len(s) == 1:
                 return s[0]
-        ob = space.interpclass_w(w_ob)
-        if (isinstance(ob, cdataobj.W_CData) and
-               isinstance(ob.ctype, W_CTypePrimitiveUniChar)):
-            return rffi.cast(rffi.CWCHARP, ob._cdata)[0]
+        if (isinstance(w_ob, cdataobj.W_CData) and
+               isinstance(w_ob.ctype, W_CTypePrimitiveUniChar)):
+            return rffi.cast(rffi.CWCHARP, w_ob._cdata)[0]
         raise self._convert_error("unicode string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
@@ -164,16 +162,14 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size <= rffi.sizeof(lltype.Signed)
-        if self.size < rffi.sizeof(lltype.SignedLongLong):
+        if self.size < rffi.sizeof(lltype.Signed):
             assert self.value_fits_long
             sh = self.size * 8
             self.vmin = r_uint(-1) << (sh - 1)
             self.vrangemax = (r_uint(1) << sh) - 1
 
-    def int(self, cdata):
-        # enums: really call convert_to_object() just below,
-        # and not the one overridden in W_CTypeEnum.
-        return W_CTypePrimitiveSigned.convert_to_object(self, cdata)
+    def cast_to_int(self, cdata):
+        return self.convert_to_object(cdata)
 
     def convert_to_object(self, cdata):
         if self.value_fits_long:
@@ -217,7 +213,7 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
         sh = self.size * 8
         return (r_uint(1) << sh) - 1
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
 
     def convert_from_object(self, cdata, w_ob):
@@ -271,13 +267,12 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
 
     def cast(self, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            if not isinstance(ob.ctype, W_CTypePrimitive):
+        if isinstance(w_ob, cdataobj.W_CData):
+            if not isinstance(w_ob.ctype, W_CTypePrimitive):
                 raise operationerrfmt(space.w_TypeError,
                                       "cannot cast ctype '%s' to ctype '%s'",
-                                      ob.ctype.name, self.name)
-            w_ob = ob.convert_to_object()
+                                      w_ob.ctype.name, self.name)
+            w_ob = w_ob.convert_to_object()
         #
         if space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
@@ -293,7 +288,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             keepalive_until_here(w_cdata)
         return w_cdata
 
-    def int(self, cdata):
+    def cast_to_int(self, cdata):
         w_value = self.float(cdata)
         return self.space.int(w_value)
 
@@ -320,11 +315,10 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
 
     def cast(self, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if (isinstance(ob, cdataobj.W_CData) and
-                isinstance(ob.ctype, W_CTypePrimitiveLongDouble)):
-            w_cdata = self.convert_to_object(ob._cdata)
-            keepalive_until_here(ob)
+        if (isinstance(w_ob, cdataobj.W_CData) and
+                isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble)):
+            w_cdata = self.convert_to_object(w_ob._cdata)
+            keepalive_until_here(w_ob)
             return w_cdata
         else:
             return W_CTypePrimitiveFloat.cast(self, w_ob)
@@ -357,11 +351,10 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if (isinstance(ob, cdataobj.W_CData) and
-                isinstance(ob.ctype, W_CTypePrimitiveLongDouble)):
-            self._copy_longdouble(ob._cdata, cdata)
-            keepalive_until_here(ob)
+        if (isinstance(w_ob, cdataobj.W_CData) and
+                isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble)):
+            self._copy_longdouble(w_ob._cdata, cdata)
+            keepalive_until_here(w_ob)
         else:
             value = space.float_w(space.float(w_ob))
             self._to_longdouble_and_write(value, cdata)

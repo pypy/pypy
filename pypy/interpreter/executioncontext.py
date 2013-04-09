@@ -1,6 +1,5 @@
 import sys
 from pypy.interpreter.error import OperationError
-from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 
@@ -40,6 +39,7 @@ class ExecutionContext(object):
     def gettopframe(self):
         return self.topframeref()
 
+    @jit.unroll_safe
     def gettopframe_nohidden(self):
         frame = self.topframeref()
         while frame and frame.hide():

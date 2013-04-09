@@ -7,7 +7,7 @@ from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
 from rpython.tool.udir import udir
-from zipfile import ZIP_STORED, ZIP_DEFLATED
+from zipfile import ZIP_STORED
 
 
 class AppTestZipimport:
@@ -53,7 +53,7 @@ class AppTestZipimport:
 
         space = cls.space
 
-        tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
+        tmpdir = udir.ensure('zipimport_%s_%s' % (__name__, cls.__name__), dir=1)
         now = time.time()
         cls.w_now = space.wrap(now)
         test_pyc = cls.make_pyc(space, co, now)
@@ -94,6 +94,9 @@ class AppTestZipimport:
                 del sys.modules[module]
         """)
         self.w_modules = []
+
+    def w_now_in_the_future(self, delta):
+        self.now += delta
 
     def w_writefile(self, filename, data):
         import sys
@@ -264,10 +267,12 @@ class AppTestZipimport:
         import os
         import zipimport
         data = "saddsadsa"
+        pyc_data = self.test_pyc
+        self.now_in_the_future(+5)   # write the zipfile 5 secs after the .pyc
         self.writefile("xxx", data)
         self.writefile("xx/__init__.py", "5")
         self.writefile("yy.py", "3")
-        self.writefile('uu.pyc', self.test_pyc)
+        self.writefile('uu.pyc', pyc_data)
         z = zipimport.zipimporter(self.zipfile)
         assert z.get_data(self.zipfile + os.sep + "xxx") == data
         assert z.is_package("xx")
@@ -277,6 +282,7 @@ class AppTestZipimport:
         raises(ImportError, "z.get_source('zz')")
         #assert z.get_code('yy') == py.code.Source('3').compile()
         #assert z.get_code('uu') == self.co
+        assert z.get_code('uu')
         assert z.get_code('xx')
         assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile
@@ -352,20 +358,6 @@ def get_co_filename():
         code = z.get_code('mymodule')
         co_filename = code.co_filename
         assert co_filename == expected
-
-
-class AppTestZipimportDeflated(AppTestZipimport):
-    compression = ZIP_DEFLATED
-    spaceconfig = {
-        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'itertools', 'binascii'],
-    }
-
-    def setup_class(cls):
-        try:
-            import rpython.rlib.rzlib
-        except ImportError:
-            py.test.skip("zlib not available, cannot test compressed zipfiles")
-        cls.make_class()
 
 
 if os.sep != '/':

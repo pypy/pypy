@@ -1,5 +1,5 @@
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -30,7 +30,7 @@ class Cache:
 def get_error(space):
     return space.fromcache(Cache).w_error
 
-class W_ZipCache(Wrappable):
+class W_ZipCache(W_Root):
     def __init__(self):
         self.cache = {}
 
@@ -52,10 +52,8 @@ class W_ZipCache(Wrappable):
             raise OperationError(space.w_KeyError, space.wrap(name))
         assert isinstance(w_zipimporter, W_ZipImporter)
         w = space.wrap
-        values = {}
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
-            w_values = space.newdict()
             space.setitem(w_d, w(key), space.newtuple([
                 w(info.filename), w(info.compress_type), w(info.compress_size),
                 w(info.file_size), w(info.file_offset), w(info.dostime),
@@ -114,7 +112,7 @@ W_ZipCache.typedef = TypeDef(
 
 zip_cache = W_ZipCache()
 
-class W_ZipImporter(Wrappable):
+class W_ZipImporter(W_Root):
     def __init__(self, space, name, filename, zip_file, prefix):
         self.space = space
         self.name = name
@@ -125,7 +123,7 @@ class W_ZipImporter(Wrappable):
     def getprefix(self, space):
         if ZIPSEP == os.path.sep:
             return space.wrap(self.prefix)
-        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))    
+        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))
 
     def _find_relative_path(self, filename):
         if filename.startswith(self.filename):
@@ -172,23 +170,23 @@ class W_ZipImporter(Wrappable):
             return mtime
 
     def check_newer_pyfile(self, space, filename, timestamp):
+        # check if the timestamp stored in the .pyc is matching
+        # the actual timestamp of the .py file, if any
         mtime = self._parse_mtime(space, filename)
         if mtime == 0:
             return False
-        return mtime > timestamp
-
-    def check_compatible_mtime(self, space, filename, timestamp):
-        mtime = self._parse_mtime(space, filename)
-        if mtime == 0 or mtime != (timestamp & (~1)):
-            return False
-        return True
+        # Lenient date/time comparison function. The precision of the mtime
+        # in the archive is lower than the mtime stored in a .pyc: we
+        # must allow a difference of at most one second.
+        d = mtime - timestamp
+        if d < 0:
+            d = -d
+        return d > 1    # more than one second => different
 
     def can_use_pyc(self, space, filename, magic, timestamp):
         if magic != importing.get_pyc_magic(space):
             return False
         if self.check_newer_pyfile(space, filename[:-1], timestamp):
-            return False
-        if not self.check_compatible_mtime(space, filename, timestamp):
             return False
         return True
 
@@ -350,7 +348,6 @@ class W_ZipImporter(Wrappable):
 
 @unwrap_spec(name='str0')
 def descr_new_zipimporter(space, w_type, name):
-    w = space.wrap
     ok = False
     parts_ends = [i for i in range(0, len(name))
                     if name[i] == os.path.sep or name[i] == ZIPSEP]
@@ -406,4 +403,3 @@ W_ZipImporter.typedef = TypeDef(
     archive     = GetSetProperty(W_ZipImporter.getarchive),
     prefix      = GetSetProperty(W_ZipImporter.getprefix),
 )
-

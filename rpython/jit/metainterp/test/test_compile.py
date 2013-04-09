@@ -11,6 +11,9 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
+    class tracker:
+        pass
+    
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
@@ -77,8 +80,8 @@ def test_compile_loop():
     metainterp.history = History()
     metainterp.history.operations = loop.operations[:-1]
     metainterp.history.inputargs = loop.inputargs[:]
-    cpu._all_size_descrs_with_vtable = (
-        LLtypeMixin.cpu._all_size_descrs_with_vtable)
+    cpu.tracker._all_size_descrs_with_vtable = (
+        LLtypeMixin.cpu.tracker._all_size_descrs_with_vtable)
     #
     greenkey = 'faked'
     target_token = compile_loop(metainterp, greenkey, 0,

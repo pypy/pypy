@@ -35,7 +35,8 @@ class BadToken(Exception):
     pass
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
-                        "unegative", "flat", "tostring","count_nonzero"]
+                        "unegative", "flat", "tostring","count_nonzero",
+                        "argsort"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
 THREE_ARG_FUNCTIONS = ['where']
 
@@ -482,6 +483,8 @@ class FunctionCall(Node):
                 w_res = cos.call(interp.space, [arr])                
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
+            elif self.name == "argsort":
+                w_res = arr.descr_argsort(interp.space)
             elif self.name == "tostring":
                 arr.descr_tostring(interp.space)
                 w_res = None

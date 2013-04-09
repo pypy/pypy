@@ -32,8 +32,7 @@ class SignalActionFlag(AbstractActionFlag):
         p = pypysig_getaddr_occurred()
         p.c_value = value
 
-    @staticmethod
-    def rearm_ticker():
+    def rearm_ticker(self):
         p = pypysig_getaddr_occurred()
         p.c_value = -1
 
@@ -60,19 +59,18 @@ class CheckSignalAction(PeriodicAsyncAction):
     def __init__(self, space):
         "NOT_RPYTHON"
         AsyncAction.__init__(self, space)
-        self.handlers_w = {}
         self.pending_signal = -1
-        self.fire_in_main_thread = False
+        self.fire_in_another_thread = False
         if self.space.config.objspace.usemodules.thread:
             from pypy.module.thread import gil
             gil.after_thread_switch = self._after_thread_switch
 
     @rgc.no_collect
     def _after_thread_switch(self):
-        if self.fire_in_main_thread:
-            if self.space.threadlocals.ismainthread():
-                self.fire_in_main_thread = False
-                SignalActionFlag.rearm_ticker()
+        if self.fire_in_another_thread:
+            if self.space.threadlocals.signals_enabled():
+                self.fire_in_another_thread = False
+                self.space.actionflag.rearm_ticker()
                 # this occurs when we just switched to the main thread
                 # and there is a signal pending: we force the ticker to
                 # -1, which should ensure perform() is called quickly.
@@ -83,22 +81,18 @@ class CheckSignalAction(PeriodicAsyncAction):
         n = self.pending_signal
         if n < 0: n = pypysig_poll()
         while n >= 0:
-            if self.space.config.objspace.usemodules.thread:
-                in_main = self.space.threadlocals.ismainthread()
-            else:
-                in_main = True
-            if in_main:
+            if self.space.threadlocals.signals_enabled():
                 # If we are in the main thread, report the signal now,
                 # and poll more
                 self.pending_signal = -1
-                self._report_signal(n)
+                report_signal(self.space, n)
                 n = self.pending_signal
                 if n < 0: n = pypysig_poll()
             else:
                 # Otherwise, arrange for perform() to be called again
                 # after we switch to the main thread.
                 self.pending_signal = n
-                self.fire_in_main_thread = True
+                self.fire_in_another_thread = True
                 break
 
     def set_interrupt(self):
@@ -106,24 +100,40 @@ class CheckSignalAction(PeriodicAsyncAction):
         if not we_are_translated():
             self.pending_signal = cpy_signal.SIGINT
             # ^^^ may override another signal, but it's just for testing
+            self.fire_in_another_thread = True
         else:
             pypysig_pushback(cpy_signal.SIGINT)
-        self.fire_in_main_thread = True
 
-    def _report_signal(self, n):
-        try:
-            w_handler = self.handlers_w[n]
-        except KeyError:
-            return    # no handler, ignore signal
-        space = self.space
-        if not space.is_true(space.callable(w_handler)):
-            return    # w_handler is SIG_IGN or SIG_DFL?
-        # re-install signal handler, for OSes that clear it
-        pypysig_reinstall(n)
-        # invoke the app-level handler
-        ec = space.getexecutioncontext()
-        w_frame = space.wrap(ec.gettopframe_nohidden())
-        space.call_function(w_handler, space.wrap(n), w_frame)
+# ____________________________________________________________
+
+
+class Handlers:
+    def __init__(self, space):
+        self.handlers_w = {}
+        for signum in range(1, NSIG):
+            if WIN32 and signum not in signal_values:
+                self.handlers_w[signum] = space.w_None
+            else:
+                self.handlers_w[signum] = space.wrap(SIG_DFL)
+
+def _get_handlers(space):
+    return space.fromcache(Handlers).handlers_w
+
+
+def report_signal(space, n):
+    handlers_w = _get_handlers(space)
+    try:
+        w_handler = handlers_w[n]
+    except KeyError:
+        return    # no handler, ignore signal
+    if not space.is_true(space.callable(w_handler)):
+        return    # w_handler is SIG_IGN or SIG_DFL?
+    # re-install signal handler, for OSes that clear it
+    pypysig_reinstall(n)
+    # invoke the app-level handler
+    ec = space.getexecutioncontext()
+    w_frame = space.wrap(ec.gettopframe_nohidden())
+    space.call_function(w_handler, space.wrap(n), w_frame)
 
 
 @unwrap_spec(signum=int)
@@ -134,17 +144,12 @@ def getsignal(space, signum):
     Return the current action for the given signal.  The return value can be:
     SIG_IGN -- if the signal is being ignored
     SIG_DFL -- if the default action for the signal is in effect
-    None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
+    None -- if an unknown handler is in effect
     anything else -- the callable Python object used as a handler
     """
-    if WIN32:
-        check_signum_exists(space, signum)
-    else:
-        check_signum_in_range(space, signum)
-    action = space.check_signal_action
-    if signum in action.handlers_w:
-        return action.handlers_w[signum]
-    return space.wrap(SIG_DFL)
+    check_signum_in_range(space, signum)
+    handlers_w = _get_handlers(space)
+    return handlers_w[signum]
 
 
 def default_int_handler(space, w_signum, w_frame):
@@ -170,13 +175,6 @@ def pause(space):
     return space.w_None
 
 
-def check_signum_exists(space, signum):
-    if signum in signal_values:
-        return
-    raise OperationError(space.w_ValueError,
-                         space.wrap("invalid signal value"))
-
-
 def check_signum_in_range(space, signum):
     if 1 <= signum < NSIG:
         return
@@ -198,16 +196,15 @@ def signal(space, signum, w_handler):
     A signal handler function is called with two arguments:
     the first is the signal number, the second is the interrupted stack frame.
     """
-    ec = space.getexecutioncontext()
-    main_ec = space.threadlocals.getmainthreadvalue()
-
-    old_handler = getsignal(space, signum)
-
-    if ec is not main_ec:
+    if WIN32 and signum not in signal_values:
         raise OperationError(space.w_ValueError,
-                             space.wrap("signal() must be called from the "
-                                        "main thread"))
-    action = space.check_signal_action
+                             space.wrap("invalid signal value"))
+    if not space.threadlocals.signals_enabled():
+        raise OperationError(space.w_ValueError,
+                             space.wrap("signal only works in main thread "
+                                 "or with __pypy__.thread.enable_signals()"))
+    check_signum_in_range(space, signum)
+
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
         pypysig_default(signum)
     elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
@@ -218,7 +215,10 @@ def signal(space, signum, w_handler):
                                  space.wrap("'handler' must be a callable "
                                             "or SIG_DFL or SIG_IGN"))
         pypysig_setflag(signum)
-    action.handlers_w[signum] = w_handler
+
+    handlers_w = _get_handlers(space)
+    old_handler = handlers_w[signum]
+    handlers_w[signum] = w_handler
     return old_handler
 
 
@@ -231,13 +231,11 @@ def set_wakeup_fd(space, fd):
 
     The fd must be non-blocking.
     """
-    if space.config.objspace.usemodules.thread:
-        main_ec = space.threadlocals.getmainthreadvalue()
-        ec = space.getexecutioncontext()
-        if ec is not main_ec:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("set_wakeup_fd only works in main thread"))
+    if not space.threadlocals.signals_enabled():
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("set_wakeup_fd only works in main thread "
+                       "or with __pypy__.thread.enable_signals()"))
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 
@@ -245,7 +243,7 @@ def set_wakeup_fd(space, fd):
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
-    check_signum_exists(space, signum)
+    check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))

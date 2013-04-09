@@ -1,18 +1,18 @@
 
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
      interp_attrproperty, interp_attrproperty_w)
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
 from rpython.rtyper.lltypesystem.rclass import OBJECT
-from rpython.jit.metainterp.resoperation import rop, AbstractResOp
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import jit_hooks
 from rpython.rlib.jit import Counters
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.objectmodel import compute_unique_id
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
@@ -114,7 +114,8 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
                                  logops.repr_of_resop(op)))
     return l_w
 
-class WrappedBox(Wrappable):
+
+class WrappedBox(W_Root):
     """ A class representing a single box
     """
     def __init__(self, llbox):
@@ -133,15 +134,18 @@ WrappedBox.typedef = TypeDef(
     getint = interp2app(WrappedBox.descr_getint),
 )
 
-@unwrap_spec(num=int, offset=int, repr=str, res=WrappedBox)
-def descr_new_resop(space, w_tp, num, w_args, res, offset=-1,
+@unwrap_spec(num=int, offset=int, repr=str, w_res=W_Root)
+def descr_new_resop(space, w_tp, num, w_args, w_res, offset=-1,
                     repr=''):
     args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
             space.listview(w_args)]
-    if res is None:
+    if space.is_none(w_res):
         llres = jit_hooks.emptyval()
     else:
-        llres = res.llbox
+        if not isinstance(w_res, WrappedBox):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "expected box type, got %s" % space.type(w_res)))
+        llres = w_res.llbox
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
 
 @unwrap_spec(repr=str, jd_name=str, call_depth=int, call_id=int)
@@ -155,7 +159,8 @@ def descr_new_dmp(space, w_tp, w_args, repr, jd_name, call_depth, call_id,
                            jit_hooks.resop_new(num, args, jit_hooks.emptyval()),
                            repr, jd_name, call_depth, call_id, w_greenkey)
 
-class WrappedOp(Wrappable):
+
+class WrappedOp(W_Root):
     """ A class representing a single ResOperation, wrapped nicely
     """
     def __init__(self, op, offset, repr_of_resop):
@@ -176,9 +181,9 @@ class WrappedOp(Wrappable):
     def descr_getarg(self, space, no):
         return WrappedBox(jit_hooks.resop_getarg(self.op, no))
 
-    @unwrap_spec(no=int, box=WrappedBox)
-    def descr_setarg(self, space, no, box):
-        jit_hooks.resop_setarg(self.op, no, box.llbox)
+    @unwrap_spec(no=int, w_box=WrappedBox)
+    def descr_setarg(self, space, no, w_box):
+        jit_hooks.resop_setarg(self.op, no, w_box.llbox)
 
     def descr_getresult(self, space):
         return WrappedBox(jit_hooks.resop_getresult(self.op))
@@ -191,7 +196,7 @@ class DebugMergePoint(WrappedOp):
     """ A class representing Debug Merge Point - the entry point
     to a jitted loop.
     """
-    
+
     def __init__(self, space, op, repr_of_resop, jd_name, call_depth, call_id,
         w_greenkey):
 
@@ -249,15 +254,16 @@ DebugMergePoint.typedef = TypeDef(
 )
 DebugMergePoint.acceptable_as_base_class = False
 
-class W_JitLoopInfo(Wrappable):
+
+class W_JitLoopInfo(W_Root):
     """ Loop debug information
     """
-    
+
     w_green_key = None
     bridge_no   = 0
     asmaddr     = 0
     asmlen      = 0
-    
+
     def __init__(self, space, debug_info, is_bridge=False):
         logops = debug_info.logger._make_log_operations()
         if debug_info.asminfo is not None:
@@ -266,11 +272,12 @@ class W_JitLoopInfo(Wrappable):
             ofs = {}
         self.w_ops = space.newlist(
             wrap_oplist(space, logops, debug_info.operations, ofs))
-        
+
         self.jd_name = debug_info.get_jitdriver().name
         self.type = debug_info.type
         if is_bridge:
-            self.bridge_no = debug_info.fail_descr_no
+            self.bridge_no = compute_unique_id(debug_info.fail_descr)
+            #self.bridge_no = debug_info.fail_descr_no
             self.w_green_key = space.w_None
         else:
             self.w_green_key = wrap_greenkey(space,
@@ -336,7 +343,8 @@ W_JitLoopInfo.typedef = TypeDef(
 )
 W_JitLoopInfo.acceptable_as_base_class = False
 
-class W_JitInfoSnapshot(Wrappable):
+
+class W_JitInfoSnapshot(W_Root):
     def __init__(self, space, w_times, w_counters, w_counter_times):
         self.w_loop_run_times = w_times
         self.w_counters = w_counters

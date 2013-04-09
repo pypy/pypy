@@ -1,6 +1,6 @@
-import py, os, sys
+import sys
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
-from rpython.config.config import ChoiceOption, StrOption, to_optparse, Config
+from rpython.config.config import ChoiceOption, StrOption, Config
 from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
 
@@ -115,7 +115,7 @@ translation_optiondescription = OptionDescription(
                          ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
-                 ["auto", "x86", "x86-without-sse2", 'arm'],
+                 ["auto", "x86", "x86-without-sse2", 'armv7', 'armv7hf', 'armv6hf'],
                  default="auto", cmdline="--jit-backend"),
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
@@ -183,6 +183,9 @@ translation_optiondescription = OptionDescription(
                "When true, enable the use of tagged pointers. "
                "If false, use normal boxing",
                default=False),
+    BoolOption("lldebug",
+               "If true, makes an lldebug build", default=False,
+               cmdline="--lldebug"),
 
     # options for ootype
     OptionDescription("ootype", "Object Oriented Typesystem options", [
@@ -346,11 +349,6 @@ def set_opt_level(config, level):
     """Apply optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.
     """
-    # warning: during some tests, the type_system and the backend may be
-    # unspecified and we get None.  It shouldn't occur in translate.py though.
-    type_system = config.translation.type_system
-    backend = config.translation.backend
-
     try:
         opts = OPT_TABLE[level]
     except KeyError:

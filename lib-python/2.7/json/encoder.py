@@ -143,16 +143,16 @@ class JSONEncoder(object):
         self.skipkeys = skipkeys
         self.ensure_ascii = ensure_ascii
         if ensure_ascii:
-            self.encoder = raw_encode_basestring_ascii
+            self.__encoder = raw_encode_basestring_ascii
         else:
-            self.encoder = raw_encode_basestring
+            self.__encoder = raw_encode_basestring
         if encoding != 'utf-8':
-            orig_encoder = self.encoder
+            orig_encoder = self.__encoder
             def encoder(o):
                 if isinstance(o, str):
                     o = o.decode(encoding)
                 return orig_encoder(o)
-            self.encoder = encoder
+            self.__encoder = encoder
         self.check_circular = check_circular
         self.allow_nan = allow_nan
         self.sort_keys = sort_keys
@@ -198,10 +198,10 @@ class JSONEncoder(object):
             builder = StringBuilder()
         else:
             builder = UnicodeBuilder()
-        self._encode(o, markers, builder, 0)
+        self.__encode(o, markers, builder, 0)
         return builder.build()
 
-    def _emit_indent(self, builder, _current_indent_level):
+    def __emit_indent(self, builder, _current_indent_level):
         if self.indent is not None:
             _current_indent_level += 1
             newline_indent = '\n' + (' ' * (self.indent *
@@ -212,15 +212,15 @@ class JSONEncoder(object):
             separator = self.item_separator
         return separator, _current_indent_level
 
-    def _emit_unindent(self, builder, _current_indent_level):
+    def __emit_unindent(self, builder, _current_indent_level):
         if self.indent is not None:
             builder.append('\n')
             builder.append(' ' * (self.indent * (_current_indent_level - 1)))
 
-    def _encode(self, o, markers, builder, _current_indent_level):
+    def __encode(self, o, markers, builder, _current_indent_level):
         if isinstance(o, basestring):
             builder.append('"')
-            builder.append(self.encoder(o))
+            builder.append(self.__encoder(o))
             builder.append('"')
         elif o is None:
             builder.append('null')
@@ -231,46 +231,46 @@ class JSONEncoder(object):
         elif isinstance(o, (int, long)):
             builder.append(str(o))
         elif isinstance(o, float):
-            builder.append(self._floatstr(o))
+            builder.append(self.__floatstr(o))
         elif isinstance(o, (list, tuple)):
             if not o:
                 builder.append('[]')
                 return
-            self._encode_list(o, markers, builder, _current_indent_level)
+            self.__encode_list(o, markers, builder, _current_indent_level)
         elif isinstance(o, dict):
             if not o:
                 builder.append('{}')
                 return
-            self._encode_dict(o, markers, builder, _current_indent_level)
+            self.__encode_dict(o, markers, builder, _current_indent_level)
         else:
-            self._mark_markers(markers, o)
+            self.__mark_markers(markers, o)
             res = self.default(o)
-            self._encode(res, markers, builder, _current_indent_level)
-            self._remove_markers(markers, o)
+            self.__encode(res, markers, builder, _current_indent_level)
+            self.__remove_markers(markers, o)
             return res
 
-    def _encode_list(self, l, markers, builder, _current_indent_level):
-        self._mark_markers(markers, l)
+    def __encode_list(self, l, markers, builder, _current_indent_level):
+        self.__mark_markers(markers, l)
         builder.append('[')
         first = True
-        separator, _current_indent_level = self._emit_indent(builder,
+        separator, _current_indent_level = self.__emit_indent(builder,
                                                       _current_indent_level)
         for elem in l:
             if first:
                 first = False
             else:
                 builder.append(separator)
-            self._encode(elem, markers, builder, _current_indent_level)
+            self.__encode(elem, markers, builder, _current_indent_level)
             del elem # XXX grumble
-        self._emit_unindent(builder, _current_indent_level)
+        self.__emit_unindent(builder, _current_indent_level)
         builder.append(']')
-        self._remove_markers(markers, l)
+        self.__remove_markers(markers, l)
 
-    def _encode_dict(self, d, markers, builder, _current_indent_level):
-        self._mark_markers(markers, d)
+    def __encode_dict(self, d, markers, builder, _current_indent_level):
+        self.__mark_markers(markers, d)
         first = True
         builder.append('{')
-        separator, _current_indent_level = self._emit_indent(builder,
+        separator, _current_indent_level = self.__emit_indent(builder,
                                                          _current_indent_level)
         if self.sort_keys:
             items = sorted(d.items(), key=lambda kv: kv[0])
@@ -287,7 +287,7 @@ class JSONEncoder(object):
             # JavaScript is weakly typed for these, so it makes sense to
             # also allow them.  Many encoders seem to do something like this.
             elif isinstance(key, float):
-                key = self._floatstr(key)
+                key = self.__floatstr(key)
             elif key is True:
                 key = 'true'
             elif key is False:
@@ -301,15 +301,15 @@ class JSONEncoder(object):
             else:
                 raise TypeError("key " + repr(key) + " is not a string")
             builder.append('"')
-            builder.append(self.encoder(key))
+            builder.append(self.__encoder(key))
             builder.append('"')
             builder.append(self.key_separator)
-            self._encode(v, markers, builder, _current_indent_level)
+            self.__encode(v, markers, builder, _current_indent_level)
             del key
             del v # XXX grumble
-        self._emit_unindent(builder, _current_indent_level)
+        self.__emit_unindent(builder, _current_indent_level)
         builder.append('}')
-        self._remove_markers(markers, d)
+        self.__remove_markers(markers, d)
 
     def iterencode(self, o, _one_shot=False):
         """Encode the given object and yield each string
@@ -325,9 +325,9 @@ class JSONEncoder(object):
             markers = {}
         else:
             markers = None
-        return self._iterencode(o, markers, 0)
+        return self.__iterencode(o, markers, 0)
 
-    def _floatstr(self, o):
+    def __floatstr(self, o):
         # Check for specials.  Note that this type of test is processor
         # and/or platform-specific, so do tests which don't depend on the
         # internals.
@@ -348,21 +348,21 @@ class JSONEncoder(object):
 
         return text
 
-    def _mark_markers(self, markers, o):
+    def __mark_markers(self, markers, o):
         if markers is not None:
             if id(o) in markers:
                 raise ValueError("Circular reference detected")
             markers[id(o)] = None
 
-    def _remove_markers(self, markers, o):
+    def __remove_markers(self, markers, o):
         if markers is not None:
             del markers[id(o)]
 
-    def _iterencode_list(self, lst, markers, _current_indent_level):
+    def __iterencode_list(self, lst, markers, _current_indent_level):
         if not lst:
             yield '[]'
             return
-        self._mark_markers(markers, lst)
+        self.__mark_markers(markers, lst)
         buf = '['
         if self.indent is not None:
             _current_indent_level += 1
@@ -380,7 +380,7 @@ class JSONEncoder(object):
             else:
                 buf = separator
             if isinstance(value, basestring):
-                yield buf + '"' + self.encoder(value) + '"'
+                yield buf + '"' + self.__encoder(value) + '"'
             elif value is None:
                 yield buf + 'null'
             elif value is True:
@@ -390,17 +390,17 @@ class JSONEncoder(object):
             elif isinstance(value, (int, long)):
                 yield buf + str(value)
             elif isinstance(value, float):
-                yield buf + self._floatstr(value)
+                yield buf + self.__floatstr(value)
             else:
                 yield buf
                 if isinstance(value, (list, tuple)):
-                    chunks = self._iterencode_list(value, markers,
+                    chunks = self.__iterencode_list(value, markers,
                                                    _current_indent_level)
                 elif isinstance(value, dict):
-                    chunks = self._iterencode_dict(value, markers,
+                    chunks = self.__iterencode_dict(value, markers,
                                                    _current_indent_level)
                 else:
-                    chunks = self._iterencode(value, markers,
+                    chunks = self.__iterencode(value, markers,
                                               _current_indent_level)
                 for chunk in chunks:
                     yield chunk
@@ -408,13 +408,13 @@ class JSONEncoder(object):
             _current_indent_level -= 1
             yield '\n' + (' ' * (self.indent * _current_indent_level))
         yield ']'
-        self._remove_markers(markers, lst)
+        self.__remove_markers(markers, lst)
 
-    def _iterencode_dict(self, dct, markers, _current_indent_level):
+    def __iterencode_dict(self, dct, markers, _current_indent_level):
         if not dct:
             yield '{}'
             return
-        self._mark_markers(markers, dct)
+        self.__mark_markers(markers, dct)
         yield '{'
         if self.indent is not None:
             _current_indent_level += 1
@@ -436,7 +436,7 @@ class JSONEncoder(object):
             # JavaScript is weakly typed for these, so it makes sense to
             # also allow them.  Many encoders seem to do something like this.
             elif isinstance(key, float):
-                key = self._floatstr(key)
+                key = self.__floatstr(key)
             elif key is True:
                 key = 'true'
             elif key is False:
@@ -453,10 +453,10 @@ class JSONEncoder(object):
                 first = False
             else:
                 yield item_separator
-            yield '"' + self.encoder(key) + '"'
+            yield '"' + self.__encoder(key) + '"'
             yield self.key_separator
             if isinstance(value, basestring):
-                yield '"' + self.encoder(value) + '"'
+                yield '"' + self.__encoder(value) + '"'
             elif value is None:
                 yield 'null'
             elif value is True:
@@ -466,16 +466,16 @@ class JSONEncoder(object):
             elif isinstance(value, (int, long)):
                 yield str(value)
             elif isinstance(value, float):
-                yield self._floatstr(value)
+                yield self.__floatstr(value)
             else:
                 if isinstance(value, (list, tuple)):
-                    chunks = self._iterencode_list(value, markers,
+                    chunks = self.__iterencode_list(value, markers,
                                                    _current_indent_level)
                 elif isinstance(value, dict):
-                    chunks = self._iterencode_dict(value, markers,
+                    chunks = self.__iterencode_dict(value, markers,
                                                    _current_indent_level)
                 else:
-                    chunks = self._iterencode(value, markers,
+                    chunks = self.__iterencode(value, markers,
                                               _current_indent_level)
                 for chunk in chunks:
                     yield chunk
@@ -483,11 +483,11 @@ class JSONEncoder(object):
             _current_indent_level -= 1
             yield '\n' + (' ' * (self.indent * _current_indent_level))
         yield '}'
-        self._remove_markers(markers, dct)
+        self.__remove_markers(markers, dct)
 
-    def _iterencode(self, o, markers, _current_indent_level):
+    def __iterencode(self, o, markers, _current_indent_level):
         if isinstance(o, basestring):
-            yield '"' + self.encoder(o) + '"'
+            yield '"' + self.__encoder(o) + '"'
         elif o is None:
             yield 'null'
         elif o is True:
@@ -497,19 +497,19 @@ class JSONEncoder(object):
         elif isinstance(o, (int, long)):
             yield str(o)
         elif isinstance(o, float):
-            yield self._floatstr(o)
+            yield self.__floatstr(o)
         elif isinstance(o, (list, tuple)):
-            for chunk in self._iterencode_list(o, markers,
+            for chunk in self.__iterencode_list(o, markers,
                                                _current_indent_level):
                 yield chunk
         elif isinstance(o, dict):
-            for chunk in self._iterencode_dict(o, markers,
+            for chunk in self.__iterencode_dict(o, markers,
                                                _current_indent_level):
                 yield chunk
         else:
-            self._mark_markers(markers, o)
+            self.__mark_markers(markers, o)
             obj = self.default(o)
-            for chunk in self._iterencode(obj, markers,
+            for chunk in self.__iterencode(obj, markers,
                                           _current_indent_level):
                 yield chunk
-            self._remove_markers(markers, o)
+            self.__remove_markers(markers, o)

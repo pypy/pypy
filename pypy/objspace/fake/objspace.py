@@ -1,8 +1,10 @@
 from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, SpaceCache
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from rpython.rlib.objectmodel import instantiate, we_are_translated
+from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.sliceobject import W_SliceObject
+from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -12,7 +14,7 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
 
 
-class W_MyObject(Wrappable):
+class W_MyObject(W_Root):
     typedef = None
 
     def getdict(self, space):
@@ -45,10 +47,10 @@ class W_MyObject(Wrappable):
 
     def int_w(self, space):
         return NonConstant(-42)
-    
+
     def uint_w(self, space):
         return r_uint(NonConstant(42))
-    
+
     def bigint_w(self, space):
         from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
@@ -97,7 +99,6 @@ class Entry(ExtRegistryEntry):
 
 
 class FakeObjSpace(ObjSpace):
-
     def __init__(self, config=None):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
@@ -132,9 +133,13 @@ class FakeObjSpace(ObjSpace):
         is_root(w_start)
         is_root(w_end)
         is_root(w_step)
+        W_SliceObject(w_start, w_end, w_step)
         return w_some_obj()
 
     def newint(self, x):
+        return w_some_obj()
+
+    def newlong(self, x):
         return w_some_obj()
 
     def newfloat(self, x):
@@ -144,6 +149,9 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newlong_from_rbigint(self, x):
+        return w_some_obj()
+
+    def newseqiter(self, x):
         return w_some_obj()
 
     def marshal_w(self, w_obj):
@@ -227,10 +235,16 @@ class FakeObjSpace(ObjSpace):
 
     def gettypeobject(self, typedef):
         assert typedef is not None
-        return self.fromcache(TypeCache).getorbuild(typedef)
+        see_typedef(self, typedef)
+        return w_some_type()
 
     def type(self, w_obj):
         return w_some_type()
+
+    def isinstance_w(self, w_inst, w_type):
+        is_root(w_inst)
+        is_root(w_type)
+        return NonConstant(True)
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         is_root(w_iterable)
@@ -266,7 +280,7 @@ class FakeObjSpace(ObjSpace):
 
     # ----------
 
-    def translates(self, func=None, argtypes=None, **kwds):
+    def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
         config = make_config(None, **kwds)
         if func is not None:
             if argtypes is None:
@@ -278,6 +292,10 @@ class FakeObjSpace(ObjSpace):
         ann = t.buildannotator()
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
+        if seeobj_w:
+            def seeme(n):
+                return seeobj_w[n]
+            ann.build_types(seeme, [int], complete_now=False)
         #
         # annotate all _seen_extras, knowing that annotating some may
         # grow the list
@@ -286,8 +304,10 @@ class FakeObjSpace(ObjSpace):
             #print self._seen_extras
             ann.build_types(self._seen_extras[done], [],
                             complete_now=False)
+            ann.complete_pending_blocks()
             done += 1
         ann.complete()
+        assert done == len(self._seen_extras)
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
@@ -327,20 +347,22 @@ setup()
 
 # ____________________________________________________________
 
-class TypeCache(SpaceCache):
-    def build(cache, typedef):
-        assert isinstance(typedef, TypeDef)
-        for value in typedef.rawdict.values():
-            cache.space.wrap(value)
-        return w_some_obj()
+@specialize.memo()
+def see_typedef(space, typedef):
+    assert isinstance(typedef, TypeDef)
+    if not isinstance(typedef, StdTypeDef):
+        for name, value in typedef.rawdict.items():
+            space.wrap(value)
 
 class FakeCompiler(object):
     pass
 FakeObjSpace.default_compiler = FakeCompiler()
 
-class FakeModule(Wrappable):
+
+class FakeModule(W_Root):
     def __init__(self):
         self.w_dict = w_some_obj()
+
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()

@@ -5,7 +5,6 @@ RPython-compliant way.
 
 from __future__ import absolute_import
 
-import py
 import sys
 import types
 import math
@@ -153,7 +152,8 @@ def enforceargs(*types_, **kwds):
             else:
                 return type(arg)
         def typecheck(*args):
-            from rpython.annotator.model import SomeList, SomeDict, SomeChar
+            from rpython.annotator.model import SomeList, SomeDict, SomeChar,\
+                 SomeInteger
             for i, (expected_type, arg) in enumerate(zip(types, args)):
                 if expected_type is None:
                     continue
@@ -166,6 +166,9 @@ def enforceargs(*types_, **kwds):
                     continue
                 if isinstance(s_expected, SomeChar) and (
                         isinstance(arg, str) and len(arg) == 1):   # a char
+                    continue
+                if (isinstance(s_expected, SomeInteger) and
+                    isinstance(arg, s_expected.knowntype)):
                     continue
                 #
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))

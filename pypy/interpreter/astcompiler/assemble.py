@@ -424,7 +424,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if instr.lineno:
                     # compute deltas
                     line = instr.lineno - current_line
-                    assert line >= 0
+                    if line < 0:
+                        continue
                     addr = offset - current_off
                     # Python assumes that lineno always increases with
                     # increasing bytecode address (lnotab is unsigned char).
