@@ -36,6 +36,7 @@ from itertools import cycle, count
 from collections import deque
 from UserList import UserList
 from test import test_support as support
+import contextlib
 
 import codecs
 import io  # C implementation of io
@@ -1003,6 +1004,12 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
         support.gc_collect()
         self.assertTrue(wr() is None, wr)
 
+    def test_args_error(self):
+        # Issue #17275
+        with self.assertRaisesRegexp(TypeError, "BufferedReader"):
+            self.tp(io.BytesIO(), 1024, 1024, 1024)
+
+
 class PyBufferedReaderTest(BufferedReaderTest):
     tp = pyio.BufferedReader
 
@@ -1294,6 +1301,11 @@ class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
         self.assertTrue(wr() is None, wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"123xxx")
+
+    def test_args_error(self):
+        # Issue #17275
+        with self.assertRaisesRegexp(TypeError, "BufferedWriter"):
+            self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
 class PyBufferedWriterTest(BufferedWriterTest):
@@ -1645,6 +1657,7 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
                 f.flush()
                 self.assertEqual(raw.getvalue(), b'1b\n2def\n3\n')
 
+
 class CBufferedRandomTest(CBufferedReaderTest, CBufferedWriterTest,
                           BufferedRandomTest, SizeofTest):
     tp = io.BufferedRandom
@@ -1662,6 +1675,12 @@ class CBufferedRandomTest(CBufferedReaderTest, CBufferedWriterTest,
     def test_garbage_collection(self):
         CBufferedReaderTest.test_garbage_collection(self)
         CBufferedWriterTest.test_garbage_collection(self)
+
+    def test_args_error(self):
+        # Issue #17275
+        with self.assertRaisesRegexp(TypeError, "BufferedRandom"):
+            self.tp(io.BytesIO(), 1024, 1024, 1024)
+
 
 class PyBufferedRandomTest(BufferedRandomTest):
     tp = pyio.BufferedRandom
@@ -2419,6 +2438,39 @@ class TextIOWrapperTest(unittest.TestCase):
         with self.assertRaises((AttributeError, TypeError)):
             txt.buffer = buf
 
+    def test_read_nonbytes(self):
+        # Issue #17106
+        # Crash when underlying read() returns non-bytes
+        class NonbytesStream(self.StringIO):
+            read1 = self.StringIO.read
+        class NonbytesStream(self.StringIO):
+            read1 = self.StringIO.read
+        t = self.TextIOWrapper(NonbytesStream('a'))
+        with self.maybeRaises(TypeError):
+            t.read(1)
+        t = self.TextIOWrapper(NonbytesStream('a'))
+        with self.maybeRaises(TypeError):
+            t.readline()
+        t = self.TextIOWrapper(NonbytesStream('a'))
+        self.assertEqual(t.read(), u'a')
+
+    def test_illegal_decoder(self):
+        # Issue #17106
+        # Crash when decoder returns non-string
+        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                               encoding='quopri_codec')
+        with self.maybeRaises(TypeError):
+            t.read(1)
+        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                               encoding='quopri_codec')
+        with self.maybeRaises(TypeError):
+            t.readline()
+        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                               encoding='quopri_codec')
+        with self.maybeRaises(TypeError):
+            t.read()
+
+
 class CTextIOWrapperTest(TextIOWrapperTest):
 
     def test_initialization(self):
@@ -2460,9 +2512,13 @@ class CTextIOWrapperTest(TextIOWrapperTest):
             t2.buddy = t1
         support.gc_collect()
 
+    maybeRaises = unittest.TestCase.assertRaises
+
 
 class PyTextIOWrapperTest(TextIOWrapperTest):
-    pass
+    @contextlib.contextmanager
+    def maybeRaises(self, *args, **kwds):
+        yield
 
 
 class IncrementalNewlineDecoderTest(unittest.TestCase):
@@ -2849,7 +2905,7 @@ class SignalsTest(unittest.TestCase):
             # The buffered IO layer must check for pending signal
             # handlers, which in this case will invoke alarm_interrupt().
             self.assertRaises(ZeroDivisionError,
-                              wio.write, item * (1024 * 1024))
+                              wio.write, item * (3 * 1000 * 1000))
             t.join()
             # We got one byte, get another one and check that it isn't a
             # repeat of the first one.

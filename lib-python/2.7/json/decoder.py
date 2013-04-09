@@ -27,7 +27,7 @@ NaN, PosInf, NegInf = _floatconstants()
 def linecol(doc, pos):
     lineno = doc.count('\n', 0, pos) + 1
     if lineno == 1:
-        colno = pos
+        colno = pos + 1
     else:
         colno = pos - doc.rindex('\n', 0, pos)
     return lineno, colno
@@ -162,7 +162,7 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
         if nextchar == '}':
             if object_pairs_hook is not None:
                 result = object_pairs_hook(pairs)
-                return result, end
+                return result, end + 1
             pairs = {}
             if object_hook is not None:
                 pairs = object_hook(pairs)

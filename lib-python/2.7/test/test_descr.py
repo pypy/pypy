@@ -1130,7 +1130,7 @@ order (MRO) for bases """
         self.assertEqual(Counted.counter, 0)
 
         # Test lookup leaks [SF bug 572567]
-        if test_support.check_impl_detail():
+        if hasattr(gc, 'get_objects'):
             class G(object):
                 def __cmp__(self, other):
                     return 0

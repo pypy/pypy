@@ -95,6 +95,7 @@ testmap = [
     RegrTest('test___all__.py', core=True),
     RegrTest('test___future__.py', core=True),
     RegrTest('test__locale.py', usemodules='_locale'),
+    RegrTest('test__osx_support.py'),
     RegrTest('test_abc.py'),
     RegrTest('test_abstract_numbers.py'),
     RegrTest('test_aepack.py'),

@@ -28,6 +28,8 @@ test_urlparse.py provides a good indicator of parsing behavior.
 
 """
 
+import re
+
 __all__ = ["urlparse", "urlunparse", "urljoin", "urldefrag",
            "urlsplit", "urlunsplit", "parse_qs", "parse_qsl"]
 
@@ -311,6 +313,15 @@ def urldefrag(url):
     else:
         return url, ''
 
+try:
+    unicode
+except NameError:
+    def _is_unicode(x):
+        return 0
+else:
+    def _is_unicode(x):
+        return isinstance(x, unicode)
+
 # unquote method for parse_qs and parse_qsl
 # Cannot use directly from urllib as it would create a circular reference
 # because urllib uses urlparse methods (urljoin).  If you update this function,
@@ -319,24 +330,36 @@ def urldefrag(url):
 _hexdig = '0123456789ABCDEFabcdef'
 _hextochr = dict((a+b, chr(int(a+b,16)))
                  for a in _hexdig for b in _hexdig)
+_asciire = re.compile('([\x00-\x7f]+)')
 
 def unquote(s):
     """unquote('abc%20def') -> 'abc def'."""
-    res = s.split('%')
+    if _is_unicode(s):
+        if '%' not in s:
+            return s
+        bits = _asciire.split(s)
+        res = [bits[0]]
+        append = res.append
+        for i in range(1, len(bits), 2):
+            append(unquote(str(bits[i])).decode('latin1'))
+            append(bits[i + 1])
+        return ''.join(res)
+
+    bits = s.split('%')
     # fastpath
-    if len(res) == 1:
+    if len(bits) == 1:
         return s
-    res_list = [res[0]]
-    for j in xrange(1, len(res)):
-        item = res[j]
+    res = [bits[0]]
+    append = res.append
+    for j in xrange(1, len(bits)):
+        item = bits[j]
         try:
-            x = _hextochr[item[:2]] + item[2:]
+            append(_hextochr[item[:2]])
+            append(item[2:])
         except KeyError:
-            x = '%' + item
-        except UnicodeDecodeError:
-            x = unichr(int(item[:2], 16)) + item[2:]
-        res_list.append(x)
-    return ''.join(res_list)
+            append('%')
+            append(item)
+    return ''.join(res)
 
 def parse_qs(qs, keep_blank_values=0, strict_parsing=0):
     """Parse a query given as a string argument.

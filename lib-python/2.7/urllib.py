@@ -28,6 +28,7 @@ import os
 import time
 import sys
 import base64
+import re
 
 from urlparse import urljoin as basejoin
 
@@ -1198,24 +1199,36 @@ def splitvalue(attr):
 _hexdig = '0123456789ABCDEFabcdef'
 _hextochr = dict((a + b, chr(int(a + b, 16)))
                  for a in _hexdig for b in _hexdig)
+_asciire = re.compile('([\x00-\x7f]+)')
 
 def unquote(s):
     """unquote('abc%20def') -> 'abc def'."""
-    res = s.split('%')
+    if _is_unicode(s):
+        if '%' not in s:
+            return s
+        bits = _asciire.split(s)
+        res = [bits[0]]
+        append = res.append
+        for i in range(1, len(bits), 2):
+            append(unquote(str(bits[i])).decode('latin1'))
+            append(bits[i + 1])
+        return ''.join(res)
+
+    bits = s.split('%')
     # fastpath
-    if len(res) == 1:
+    if len(bits) == 1:
         return s
-    res_list = [res[0]]
-    for j in xrange(1, len(res)):
-        item = res[j]
+    res = [bits[0]]
+    append = res.append
+    for j in xrange(1, len(bits)):
+        item = bits[j]
         try:
-            x = _hextochr[item[:2]] + item[2:]
+            append(_hextochr[item[:2]])
+            append(item[2:])
         except KeyError:
-            x = '%' + item
-        except UnicodeDecodeError:
-            x = unichr(int(item[:2], 16)) + item[2:]
-        res_list.append(x)
-    return ''.join(res_list)
+            append('%')
+            append(item)
+    return ''.join(res)
 
 def unquote_plus(s):
     """unquote('%7e/abc+def') -> '~/abc def'"""
