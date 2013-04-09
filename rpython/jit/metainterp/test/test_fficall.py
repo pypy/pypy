@@ -1,15 +1,18 @@
 import py
 from _pytest.monkeypatch import monkeypatch
+import sys
 import ctypes, math
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.jit.codewriter.longlong import is_longlong
 from rpython.rlib import jit
 from rpython.rlib import jit_libffi
 from rpython.rlib.jit_libffi import (types, CIF_DESCRIPTION, FFI_TYPE_PP,
                                      jit_ffi_call, jit_ffi_save_result)
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
+from rpython.rlib.longlong2float import float2longlong
 
 def get_description(atypes, rtype):
     p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
@@ -99,6 +102,10 @@ class FfiCallTests(object):
             res = f()
             assert res == rvalue or (res, rvalue) == (654321, None)
             res = self.interp_operations(f, [])
+            if is_longlong(FUNC.RESULT):
+                # longlongs are passed around as floats inside the JIT, we
+                # need to convert it back before checking the value
+                res = float2longlong(res)
             assert res == rvalue or (res, rvalue) == (654321, None)
             self.check_operations_history(call_may_force=0,
                                           call_release_gil=1)
@@ -114,6 +121,12 @@ class FfiCallTests(object):
 
     def test_simple_call_float(self):
         self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2)
+
+    def test_simple_call_longlong(self):
+        maxint32 = 2147483647
+        a = r_longlong(maxint32) + 1
+        b = r_longlong(maxint32) + 2
+        self._run([types.slonglong] * 2, types.slonglong, [a, b], a)
 
     def test_returns_none(self):
         self._run([types.signed] * 2, types.void, [456, 789], None)

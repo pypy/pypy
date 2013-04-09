@@ -104,14 +104,17 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
     """Wrapper around ffi_call().  Must receive a CIF_DESCRIPTION_P that
     describes the layout of the 'exchange_buffer'.
     """
-    if cif_description.rtype == types.void:
+    reskind = types.getkind(cif_description.rtype)
+    if reskind == 'v':
         jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer)
-    elif cif_description.rtype == types.double:
+    elif reskind == 'f' or reskind == 'L': # L is for longlongs, on 32bit
         result = jit_ffi_call_impl_float(cif_description, func_addr, exchange_buffer)
         jit_ffi_save_result('float', cif_description, exchange_buffer, result)
-    else:
+    elif reskind == 'i' or reskind == 'u':
         result = jit_ffi_call_impl_int(cif_description, func_addr, exchange_buffer)
         jit_ffi_save_result('int', cif_description, exchange_buffer, result)
+    else:
+        assert False, 'Unsupported result kind'
 
 
 # we must return a NonConstant else we get the constant -1 as the result of
