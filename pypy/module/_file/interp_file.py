@@ -440,9 +440,6 @@ optimizations previously implemented in the xreadlines module.""")
         w_name = self.w_name
         if w_name is None:
             return '?'
-        elif self.space.is_true(self.space.isinstance(w_name,
-                                                      self.space.w_str)):
-            return "'%s'" % self.space.str_w(w_name)
         else:
             return self.space.str_w(self.space.repr(w_name))
 

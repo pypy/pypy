@@ -607,10 +607,16 @@ class AppTestAFewExtra:
         assert file.closed.__doc__ == 'True if the file is closed'
 
     def test_repr_unicode_filename(self):
-        f = open(unicode(self.temptestfile), 'w')
-        assert repr(f).startswith("<open file " + 
-                                  repr(unicode(self.temptestfile)))
-        f.close()
+        with open(unicode(self.temptestfile), 'w') as f:
+            assert repr(f).startswith("<open file " +
+                                      repr(unicode(self.temptestfile)))
+
+    def test_repr_escape_filename(self):
+        import sys
+        fname = 'xx\rxx\nxx\'xx"xx' if sys.platform != "win32" else "xx'xx"
+        fname = self.temptestfile + fname
+        with open(fname, 'w') as f:
+            assert repr(f).startswith("<open file %r, mode 'w' at" % fname)
 
     @py.test.mark.skipif("os.name != 'posix'")
     def test_EAGAIN(self):
