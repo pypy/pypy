@@ -273,21 +273,24 @@ class FTP:
 
     def makeport(self):
         '''Create a new socket and send a PORT command for it.'''
-        msg = "getaddrinfo returns an empty list"
+        err = None
         sock = None
         for res in socket.getaddrinfo(None, 0, self.af, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
             af, socktype, proto, canonname, sa = res
             try:
                 sock = socket.socket(af, socktype, proto)
                 sock.bind(sa)
-            except socket.error, msg:
+            except socket.error, err:
                 if sock:
                     sock.close()
                 sock = None
                 continue
             break
-        if not sock:
-            raise socket.error, msg
+        if sock is None:
+            if err is not None:
+                raise err
+            else:
+                raise socket.error("getaddrinfo returns an empty list")
         sock.listen(1)
         port = sock.getsockname()[1] # Get proper port
         host = self.sock.getsockname()[0] # Get proper host
@@ -451,7 +454,7 @@ class FTP:
           blocksize: The maximum data size to read from fp and send over
                      the connection at once.  [default: 8192]
           callback: An optional single parameter callable that is called on
-                    on each block of data after it is sent.  [default: None]
+                    each block of data after it is sent.  [default: None]
           rest: Passed to transfercmd().  [default: None]
 
         Returns:
@@ -474,7 +477,7 @@ class FTP:
           cmd: A STOR command.
           fp: A file-like object with a readline() method.
           callback: An optional single parameter callable that is called on
-                    on each line after it is sent.  [default: None]
+                    each line after it is sent.  [default: None]
 
         Returns:
           The response code.

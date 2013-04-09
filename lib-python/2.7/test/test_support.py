@@ -18,6 +18,9 @@ import importlib
 import UserDict
 import re
 import time
+import struct
+import _testcapi
+import sysconfig
 try:
     import thread
 except ImportError:
@@ -179,15 +182,79 @@ def unload(name):
     except KeyError:
         pass
 
+if sys.platform.startswith("win"):
+    def _waitfor(func, pathname, waitall=False):
+        # Peform the operation
+        func(pathname)
+        # Now setup the wait loop
+        if waitall:
+            dirname = pathname
+        else:
+            dirname, name = os.path.split(pathname)
+            dirname = dirname or '.'
+        # Check for `pathname` to be removed from the filesystem.
+        # The exponential backoff of the timeout amounts to a total
+        # of ~1 second after which the deletion is probably an error
+        # anyway.
+        # Testing on a i7@4.3GHz shows that usually only 1 iteration is
+        # required when contention occurs.
+        timeout = 0.001
+        while timeout < 1.0:
+            # Note we are only testing for the existance of the file(s) in
+            # the contents of the directory regardless of any security or
+            # access rights.  If we have made it this far, we have sufficient
+            # permissions to do that much using Python's equivalent of the
+            # Windows API FindFirstFile.
+            # Other Windows APIs can fail or give incorrect results when
+            # dealing with files that are pending deletion.
+            L = os.listdir(dirname)
+            if not (L if waitall else name in L):
+                return
+            # Increase the timeout and try again
+            time.sleep(timeout)
+            timeout *= 2
+        warnings.warn('tests may fail, delete still pending for ' + pathname,
+                      RuntimeWarning, stacklevel=4)
+
+    def _unlink(filename):
+        _waitfor(os.unlink, filename)
+
+    def _rmdir(dirname):
+        _waitfor(os.rmdir, dirname)
+
+    def _rmtree(path):
+        def _rmtree_inner(path):
+            for name in os.listdir(path):
+                fullname = os.path.join(path, name)
+                if os.path.isdir(fullname):
+                    _waitfor(_rmtree_inner, fullname, waitall=True)
+                    os.rmdir(fullname)
+                else:
+                    os.unlink(fullname)
+        _waitfor(_rmtree_inner, path, waitall=True)
+        _waitfor(os.rmdir, path)
+else:
+    _unlink = os.unlink
+    _rmdir = os.rmdir
+    _rmtree = shutil.rmtree
+
 def unlink(filename):
     try:
-        os.unlink(filename)
+        _unlink(filename)
     except OSError:
         pass
 
+def rmdir(dirname):
+    try:
+        _rmdir(dirname)
+    except OSError as error:
+        # The directory need not exist.
+        if error.errno != errno.ENOENT:
+            raise
+
 def rmtree(path):
     try:
-        shutil.rmtree(path)
+        _rmtree(path)
     except OSError, e:
         # Unix returns ENOENT, Windows returns ESRCH.
         if e.errno not in (errno.ENOENT, errno.ESRCH):
@@ -405,7 +472,7 @@ def temp_cwd(name='tempcwd', quiet=False):
     the CWD, an error is raised.  If it's True, only a warning is raised
     and the original CWD is used.
     """
-    if isinstance(name, unicode):
+    if have_unicode and isinstance(name, unicode):
         try:
             name = name.encode(sys.getfilesystemencoding() or 'ascii')
         except UnicodeEncodeError:
@@ -767,6 +834,9 @@ def transient_internet(resource_name, timeout=30.0, errnos=()):
         ('EAI_FAIL', -4),
         ('EAI_NONAME', -2),
         ('EAI_NODATA', -5),
+        # Windows defines EAI_NODATA as 11001 but idiotic getaddrinfo()
+        # implementation actually returns WSANO_DATA i.e. 11004.
+        ('WSANO_DATA', 11004),
     ]
 
     denied = ResourceDenied("Resource '%s' is not available" % resource_name)
@@ -856,6 +926,32 @@ def gc_collect():
         time.sleep(0.1)
     gc.collect()
     gc.collect()
+
+
+_header = '2P'
+if hasattr(sys, "gettotalrefcount"):
+    _header = '2P' + _header
+_vheader = _header + 'P'
+
+def calcobjsize(fmt):
+    return struct.calcsize(_header + fmt + '0P')
+
+def calcvobjsize(fmt):
+    return struct.calcsize(_vheader + fmt + '0P')
+
+
+_TPFLAGS_HAVE_GC = 1<<14
+_TPFLAGS_HEAPTYPE = 1<<9
+
+def check_sizeof(test, o, size):
+    result = sys.getsizeof(o)
+    # add GC header size
+    if ((type(o) == type) and (o.__flags__ & _TPFLAGS_HEAPTYPE) or\
+        ((type(o) != type) and (type(o).__flags__ & _TPFLAGS_HAVE_GC))):
+        size += _testcapi.SIZEOF_PYGC_HEAD
+    msg = 'wrong size for %s: got %d, expected %d' \
+            % (type(o), result, size)
+    test.assertEqual(result, size, msg)
 
 
 #=======================================================================
@@ -966,7 +1062,7 @@ def bigmemtest(minsize, memuse, overhead=5*_1M):
         return wrapper
     return decorator
 
-def precisionbigmemtest(size, memuse, overhead=5*_1M):
+def precisionbigmemtest(size, memuse, overhead=5*_1M, dry_run=True):
     def decorator(f):
         def wrapper(self):
             if not real_max_memuse:
@@ -974,11 +1070,12 @@ def precisionbigmemtest(size, memuse, overhead=5*_1M):
             else:
                 maxsize = size
 
-                if real_max_memuse and real_max_memuse < maxsize * memuse:
-                    if verbose:
-                        sys.stderr.write("Skipping %s because of memory "
-                                         "constraint\n" % (f.__name__,))
-                    return
+            if ((real_max_memuse or not dry_run)
+                and real_max_memuse < maxsize * memuse):
+                if verbose:
+                    sys.stderr.write("Skipping %s because of memory "
+                                     "constraint\n" % (f.__name__,))
+                return
 
             return f(self, maxsize)
         wrapper.size = size
@@ -1093,6 +1190,16 @@ def run_unittest(*classes):
             suite.addTest(unittest.makeSuite(cls))
     _run_suite(suite)
 
+#=======================================================================
+# Check for the presence of docstrings.
+
+HAVE_DOCSTRINGS = (check_impl_detail(cpython=False) or
+                   sys.platform == 'win32' or
+                   sysconfig.get_config_var('WITH_DOC_STRINGS'))
+
+requires_docstrings = unittest.skipUnless(HAVE_DOCSTRINGS,
+                                          "test requires docstrings")
+
 
 #=======================================================================
 # doctest driver.
@@ -1192,6 +1299,33 @@ def reap_children():
             except:
                 break
 
+@contextlib.contextmanager
+def swap_attr(obj, attr, new_val):
+    """Temporary swap out an attribute with a new object.
+
+    Usage:
+        with swap_attr(obj, "attr", 5):
+            ...
+
+        This will set obj.attr to 5 for the duration of the with: block,
+        restoring the old value at the end of the block. If `attr` doesn't
+        exist on `obj`, it will be created and then deleted at the end of the
+        block.
+    """
+    if hasattr(obj, attr):
+        real_val = getattr(obj, attr)
+        setattr(obj, attr, new_val)
+        try:
+            yield
+        finally:
+            setattr(obj, attr, real_val)
+    else:
+        setattr(obj, attr, new_val)
+        try:
+            yield
+        finally:
+            delattr(obj, attr)
+
 def py3k_bytes(b):
     """Emulate the py3k bytes() constructor.
 
@@ -1210,22 +1344,8 @@ def py3k_bytes(b):
 def args_from_interpreter_flags():
     """Return a list of command-line arguments reproducing the current
     settings in sys.flags."""
-    flag_opt_map = {
-        'bytes_warning': 'b',
-        'dont_write_bytecode': 'B',
-        'ignore_environment': 'E',
-        'no_user_site': 's',
-        'no_site': 'S',
-        'optimize': 'O',
-        'py3k_warning': '3',
-        'verbose': 'v',
-    }
-    args = []
-    for flag, opt in flag_opt_map.items():
-        v = getattr(sys.flags, flag)
-        if v > 0:
-            args.append('-' + opt * v)
-    return args
+    import subprocess
+    return subprocess._args_from_interpreter_flags()
 
 def strip_python_stderr(stderr):
     """Strip the stderr of a Python process from potential debug output

@@ -9,6 +9,16 @@ from posixpath import realpath, abspath, dirname, basename
 
 ABSTFN = abspath(test_support.TESTFN)
 
+def skip_if_ABSTFN_contains_backslash(test):
+    """
+    On Windows, posixpath.abspath still returns paths with backslashes
+    instead of posix forward slashes. If this is the case, several tests
+    fail, so skip them.
+    """
+    found_backslash = '\\' in ABSTFN
+    msg = "ABSTFN is not a posix path - tests fail"
+    return [test, unittest.skip(msg)(test)][found_backslash]
+
 def safe_rmdir(dirname):
     try:
         os.rmdir(dirname)
@@ -110,8 +120,10 @@ class PosixPathTest(unittest.TestCase):
                 ),
                 True
             )
-            # If we don't have links, assume that os.stat doesn't return resonable
-            # inode information and thus, that samefile() doesn't work
+
+            # If we don't have links, assume that os.stat doesn't return
+            # reasonable inode information and thus, that samefile() doesn't
+            # work.
             if hasattr(os, "symlink"):
                 os.symlink(
                     test_support.TESTFN + "1",
@@ -151,19 +163,19 @@ class PosixPathTest(unittest.TestCase):
                 ),
                 True
             )
-            # If we don't have links, assume that os.stat() doesn't return resonable
-            # inode information and thus, that samefile() doesn't work
+            # If we don't have links, assume that os.stat() doesn't return
+            # reasonable inode information and thus, that samestat() doesn't
+            # work.
             if hasattr(os, "symlink"):
-                if hasattr(os, "symlink"):
-                    os.symlink(test_support.TESTFN + "1", test_support.TESTFN + "2")
-                    self.assertIs(
-                        posixpath.samestat(
-                            os.stat(test_support.TESTFN + "1"),
-                            os.stat(test_support.TESTFN + "2")
-                        ),
-                        True
-                    )
-                    os.remove(test_support.TESTFN + "2")
+                os.symlink(test_support.TESTFN + "1", test_support.TESTFN + "2")
+                self.assertIs(
+                    posixpath.samestat(
+                        os.stat(test_support.TESTFN + "1"),
+                        os.stat(test_support.TESTFN + "2")
+                    ),
+                    True
+                )
+                os.remove(test_support.TESTFN + "2")
                 f = open(test_support.TESTFN + "2", "wb")
                 f.write("bar")
                 f.close()
@@ -201,6 +213,7 @@ class PosixPathTest(unittest.TestCase):
             with test_support.EnvironmentVarGuard() as env:
                 env['HOME'] = '/'
                 self.assertEqual(posixpath.expanduser("~"), "/")
+                self.assertEqual(posixpath.expanduser("~/foo"), "/foo")
 
     def test_normpath(self):
         self.assertEqual(posixpath.normpath(""), ".")
@@ -210,6 +223,18 @@ class PosixPathTest(unittest.TestCase):
         self.assertEqual(posixpath.normpath("///foo/.//bar//"), "/foo/bar")
         self.assertEqual(posixpath.normpath("///foo/.//bar//.//..//.//baz"), "/foo/baz")
         self.assertEqual(posixpath.normpath("///..//./foo/.//bar"), "/foo/bar")
+
+    @skip_if_ABSTFN_contains_backslash
+    def test_realpath_curdir(self):
+        self.assertEqual(realpath('.'), os.getcwd())
+        self.assertEqual(realpath('./.'), os.getcwd())
+        self.assertEqual(realpath('/'.join(['.'] * 100)), os.getcwd())
+
+    @skip_if_ABSTFN_contains_backslash
+    def test_realpath_pardir(self):
+        self.assertEqual(realpath('..'), dirname(os.getcwd()))
+        self.assertEqual(realpath('../..'), dirname(dirname(os.getcwd())))
+        self.assertEqual(realpath('/'.join(['..'] * 100)), '/')
 
     if hasattr(os, "symlink"):
         def test_realpath_basic(self):
@@ -233,6 +258,22 @@ class PosixPathTest(unittest.TestCase):
                 self.assertEqual(realpath(ABSTFN+"1"), ABSTFN+"1")
                 self.assertEqual(realpath(ABSTFN+"2"), ABSTFN+"2")
 
+                self.assertEqual(realpath(ABSTFN+"1/x"), ABSTFN+"1/x")
+                self.assertEqual(realpath(ABSTFN+"1/.."), dirname(ABSTFN))
+                self.assertEqual(realpath(ABSTFN+"1/../x"), dirname(ABSTFN) + "/x")
+                os.symlink(ABSTFN+"x", ABSTFN+"y")
+                self.assertEqual(realpath(ABSTFN+"1/../" + basename(ABSTFN) + "y"),
+                                ABSTFN + "y")
+                self.assertEqual(realpath(ABSTFN+"1/../" + basename(ABSTFN) + "1"),
+                                ABSTFN + "1")
+
+                os.symlink(basename(ABSTFN) + "a/b", ABSTFN+"a")
+                self.assertEqual(realpath(ABSTFN+"a"), ABSTFN+"a/b")
+
+                os.symlink("../" + basename(dirname(ABSTFN)) + "/" +
+                        basename(ABSTFN) + "c", ABSTFN+"c")
+                self.assertEqual(realpath(ABSTFN+"c"), ABSTFN+"c")
+
                 # Test using relative path as well.
                 os.chdir(dirname(ABSTFN))
                 self.assertEqual(realpath(basename(ABSTFN)), ABSTFN)
@@ -241,6 +282,40 @@ class PosixPathTest(unittest.TestCase):
                 test_support.unlink(ABSTFN)
                 test_support.unlink(ABSTFN+"1")
                 test_support.unlink(ABSTFN+"2")
+                test_support.unlink(ABSTFN+"y")
+                test_support.unlink(ABSTFN+"c")
+                test_support.unlink(ABSTFN+"a")
+
+        def test_realpath_repeated_indirect_symlinks(self):
+            # Issue #6975.
+            try:
+                os.mkdir(ABSTFN)
+                os.symlink('../' + basename(ABSTFN), ABSTFN + '/self')
+                os.symlink('self/self/self', ABSTFN + '/link')
+                self.assertEqual(realpath(ABSTFN + '/link'), ABSTFN)
+            finally:
+                test_support.unlink(ABSTFN + '/self')
+                test_support.unlink(ABSTFN + '/link')
+                safe_rmdir(ABSTFN)
+
+        def test_realpath_deep_recursion(self):
+            depth = 10
+            old_path = abspath('.')
+            try:
+                os.mkdir(ABSTFN)
+                for i in range(depth):
+                    os.symlink('/'.join(['%d' % i] * 10), ABSTFN + '/%d' % (i + 1))
+                os.symlink('.', ABSTFN + '/0')
+                self.assertEqual(realpath(ABSTFN + '/%d' % depth), ABSTFN)
+
+                # Test using relative path as well.
+                os.chdir(ABSTFN)
+                self.assertEqual(realpath('%d' % depth), ABSTFN)
+            finally:
+                os.chdir(old_path)
+                for i in range(depth + 1):
+                    test_support.unlink(ABSTFN + '/%d' % i)
+                safe_rmdir(ABSTFN)
 
         def test_realpath_resolve_parents(self):
             # We also need to resolve any symlinks in the parents of a relative

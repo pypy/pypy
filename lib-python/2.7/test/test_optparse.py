@@ -769,6 +769,13 @@ class TestStandard(BaseTest):
         self.assertParseFail(["-test"],
                              "no such option: -e")
 
+    def test_add_option_accepts_unicode(self):
+        self.parser.add_option(u"-u", u"--unicode", action="store_true")
+        self.assertParseOK(["-u"],
+                           {'a': None, 'boo': None, 'foo': None, 'unicode': True},
+                           [])
+
+
 class TestBool(BaseTest):
     def setUp(self):
         options = [make_option("-v",

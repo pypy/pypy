@@ -3,6 +3,7 @@ import unittest
 
 from test import test_support
 import locale
+import datetime
 
 
 result_2004_text = """
@@ -254,13 +255,30 @@ class CalendarTestCase(unittest.TestCase):
         # (it is still not thread-safe though)
         old_october = calendar.TextCalendar().formatmonthname(2010, 10, 10)
         try:
-            calendar.LocaleTextCalendar(locale='').formatmonthname(2010, 10, 10)
+            cal = calendar.LocaleTextCalendar(locale='')
+            local_weekday = cal.formatweekday(1, 10)
+            local_month = cal.formatmonthname(2010, 10, 10)
         except locale.Error:
             # cannot set the system default locale -- skip rest of test
-            return
-        calendar.LocaleHTMLCalendar(locale='').formatmonthname(2010, 10)
+            raise unittest.SkipTest('cannot set the system default locale')
+        # should be encodable
+        local_weekday.encode('utf-8')
+        local_month.encode('utf-8')
+        self.assertEqual(len(local_weekday), 10)
+        self.assertGreaterEqual(len(local_month), 10)
+        cal = calendar.LocaleHTMLCalendar(locale='')
+        local_weekday = cal.formatweekday(1)
+        local_month = cal.formatmonthname(2010, 10)
+        # should be encodable
+        local_weekday.encode('utf-8')
+        local_month.encode('utf-8')
         new_october = calendar.TextCalendar().formatmonthname(2010, 10, 10)
-        self.assertEquals(old_october, new_october)
+        self.assertEqual(old_october, new_october)
+
+    def test_itermonthdates(self):
+        # ensure itermonthdates doesn't overflow after datetime.MAXYEAR
+        # see #15421
+        list(calendar.Calendar().itermonthdates(datetime.MAXYEAR, 12))
 
 
 class MonthCalendarTestCase(unittest.TestCase):

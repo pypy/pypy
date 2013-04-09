@@ -466,6 +466,19 @@ class MmapTests(unittest.TestCase):
         f.flush ()
         return mmap.mmap (f.fileno(), 0)
 
+    def test_empty_file (self):
+        f = open (TESTFN, 'w+b')
+        f.close()
+        with open(TESTFN, "rb") as f :
+            try:
+                m = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+                m.close()
+                self.fail("should not have been able to mmap empty file")
+            except ValueError as e:
+                self.assertEqual(e.message, "cannot mmap an empty file")
+            except:
+                self.fail("unexpected exception: " + str(e))
+
     def test_offset (self):
         f = open (TESTFN, 'w+b')
 
@@ -669,6 +682,13 @@ class LargeMmapTests(unittest.TestCase):
 
     def test_large_filesize(self):
         with self._make_test_file(0x17FFFFFFF, b" ") as f:
+            if sys.maxsize < 0x180000000:
+                # On 32 bit platforms the file is larger than sys.maxsize so
+                # mapping the whole file should fail -- Issue #16743
+                with self.assertRaises(OverflowError):
+                    mmap.mmap(f.fileno(), 0x180000000, access=mmap.ACCESS_READ)
+                with self.assertRaises(ValueError):
+                    mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
             m = mmap.mmap(f.fileno(), 0x10000, access=mmap.ACCESS_READ)
             try:
                 self.assertEqual(m.size(), 0x180000000)

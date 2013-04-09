@@ -11,6 +11,7 @@ import time
 import threading
 import traceback
 import types
+import io
 
 import linecache
 from code import InteractiveInterpreter
@@ -121,8 +122,13 @@ class PyShellEditorWindow(EditorWindow):
             old_hook()
         self.io.set_filename_change_hook(filename_changed_hook)
 
-    rmenu_specs = [("Set Breakpoint", "<<set-breakpoint-here>>"),
-                   ("Clear Breakpoint", "<<clear-breakpoint-here>>")]
+    rmenu_specs = [
+        ("Cut", "<<cut>>", "rmenu_check_cut"),
+        ("Copy", "<<copy>>", "rmenu_check_copy"),
+        ("Paste", "<<paste>>", "rmenu_check_paste"),
+        ("Set Breakpoint", "<<set-breakpoint-here>>", None),
+        ("Clear Breakpoint", "<<clear-breakpoint-here>>", None)
+    ]
 
     def set_breakpoint(self, lineno):
         text = self.text
@@ -251,8 +257,8 @@ class PyShellEditorWindow(EditorWindow):
     def ranges_to_linenumbers(self, ranges):
         lines = []
         for index in range(0, len(ranges), 2):
-            lineno = int(float(ranges[index]))
-            end = int(float(ranges[index+1]))
+            lineno = int(float(ranges[index].string))
+            end = int(float(ranges[index+1].string))
             while lineno < end:
                 lines.append(lineno)
                 lineno += 1
@@ -312,6 +318,11 @@ class ModifiedColorDelegator(ColorDelegator):
             "stderr": idleConf.GetHighlight(theme, "stderr"),
             "console": idleConf.GetHighlight(theme, "console"),
         })
+
+    def removecolors(self):
+        # Don't remove shell color tags before "iomark"
+        for tag in self.tagdefs:
+            self.tag_remove(tag, "iomark", "end")
 
 class ModifiedUndoDelegator(UndoDelegator):
     "Extend base class: forbid insert/delete before the I/O mark"
@@ -417,7 +428,8 @@ class ModifiedInterpreter(InteractiveInterpreter):
         except socket.timeout, err:
             self.display_no_subprocess_error()
             return None
-        self.rpcclt.register("stdin", self.tkconsole)
+        self.rpcclt.register("console", self.tkconsole)
+        self.rpcclt.register("stdin", self.tkconsole.stdin)
         self.rpcclt.register("stdout", self.tkconsole.stdout)
         self.rpcclt.register("stderr", self.tkconsole.stderr)
         self.rpcclt.register("flist", self.tkconsole.flist)
@@ -870,13 +882,14 @@ class PyShell(OutputWindow):
         self.save_stderr = sys.stderr
         self.save_stdin = sys.stdin
         from idlelib import IOBinding
-        self.stdout = PseudoFile(self, "stdout", IOBinding.encoding)
-        self.stderr = PseudoFile(self, "stderr", IOBinding.encoding)
-        self.console = PseudoFile(self, "console", IOBinding.encoding)
+        self.stdin = PseudoInputFile(self, "stdin", IOBinding.encoding)
+        self.stdout = PseudoOutputFile(self, "stdout", IOBinding.encoding)
+        self.stderr = PseudoOutputFile(self, "stderr", IOBinding.encoding)
+        self.console = PseudoOutputFile(self, "console", IOBinding.encoding)
         if not use_subprocess:
             sys.stdout = self.stdout
             sys.stderr = self.stderr
-            sys.stdin = self
+            sys.stdin = self.stdin
         #
         self.history = self.History(self.text)
         #
@@ -1251,26 +1264,96 @@ class PyShell(OutputWindow):
             if not use_subprocess:
                 raise KeyboardInterrupt
 
-class PseudoFile(object):
+    def rmenu_check_cut(self):
+        try:
+            if self.text.compare('sel.first', '<', 'iomark'):
+                return 'disabled'
+        except TclError: # no selection, so the index 'sel.first' doesn't exist
+            return 'disabled'
+        return super(PyShell, self).rmenu_check_cut()
+
+    def rmenu_check_paste(self):
+        if self.text.compare('insert', '<', 'iomark'):
+            return 'disabled'
+        return super(PyShell, self).rmenu_check_paste()
+
+class PseudoFile(io.TextIOBase):
 
     def __init__(self, shell, tags, encoding=None):
         self.shell = shell
         self.tags = tags
         self.softspace = 0
-        self.encoding = encoding
+        self._encoding = encoding
 
-    def write(self, s):
-        self.shell.write(s, self.tags)
+    @property
+    def encoding(self):
+        return self._encoding
 
-    def writelines(self, lines):
-        for line in lines:
-            self.write(line)
-
-    def flush(self):
-        pass
+    @property
+    def name(self):
+        return '<%s>' % self.tags
 
     def isatty(self):
         return True
+
+
+class PseudoOutputFile(PseudoFile):
+
+    def writable(self):
+        return True
+
+    def write(self, s):
+        if self.closed:
+            raise ValueError("write to closed file")
+        if not isinstance(s, (basestring, bytearray)):
+            raise TypeError('must be string, not ' + type(s).__name__)
+        return self.shell.write(s, self.tags)
+
+
+class PseudoInputFile(PseudoFile):
+
+    def __init__(self, shell, tags, encoding=None):
+        PseudoFile.__init__(self, shell, tags, encoding)
+        self._line_buffer = ''
+
+    def readable(self):
+        return True
+
+    def read(self, size=-1):
+        if self.closed:
+            raise ValueError("read from closed file")
+        if size is None:
+            size = -1
+        elif not isinstance(size, int):
+            raise TypeError('must be int, not ' + type(size).__name__)
+        result = self._line_buffer
+        self._line_buffer = ''
+        if size < 0:
+            while True:
+                line = self.shell.readline()
+                if not line: break
+                result += line
+        else:
+            while len(result) < size:
+                line = self.shell.readline()
+                if not line: break
+                result += line
+            self._line_buffer = result[size:]
+            result = result[:size]
+        return result
+
+    def readline(self, size=-1):
+        if self.closed:
+            raise ValueError("read from closed file")
+        if size is None:
+            size = -1
+        elif not isinstance(size, int):
+            raise TypeError('must be int, not ' + type(size).__name__)
+        line = self._line_buffer or self.shell.readline()
+        if size < 0:
+            size = len(line)
+        self._line_buffer = line[size:]
+        return line[:size]
 
 
 usage_msg = """\
@@ -1412,8 +1495,10 @@ def main():
 
     if enable_edit:
         if not (cmd or script):
-            for filename in args:
-                flist.open(filename)
+            for filename in args[:]:
+                if flist.open(filename) is None:
+                    # filename is a directory actually, disconsider it
+                    args.remove(filename)
             if not args:
                 flist.new()
     if enable_shell:
@@ -1456,7 +1541,8 @@ def main():
     if tkversionwarning:
         shell.interp.runcommand(''.join(("print('", tkversionwarning, "')")))
 
-    root.mainloop()
+    while flist.inversedict:  # keep IDLE running while files are open.
+        root.mainloop()
     root.destroy()
 
 if __name__ == "__main__":

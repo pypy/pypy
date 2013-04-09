@@ -396,6 +396,18 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         y += dco.flush()
         self.assertEqual(y, 'foo')
 
+    def test_flush_with_freed_input(self):
+        # Issue #16411: decompressor accesses input to last decompress() call
+        # in flush(), even if this object has been freed in the meanwhile.
+        input1 = 'abcdefghijklmnopqrstuvwxyz'
+        input2 = 'QWERTYUIOPASDFGHJKLZXCVBNM'
+        data = zlib.compress(input1)
+        dco = zlib.decompressobj()
+        dco.decompress(data, 1)
+        del data
+        data = zlib.compress(input2)
+        self.assertEqual(dco.flush(), input1[1:])
+
     if hasattr(zlib.compressobj(), "copy"):
         def test_compresscopy(self):
             # Test copying a compression object
@@ -425,6 +437,31 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             c.compress(HAMLET_SCENE)
             c.flush()
             self.assertRaises(ValueError, c.copy)
+
+    def test_decompress_unused_data(self):
+        # Repeated calls to decompress() after EOF should accumulate data in
+        # dco.unused_data, instead of just storing the arg to the last call.
+        source = b'abcdefghijklmnopqrstuvwxyz'
+        remainder = b'0123456789'
+        y = zlib.compress(source)
+        x = y + remainder
+        for maxlen in 0, 1000:
+            for step in 1, 2, len(y), len(x):
+                dco = zlib.decompressobj()
+                data = b''
+                for i in range(0, len(x), step):
+                    if i < len(y):
+                        self.assertEqual(dco.unused_data, b'')
+                    if maxlen == 0:
+                        data += dco.decompress(x[i : i + step])
+                        self.assertEqual(dco.unconsumed_tail, b'')
+                    else:
+                        data += dco.decompress(
+                                dco.unconsumed_tail + x[i : i + step], maxlen)
+                data += dco.flush()
+                self.assertEqual(data, source)
+                self.assertEqual(dco.unconsumed_tail, b'')
+                self.assertEqual(dco.unused_data, remainder)
 
     if hasattr(zlib.decompressobj(), "copy"):
         def test_decompresscopy(self):

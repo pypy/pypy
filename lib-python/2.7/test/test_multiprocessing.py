@@ -16,6 +16,7 @@ import socket
 import random
 import logging
 import errno
+import test.script_helper
 from test import test_support
 from StringIO import StringIO
 _multiprocessing = test_support.import_module('_multiprocessing')
@@ -324,6 +325,36 @@ class _TestProcess(BaseTestCase):
                 [1, 1]
             ]
         self.assertEqual(result, expected)
+
+    @classmethod
+    def _test_sys_exit(cls, reason, testfn):
+        sys.stderr = open(testfn, 'w')
+        sys.exit(reason)
+
+    def test_sys_exit(self):
+        # See Issue 13854
+        if self.TYPE == 'threads':
+            return
+
+        testfn = test_support.TESTFN
+        self.addCleanup(test_support.unlink, testfn)
+
+        for reason, code in (([1, 2, 3], 1), ('ignore this', 0)):
+            p = self.Process(target=self._test_sys_exit, args=(reason, testfn))
+            p.daemon = True
+            p.start()
+            p.join(5)
+            self.assertEqual(p.exitcode, code)
+
+            with open(testfn, 'r') as f:
+                self.assertEqual(f.read().rstrip(), str(reason))
+
+        for reason in (True, False, 8):
+            p = self.Process(target=sys.exit, args=(reason,))
+            p.daemon = True
+            p.start()
+            p.join(5)
+            self.assertEqual(p.exitcode, reason)
 
 #
 #
@@ -1152,6 +1183,36 @@ class _TestPool(BaseTestCase):
         join()
         self.assertTrue(join.elapsed < 0.2)
 
+    def test_empty_iterable(self):
+        # See Issue 12157
+        p = self.Pool(1)
+
+        self.assertEqual(p.map(sqr, []), [])
+        self.assertEqual(list(p.imap(sqr, [])), [])
+        self.assertEqual(list(p.imap_unordered(sqr, [])), [])
+        self.assertEqual(p.map_async(sqr, []).get(), [])
+
+        p.close()
+        p.join()
+
+def unpickleable_result():
+    return lambda: 42
+
+class _TestPoolWorkerErrors(BaseTestCase):
+    ALLOWED_TYPES = ('processes', )
+
+    def test_unpickleable_result(self):
+        from multiprocessing.pool import MaybeEncodingError
+        p = multiprocessing.Pool(2)
+
+        # Make sure we don't lose pool processes because of encoding errors.
+        for iteration in range(20):
+            res = p.apply_async(unpickleable_result)
+            self.assertRaises(MaybeEncodingError, res.get)
+
+        p.close()
+        p.join()
+
 class _TestPoolWorkerLifetime(BaseTestCase):
 
     ALLOWED_TYPES = ('processes', )
@@ -1452,6 +1513,7 @@ class _TestConnection(BaseTestCase):
         self.assertTimingAlmostEqual(poll.elapsed, TIMEOUT1)
 
         conn.send(None)
+        time.sleep(.1)
 
         self.assertEqual(poll(TIMEOUT1), True)
         self.assertTimingAlmostEqual(poll.elapsed, 0)
@@ -1651,6 +1713,23 @@ class _TestListenerClient(BaseTestCase):
             self.assertEqual(conn.recv(), 'hello')
             p.join()
             l.close()
+
+    def test_issue14725(self):
+        l = self.connection.Listener()
+        p = self.Process(target=self._test, args=(l.address,))
+        p.daemon = True
+        p.start()
+        time.sleep(1)
+        # On Windows the client process should by now have connected,
+        # written data and closed the pipe handle by now.  This causes
+        # ConnectNamdedPipe() to fail with ERROR_NO_DATA.  See Issue
+        # 14725.
+        conn = l.accept()
+        self.assertEqual(conn.recv(), 'hello')
+        conn.close()
+        p.join()
+        l.close()
+
 #
 # Test of sending connection and socket objects between processes
 #
@@ -2026,6 +2105,38 @@ class _TestLogging(BaseTestCase):
 #         assert self.__handled
 
 #
+# Check that Process.join() retries if os.waitpid() fails with EINTR
+#
+
+class _TestPollEintr(BaseTestCase):
+
+    ALLOWED_TYPES = ('processes',)
+
+    @classmethod
+    def _killer(cls, pid):
+        time.sleep(0.5)
+        os.kill(pid, signal.SIGUSR1)
+
+    @unittest.skipUnless(hasattr(signal, 'SIGUSR1'), 'requires SIGUSR1')
+    def test_poll_eintr(self):
+        got_signal = [False]
+        def record(*args):
+            got_signal[0] = True
+        pid = os.getpid()
+        oldhandler = signal.signal(signal.SIGUSR1, record)
+        try:
+            killer = self.Process(target=self._killer, args=(pid,))
+            killer.start()
+            p = self.Process(target=time.sleep, args=(1,))
+            p.start()
+            p.join()
+            self.assertTrue(got_signal[0])
+            self.assertEqual(p.exitcode, 0)
+            killer.join()
+        finally:
+            signal.signal(signal.SIGUSR1, oldhandler)
+
+#
 # Test to verify handle verification, see issue 3321
 #
 
@@ -2078,7 +2189,7 @@ class ProcessesMixin(object):
         'Queue', 'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore',
         'Condition', 'Event', 'Value', 'Array', 'RawValue',
         'RawArray', 'current_process', 'active_children', 'Pipe',
-        'connection', 'JoinableQueue'
+        'connection', 'JoinableQueue', 'Pool'
         )))
 
 testcases_processes = create_test_cases(ProcessesMixin, type='processes')
@@ -2092,7 +2203,7 @@ class ManagerMixin(object):
     locals().update(get_attributes(manager, (
         'Queue', 'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore',
        'Condition', 'Event', 'Value', 'Array', 'list', 'dict',
-        'Namespace', 'JoinableQueue'
+        'Namespace', 'JoinableQueue', 'Pool'
         )))
 
 testcases_manager = create_test_cases(ManagerMixin, type='manager')
@@ -2106,7 +2217,7 @@ class ThreadsMixin(object):
         'Queue', 'Lock', 'RLock', 'Semaphore', 'BoundedSemaphore',
         'Condition', 'Event', 'Value', 'Array', 'current_process',
         'active_children', 'Pipe', 'connection', 'dict', 'list',
-        'Namespace', 'JoinableQueue'
+        'Namespace', 'JoinableQueue', 'Pool'
         )))
 
 testcases_threads = create_test_cases(ThreadsMixin, type='threads')
@@ -2238,8 +2349,94 @@ class TestStdinBadfiledescriptor(unittest.TestCase):
         flike.flush()
         assert sio.getvalue() == 'foo'
 
+#
+# Test interaction with socket timeouts - see Issue #6056
+#
+
+class TestTimeouts(unittest.TestCase):
+    @classmethod
+    def _test_timeout(cls, child, address):
+        time.sleep(1)
+        child.send(123)
+        child.close()
+        conn = multiprocessing.connection.Client(address)
+        conn.send(456)
+        conn.close()
+
+    def test_timeout(self):
+        old_timeout = socket.getdefaulttimeout()
+        try:
+            socket.setdefaulttimeout(0.1)
+            parent, child = multiprocessing.Pipe(duplex=True)
+            l = multiprocessing.connection.Listener(family='AF_INET')
+            p = multiprocessing.Process(target=self._test_timeout,
+                                        args=(child, l.address))
+            p.start()
+            child.close()
+            self.assertEqual(parent.recv(), 123)
+            parent.close()
+            conn = l.accept()
+            self.assertEqual(conn.recv(), 456)
+            conn.close()
+            l.close()
+            p.join(10)
+        finally:
+            socket.setdefaulttimeout(old_timeout)
+
+#
+# Test what happens with no "if __name__ == '__main__'"
+#
+
+class TestNoForkBomb(unittest.TestCase):
+    def test_noforkbomb(self):
+        name = os.path.join(os.path.dirname(__file__), 'mp_fork_bomb.py')
+        if WIN32:
+            rc, out, err = test.script_helper.assert_python_failure(name)
+            self.assertEqual('', out.decode('ascii'))
+            self.assertIn('RuntimeError', err.decode('ascii'))
+        else:
+            rc, out, err = test.script_helper.assert_python_ok(name)
+            self.assertEqual('123', out.decode('ascii').rstrip())
+            self.assertEqual('', err.decode('ascii'))
+
+#
+# Issue 12098: check sys.flags of child matches that for parent
+#
+
+class TestFlags(unittest.TestCase):
+    @classmethod
+    def run_in_grandchild(cls, conn):
+        conn.send(tuple(sys.flags))
+
+    @classmethod
+    def run_in_child(cls):
+        import json
+        r, w = multiprocessing.Pipe(duplex=False)
+        p = multiprocessing.Process(target=cls.run_in_grandchild, args=(w,))
+        p.start()
+        grandchild_flags = r.recv()
+        p.join()
+        r.close()
+        w.close()
+        flags = (tuple(sys.flags), grandchild_flags)
+        print(json.dumps(flags))
+
+    def test_flags(self):
+        import json, subprocess
+        # start child process using unusual flags
+        prog = ('from test.test_multiprocessing import TestFlags; ' +
+                'TestFlags.run_in_child()')
+        data = subprocess.check_output(
+            [sys.executable, '-E', '-B', '-O', '-c', prog])
+        child_flags, grandchild_flags = json.loads(data.decode('ascii'))
+        self.assertEqual(child_flags, grandchild_flags)
+#
+#
+#
+
 testcases_other = [OtherTest, TestInvalidHandle, TestInitializers,
-                   TestStdinBadfiledescriptor]
+                   TestStdinBadfiledescriptor, TestTimeouts, TestNoForkBomb,
+                   TestFlags]
 
 #
 #

@@ -1,4 +1,4 @@
-# Copyright 2001-2010 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2012 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -16,15 +16,14 @@
 
 """
 Additional handlers for the logging package for Python. The core package is
-based on PEP 282 and comments thereto in comp.lang.python, and influenced by
-Apache's log4j system.
+based on PEP 282 and comments thereto in comp.lang.python.
 
-Copyright (C) 2001-2010 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2012 Vinay Sajip. All Rights Reserved.
 
 To use, simply 'import logging.handlers' and log away!
 """
 
-import logging, socket, os, cPickle, struct, time, re
+import errno, logging, socket, os, cPickle, struct, time, re
 from stat import ST_DEV, ST_INO, ST_MTIME
 
 try:
@@ -140,7 +139,6 @@ class RotatingFileHandler(BaseRotatingHandler):
                 os.remove(dfn)
             os.rename(self.baseFilename, dfn)
             #print "%s -> %s" % (self.baseFilename, dfn)
-        self.mode = 'w'
         self.stream = self._open()
 
     def shouldRollover(self, record):
@@ -273,9 +271,10 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
                         dstAtRollover = time.localtime(newRolloverAt)[-1]
                         if dstNow != dstAtRollover:
                             if not dstNow:  # DST kicks in before next rollover, so we need to deduct an hour
-                                newRolloverAt = newRolloverAt - 3600
+                                addend = -3600
                             else:           # DST bows out before next rollover, so we need to add an hour
-                                newRolloverAt = newRolloverAt + 3600
+                                addend = 3600
+                            newRolloverAt += addend
                     result = newRolloverAt
         return result
 
@@ -327,11 +326,20 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
             self.stream.close()
             self.stream = None
         # get the time that this sequence started at and make it a TimeTuple
+        currentTime = int(time.time())
+        dstNow = time.localtime(currentTime)[-1]
         t = self.rolloverAt - self.interval
         if self.utc:
             timeTuple = time.gmtime(t)
         else:
             timeTuple = time.localtime(t)
+            dstThen = timeTuple[-1]
+            if dstNow != dstThen:
+                if dstNow:
+                    addend = 3600
+                else:
+                    addend = -3600
+                timeTuple = time.localtime(t + addend)
         dfn = self.baseFilename + "." + time.strftime(self.suffix, timeTuple)
         if os.path.exists(dfn):
             os.remove(dfn)
@@ -345,21 +353,19 @@ class TimedRotatingFileHandler(BaseRotatingHandler):
             for s in self.getFilesToDelete():
                 os.remove(s)
         #print "%s -> %s" % (self.baseFilename, dfn)
-        self.mode = 'w'
         self.stream = self._open()
-        currentTime = int(time.time())
         newRolloverAt = self.computeRollover(currentTime)
         while newRolloverAt <= currentTime:
             newRolloverAt = newRolloverAt + self.interval
         #If DST changes and midnight or weekly rollover, adjust for this.
         if (self.when == 'MIDNIGHT' or self.when.startswith('W')) and not self.utc:
-            dstNow = time.localtime(currentTime)[-1]
             dstAtRollover = time.localtime(newRolloverAt)[-1]
             if dstNow != dstAtRollover:
                 if not dstNow:  # DST kicks in before next rollover, so we need to deduct an hour
-                    newRolloverAt = newRolloverAt - 3600
+                    addend = -3600
                 else:           # DST bows out before next rollover, so we need to add an hour
-                    newRolloverAt = newRolloverAt + 3600
+                    addend = 3600
+                newRolloverAt += addend
         self.rolloverAt = newRolloverAt
 
 class WatchedFileHandler(logging.FileHandler):
@@ -384,11 +390,13 @@ class WatchedFileHandler(logging.FileHandler):
     """
     def __init__(self, filename, mode='a', encoding=None, delay=0):
         logging.FileHandler.__init__(self, filename, mode, encoding, delay)
-        if not os.path.exists(self.baseFilename):
-            self.dev, self.ino = -1, -1
-        else:
-            stat = os.stat(self.baseFilename)
-            self.dev, self.ino = stat[ST_DEV], stat[ST_INO]
+        self.dev, self.ino = -1, -1
+        self._statstream()
+
+    def _statstream(self):
+        if self.stream:
+            sres = os.fstat(self.stream.fileno())
+            self.dev, self.ino = sres[ST_DEV], sres[ST_INO]
 
     def emit(self, record):
         """
@@ -398,19 +406,27 @@ class WatchedFileHandler(logging.FileHandler):
         has, close the old stream and reopen the file to get the
         current stream.
         """
-        if not os.path.exists(self.baseFilename):
-            stat = None
-            changed = 1
-        else:
-            stat = os.stat(self.baseFilename)
-            changed = (stat[ST_DEV] != self.dev) or (stat[ST_INO] != self.ino)
-        if changed and self.stream is not None:
-            self.stream.flush()
-            self.stream.close()
-            self.stream = self._open()
-            if stat is None:
-                stat = os.stat(self.baseFilename)
-            self.dev, self.ino = stat[ST_DEV], stat[ST_INO]
+        # Reduce the chance of race conditions by stat'ing by path only
+        # once and then fstat'ing our new fd if we opened a new log stream.
+        # See issue #14632: Thanks to John Mulligan for the problem report
+        # and patch.
+        try:
+            # stat the file by path, checking for existence
+            sres = os.stat(self.baseFilename)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                sres = None
+            else:
+                raise
+        # compare file system stat with that of our stream file handle
+        if not sres or sres[ST_DEV] != self.dev or sres[ST_INO] != self.ino:
+            if self.stream is not None:
+                # we have an open file handle, clean it up
+                self.stream.flush()
+                self.stream.close()
+                # open a new file handle and get new stat info from that fd
+                self.stream = self._open()
+                self._statstream()
         logging.FileHandler.emit(self, record)
 
 class SocketHandler(logging.Handler):
@@ -520,9 +536,16 @@ class SocketHandler(logging.Handler):
         """
         ei = record.exc_info
         if ei:
-            dummy = self.format(record) # just to get traceback text into record.exc_text
+            # just to get traceback text into record.exc_text ...
+            dummy = self.format(record)
             record.exc_info = None  # to avoid Unpickleable error
-        s = cPickle.dumps(record.__dict__, 1)
+        # See issue #14436: If msg or args are objects, they may not be
+        # available on the receiving end. So we convert the msg % args
+        # to a string, save it as msg and zap the args.
+        d = dict(record.__dict__)
+        d['msg'] = record.getMessage()
+        d['args'] = None
+        s = cPickle.dumps(d, 1)
         if ei:
             record.exc_info = ei  # for next handler
         slen = struct.pack(">L", len(s))
@@ -563,9 +586,13 @@ class SocketHandler(logging.Handler):
         """
         Closes the socket.
         """
-        if self.sock:
-            self.sock.close()
-            self.sock = None
+        self.acquire()
+        try:
+            if self.sock:
+                self.sock.close()
+                self.sock = None
+        finally:
+            self.release()
         logging.Handler.close(self)
 
 class DatagramHandler(SocketHandler):
@@ -735,14 +762,12 @@ class SysLogHandler(logging.Handler):
         self.formatter = None
 
     def _connect_unixsocket(self, address):
-        self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        # syslog may require either DGRAM or STREAM sockets
+        self.socket = socket.socket(socket.AF_UNIX, self.socktype)
         try:
             self.socket.connect(address)
         except socket.error:
             self.socket.close()
-            self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.socket.connect(address)
+            raise
 
     # curious: when talking to the unix-domain '/dev/log' socket, a
     #   zero-terminator seems to be required.  this string is placed
@@ -767,8 +792,12 @@ class SysLogHandler(logging.Handler):
         """
         Closes the socket.
         """
-        if self.unixsocket:
-            self.socket.close()
+        self.acquire()
+        try:
+            if self.unixsocket:
+                self.socket.close()
+        finally:
+            self.release()
         logging.Handler.close(self)
 
     def mapPriority(self, levelName):
@@ -798,8 +827,6 @@ class SysLogHandler(logging.Handler):
         # Message is a string. Convert to bytes as required by RFC 5424
         if type(msg) is unicode:
             msg = msg.encode('utf-8')
-            if codecs:
-                msg = codecs.BOM_UTF8 + msg
         msg = prio + msg
         try:
             if self.unixsocket:
@@ -852,6 +879,7 @@ class SMTPHandler(logging.Handler):
         self.toaddrs = toaddrs
         self.subject = subject
         self.secure = secure
+        self._timeout = 5.0
 
     def getSubject(self, record):
         """
@@ -874,7 +902,7 @@ class SMTPHandler(logging.Handler):
             port = self.mailport
             if not port:
                 port = smtplib.SMTP_PORT
-            smtp = smtplib.SMTP(self.mailhost, port)
+            smtp = smtplib.SMTP(self.mailhost, port, timeout=self._timeout)
             msg = self.format(record)
             msg = "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\n\r\n%s" % (
                             self.fromaddr,
@@ -1096,7 +1124,11 @@ class BufferingHandler(logging.Handler):
 
         This version just zaps the buffer to empty.
         """
-        self.buffer = []
+        self.acquire()
+        try:
+            self.buffer = []
+        finally:
+            self.release()
 
     def close(self):
         """
@@ -1144,15 +1176,23 @@ class MemoryHandler(BufferingHandler):
         records to the target, if there is one. Override if you want
         different behaviour.
         """
-        if self.target:
-            for record in self.buffer:
-                self.target.handle(record)
-            self.buffer = []
+        self.acquire()
+        try:
+            if self.target:
+                for record in self.buffer:
+                    self.target.handle(record)
+                self.buffer = []
+        finally:
+            self.release()
 
     def close(self):
         """
         Flush, set the target to None and lose the buffer.
         """
         self.flush()
-        self.target = None
-        BufferingHandler.close(self)
+        self.acquire()
+        try:
+            self.target = None
+            BufferingHandler.close(self)
+        finally:
+            self.release()

@@ -7,7 +7,7 @@ Usage::
         "json": "obj"
     }
     $ echo '{ 1.2:3.4}' | python -m json.tool
-    Expecting property name: line 1 column 2 (char 2)
+    Expecting property name enclosed in double quotes: line 1 column 3 (char 2)
 
 """
 import sys
@@ -25,12 +25,15 @@ def main():
         outfile = open(sys.argv[2], 'wb')
     else:
         raise SystemExit(sys.argv[0] + " [infile [outfile]]")
-    try:
-        obj = json.load(infile)
-    except ValueError, e:
-        raise SystemExit(e)
-    json.dump(obj, outfile, sort_keys=True, indent=4)
-    outfile.write('\n')
+    with infile:
+        try:
+            obj = json.load(infile)
+        except ValueError, e:
+            raise SystemExit(e)
+    with outfile:
+        json.dump(obj, outfile, sort_keys=True,
+                  indent=4, separators=(',', ': '))
+        outfile.write('\n')
 
 
 if __name__ == '__main__':

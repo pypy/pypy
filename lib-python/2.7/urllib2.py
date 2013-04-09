@@ -102,6 +102,7 @@ import sys
 import time
 import urlparse
 import bisect
+import warnings
 
 try:
     from cStringIO import StringIO
@@ -109,7 +110,7 @@ except ImportError:
     from StringIO import StringIO
 
 from urllib import (unwrap, unquote, splittype, splithost, quote,
-     addinfourl, splitport, splittag,
+     addinfourl, splitport, splittag, toBytes,
      splitattr, ftpwrapper, splituser, splitpasswd, splitvalue)
 
 # support for FileHandler, proxies via environment variables
@@ -171,6 +172,9 @@ class HTTPError(URLError, addinfourl):
     @property
     def reason(self):
         return self.msg
+
+    def info(self):
+        return self.hdrs
 
 # copied from cookielib.py
 _cut_port_re = re.compile(r":\d+$")
@@ -828,7 +832,7 @@ class AbstractBasicAuthHandler:
     # allow for double- and single-quoted realm values
     # (single quotes are a violation of the RFC, but appear in the wild)
     rx = re.compile('(?:.*,)*[ \t]*([^ \t]+)[ \t]+'
-                    'realm=(["\'])(.*?)\\2', re.I)
+                    'realm=(["\']?)([^"\']*)\\2', re.I)
 
     # XXX could pre-emptively send auth info already accepted (RFC 2617,
     # end of section 2, and section 1.2 immediately after "credentials"
@@ -861,6 +865,9 @@ class AbstractBasicAuthHandler:
             mo = AbstractBasicAuthHandler.rx.search(authreq)
             if mo:
                 scheme, quote, realm = mo.groups()
+                if quote not in ['"', "'"]:
+                    warnings.warn("Basic Auth Realm was unquoted",
+                                  UserWarning, 2)
                 if scheme.lower() == 'basic':
                     response = self.retry_http_basic_auth(host, req, realm)
                     if response and response.code != 401:

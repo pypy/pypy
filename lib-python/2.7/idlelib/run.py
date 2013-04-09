@@ -1,4 +1,5 @@
 import sys
+import io
 import linecache
 import time
 import socket
@@ -14,6 +15,8 @@ from idlelib import RemoteDebugger
 from idlelib import RemoteObjectBrowser
 from idlelib import StackViewer
 from idlelib import rpc
+from idlelib import PyShell
+from idlelib import IOBinding
 
 import __main__
 
@@ -248,19 +251,19 @@ class MyRPCServer(rpc.RPCServer):
             quitting = True
             thread.interrupt_main()
 
-
 class MyHandler(rpc.RPCHandler):
 
     def handle(self):
         """Override base method"""
         executive = Executive(self)
         self.register("exec", executive)
-        sys.stdin = self.console = self.get_remote_proxy("stdin")
-        sys.stdout = self.get_remote_proxy("stdout")
-        sys.stderr = self.get_remote_proxy("stderr")
-        from idlelib import IOBinding
-        sys.stdin.encoding = sys.stdout.encoding = \
-                             sys.stderr.encoding = IOBinding.encoding
+        self.console = self.get_remote_proxy("console")
+        sys.stdin = PyShell.PseudoInputFile(self.console, "stdin",
+                IOBinding.encoding)
+        sys.stdout = PyShell.PseudoOutputFile(self.console, "stdout",
+                IOBinding.encoding)
+        sys.stderr = PyShell.PseudoOutputFile(self.console, "stderr",
+                IOBinding.encoding)
         self.interp = self.get_remote_proxy("interp")
         rpc.RPCHandler.getresponse(self, myseq=None, wait=0.05)
 
@@ -298,11 +301,14 @@ class Executive(object):
                 exec code in self.locals
             finally:
                 interruptable = False
+        except SystemExit:
+            # Scripts that raise SystemExit should just
+            # return to the interactive prompt
+            pass
         except:
             self.usr_exc_info = sys.exc_info()
             if quitting:
                 exit()
-            # even print a user code SystemExit exception, continue
             print_exception()
             jit = self.rpchandler.console.getvar("<<toggle-jit-stack-viewer>>")
             if jit:

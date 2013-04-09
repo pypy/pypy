@@ -32,7 +32,7 @@ Verbosity
 
 Selecting tests
 
--r/--random     -- randomize test execution order (see below)
+-r/--randomize  -- randomize test execution order (see below)
    --randseed   -- pass a random seed to reproduce a previous random run
 -f/--fromfile   -- read names of tests to run from a file (see below)
 -x/--exclude    -- arguments are tests to *exclude*
@@ -158,6 +158,7 @@ import json
 import os
 import random
 import re
+import shutil
 import sys
 import time
 import traceback
@@ -258,7 +259,7 @@ def main(tests=None, testdir=None, verbose=0, quiet=False,
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hvqxsSrf:lu:t:TD:NLR:FwWM:j:',
             ['help', 'verbose', 'verbose2', 'verbose3', 'quiet',
-             'exclude', 'single', 'slow', 'random', 'fromfile', 'findleaks',
+             'exclude', 'single', 'slow', 'randomize', 'fromfile=', 'findleaks',
              'use=', 'threshold=', 'trace', 'coverdir=', 'nocoverdir',
              'runleaks', 'huntrleaks=', 'memlimit=', 'randseed=',
              'multiprocess=', 'slaveargs=', 'forever', 'header'])
@@ -540,6 +541,8 @@ def main(tests=None, testdir=None, verbose=0, quiet=False,
                     print stdout
                 if stderr:
                     print >>sys.stderr, stderr
+                sys.stdout.flush()
+                sys.stderr.flush()
                 if result[0] == INTERRUPTED:
                     assert result[1] == 'KeyboardInterrupt'
                     raise KeyboardInterrupt   # What else?
@@ -758,7 +761,9 @@ class saved_test_environment:
     # the corresponding method names.
 
     resources = ('sys.argv', 'cwd', 'sys.stdin', 'sys.stdout', 'sys.stderr',
-                 'os.environ', 'sys.path', 'asyncore.socket_map')
+                 'os.environ', 'sys.path', 'asyncore.socket_map',
+                 'test_support.TESTFN',
+                )
 
     def get_sys_argv(self):
         return id(sys.argv), sys.argv, sys.argv[:]
@@ -808,6 +813,21 @@ class saved_test_environment:
         if asyncore is not None:
             asyncore.close_all(ignore_all=True)
             asyncore.socket_map.update(saved_map)
+
+    def get_test_support_TESTFN(self):
+        if os.path.isfile(test_support.TESTFN):
+            result = 'f'
+        elif os.path.isdir(test_support.TESTFN):
+            result = 'd'
+        else:
+            result = None
+        return result
+    def restore_test_support_TESTFN(self, saved_value):
+        if saved_value is None:
+            if os.path.isfile(test_support.TESTFN):
+                os.unlink(test_support.TESTFN)
+            elif os.path.isdir(test_support.TESTFN):
+                shutil.rmtree(test_support.TESTFN)
 
     def resource_info(self):
         for name in self.resources:
@@ -924,7 +944,6 @@ def runtest_inner(test, verbose, quiet, huntrleaks=False):
         return FAILED, test_time
 
 def cleanup_test_droppings(testname, verbose):
-    import shutil
     import stat
     import gc
 

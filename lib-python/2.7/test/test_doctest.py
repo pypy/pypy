@@ -2006,6 +2006,31 @@ def test_DocTestSuite():
          >>> suite.run(unittest.TestResult())
          <unittest.result.TestResult run=9 errors=0 failures=4>
 
+       The module need not contain any doctest examples:
+
+         >>> suite = doctest.DocTestSuite('test.sample_doctest_no_doctests')
+         >>> suite.run(unittest.TestResult())
+         <unittest.result.TestResult run=0 errors=0 failures=0>
+
+       However, if DocTestSuite finds no docstrings, it raises an error:
+
+         >>> try:
+         ...     doctest.DocTestSuite('test.sample_doctest_no_docstrings')
+         ... except ValueError as e:
+         ...     error = e
+
+         >>> print(error.args[1])
+         has no docstrings
+
+       You can prevent this error by passing a DocTestFinder instance with
+       the `exclude_empty` keyword argument set to False:
+
+         >>> finder = doctest.DocTestFinder(exclude_empty=False)
+         >>> suite = doctest.DocTestSuite('test.sample_doctest_no_docstrings',
+         ...                              test_finder=finder)
+         >>> suite.run(unittest.TestResult())
+         <unittest.result.TestResult run=0 errors=0 failures=0>
+
        We can use the current module:
 
          >>> suite = test.sample_doctest.test_suite()
@@ -2648,7 +2673,9 @@ def test_main():
     from test import test_doctest
 
     # Ignore all warnings about the use of class Tester in this module.
-    deprecations = [("class Tester is deprecated", DeprecationWarning)]
+    deprecations = []
+    if __debug__:
+        deprecations.append(("class Tester is deprecated", DeprecationWarning))
     if sys.py3kwarning:
         deprecations += [("backquote not supported", SyntaxWarning),
                          ("execfile.. not supported", DeprecationWarning)]

@@ -64,13 +64,13 @@ class CookieTests(unittest.TestCase):
 
         # loading 'expires'
         C = Cookie.SimpleCookie()
-        C.load('Customer="W"; expires=Wed, 01-Jan-2010 00:00:00 GMT')
+        C.load('Customer="W"; expires=Wed, 01 Jan 2010 00:00:00 GMT')
         self.assertEqual(C['Customer']['expires'],
-                         'Wed, 01-Jan-2010 00:00:00 GMT')
+                         'Wed, 01 Jan 2010 00:00:00 GMT')
         C = Cookie.SimpleCookie()
-        C.load('Customer="W"; expires=Wed, 01-Jan-98 00:00:00 GMT')
+        C.load('Customer="W"; expires=Wed, 01 Jan 98 00:00:00 GMT')
         self.assertEqual(C['Customer']['expires'],
-                         'Wed, 01-Jan-98 00:00:00 GMT')
+                         'Wed, 01 Jan 98 00:00:00 GMT')
 
     def test_extended_encode(self):
         # Issue 9824: some browsers don't follow the standard; we now
@@ -90,9 +90,10 @@ class CookieTests(unittest.TestCase):
 
 def test_main():
     run_unittest(CookieTests)
-    with check_warnings(('.+Cookie class is insecure; do not use it',
-                         DeprecationWarning)):
-        run_doctest(Cookie)
+    if Cookie.__doc__ is not None:
+        with check_warnings(('.+Cookie class is insecure; do not use it',
+                             DeprecationWarning)):
+            run_doctest(Cookie)
 
 if __name__ == '__main__':
     test_main()
