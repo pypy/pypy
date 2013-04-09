@@ -37,7 +37,7 @@ def encode_error_handler(space):
 
 # ____________________________________________________________
 
-def PyUnicode_DecodeFSDefault(space, w_string):
+def fsdecode(space, w_string):
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
         bytes = space.bytes_w(w_string)
@@ -64,7 +64,7 @@ def PyUnicode_DecodeFSDefault(space, w_string):
                                  space.wrap('surrogateescape'))
     return space.wrap(uni)
 
-def PyUnicode_EncodeFSDefault(space, w_uni):
+def fsencode(space, w_uni):
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
         uni = space.unicode_w(w_uni)

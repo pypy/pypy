@@ -1382,12 +1382,12 @@ class ObjSpace(object):
         return w_obj.identifier_w(self)
 
     def fsencode(space, w_obj):
-        from pypy.interpreter.unicodehelper import PyUnicode_EncodeFSDefault
-        return PyUnicode_EncodeFSDefault(space, w_obj)
+        from pypy.interpreter.unicodehelper import fsencode
+        return fsencode(space, w_obj)
 
     def fsdecode(space, w_obj):
-        from pypy.interpreter.unicodehelper import PyUnicode_DecodeFSDefault
-        return PyUnicode_DecodeFSDefault(space, w_obj)
+        from pypy.interpreter.unicodehelper import fsdecode
+        return fsdecode(space, w_obj)
 
     def fsencode_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_unicode):
