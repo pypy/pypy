@@ -473,8 +473,8 @@ getting the advantage of providing document type information to the parser.
     # Handlers management
 
     def w_convert(self, space, s):
-        from pypy.interpreter.unicodehelper import PyUnicode_DecodeUTF8
-        return space.wrap(PyUnicode_DecodeUTF8(space, s))
+        from pypy.interpreter.unicodehelper import decode_utf8
+        return space.wrap(decode_utf8(space, s))
 
     def w_convert_charp(self, space, data):
         if data:

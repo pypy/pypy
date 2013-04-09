@@ -91,11 +91,12 @@ def PyUnicode_EncodeFSDefault(space, w_uni):
                                  space.wrap('surrogateescape'))
     return space.wrapbytes(bytes)
 
-def PyUnicode_AsEncodedString(space, w_data, w_encoding):
-    return interp_codecs.encode(space, w_data, w_encoding)
+def encode(space, w_data, encoding=None, errors='strict'):
+    from pypy.objspace.std.unicodetype import encode_object
+    return encode_object(space, w_data, encoding, errors)
 
 # These functions take and return unwrapped rpython strings and unicodes
-def PyUnicode_DecodeUnicodeEscape(space, string):
+def decode_unicode_escape(space, string):
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
     result, consumed = runicode.str_decode_unicode_escape(
@@ -104,20 +105,20 @@ def PyUnicode_DecodeUnicodeEscape(space, string):
         unicodedata_handler=unicodedata_handler)
     return result
 
-def PyUnicode_DecodeRawUnicodeEscape(space, string):
+def decode_raw_unicode_escape(space, string):
     result, consumed = runicode.str_decode_raw_unicode_escape(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space))
     return result
 
-def PyUnicode_DecodeUTF8(space, string, allow_surrogates=False):
+def decode_utf8(space, string, allow_surrogates=False):
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "strict",
         final=True, errorhandler=decode_error_handler(space),
         allow_surrogates=allow_surrogates)
     return result
 
-def PyUnicode_EncodeUTF8(space, uni, allow_surrogates=False):
+def encode_utf8(space, uni, allow_surrogates=False):
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),
