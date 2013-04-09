@@ -41,6 +41,8 @@ class AppTestSignal:
 
     def setup_class(cls):
         cls.w_signal = cls.space.getbuiltinmodule('signal')
+        cls.w_temppath = cls.space.wrap(
+            str(py.test.ensuretemp("signal").join("foo.txt")))
 
     def test_exported_names(self):
         import os
@@ -216,6 +218,12 @@ class AppTestSignal:
             old_wakeup = signal.set_wakeup_fd(old_wakeup)
         #
         signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    def test_set_wakeup_fd_invalid(self):
+        import signal
+        with open(self.temppath, 'wb') as f:
+            fd = f.fileno()
+        raises(ValueError, signal.set_wakeup_fd, fd)
 
     def test_siginterrupt(self):
         import signal, os, time
