@@ -533,8 +533,11 @@ entries '.' and '..' even if they are present in the directory."""
             len_result = len(result)
             result_w = [None] * len_result
             for i in range(len_result):
-                w_bytes = space.wrapbytes(result[i])
-                result_w[i] = space.fsdecode(w_bytes)
+                if _WIN32:
+                    result_w[i] = space.wrap(result[i])
+                else:
+                    w_bytes = space.wrapbytes(result[i])
+                    result_w[i] = space.fsdecode(w_bytes)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
