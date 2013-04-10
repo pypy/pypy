@@ -155,6 +155,7 @@ class TestPartial(unittest.TestCase):
         self.assertEqual(signature(f), signature(f_copy))
 
     # Issue 6083: Reference counting bug
+    @unittest.skipUnless(test_support.check_impl_detail(), "ref counting")
     def test_setstate_refcount(self):
         class BadSequence:
             def __len__(self):
