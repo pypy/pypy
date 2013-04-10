@@ -787,7 +787,9 @@ class Connection(object):
                 try:
                     ret = callback(action, arg1, arg2, dbname, source)
                     assert isinstance(ret, int)
-                    assert ret in (_lib.SQLITE_OK, _lib.SQLITE_DENY, _lib.SQLITE_IGNORE)
+                    # try to detect cases in which cffi would swallow
+                    # OverflowError when casting the return value
+                    assert int(_ffi.cast('int', ret)) == ret
                     return ret
                 except Exception:
                     return _lib.SQLITE_DENY
