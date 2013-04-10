@@ -346,7 +346,7 @@ if _WIN32:
          ])
 
     CConfig.WSAPROTOCOL_INFO = platform.Struct(
-        'WSAPROTOCOL_INFO',
+        'WSAPROTOCOL_INFOA',
         [])  # Struct is just passed between functions
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
@@ -612,11 +612,11 @@ elif WIN32:
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
     FROM_PROTOCOL_INFO = cConfig.FROM_PROTOCOL_INFO
-    WSADuplicateSocket = external('WSADuplicateSocket', 
+    WSADuplicateSocket = external('WSADuplicateSocketA', 
                                   [socketfd_type, rwin32.DWORD,
                                    lltype.Ptr(WSAPROTOCOL_INFO)],
                                   rffi.INT)
-    WSASocket = external('WSASocket', 
+    WSASocket = external('WSASocketA', 
                          [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(WSAPROTOCOL_INFO),
                           rwin32.DWORD, rwin32.DWORD],
