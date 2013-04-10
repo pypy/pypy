@@ -27,18 +27,11 @@ TRANSLATED_SMALL_REQUEST_THRESHOLD = 35 * WORD
 
 PAGE_PTR = lltype.Ptr(lltype.ForwardReference())
 PAGE_HEADER = lltype.Struct('PageHeader',
-    # -- The following pointer makes a chained list of pages.  For non-full
-    #    pages, it is a chained list of pages having the same size class,
-    #    rooted in 'page_for_size[size_class]'.  For full pages, it is a
-    #    different chained list rooted in 'full_page_for_size[size_class]'.
+    # -- The following pointer makes a chained list of pages.
     ('nextpage', PAGE_PTR),
-    # -- The number of free blocks.  The numbers of uninitialized and
-    #    allocated blocks can be deduced from the context if needed.
-    ('nfree', lltype.Signed),
-    # -- The chained list of free blocks.  It ends as a pointer to the
-    #    first uninitialized block (pointing to data that is uninitialized,
-    #    or to the end of the page).
-    ('freeblock', llmemory.Address),
+    # -- XXX
+    ('xxx1', lltype.Signed),
+    ('xxx2', llmemory.Address),
     # -- The structure above is 3 words, which is a good value:
     #    '(1023-3) % N' is zero or very small for various small N's,
     #    i.e. there is not much wasted space.
@@ -96,22 +89,26 @@ class StmGCThreadLocalAllocator(object):
         self.sharedarea = sharedarea
         self.chained_list = NULL
         #
-        # These two arrays contain each 'length' chained lists of pages.
+        # The array 'pages_for_size' contains 'length' chained lists
+        # of pages currently managed by this thread.
         # For each size N between WORD and 'small_request_threshold'
         # (included), the corresponding chained list contains pages
-        # which store objects of size N.  The 'page_for_size' lists are
-        # for pages which still have room for at least one more object,
-        # and the 'full_page_for_size' lists are for full pages.
+        # which store objects of size N.
         length = sharedarea.small_request_threshold / WORD + 1
-        self.page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                           flavor='raw', zero=True,
-                                           immortal=True)
-        self.full_page_for_size = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                                flavor='raw', zero=True,
-                                                immortal=True)
+        self.pages_for_size = lltype.malloc(
+            rffi.CArray(PAGE_PTR), length, flavor='raw', zero=True)
+        #
+        # This array contains 'length' chained lists of free object locations.
+        self.free_objects_for_size = lltype.malloc(
+            rffi.CArray(llmemory.Address), length, flavor='raw', zero=True)
         #
         if not we_are_translated():
             self._seen_pages = set()
+
+    def free(self):
+        lltype.free(self.free_objects_for_size, flavor='raw')
+        lltype.free(self.pages_for_size, flavor='raw')
+        self.delete()
 
     def _malloc_size_class(self, size_class):
         """Malloc one object of the given size_class (== number of WORDs)."""
@@ -119,70 +116,61 @@ class StmGCThreadLocalAllocator(object):
         ll_assert(size_class <= self.sharedarea.small_request_threshold,
                   "malloc_size_class: too big")
         #
-        # Get the page to use
-        page = self.page_for_size[size_class]
-        if page == PAGE_NULL:
-            page = self._allocate_new_page(size_class)
-        #
-        # The result is simply 'page.freeblock'
-        result = page.freeblock
-        nsize = size_class << WORD_POWER_2
-        if page.nfree > 0:
-            #
-            # The 'result' was part of the chained list; read the next.
-            page.nfree -= 1
-            freeblock = result.address[0]
-            llarena.arena_reset(result,
-                                llmemory.sizeof(llmemory.Address),
-                                0)
-            #
-        else:
-            # The 'result' is part of the uninitialized blocks.
-            freeblock = result + nsize
-        #
-        page.freeblock = freeblock
-        #
-        pageaddr = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
-        if freeblock - pageaddr > self.sharedarea.page_size - nsize:
-            # This was the last free block, so unlink the page from the
-            # chained list and put it in the 'full_page_for_size' list.
-            self.page_for_size[size_class] = page.nextpage
-            page.nextpage = self.full_page_for_size[size_class]
-            self.full_page_for_size[size_class] = page
-        #
+        # The result is simply 'free_objects_for_size[size_class]'
+        result = self.free_objects_for_size[size_class]
+        if not result:
+            result = self._allocate_new_page(size_class)
+        self.free_objects_for_size[size_class] = result.address[0]
+        llarena.arena_reset(result, llmemory.sizeof(llmemory.Address), 0)
         return result
+    _malloc_size_class._always_inline_ = True
 
+    def _free_size_class(self, obj, size_class):
+        """Free a single object 'obj', which is of the given size_class."""
+        # just link 'obj' to the start of 'free_objects_for_size[size_class]'
+        obj = llarena.getfakearenaaddress(obj)
+        llarena.arena_reset(obj, size_class << WORD_POWER_2, 0)
+        llarena.arena_reserve(obj, llmemory.sizeof(llmemory.Address))
+        obj.address[0] = self.free_objects_for_size[size_class]
+        self.free_objects_for_size[size_class] = obj
+    _free_size_class._always_inline_ = True
 
     def _allocate_new_page(self, size_class):
         """Allocate and return a new page for the given size_class."""
         #
-        # If 'low_usage_page' has pages ready, return one of them.
-        # Check both before acquiring the lock (NULL is the common case
-        # and getting it occasionally wrong is not a problem), and after.
-        result = NULL
-        sharedarea = self.sharedarea
-        if sharedarea.low_usage_page[size_class] != PAGE_NULL:
-            XXX   # self.ll_low_usage_lock...
-        #
-        # If unsuccessful, just raw-malloc a new page.
+        result = llarena.arena_malloc(self.sharedarea.page_size, 0)
         if not result:
-            result = llarena.arena_malloc(sharedarea.page_size, 0)
-            if not result:
-                fatalerror("FIXME: Out of memory! (should raise MemoryError)")
-                return PAGE_NULL
-            if not we_are_translated():
-                self._seen_pages.add(result)
-            llarena.arena_reserve(result, llmemory.sizeof(PAGE_HEADER))
+            fatalerror("FIXME: Out of memory! (should raise MemoryError)")
+            return PAGE_NULL
+        if not we_are_translated():
+            self._seen_pages.add(result)
+        llarena.arena_reserve(result, llmemory.sizeof(PAGE_HEADER))
         #
         # Initialize the fields of the resulting page
         page = llmemory.cast_adr_to_ptr(result, PAGE_PTR)
-        page.nfree = 0
-        page.freeblock = result + sharedarea.hdrsize
-        page.nextpage = PAGE_NULL
-        ll_assert(self.page_for_size[size_class] == PAGE_NULL,
-                  "allocate_new_page() called but a page is already waiting")
-        self.page_for_size[size_class] = page
-        return page
+        page.nextpage = self.pages_for_size[size_class]
+        self.pages_for_size[size_class] = page
+        #
+        # Initialize the chained list in the page
+        head = result + llmemory.sizeof(PAGE_HEADER)
+        ll_assert(not self.free_objects_for_size[size_class],
+                  "free_objects_for_size is supposed to contain NULL here")
+        self.free_objects_for_size[size_class] = head
+        #
+        i = self.sharedarea.nblocks_for_size[size_class]
+        nsize = size_class << WORD_POWER_2
+        current = head
+        while True:
+            llarena.arena_reserve(current, llmemory.sizeof(llmemory.Address))
+            i -= 1
+            if i == 0:
+                break
+            next = current + nsize
+            current.address[0] = next
+            current = next
+        current.address[0] = llmemory.NULL
+        #
+        return head
 
 
     def malloc_object(self, totalsize):
@@ -204,9 +192,14 @@ class StmGCThreadLocalAllocator(object):
         self.gc.set_obj_revision(obj, self.chained_list)
         self.chained_list = obj
 
-    def free_object(self, adr2):
-        adr1 = adr2 - self.gc.gcheaderbuilder.size_gc_header
-        llarena.arena_free(llarena.getfakearenaaddress(adr1))
+    def free_object(self, obj):
+        osize = self.gc.get_size_incl_hash(obj)
+        if osize <= self.sharedarea.small_request_threshold:
+            size_class = (osize + WORD_POWER_2 - 1) >> WORD_POWER_2
+            self._free_size_class(obj, size_class)
+        else:
+            adr1 = obj - self.gc.gcheaderbuilder.size_gc_header
+            llarena.arena_free(llarena.getfakearenaaddress(adr1))
 
     def free_and_clear(self):
         obj = self.chained_list

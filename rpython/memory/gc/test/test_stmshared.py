@@ -19,3 +19,25 @@ def test_simple():
     assert len(thl1._seen_pages) == 3
     thl1.malloc_object(2*WORD)
     assert len(thl1._seen_pages) == 3
+    thl1.free()
+
+class FakeGC:
+    def __init__(self):
+        self._object_sizes = {}
+    def set_size(self, obj, size):
+        assert obj not in self._object_sizes
+        self._object_sizes[obj] = size
+    def get_size_incl_hash(self, obj):
+        return self._object_sizes[obj]
+
+def test_free():
+    gc = FakeGC()
+    shared = StmGCSharedArea(gc, 10*WORD, 2*WORD)
+    shared.setup()
+    thl1 = StmGCThreadLocalAllocator(shared)
+    obj = thl1.malloc_object(2*WORD)
+    gc.set_size(obj, 2*WORD)
+    thl1.free_object(obj)
+    obj2 = thl1.malloc_object(2*WORD)
+    assert obj2 == obj     # reusing the same location
+    thl1.free()

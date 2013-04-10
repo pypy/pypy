@@ -77,7 +77,7 @@ class StmGCTLS(object):
         self._cleanup_state()
         self._unregister_with_C_code()
         self.local_weakrefs.delete()
-        self.sharedarea_tls.delete()
+        self.sharedarea_tls.free()
         self._free_nursery(self.nursery_start)
         free_non_gc_object(self)
 
