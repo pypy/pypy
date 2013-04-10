@@ -785,7 +785,10 @@ class Connection(object):
                            "const char*, const char*)")
             def authorizer(userdata, action, arg1, arg2, dbname, source):
                 try:
-                    return int(callback(action, arg1, arg2, dbname, source))
+                    ret = callback(action, arg1, arg2, dbname, source)
+                    assert isinstance(ret, int)
+                    assert ret in (_lib.SQLITE_OK, _lib.SQLITE_DENY, _lib.SQLITE_IGNORE)
+                    return ret
                 except Exception:
                     return _lib.SQLITE_DENY
             self.__func_cache[callback] = authorizer
