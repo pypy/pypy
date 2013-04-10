@@ -16,7 +16,7 @@ class FdWriteCapture(object):
     """xxx limited to capture at most 512 bytes of output, according
     to the Posix manual."""
 
-    def __init__(self, capture_fd=1):   # stdout, by default
+    def __init__(self, capture_fd):
         self.capture_fd = capture_fd
 
     def __enter__(self):
@@ -109,80 +109,66 @@ class TestFunction(object):
         y = lib.TlsFree(x)
         assert y != 0
 
-    def test_puts(self):
-        ffi = FFI(backend=self.Backend())
-        ffi.cdef("""
-            int puts(const char *);
-            int fflush(void *);
-        """)
-        ffi.C = ffi.dlopen(None)
-        ffi.C.puts   # fetch before capturing, for easier debugging
-        with FdWriteCapture() as fd:
-            ffi.C.puts(b"hello")
-            ffi.C.puts(b"  world")
-            ffi.C.fflush(ffi.NULL)
-        res = fd.getvalue()
-        assert res == b'hello\n  world\n'
-
-    def test_puts_without_const(self):
-        ffi = FFI(backend=self.Backend())
-        ffi.cdef("""
-            int puts(char *);
-            int fflush(void *);
-        """)
-        ffi.C = ffi.dlopen(None)
-        ffi.C.puts   # fetch before capturing, for easier debugging
-        with FdWriteCapture() as fd:
-            ffi.C.puts(b"hello")
-            ffi.C.puts(b"  world")
-            ffi.C.fflush(ffi.NULL)
-        res = fd.getvalue()
-        assert res == b'hello\n  world\n'
-
     def test_fputs(self):
         if not sys.platform.startswith('linux'):
-            py.test.skip("probably no symbol 'stdout' in the lib")
+            py.test.skip("probably no symbol 'stderr' in the lib")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             int fputs(const char *, void *);
-            void *stdout, *stderr;
+            void *stderr;
+        """)
+        ffi.C = ffi.dlopen(None)
+        ffi.C.fputs   # fetch before capturing, for easier debugging
+        with FdWriteCapture(2) as fd:
+            ffi.C.fputs(b"hello\n", ffi.C.stderr)
+            ffi.C.fputs(b"  world\n", ffi.C.stderr)
+        res = fd.getvalue()
+        assert res == b'hello\n  world\n'
+
+    def test_fputs_without_const(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("probably no symbol 'stderr' in the lib")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            int fputs(char *, void *);
+            void *stderr;
+        """)
+        ffi.C = ffi.dlopen(None)
+        ffi.C.fputs   # fetch before capturing, for easier debugging
+        with FdWriteCapture(2) as fd:
+            ffi.C.fputs(b"hello\n", ffi.C.stderr)
+            ffi.C.fputs(b"  world\n", ffi.C.stderr)
+        res = fd.getvalue()
+        assert res == b'hello\n  world\n'
+
+    def test_vararg(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("probably no symbol 'stderr' in the lib")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+           int fprintf(void *, const char *format, ...);
+           void *stderr;
         """)
         ffi.C = ffi.dlopen(None)
         with FdWriteCapture(2) as fd:
-            ffi.C.fputs(b"hello from stderr\n", ffi.C.stderr)
+            ffi.C.fprintf(ffi.C.stderr, b"hello with no arguments\n")
+            ffi.C.fprintf(ffi.C.stderr,
+                          b"hello, %s!\n", ffi.new("char[]", b"world"))
+            ffi.C.fprintf(ffi.C.stderr,
+                          ffi.new("char[]", b"hello, %s!\n"),
+                          ffi.new("char[]", b"world2"))
+            ffi.C.fprintf(ffi.C.stderr,
+                          b"hello int %d long %ld long long %lld\n",
+                          ffi.cast("int", 42),
+                          ffi.cast("long", 84),
+                          ffi.cast("long long", 168))
+            ffi.C.fprintf(ffi.C.stderr, b"hello %p\n", ffi.NULL)
         res = fd.getvalue()
-        assert res == b'hello from stderr\n'
-
-    def test_vararg(self):
-        ffi = FFI(backend=self.Backend())
-        ffi.cdef("""
-           int printf(const char *format, ...);
-           int fflush(void *);
-        """)
-        ffi.C = ffi.dlopen(None)
-        with FdWriteCapture() as fd:
-            ffi.C.printf(b"hello with no arguments\n")
-            ffi.C.printf(b"hello, %s!\n", ffi.new("char[]", b"world"))
-            ffi.C.printf(ffi.new("char[]", b"hello, %s!\n"),
-                         ffi.new("char[]", b"world2"))
-            ffi.C.printf(b"hello int %d long %ld long long %lld\n",
-                         ffi.cast("int", 42),
-                         ffi.cast("long", 84),
-                         ffi.cast("long long", 168))
-            ffi.C.printf(b"hello %p\n", ffi.NULL)
-            ffi.C.fflush(ffi.NULL)
-        res = fd.getvalue()
-        if sys.platform == 'win32':
-            NIL = b"00000000"
-        elif sys.platform.startswith(('linux', 'gnu')):
-            NIL = b"(nil)"
-        else:
-            NIL = b"0x0"    # OS/X at least
         assert res == (b"hello with no arguments\n"
                        b"hello, world!\n"
                        b"hello, world2!\n"
                        b"hello int 42 long 84 long long 168\n"
-                       b"hello " + NIL + b"\n")
+                       b"hello (nil)\n")
 
     def test_must_specify_type_of_vararg(self):
         ffi = FFI(backend=self.Backend())
@@ -216,17 +202,18 @@ class TestFunction(object):
         res = fptr(b"Hello")
         assert res == 42
         #
+        if not sys.platform.startswith('linux'):
+            py.test.skip("probably no symbol 'stderr' in the lib")
         ffi.cdef("""
-            int puts(const char *);
-            int fflush(void *);
+            int fputs(const char *, void *);
+            void *stderr;
         """)
         ffi.C = ffi.dlopen(None)
-        fptr = ffi.cast("int(*)(const char *txt)", ffi.C.puts)
-        assert fptr == ffi.C.puts
-        assert repr(fptr).startswith("<cdata 'int(*)(char *)' 0x")
-        with FdWriteCapture() as fd:
-            fptr(b"world")
-            ffi.C.fflush(ffi.NULL)
+        fptr = ffi.cast("int(*)(const char *txt, void *)", ffi.C.fputs)
+        assert fptr == ffi.C.fputs
+        assert repr(fptr).startswith("<cdata 'int(*)(char *, void *)' 0x")
+        with FdWriteCapture(2) as fd:
+            fptr(b"world\n", ffi.C.stderr)
         res = fd.getvalue()
         assert res == b'world\n'
 
