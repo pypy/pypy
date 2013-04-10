@@ -1053,7 +1053,7 @@ if hasattr(_c, 'socketpair'):
 
 if _c.WIN32:
     def dup(fd):
-        with lltype.scoped_alloc(_c.WSAData, zero=True) as info:
+        with lltype.scoped_alloc(_c.WSAPROTOCOL_INFO, zero=True) as info:
             if _c.WSADuplicateSocket(fd, rwin32.GetCurrentProcessId(), info):
                 raise last_error()
             result = _c.WSASocket(

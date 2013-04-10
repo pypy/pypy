@@ -298,6 +298,10 @@ class ResOpAssembler(BaseAssembler):
         return self._emit_guard(op, locs, fcond, save_exc=False,
                                             is_guard_not_invalidated=True)
 
+    def emit_op_label(self, op, arglocs, regalloc, fcond): 
+        self._check_frame_depth_debug(self.mc)
+        return fcond
+
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         target_token = op.getdescr()
         assert isinstance(target_token, TargetToken)

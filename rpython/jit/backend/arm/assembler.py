@@ -30,6 +30,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 class AssemblerARM(ResOpAssembler):
 
     debug = False
+    DEBUG_FRAME_DEPTH = False
 
     def __init__(self, cpu, translate_support_code=False):
         ResOpAssembler.__init__(self, cpu, translate_support_code)
@@ -67,6 +68,7 @@ class AssemblerARM(ResOpAssembler):
                                                         allblocks)
         self.mc.datablockwrapper = self.datablockwrapper
         self.target_tokens_currently_compiling = {}
+        self.frame_depth_to_patch = []
 
     def teardown(self):
         self.current_clt = None
@@ -597,6 +599,7 @@ class AssemblerARM(ResOpAssembler):
                                                      'e', looptoken.number)
 
         self._call_header_with_stack_check()
+        self._check_frame_depth_debug(self.mc)
 
         regalloc = Regalloc(assembler=self)
         operations = regalloc.prepare_loop(inputargs, operations, looptoken,
@@ -670,8 +673,7 @@ class AssemblerARM(ResOpAssembler):
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
 
-        stack_check_patch_ofs = self._check_frame_depth(self.mc,
-                                                       regalloc.get_gcmap())
+        self._check_frame_depth(self.mc, regalloc.get_gcmap())
 
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
 
@@ -687,6 +689,8 @@ class AssemblerARM(ResOpAssembler):
         self.patch_trace(faildescr, original_loop_token,
                                     rawstart, regalloc)
 
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
+                                rawstart)
         if not we_are_translated():
             if log:
                 self.mc._dump_trace(rawstart, 'bridge.asm')
@@ -695,7 +699,6 @@ class AssemblerARM(ResOpAssembler):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self.fixup_target_tokens(rawstart)
-        self._patch_stackadjust(stack_check_patch_ofs + rawstart, frame_depth)
         self.update_frame_depth(frame_depth)
         self.teardown()
 
@@ -718,6 +721,11 @@ class AssemblerARM(ResOpAssembler):
         expected_size = target_token._arm_clt.frame_info.jfi_frame_depth
         self._check_frame_depth(self.mc, self._regalloc.get_gcmap(),
                                 expected_size=expected_size)
+
+    def _patch_frame_depth(self, adr, allocated_depth):
+        mc = InstrBuilder(self.cpu.arch_version)
+        mc.gen_load_int(r.lr.value, allocated_depth)
+        mc.copy_to_raw_memory(adr)
 
     def _check_frame_depth(self, mc, gcmap, expected_size=-1):
         """ check if the frame is of enough depth to follow this bridge.
@@ -751,7 +759,35 @@ class AssemblerARM(ResOpAssembler):
         pmc = OverwritingBuilder(mc, jg_location, WORD)
         pmc.B_offs(currpos, c.GE)
 
-        return stack_check_cmp_ofs
+        self.frame_depth_to_patch.append(stack_check_cmp_ofs)
+
+    def _check_frame_depth_debug(self, mc):
+        """ double check the depth size. It prints the error (and potentially
+        segfaults later)
+        """
+        if not self.DEBUG_FRAME_DEPTH:
+            return
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
+        mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
+        stack_check_cmp_ofs = mc.currpos()
+        for _ in range(mc.get_max_size_of_gen_load_int()):
+	    mc.NOP()
+        mc.CMP_rr(r.ip.value, r.lr.value)
+
+        jg_location = mc.currpos()
+        mc.BKPT()
+
+        mc.MOV_rr(r.r0.value, r.fp.value)
+        mc.MOV_ri(r.r1.value, r.lr.value)
+
+        self.mc.BL(self.cpu.realloc_frame_crash)
+        # patch the JG above
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(mc, jg_location, WORD)
+        pmc.B_offs(currpos, c.GE)
+
+        self.frame_depth_to_patch.append(stack_check_cmp_ofs)
 
     def build_frame_realloc_slowpath(self):
         # this code should do the following steps
@@ -826,6 +862,10 @@ class AssemblerARM(ResOpAssembler):
         mc = InstrBuilder(self.cpu.arch_version)
         mc.gen_load_int(r.lr.value, allocated_depth)
         mc.copy_to_raw_memory(adr)
+
+    def patch_stack_checks(self, framedepth, rawstart):
+        for ofs in self.frame_depth_to_patch:
+            self._patch_frame_depth(ofs + rawstart, framedepth)
 
     def target_arglocs(self, loop_token):
         return loop_token._arm_arglocs

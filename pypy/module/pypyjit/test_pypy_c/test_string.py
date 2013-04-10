@@ -237,3 +237,15 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         loop.match_by_id('callone', '')    # nothing
+
+    def test_lookup_codec(self):
+        log = self.run("""
+        import codecs
+
+        def main(n):
+            for i in xrange(n):
+                codecs.lookup('utf8')  # ID: codecs
+            return i
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('codecs', '')
