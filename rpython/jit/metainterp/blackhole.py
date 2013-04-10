@@ -1360,6 +1360,7 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "i", "i", "f")
     def bhimpl_libffi_save_result_float(self, cif_description, exchange_buffer, result):
+        result = longlong.getrealfloat(result)
         ARRAY = lltype.Ptr(rffi.CArray(lltype.Float))
         cif_description = self.cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
         exchange_buffer = self.cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
