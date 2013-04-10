@@ -164,7 +164,8 @@ class ImportTests(unittest.TestCase):
             m2 = __import__(TESTFN)
             self.assertEqual(m2.x, 'rewritten')
             # Now delete the source file and check the pyc was rewritten
-            unlink(fname)
+            if check_impl_detail(pypy=False):
+                unlink(fname)
             unload(TESTFN)
             m3 = __import__(TESTFN)
             self.assertEqual(m3.x, 'rewritten')
