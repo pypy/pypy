@@ -757,8 +757,12 @@ class Connection(object):
             def collation_callback(context, len1, str1, len2, str2):
                 text1 = _ffi.buffer(str1, len1)[:]
                 text2 = _ffi.buffer(str2, len2)[:]
-
-                return callback(text1, text2)
+                try:
+                    ret = callback(text1, text2)
+                    assert isinstance(ret, (int, long))
+                    return cmp(ret, 0)
+                except Exception:
+                    return 0
 
             self.__collations[name] = collation_callback
 
