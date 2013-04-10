@@ -26,7 +26,7 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
 from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
 from rpython.jit.metainterp.history import (Box, AbstractFailDescr,
-                                            INT, FLOAT)
+                                            INT, FLOAT, REF)
 from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
@@ -325,8 +325,15 @@ class ResOpAssembler(BaseAssembler):
         self.mc.gen_load_int(r.ip.value, fail_descr_loc.value)
         # XXX self.mov(fail_descr_loc, RawStackLoc(ofs))
         self.store_reg(self.mc, r.ip, r.fp, ofs, helper=r.lr)
-        gcmap = self.gcmap_for_finish
-        self.push_gcmap(self.mc, gcmap, store=True)
+        if op.numargs() > 0 and op.getarg(0).type == REF:
+            gcmap = self.gcmap_for_finish
+            self.push_gcmap(self.mc, gcmap, store=True)
+        else:
+            # note that the 0 here is redundant, but I would rather
+            # keep that one and kill all the others
+            ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+            self.mc.gen_load_int(r.ip.value, 0)
+            self.store_reg(self.mc, r.ip, r.fp, ofs)
         self.mc.MOV_rr(r.r0.value, r.fp.value)
         # exit function
         self.gen_func_epilog()
