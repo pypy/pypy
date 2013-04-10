@@ -179,7 +179,7 @@ class W_FileIO(W_RawIOBase):
                     fd_is_own = True
 
             self._dircheck(space, w_name)
-            self.w_name = w_name
+            space.setattr(self, space.wrap("name"), w_name)
 
             if append:
                 # For consistent behaviour, we explicitly seek to the end of file

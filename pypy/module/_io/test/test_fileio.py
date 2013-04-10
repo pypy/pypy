@@ -165,6 +165,19 @@ class AppTestFileIO:
         f.close()
         assert repr(f) == "<_io.FileIO [closed]>"
 
+    def test_unclosed_fd_on_exception(self):
+        import _io
+        import os
+        class MyException(Exception): pass
+        class MyFileIO(_io.FileIO):
+            def __setattr__(self, name, value):
+                if name == "name":
+                    raise MyException("blocked setting name")
+                return super(MyFileIO, self).__setattr__(name, value)
+        fd = os.open(self.tmpfile, os.O_RDONLY)
+        raises(MyException, MyFileIO, fd)
+        os.close(fd)  # should not raise OSError(EBADF)
+
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
