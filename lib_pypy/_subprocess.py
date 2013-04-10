@@ -33,7 +33,7 @@ _DuplicateHandle.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int,
                              ctypes.POINTER(ctypes.c_int),
                              ctypes.c_int, ctypes.c_int, ctypes.c_int]
 _DuplicateHandle.restype = ctypes.c_int
-    
+
 _WaitForSingleObject = _kernel32.WaitForSingleObject
 _WaitForSingleObject.argtypes = [ctypes.c_int, ctypes.c_uint]
 _WaitForSingleObject.restype = ctypes.c_int
@@ -85,7 +85,7 @@ _CreateProcess.restype = ctypes.c_int
 
 del ctypes
 
-# Now the _subprocess module implementation 
+# Now the _subprocess module implementation
 
 from ctypes import c_int as _c_int, byref as _byref, WinError as _WinError
 
@@ -123,7 +123,6 @@ def CreatePipe(attributes, size):
 def GetCurrentProcess():
     return _handle(_GetCurrentProcess())
 
-
 def DuplicateHandle(source_process, source, target_process, access, inherit, options=0):
     target = _c_int()
 
@@ -135,8 +134,6 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
         raise _WinError()
 
     return _handle(target.value)
-DUPLICATE_SAME_ACCESS = 2
-
 
 def CreateProcess(name, command_line, process_attr, thread_attr,
                   inherit, flags, env, start_dir, startup_info):
@@ -168,11 +165,6 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
         raise _WinError()
 
     return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessID, pi.dwThreadID
-STARTF_USESHOWWINDOW = 0x001
-STARTF_USESTDHANDLES = 0x100
-SW_HIDE              = 0
-CREATE_NEW_CONSOLE       = 0x010
-CREATE_NEW_PROCESS_GROUP = 0x200
 
 def WaitForSingleObject(handle, milliseconds):
     res = _WaitForSingleObject(int(handle), milliseconds)
@@ -181,12 +173,10 @@ def WaitForSingleObject(handle, milliseconds):
         raise _WinError()
 
     return res
-INFINITE = 0xffffffff
-WAIT_OBJECT_0 = 0
 
 def GetExitCodeProcess(handle):
     code = _c_int()
-    
+
     res = _GetExitCodeProcess(int(handle), _byref(code))
 
     if not res:
@@ -207,6 +197,16 @@ def GetStdHandle(stdhandle):
         return None
     else:
         return res
-STD_INPUT_HANDLE  = -10
+
+STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
-STD_ERROR_HANDLE  = -12
+STD_ERROR_HANDLE = -12
+DUPLICATE_SAME_ACCESS = 2
+STARTF_USESTDHANDLES = 0x100
+STARTF_USESHOWWINDOW = 0x001
+SW_HIDE = 0
+INFINITE = 0xffffffff
+WAIT_OBJECT_0 = 0
+CREATE_NEW_CONSOLE = 0x010
+CREATE_NEW_PROCESS_GROUP = 0x200
+STILL_ACTIVE = 259
