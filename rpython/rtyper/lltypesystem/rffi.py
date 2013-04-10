@@ -446,7 +446,7 @@ try:
     TYPES += ['__int128_t']
 except CompilationError:
     pass
-    
+
 _TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
