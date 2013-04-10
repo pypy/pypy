@@ -245,13 +245,13 @@ class LargeValuesTestCase(unittest.TestCase):
         self.check_unmarshallable([None] * size)
 
     @test_support.precisionbigmemtest(size=LARGE_SIZE,
-            memuse=pointer_size*12 + sys.getsizeof(LARGE_SIZE-1),
+            memuse=pointer_size*12,  # + sys.getsizeof(LARGE_SIZE-1),
             dry_run=False)
     def test_set(self, size):
         self.check_unmarshallable(set(range(size)))
 
     @test_support.precisionbigmemtest(size=LARGE_SIZE,
-            memuse=pointer_size*12 + sys.getsizeof(LARGE_SIZE-1),
+            memuse=pointer_size*12,  # + sys.getsizeof(LARGE_SIZE-1),
             dry_run=False)
     def test_frozenset(self, size):
         self.check_unmarshallable(frozenset(range(size)))
