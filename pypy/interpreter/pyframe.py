@@ -17,7 +17,7 @@ from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 # Define some opcodes used
 g = globals()
-for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
+for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 POP_BLOCK END_FINALLY'''.split():
     g[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
@@ -518,7 +518,7 @@ class PyFrame(eval.Frame):
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise OperationError(space.w_ValueError,
                   space.wrap("can't jump to 'except' line as there's no exception"))
-            
+
         # Don't jump into or out of a finally block.
         f_lasti_setup_addr = -1
         new_lasti_setup_addr = -1
@@ -526,18 +526,18 @@ class PyFrame(eval.Frame):
         addr = 0
         while addr < len(code):
             op = ord(code[addr])
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 blockstack.append([addr, False])
             elif op == POP_BLOCK:
                 setup_op = ord(code[blockstack[-1][0]])
-                if setup_op == SETUP_FINALLY:
+                if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                     blockstack[-1][1] = True
                 else:
                     blockstack.pop()
             elif op == END_FINALLY:
                 if len(blockstack) > 0:
                     setup_op = ord(code[blockstack[-1][0]])
-                    if setup_op == SETUP_FINALLY:
+                    if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
                         blockstack.pop()
 
             if addr == new_lasti or addr == self.last_instr:
@@ -549,12 +549,12 @@ class PyFrame(eval.Frame):
                         if addr == self.last_instr:
                             f_lasti_setup_addr = setup_addr
                         break
-                    
+
             if op >= HAVE_ARGUMENT:
                 addr += 3
             else:
                 addr += 1
-                
+
         assert len(blockstack) == 0
 
         if new_lasti_setup_addr != f_lasti_setup_addr:
@@ -574,7 +574,7 @@ class PyFrame(eval.Frame):
         while addr < max_addr:
             op = ord(code[addr])
 
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
                 delta_iblock += 1
             elif op == POP_BLOCK:
                 delta_iblock -= 1
