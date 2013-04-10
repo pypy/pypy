@@ -494,8 +494,10 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         if not space.is_true(space.getattr(self.w_buffer,
                                            space.wrap("closed"))):
-            space.call_method(self, "flush")
-            return space.call_method(self.w_buffer, "close")
+            try:
+                space.call_method(self, "flush")
+            finally:
+                return space.call_method(self.w_buffer, "close")
 
     # _____________________________________________________________
     # read methods

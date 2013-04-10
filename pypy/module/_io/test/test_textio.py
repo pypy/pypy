@@ -201,7 +201,6 @@ class AppTestTextIO:
 
 
 class AppTestIncrementalNewlineDecoder:
-
     def test_newline_decoder(self):
         import _io
         def check_newline_decoding_utf8(decoder):

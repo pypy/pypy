@@ -311,9 +311,11 @@ class BufferedMixin:
         with self.lock:
             if self._closed(space):
                 return
-        space.call_method(self, "flush")
-        with self.lock:
-            space.call_method(self.w_raw, "close")
+        try:
+            space.call_method(self, "flush")
+        finally:
+            with self.lock:
+                space.call_method(self.w_raw, "close")
 
     def simple_flush_w(self, space):
         self._check_init(space)
