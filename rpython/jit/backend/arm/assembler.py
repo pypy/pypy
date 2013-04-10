@@ -772,7 +772,7 @@ class AssemblerARM(ResOpAssembler):
         mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         stack_check_cmp_ofs = mc.currpos()
         for _ in range(mc.get_max_size_of_gen_load_int()):
-	    mc.NOP()
+            mc.NOP()
         mc.CMP_rr(r.ip.value, r.lr.value)
 
         jg_location = mc.currpos()
