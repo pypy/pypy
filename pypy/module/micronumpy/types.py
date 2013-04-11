@@ -22,7 +22,7 @@ from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.typespec import (bool_spec, int8_spec, uint8_spec,
         int16_spec, uint16_spec, int32_spec, uint32_spec, long_spec,
         ulong_spec, int64_spec, uint64_spec, float32_spec, float64_spec,
-        float16_spec)
+        float16_spec, longdouble_spec)
 from pypy.module.micronumpy.typespec import (ENABLED_LONG_DOUBLE,
         long_double_size)
 

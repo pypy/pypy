@@ -33,5 +33,6 @@ long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
 if long_double_size == 8 and os.name == 'nt':
     # this is a lie, or maybe a wish, MS fakes longdouble math with double
     long_double_size = 12
+longdouble_spec = TypeSpec("float80", rffi.LONGDOUBLE)
 
 
