@@ -743,24 +743,6 @@ class Assembler386(BaseAssembler):
             targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
-    @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug:
-            s = 0
-            for op in operations:
-                s += op.getopnum()
-
-            newoperations = []
-            self._append_debugging_code(newoperations, tp, number,
-                                        None)
-            for op in operations:
-                newoperations.append(op)
-                if op.getopnum() == rop.LABEL:
-                    self._append_debugging_code(newoperations, 'l', number,
-                                                op.getdescr())
-            operations = newoperations
-        return operations
-
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
         regalloc.compute_hint_frame_locations(operations)

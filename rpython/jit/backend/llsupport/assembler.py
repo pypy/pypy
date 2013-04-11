@@ -8,6 +8,7 @@ from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype
 
@@ -213,6 +214,24 @@ class BaseAssembler(object):
         # XXX here should be emitted guard_not_forced, but due
         #     to incompatibilities in how it's done, we leave it for the
         #     caller to deal with
+
+    @specialize.argtype(1)
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
+        if self._debug:
+            s = 0
+            for op in operations:
+                s += op.getopnum()
+
+            newoperations = []
+            self._append_debugging_code(newoperations, tp, number,
+                                        None)
+            for op in operations:
+                newoperations.append(op)
+                if op.getopnum() == rop.LABEL:
+                    self._append_debugging_code(newoperations, 'l', number,
+                                                op.getdescr())
+            operations = newoperations
+        return operations
 
     def _append_debugging_code(self, operations, tp, number, token):
         counter = self._register_counter(tp, number, token)

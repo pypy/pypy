@@ -111,26 +111,6 @@ class AssemblerARM(ResOpAssembler):
         self.loop_run_counters.append(struct)
         return struct
 
-    @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug:
-            # before doing anything, let's increase a counter
-            s = 0
-            for op in operations:
-                s += op.getopnum()
-            looptoken._arm_debug_checksum = s
-
-            newoperations = []
-            self._append_debugging_code(newoperations, tp, number,
-                                        None)
-            for op in operations:
-                newoperations.append(op)
-                if op.getopnum() == rop.LABEL:
-                    self._append_debugging_code(newoperations, 'l', number,
-                                                op.getdescr())
-            operations = newoperations
-        return operations
-
     @staticmethod
     def _release_gil_shadowstack():
         before = rffi.aroundstate.before
