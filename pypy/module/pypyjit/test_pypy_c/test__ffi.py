@@ -110,7 +110,6 @@ class Test__ffi(BaseTestPyPyC):
         loops = log.loops_by_id('sleep')
         assert len(loops) == 1 # make sure that we actually JITted the loop
 
-
     def test_ctypes_call(self):
         from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
@@ -209,3 +208,65 @@ class Test__ffi(BaseTestPyPyC):
         # so far just check that call_release_gil() is produced.
         # later, also check that the arguments to call_release_gil()
         # are constants, and that the numerous raw_mallocs are removed
+
+    def test_cffi_call_guard_not_forced_fails(self):
+        # this is the test_pypy_c equivalent of
+        # rpython/jit/metainterp/test/test_fficall::test_guard_not_forced_fails
+        #
+        # it requires cffi to be installed for pypy in order to run
+        def main():
+            import sys
+            try:
+                import cffi
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import cffi\n')
+                return 0
+                
+            ffi = cffi.FFI()
+
+            ffi.cdef("""
+            typedef void (*functype)(int);
+            int foo(int n, functype func);
+            """)
+
+            lib = ffi.verify("""
+            #include <signal.h>
+            typedef void (*functype)(int);
+
+            int foo(int n, functype func) {
+                if (n >= 2000) {
+                    func(n);
+                }
+                return n*2;
+            }
+            """)
+
+            @ffi.callback("functype")
+            def mycallback(n):
+                if n < 5000:
+                    return
+                # make sure that guard_not_forced fails
+                d = {}
+                f = sys._getframe()
+                while f:
+                    d.update(f.f_locals)
+                    f = f.f_back
+
+            n = 0
+            while n < 10000:
+                res = lib.foo(n, mycallback)  # ID: cfficall
+                # this is the real point of the test: before the
+                # refactor-call_release_gil branch, the assert failed when
+                # res == 5000
+                assert res == n*2
+                n += 1
+            return n
+
+        log = self.run(main, [], import_site=True)
+        assert log.result == 10000
+        loop, = log.loops_by_id('cfficall')
+        assert loop.match_by_id('cfficall', """
+            ...
+            f1 = call_release_gil(..., descr=<Calli 4 ii EF=6 OS=62>)
+            ...
+        """)
