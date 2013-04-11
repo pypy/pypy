@@ -329,9 +329,6 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
-class NonNativePrimitive(Primitive):
-    _mixin_ = True
-
 
 class Bool(BaseType, Primitive):
     _attrs_ = ()
@@ -419,7 +416,6 @@ class Bool(BaseType, Primitive):
             return 1
         return 0
 
-NonNativeBool = Bool
 
 class Integer(Primitive):
     _mixin_ = True
@@ -540,30 +536,19 @@ class Integer(Primitive):
     def signbit(self, v):
         return v < 0
 
-class NonNativeInteger(NonNativePrimitive, Integer):
-    _mixin_ = True
-
 class Int8(BaseType, Integer):
     _attrs_ = ()
     spec = int8_spec
     BoxType = interp_boxes.W_Int8Box
     format_code = "b"
-NonNativeInt8 = Int8
 
 class UInt8(BaseType, Integer):
     _attrs_ = ()
     spec = uint8_spec
     BoxType = interp_boxes.W_UInt8Box
     format_code = "B"
-NonNativeUInt8 = UInt8
 
 class Int16(BaseType, Integer):
-    _attrs_ = ()
-    spec = int16_spec
-    BoxType = interp_boxes.W_Int16Box
-    format_code = "h"
-
-class NonNativeInt16(BaseType, NonNativeInteger):
     _attrs_ = ()
     spec = int16_spec
     BoxType = interp_boxes.W_Int16Box
@@ -575,19 +560,7 @@ class UInt16(BaseType, Integer):
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
-class NonNativeUInt16(BaseType, NonNativeInteger):
-    _attrs_ = ()
-    spec = uint16_spec
-    BoxType = interp_boxes.W_UInt16Box
-    format_code = "H"
-
 class Int32(BaseType, Integer):
-    _attrs_ = ()
-    spec = int32_spec
-    BoxType = interp_boxes.W_Int32Box
-    format_code = "i"
-
-class NonNativeInt32(BaseType, NonNativeInteger):
     _attrs_ = ()
     spec = int32_spec
     BoxType = interp_boxes.W_Int32Box
@@ -599,19 +572,7 @@ class UInt32(BaseType, Integer):
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
-class NonNativeUInt32(BaseType, NonNativeInteger):
-    _attrs_ = ()
-    spec = uint32_spec
-    BoxType = interp_boxes.W_UInt32Box
-    format_code = "I"
-
 class Long(BaseType, Integer):
-    _attrs_ = ()
-    spec = long_spec
-    BoxType = interp_boxes.W_LongBox
-    format_code = "l"
-
-class NonNativeLong(BaseType, NonNativeInteger):
     _attrs_ = ()
     spec = long_spec
     BoxType = interp_boxes.W_LongBox
@@ -623,53 +584,25 @@ class ULong(BaseType, Integer):
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
-class NonNativeULong(BaseType, NonNativeInteger):
-    _attrs_ = ()
-    spec = ulong_spec
-    BoxType = interp_boxes.W_ULongBox
-    format_code = "L"
-
-def _int64_coerce(self, space, w_item):
-    try:
-        return self._base_coerce(space, w_item)
-    except OperationError, e:
-        if not e.match(space, space.w_OverflowError):
-            raise
-    bigint = space.bigint_w(w_item)
-    try:
-        value = bigint.tolonglong()
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.w_None)
-    return self.box(value)
-
 class Int64(BaseType, Integer):
     _attrs_ = ()
     spec = int64_spec
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
 
-    _coerce = func_with_new_name(_int64_coerce, '_coerce')
+    def _coerce(self, space, w_item):
+        try:
+            return self._base_coerce(space, w_item)
+        except OperationError, e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+        bigint = space.bigint_w(w_item)
+        try:
+            value = bigint.tolonglong()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.w_None)
+        return self.box(value)
 
-class NonNativeInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
-    spec = int64_spec
-    BoxType = interp_boxes.W_Int64Box
-    format_code = "q"
-
-    _coerce = func_with_new_name(_int64_coerce, '_coerce')
-
-def _uint64_coerce(self, space, w_item):
-    try:
-        return self._base_coerce(space, w_item)
-    except OperationError, e:
-        if not e.match(space, space.w_OverflowError):
-            raise
-    bigint = space.bigint_w(w_item)
-    try:
-        value = bigint.toulonglong()
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.w_None)
-    return self.box(value)
 
 class UInt64(BaseType, Integer):
     _attrs_ = ()
@@ -677,15 +610,19 @@ class UInt64(BaseType, Integer):
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
 
-    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
+    def _coerce(self, space, w_item):
+        try:
+            return self._base_coerce(space, w_item)
+        except OperationError, e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+        bigint = space.bigint_w(w_item)
+        try:
+            value = bigint.toulonglong()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.w_None)
+        return self.box(value)
 
-class NonNativeUInt64(BaseType, NonNativeInteger):
-    _attrs_ = ()
-    spec = uint64_spec
-    BoxType = interp_boxes.W_UInt64Box
-    format_code = "Q"
-
-    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class Float(Primitive):
     _mixin_ = True
@@ -1519,14 +1456,10 @@ class Complex64(ComplexFloating, BaseType):
     BoxType = interp_boxes.W_Complex64Box
     FloatType = Float32_instance
 
-NonNativeComplex64 = Complex64
-
 class Complex128(ComplexFloating, BaseType):
     _attrs_ = ()
     BoxType = interp_boxes.W_Complex128Box
     FloatType = Float64_instance
-
-NonNativeComplex128 = Complex128
 
 if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
     class Float80(BaseType, Float):
@@ -1546,14 +1479,11 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
             pack_float80(result, value, 10, not native_is_bigendian)
             return self.box(unpack_float80(result.build(), native_is_bigendian))
     Float80_instance = Float80()
-    NonNativeFloat80 = Float80
-
 
     class Complex160(ComplexFloating, BaseType):
         _attrs_ = ()
         BoxType = interp_boxes.W_CLongDoubleBox
         FloatType = Float80_instance
-    NonNativeComplex160 = Complex160
 
     if interp_boxes.long_double_size in (12, 16):
         Float80.storage_bytes = interp_boxes.long_double_size
@@ -1639,16 +1569,10 @@ class StringType(BaseType, BaseStringType):
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
-NonNativeVoidType = VoidType
-NonNativeStringType = StringType
-
 class UnicodeType(BaseType, BaseStringType):
     T = lltype.UniChar
 
-NonNativeUnicodeType = UnicodeType
-
 class RecordType(BaseType):
-
     T = lltype.Char
 
     def __init__(self, offsets_and_fields, size):
