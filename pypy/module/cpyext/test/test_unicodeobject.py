@@ -79,7 +79,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("test_unicode_format_v", "METH_VARARGS",
              '''
                  return helper("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
+                        PyLong_AsLong(PyTuple_GetItem(args, 0)),
                         _PyUnicode_AsString(PyTuple_GetItem(args, 1)));
              '''
              )
@@ -102,7 +102,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("test_unicode_format", "METH_VARARGS",
              '''
                  return PyUnicode_FromFormat("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
+                        PyLong_AsLong(PyTuple_GetItem(args, 0)),
                         _PyUnicode_AsString(PyTuple_GetItem(args, 1)));
              '''
              )

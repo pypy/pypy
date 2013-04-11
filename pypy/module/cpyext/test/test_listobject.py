@@ -70,16 +70,16 @@ class AppTestListObject(AppTestCpythonExtensionBase):
             ("newlist", "METH_NOARGS",
              """
              PyObject *lst = PyList_New(3);
-             PyList_SetItem(lst, 0, PyInt_FromLong(3));
-             PyList_SetItem(lst, 2, PyInt_FromLong(1000));
-             PyList_SetItem(lst, 1, PyInt_FromLong(-5));
+             PyList_SetItem(lst, 0, PyLong_FromLong(3));
+             PyList_SetItem(lst, 2, PyLong_FromLong(1000));
+             PyList_SetItem(lst, 1, PyLong_FromLong(-5));
              return lst;
              """
              ),
             ("setlistitem", "METH_VARARGS",
              """
              PyObject *l = PyTuple_GetItem(args, 0);
-             int index = PyInt_AsLong(PyTuple_GetItem(args, 1));
+             int index = PyLong_AsLong(PyTuple_GetItem(args, 1));
              Py_INCREF(Py_None);
              if (PyList_SetItem(l, index, Py_None) < 0)
                 return NULL;

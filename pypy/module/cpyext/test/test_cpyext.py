@@ -738,7 +738,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         mod = self.import_extension('foo', [
             ('get_hash', 'METH_NOARGS',
              '''
-             return PyInt_FromLong(_Py_HashPointer(Py_None));
+             return PyLong_FromLong(_Py_HashPointer(Py_None));
              '''
              ),
             ])

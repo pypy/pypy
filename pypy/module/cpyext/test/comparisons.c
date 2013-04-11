@@ -1,5 +1,9 @@
 #include "Python.h"
 
+#if PY_MAJOR_VERSION >= 3
+    #define PyInt_CheckExact PyLong_CheckExact
+#endif
+
 typedef struct CmpObject {
     PyObject_HEAD
 } CmpObject;

@@ -449,7 +449,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static int
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
-                if (PyInt_Check(key)) {
+                if (PyLong_Check(key)) {
                     PyErr_SetNone(PyExc_ZeroDivisionError);
                     return -1;
                 }

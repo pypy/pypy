@@ -21,7 +21,7 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                  if( handler != SIG_IGN )
                      result += 2;
                  
-                 return PyInt_FromLong(result);
+                 return PyLong_FromLong(result);
              """),
             ], prologue = """
             #include <signal.h>
