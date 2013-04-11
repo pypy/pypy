@@ -125,3 +125,4 @@ cffi implementation of _curses
 cffi implementation of sqlite3
 
 .. branch: release-2.0-beta2
+.. branch: unbreak-freebsd
