@@ -13,9 +13,9 @@ The home page is:
 
     http://pypy.org/
 
-The getting-started document will help guide you:
+If you want to help developing PyPy, this document might help you:
 
-    http://doc.pypy.org/en/latest/getting-started.html
+    http://doc.pypy.org/
 
 It will also point you to the rest of the documentation which is generated
 from files in the pypy/doc directory within the source repositories. Enjoy
