@@ -539,9 +539,11 @@ class Transformer(object):
             name += '_no_track_allocation'
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
         if name == 'raw_malloc_varsize':
-            return self._handle_oopspec_call(op1, args,
-                                             EffectInfo.OS_RAW_MALLOC_VARSIZE,
-                                             EffectInfo.EF_CAN_RAISE)
+            ITEMTYPE = op.args[0].value.OF
+            if ITEMTYPE == lltype.Char:
+                return self._handle_oopspec_call(op1, args,
+                                                 EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
+                                                 EffectInfo.EF_CAN_RAISE)
         return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):
@@ -1746,6 +1748,11 @@ class Transformer(object):
         else:
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
+
+    def rewrite_op_jit_ffi_save_result(self, op):
+        kind = op.args[0].value
+        assert kind in ('int', 'float')
+        return SpaceOperation('libffi_save_result_%s' % kind, op.args[1:], None)
 
     def rewrite_op_jit_force_virtual(self, op):
         return self._do_builtin_call(op)

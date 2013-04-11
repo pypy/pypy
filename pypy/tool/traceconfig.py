@@ -10,7 +10,7 @@ def get_operations_all():
         operations[name] = name
 
     # Remove list
-    for name in ["wrap", "unwrap", "interpclass_w"]:
+    for name in ["wrap", "unwrap"]:
         if name in operations:
             del operations[name]
 
@@ -29,7 +29,7 @@ config = {
 
     # Many operations call back into the object space
     "recursive_operations" : False,
-    
+
     # Show the bytecode or just the operations
     "show_bytecode" : True,
 
@@ -45,6 +45,4 @@ config = {
     "result_printer_clz" : ResultPrinter,
 
     "operations" : get_operations_all()
-
 }
-   

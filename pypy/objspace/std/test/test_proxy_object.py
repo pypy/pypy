@@ -34,7 +34,7 @@ class AppTestProxyObj(AppProxyBasic):
     def test_simple_obj(self):
         class AT(self.A):
             pass
-        
+
         c = self.Controller(self.A())
         obj = self.proxy(AT, c.perform)
         
@@ -96,24 +96,3 @@ class AppTestProxyObj(AppProxyBasic):
         c = self.Controller(a)
         obj = self.proxy(self.A, c.perform)
         assert repr(obj)[:6] == repr(a)[:6]
-
-class AppTestProxyObjectList(AppTestProxyObj):
-    def setup_method(self, meth):
-        super(AppTestProxyObj, self).setup_method(meth)
-        self.w_A = self.space.appexec([], """():
-        class A(list):
-            pass
-        return A
-        """)
-        self.w_proxy = self.space.appexec([], """():
-        from __pypy__ import tproxy
-        return tproxy
-        """)
-
-
-    def test_list_append(self):
-        a = self.A([1,2,3])
-        c = self.Controller(a)
-        obj = self.proxy(self.A, c.perform)
-        assert len(obj) == 3
-        assert obj[1] == 2

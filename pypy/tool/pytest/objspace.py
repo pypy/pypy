@@ -63,6 +63,8 @@ class TinyObjSpace(object):
                 continue
             if info is None:
                 py.test.skip("cannot runappdirect this test on top of CPython")
+            if ('translation.' + key) in info:
+                key = 'translation.' + key
             has = info.get(key, None)
             if has != value:
                 #print sys.pypy_translation_info

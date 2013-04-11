@@ -1,14 +1,12 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module.micronumpy.interp_boxes import long_double_size
+from pypy.module.micronumpy.interp_boxes import long_double_size, ENABLED_LONG_DOUBLE
 
 
-class Module(MixedModule):
-    applevel_name = '_numpypy'
-
+class MultiArrayModule(MixedModule):
+    appleveldefs = {'arange': 'app_numpy.arange'}
     interpleveldefs = {
         'ndarray': 'interp_numarray.W_NDimArray',
         'dtype': 'interp_dtype.W_Dtype',
-        'ufunc': 'interp_ufuncs.W_Ufunc',
 
         'array': 'interp_numarray.array',
         'zeros': 'interp_numarray.zeros',
@@ -18,20 +16,17 @@ class Module(MixedModule):
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_flatiter.W_FlatIterator',
         'concatenate': 'interp_arrayops.concatenate',
-        'repeat': 'interp_arrayops.repeat',
         'where': 'interp_arrayops.where',
         'count_nonzero': 'interp_arrayops.count_nonzero',
 
         'set_string_function': 'appbridge.set_string_function',
-
-        'True_': 'types.Bool.True',
-        'False_': 'types.Bool.False',
-
-        'bool': 'space.w_bool',
-        'int': 'space.w_int',
-
         'typeinfo': 'interp_dtype.get_dtype_cache(space).w_typeinfo',
+    }
 
+
+class NumericTypesModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {
         'generic': 'interp_boxes.W_GenericBox',
         'number': 'interp_boxes.W_NumberBox',
         'integer': 'interp_boxes.W_IntegerBox',
@@ -62,8 +57,6 @@ class Module(MixedModule):
         'float16': 'interp_boxes.W_Float16Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
-        'longdouble': 'interp_boxes.W_LongDoubleBox',
-        'longfloat': 'interp_boxes.W_LongDoubleBox',
         'intp': 'types.IntP.BoxType',
         'uintp': 'types.UIntP.BoxType',
         'flexible': 'interp_boxes.W_FlexibleBox',
@@ -76,13 +69,33 @@ class Module(MixedModule):
         'complex_': 'interp_boxes.W_Complex128Box',
         'complex128': 'interp_boxes.W_Complex128Box',
         'complex64': 'interp_boxes.W_Complex64Box',
-        'clongdouble': 'interp_boxes.W_CLongDoubleBox',
-        'clongfloat': 'interp_boxes.W_CLongDoubleBox',
     }
+    if ENABLED_LONG_DOUBLE:
+        long_double_dtypes = [
+            ('longdouble', 'interp_boxes.W_LongDoubleBox'),
+            ('longfloat', 'interp_boxes.W_LongDoubleBox'),
+            ('clongdouble', 'interp_boxes.W_CLongDoubleBox'),
+            ('clongfloat', 'interp_boxes.W_CLongDoubleBox'),
+        ]
+        if long_double_size == 16:
+            long_double_dtypes += [
+                ('float128', 'interp_boxes.W_Float128Box'),
+                ('complex256', 'interp_boxes.W_Complex256Box'),
+            ]
+        elif long_double_size == 12:
+            long_double_dtypes += [
+                ('float96', 'interp_boxes.W_Float96Box'),
+                ('complex192', 'interp_boxes.W_Complex192Box'),
+            ]
+        for dt, box in long_double_dtypes:
+            interpleveldefs[dt] = box
 
+
+class UMathModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {}
     # ufuncs
     for exposed, impl in [
-        ("abs", "absolute"),
         ("absolute", "absolute"),
         ("add", "add"),
         ("arccos", "arccos"),
@@ -162,19 +175,16 @@ class Module(MixedModule):
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
-    appleveldefs = {
-        'average': 'app_numpy.average',
-        'sum': 'app_numpy.sum',
-        'min': 'app_numpy.min',
-        'identity': 'app_numpy.identity',
-        'eye': 'app_numpy.eye',
-        'max': 'app_numpy.max',
-        'arange': 'app_numpy.arange',
-    }
 
-if long_double_size == 16:
-    Module.interpleveldefs['float128'] = 'interp_boxes.W_Float128Box'
-    Module.interpleveldefs['complex256'] = 'interp_boxes.W_Complex256Box'
-elif long_double_size == 12:
-    Module.interpleveldefs['float96'] = 'interp_boxes.W_Float96Box'
-    Module.interpleveldefs['complex192'] = 'interp_boxes.W_Complex192Box'
+class Module(MixedModule):
+    applevel_name = '_numpypy'
+    appleveldefs = {}
+    interpleveldefs = {
+        'choose': 'interp_arrayops.choose',
+        'repeat': 'interp_arrayops.repeat',
+    }
+    submodules = {
+        'multiarray': MultiArrayModule,
+        'numerictypes': NumericTypesModule,
+        'umath': UMathModule,
+    }

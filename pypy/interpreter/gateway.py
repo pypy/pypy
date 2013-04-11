@@ -4,20 +4,23 @@ Gateway between app-level and interpreter-level:
 * BuiltinCode (call interp-level code from app-level)
 * app2interp  (embed an app-level function into an interp-level callable)
 * interp2app  (publish an interp-level object to be visible from app-level)
+* interpindirect2app (publish an interp-level object to be visible from
+                      app-level as an indirect call to implementation)
 
 """
 
 import sys
 import os
 import types
+import inspect
 
 import py
 
 from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
-    SpaceCache, DescrMismatch)
+from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
+    DescrMismatch)
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
 from rpython.rlib import rstackovf
@@ -53,7 +56,7 @@ class SignatureBuilder(object):
 class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
-    bases_order = [Wrappable, W_Root, ObjSpace, Arguments, object]
+    bases_order = [W_Root, ObjSpace, Arguments, object]
 
     def dispatch(self, el, *args):
         if isinstance(el, str):
@@ -111,13 +114,13 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.orig_arg = iter(original_sig.argnames).next
 
     def visit_self(self, cls, app_sig):
-        self.visit__Wrappable(cls, app_sig)
+        self.visit__W_Root(cls, app_sig)
 
     def checked_space_method(self, typname, app_sig):
         argname = self.orig_arg()
         assert not argname.startswith('w_'), (
-            "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (typname, argname, self.func))
+            "unwrapped %s argument %s of built-in function %r in %r should "
+            "not start with 'w_'" % (typname, argname, self.func.func_name, self.func.func_globals['__name__']))
         app_sig.append(argname)
 
     def visit_index(self, index, app_sig):
@@ -147,23 +150,18 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_truncatedint_w(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit__Wrappable(self, el, app_sig):
-        name = el.__name__
-        argname = self.orig_arg()
-        assert not argname.startswith('w_'), (
-            "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (name, argname, self.func))
-        app_sig.append(argname)
-
     def visit__ObjSpace(self, el, app_sig):
         self.orig_arg()
 
     def visit__W_Root(self, el, app_sig):
-        assert el is W_Root, "%s is not W_Root (forgotten to put .im_func in interp2app argument?)" % (el,)
         argname = self.orig_arg()
+        if argname == 'self':
+            assert el is not W_Root
+            app_sig.append(argname)
+            return
         assert argname.startswith('w_'), (
-            "argument %s of built-in function %r should "
-            "start with 'w_'" % (argname, self.func))
+            "argument %s of built-in function %r in %r should "
+            "start with 'w_'" % (argname, self.func.func_name, self.func.func_globals['__name__']))
         app_sig.append(argname[2:])
 
     def visit__Arguments(self, el, app_sig):
@@ -211,15 +209,15 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
                              (self.use(typ), self.scopenext()))
 
-    def visit__Wrappable(self, typ):
-        self.run_args.append("space.interp_w(%s, %s)" % (self.use(typ),
-                                                         self.scopenext()))
-
     def visit__ObjSpace(self, el):
         self.run_args.append('space')
 
     def visit__W_Root(self, el):
-        self.run_args.append(self.scopenext())
+        if el is not W_Root:
+            self.run_args.append("space.interp_w(%s, %s)" % (self.use(el),
+                                                         self.scopenext()))
+        else:
+            self.run_args.append(self.scopenext())
 
     def visit__Arguments(self, el):
         self.miniglobals['Arguments'] = Arguments
@@ -348,17 +346,17 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
                            (self.use(typ), self.nextarg()))
 
-    def visit__Wrappable(self, typ):
-        self.unwrap.append("space.interp_w(%s, %s)" % (self.use(typ),
-                                                       self.nextarg()))
-
     def visit__ObjSpace(self, el):
         if self.finger != 0:
             raise FastFuncNotSupported
         self.unwrap.append("space")
 
     def visit__W_Root(self, el):
-        self.unwrap.append(self.nextarg())
+        if el is not W_Root:
+            self.unwrap.append("space.interp_w(%s, %s)" % (self.use(el),
+                                                           self.nextarg()))
+        else:
+            self.unwrap.append(self.nextarg())
 
     def visit__Arguments(self, el):
         raise FastFuncNotSupported
@@ -471,6 +469,7 @@ class WrappedDefault(object):
     def __init__(self, default_value):
         self.default_value = default_value
 
+
 def build_unwrap_spec(func, argnames, self_type=None):
     """build the list of parameter unwrap spec for the function.
     """
@@ -536,7 +535,6 @@ class BuiltinCode(Code):
         # It is a list of types or singleton objects:
         #  baseobjspace.ObjSpace is used to specify the space argument
         #  baseobjspace.W_Root is for wrapped arguments to keep wrapped
-        #  baseobjspace.Wrappable subclasses imply interp_w and a typecheck
         #  argument.Arguments is for a final rest arguments Arguments object
         # 'args_w' for fixedview applied to rest arguments
         # 'w_args' for rest arguments passed as wrapped tuple
@@ -555,7 +553,7 @@ class BuiltinCode(Code):
             assert unwrap_spec[0] == 'self', "self_type without 'self' spec element"
             unwrap_spec = list(unwrap_spec)
             if descrmismatch is not None:
-                assert issubclass(self_type, Wrappable)
+                assert issubclass(self_type, W_Root)
                 unwrap_spec[0] = ('INTERNAL:self', self_type)
                 self.descrmismatch_op = descrmismatch
                 self.descr_reqcls = self_type
@@ -799,8 +797,33 @@ class BuiltinCode4(BuiltinCode):
             w_result = space.w_None
         return w_result
 
+def interpindirect2app(unbound_meth, unwrap_spec=None):
+    base_cls = unbound_meth.im_class
+    func = unbound_meth.im_func
+    args = inspect.getargs(func.func_code)
+    if args.varargs or args.keywords:
+        raise TypeError("Varargs and keywords not supported in unwrap_spec")
+    assert not func.func_defaults
+    argspec = ', '.join([arg for arg in args.args[1:]])
+    func_code = py.code.Source("""
+    def f(w_obj, %(args)s):
+        return w_obj.%(func_name)s(%(args)s)
+    """ % {'args': argspec, 'func_name': func.func_name})
+    d = {}
+    exec func_code.compile() in d
+    f = d['f']
+    f.__module__ = func.__module__
+    # necessary for unique identifiers for pickling
+    f.func_name = func.func_name
+    if unwrap_spec is None:
+        unwrap_spec = {}
+    else:
+        assert isinstance(unwrap_spec, dict)
+        unwrap_spec = unwrap_spec.copy()
+    unwrap_spec['w_obj'] = base_cls
+    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
 
-class interp2app(Wrappable):
+class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""
 
     # Takes optionally an unwrap_spec, see BuiltinCode
@@ -833,7 +856,7 @@ class interp2app(Wrappable):
             result = cls.instancecache[key]
             assert result.__class__ is cls
             return result
-        self = Wrappable.__new__(cls)
+        self = W_Root.__new__(cls)
         cls.instancecache[key] = self
         self._code = BuiltinCode(f, unwrap_spec=unwrap_spec,
                                  self_type=self_type,
@@ -856,9 +879,9 @@ class interp2app(Wrappable):
         for name, defaultval in self._staticdefs:
             if name.startswith('w_'):
                 assert defaultval is None, (
-                    "%s: default value for '%s' can only be None; "
+                    "%s: default value for '%s' can only be None, got %r; "
                     "use unwrap_spec(...=WrappedDefault(default))" % (
-                    self._code.identifier, name))
+                    self._code.identifier, name, defaultval))
                 defs_w.append(None)
             else:
                 defs_w.append(space.wrap(defaultval))

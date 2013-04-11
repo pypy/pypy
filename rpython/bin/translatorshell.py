@@ -24,13 +24,14 @@ Some functions are provided for the benefit of interactive testing.
 Try dir(snippet) for list of current snippets.
 """
 
-import os, sys
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(
+                       os.path.dirname(os.path.realpath(__file__)))))
 
 from rpython.translator.interactive import Translation
 from rpython.rtyper.rtyper import *
 from rpython.rlib.rarithmetic import *
-
-import py
 
 
 def get_c_function(lib, f):

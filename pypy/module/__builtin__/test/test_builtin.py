@@ -347,6 +347,7 @@ class AppTestBuiltinApp:
         sorted_l = sorted(l, reverse = True, key = lambda x: x.lower())
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
+        raises(TypeError, sorted, [], reverse=None)
         
     def test_reversed_simple_sequences(self):
         l = range(5)

@@ -162,7 +162,7 @@ class RPythonTyper(object):
     def makekey(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makekey(self)
 
-    def makerepr(self, s_obj):
+    def _makerepr(self, s_obj):
         return pair(self.type_system, s_obj).rtyper_makerepr(self)
 
     def getrepr(self, s_obj):
@@ -173,7 +173,7 @@ class RPythonTyper(object):
             result = self.reprs[key]
         except KeyError:
             self.reprs[key] = None
-            result = self.makerepr(s_obj)
+            result = self._makerepr(s_obj)
             assert not isinstance(result.lowleveltype, ContainerType), (
                 "missing a Ptr in the type specification "
                 "of %s:\n%r" % (s_obj, result.lowleveltype))
@@ -624,7 +624,7 @@ class RPythonTyper(object):
         return rlist.rtype_newlist(hop)
 
     def translate_op_newdict(self, hop):
-        return self.type_system.rdict.rtype_newdict(hop)
+        return rdict.rtype_newdict(hop)
 
     def translate_op_alloc_and_set(self, hop):
         return rlist.rtype_alloc_and_set(hop)
@@ -1012,9 +1012,7 @@ from rpython.rtyper import rint, rbool, rfloat
 from rpython.rtyper import rrange
 from rpython.rtyper import rstr, rdict, rlist, rbytearray
 from rpython.rtyper import rclass, rbuiltin, rpbc
-from rpython.rtyper import rexternalobj
 from rpython.rtyper import rptr
-from rpython.rtyper import rgeneric
 from rpython.rtyper import rweakref
 from rpython.rtyper import raddress # memory addresses
 from rpython.rtyper.ootypesystem import rootype

@@ -1,4 +1,3 @@
-
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.ootypesystem import ootype
@@ -166,11 +165,18 @@ class AbstractDescr(AbstractValue):
 
 class AbstractFailDescr(AbstractDescr):
     index = -1
+    final_descr = False
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
+
+class BasicFinalDescr(AbstractFailDescr):
+    final_descr = True
+
+    def __init__(self, identifier=None):
+        self.identifier = identifier      # for testing
 
 class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
@@ -184,7 +190,6 @@ class AbstractMethDescr(AbstractDescr):
         self.jitcodes = jitcodes
     def get_jitcode_for_class(self, oocls):
         return self.jitcodes[oocls]
-
 
 class Const(AbstractValue):
     __slots__ = ()
@@ -769,8 +774,8 @@ class TreeLoop(object):
 
     def show(self, errmsg=None):
         "NOT_RPYTHON"
-        from rpython.jit.metainterp.graphpage import display_loops
-        display_loops([self], errmsg)
+        from rpython.jit.metainterp.graphpage import display_procedures
+        display_procedures([self], errmsg)
 
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"

@@ -1,10 +1,10 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyopcode import LoopBlock
 from rpython.rlib import jit
 
 
-class GeneratorIterator(Wrappable):
+class GeneratorIterator(W_Root):
     "An iterator created by a generator."
     _immutable_fields_ = ['pycode']
 
@@ -94,7 +94,6 @@ return next yielded value or raise StopIteration."""
             w_val = self.space.w_None
         return self.throw(w_type, w_val, w_tb)
 
-
     def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
@@ -164,6 +163,7 @@ return next yielded value or raise StopIteration."""
         jitdriver = jit.JitDriver(greens=['pycode'],
                                   reds=['self', 'frame', 'results'],
                                   name='unpack_into')
+
         def unpack_into(self, results):
             """This is a hack for performance: runs the generator and collects
             all produced items in a list."""

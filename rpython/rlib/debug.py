@@ -296,7 +296,7 @@ class DictMarkEntry(ExtRegistryEntry):
     _about_ = mark_dict_non_null
     
     def compute_result_annotation(self, s_dict):
-        from rpython.annotator.model import SomeDict, s_None
+        from rpython.annotator.model import SomeDict
 
         assert isinstance(s_dict, SomeDict)
         s_dict.dictdef.force_non_null = True

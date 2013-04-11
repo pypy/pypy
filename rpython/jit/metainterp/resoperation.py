@@ -6,6 +6,10 @@ def ResOperation(opnum, args, result, descr=None):
     op.initarglist(args)
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
+        if opnum == rop.FINISH:
+            assert descr.final_descr
+        elif op.is_guard():
+            assert not descr.final_descr
         op.setdescr(descr)
     return op
 
@@ -17,6 +21,7 @@ class AbstractResOp(object):
     name = ""
     pc = 0
     opnum = 0
+    _cls_has_bool_result = False
 
     _attrs_ = ('result',)
 
@@ -168,12 +173,7 @@ class AbstractResOp(object):
         return rop._FINAL_FIRST <= self.getopnum() <= rop._FINAL_LAST
 
     def returns_bool_result(self):
-        opnum = self.getopnum()
-        if we_are_translated():
-            assert opnum >= 0
-        elif opnum < 0:
-            return False     # for tests
-        return opboolresult[opnum]
+        return self._cls_has_bool_result
 
 
 # ===================
@@ -525,6 +525,10 @@ _oplist = [
     'CALL_PURE/*d',             # removed before it's passed to the backend
     'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
+    'CALL_MALLOC_NURSERY_VARSIZE_SMALL/1',
+    # nursery malloc, non-const number of bytes, zeroed
+    # note that the number of bytes must be well known to be small enough
+    # to fulfill allocating in the nursery rules (and no card markings)
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
@@ -542,11 +546,9 @@ class rop(object):
     pass
 
 opclasses = []   # mapping numbers to the concrete ResOp class
-opargnum  = []   # mapping numbers to number or args (or -1)
 opname = {}      # mapping numbers to the original names, for debugging
 oparity = []     # mapping numbers to the arity of the operation or -1
 opwithdescr = [] # mapping numbers to a flag "takes a descr"
-opboolresult= [] # mapping numbers to a flag "returns a boolean"
 
 
 def setup(debug_print=False):
@@ -568,14 +570,13 @@ def setup(debug_print=False):
         if not name.startswith('_'):
             opname[i] = name
             cls = create_class_for_op(name, i, arity, withdescr)
+            cls._cls_has_bool_result = boolresult
         else:
             cls = None
         opclasses.append(cls)
-        opargnum.append(arity)
         oparity.append(arity)
         opwithdescr.append(withdescr)
-        opboolresult.append(boolresult)
-    assert len(opclasses)==len(oparity)==len(opwithdescr)==len(opboolresult)==len(_oplist)
+    assert len(opclasses)==len(oparity)==len(opwithdescr)==len(_oplist)
 
 def get_base_class(mixin, base):
     try:

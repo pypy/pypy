@@ -22,7 +22,7 @@ class TestArray(BaseTestPyPyC):
             guard_true(i7, descr=...)
             i9 = int_add(i5, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i9, i6, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_sum(self):
@@ -47,7 +47,7 @@ class TestArray(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i18 = int_add(i7, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i18, i16, p8, i9, i10, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_intimg(self):
@@ -85,7 +85,7 @@ class TestArray(BaseTestPyPyC):
             setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
             i28 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, i28, i15, p9, i10, i11, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_of_doubles(self):

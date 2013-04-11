@@ -1,16 +1,17 @@
-from rpython.jit.metainterp.history import AbstractValue, ConstInt
+from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.rarithmetic import intmask
-from rpython.jit.metainterp.history import FLOAT
+from rpython.jit.metainterp.history import FLOAT, INT
 from rpython.jit.codewriter import longlong
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 #
 # This module adds support for "locations", which can be either in a Const,
-# or a RegLoc or a StackLoc.  It also adds operations like mc.ADD(), which
+# or a RegLoc or a FrameLoc.  It also adds operations like mc.ADD(), which
 # take two locations as arguments, decode them, and calls the right
 # mc.ADD_rr()/ADD_rb()/ADD_ri().
 #
@@ -41,18 +42,24 @@ class AssemblerLocation(object):
 
     def find_unused_reg(self): return eax
 
-class StackLoc(AssemblerLocation):
+    def is_stack(self):
+        return False
+
+    def is_reg(self):
+        return False
+
+    def get_position(self):
+        raise NotImplementedError # only for stack
+
+class RawEbpLoc(AssemblerLocation):
+    """ The same as stack location, but does not know it's position.
+    Mostly usable for raw frame access
+    """
     _immutable_ = True
     _location_code = 'b'
 
-    def __init__(self, position, ebp_offset, type):
-        # _getregkey() returns self.value; the value returned must not
-        # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
-        # so let it fail the following assert if it no longer does.
-        assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
-        self.position = position
-        self.value = ebp_offset
-        # One of INT, REF, FLOAT
+    def __init__(self, value, type=INT):
+        self.value = value
         self.type = type
 
     def get_width(self):
@@ -65,6 +72,61 @@ class StackLoc(AssemblerLocation):
 
     def assembler(self):
         return repr(self)
+
+    def is_float(self):
+        return self.type == FLOAT
+
+    def add_offset(self, ofs):
+        return RawEbpLoc(self.value + ofs)
+
+    def is_stack(self):
+        return True
+
+class RawEspLoc(AssemblerLocation):
+    """ Esp-based location
+    """
+    _immutable_ = True
+    _location_code = 's'
+
+    def __init__(self, value, type):
+        assert value >= 0
+        self.value = value
+        self.type = type
+
+    def _getregkey(self):
+        return ~self.value
+
+    def get_width(self):
+        if self.type == FLOAT:
+            return 8
+        return WORD
+
+    def __repr__(self):
+        return '%d(%%esp)' % (self.value,)
+
+    def assembler(self):
+        return repr(self)
+
+    def is_float(self):
+        return self.type == FLOAT
+
+class FrameLoc(RawEbpLoc):
+    _immutable_ = True
+    
+    def __init__(self, position, ebp_offset, type):
+        # _getregkey() returns self.value; the value returned must not
+        # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
+        # so let it fail the following assert if it no longer does.
+        assert ebp_offset >= 8 + 8 * IS_X86_64
+        self.position = position
+        #if position != 9999:
+        #    assert (position + JITFRAME_FIXED_SIZE) * WORD == ebp_offset
+        self.value = ebp_offset
+        # One of INT, REF, FLOAT
+        self.type = type
+
+    def get_position(self):
+        return self.position
 
 class RegLoc(AssemblerLocation):
     _immutable_ = True
@@ -104,6 +166,12 @@ class RegLoc(AssemblerLocation):
         else:
             return eax
 
+    def is_float(self):
+        return self.is_xmm
+
+    def is_reg(self):
+        return True
+
 class ImmediateAssemblerLocation(AssemblerLocation):
     _immutable_ = True
 
@@ -111,10 +179,10 @@ class ImmedLoc(ImmediateAssemblerLocation):
     _immutable_ = True
     _location_code = 'i'
 
-    def __init__(self, value):
-        from rpython.rtyper.lltypesystem import rffi, lltype
+    def __init__(self, value, is_float=False):
         # force as a real int
         self.value = rffi.cast(lltype.Signed, value)
+        self._is_float = is_float
 
     def getint(self):
         return self.value
@@ -130,6 +198,9 @@ class ImmedLoc(ImmediateAssemblerLocation):
         if val > 0x7F:
             val -= 0x100
         return ImmedLoc(val)
+
+    def is_float(self):
+        return self._is_float
 
 class AddressLoc(AssemblerLocation):
     _immutable_ = True
@@ -164,6 +235,10 @@ class AddressLoc(AssemblerLocation):
 
     def get_width(self):
         return WORD
+
+    def is_float(self):
+        return False # not 100% true, but we don't use AddressLoc for locations
+        # really, so it's ok
 
     def value_a(self):
         return self.loc_a
@@ -212,6 +287,9 @@ class ConstFloatLoc(ImmediateAssemblerLocation):
     def __repr__(self):
         return '<ConstFloatLoc @%s>' % (self.value,)
 
+    def is_float(self):
+        return True
+
 if IS_X86_32:
     class FloatImmedLoc(ImmediateAssemblerLocation):
         # This stands for an immediate float.  It cannot be directly used in
@@ -243,11 +321,14 @@ if IS_X86_32:
             floatvalue = longlong.getrealfloat(self.aslonglong)
             return '<FloatImmedLoc(%s)>' % (floatvalue,)
 
+        def is_float(self):
+            return True
+
 if IS_X86_64:
     def FloatImmedLoc(floatstorage):
         from rpython.rlib.longlong2float import float2longlong
         value = intmask(float2longlong(floatstorage))
-        return ImmedLoc(value)
+        return ImmedLoc(value, True)
 
 
 REGLOCS = [RegLoc(i, is_xmm=False) for i in range(16)]

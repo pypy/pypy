@@ -44,7 +44,7 @@ class __extend__(annmodel.SomeBuiltin):
 
 def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
-    from rpython.flowspace.argument import ArgumentsForTranslation
+    from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             None, hop.args_s[1].const, # shape
             range(hop.nb_args-2))
@@ -361,13 +361,14 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
-    v_flavor, v_zero, v_track_allocation, v_add_memory_pressure = parse_kwds(
+    kwds_v = parse_kwds(
         hop,
         (i_flavor, lltype.Void),
         (i_zero, None),
         (i_track_allocation, None),
         (i_add_memory_pressure, None))
-
+    (v_flavor, v_zero, v_track_allocation,
+     v_add_memory_pressure) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
