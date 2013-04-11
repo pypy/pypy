@@ -742,13 +742,17 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_errno(self):
-        # win64: works with python 2.6.7, but not with 2.7.2
-        # XXX check what is different with ctypes!
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'
-            if sys.version.startswith('2.7.2 '):
-                py.test.skip('ctypes is buggy. errno crashes with win64 and python 2.7.2')
+            # the default when writing to a invalid fd on windows is to call
+            # an _invalid_parameter_handler, which by default crashes the
+            # process. To fix this test, call _set_invalid_parameter_handler
+            # in the setup_method, and remove it in the teardown. 
+            # Note that cpython before 2.7 did install an _invalid_parameter_handler,
+            # which is why the test passes there, but this is no longer
+            # accepted practice.
+            py.test.skip('need to set an _invalid_parameter_handler')
         else:
             underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
