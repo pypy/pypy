@@ -47,13 +47,7 @@ class AssemblerARM(ResOpAssembler):
         self.stack_check_slowpath = 0
         self._debug = False
         self.loop_run_counters = []
-        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
         self.gcrootmap_retaddr_forced = 0
-
-    def set_debug(self, v):
-        r = self._debug
-        self._debug = v
-        return r
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
@@ -79,37 +73,6 @@ class AssemblerARM(ResOpAssembler):
 
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
-
-    def finish_once(self):
-        if self._debug:
-            debug_start('jit-backend-counts')
-            for i in range(len(self.loop_run_counters)):
-                struct = self.loop_run_counters[i]
-                if struct.type == 'l':
-                    prefix = 'TargetToken(%d)' % struct.number
-                elif struct.type == 'b':
-                    prefix = 'bridge ' + str(struct.number)
-                else:
-                    prefix = 'entry ' + str(struct.number)
-                debug_print(prefix + ':' + str(struct.i))
-            debug_stop('jit-backend-counts')
-
-    # XXX: merge with x86
-    def _register_counter(self, tp, number, token):
-        # YYY very minor leak -- we need the counters to stay alive
-        # forever, just because we want to report them at the end
-        # of the process
-        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                               track_allocation=False)
-        struct.i = 0
-        struct.type = tp
-        if tp == 'b' or tp == 'e':
-            struct.number = number
-        else:
-            assert token
-            struct.number = compute_unique_id(token)
-        self.loop_run_counters.append(struct)
-        return struct
 
     @staticmethod
     def _release_gil_shadowstack():
