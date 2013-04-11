@@ -5,9 +5,9 @@ from rpython.jit.backend.arm.test.support import skip_unless_run_slow_tests
 skip_unless_run_slow_tests()
 
 
-class TestTranslationX86(TranslationTest):
-    def _check_cbuilder(self, cbuilder):
-        # We assume here that we have sse2.  If not, the CPUClass
-        # needs to be changed to CPU386_NO_SSE2, but well.
-        assert '-msse2' in cbuilder.eci.compile_extra
-        assert '-mfpmath=sse' in cbuilder.eci.compile_extra
+class TestTranslationARM(TranslationTest):
+    def _get_TranslationContext(self):
+        t = TranslationContext()
+        t.config.translation.gc = DEFL_GC   # 'hybrid' or 'minimark'
+        t.config.translation.gcrootfinder = 'shadowstack'
+        return t
