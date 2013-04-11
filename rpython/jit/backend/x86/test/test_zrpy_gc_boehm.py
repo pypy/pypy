@@ -2,6 +2,7 @@
 import weakref
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.jit.backend.x86.test.test_zrpy_gc import run, get_entry, compile
+from rpython.jit.backend.x86.test.test_ztranslation import fix_annotator_for_vrawbuffer
 
 class X(object):
     def __init__(self, x=0):
@@ -31,7 +32,8 @@ def get_g(main):
     g._dont_inline_ = True
     return g
 
-def test_compile_boehm():
+def test_compile_boehm(monkeypatch):
+    fix_annotator_for_vrawbuffer(monkeypatch)
     myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
     @dont_look_inside
     def see(lst, n):

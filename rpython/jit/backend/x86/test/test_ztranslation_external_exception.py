@@ -12,7 +12,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from rpython.config.translationoption import DEFL_GC
 from rpython.rlib import rgc
-
+from rpython.jit.backend.x86.test.test_ztranslation import fix_annotator_for_vrawbuffer
 
 class TestTranslationRemoveTypePtrX86(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -25,7 +25,9 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
         t.config.translation.gcremovetypeptr = True
         return t
 
-    def test_external_exception_handling_translates(self):
+    def test_external_exception_handling_translates(self, monkeypatch):
+        fix_annotator_for_vrawbuffer(monkeypatch)
+        
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
 
         class ImDone(Exception):
