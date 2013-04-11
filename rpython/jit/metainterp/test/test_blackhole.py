@@ -228,5 +228,15 @@ def test_bad_shift():
 
     assert BlackholeInterpreter.bhimpl_int_lshift.im_func(100, 3) == 100<<3
     assert BlackholeInterpreter.bhimpl_int_rshift.im_func(100, 3) == 100>>3
-    assert BlackholeInterpreter.bhimpl_uint_rshift.im_func(100, 3) == 100>>3        
-    
+    assert BlackholeInterpreter.bhimpl_uint_rshift.im_func(100, 3) == 100>>3
+
+def test_debug_fatalerror():
+    from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
+    from rpython.rtyper.llinterp import LLFatalError
+    msg = rstr.mallocstr(1)
+    msg.chars[0] = "!"
+    msg = lltype.cast_opaque_ptr(llmemory.GCREF, msg)
+    e = py.test.raises(LLFatalError,
+                       BlackholeInterpreter.bhimpl_debug_fatalerror.im_func,
+                       msg)
+    assert str(e.value) == '!'

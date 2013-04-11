@@ -405,11 +405,11 @@ def unmarshal_pycode(space, u, tc):
 register(TYPE_CODE, unmarshal_pycode)
 
 def marshal_w__Unicode(space, w_unicode, m):
-    s = unicodehelper.PyUnicode_EncodeUTF8(space, space.unicode_w(w_unicode))
+    s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode))
     m.atom_str(TYPE_UNICODE, s)
 
 def unmarshal_Unicode(space, u, tc):
-    return space.wrap(unicodehelper.PyUnicode_DecodeUTF8(space, u.get_str()))
+    return space.wrap(unicodehelper.decode_utf8(space, u.get_str()))
 register(TYPE_UNICODE, unmarshal_Unicode)
 
 app = gateway.applevel(r'''

@@ -3,14 +3,14 @@ Some support for genxxx implementations of source generators.
 Another name could be genEric, but well...
 """
 
-def uniquemodulename(name, SEEN={}):
+def uniquemodulename(name, SEEN=set()):
     # never reuse the same module name within a Python session!
     i = 0
     while True:
         i += 1
         result = '%s_%d' % (name, i)
         if result not in SEEN:
-            SEEN[result] = True
+            SEEN.add(result)
             return result
 
 # a translation table suitable for str.translate() to remove

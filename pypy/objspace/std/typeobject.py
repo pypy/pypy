@@ -4,6 +4,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict
+from pypy.interpreter.astcompiler.misc import mangle
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
@@ -26,34 +27,6 @@ def unwrap_cell(space, w_value):
         return w_value.w_value
     return w_value
 
-# from compiler/misc.py
-
-MANGLE_LEN = 256 # magic constant from compile.c
-
-def _mangle(name, klass):
-    if not name.startswith('__'):
-        return name
-    if len(name) + 2 >= MANGLE_LEN:
-        return name
-    if name.endswith('__'):
-        return name
-    try:
-        i = 0
-        while klass[i] == '_':
-            i = i + 1
-    except IndexError:
-        return name
-    klass = klass[i:]
-
-    tlen = len(klass) + len(name)
-    if tlen > MANGLE_LEN:
-        end = len(klass) + MANGLE_LEN-tlen
-        if end < 0:
-            klass = ''     # annotator hint
-        else:
-            klass = klass[:end]
-
-    return "_%s%s" % (klass, name)
 
 class VersionTag(object):
     pass
@@ -987,7 +960,7 @@ def create_slot(w_self, slot_name):
         raise OperationError(space.w_TypeError,
                              space.wrap('__slots__ must be identifiers'))
     # create member
-    slot_name = _mangle(slot_name, w_self.name)
+    slot_name = mangle(slot_name, w_self.name)
     if slot_name not in w_self.dict_w:
         # Force interning of slot names.
         slot_name = space.str_w(space.new_interned_str(slot_name))

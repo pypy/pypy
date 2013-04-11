@@ -165,7 +165,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size <= rffi.sizeof(lltype.Signed)
-        if self.size < rffi.sizeof(lltype.SignedLongLong):
+        if self.size < rffi.sizeof(lltype.Signed):
             assert self.value_fits_long
             sh = self.size * 8
             self.vmin = r_uint(-1) << (sh - 1)

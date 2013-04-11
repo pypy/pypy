@@ -58,10 +58,10 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler = Assembler386(self, self.translate_support_code)
 
     def build_regalloc(self):
-	''' for tests'''
-	from rpython.jit.backend.x86.regalloc import RegAlloc
-	assert self.assembler is not None
-	return RegAlloc(self.assembler, False)
+        ''' for tests'''
+        from rpython.jit.backend.x86.regalloc import RegAlloc
+        assert self.assembler is not None
+        return RegAlloc(self.assembler, False)
 
     def setup_once(self):
         self.profile_agent.startup()

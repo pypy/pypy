@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from rpython.jit.metainterp.history import TreeLoop
 from rpython.jit.metainterp import compile, resume
-from rpython.jit.metainterp.resoperation import rop, opname, opargnum
+from rpython.jit.metainterp.resoperation import rop, opname, oparity
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import FakeMetaInterpStaticData
 
 def test_build_opt_chain():
@@ -188,7 +188,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
             if 'FLOAT' in op:
                 continue
             args = []
-            for _ in range(opargnum[opnum]):
+            for _ in range(oparity[opnum]):
                 args.append(random.randrange(1, 20))
             ops = """
             []
@@ -4449,9 +4449,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_add_sub_ovf_second_operation_regular(self):
-	py.test.skip("Smalltalk would like this to pass")
-	# This situation occurs in Smalltalk because it uses 1-based indexing.
-	# The below code is equivalent to a loop over an array.
+        py.test.skip("Smalltalk would like this to pass")
+        # This situation occurs in Smalltalk because it uses 1-based indexing.
+        # The below code is equivalent to a loop over an array.
         ops = """
         [i1]
         i2 = int_sub(i1, 1)
@@ -7775,6 +7775,25 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, p2)
         """
         self.optimize_loop(ops, ops)
+
+    def test_setarrayitem_followed_by_arraycopy_2(self):
+        ops = """
+        [i1, i2]
+        p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i2, descr=arraydescr)
+        p3 = new_array(5, descr=arraydescr)
+        call(0, p1, p3, 0, 1, 1, descr=arraycopydescr)
+        i4 = getarrayitem_gc(p3, 1, descr=arraydescr)
+        jump(i1, i4)
+        """
+        expected = """
+        [i1, i2]
+        # operations are not all removed because this new_array() is var-sized
+        p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i2, descr=arraydescr)
+        jump(i1, i2)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_heap_cache_virtuals_forced_by_delayed_setfield(self):
         py.test.skip('not yet supoprted')

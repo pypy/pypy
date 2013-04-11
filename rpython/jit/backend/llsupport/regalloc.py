@@ -278,11 +278,11 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
-    temp_boxes            = []
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.longevity = longevity
+        self.temp_boxes = []
         if not we_are_translated():
             self.reg_bindings = OrderedDict()
         else:

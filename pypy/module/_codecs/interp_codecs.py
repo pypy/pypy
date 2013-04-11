@@ -1,10 +1,18 @@
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rstring import UnicodeBuilder
+
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib.rstring import UnicodeBuilder
-from rpython.rlib.objectmodel import we_are_translated
+
+
+class VersionTag(object):
+    pass
 
 
 class CodecState(object):
+    _immutable_fields_ = ["version?"]
+
     def __init__(self, space):
         self.codec_search_path = []
         self.codec_search_cache = {}
@@ -14,6 +22,7 @@ class CodecState(object):
         self.encode_error_handler = self.make_encode_errorhandler(space)
 
         self.unicodedata_handler = None
+        self.modified()
 
     def _make_errorhandler(self, space, decode):
         def call_errorhandler(errors, encoding, reason, input, startpos,
@@ -86,8 +95,19 @@ class CodecState(object):
             self.unicodedata_handler = UnicodeData_Handler(space, w_getcode)
             return self.unicodedata_handler
 
+    def modified(self):
+        self.version = VersionTag()
+
+    def get_codec_from_cache(self, key):
+        return self._get_codec_with_version(key, self.version)
+
+    @jit.elidable
+    def _get_codec_with_version(self, key, version):
+        return self.codec_search_cache.get(key, None)
+
     def _cleanup_(self):
         assert not self.codec_search_path
+
 
 def register_codec(space, w_search_function):
     """register(search_function)
@@ -115,10 +135,11 @@ def lookup_codec(space, encoding):
         "lookup_codec() should not be called during translation"
     state = space.fromcache(CodecState)
     normalized_encoding = encoding.replace(" ", "-").lower()
-    w_result = state.codec_search_cache.get(normalized_encoding, None)
+    w_result = state.get_codec_from_cache(normalized_encoding)
     if w_result is not None:
         return w_result
     return _lookup_codec_loop(space, encoding, normalized_encoding)
+
 
 def _lookup_codec_loop(space, encoding, normalized_encoding):
     state = space.fromcache(CodecState)
@@ -143,6 +164,7 @@ def _lookup_codec_loop(space, encoding, normalized_encoding):
                     space.wrap("codec search functions must return 4-tuples"))
             else:
                 state.codec_search_cache[normalized_encoding] = w_result
+                state.modified()
                 return w_result
     raise operationerrfmt(
         space.w_LookupError,

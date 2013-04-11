@@ -1749,6 +1749,11 @@ class Transformer(object):
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
 
+    def rewrite_op_jit_ffi_save_result(self, op):
+        kind = op.args[0].value
+        assert kind in ('int', 'float')
+        return SpaceOperation('libffi_save_result_%s' % kind, op.args[1:], None)
+
     def rewrite_op_jit_force_virtual(self, op):
         return self._do_builtin_call(op)
 
