@@ -4,14 +4,50 @@ Getting Started with RPython
 
 .. contents::
 
+RPython is a subset of Python that can be statically compiled. The PyPy
+interpreter is written mostly in RPython (with pieces in Python), while
+the RPython compiler is written in Python. The hard to understand part
+is that Python is a meta-programming language for RPython, that is,
+RPython is considered from live objects **after** the imports are done.
+This might require more explanation. You start writing RPython from
+``entry_point``, a good starting point is
+``rpython/translator/goal/targetnopstandalone.py``. This does not do all that
+much, but is a start. Now if code analyzed (in this case ``entry_point``)
+calls some functions, those calls will be followed. Those followed calls
+have to be RPython themselves (and everything they call etc.), however not
+entire module files. To show how you can use metaprogramming, we can do
+a silly example (note that closures are not RPython)::
 
-This should really write a word of two about **WHAT** is RPython
+  def generator(operation):
+      if operation == 'add':
+         def f(a, b):
+             return a + b
+      else:
+         def f(a, b):
+             return a - b
+      return f
 
-XXX ltratt blog post
-XXX "how to write interpreters" links
-XXX
-XXX
-XXX
+  add = generator('add')
+  sub = generator('sub')
+
+  def entry_point(argv):
+      print add(sub(int(argv[1]), 3) 4)
+      return 0
+
+In this example ``entry_point`` is RPython,  ``add`` and ``sub`` are RPython,
+however, ``generator`` is not.
+
+A good introductory level articles are available:
+
+* Laurence Tratt -- `Fast Enough VMs in Fast Enough Time`_.
+
+* `How to write interpreters in RPython`_ and `part 2`_ by Andrew Brown.
+
+.. _`Fast Enough VMs in Fast Enough Time`: http://tratt.net/laurie/tech_articles/articles/fast_enough_vms_in_fast_enough_time
+
+.. _`How to write interpreters in RPython`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+
+.. _`part 2`: http://morepypy.blogspot.com/2011/04/tutorial-part-2-adding-jit.html
 
 .. _`try out the translator`:
 
