@@ -12,6 +12,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from rpython.config.translationoption import DEFL_GC
 from rpython.rlib import rgc
+from rpython.jit.backend.x86.test.test_ztranslation import fix_annotator_for_vrawbuffer
 
 class TestTranslationX86(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -22,7 +23,7 @@ class TestTranslationX86(CCompiledMixin):
         assert '-msse2' in cbuilder.eci.compile_extra
         assert '-mfpmath=sse' in cbuilder.eci.compile_extra
 
-    def test_stuff_translates(self):
+    def test_stuff_translates(self, monkeypatch):
         # this is a basic test that tries to hit a number of features and their
         # translation:
         # - jitting of loops and bridges
@@ -31,6 +32,7 @@ class TestTranslationX86(CCompiledMixin):
         # - profiler
         # - full optimizer
         # - floats neg and abs
+        fix_annotator_for_vrawbuffer(monkeypatch)
 
         class Frame(object):
             _virtualizable2_ = ['i']

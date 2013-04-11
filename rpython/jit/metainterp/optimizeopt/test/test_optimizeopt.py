@@ -770,8 +770,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-
-
     def test_p123_simple(self):
         ops = """
         [i1, p2, p3]
@@ -1729,6 +1727,175 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         # We cannot track virtuals that survive for more than two iterations.
         self.optimize_loop(ops, expected, preamble)
+
+    def test_virtual_raw_malloc(self):
+        ops = """
+        [i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr)
+        call('free', i2, descr=raw_free_descr)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_malloc_force(self):
+        ops = """
+        [i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        setarrayitem_raw(i2, 2, 456, descr=rawarraydescr)
+        setarrayitem_raw(i2, 1, 123, descr=rawarraydescr)
+        label('foo') # we expect the buffer to be forced *after* the label
+        escape(i2)
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        label('foo')
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        i3 = int_add(i2, 8)
+        setarrayitem_raw(i3, 0, 123, descr=rawarraydescr)
+        i4 = int_add(i2, 16)
+        setarrayitem_raw(i4, 0, 456, descr=rawarraydescr)
+        escape(i2)
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_malloc_invalid_write_force(self):
+        ops = """
+        [i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        label('foo') # we expect the buffer to be forced *after* the label
+        setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char) # overlap!
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        label('foo')
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_malloc_invalid_read_force(self):
+        ops = """
+        [i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        label('foo') # we expect the buffer to be forced *after* the label
+        i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        label('foo')
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_slice(self):
+        ops = """
+        [i0, i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
+        i3 = int_add(i2, 1) # get a slice of the original buffer
+        setarrayitem_raw(i3, 0, 4242, descr=rawarraydescr) # write to the slice
+        i4 = getarrayitem_raw(i2, 0, descr=rawarraydescr_char)
+        i5 = int_add(i2, 1)
+        i6 = getarrayitem_raw(i5, 0, descr=rawarraydescr)
+        call('free', i2, descr=raw_free_descr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_slice_of_a_raw_slice(self):
+        ops = """
+        [i0, i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i3 = int_add(i2, 1) # get a slice of the original buffer
+        i4 = int_add(i3, 1) # get a slice of a slice
+        setarrayitem_raw(i4, 0, i1, descr=rawarraydescr_char) # write to the slice
+        i5 = getarrayitem_raw(i2, 2, descr=rawarraydescr_char)
+        call('free', i2, descr=raw_free_descr)
+        jump(i0, i5)
+        """
+        expected = """
+        [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_slice_force(self):
+        ops = """
+        [i0, i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
+        i3 = int_add(i2, 1) # get a slice of the original buffer
+        setarrayitem_raw(i3, 4, 4242, descr=rawarraydescr_char) # write to the slice
+        label('foo')
+        escape(i3)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        label('foo')
+        # these ops are generated by VirtualRawBufferValue._really_force
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
+        i3 = int_add(i2, 5) # 1+4*sizeof(char)
+        setarrayitem_raw(i3, 0, 4242, descr=rawarraydescr_char)
+        # this is generated by VirtualRawSliceValue._really_force
+        i4 = int_add(i2, 1)
+        escape(i4)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_malloc_virtualstate(self):
+        ops = """
+        [i0]
+        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr)
+        i2 = int_add(i1, 1)
+        call('free', i0, descr=raw_free_descr)
+        i3 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
+        label('foo')
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr)
+        i2 = int_add(i1, 1)
+        call('free', i0, descr=raw_free_descr)
+        label('foo')
+        i3 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getfield_1(self):
         ops = """

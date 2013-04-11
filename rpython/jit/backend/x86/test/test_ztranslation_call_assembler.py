@@ -12,6 +12,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64
 from rpython.config.translationoption import DEFL_GC
 from rpython.rlib import rgc
+from rpython.jit.backend.x86.test.test_ztranslation import fix_annotator_for_vrawbuffer
 
 class TestTranslationX86(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -22,9 +23,10 @@ class TestTranslationX86(CCompiledMixin):
         assert '-msse2' in cbuilder.eci.compile_extra
         assert '-mfpmath=sse' in cbuilder.eci.compile_extra
 
-    def test_direct_assembler_call_translates(self):
+    def test_direct_assembler_call_translates(self, monkeypatch):
         """Test CALL_ASSEMBLER and the recursion limit"""
         from rpython.rlib.rstackovf import StackOverflow
+        fix_annotator_for_vrawbuffer(monkeypatch)
 
         class Thing(object):
             def __init__(self, val):
