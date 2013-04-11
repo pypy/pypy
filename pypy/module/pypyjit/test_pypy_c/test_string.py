@@ -244,8 +244,16 @@ class TestString(BaseTestPyPyC):
 
         def main(n):
             for i in xrange(n):
-                codecs.lookup('utf8')  # ID: codecs
+                codecs.lookup('utf8')
             return i
         """, [1000])
         loop, = log.loops_by_filename(self.filepath)
-        loop.match_by_id('codecs', '')
+        loop.match("""
+        i45 = int_lt(i43, i26)
+        guard_true(i45, descr=...)
+        i46 = int_add(i43, 1)
+        setfield_gc(p15, i46, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
+        guard_not_invalidated(descr=...)
+        --TICK--
+        jump(..., descr=...)
+        """)
