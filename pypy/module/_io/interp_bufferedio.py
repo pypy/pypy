@@ -531,7 +531,7 @@ class BufferedMixin:
                 raise
             else:
                 break
-                
+
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
         size = space.int_w(w_size)
@@ -564,7 +564,6 @@ class BufferedMixin:
         result_buffer = ['\0'] * n
         remaining = n
         written = 0
-        data = None
         if current_size:
             for i in range(current_size):
                 result_buffer[written + i] = self.buffer[self.pos + i]
@@ -925,10 +924,6 @@ W_BufferedWriter.typedef = TypeDef(
     name = GetSetProperty(W_BufferedWriter.name_get_w),
     mode = GetSetProperty(W_BufferedWriter.mode_get_w),
 )
-
-def _forward_call(space, w_obj, method, __args__):
-    w_meth = self.getattr(w_obj, self.wrap(method))
-    return self.call_args(w_meth, __args__)
 
 def make_forwarding_method(method, writer=False, reader=False):
     @func_renamer(method + '_w')

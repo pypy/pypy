@@ -422,6 +422,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+        a[1] = array(100)
+        a[2] = array([100])
+        assert a[1] == 100
+        assert a[2] == 100
+        a = array(range(5), dtype=float)
+        a[0] = 0.005
+        assert a[0] == 0.005
+        a[1] = array(-0.005)
+        a[2] = array([-0.005])
+        assert a[1] == -0.005
+        assert a[2] == -0.005
+
 
     def test_setitem_tuple(self):
         from numpypy import array
@@ -1357,7 +1369,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 'xyz'
         assert a.imag[0] == 'abc'
         raises(TypeError, 'a.imag = "qop"')
-        a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]]) 
+        a=array([[1+1j, 2-3j, 4+5j],[-6+7j, 8-9j, -2-1j]])
         assert a.real[0,1] == 2
         a.real[0,1] = -20
         assert a[0,1].real == -20
@@ -1367,7 +1379,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1,2].imag == 30
         a.real = 13
         assert a[1,1].real == 13
-        a=array([1+1j, 2-3j, 4+5j, -6+7j, 8-9j, -2-1j]) 
+        a=array([1+1j, 2-3j, 4+5j, -6+7j, 8-9j, -2-1j])
         a.real = 13
         assert a[3].real == 13
         a.imag = -5
@@ -1480,6 +1492,32 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = (a + a)[::2]
         b = concatenate((a[:3], a[-3:]))
         assert (b == [2, 6, 10, 2, 6, 10]).all()
+        a = concatenate((array([1]), array(['abc'])))
+        assert str(a.dtype) == '|S3'
+        a = concatenate((array([]), array(['abc'])))
+        assert a[0] == 'abc'
+        a = concatenate((['abcdef'], ['abc']))
+        assert a[0] == 'abcdef'
+        assert str(a.dtype) == '|S6'
+
+    def test_record_concatenate(self):
+        # only an exact match can succeed
+        from numpypy import zeros, concatenate
+        a = concatenate((zeros((2,),dtype=[('x', int), ('y', float)]),
+                         zeros((2,),dtype=[('x', int), ('y', float)])))
+        assert a.shape == (4,)
+        exc = raises(TypeError, concatenate,
+                            (zeros((2,), dtype=[('x', int), ('y', float)]),
+                            (zeros((2,), dtype=[('x', float), ('y', float)]))))
+        assert str(exc.value).startswith('record type mismatch')
+        exc = raises(TypeError, concatenate, ([1], zeros((2,),
+                                            dtype=[('x', int), ('y', float)])))
+        assert str(exc.value).startswith('invalid type promotion')
+        exc = raises(TypeError, concatenate, (['abc'], zeros((2,),
+                                            dtype=[('x', int), ('y', float)])))
+        assert str(exc.value).startswith('invalid type promotion')
+
+
 
     def test_std(self):
         from numpypy import array
@@ -1544,29 +1582,29 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array
         # testcases from numpy docstring
         x = array([[1, 2, 3]])
-        assert (x.swapaxes(0, 1) == array([[1], [2], [3]])).all() 
+        assert (x.swapaxes(0, 1) == array([[1], [2], [3]])).all()
         x = array([[[0,1],[2,3]],[[4,5],[6,7]]]) # shape = (2, 2, 2)
-        assert (x.swapaxes(0, 2) == array([[[0, 4], [2, 6]], 
-                                           [[1, 5], [3, 7]]])).all() 
-        assert (x.swapaxes(0, 1) == array([[[0, 1], [4, 5]], 
+        assert (x.swapaxes(0, 2) == array([[[0, 4], [2, 6]],
+                                           [[1, 5], [3, 7]]])).all()
+        assert (x.swapaxes(0, 1) == array([[[0, 1], [4, 5]],
                                            [[2, 3], [6, 7]]])).all()
-        assert (x.swapaxes(1, 2) == array([[[0, 2], [1, 3]], 
+        assert (x.swapaxes(1, 2) == array([[[0, 2], [1, 3]],
                                            [[4, 6],[5, 7]]])).all()
 
         # more complex shape i.e. (2, 2, 3)
-        x = array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]) 
-        assert (x.swapaxes(0, 1) == array([[[1, 2, 3], [7, 8, 9]], 
-                                           [[4, 5, 6], [10, 11, 12]]])).all() 
-        assert (x.swapaxes(0, 2) == array([[[1, 7], [4, 10]], [[2, 8], [5, 11]], 
-                                           [[3, 9], [6, 12]]])).all() 
-        assert (x.swapaxes(1, 2) == array([[[1, 4], [2, 5], [3, 6]], 
-                                           [[7, 10], [8, 11],[9, 12]]])).all() 
+        x = array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
+        assert (x.swapaxes(0, 1) == array([[[1, 2, 3], [7, 8, 9]],
+                                           [[4, 5, 6], [10, 11, 12]]])).all()
+        assert (x.swapaxes(0, 2) == array([[[1, 7], [4, 10]], [[2, 8], [5, 11]],
+                                           [[3, 9], [6, 12]]])).all()
+        assert (x.swapaxes(1, 2) == array([[[1, 4], [2, 5], [3, 6]],
+                                           [[7, 10], [8, 11],[9, 12]]])).all()
 
         # test slice
-        assert (x[0:1,0:2].swapaxes(0,2) == array([[[1], [4]], [[2], [5]], 
+        assert (x[0:1,0:2].swapaxes(0,2) == array([[[1], [4]], [[2], [5]],
                                                    [[3], [6]]])).all()
         # test virtual
-        assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]], 
+        assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]],
                                          [[ 8, 10, 12], [20, 22, 24]]])).all()
         assert array(1).swapaxes(10, 12) == 1
 
@@ -1595,7 +1633,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (zeros(1)[[]] == []).all()
 
     def test_int_array_index_setitem(self):
-        from numpypy import array, arange, zeros
+        from numpypy import arange, zeros, array
         a = arange(10)
         a[[3, 2, 1, 5]] = zeros(4, dtype=int)
         assert (a == [0, 0, 0, 0, 4, 0, 6, 7, 8, 9]).all()
@@ -1610,12 +1648,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[array([True, False, True])] == [0, 2]).all()
         raises(ValueError, "array([1, 2])[array([True, True, True])]")
         raises(ValueError, "b[array([[True, False], [True, False]])]")
+        a = array([[1,2,3],[4,5,6],[7,8,9]],int)
+        c = array([True,False,True],bool)
+        b = a[c]
+        assert (a[c] == [[1, 2, 3], [7, 8, 9]]).all()
 
     def test_bool_array_index_setitem(self):
         from numpypy import arange, array
         b = arange(5)
         b[array([True, False, True])] = [20, 21, 0, 0, 0, 0, 0]
-        assert (b == [20, 1, 21, 3, 4]).all() 
+        assert (b == [20, 1, 21, 3, 4]).all()
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
     def test_weakref(self):
@@ -1646,6 +1688,16 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
+        # scalar vs. array
+        a = array([1, 2, 3.14156]).astype('S3').dtype
+        assert a.itemsize == 3
+        a = array(3.1415).astype('S3').dtype
+        assert a.itemsize == 3
+        try:
+            a = array(['1', '2','3']).astype(float)
+            assert a[2] == 3.0
+        except NotImplementedError:
+            skip('astype("float") not implemented for str arrays')
 
     def test_base(self):
         from numpypy import array
@@ -1726,6 +1778,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([1, 2])
         b = array([1, 2, 3, 4])
         assert (a == b) == False
+
+    def test__int__(self):
+        from numpypy import array
+        assert int(array(1)) == 1
+        assert int(array([1])) == 1
+        assert raises(TypeError, "int(array([1, 2]))")
+        assert int(array([1.5])) == 1
 
 
 class AppTestMultiDim(BaseNumpyAppTest):
@@ -1944,7 +2003,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.transpose() == b).all()
 
     def test_flatiter(self):
-        from numpypy import array, flatiter, arange
+        from numpypy import array, flatiter, arange, zeros
         a = array([[10, 30], [40, 60]])
         f_iter = a.flat
         assert f_iter.next() == 10
@@ -1960,6 +2019,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(10).reshape(5, 2)
         raises(IndexError, 'a.flat[(1, 2)]')
         assert a.flat.base is a
+        m = zeros((2,2), dtype='S3')
+        m.flat[1] = 1
+        assert m[0,1] == '1'
 
     def test_flatiter_array_conv(self):
         from numpypy import array, dot
@@ -2060,7 +2122,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert isinstance(i['data'][0], int)
 
     def test_array_indexing_one_elem(self):
-        skip("not yet")
         from numpypy import array, arange
         raises(IndexError, 'arange(3)[array([3.5])]')
         a = arange(3)[array([1])]
@@ -2153,6 +2214,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpypy import arange, array
         a = arange(10)
         assert (a.compress([True, False, True]) == [0, 2]).all()
+        assert (a.compress([1, 0, 13]) == [0, 2]).all()
         assert (a.compress([1, 0, 13]) == [0, 2]).all()
         assert (a.compress([1, 0, 13.5]) == [0, 2]).all()
         assert (a.compress(array([1, 0, 13.5], dtype='>f4')) == [0, 2]).all()
@@ -2272,7 +2334,7 @@ class AppTestSupport(BaseNumpyAppTest):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
         cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
-        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16 
+        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
@@ -2389,7 +2451,7 @@ class AppTestSupport(BaseNumpyAppTest):
         from numpypy import array, arange
         assert array(2.0).argsort() == 0
         nnp = self.non_native_prefix
-        for dtype in ['int', 'float', 'int16', 'float32', 'uint64', 
+        for dtype in ['int', 'float', 'int16', 'float32', 'uint64',
                         nnp + 'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
             c = a.copy()
@@ -2399,7 +2461,7 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (a == c).all() # not modified
             a = arange(100)
             assert (a.argsort() == a).all()
-        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')    
+        raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
     def test_argsort_nd(self):
         from numpypy import array
@@ -2415,7 +2477,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_argsort_axis(self):
         from numpypy import array
-        a = array([[4, 2], [1, 3]]) 
+        a = array([[4, 2], [1, 3]])
         assert (a.argsort(axis=None) == [2, 1, 3, 0]).all()
         assert (a.argsort(axis=-1) == [[1, 0], [0, 1]]).all()
         assert (a.argsort(axis=0) == [[1, 0], [0, 1]]).all()

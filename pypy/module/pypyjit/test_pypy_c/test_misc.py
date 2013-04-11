@@ -31,7 +31,7 @@ class TestMisc(BaseTestPyPyC):
             i13 = int_add_ovf(i6, i12)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i13, i11, i8, descr=...)
+            jump(..., descr=...)
         """
         assert loop0.match(expected)
         # XXX: The retracing fails to form a loop since j
@@ -56,7 +56,7 @@ class TestMisc(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i10 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i10, i8, descr=...)
+            jump(..., descr=...)
         """)
         #
         log = self.run(fact, [25], threshold=20)
@@ -71,7 +71,7 @@ class TestMisc(BaseTestPyPyC):
             guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i13, p11, descr=...)
+            jump(..., descr=...)
         """)
 
 
@@ -91,7 +91,7 @@ class TestMisc(BaseTestPyPyC):
             guard_true(i9, descr=...)
             f10 = float_add(f8, f5)
             --TICK--
-            jump(p0, p1, p2, p3, p4, f10, p6, f7, f8, descr=...)
+            jump(..., descr=...)
         """)
 
 
@@ -252,7 +252,7 @@ class TestMisc(BaseTestPyPyC):
             i28 = int_add_ovf(i10, i25)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, i28, i25, p9, p10, p11, p12, i19, descr=...)
+            jump(..., descr=...)
         """)
 
 

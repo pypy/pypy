@@ -1,5 +1,5 @@
-from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong, r_longlonglong
-from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong
+from rpython.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder

@@ -1,5 +1,4 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module._winreg import interp_winreg
 from rpython.rlib.rwinreg import constants
 
 class Module(MixedModule):

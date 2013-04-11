@@ -18,13 +18,11 @@ import sys
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.rclass import getinstancerepr
 from rpython.rtyper.rmodel import Repr
-from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.error import TyperError
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.debug import ll_assert
 
 
 def erase_int(x):
@@ -161,8 +159,6 @@ class Entry(ExtRegistryEntry):
         return hop.args_r[0].rtype_unerase_int(hop, v)
 
 def ll_unerase_int(gcref):
-    from rpython.rtyper.lltypesystem.lloperation import llop
-    from rpython.rlib.debug import ll_assert
     x = llop.cast_ptr_to_int(lltype.Signed, gcref)
     ll_assert((x&1) != 0, "unerased_int(): not an integer")
     return x >> 1

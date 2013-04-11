@@ -172,17 +172,17 @@ class OptHeap(Optimization):
         self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
-        self.posponedop = None
+        self.postponed_op = None
 
     def force_at_end_of_preamble(self):
         self.force_all_lazy_setfields_and_arrayitems()
 
     def flush(self):
         self.force_all_lazy_setfields_and_arrayitems()
-        if self.posponedop:
-            posponedop = self.posponedop
-            self.posponedop = None
-            self.next_optimization.propagate_forward(posponedop)
+        if self.postponed_op:
+            postponed_op = self.postponed_op
+            self.postponed_op = None
+            self.next_optimization.propagate_forward(postponed_op)
 
     def new(self):
         return OptHeap()
@@ -230,13 +230,13 @@ class OptHeap(Optimization):
 
     def emit_operation(self, op):
         self.emitting_operation(op)
-        if self.posponedop:
-            posponedop = self.posponedop
-            self.posponedop = None
-            self.next_optimization.propagate_forward(posponedop)
+        if self.postponed_op:
+            postponed_op = self.postponed_op
+            self.postponed_op = None
+            self.next_optimization.propagate_forward(postponed_op)
         if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
             or op.is_ovf()):
-            self.posponedop = op
+            self.postponed_op = op
         else:
             Optimization.emit_operation(self, op)
 

@@ -111,6 +111,9 @@ class W_ComplexObject(W_AbstractComplexObject):
 
         return w_result
 
+    def int(self, space):
+        raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
+
 registerimplementation(W_ComplexObject)
 
 w_one = W_ComplexObject(1, 0)
@@ -244,9 +247,6 @@ def coerce__Complex_Complex(space, w_complex1, w_complex2):
 
 def float__Complex(space, w_complex):
     raise OperationError(space.w_TypeError, space.wrap("can't convert complex to float; use abs(z)"))
-
-def int__Complex(space, w_complex):
-    raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
 
 def complex_conjugate__Complex(space, w_self):
     #w_real = space.call_function(space.w_float,space.wrap(w_self.realval))

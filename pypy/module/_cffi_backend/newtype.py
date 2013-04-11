@@ -75,19 +75,19 @@ def new_primitive_type(space, name):
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType)
-def new_pointer_type(space, ctype):
-    ctypepointer = ctypeptr.W_CTypePointer(space, ctype)
+@unwrap_spec(w_ctype=ctypeobj.W_CType)
+def new_pointer_type(space, w_ctype):
+    ctypepointer = ctypeptr.W_CTypePointer(space, w_ctype)
     return ctypepointer
 
 # ____________________________________________________________
 
-@unwrap_spec(ctptr=ctypeobj.W_CType)
-def new_array_type(space, ctptr, w_length):
-    if not isinstance(ctptr, ctypeptr.W_CTypePointer):
+@unwrap_spec(w_ctptr=ctypeobj.W_CType)
+def new_array_type(space, w_ctptr, w_length):
+    if not isinstance(w_ctptr, ctypeptr.W_CTypePointer):
         raise OperationError(space.w_TypeError,
                              space.wrap("first arg must be a pointer ctype"))
-    ctitem = ctptr.ctitem
+    ctitem = w_ctptr.ctitem
     if ctitem.size < 0:
         raise operationerrfmt(space.w_ValueError,
                               "array item of unknown size: '%s'",
@@ -108,7 +108,7 @@ def new_array_type(space, ctptr, w_length):
                 space.wrap("array size would overflow a ssize_t"))
         extra = '[%d]' % length
     #
-    ctype = ctypearray.W_CTypeArray(space, ctptr, length, arraysize, extra)
+    ctype = ctypearray.W_CTypeArray(space, w_ctptr, length, arraysize, extra)
     return ctype
 
 # ____________________________________________________________
@@ -121,16 +121,16 @@ def new_struct_type(space, name):
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
-@unwrap_spec(ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int)
-def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
+@unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int)
+def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                              totalsize=-1, totalalignment=-1):
-    if (not isinstance(ctype, ctypestruct.W_CTypeStructOrUnion)
-            or ctype.size >= 0):
+    if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
+            or w_ctype.size >= 0):
         raise OperationError(space.w_TypeError,
                              space.wrap("first arg must be a non-initialized"
                                         " struct or union ctype"))
 
-    is_union = isinstance(ctype, ctypestruct.W_CTypeUnion)
+    is_union = isinstance(w_ctype, ctypestruct.W_CTypeUnion)
     maxsize = 1
     alignment = 1
     offset = 0
@@ -159,7 +159,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
         if ftype.size < 0:
             raise operationerrfmt(space.w_TypeError,
                     "field '%s.%s' has ctype '%s' of unknown size",
-                                  ctype.name, fname, ftype.name)
+                                  w_ctype.name, fname, ftype.name)
         #
         falign = ftype.alignof()
         if alignment < falign:
@@ -246,15 +246,15 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
     elif totalsize < offset:
         raise operationerrfmt(space.w_TypeError,
                      "%s cannot be of size %d: there are fields at least "
-                     "up to %d", ctype.name, totalsize, offset)
+                     "up to %d", w_ctype.name, totalsize, offset)
     if totalalignment < 0:
         totalalignment = alignment
 
-    ctype.size = totalsize
-    ctype.alignment = totalalignment
-    ctype.fields_list = fields_list
-    ctype.fields_dict = fields_dict
-    ctype.custom_field_pos = custom_field_pos
+    w_ctype.size = totalsize
+    w_ctype.alignment = totalalignment
+    w_ctype.fields_list = fields_list
+    w_ctype.fields_dict = fields_dict
+    w_ctype.custom_field_pos = custom_field_pos
 
 # ____________________________________________________________
 
@@ -264,8 +264,8 @@ def new_void_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str, basectype=ctypeobj.W_CType)
-def new_enum_type(space, name, w_enumerators, w_enumvalues, basectype):
+@unwrap_spec(name=str, w_basectype=ctypeobj.W_CType)
+def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
@@ -273,22 +273,22 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, basectype):
                              space.wrap("tuple args must have the same size"))
     enumerators = [space.str_w(w) for w in enumerators_w]
     #
-    if (not isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned) and
-        not isinstance(basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
+    if (not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned) and
+        not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
         raise OperationError(space.w_TypeError,
               space.wrap("expected a primitive signed or unsigned base type"))
     #
-    lvalue = lltype.malloc(rffi.CCHARP.TO, basectype.size, flavor='raw')
+    lvalue = lltype.malloc(rffi.CCHARP.TO, w_basectype.size, flavor='raw')
     try:
         for w in enumvalues_w:
             # detects out-of-range or badly typed values
-            basectype.convert_from_object(lvalue, w)
+            w_basectype.convert_from_object(lvalue, w)
     finally:
         lltype.free(lvalue, flavor='raw')
     #
-    size = basectype.size
-    align = basectype.align
-    if isinstance(basectype, ctypeprim.W_CTypePrimitiveSigned):
+    size = w_basectype.size
+    align = w_basectype.align
+    if isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned):
         enumvalues = [space.int_w(w) for w in enumvalues_w]
         ctype = ctypeenum.W_CTypeEnumSigned(space, name, size, align,
                                             enumerators, enumvalues)
@@ -300,28 +300,28 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, basectype):
 
 # ____________________________________________________________
 
-@unwrap_spec(fresult=ctypeobj.W_CType, ellipsis=int)
-def new_function_type(space, w_fargs, fresult, ellipsis=0):
+@unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int)
+def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
     from pypy.module._cffi_backend import ctypefunc
     fargs = []
     for w_farg in space.fixedview(w_fargs):
-        farg = space.interpclass_w(w_farg)
-        if not isinstance(farg, ctypeobj.W_CType):
+        if not isinstance(w_farg, ctypeobj.W_CType):
             raise OperationError(space.w_TypeError,
                 space.wrap("first arg must be a tuple of ctype objects"))
-        if isinstance(farg, ctypearray.W_CTypeArray):
-            farg = farg.ctptr
-        fargs.append(farg)
+        if isinstance(w_farg, ctypearray.W_CTypeArray):
+            w_farg = w_farg.ctptr
+        fargs.append(w_farg)
     #
-    if ((fresult.size < 0 and not isinstance(fresult, ctypevoid.W_CTypeVoid))
-            or isinstance(fresult, ctypearray.W_CTypeArray)):
-        if (isinstance(fresult, ctypestruct.W_CTypeStructOrUnion) and
-                fresult.size < 0):
+    if ((w_fresult.size < 0 and
+         not isinstance(w_fresult, ctypevoid.W_CTypeVoid))
+        or isinstance(w_fresult, ctypearray.W_CTypeArray)):
+        if (isinstance(w_fresult, ctypestruct.W_CTypeStructOrUnion) and
+                w_fresult.size < 0):
             raise operationerrfmt(space.w_TypeError,
-                                  "result type '%s' is opaque", fresult.name)
+                                  "result type '%s' is opaque", w_fresult.name)
         else:
             raise operationerrfmt(space.w_TypeError,
-                                  "invalid result type: '%s'", fresult.name)
+                                  "invalid result type: '%s'", w_fresult.name)
     #
-    fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis)
+    fct = ctypefunc.W_CTypeFunc(space, fargs, w_fresult, ellipsis)
     return fct

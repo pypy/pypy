@@ -50,7 +50,7 @@ def goal_options():
     return result
 
 translate_optiondescr = OptionDescription("translate", "XXX", [
-    StrOption("targetspec", "XXX", default='../../../pypy/goal/targetpypystandalone',
+    StrOption("targetspec", "XXX", default='targetpypystandalone',
               cmdline=None),
     ChoiceOption("opt",
                  "optimization level", OPT_LEVELS, default=DEFAULT_OPT_LEVEL,

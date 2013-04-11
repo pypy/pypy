@@ -304,7 +304,9 @@ class TestMallocFastpath(BaseTestRegalloc):
             if self.cpu.IS_64_BIT:
                 assert frame.jf_gcmap[idx] == (1<<29) | (1 << 30)
             else:
-                assert frame.jf_gcmap[idx] == (1<<24) | (1 << 23)
+                assert frame.jf_gcmap[idx]
+                exp_idx = self.cpu.JITFRAME_FIXED_SIZE - 32 * idx + 1 # +1 from i0
+                assert frame.jf_gcmap[idx] == (1 << (exp_idx + 1)) | (1 << exp_idx)
 
         self.cpu = self.getcpu(check)
         ops = '''
@@ -728,7 +730,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
         def f(frame, x):
             # all the gc pointers are alive p1 -> p7 (but not p0)
-            assert bin(frame.jf_gcmap[0]).count('1') == 7
+            assert getmap(frame).count('1') == 7 #
             assert x == 1
             return 2
 
@@ -761,7 +763,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
-            assert bin(frame.jf_gcmap[0]).count('1') == 3 # p1, p2, p3, but
+            assert getmap(frame).count('1') == 3 # p1, p2, p3, but
             # not in registers
             frame.jf_descr = frame.jf_force_descr # make guard_not_forced fail
             assert x == 1
@@ -797,7 +799,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
                                        cpu.execute_token(token, 1, a))
-        assert bin(frame.jf_gcmap[0]).count('1') == 4
+        
+        assert getmap(frame).count('1') == 4
 
     def test_call_gcmap_no_guard(self):
         cpu = self.cpu
@@ -805,7 +808,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         def f(frame, arg, x):
             assert not arg
             assert frame.jf_gcmap[0] & 31 == 0
-            assert bin(frame.jf_gcmap[0]).count('1') == 3 # p1, p2, p3
+            assert getmap(frame).count('1') == 3 # p1, p2, p3
             frame.jf_descr = frame.jf_force_descr # make guard_not_forced fail
             assert x == 1
             return lltype.nullptr(llmemory.GCREF.TO)
@@ -840,4 +843,5 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.compile_loop(loop.inputargs, loop.operations, token)
         frame = lltype.cast_opaque_ptr(JITFRAMEPTR,
                                        cpu.execute_token(token, 1, a))
-        assert bin(frame.jf_gcmap[0]).count('1') == 4
+        assert getmap(frame).count('1') == 4
+

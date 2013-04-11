@@ -272,7 +272,7 @@ def nice_repr_for_func(fn, name=None):
 
 
 def rpython_wrapper(f, template, templateargs=None, **globaldict):
-    """  
+    """
     We cannot simply wrap the function using *args, **kwds, because it's not
     RPython. Instead, we generate a function from ``template`` with exactly
     the same argument list.
@@ -280,8 +280,8 @@ def rpython_wrapper(f, template, templateargs=None, **globaldict):
     if templateargs is None:
         templateargs = {}
     srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
-    assert not srcvarargs, '*args not supported by enforceargs'
-    assert not srckeywords, '**kwargs not supported by enforceargs'
+    assert not srcvarargs, '*args not supported by rpython_wrapper'
+    assert not srckeywords, '**kwargs not supported by rpython_wrapper'
     #
     arglist = ', '.join(srcargs)
     templateargs.update(name=f.func_name,

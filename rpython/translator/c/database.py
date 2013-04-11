@@ -115,7 +115,7 @@ class LowLevelDatabase(object):
         elif isinstance(T, (Struct, Array, _WeakRefType)):
             node = self.gettypedefnode(T, varlength=varlength)
             if who_asks is not None:
-                who_asks.dependencies[node] = True
+                who_asks.dependencies.add(node)
             return node.gettype()
         elif isinstance(T, FuncType):
             resulttype = self.gettype(T.RESULT)
@@ -136,7 +136,7 @@ class LowLevelDatabase(object):
             elif T.hints.get("render_structure", False):
                 node = self.gettypedefnode(T, varlength=varlength)
                 if who_asks is not None:
-                    who_asks.dependencies[node] = True
+                    who_asks.dependencies.add(node)
                 return 'struct %s @' % node.name
             elif T.hints.get('external', None) == 'C':
                 return '%s @' % T.hints['c_name']
@@ -364,15 +364,15 @@ class LowLevelDatabase(object):
     def getstructdeflist(self):
         # return the StructDefNodes sorted according to dependencies
         result = []
-        seen = {}
+        seen = set()
         def produce(node):
             if node not in seen:
-                deps = node.dependencies.keys()
+                deps = list(node.dependencies)
                 deps.sort(key=lambda x: x.name)
                 for othernode in deps:
                     produce(othernode)
                 result.append(node)
-                seen[node] = True
+                seen.add(node)
         nodes = self.structdefnodes.values()
         nodes.sort(key=lambda x: x.name)
         for node in nodes:

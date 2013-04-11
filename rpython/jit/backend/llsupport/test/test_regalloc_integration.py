@@ -515,6 +515,10 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         # FIXME: Verify that i19 - i23 are removed
 
 class TestRegallocFloats(BaseTestRegalloc):
+    def setup_class(cls):
+        if not cls.cpu.supports_floats:
+            py.test.skip("needs float support")
+
     def test_float_add(self):
         ops = '''
         [f0, f1]

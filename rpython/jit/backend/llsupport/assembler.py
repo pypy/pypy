@@ -1,14 +1,25 @@
-
-from rpython.rlib import rgc
-from rpython.rlib.rarithmetic import r_uint
-from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.metainterp.history import INT, REF, FLOAT, JitCellToken
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn
+from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
+    ConstInt, BoxInt)
+from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.rlib import rgc
+from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
+                                debug_print)
+from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.jit.backend.llsupport.memcpy import memcpy_fn
-from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
-                                have_debug_prints)
+
+
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
+    # 'b'ridge, 'l'abel or # 'e'ntry point
+    ('i', lltype.Signed),
+    ('type', lltype.Char),
+    ('number', lltype.Signed)
+)
+
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
@@ -52,6 +63,8 @@ class BaseAssembler(object):
         self.cpu = cpu
         self.memcpy_addr = 0
         self.rtyper = cpu.rtyper
+        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+        self._debug = False
 
     def setup_once(self):
         # the address of the function called by 'new'
@@ -89,6 +102,11 @@ class BaseAssembler(object):
                                               flavor='raw',
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
+
+    def set_debug(self, v):
+        r = self._debug
+        self._debug = v
+        return r
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):
         locs = []
@@ -204,3 +222,73 @@ class BaseAssembler(object):
         # XXX here should be emitted guard_not_forced, but due
         #     to incompatibilities in how it's done, we leave it for the
         #     caller to deal with
+
+    @specialize.argtype(1)
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
+        if self._debug:
+            s = 0
+            for op in operations:
+                s += op.getopnum()
+
+            newoperations = []
+            self._append_debugging_code(newoperations, tp, number,
+                                        None)
+            for op in operations:
+                newoperations.append(op)
+                if op.getopnum() == rop.LABEL:
+                    self._append_debugging_code(newoperations, 'l', number,
+                                                op.getdescr())
+            operations = newoperations
+        return operations
+
+    def _append_debugging_code(self, operations, tp, number, token):
+        counter = self._register_counter(tp, number, token)
+        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
+        box = BoxInt()
+        box2 = BoxInt()
+        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
+                            box, descr=self.debug_counter_descr),
+               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
+               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
+                            None, descr=self.debug_counter_descr)]
+        operations.extend(ops)
+
+    def _register_counter(self, tp, number, token):
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
+        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
+                               track_allocation=False)
+        struct.i = 0
+        struct.type = tp
+        if tp == 'b' or tp == 'e':
+            struct.number = number
+        else:
+            assert token
+            struct.number = compute_unique_id(token)
+        self.loop_run_counters.append(struct)
+        return struct
+
+    def finish_once(self):
+        if self._debug:
+            debug_start('jit-backend-counts')
+            for i in range(len(self.loop_run_counters)):
+                struct = self.loop_run_counters[i]
+                if struct.type == 'l':
+                    prefix = 'TargetToken(%d)' % struct.number
+                elif struct.type == 'b':
+                    prefix = 'bridge ' + str(struct.number)
+                else:
+                    prefix = 'entry ' + str(struct.number)
+                debug_print(prefix + ':' + str(struct.i))
+            debug_stop('jit-backend-counts')
+
+
+
+def debug_bridge(descr_number, rawstart, codeendpos):
+    debug_start("jit-backend-addr")
+    debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                (r_uint(descr_number), r_uint(rawstart),
+                    r_uint(rawstart + codeendpos)))
+    debug_stop("jit-backend-addr")
+

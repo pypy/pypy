@@ -1,6 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
-from rpython.rlib.rarithmetic import r_uint, LONG_BIT
 from rpython.rlib.debug import ll_assert
 from rpython.tool.identity_dict import identity_dict
 

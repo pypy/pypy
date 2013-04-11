@@ -2,15 +2,17 @@
 """ test transparent proxy features
 """
 
+import py
+
 class AppProxyBasic(object):
     spaceconfig = {"objspace.std.withtproxy": True}
-        
+
     def setup_method(self, meth):
         self.w_Controller = self.space.appexec([], """():
         class Controller(object):
             def __init__(self, obj):
                 self.obj = obj
-    
+
             def perform(self, name, *args, **kwargs):
                 return getattr(self.obj, name)(*args, **kwargs)
         return Controller
@@ -21,6 +23,9 @@ class AppProxyBasic(object):
         """)
 
 class AppTestListProxy(AppProxyBasic):
+    def setup_class(cls):
+        py.test.skip("removed support for lists")
+
     def test_proxy(self):
         lst = self.proxy(list, lambda : None)
         assert type(lst) is list
@@ -30,7 +35,7 @@ class AppTestListProxy(AppProxyBasic):
             lst = [1,2,3]
             if name == '__repr__':
                 return repr(lst)
-        
+
         lst = self.proxy(list, controller)
         assert repr(lst) == repr([1,2,3])
 
@@ -79,13 +84,13 @@ class AppTestListProxy(AppProxyBasic):
             pass
         else:
             fail("Accessing outside a list didn't raise")
-    
+
     def test_list_inplace_add(self):
         c = self.Controller([1,2,3])
         lst = self.proxy(list, c.perform)
         lst += [1,2,3]
         assert len(lst) == 6
-    
+
     def test_list_reverse_add(self):
         c = self.Controller([1,2,3])
         lst = self.proxy(list, c.perform)
@@ -93,6 +98,9 @@ class AppTestListProxy(AppProxyBasic):
         assert l == [1,1,2,3]
 
 class AppTestDictProxy(AppProxyBasic):
+    def setup_class(cls):
+        py.test.skip("removed support for dicts")
+
     def test_dict(self):
         c = self.Controller({"xx":1})
         d = self.proxy(dict, c.perform)
@@ -102,7 +110,7 @@ class AppTestDictProxy(AppProxyBasic):
         d.update(d2, x=4)
         assert sorted(d.keys()) == ['x', 'xx', 'yy']
         assert sorted(d.values()) == [1, 3, 4]
-    
+
     def test_dict_pop(self):
         c = self.Controller({'x':1})
         d = self.proxy(dict, c.perform)
