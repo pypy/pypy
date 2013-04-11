@@ -21,8 +21,8 @@ Instead, we practice a lot of test driven development. This is partly because
 of very high quality requirements for compilers and partly because there is
 simply no other way to get around such complex project, that will keep you sane.
 There are probably people out there who are smart enough not to need it, we're
-not one of those. Familiarity with `pytest`_ is a must-have before
-doing anything else.
+not one of those. You may consider familiarizing yourself with `pytest`_,
+since this is a tool we use for tests.
 This leads to the next issue:
 
 Layers
