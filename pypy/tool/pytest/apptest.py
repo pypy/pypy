@@ -114,7 +114,7 @@ if 1:
         elif isinstance(value, types.ModuleType):
             name = value.__name__
             defs.append("import %s; self.%s = %s\n" % (name, symbol, name))
-        elif isinstance(value, (str, unicode, int, float, list, dict)):
+        elif isinstance(value, (str, unicode, int, long, float, list, tuple, dict)):
             defs.append("self.%s = %s\n" % (symbol, py3k_repr(value)))
     source = py.code.Source(target_)[1:]
     pyfile = udir.join('src.py')
