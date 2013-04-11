@@ -2,7 +2,8 @@
 
 Environment variables can be used to fine-tune the following parameters:
 
- PYPY_GC_NURSERY         The nursery size.  Defaults to '4MB'.  Small values
+ PYPY_GC_NURSERY         The nursery size.  Defaults to 1/2 of your cache or
+                         '4M'.  Small values
                          (like 1 or 1KB) are useful for debugging.
 
  PYPY_GC_NURSERY_CLEANUP The interval at which nursery is cleaned up. Must

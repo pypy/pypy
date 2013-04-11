@@ -47,7 +47,7 @@ class BasePosix(Platform):
         if not eci.export_symbols:
             return []
 
-        if sys.platform == 'freebsd7':
+        if sys.platform.startswith('freebsd'):
             eci.export_symbols += ('__progname', 'environ')
 
         response_file = self._make_response_file("dynamic-symbols-")
