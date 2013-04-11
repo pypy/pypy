@@ -23,6 +23,8 @@ from pypy.module.micronumpy.typespec import (bool_spec, int8_spec, uint8_spec,
         int16_spec, uint16_spec, int32_spec, uint32_spec, long_spec,
         ulong_spec, int64_spec, uint64_spec, float32_spec, float64_spec,
         float16_spec)
+from pypy.module.micronumpy.typespec import (ENABLED_LONG_DOUBLE,
+        long_double_size)
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)
@@ -1461,7 +1463,7 @@ class Complex128(ComplexFloating, BaseType):
     BoxType = interp_boxes.W_Complex128Box
     FloatType = Float64_instance
 
-if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
+if ENABLED_LONG_DOUBLE and long_double_size > 8:
     class Float80(BaseType, Float):
         _attrs_ = ()
         spec = longdouble_spec
@@ -1485,8 +1487,8 @@ if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
         BoxType = interp_boxes.W_CLongDoubleBox
         FloatType = Float80_instance
 
-    if interp_boxes.long_double_size in (12, 16):
-        Float80.storage_bytes = interp_boxes.long_double_size
+    if long_double_size in (12, 16):
+        Float80.storage_bytes = long_double_size
     else:
         raise ImportError("Unsupported size for long double")
 

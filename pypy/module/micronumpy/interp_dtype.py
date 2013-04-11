@@ -12,6 +12,8 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import jit
 
 from pypy.module.micronumpy.arrayimpl.concrete import SliceArray
+from pypy.module.micronumpy.typespec import (ENABLED_LONG_DOUBLE,
+        long_double_size)
 
 
 UNSIGNEDLTR = "u"
@@ -517,7 +519,7 @@ class DtypeCache(object):
             aliases=["complex"],
             float_type = self.w_float64dtype,
         )
-        if interp_boxes.ENABLED_LONG_DOUBLE and interp_boxes.long_double_size > 8:
+        if ENABLED_LONG_DOUBLE and long_double_size > 8:
             self.w_longdouble = W_Dtype(
                 types.Float80_instance,
                 num=13,
@@ -538,17 +540,17 @@ class DtypeCache(object):
                 aliases=["clongdouble", "clongfloat"],
                 float_type = self.w_longdouble,
             )
-            if interp_boxes.long_double_size == 12:
+            if long_double_size == 12:
                 self.w_longdouble.name = "float96"
                 self.w_float96dtype = self.w_longdouble
                 self.w_clongdouble.name = "complex192"
                 self.w_complex192dtype = self.w_clongdouble
-            elif interp_boxes.long_double_size == 16:
+            elif long_double_size == 16:
                 self.w_longdouble.name = "float128"
                 self.w_float128dtype = self.w_longdouble
                 self.w_clongdouble.name = "complex256"
                 self.w_complex256dtype = self.w_clongdouble
-        elif interp_boxes.ENABLED_LONG_DOUBLE:
+        elif ENABLED_LONG_DOUBLE:
             self.w_float64dtype.aliases += ["longdouble", "longfloat"]
             self.w_complex128dtype.aliases += ["clongdouble", "clongfloat"]
             self.w_longdouble = self.w_float64dtype
@@ -628,7 +630,7 @@ class DtypeCache(object):
                 self.w_float32dtype, self.w_float64dtype,
                 ]
         complex_dtypes =  [self.w_complex64dtype, self.w_complex128dtype]
-        if interp_boxes.ENABLED_LONG_DOUBLE:
+        if ENABLED_LONG_DOUBLE:
             float_dtypes.append(self.w_longdouble)
             complex_dtypes.append(self.w_clongdouble)
         self.builtin_dtypes = [
@@ -702,7 +704,7 @@ class DtypeCache(object):
             'FLOAT': self.w_float32dtype,
             'BOOL': self.w_booldtype,
         }
-        if interp_boxes.ENABLED_LONG_DOUBLE:
+        if ENABLED_LONG_DOUBLE:
             typeinfo_full['LONGDOUBLE'] = self.w_longdouble
             typeinfo_full['CLONGDOUBLE'] = self.w_clongdouble
 

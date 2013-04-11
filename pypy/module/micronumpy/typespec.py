@@ -1,4 +1,5 @@
 """ Meta-data for the low-level types """
+import os
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import specialize
@@ -26,3 +27,11 @@ uint64_spec = TypeSpec("uint64", rffi.ULONGLONG)
 float32_spec = TypeSpec("float32", rffi.FLOAT)
 float64_spec = TypeSpec("float64", rffi.DOUBLE)
 float16_spec = TypeSpec("float16", rffi.SHORT)
+
+ENABLED_LONG_DOUBLE = False
+long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
+if long_double_size == 8 and os.name == 'nt':
+    # this is a lie, or maybe a wish, MS fakes longdouble math with double
+    long_double_size = 12
+
+

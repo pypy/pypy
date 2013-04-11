@@ -12,19 +12,11 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
+from pypy.module.micronumpy.typespec import (ENABLED_LONG_DOUBLE,
+        long_double_size)
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
-
-# Is this the proper place for this?
-ENABLED_LONG_DOUBLE = False
-long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
-
-import os
-if long_double_size == 8 and os.name == 'nt':
-    # this is a lie, or maybe a wish, MS fakes longdouble math with double
-    long_double_size = 12
-
 
 def new_dtype_getter(name):
     def _get_dtype(space):
