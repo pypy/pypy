@@ -24,6 +24,7 @@ class AppTestBytesIO:
     def test_write(self):
         import _io
         f = _io.BytesIO()
+        assert f.write("") == 0
         assert f.write("hello") == 5
         import gc; gc.collect()
         assert f.getvalue() == "hello"

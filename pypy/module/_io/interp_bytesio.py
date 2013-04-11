@@ -96,7 +96,7 @@ class W_BytesIO(W_BufferedIOBase):
         buf = space.buffer_w(w_data)
         length = buf.getlength()
         if length <= 0:
-            return
+            return space.wrap(0)
 
         if self.pos + length > len(self.buf):
             self.buf.extend(['\0'] * (self.pos + length - len(self.buf)))
