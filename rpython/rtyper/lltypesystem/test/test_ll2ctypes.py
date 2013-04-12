@@ -745,14 +745,16 @@ class TestLL2Ctypes(object):
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'
-            # the default when writing to a invalid fd on windows is to call
-            # an _invalid_parameter_handler, which by default crashes the
-            # process. To fix this test, call _set_invalid_parameter_handler
-            # in the setup_method, and remove it in the teardown. 
-            # Note that cpython before 2.7 did install an _invalid_parameter_handler,
+            # Note that cpython before 2.7 installs an _invalid_parameter_handler,
             # which is why the test passes there, but this is no longer
             # accepted practice.
-            py.test.skip('need to set an _invalid_parameter_handler')
+            import ctypes
+            SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
+            old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+            new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+            ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+            assert f(1) == 1
+            ctypes.windll.kernel32.SetErrorMode(old_err_mode)
         else:
             underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
@@ -762,6 +764,8 @@ class TestLL2Ctypes(object):
                                    rffi.SIZE_T)
         buffer = lltype.malloc(rffi.CCHARP.TO, 5, flavor='raw')
         written = os_write(12312312, buffer, 5)
+        if sys.platform.startswith('win'):
+            ctypes.windll.kernel32.SetErrorMode(old_err_mode)
         lltype.free(buffer, flavor='raw')
         assert rffi.cast(rffi.LONG, written) < 0
         # the next line is a random external function call,
