@@ -73,7 +73,10 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
                 "negative size value"))
 
         self.truncate(size)
-        self.seek(pos)
+        if size == pos:
+            self.seek(0, 2)
+        else:
+            self.seek(pos)
         return space.wrap(size)
 
     def getvalue_w(self, space):
