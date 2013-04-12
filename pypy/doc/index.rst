@@ -31,6 +31,7 @@ unless otherwise specified. Consult `LICENSE`_
 .. _`Starting with RPython`: getting-started-dev.html
 .. _`how to contribute`: how-to-contribute.html
 .. _`PyPy website`: http://pypy.org
+.. _`LICENSE`: https://bitbucket.org/pypy/pypy/src/default/LICENSE
 
 Index of various topics:
 ========================
@@ -66,11 +67,9 @@ Translation Framework:
   * `Sandboxing Python code`_
   * `Garbage collection environment variables`_
 
-Status_ of the project.
-
 .. _`Differences between PyPy and CPython`: cpython_differences.html
 .. _`What PyPy can do for your objects`: objspace-proxies.html
-.. _`Continulets and greenlets_`: stackless.html
+.. _`Continulets and greenlets`: stackless.html
 .. _`JIT Generation in PyPy`: jit/index.html
 .. _`JIT hooks`: jit-hooks.html
 .. _`Sandboxing Python code`: sandbox.html
