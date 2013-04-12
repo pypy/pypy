@@ -27,7 +27,6 @@ class Module(MixedModule):
     }
 
 for i in dir(_curses):
-    i = str(i)     # workaround for pypy 2.0-beta2
     val = getattr(_curses, i)
     if i.isupper() and type(val) is int:
         Module.interpleveldefs[i] = "space.wrap(%s)" % val
