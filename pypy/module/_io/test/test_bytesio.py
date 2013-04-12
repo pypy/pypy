@@ -52,6 +52,8 @@ class AppTestBytesIO:
         f.seek(3)
         assert f.truncate() == 3
         assert f.getvalue() == "hel"
+        assert f.truncate(2) == 2
+        assert f.tell() == 3
 
     def test_setstate(self):
         # state is (content, position, __dict__)

@@ -163,9 +163,6 @@ class RStringIO(object):
         return ''.join(self.__bigbuffer[p:i])
 
     def truncate(self, size):
-        # NB. 'size' is mandatory.  This has the same un-Posix-y semantics
-        # than CPython: it never grows the buffer, and it sets the current
-        # position to the end.
         assert size >= 0
         if self.__bigbuffer is None or size > len(self.__bigbuffer):
             self.__copy_into_bigbuffer()
@@ -177,4 +174,3 @@ class RStringIO(object):
             del self.__bigbuffer[size:]
         if len(self.__bigbuffer) == 0:
             self.__bigbuffer = None
-        self.__pos = AT_END

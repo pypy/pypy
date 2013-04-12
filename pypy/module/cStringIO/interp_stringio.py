@@ -159,6 +159,7 @@ class W_OutputType(RStringIO, W_InputOutputType):
         if size < 0:
             raise OperationError(space.w_IOError, space.wrap("negative size"))
         self.truncate(size)
+        self.seek(0, 2)
 
     @unwrap_spec(buffer='bufferstr')
     def descr_write(self, buffer):
