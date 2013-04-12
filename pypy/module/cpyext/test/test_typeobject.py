@@ -48,7 +48,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.int_member = 42
         raises(TypeError, "obj.int_member = 'not a number'")
         raises(TypeError, "del obj.int_member")
-        raises(TypeError, "obj.int_member_readonly = 42")
+        raises(AttributeError, "obj.int_member_readonly = 42")
         exc = raises(TypeError, "del obj.int_member_readonly")
         assert "readonly" in str(exc.value)
         raises(SystemError, "obj.broken_member")
