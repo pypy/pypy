@@ -15,6 +15,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
         self.init()
 
     def descr_init(self, space, w_initial_bytes=None):
+        self.init()
         if not space.is_none(w_initial_bytes):
             self.write_w(space, w_initial_bytes)
             self.seek(0)

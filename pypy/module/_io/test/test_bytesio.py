@@ -4,6 +4,15 @@ class AppTestBytesIO:
     def test_init(self):
         import _io
         raises(TypeError, _io.BytesIO, u"12345")
+        buf = "1234567890"
+        b = _io.BytesIO(buf)
+        assert b.getvalue() == buf
+        b = _io.BytesIO(None)
+        assert b.getvalue() == ""
+        b.__init__(buf * 2)
+        assert b.getvalue() == buf * 2
+        b.__init__(buf)
+        assert b.getvalue() == buf
 
     def test_init_kwargs(self):
         import _io
