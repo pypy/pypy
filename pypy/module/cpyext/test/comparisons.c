@@ -73,23 +73,6 @@ PyTypeObject CmpType = {
 };
 
 
-static int cmp_compare(PyObject *self, PyObject *other) {
-    return -1;
-}
-
-PyTypeObject OldCmpType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "comparisons.OldCmpType",                       /* tp_name */
-    sizeof(CmpObject),                              /* tp_basicsize */
-    0,                                              /* tp_itemsize */
-    0,                                              /* tp_dealloc */
-    0,                                              /* tp_print */
-    0,                                              /* tp_getattr */
-    0,                                              /* tp_setattr */
-    (cmpfunc)cmp_compare,                           /* tp_compare */
-};
-
-
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "comparisons",
@@ -105,8 +88,6 @@ PyObject *PyInit_comparisons(void)
 
     if (PyType_Ready(&CmpType) < 0)
         return NULL;
-    if (PyType_Ready(&OldCmpType) < 0)
-        return NULL;
     m = PyModule_Create(&moduledef);
     if (m == NULL)
         return NULL;
@@ -114,8 +95,6 @@ PyObject *PyInit_comparisons(void)
     if (d == NULL)
         return NULL;
     if (PyDict_SetItemString(d, "CmpType", (PyObject *)&CmpType) < 0)
-        return NULL;
-    if (PyDict_SetItemString(d, "OldCmpType", (PyObject *)&OldCmpType) < 0)
         return NULL;
     return m;
 }
