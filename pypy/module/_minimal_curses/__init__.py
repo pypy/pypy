@@ -1,8 +1,8 @@
 try:
-    import _curses
+    import _minimal_curses as _curses   # when running on top of pypy-c
 except ImportError:
     try:
-        import _minimal_curses as _curses   # when running on top of pypy-c
+        import _curses
     except ImportError:
         import py
         py.test.skip("no _curses or _minimal_curses module") #no _curses at all
