@@ -11,6 +11,9 @@ class RStringIO(object):
     _mixin_ = True        # for interp_stringio.py
 
     def __init__(self):
+        self.init()
+
+    def init(self):
         # The real content is the join of the following data:
         #  * the list of characters self.__bigbuffer;
         #  * each of the strings in self.__strings.

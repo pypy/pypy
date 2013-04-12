@@ -146,7 +146,7 @@ class W_InputType(W_InputOutputType):
 
 class W_OutputType(RStringIO, W_InputOutputType):
     def __init__(self, space):
-        RStringIO.__init__(self)
+        self.init()
         self.space = space
 
     def descr_truncate(self, w_size=None):
