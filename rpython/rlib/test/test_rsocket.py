@@ -178,7 +178,6 @@ def test_simple_tcp():
     fd1, addr2 = sock.accept()
     s1 = RSocket(fd=fd1)
     print 'connection accepted'
-    assert not lock.locked()
     lock.acquire()
     print 'connecting side knows that the connection was accepted too'
     assert addr.eq(s2.getpeername())
