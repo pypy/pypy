@@ -34,7 +34,6 @@ def test_unset_error():
         old_err_mode = ctypes.windll.kernel32.GetErrorMode()
         new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
         ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        assert f(1) == 1
+    assert f(1) == 1
+    if sys.platform.startswith('win'):
         ctypes.windll.kernel32.SetErrorMode(old_err_mode)
-    else:
-        assert f(1) == 1

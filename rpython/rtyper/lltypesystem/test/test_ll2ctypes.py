@@ -753,8 +753,6 @@ class TestLL2Ctypes(object):
             old_err_mode = ctypes.windll.kernel32.GetErrorMode()
             new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
             ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-            assert f(1) == 1
-            ctypes.windll.kernel32.SetErrorMode(old_err_mode)
         else:
             underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
