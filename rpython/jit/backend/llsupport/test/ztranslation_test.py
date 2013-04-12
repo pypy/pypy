@@ -1,32 +1,31 @@
-import py, os, sys
+import os, sys
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote
 from rpython.rlib import jit_hooks
-from rpython.jit.metainterp.jitprof import Profiler
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.translator.translator import TranslationContext
-from rpython.config.translationoption import DEFL_GC
-from rpython.rlib import rgc
-from rpython.jit.backend.arm.test.support import skip_unless_run_slow_tests
-skip_unless_run_slow_tests()
 
-class TestTranslationARM(CCompiledMixin):
+
+def fix_annotator_for_vrawbuffer(monkeypatch):
+    from rpython.rlib.nonconst import NonConstant
+    from rpython.jit.metainterp.optimizeopt.virtualize import VRawBufferValue
+    from rpython.jit.metainterp import warmspot
+
+    def my_hook_for_tests(cpu):
+        # this is needed so that the annotator can see it
+        if NonConstant(False):
+            v = VRawBufferValue(cpu, None, -1, None, None)
+    monkeypatch.setattr(warmspot, 'hook_for_tests', my_hook_for_tests)
+
+
+class TranslationTest(CCompiledMixin):
     CPUClass = getcpuclass()
 
-    def _get_TranslationContext(self):
-        t = TranslationContext()
-        t.config.translation.gc = DEFL_GC   # 'hybrid' or 'minimark'
-        t.config.translation.gcrootfinder = 'shadowstack'
-        return t
-
-    def _check_cbuilder(self, cbuilder):
-        pass
-
-    def test_stuff_translates(self):
+    def test_stuff_translates(self, monkeypatch):
+        fix_annotator_for_vrawbuffer(monkeypatch)
         # this is a basic test that tries to hit a number of features and their
         # translation:
         # - jitting of loops and bridges
@@ -99,9 +98,14 @@ class TestTranslationARM(CCompiledMixin):
         res = self.meta_interp(main, [40, -49])
         assert res == expected
 
-    def test_direct_assembler_call_translates(self):
+
+class TranslationTestCallAssembler(CCompiledMixin):
+    CPUClass = getcpuclass()
+
+    def test_direct_assembler_call_translates(self, monkeypatch):
         """Test CALL_ASSEMBLER and the recursion limit"""
         from rpython.rlib.rstackovf import StackOverflow
+        fix_annotator_for_vrawbuffer(monkeypatch)
 
         class Thing(object):
             def __init__(self, val):
@@ -175,9 +179,14 @@ class TestTranslationARM(CCompiledMixin):
         assert 1024 <= bound <= 131072
         assert bound & (bound-1) == 0       # a power of two
 
-    def test_jit_get_stats(self):
+
+class TranslationTestJITStats(CCompiledMixin):
+    CPUClass = getcpuclass()
+
+    def test_jit_get_stats(self, monkeypatch):
+        fix_annotator_for_vrawbuffer(monkeypatch)
         driver = JitDriver(greens = [], reds = ['i'])
-        
+
         def f():
             i = 0
             while i < 100000:
@@ -194,18 +203,12 @@ class TestTranslationARM(CCompiledMixin):
         assert res == 3
         # one for loop, one for entry point and one for the prologue
 
-class TestTranslationRemoveTypePtrARM(CCompiledMixin):
+
+class TranslationRemoveTypePtrTest(CCompiledMixin):
     CPUClass = getcpuclass()
 
-    def _get_TranslationContext(self):
-        t = TranslationContext()
-        t.config.translation.gc = DEFL_GC   # 'hybrid' or 'minimark'
-        t.config.translation.gcrootfinder = 'shadowstack'
-        t.config.translation.list_comprehension_operations = True
-        t.config.translation.gcremovetypeptr = True
-        return t
-
-    def test_external_exception_handling_translates(self):
+    def test_external_exception_handling_translates(self, monkeypatch):
+        fix_annotator_for_vrawbuffer(monkeypatch)
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
 
         class ImDone(Exception):

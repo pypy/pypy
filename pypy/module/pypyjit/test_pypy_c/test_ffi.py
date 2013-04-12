@@ -110,7 +110,6 @@ class Test__ffi(BaseTestPyPyC):
         loops = log.loops_by_id('sleep')
         assert len(loops) == 1 # make sure that we actually JITted the loop
 
-
     def test_ctypes_call(self):
         from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
@@ -182,30 +181,99 @@ class Test__ffi(BaseTestPyPyC):
 
             libm = _cffi_backend.load_library(libm_name)
             BDouble = _cffi_backend.new_primitive_type("double")
-            BPow = _cffi_backend.new_function_type([BDouble, BDouble], BDouble)
-            pow = libm.load_function(BPow, 'pow')
+            BInt = _cffi_backend.new_primitive_type("int")
+            BPow = _cffi_backend.new_function_type([BDouble, BInt], BDouble)
+            ldexp = libm.load_function(BPow, 'ldexp')
             i = 0
             res = 0
             while i < 300:
-                tmp = pow(2, 3)   # ID: cfficall
+                tmp = ldexp(1, 3)   # ID: cfficall
                 res += tmp
                 i += 1
             BLong = _cffi_backend.new_primitive_type("long")
-            pow_addr = int(_cffi_backend.cast(BLong, pow))
-            return pow_addr, res
+            ldexp_addr = int(_cffi_backend.cast(BLong, ldexp))
+            return ldexp_addr, res
         #
         libm_name = get_libm_name(sys.platform)
         log = self.run(main, [libm_name])
-        pow_addr, res = log.result
+        ldexp_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
-        if 'ConstClass(pow)' in repr(loop):   # e.g. OS/X
-            pow_addr = 'ConstClass(pow)'
+        if 'ConstClass(ldexp)' in repr(loop):   # e.g. OS/X
+            ldexp_addr = 'ConstClass(ldexp)'
         assert loop.match_by_id('cfficall', """
             ...
-            f1 = call_release_gil(..., descr=<Callf 8 ff EF=6 OS=62>)
+            f1 = call_release_gil(..., descr=<Callf 8 fi EF=6 OS=62>)
             ...
         """)
+        ops = loop.ops_by_id('cfficall')
+        assert 'raw_malloc' not in str(ops)
+        assert 'raw_free' not in str(ops)
+        assert 'getarrayitem_raw' not in log.opnames(ops)
+        assert 'setarrayitem_raw' not in log.opnames(ops)
         # so far just check that call_release_gil() is produced.
         # later, also check that the arguments to call_release_gil()
+        # are constants
         # are constants, and that the numerous raw_mallocs are removed
+
+    def test_cffi_call_guard_not_forced_fails(self):
+        # this is the test_pypy_c equivalent of
+        # rpython/jit/metainterp/test/test_fficall::test_guard_not_forced_fails
+        #
+        # it requires cffi to be installed for pypy in order to run
+        def main():
+            import sys
+            try:
+                import cffi
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import cffi\n')
+                return 0
+                
+            ffi = cffi.FFI()
+
+            ffi.cdef("""
+            typedef void (*functype)(int);
+            int foo(int n, functype func);
+            """)
+
+            lib = ffi.verify("""
+            #include <signal.h>
+            typedef void (*functype)(int);
+
+            int foo(int n, functype func) {
+                if (n >= 2000) {
+                    func(n);
+                }
+                return n*2;
+            }
+            """)
+
+            @ffi.callback("functype")
+            def mycallback(n):
+                if n < 5000:
+                    return
+                # make sure that guard_not_forced fails
+                d = {}
+                f = sys._getframe()
+                while f:
+                    d.update(f.f_locals)
+                    f = f.f_back
+
+            n = 0
+            while n < 10000:
+                res = lib.foo(n, mycallback)  # ID: cfficall
+                # this is the real point of the test: before the
+                # refactor-call_release_gil branch, the assert failed when
+                # res == 5000
+                assert res == n*2
+                n += 1
+            return n
+
+        log = self.run(main, [], import_site=True)
+        assert log.result == 10000
+        loop, = log.loops_by_id('cfficall')
+        assert loop.match_by_id('cfficall', """
+            ...
+            f1 = call_release_gil(..., descr=<Calli 4 ii EF=6 OS=62>)
+            ...
+        """)

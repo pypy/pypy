@@ -242,11 +242,13 @@ class W_CField(W_Root):
         #
         value = misc.as_long_long(space, w_ob)
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveSigned):
+            is_signed = True
             fmin = -(r_longlong(1) << (self.bitsize - 1))
             fmax = (r_longlong(1) << (self.bitsize - 1)) - 1
             if fmax == 0:
                 fmax = 1      # special case to let "int x:1" receive "1"
         else:
+            is_signed = False
             fmin = r_longlong(0)
             fmax = r_longlong((r_ulonglong(1) << self.bitsize) - 1)
         if value < fmin or value > fmax:
@@ -258,7 +260,10 @@ class W_CField(W_Root):
         rawvalue = r_ulonglong(value) << self.bitshift
         rawfielddata = misc.read_raw_unsigned_data(cdata, ctype.size)
         rawfielddata = (rawfielddata & ~rawmask) | (rawvalue & rawmask)
-        misc.write_raw_integer_data(cdata, rawfielddata, ctype.size)
+        if is_signed:
+            misc.write_raw_signed_data(cdata, rawfielddata, ctype.size)
+        else:
+            misc.write_raw_unsigned_data(cdata, rawfielddata, ctype.size)
 
 
 W_CField.typedef = TypeDef(

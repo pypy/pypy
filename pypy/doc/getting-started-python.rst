@@ -6,7 +6,7 @@ Getting Started with PyPy's Python Interpreter
 
 
 PyPy's Python interpreter is a very compliant Python
-interpreter implemented in Python.  When translated to C, it passes most of 
+interpreter implemented in RPython.  When compiled, it passes most of 
 `CPythons core language regression tests`_ and comes with many of the extension
 modules included in the standard library including ``ctypes``. It can run large
 libraries such as Django_ and Twisted_. There are some small behavioral
@@ -146,6 +146,8 @@ but they are not really tested any more.  Look, for example, at the
 
 Translating using the CLI backend
 +++++++++++++++++++++++++++++++++
+
+**Note: the CLI backend is no longer maintained**
 
 To create a standalone .NET executable using the `CLI backend`_::
 
