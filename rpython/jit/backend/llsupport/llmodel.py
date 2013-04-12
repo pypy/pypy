@@ -275,6 +275,10 @@ class AbstractLLCPU(AbstractCPU):
     def cast_adr_to_int(x):
         return rffi.cast(lltype.Signed, x)
 
+    @specialize.arg(2)
+    def cast_int_to_ptr(self, x, TYPE):
+        return rffi.cast(TYPE, x)
+
     def sizeof(self, S):
         return get_size_descr(self.gc_ll_descr, S)
 
@@ -737,6 +741,9 @@ class AbstractLLCPU(AbstractCPU):
             as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
             as_array[self.vtable_offset/WORD] = vtable
         return res
+
+    def bh_new_raw_buffer(self, size):
+        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)

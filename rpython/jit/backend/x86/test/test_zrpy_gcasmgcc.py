@@ -1,5 +1,4 @@
-
-from rpython.jit.backend.x86.test.test_zrpy_gc import CompileFrameworkTests
+from rpython.jit.backend.llsupport.test.zrpy_gc_test import CompileFrameworkTests
 
 class TestAsmGcc(CompileFrameworkTests):
     gcrootfinder = "asmgcc"
