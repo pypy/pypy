@@ -74,10 +74,13 @@ class AppTestBytesIO:
         import _io
 
         b = _io.BytesIO("hello")
-        a = bytearray('testing')
-        assert b.readinto(a) == 5
+        a1 = bytearray('t')
+        a2 = bytearray('testing')
+        assert b.readinto(a1) == 1
+        assert b.readinto(a2) == 4
         b.close()
-        assert a == "hellong"
+        assert a1 == "h"
+        assert a2 == "elloing"
         raises(ValueError, b.readinto, bytearray("hello"))
 
     def test_readline(self):
