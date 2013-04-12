@@ -156,7 +156,7 @@ class RStringIO(object):
             i += 1
             if finished:
                 break
-        self.seek(i)
+        self.pos = i
         return ''.join(self.bigbuffer[p:i])
 
     def truncate(self, size):
