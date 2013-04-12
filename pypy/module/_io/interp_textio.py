@@ -497,7 +497,8 @@ class W_TextIOWrapper(W_TextIOBase):
             try:
                 space.call_method(self, "flush")
             finally:
-                return space.call_method(self.w_buffer, "close")
+                ret = space.call_method(self.w_buffer, "close")
+            return ret
 
     # _____________________________________________________________
     # read methods

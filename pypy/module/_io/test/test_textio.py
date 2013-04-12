@@ -199,6 +199,15 @@ class AppTestTextIO:
         b.name = "dummy"
         assert repr(t) == "<_io.TextIOWrapper name='dummy' encoding='utf-8'>"
 
+    def test_flush_error_on_close(self):
+        import _io
+        txt = _io.TextIOWrapper(_io.BytesIO(""), encoding="ascii")
+        def bad_flush():
+            raise IOError()
+        txt.flush = bad_flush
+        raises(IOError, txt.close)  # exception not swallowed
+        assert txt.closed
+
 
 class AppTestIncrementalNewlineDecoder:
     def test_newline_decoder(self):
