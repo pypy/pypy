@@ -32,7 +32,7 @@ def get_g(main):
     g._dont_inline_ = True
     return g
 
-def test_compile_boehm(monkeypatch):
+def compile_boehm_test(monkeypatch):
     fix_annotator_for_vrawbuffer(monkeypatch)
     myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
     @dont_look_inside

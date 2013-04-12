@@ -95,10 +95,3 @@ class ReleaseGILTests(BaseFrameworkTests):
     def test_close_stack(self):
         self.run('close_stack')
         assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
-
-
-class TestShadowStack(ReleaseGILTests):
-    gcrootfinder = "shadowstack"
-
-class TestAsmGcc(ReleaseGILTests):
-    gcrootfinder = "asmgcc"
