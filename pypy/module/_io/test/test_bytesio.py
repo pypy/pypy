@@ -48,7 +48,12 @@ class AppTestBytesIO:
 
     def test_truncate(self):
         import _io
-        f = _io.BytesIO("hello")
+        f = _io.BytesIO()
+        f.write("hello")
+        assert f.truncate(0) == 0
+        assert f.tell() == 5
+        f.seek(0)
+        f.write("hello")
         f.seek(3)
         assert f.truncate() == 3
         assert f.getvalue() == "hel"

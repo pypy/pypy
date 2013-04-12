@@ -62,8 +62,9 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
 
+        pos = self.tell()
         if space.is_none(w_size):
-            size = self.tell()
+            size = pos
         else:
             size = space.r_longlong_w(w_size)
 
@@ -72,6 +73,7 @@ class W_BytesIO(RStringIO, W_BufferedIOBase):
                 "negative size value"))
 
         self.truncate(size)
+        self.seek(pos)
         return space.wrap(size)
 
     def getvalue_w(self, space):
