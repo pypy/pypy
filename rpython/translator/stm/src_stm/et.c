@@ -35,7 +35,6 @@
 /************************************************************/
 
 typedef Unsigned revision_t;
-#define INEVITABLE  ((revision_t)-1)
 #define LOCKED  ((revision_t)-0x10000)
 
 #include "atomic_ops.h"
@@ -70,7 +69,9 @@ struct tx_descriptor {
   struct FXCache recent_reads_cache;
 };
 
-static volatile revision_t global_cur_time = 2;        /* always mult of 2 */
+/* 'global_cur_time' is normally a multiple of 2, except when we turn
+   a transaction inevitable: we then add 1 to it. */
+static volatile revision_t global_cur_time = 2;
 static volatile revision_t next_locked_value = LOCKED + 3;   /* always odd */
 static __thread struct tx_descriptor *thread_descriptor = NULL;
 
@@ -317,18 +318,8 @@ void *stm_WriteBarrierFromReady(void *R1)
 
 static revision_t GetGlobalCurTime(struct tx_descriptor *d)
 {
-  revision_t t;
   assert(!is_inevitable(d));    // must not be myself inevitable
-  while (1)
-    {
-      t = global_cur_time;
-      if (t != INEVITABLE)
-        return t;
-      // there is another transaction that is inevitable
-      inev_mutex_acquire();     // wait until released
-      inev_mutex_release();
-      // retry
-    }
+  return global_cur_time & ~1;
 }
 
 static _Bool ValidateDuringTransaction(struct tx_descriptor *d,
@@ -659,7 +650,7 @@ void CommitTransaction(void)
     {
       // no-one else can have changed global_cur_time if I'm inevitable
       cur_time = d->start_time;
-      if (!bool_cas(&global_cur_time, INEVITABLE, cur_time + 2))
+      if (!bool_cas(&global_cur_time, cur_time + 1, cur_time + 2))
         {
           assert(!"global_cur_time modified even though we are inev.");
           abort();
@@ -671,8 +662,8 @@ void CommitTransaction(void)
       while (1)
         {
           cur_time = global_cur_time;
-          if (cur_time == INEVITABLE)
-            {
+          if (cur_time & 1)
+            {                    // there is another inevitable transaction
               CancelLocks(d);
               inev_mutex_acquire();   // wait until released
               inev_mutex_release();
@@ -710,6 +701,22 @@ static void make_inevitable(struct tx_descriptor *d)
   update_reads_size_limit(d);
 }
 
+static revision_t acquire_inev_mutex_and_mark_global_cur_time(void)
+{
+  revision_t cur_time;
+
+  inev_mutex_acquire();
+  while (1)
+    {
+      cur_time = global_cur_time;
+      assert((cur_time & 1) == 0);
+      if (bool_cas(&global_cur_time, cur_time, cur_time + 1))
+        break;
+      /* else try again */
+    }
+  return cur_time;
+}
+
 void BecomeInevitable(const char *why)
 {
   revision_t cur_time;
@@ -727,18 +734,13 @@ void BecomeInevitable(const char *why)
     }
 #endif
 
-  inev_mutex_acquire();
-  cur_time = global_cur_time;
-  while (!bool_cas(&global_cur_time, cur_time, INEVITABLE))
-    cur_time = global_cur_time;     /* try again */
-  assert(cur_time != INEVITABLE);
-
+  cur_time = acquire_inev_mutex_and_mark_global_cur_time();
   if (d->start_time != cur_time)
     {
       d->start_time = cur_time;
       if (!ValidateDuringTransaction(d, 0))
         {
-          global_cur_time = cur_time;   // must restore the old value
+          global_cur_time = cur_time;   // revert from (cur_time + 1)
           inev_mutex_release();
           AbortTransaction(3);
         }
@@ -756,11 +758,7 @@ void BeginInevitableTransaction(void)
   revision_t cur_time;
 
   init_transaction(d);
-  inev_mutex_acquire();
-  cur_time = global_cur_time;
-  while (!bool_cas(&global_cur_time, cur_time, INEVITABLE))
-    cur_time = global_cur_time;     /* try again */
-  assert(cur_time != INEVITABLE);
+  cur_time = acquire_inev_mutex_and_mark_global_cur_time();
   d->start_time = cur_time;
   make_inevitable(d);
 }
@@ -888,7 +886,7 @@ int DescriptorInit(void)
           if (bool_cas(&next_locked_value, d->my_lock, d->my_lock + 2))
             break;
         }
-      if (d->my_lock < LOCKED || d->my_lock == INEVITABLE)
+      if (d->my_lock < LOCKED || d->my_lock == (revision_t)-1)
         {
           /* XXX fix this limitation */
           fprintf(stderr, "XXX error: too many threads ever created "
