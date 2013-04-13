@@ -96,11 +96,13 @@ class StmGCThreadLocalAllocator(object):
         # which store objects of size N.
         length = sharedarea.small_request_threshold / WORD + 1
         self.pages_for_size = lltype.malloc(
-            rffi.CArray(PAGE_PTR), length, flavor='raw', zero=True)
+            rffi.CArray(PAGE_PTR), length, flavor='raw', zero=True,
+            track_allocation=False)
         #
         # This array contains 'length' chained lists of free locations.
         self.free_loc_for_size = lltype.malloc(
-            rffi.CArray(llmemory.Address), length, flavor='raw', zero=True)
+            rffi.CArray(llmemory.Address), length, flavor='raw', zero=True,
+            track_allocation=False)
         #
         if not we_are_translated():
             self._seen_pages = set()
@@ -168,18 +170,21 @@ class StmGCThreadLocalAllocator(object):
         return head
 
 
-    def malloc_object(self, totalsize):
+    def malloc_object_addr(self, totalsize):
         """Malloc.  You should also call add_regular() later, or keep it in
         some other data structure.  Note that it is not zero-filled."""
         nsize = llmemory.raw_malloc_usage(totalsize)
         if nsize <= self.sharedarea.small_request_threshold:
             size_class = (nsize + WORD_POWER_2 - 1) >> WORD_POWER_2
-            result = self._malloc_size_class(size_class)
+            return self._malloc_size_class(size_class)
         else:
-            result = llarena.arena_malloc(
+            return llarena.arena_malloc(
                 llmemory.raw_malloc_usage(totalsize), 0)
-        llarena.arena_reserve(result, _dummy_size(totalsize))
-        return result + self.gc.gcheaderbuilder.size_gc_header
+
+    def malloc_object(self, totalsize):
+        addr = self.malloc_object_addr(totalsize)
+        llarena.arena_reserve(addr, _dummy_size(totalsize))
+        return addr + self.gc.gcheaderbuilder.size_gc_header
 
     def add_regular(self, obj):
         """After malloc_object(), register the object in the internal chained
@@ -209,8 +214,10 @@ class StmGCThreadLocalAllocator(object):
             self.free_object(lst.pop())
 
     def delete(self):
-        lltype.free(self.free_loc_for_size, flavor='raw')
-        lltype.free(self.pages_for_size, flavor='raw')
+        lltype.free(self.free_loc_for_size, flavor='raw',
+                    track_allocation=False)
+        lltype.free(self.pages_for_size, flavor='raw',
+                    track_allocation=False)
         free_non_gc_object(self)
 
 

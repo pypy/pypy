@@ -8,6 +8,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from rpython.rlib.debug import debug_print
 from rpython.rlib import rthread
+from rpython.memory.gc import stmshared
 
 
 WORD = LONG_BIT // 8
@@ -160,18 +161,15 @@ class StmGC(MovingGCBase):
         'stm_operations': 'use_real_one',
         'nursery_size': 32*1024*1024,           # 32 MB
 
-        #"page_size": 1024*WORD,                 # copied from minimark.py
-        #"arena_size": 65536*WORD,               # copied from minimark.py
-        #"small_request_threshold": 35*WORD,     # copied from minimark.py
+        "page_size": stmshared.TRANSLATED_PAGE_SIZE,
+        "small_request_threshold":stmshared.TRANSLATED_SMALL_REQUEST_THRESHOLD,
     }
 
     def __init__(self, config,
                  stm_operations='use_emulator',
                  nursery_size=1024,
-                 #page_size=16*WORD,
-                 #arena_size=64*WORD,
-                 #small_request_threshold=5*WORD,
-                 #ArenaCollectionClass=None,
+                 page_size=14*WORD,
+                 small_request_threshold=5*WORD,
                  **kwds):
         MovingGCBase.__init__(self, config, multithread=True, **kwds)
         #
@@ -182,11 +180,11 @@ class StmGC(MovingGCBase):
             from rpython.translator.stm.stmgcintf import StmOperations
             stm_operations = StmOperations()
         #
-        from rpython.memory.gc import stmshared
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
         #self.maximum_extra_threshold = 0
-        self.sharedarea = stmshared.StmGCSharedArea(self)
+        self.sharedarea = stmshared.StmGCSharedArea(self, page_size,
+                                                    small_request_threshold)
         #
         def _stm_duplicate(obj):     # indirection to hide 'self'
             return self.stm_duplicate(obj)
@@ -450,7 +448,7 @@ class StmGC(MovingGCBase):
             if tls.is_in_nursery(obj):
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 size = self.get_size(obj)
-                shadowhdr = tls.sharedarea_tls.malloc_object(
+                shadowhdr = tls.sharedarea_tls.malloc_object_addr(
                     size_gc_header + size)
                 # XXX must initialize the shadow enough to be considered
                 # a valid gc object by the next major collection

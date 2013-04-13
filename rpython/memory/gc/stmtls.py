@@ -517,7 +517,7 @@ class StmGCTLS(object):
                     llmemory.sizeof(lltype.Signed))
             else:
                 newtotalsize = totalsize_without_hash
-            newaddr = self.sharedarea_tls.malloc_object(newtotalsize)
+            newaddr = self.sharedarea_tls.malloc_object_addr(newtotalsize)
         #
         # Initialize the copy by doing a memcpy of the bytes.
         # The object header of localobj will then be fixed by the C code.
