@@ -60,7 +60,7 @@ class NN:
         # create weights
         self.wi = makeMatrix(self.ni, self.nh)
         self.wo = makeMatrix(self.nh, self.no)
-        # set them to random vaules
+        # set them to random values
         for i in range(self.ni):
             for j in range(self.nh):
                 self.wi[i][j] = rand(-2.0, 2.0)
@@ -177,7 +177,7 @@ def demo():
         [[1,1], [0]]
     ]
 
-    # create a network with two input, two hidden, and two output nodes
+    # create a network with two input, three hidden, and one output nodes
     n = NN(2, 3, 1)
     # train it with some patterns
     n.train(pat, 2000)
