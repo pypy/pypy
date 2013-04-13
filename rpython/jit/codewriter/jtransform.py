@@ -1753,11 +1753,10 @@ class Transformer(object):
         return SpaceOperation('libffi_save_result_%s' % kind, op.args[1:], None)
 
     def rewrite_op_jit_force_virtual(self, op):
-        return [SpaceOperation('-live-', [], None), self._do_builtin_call(op)]
+        return [SpaceOperation('-live-', [], None)] + self._do_builtin_call(op)
 
     def rewrite_op_jit_is_virtual(self, op):
-        raise Exception, (
-            "'vref.virtual' should not be used from jit-visible code")
+        raise Exception("'vref.virtual' should not be used from jit-visible code")
 
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables
