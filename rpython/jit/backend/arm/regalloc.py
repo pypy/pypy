@@ -554,9 +554,9 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
-        args = [None] * (op.numargs()+1)
+        args = [None] * (op.numargs() + 1)
         for i in range(op.numargs()):
-	    args[i+1] = self.loc(op.getarg(i))
+            args[i + 1] = self.loc(op.getarg(i))
         # spill variables that need to be saved around calls
         self.vfprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
