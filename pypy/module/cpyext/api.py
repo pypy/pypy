@@ -651,12 +651,13 @@ def setup_init_functions(eci, translating):
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    if translating:
-        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
-    else:
-        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
-                                     compilation_info=eci)
+    prefix = 'Py' if translating else 'PyPy'
+    reinit_tls = rffi.llexternal(prefix + 'Thread_ReInitTLS', [], lltype.Void,
+                                 compilation_info=eci)
+    global py_fatalerror
+    py_fatalerror = rffi.llexternal(prefix + '_FatalError',
+                                    [CONST_STRING], lltype.Void,
+                                    compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
