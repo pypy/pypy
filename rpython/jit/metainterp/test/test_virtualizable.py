@@ -5,7 +5,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from rpython.jit.metainterp.warmspot import get_translator
-from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote
+from rpython.rlib.jit import JitDriver, hint, dont_look_inside, promote, virtual_ref
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -434,8 +434,7 @@ class ExplicitVirtualizableTests:
     # ------------------------------
 
 
-class ImplicitVirtualizableTests:
-
+class ImplicitVirtualizableTests(object):
     def test_simple_implicit(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
                                 virtualizables = ['frame'])
@@ -1442,6 +1441,33 @@ class ImplicitVirtualizableTests:
         res = self.meta_interp(main, [0], inline=True)
         print hex(res)
         assert res == main(0)
+
+    def test_force_virtualref_to_virtualizable(self):
+        jitdriver = JitDriver(
+            greens=[],
+            reds=['i', 'n', 'f', 'f_ref'],
+            virtualizables=['f']
+        )
+
+        class Frame(object):
+            _virtualizable2_ = ['x']
+
+        def main(n):
+            f = Frame()
+            f.x = 1
+            f_ref = virtual_ref(f)
+            i = 0
+            while i < n:
+                jitdriver.jit_merge_point(f=f, i=i, f_ref=f_ref, n=n)
+                i += f_ref().x
+            return i
+
+        res = self.meta_interp(main, [10])
+        assert res == main(10)
+        self.check_resops({
+            "int_lt": 1, "guard_true": 1, "int_add": 1, "jump": 1,
+        })
+
 
 
 class TestOOtype(#ExplicitVirtualizableTests,
