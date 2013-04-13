@@ -630,7 +630,9 @@ class ResOpAssembler(BaseAssembler):
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
         helper_num = card_marking
-        if self._regalloc is not None and self._regalloc.vfprm.reg_bindings:
+        if is_frame:
+            helper_num = 4
+        elif self._regalloc is not None and self._regalloc.vfprm.reg_bindings:
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
