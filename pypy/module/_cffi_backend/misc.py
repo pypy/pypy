@@ -9,7 +9,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-
 # ____________________________________________________________
 
 _prim_signed_types = unrolling_iterable([
@@ -66,21 +65,18 @@ def read_raw_longdouble_data(target):
     return rffi.cast(rffi.LONGDOUBLEP, target)[0]
 
 @specialize.argtype(1)
-def write_raw_unsigned_data(target, source, size):
-    for TP, TPP in _prim_unsigned_types:
-        if size == rffi.sizeof(TP):
-            rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
-            return
+def write_raw_integer_data(target, source, size):
+    if is_signed_integer_type(lltype.typeOf(source)):
+        for TP, TPP in _prim_signed_types:
+            if size == rffi.sizeof(TP):
+                rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+                return
+    else:
+        for TP, TPP in _prim_unsigned_types:
+            if size == rffi.sizeof(TP):
+                rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+                return
     raise NotImplementedError("bad integer size")
-
-@specialize.argtype(1)
-def write_raw_signed_data(target, source, size):
-    for TP, TPP in _prim_signed_types:
-        if size == rffi.sizeof(TP):
-            rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
-            return
-    raise NotImplementedError("bad integer size")
-
 
 def write_raw_float_data(target, source, size):
     for TP, TPP in _prim_float_types:

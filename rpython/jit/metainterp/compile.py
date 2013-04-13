@@ -15,7 +15,7 @@ from rpython.jit.metainterp.history import BoxPtr, BoxFloat, ConstInt
 from rpython.jit.metainterp import history, resume
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.inliner import Inliner
-from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
+from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
 from rpython.jit.codewriter import heaptracker, longlong
 
 def giveup():
@@ -656,9 +656,9 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 
 class AllVirtuals:
     llopaque = True
-    cache = None
-    def __init__(self, cache):
-        self.cache = cache
+    list = [resume.ResumeDataDirectReader.virtual_default]   # annotation hack
+    def __init__(self, list):
+        self.list = list
     def hide(self, cpu):
         ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(ptr)
@@ -682,9 +682,9 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         from rpython.jit.metainterp.blackhole import resume_in_blackhole
         hidden_all_virtuals = metainterp_sd.cpu.get_savedata_ref(deadframe)
         obj = AllVirtuals.show(metainterp_sd.cpu, hidden_all_virtuals)
-        all_virtuals = obj.cache
+        all_virtuals = obj.list
         if all_virtuals is None:
-            all_virtuals = ResumeDataDirectReader.VirtualCache([], [])
+            all_virtuals = []
         assert jitdriver_sd is self.jitdriver_sd
         resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe,
                             all_virtuals)

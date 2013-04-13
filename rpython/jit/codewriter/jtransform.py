@@ -539,11 +539,9 @@ class Transformer(object):
             name += '_no_track_allocation'
         op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
         if name == 'raw_malloc_varsize':
-            ITEMTYPE = op.args[0].value.OF
-            if ITEMTYPE == lltype.Char:
-                return self._handle_oopspec_call(op1, args,
-                                                 EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR,
-                                                 EffectInfo.EF_CAN_RAISE)
+            return self._handle_oopspec_call(op1, args,
+                                             EffectInfo.OS_RAW_MALLOC_VARSIZE,
+                                             EffectInfo.EF_CAN_RAISE)
         return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):

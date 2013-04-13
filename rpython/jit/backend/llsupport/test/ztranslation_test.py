@@ -10,15 +10,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 
 
 def fix_annotator_for_vrawbuffer(monkeypatch):
-    from rpython.rlib.nonconst import NonConstant
-    from rpython.jit.metainterp.optimizeopt.virtualize import VRawBufferValue
-    from rpython.jit.metainterp import warmspot
-
-    def my_hook_for_tests(cpu):
-        # this is needed so that the annotator can see it
-        if NonConstant(False):
-            v = VRawBufferValue(cpu, None, -1, None, None)
-    monkeypatch.setattr(warmspot, 'hook_for_tests', my_hook_for_tests)
+    return
 
 
 class TranslationTest(CCompiledMixin):
