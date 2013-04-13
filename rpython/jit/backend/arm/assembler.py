@@ -537,7 +537,7 @@ class AssemblerARM(ResOpAssembler):
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
-        if False and log:
+        if log:
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
 
