@@ -4,6 +4,11 @@ kill INEVITABLE in et.c, replace with "global_cur_time & 1" again
 
 ------------------------------------------------------------
 
+try to let non-atomic inevitable transactions run for longer, until
+another thread starts waiting for the mutex
+
+------------------------------------------------------------
+
 RPyAssert(i < len(lst)): if lst is global this turns into tons of code
 
 ------------------------------------------------------------
