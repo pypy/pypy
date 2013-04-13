@@ -1465,9 +1465,9 @@ class ImplicitVirtualizableTests(object):
         res = self.meta_interp(main, [10])
         assert res == main(10)
         self.check_resops({
-            "int_lt": 1, "guard_true": 1, "int_add": 1, "jump": 1,
+            "getfield_gc": 1, "int_lt": 2, "ptr_eq": 1, "guard_true": 3,
+            "int_add": 2, "jump": 1
         })
-
 
 
 class TestOOtype(#ExplicitVirtualizableTests,

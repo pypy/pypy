@@ -833,15 +833,17 @@ class MIFrame(object):
     opimpl_inline_call_irf_f = _opimpl_inline_call3
     opimpl_inline_call_irf_v = _opimpl_inline_call3
 
-    @arguments("box", "boxes", "descr")
-    def _opimpl_residual_call1(self, funcbox, argboxes, calldescr):
-        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr)
-    @arguments("box", "boxes2", "descr")
-    def _opimpl_residual_call2(self, funcbox, argboxes, calldescr):
-        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr)
-    @arguments("box", "boxes3", "descr")
-    def _opimpl_residual_call3(self, funcbox, argboxes, calldescr):
-        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr)
+    @arguments("box", "boxes", "descr", "orgpc")
+    def _opimpl_residual_call1(self, funcbox, argboxes, calldescr, pc):
+        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "boxes2", "descr", "orgpc")
+    def _opimpl_residual_call2(self, funcbox, argboxes, calldescr, pc):
+        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "boxes3", "descr", "orgpc")
+    def _opimpl_residual_call3(self, funcbox, argboxes, calldescr, pc):
+        return self.do_residual_or_indirect_call(funcbox, argboxes, calldescr, pc)
 
     opimpl_residual_call_r_i = _opimpl_residual_call1
     opimpl_residual_call_r_r = _opimpl_residual_call1
@@ -854,8 +856,8 @@ class MIFrame(object):
     opimpl_residual_call_irf_f = _opimpl_residual_call3
     opimpl_residual_call_irf_v = _opimpl_residual_call3
 
-    @arguments("int", "boxes3", "boxes3")
-    def _opimpl_recursive_call(self, jdindex, greenboxes, redboxes):
+    @arguments("int", "boxes3", "boxes3", "orgpc")
+    def _opimpl_recursive_call(self, jdindex, greenboxes, redboxes, pc):
         targetjitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         allboxes = greenboxes + redboxes
         warmrunnerstate = targetjitdriver_sd.warmstate
@@ -870,15 +872,15 @@ class MIFrame(object):
             # that assembler that we call is still correct
             self.verify_green_args(targetjitdriver_sd, greenboxes)
         #
-        return self.do_recursive_call(targetjitdriver_sd, allboxes,
+        return self.do_recursive_call(targetjitdriver_sd, allboxes, pc,
                                       assembler_call)
 
-    def do_recursive_call(self, targetjitdriver_sd, allboxes,
+    def do_recursive_call(self, targetjitdriver_sd, allboxes, pc,
                           assembler_call=False):
         portal_code = targetjitdriver_sd.mainjitcode
         k = targetjitdriver_sd.portal_runner_adr
         funcbox = ConstInt(heaptracker.adr2int(k))
-        return self.do_residual_call(funcbox, allboxes, portal_code.calldescr,
+        return self.do_residual_call(funcbox, allboxes, portal_code.calldescr, pc,
                                      assembler_call=assembler_call,
                                      assembler_call_jd=targetjitdriver_sd)
 
@@ -1029,7 +1031,7 @@ class MIFrame(object):
             except ChangeFrame:
                 pass
             frame = self.metainterp.framestack[-1]
-            frame.do_recursive_call(jitdriver_sd, greenboxes + redboxes,
+            frame.do_recursive_call(jitdriver_sd, greenboxes + redboxes, orgpc,
                                     assembler_call=True)
             raise ChangeFrame
 
@@ -1331,7 +1333,7 @@ class MIFrame(object):
             self.metainterp.assert_no_exception()
         return resbox
 
-    def do_residual_call(self, funcbox, argboxes, descr,
+    def do_residual_call(self, funcbox, argboxes, descr, pc,
                          assembler_call=False,
                          assembler_call_jd=None):
         # First build allboxes: it may need some reordering from the
@@ -1371,9 +1373,11 @@ class MIFrame(object):
                 effectinfo.check_forces_virtual_or_virtualizable()):
             # residual calls require attention to keep virtualizables in-sync
             self.metainterp.clear_exception()
-            self.metainterp.vable_and_vrefs_before_residual_call()
             if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
-                return self._do_jit_force_virtual(allboxes, descr)
+                handled, resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+                if handled:
+                    return resbox
+            self.metainterp.vable_and_vrefs_before_residual_call()
             resbox = self.metainterp.execute_and_record_varargs(
                 rop.CALL_MAY_FORCE, allboxes, descr=descr)
             if effectinfo.is_call_release_gil():
@@ -1403,7 +1407,27 @@ class MIFrame(object):
             pure = effectinfo.check_is_elidable()
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
 
-    def do_residual_or_indirect_call(self, funcbox, argboxes, calldescr):
+    def _do_jit_force_virtual(self, allboxes, descr, pc):
+        assert len(allboxes) == 2
+        if (self.metainterp.jitdriver_sd.virtualizable_info is None and
+            self.metainterp.jitdriver_sd.greenfield_info is None):
+            # can occur in case of multiple JITs
+            return False, None
+        vref_box = allboxes[1]
+        standard_box = self.metainterp.virtualizable_boxes[-1]
+        if standard_box is vref_box:
+            return True, vref_box
+        if self.metainterp.heapcache.is_nonstandard_virtualizable(vref_box):
+            return False, None
+        eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None, vref_box, standard_box)
+        eqbox = self.implement_guard_value(eqbox, pc)
+        isstandard = eqbox.getint()
+        if isstandard:
+            return True, standard_box
+        else:
+            return False, None
+
+    def do_residual_or_indirect_call(self, funcbox, argboxes, calldescr, pc):
         """The 'residual_call' operation is emitted in two cases:
         when we have to generate a residual CALL operation, but also
         to handle an indirect_call that may need to be inlined."""
@@ -1415,7 +1439,7 @@ class MIFrame(object):
                 # we should follow calls to this graph
                 return self.metainterp.perform_call(jitcode, argboxes)
         # but we should not follow calls to that graph
-        return self.do_residual_call(funcbox, argboxes, calldescr)
+        return self.do_residual_call(funcbox, argboxes, calldescr, pc)
 
 # ____________________________________________________________
 
