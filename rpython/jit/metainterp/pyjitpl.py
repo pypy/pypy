@@ -939,7 +939,7 @@ class MIFrame(object):
             return box     # no promotion needed, already a Const
         else:
             constbox = box.constbox()
-            resbox = self.do_residual_call(funcbox, [box, constbox], descr)
+            resbox = self.do_residual_call(funcbox, [box, constbox], descr, orgpc)
             promoted_box = resbox.constbox()
             # This is GUARD_VALUE because GUARD_TRUE assumes the existance
             # of a label when computing resumepc
