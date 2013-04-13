@@ -777,7 +777,10 @@ def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None,
                        heuristic=inlining_heuristic,
                        inline_graph_from_anywhere=False):
     if inline_graph_from_anywhere:
-        ok_to_call = set(translator.graphs)
+        # it's ok to inline calls to any graph, with the exception of
+        # graphs that would be already exception-transformed
+        ok_to_call = set([graph for graph in translator.graphs
+                                if not hasattr(graph, 'exceptiontransformed')])
     else:
         ok_to_call = None
     callgraph = inlinable_static_callers(graphs, ok_to_call=ok_to_call)

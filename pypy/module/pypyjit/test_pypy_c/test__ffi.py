@@ -181,39 +181,32 @@ class Test__ffi(BaseTestPyPyC):
 
             libm = _cffi_backend.load_library(libm_name)
             BDouble = _cffi_backend.new_primitive_type("double")
-            BInt = _cffi_backend.new_primitive_type("int")
-            BPow = _cffi_backend.new_function_type([BDouble, BInt], BDouble)
-            ldexp = libm.load_function(BPow, 'ldexp')
+            BPow = _cffi_backend.new_function_type([BDouble, BDouble], BDouble)
+            pow = libm.load_function(BPow, 'pow')
             i = 0
             res = 0
             while i < 300:
-                tmp = ldexp(1, 3)   # ID: cfficall
+                tmp = pow(2, 3)   # ID: cfficall
                 res += tmp
                 i += 1
             BLong = _cffi_backend.new_primitive_type("long")
-            ldexp_addr = int(_cffi_backend.cast(BLong, ldexp))
-            return ldexp_addr, res
+            pow_addr = int(_cffi_backend.cast(BLong, pow))
+            return pow_addr, res
         #
         libm_name = get_libm_name(sys.platform)
         log = self.run(main, [libm_name])
-        ldexp_addr, res = log.result
+        pow_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
-        if 'ConstClass(ldexp)' in repr(loop):   # e.g. OS/X
-            ldexp_addr = 'ConstClass(ldexp)'
+        if 'ConstClass(pow)' in repr(loop):   # e.g. OS/X
+            pow_addr = 'ConstClass(pow)'
         assert loop.match_by_id('cfficall', """
             ...
-            f1 = call_release_gil(..., descr=<Callf 8 fi EF=6 OS=62>)
+            f1 = call_release_gil(..., descr=<Callf 8 ff EF=6 OS=62>)
             ...
         """)
-        ops = loop.ops_by_id('cfficall')
-        assert 'raw_malloc' not in str(ops)
-        assert 'raw_free' not in str(ops)
-        assert 'getarrayitem_raw' not in log.opnames(ops)
-        assert 'setarrayitem_raw' not in log.opnames(ops)
         # so far just check that call_release_gil() is produced.
         # later, also check that the arguments to call_release_gil()
-        # are constants
         # are constants, and that the numerous raw_mallocs are removed
 
     def test_cffi_call_guard_not_forced_fails(self):
