@@ -55,3 +55,21 @@ def test_big_object():
     gc.set_size(obj, 3*WORD)
     thl1.free_object(obj)
     thl1.delete()
+
+def test_allocation_is_thread_local():
+    gc = FakeGC()
+    shared = StmGCSharedArea(gc, 10*WORD, 2*WORD)
+    shared.setup()
+    thl1 = StmGCThreadLocalAllocator(shared)
+    thl2 = StmGCThreadLocalAllocator(shared)
+    #
+    assert len(thl1._seen_pages) == 0
+    thl1.malloc_object(2*WORD)
+    assert len(thl1._seen_pages) == 1
+    #
+    assert len(thl2._seen_pages) == 0
+    thl2.malloc_object(2*WORD)
+    assert len(thl2._seen_pages) == 1
+    #
+    thl1.delete()
+    thl2.delete()

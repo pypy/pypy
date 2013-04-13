@@ -20,9 +20,44 @@ class FakeStmOperations:
         pass
     def del_tls(self, tlsaddr):
         pass
+    def should_break_transaction(self):
+        return False
 
 class FakeSharedArea:
     pass
+
+class FakeStmGCTL:
+    def __init__(self, stmshared):
+        assert isinstance(stmshared, FakeSharedArea)
+        self.gc = stmshared.gc
+        self.chained_list = NULL
+
+    def malloc_object_addr(self, totalsize):
+        return llarena.arena_malloc(llmemory.raw_malloc_usage(totalsize), 0)
+
+    def add_regular(self, obj):
+        self.gc.set_obj_revision(obj, self.chained_list)
+        self.chained_list = obj
+
+    def free_object(self, adr2):
+        adr1 = adr2 - self.gc.gcheaderbuilder.size_gc_header
+        llarena.arena_free(llarena.getfakearenaaddress(adr1))
+
+    def free_and_clear(self):
+        obj = self.chained_list
+        self.chained_list = NULL
+        while obj:
+            next = self.gc.obj_revision(obj)
+            self.free_object(obj)
+            obj = next
+
+    def free_and_clear_list(self, lst):
+        while lst.non_empty():
+            self.free_object(lst.pop())
+
+    def delete(self):
+        del self.gc
+        del self.chained_list
 
 class FakeRootWalker:
     STACK_DEPTH = 200
@@ -111,8 +146,8 @@ class TestStmGCTLS(object):
     def setup_method(self, meth):
         self.gc = FakeGC()
         self.gc.sharedarea.gc = self.gc
-        self.gctls_main = StmGCTLS(self.gc)
-        self.gctls_thrd = StmGCTLS(self.gc)
+        self.gctls_main = StmGCTLS(self.gc, FakeStmGCTL)
+        self.gctls_thrd = StmGCTLS(self.gc, FakeStmGCTL)
         self.gc.main_thread_tls = self.gctls_main
         self.gctls_main.start_transaction()
 

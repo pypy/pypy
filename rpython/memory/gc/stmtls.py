@@ -29,7 +29,7 @@ class StmGCTLS(object):
 
     nontranslated_dict = {}
 
-    def __init__(self, gc):
+    def __init__(self, gc, StmGCThreadLocalAllocator=None):
         debug_start("gc-init")
         self.gc = gc
         self.stm_operations = self.gc.stm_operations
@@ -41,6 +41,9 @@ class StmGCTLS(object):
                 llmemory.Address)
             self.adr_of_stack_top  = llop.gc_adr_of_root_stack_top(
                 llmemory.Address)
+        if StmGCThreadLocalAllocator is None:
+            from rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
+        self.StmGCThreadLocalAllocator = StmGCThreadLocalAllocator
         #
         # --- current position, or NULL when mallocs are forbidden
         self.nursery_free = NULL
@@ -59,8 +62,8 @@ class StmGCTLS(object):
         self.nursery_top  = self.nursery_stop
         #
         # --- a thread-local allocator for the shared area
-        from rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
-        self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
+        self.sharedarea_tls = self.StmGCThreadLocalAllocator(
+            self.gc.sharedarea)
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
         self.local_weakrefs = self.AddressStack()
@@ -196,9 +199,9 @@ class StmGCTLS(object):
             self.detect_flag_combination = -1
         #
         # Move away the previous sharedarea_tls and start a new one.
-        from rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
         previous_sharedarea_tls = self.sharedarea_tls
-        self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
+        self.sharedarea_tls = self.StmGCThreadLocalAllocator(
+            self.gc.sharedarea)
         #
         # List of LOCAL objects pending a visit.  Note that no GLOBAL
         # object can at any point contain a reference to a LOCAL object.
@@ -268,16 +271,17 @@ class StmGCTLS(object):
         if not self.nursery_free:
             fatalerror("malloc in a non-main thread but outside a transaction")
         if llmemory.raw_malloc_usage(size) > self.nursery_size // 8 * 7:
-            fatalerror("object too large to ever fit in the nursery")
-        self.local_collection()
-        free = self.nursery_free
-        top  = self.nursery_top
-        if (top - free) < llmemory.raw_malloc_usage(size):
-            # try again
-            self.local_collection(run_finalizers=False)
-            ll_assert(self.local_nursery_is_empty(), "nursery must be empty [0]")
+            fatalerror("XXX object too large to ever fit in the nursery")
+        self.stm_operations.should_break_transaction()
+        step = 0
+        while True:
             free = self.nursery_free
-        return free
+            top  = self.nursery_top
+            if (top - free) >= llmemory.raw_malloc_usage(size):
+                return free
+            ll_assert(step < 2, "nursery must be empty [0]")
+            self.local_collection(run_finalizers=(step==0))
+            step += 1
 
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
