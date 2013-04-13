@@ -1,25 +1,27 @@
-import py, sys
-from rpython.rtyper.lltypesystem import lltype, rclass
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib import nonconst, rstack
+import sys
 
-from rpython.jit.metainterp import history, compile, resume
-from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstFloat
-from rpython.jit.metainterp.history import Box, TargetToken
-from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp import executor
-from rpython.jit.metainterp.logger import Logger
-from rpython.jit.metainterp.jitprof import EmptyProfiler
-from rpython.rlib.jit import Counters
-from rpython.jit.metainterp.jitexc import JitException, get_llexception
-from rpython.jit.metainterp.heapcache import HeapCache
-from rpython.rlib.objectmodel import specialize
-from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+import py
+
 from rpython.jit.codewriter import heaptracker
+from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from rpython.jit.metainterp import history, compile, resume, executor
+from rpython.jit.metainterp.heapcache import HeapCache
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+    ConstFloat, Box, TargetToken)
+from rpython.jit.metainterp.jitexc import JitException, get_llexception
+from rpython.jit.metainterp.jitprof import EmptyProfiler
+from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict_box
+from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib import nonconst, rstack
+from rpython.rlib.debug import debug_start, debug_stop, debug_print, make_sure_not_resized
+from rpython.rlib.jit import Counters
+from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem import lltype, rclass
+
+
 
 # ____________________________________________________________
 
@@ -1370,6 +1372,8 @@ class MIFrame(object):
             # residual calls require attention to keep virtualizables in-sync
             self.metainterp.clear_exception()
             self.metainterp.vable_and_vrefs_before_residual_call()
+            if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
+                return self._do_jit_force_virtual(allboxes, descr)
             resbox = self.metainterp.execute_and_record_varargs(
                 rop.CALL_MAY_FORCE, allboxes, descr=descr)
             if effectinfo.is_call_release_gil():
