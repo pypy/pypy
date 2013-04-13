@@ -16,6 +16,17 @@ except ImportError:
     threading = None
 import _testcapi
 
+skips = []
+if support.check_impl_detail(pypy=True):
+    skips += [
+            'test_Z_code', # test_{Z,u}_code require PY_SSIZE_T_CLEAN support
+            'test_u_code',
+            'test_broken_memoryview',
+            'test_capsule',
+            'test_lazy_hash_inheritance',
+            'test_widechar',
+            'TestThreadState'
+            ]
 
 def testfunction(self):
     """some doc"""
@@ -198,7 +209,7 @@ def test_main():
     support.run_unittest(CAPITest, TestPendingCalls, Test6012, EmbeddingTest)
 
     for name in dir(_testcapi):
-        if name.startswith('test_'):
+        if name.startswith('test_') and name not in skips:
             test = getattr(_testcapi, name)
             if support.verbose:
                 print("internal", name)
@@ -222,7 +233,7 @@ def test_main():
             raise support.TestFailed(
                         "Couldn't find main thread correctly in the list")
 
-    if threading:
+    if threading and 'TestThreadState' not in skips:
         import _thread
         import time
         TestThreadState()
