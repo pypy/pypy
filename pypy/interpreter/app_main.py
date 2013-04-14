@@ -264,7 +264,7 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     # shouldn't make a difference in common use cases, second because
     # TextIOWrapper depends on the presence of a read1() method which
     # only exists on buffered streams.
-    buffering = 0 if writing else -1
+    buffering = 0 if unbuffered and writing else -1
     mode = 'w' if writing else 'r'
     try:
         buf = io.open(fd, mode + 'b', buffering, closefd=False)

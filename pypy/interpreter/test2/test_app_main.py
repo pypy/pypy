@@ -460,6 +460,11 @@ class TestInteraction:
         finally:
             os.environ['PYTHONPATH'] = old
 
+    def test_buffered(self):
+        line = 'import sys;print(type(sys.stdout.buffer).__name__)'
+        child = self.spawn(['-c', line])
+        child.expect('BufferedWriter')
+
     def test_unbuffered(self):
         # In Python3, -u affects the "binary layer" of sys.stdout.
         line = 'import os,sys;sys.stdout.buffer.write(str(789).encode());os.read(0,1)'
