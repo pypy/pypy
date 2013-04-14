@@ -140,7 +140,7 @@ class W_FileIO(W_RawIOBase):
 
         fd = -1
         try:
-            fd = space.int_w(w_name)
+            fd = space.c_int_w(w_name)
         except OperationError, e:
             pass
         else:

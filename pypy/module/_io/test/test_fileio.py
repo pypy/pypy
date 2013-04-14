@@ -21,6 +21,12 @@ class AppTestFileIO:
         assert f.closefd is True
         f.close()
 
+    def test_invalid_fd(self):
+        import _io
+        raises(ValueError, _io.FileIO, -10)
+        raises(TypeError, _io.FileIO, 2 ** 31)
+        raises(TypeError, _io.FileIO, -2 ** 31 - 1)
+
     def test_weakrefable(self):
         import _io
         from weakref import proxy
