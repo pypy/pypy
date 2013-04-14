@@ -41,6 +41,7 @@ class AppTestSignal:
 
     def setup_class(cls):
         cls.w_signal = cls.space.getbuiltinmodule('signal')
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_exported_names(self):
         import os
@@ -137,7 +138,8 @@ class AppTestSignal:
             pass
 
         try:
-            assert getsignal(SIGINT) == SIG_DFL
+            if not self.appdirect:
+                assert getsignal(SIGINT) == SIG_DFL
             signal(SIGINT, SIG_DFL)
             assert getsignal(SIGINT) == SIG_DFL
             signal(SIGINT, SIG_IGN)
