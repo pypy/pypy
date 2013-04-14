@@ -25,6 +25,9 @@ class AppTestThreadSignal(GenericTestThread):
             __pypy__.thread._signals_enter()
 
     def test_enable_signals(self):
+        import sys
+        if sys.platform.startswith('win'):
+            skip('signals not operable on windows')
         import __pypy__, thread, signal, time
 
         def subthread():
