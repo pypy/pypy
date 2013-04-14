@@ -1291,8 +1291,8 @@ class ResOpAssembler(BaseAssembler):
             self._emit_call(imm(self.releasegil_addr), [], fcond)
 
     def call_reacquire_gil(self, gcrootmap, save_loc, regalloc, fcond):
-	# save the previous result into the stack temporarily, in case it is in
-	# a caller saved register.
+        # save the previous result into the stack temporarily, in case it is in
+        # a caller saved register.
         # NOTE: like with call_release_gil(), we assume that we don't need to
         # save vfp regs in this case. Besides the result location
         regs_to_save = []
