@@ -88,6 +88,13 @@ class TinyObjSpace(object):
     def wrap(self, obj):
         if isinstance(obj, str):
             return obj.decode('utf-8')
+        if isinstance(obj, dict):
+            return dict((self.wrap(k), self.wrap(v))
+                        for k, v in obj.iteritems())
+        if isinstance(obj, tuple):
+            return tuple(self.wrap(item) for item in obj)
+        if isinstance(obj, list):
+            return list(self.wrap(item) for item in obj)
         return obj
 
     def wrapbytes(self, obj):
