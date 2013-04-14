@@ -1755,7 +1755,7 @@ class Transformer(object):
     def rewrite_op_jit_force_virtual(self, op):
         op0 = SpaceOperation('-live-', [], None)
         op1 = self._do_builtin_call(op)
-        if isinstance(op, list):
+        if isinstance(op1, list):
             return [op0] + op1
         else:
             return [op0, op1]
