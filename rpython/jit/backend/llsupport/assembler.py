@@ -9,7 +9,7 @@ from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 
@@ -281,6 +281,69 @@ class BaseAssembler(object):
                     prefix = 'entry ' + str(struct.number)
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
+
+    @staticmethod
+    @rgc.no_collect
+    def _release_gil_asmgcc(css):
+        # similar to trackgcroot.py:pypy_asm_stackwalk, first part
+        from rpython.memory.gctransform import asmgcroot
+        new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
+        next = asmgcroot.gcrootanchor.next
+        new.next = next
+        new.prev = asmgcroot.gcrootanchor
+        asmgcroot.gcrootanchor.next = new
+        next.prev = new
+        # and now release the GIL
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    @rgc.no_collect
+    def _reacquire_gil_asmgcc(css):
+        # first reacquire the GIL
+        after = rffi.aroundstate.after
+        if after:
+            after()
+        # similar to trackgcroot.py:pypy_asm_stackwalk, second part
+        from rpython.memory.gctransform import asmgcroot
+        old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
+        prev = old.prev
+        next = old.next
+        prev.next = next
+        next.prev = prev
+
+    @staticmethod
+    @rgc.no_collect
+    def _release_gil_shadowstack():
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    @rgc.no_collect
+    def _reacquire_gil_shadowstack():
+        after = rffi.aroundstate.after
+        if after:
+            after()
+
+    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
+                                                  lltype.Void))
+
+    def _build_release_gil(self, gcrootmap):
+        if gcrootmap.is_shadow_stack:
+            releasegil_func = llhelper(self._NOARG_FUNC,
+                                       self._release_gil_shadowstack)
+            reacqgil_func = llhelper(self._NOARG_FUNC,
+                                     self._reacquire_gil_shadowstack)
+        else:
+            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
+                                       self._release_gil_asmgcc)
+            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
+                                     self._reacquire_gil_asmgcc)
+        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
+        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
 
 

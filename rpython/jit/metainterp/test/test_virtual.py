@@ -3,7 +3,7 @@ from rpython.rlib.jit import JitDriver, promote, dont_look_inside
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.ootypesystem import ootype
 from rpython.jit.codewriter import heaptracker
@@ -1133,90 +1133,7 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [16])
         assert res == f(16)
         self.check_resops(getfield_gc=7)
-
-    def test_raw_malloc(self):
-        mydriver = JitDriver(greens=[], reds = 'auto')
-        def f(n):
-            i = 0
-            res = 0
-            while i < n:
-                mydriver.jit_merge_point()
-                buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
-                buffer[0] = chr(i+1)
-                res += ord(buffer[0])
-                i = ord(buffer[0])
-                lltype.free(buffer, flavor='raw')
-            return res
-        assert f(10) == 55
-        res = self.meta_interp(f, [10])
-        assert res == 55
-        self.check_trace_count(1)
-        self.check_resops(setarrayitem_raw=0, getarrayitem_raw=0)
-
-    def test_raw_malloc_resume(self):
-        mydriver = JitDriver(greens=[], reds = 'auto')
-        def f(n):
-            i = 0
-            res = 0
-            while i < n:
-                mydriver.jit_merge_point()
-                buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
-                buffer[0] = chr(i+1)
-                res += ord(buffer[0])
-                i = ord(buffer[0])
-                if i > 5:
-                    # when the guard fails, we need to resume the virtual
-                    res += ord(buffer[0])*100
-                lltype.free(buffer, flavor='raw')
-            return res
-        assert f(10) == 4000+55
-        res = self.meta_interp(f, [10])
-        assert res == 4000+55
-        # the getarrayitem_raw is in the bridge
-        self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
-
-    def test_raw_malloc_no_virtualstate(self):
-        mydriver = JitDriver(greens=[], reds = 'auto')
-        def f(n):
-            res = 0
-            buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
-            buffer[0] = chr(0)
-            while ord(buffer[0]) < n:
-                mydriver.jit_merge_point()
-                i = ord(buffer[0])
-                lltype.free(buffer, flavor='raw')
-                buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
-                buffer[0] = chr(i+1)
-                res += i
-            lltype.free(buffer, flavor='raw')
-            return res
-        assert f(10) == 45
-        res = self.meta_interp(f, [10])
-        assert res == 45
-        # make sure that the raw buffer is *not* virtualized because we do not
-        # support virtualstate
-        self.check_resops(getarrayitem_raw=2, setarrayitem_raw=2)
-
-    def test_raw_malloc_only_chars(self):
-        mydriver = JitDriver(greens=[], reds = 'auto')
-        def f(n):
-            i = 0
-            res = 0
-            while i < n:
-                mydriver.jit_merge_point()
-                # this is not virtualized because it's not a buffer of chars
-                buffer = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
-                buffer[0] = i+1
-                res += buffer[0]
-                i = buffer[0]
-                lltype.free(buffer, flavor='raw')
-            return res
-        assert f(10) == 55
-        res = self.meta_interp(f, [10])
-        assert res == 55
-        self.check_trace_count(1)
-        self.check_resops(setarrayitem_raw=2, getarrayitem_raw=4)
-
+     
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class
@@ -1285,8 +1202,6 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
     @staticmethod
     def _new():
         return lltype.malloc(NODE)
-
-
 
 
 OONODE = ootype.Instance('NODE', ootype.ROOT, {})

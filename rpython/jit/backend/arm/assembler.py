@@ -74,29 +74,6 @@ class AssemblerARM(ResOpAssembler):
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    @staticmethod
-    def _release_gil_shadowstack():
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    def _reacquire_gil_shadowstack():
-        after = rffi.aroundstate.after
-        if after:
-            after()
-
-    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-
-    def _build_release_gil(self, gcrootmap):
-        assert gcrootmap.is_shadow_stack
-        releasegil_func = llhelper(self._NOARG_FUNC,
-                                   self._release_gil_shadowstack)
-        reacqgil_func = llhelper(self._NOARG_FUNC,
-                                 self._reacquire_gil_shadowstack)
-        self.releasegil_addr = rffi.cast(lltype.Signed, releasegil_func)
-        self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
-
     def _build_propagate_exception_path(self):
         if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
@@ -537,7 +514,7 @@ class AssemblerARM(ResOpAssembler):
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
-        if False and log:
+        if log:
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
 

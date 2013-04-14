@@ -2595,7 +2595,6 @@ class MetaInterp(object):
         box_exchange_buffer = op.getarg(3)
         self.history.operations.pop()
         arg_boxes = []
-
         for i in range(cif_description.nargs):
             kind, descr, itemsize = get_arg_descr(self.cpu,
                                                   cif_description.atypes[i])

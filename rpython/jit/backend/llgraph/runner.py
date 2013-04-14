@@ -484,15 +484,6 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
-    def unpack_arraydescr_size(self, arraydescr):
-        from rpython.jit.backend.llsupport.symbolic import get_array_token
-        from rpython.jit.backend.llsupport.descr import get_type_flag, FLAG_SIGNED
-        assert isinstance(arraydescr, ArrayDescr)
-        basesize, itemsize, _ = get_array_token(arraydescr.A, False)
-        flag = get_type_flag(arraydescr.A.OF)
-        is_signed = (flag == FLAG_SIGNED)
-        return basesize, itemsize, is_signed
-
     def bh_raw_store_i(self, struct, offset, newvalue, descr):
         ll_p = rffi.cast(rffi.CCHARP, struct)
         ll_p = rffi.cast(lltype.Ptr(descr.A), rffi.ptradd(ll_p, offset))
@@ -575,12 +566,8 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_read_timestamp(self):
         return read_timestamp()
 
-    def bh_new_raw_buffer(self, size):
-        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
-
 
 
 class LLDeadFrame(object):
