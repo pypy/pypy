@@ -2455,12 +2455,12 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(raw, flavor='raw')
 
     def test_call_to_winapi_function(self):
-        from rpython.rlib.clibffi import _WIN32, FUNCFLAG_STDCALL
+        from rpython.rlib.clibffi import _WIN32
         if not _WIN32:
             py.test.skip("Windows test only")
-        from rpython.rlib.libffi import CDLL, types, ArgChain
+        from rpython.rlib.libffi import WinDLL, types, ArgChain
         from rpython.rlib.rwin32 import DWORD
-        libc = CDLL('KERNEL32')
+        libc = WinDLL('KERNEL32')
         c_GetCurrentDir = libc.getpointer('GetCurrentDirectoryA',
                                           [types.ulong, types.pointer],
                                           types.ulong)
