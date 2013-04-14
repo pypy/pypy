@@ -262,9 +262,9 @@ def PyErr_PrintEx(space, set_sys_last_vars):
     type, value and traceback of the printed exception, respectively."""
     if not PyErr_Occurred(space):
         PyErr_BadInternalCall(space)
-    state = space.fromcache(State)
-    operror = state.clear_exception()
 
+    operror = space.fromcache(State).clear_exception()
+    operror.normalize_exception(space)
     w_type = operror.w_type
     w_value = operror.get_w_value(space)
     w_tb = space.wrap(operror.get_traceback())
