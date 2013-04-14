@@ -260,48 +260,26 @@ def initstdio(encoding=None, unbuffered=False):
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
-
-    if writing:
-        mode = "wb"
-    else:
-        mode= "rb"
     # stdin is always opened in buffered mode, first because it
     # shouldn't make a difference in common use cases, second because
     # TextIOWrapper depends on the presence of a read1() method which
     # only exists on buffered streams.
-    if writing:
-        buffering = 0
-    else:
-        buffering = -1
-    if sys.platform == 'win32' and not writing:
-        # translate \r\n to \n for sys.stdin on Windows
-        newline = None
-    else:
-        newline = '\n'
+    buffering = 0 if writing else -1
+    mode = 'w' if writing else 'r'
     try:
-        buf = io.open(fd, mode, buffering, closefd=False)
+        buf = io.open(fd, mode + 'b', buffering, closefd=False)
     except OSError as e:
         if e.errno != errno.EBADF:
             raise
         return None
 
-    if buffering:
-        raw = buf.raw
-    else:
-        raw = buf
+    raw = buf.raw if buffering else buf
     raw.name = name
-    if unbuffered or raw.isatty():
-        line_buffering = True
-    else:
-        line_buffering = False
-
-    stream = io.TextIOWrapper(buf, encoding, errors,
-                              newline=newline,
-                              line_buffering=line_buffering)
-    if writing:
-        stream.mode = 'w'
-    else:
-        stream.mode = 'r'
+    # translate \r\n to \n for sys.stdin on Windows
+    newline = None if sys.platform == 'win32' and not writing else '\n'
+    stream = io.TextIOWrapper(buf, encoding, errors, newline=newline,
+                              line_buffering=unbuffered or raw.isatty())
+    stream.mode = mode
     return stream
 
 
