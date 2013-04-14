@@ -1374,8 +1374,8 @@ class MIFrame(object):
             # residual calls require attention to keep virtualizables in-sync
             self.metainterp.clear_exception()
             if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
-                handled, resbox = self._do_jit_force_virtual(allboxes, descr, pc)
-                if handled:
+                resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+                if resbox is not None:
                     return resbox
             self.metainterp.vable_and_vrefs_before_residual_call()
             resbox = self.metainterp.execute_and_record_varargs(
@@ -1412,20 +1412,20 @@ class MIFrame(object):
         if (self.metainterp.jitdriver_sd.virtualizable_info is None and
             self.metainterp.jitdriver_sd.greenfield_info is None):
             # can occur in case of multiple JITs
-            return False, None
+            return None
         vref_box = allboxes[1]
         standard_box = self.metainterp.virtualizable_boxes[-1]
         if standard_box is vref_box:
-            return True, vref_box
+            return vref_box
         if self.metainterp.heapcache.is_nonstandard_virtualizable(vref_box):
-            return False, None
+            return None
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None, vref_box, standard_box)
         eqbox = self.implement_guard_value(eqbox, pc)
         isstandard = eqbox.getint()
         if isstandard:
-            return True, standard_box
+            return standard_box
         else:
-            return False, None
+            return None
 
     def do_residual_or_indirect_call(self, funcbox, argboxes, calldescr, pc):
         """The 'residual_call' operation is emitted in two cases:
