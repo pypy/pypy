@@ -563,7 +563,7 @@ class Assembler386(BaseAssembler):
         if expected_size == -1:
             mc.MOV_si(WORD, 0xffffff)
         else:
-            mc.MOV_si(WORD, expected_size)            
+            mc.MOV_si(WORD, expected_size)
         ofs2 = mc.get_relative_pos() - 4
         self.push_gcmap(mc, gcmap, mov=True)
         mc.CALL(imm(self._frame_realloc_slowpath))
@@ -601,7 +601,7 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         mc.writeimm32(allocated_depth)
         mc.copy_to_raw_memory(adr)
-    
+
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
         if clt.asmmemmgr_blocks is None:
@@ -614,7 +614,7 @@ class Assembler386(BaseAssembler):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
- 
+
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
         assert adr_jump_offset != 0
@@ -812,7 +812,7 @@ class Assembler386(BaseAssembler):
         else:
             assert isinstance(to_loc, RawEspLoc)
             self.mc.MOV32_si(to_loc.value,     low_part)
-            self.mc.MOV32_si(to_loc.value + 4, high_part)                
+            self.mc.MOV32_si(to_loc.value + 4, high_part)
 
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.getopnum()](self, op, arglocs, resloc)
@@ -974,12 +974,13 @@ class Assembler386(BaseAssembler):
 
     def _emit_call(self, x, arglocs, start=0, tmp=eax,
                    argtypes=None, callconv=FFI_DEFAULT_ABI, can_collect=1,
-                   stack_max=PASS_ON_MY_FRAME):
+                   stack_max=PASS_ON_MY_FRAME, reload_frame=False):
         if can_collect == 1 and not self._is_asmgcc():
             can_collect = 2    # don't bother with jf_extra_stack_depth
         if IS_X86_64:
             return self._emit_call_64(x, arglocs, start, argtypes,
-                                      can_collect, stack_max)
+                                      can_collect, stack_max,
+                                      reload_frame=reload_frame)
         stack_depth = 0
         n = len(arglocs)
         for i in range(start, n):
@@ -1029,6 +1030,8 @@ class Assembler386(BaseAssembler):
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
             self.pop_gcmap(self.mc)
+        elif reload_frame:
+            self._reload_frame_if_necessary(self.mc)
         #
 
     def _fix_stdcall(self, callconv, p):
@@ -1039,7 +1042,7 @@ class Assembler386(BaseAssembler):
         self.mc.SUB_ri(esp.value, p)
 
     def _emit_call_64(self, x, arglocs, start, argtypes,
-                      can_collect, stack_max):
+                      can_collect, stack_max, reload_frame=False):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
@@ -1129,6 +1132,8 @@ class Assembler386(BaseAssembler):
             if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
+        elif reload_frame:
+            self._reload_frame_if_necessary(self.mc)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
         if can_collect:
@@ -1658,7 +1663,7 @@ class Assembler386(BaseAssembler):
         if exctploc is not None:
             assert exctploc.is_reg()
             mc.MOV(exctploc, heap(self.cpu.pos_exception()))
-                
+
         mc.MOV(heap(self.cpu.pos_exception()), imm0)
         mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
 
@@ -2072,7 +2077,8 @@ class Assembler386(BaseAssembler):
                 reg = edi
             self.mc.LEA_rs(reg.value, css)
             args = [reg]
-        self._emit_call(imm(self.reacqgil_addr), args, can_collect=False)
+        self._emit_call(imm(self.reacqgil_addr), args, can_collect=False,
+                        reload_frame=True)
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)

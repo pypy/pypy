@@ -2831,6 +2831,51 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_int_value(deadframe, 0) == 97
         assert not called
 
+    def test_assembler_call_propagate_exc(self):
+        excdescr = BasicFailDescr(666)
+        self.cpu.propagate_exception_descr = excdescr
+        self.cpu.setup_once()    # xxx redo it, because we added
+                                 # propagate_exception
+
+        def assembler_helper(deadframe, virtualizable):
+            assert self.cpu.get_latest_descr(deadframe) is excdescr
+            # let's assume we handled that
+            return 3
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
+                                              llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        ops = '''
+        [i0]
+        p0 = newunicode(i0)
+        finish(p0)'''
+        loop = parse(ops)
+        looptoken = JitCellToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        ARGS = [lltype.Signed] * 10
+        RES = lltype.Signed
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
+        ops = '''
+        [i0]
+        i11 = call_assembler(i0, descr=looptoken)
+        guard_not_forced()[]
+        finish(i11)
+        '''
+        loop = parse(ops, namespace=locals())
+        othertoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        deadframe = self.cpu.execute_token(othertoken, sys.maxint - 1)
+        assert self.cpu.get_int_value(deadframe, 0) == 3
+
     def test_assembler_call_float(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
@@ -3341,7 +3386,7 @@ class LLtypeBackendTest(BaseBackendTest):
         excdescr = BasicFailDescr(666)
         self.cpu.propagate_exception_descr = excdescr
         self.cpu.setup_once()    # xxx redo it, because we added
-                                 # propagate_exception_v
+                                 # propagate_exception
         i0 = BoxInt()
         p0 = BoxPtr()
         operations = [
