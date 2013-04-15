@@ -8,7 +8,8 @@ from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rlib.objectmodel import specialize, compute_unique_id
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 
@@ -62,6 +63,8 @@ class BaseAssembler(object):
         self.cpu = cpu
         self.memcpy_addr = 0
         self.rtyper = cpu.rtyper
+        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+        self._debug = False
 
     def setup_once(self):
         # the address of the function called by 'new'
@@ -98,6 +101,11 @@ class BaseAssembler(object):
                                               flavor='raw',
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
+
+    def set_debug(self, v):
+        r = self._debug
+        self._debug = v
+        return r
 
     def rebuild_faillocs_from_descr(self, descr, inputargs):
         locs = []
@@ -214,6 +222,24 @@ class BaseAssembler(object):
         #     to incompatibilities in how it's done, we leave it for the
         #     caller to deal with
 
+    @specialize.argtype(1)
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
+        if self._debug:
+            s = 0
+            for op in operations:
+                s += op.getopnum()
+
+            newoperations = []
+            self._append_debugging_code(newoperations, tp, number,
+                                        None)
+            for op in operations:
+                newoperations.append(op)
+                if op.getopnum() == rop.LABEL:
+                    self._append_debugging_code(newoperations, 'l', number,
+                                                op.getdescr())
+            operations = newoperations
+        return operations
+
     def _append_debugging_code(self, operations, tp, number, token):
         counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
@@ -225,6 +251,100 @@ class BaseAssembler(object):
                ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
                             None, descr=self.debug_counter_descr)]
         operations.extend(ops)
+
+    def _register_counter(self, tp, number, token):
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
+        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
+                               track_allocation=False)
+        struct.i = 0
+        struct.type = tp
+        if tp == 'b' or tp == 'e':
+            struct.number = number
+        else:
+            assert token
+            struct.number = compute_unique_id(token)
+        self.loop_run_counters.append(struct)
+        return struct
+
+    def finish_once(self):
+        if self._debug:
+            debug_start('jit-backend-counts')
+            for i in range(len(self.loop_run_counters)):
+                struct = self.loop_run_counters[i]
+                if struct.type == 'l':
+                    prefix = 'TargetToken(%d)' % struct.number
+                elif struct.type == 'b':
+                    prefix = 'bridge ' + str(struct.number)
+                else:
+                    prefix = 'entry ' + str(struct.number)
+                debug_print(prefix + ':' + str(struct.i))
+            debug_stop('jit-backend-counts')
+
+    @staticmethod
+    @rgc.no_collect
+    def _release_gil_asmgcc(css):
+        # similar to trackgcroot.py:pypy_asm_stackwalk, first part
+        from rpython.memory.gctransform import asmgcroot
+        new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
+        next = asmgcroot.gcrootanchor.next
+        new.next = next
+        new.prev = asmgcroot.gcrootanchor
+        asmgcroot.gcrootanchor.next = new
+        next.prev = new
+        # and now release the GIL
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    @rgc.no_collect
+    def _reacquire_gil_asmgcc(css):
+        # first reacquire the GIL
+        after = rffi.aroundstate.after
+        if after:
+            after()
+        # similar to trackgcroot.py:pypy_asm_stackwalk, second part
+        from rpython.memory.gctransform import asmgcroot
+        old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
+        prev = old.prev
+        next = old.next
+        prev.next = next
+        next.prev = prev
+
+    @staticmethod
+    @rgc.no_collect
+    def _release_gil_shadowstack():
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    @rgc.no_collect
+    def _reacquire_gil_shadowstack():
+        after = rffi.aroundstate.after
+        if after:
+            after()
+
+    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
+                                                  lltype.Void))
+
+    def _build_release_gil(self, gcrootmap):
+        if gcrootmap.is_shadow_stack:
+            releasegil_func = llhelper(self._NOARG_FUNC,
+                                       self._release_gil_shadowstack)
+            reacqgil_func = llhelper(self._NOARG_FUNC,
+                                     self._reacquire_gil_shadowstack)
+        else:
+            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
+                                       self._release_gil_asmgcc)
+            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
+                                     self._reacquire_gil_asmgcc)
+        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
+        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
+
 
 
 def debug_bridge(descr_number, rawstart, codeendpos):

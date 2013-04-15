@@ -301,7 +301,8 @@ class MixLevelHelperAnnotator(object):
         from rpython.translator.backendopt.all import backend_optimizations
         translator = self.rtyper.annotator.translator
         newgraphs = self.newgraphs.keys()
-        backend_optimizations(translator, newgraphs, secondary=True, **flags)
+        backend_optimizations(translator, newgraphs, secondary=True,
+                              inline_graph_from_anywhere=True, **flags)
         self.newgraphs.clear()
 
 # ____________________________________________________________

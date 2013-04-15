@@ -282,7 +282,10 @@ def descr__new__(space, w_subtype, w_dtype):
             return dtype
         if w_dtype is dtype.w_box_type:
             return dtype
-    raise OperationError(space.w_TypeError, space.wrap("data type %r not understood" % w_dtype))
+    typename = space.type(w_dtype).getname(space)
+    raise OperationError(space.w_TypeError, space.wrap(
+                             "data type not understood (value of type " +
+                             "%s not expected here)" % typename))
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",

@@ -1,30 +1,16 @@
-import py, os, sys
+import os, sys
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote
 from rpython.rlib import jit_hooks
-from rpython.jit.metainterp.jitprof import Profiler
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.translator.translator import TranslationContext
-from rpython.config.translationoption import DEFL_GC
-from rpython.rlib import rgc
-from rpython.jit.backend.arm.test.support import skip_unless_run_slow_tests
-skip_unless_run_slow_tests()
 
-class TestTranslationARM(CCompiledMixin):
+
+class TranslationTest(CCompiledMixin):
     CPUClass = getcpuclass()
-
-    def _get_TranslationContext(self):
-        t = TranslationContext()
-        t.config.translation.gc = DEFL_GC   # 'hybrid' or 'minimark'
-        t.config.translation.gcrootfinder = 'shadowstack'
-        return t
-
-    def _check_cbuilder(self, cbuilder):
-        pass
 
     def test_stuff_translates(self):
         # this is a basic test that tries to hit a number of features and their
@@ -98,6 +84,10 @@ class TestTranslationARM(CCompiledMixin):
         expected = main(40, -49)
         res = self.meta_interp(main, [40, -49])
         assert res == expected
+
+
+class TranslationTestCallAssembler(CCompiledMixin):
+    CPUClass = getcpuclass()
 
     def test_direct_assembler_call_translates(self):
         """Test CALL_ASSEMBLER and the recursion limit"""
@@ -175,9 +165,13 @@ class TestTranslationARM(CCompiledMixin):
         assert 1024 <= bound <= 131072
         assert bound & (bound-1) == 0       # a power of two
 
+
+class TranslationTestJITStats(CCompiledMixin):
+    CPUClass = getcpuclass()
+
     def test_jit_get_stats(self):
         driver = JitDriver(greens = [], reds = ['i'])
-        
+
         def f():
             i = 0
             while i < 100000:
@@ -194,16 +188,9 @@ class TestTranslationARM(CCompiledMixin):
         assert res == 3
         # one for loop, one for entry point and one for the prologue
 
-class TestTranslationRemoveTypePtrARM(CCompiledMixin):
-    CPUClass = getcpuclass()
 
-    def _get_TranslationContext(self):
-        t = TranslationContext()
-        t.config.translation.gc = DEFL_GC   # 'hybrid' or 'minimark'
-        t.config.translation.gcrootfinder = 'shadowstack'
-        t.config.translation.list_comprehension_operations = True
-        t.config.translation.gcremovetypeptr = True
-        return t
+class TranslationRemoveTypePtrTest(CCompiledMixin):
+    CPUClass = getcpuclass()
 
     def test_external_exception_handling_translates(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])

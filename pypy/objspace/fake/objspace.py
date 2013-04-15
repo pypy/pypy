@@ -59,6 +59,10 @@ class W_MyObject(W_Root):
 class W_MyType(W_MyObject):
     def __init__(self):
         self.mro_w = [w_some_obj(), w_some_obj()]
+        self.dict_w = {'__str__': w_some_obj()}
+
+    def get_module(self):
+        return w_some_obj()
 
 def w_some_obj():
     if NonConstant(False):
@@ -322,7 +326,7 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'tuple', 'list',
                   'dict', 'bytes', 'complex', 'slice', 'bool',
-                  'text', 'object', 'unicode']):
+                  'text', 'object', 'unicode', 'bytearray']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     FakeObjSpace.w_type = w_some_type()
     #

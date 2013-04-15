@@ -46,6 +46,13 @@ Rudimentary support for bytearray in RPython
 Fix a bug which casused cffi to return the wrong result when calling a C
 function which calls a Python callback which forces the frames
 
+.. branch: virtual-raw-mallocs
+JIT optimizations which makes cffi calls even faster, by removing the need to
+allocate a temporary buffer where to store the arguments.
+
+.. branch: improve-docs-2
+Improve documents and straighten out links
+
 .. branches we don't care about
 .. branch: autoreds
 .. branch: reflex-support
@@ -121,3 +128,4 @@ cffi implementation of _curses
 cffi implementation of sqlite3
 
 .. branch: release-2.0-beta2
+.. branch: unbreak-freebsd

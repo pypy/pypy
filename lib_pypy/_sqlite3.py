@@ -765,9 +765,9 @@ class Connection(object):
         if isinstance(name, unicode):
             name = name.encode('utf-8')
         ret = _lib.sqlite3_create_collation(self._db, name,
-                                              _lib.SQLITE_UTF8,
-                                              _ffi.NULL,
-                                              collation_callback)
+                                            _lib.SQLITE_UTF8,
+                                            _ffi.NULL,
+                                            collation_callback)
         if ret != _lib.SQLITE_OK:
             raise self._get_exception(ret)
 
@@ -786,9 +786,7 @@ class Connection(object):
                     return _lib.SQLITE_DENY
             self.__func_cache[callback] = authorizer
 
-        ret = _lib.sqlite3_set_authorizer(self._db,
-                                          authorizer,
-                                          _ffi.NULL)
+        ret = _lib.sqlite3_set_authorizer(self._db, authorizer, _ffi.NULL)
         if ret != _lib.SQLITE_OK:
             raise self._get_exception(ret)
 
@@ -804,15 +802,13 @@ class Connection(object):
                 @_ffi.callback("int(void*)")
                 def progress_handler(userdata):
                     try:
-                        ret = callable()
-                        return bool(ret)
+                        return bool(callable())
                     except Exception:
                         # abort query if error occurred
                         return 1
                 self.__func_cache[callable] = progress_handler
-        _lib.sqlite3_progress_handler(self._db, nsteps,
-                                            progress_handler,
-                                            _ffi.NULL)
+        _lib.sqlite3_progress_handler(self._db, nsteps, progress_handler,
+                                      _ffi.NULL)
 
     if sys.version_info[0] >= 3:
         def __get_in_transaction(self):
@@ -894,8 +890,8 @@ class Cursor(object):
     def __check_reset(self):
         if self._reset:
             raise InterfaceError(
-                    "Cursor needed to be reset because of commit/rollback "
-                    "and can no longer be fetched from.")
+                "Cursor needed to be reset because of commit/rollback "
+                "and can no longer be fetched from.")
 
     def __build_row_cast_map(self):
         if not self.__connection._detect_types:
