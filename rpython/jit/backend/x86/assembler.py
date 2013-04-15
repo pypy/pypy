@@ -2093,7 +2093,7 @@ class Assembler386(BaseAssembler):
             # special-case: reload ebp from the css
             from rpython.memory.gctransform import asmgcroot
             index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
+            self.mc.MOV_rs(ebp.value, index_of_ebp)  # MOV EBP, [css.ebp]
         #else:
         #   for shadowstack, done for us by _reload_frame_if_necessary()
         self._reload_frame_if_necessary(self.mc)
