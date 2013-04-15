@@ -70,8 +70,10 @@ class BaseAssembler(object):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
-        self.gc_minimal_size_in_nursery = getattr(gc_ll_descr,
-                                                  'minimal_size_in_nursery', 0)
+        if hasattr(gc_ll_descr, 'minimal_size_in_nursery'):
+            self.gc_minimal_size_in_nursery = gc_ll_descr.minimal_size_in_nursery
+        else:
+            self.gc_minimal_size_in_nursery = 0
         if hasattr(gc_ll_descr, 'gcheaderbuilder'):
             self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
         else:
