@@ -352,7 +352,8 @@ class ResOpAssembler(BaseAssembler):
 
     def _emit_call(self, adr, arglocs, fcond=c.AL, resloc=None,
                                             result_info=(-1, -1),
-                                            can_collect=1):
+                                            can_collect=1,
+                                            reload_frame=False):
         if self.cpu.hf_abi:
             stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
                                             resloc, result_info)
@@ -365,7 +366,6 @@ class ResOpAssembler(BaseAssembler):
             gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
             self.push_gcmap(self.mc, gcmap, store=True)
         #the actual call
-        #self.mc.BKPT()
         if adr.is_imm():
             self.mc.BL(adr.value)
         elif adr.is_stack():
@@ -388,6 +388,8 @@ class ResOpAssembler(BaseAssembler):
         if can_collect:
             self._reload_frame_if_necessary(self.mc, can_collect=can_collect)
             self.pop_gcmap(self.mc)
+        elif reload_frame:
+            self._reload_frame_if_necessary(self.mc)
         return fcond
 
     def _restore_sp(self, stack_args, fcond):
@@ -1266,6 +1268,10 @@ class ResOpAssembler(BaseAssembler):
         resloc = arglocs[0]
 
         if gcrootmap:
+            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            assert noregs
+            gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
+            self.push_gcmap(self.mc, gcmap, store=True)
             self.call_release_gil(gcrootmap, arglocs, regalloc, fcond)
         # do the call
         self._store_force_index(guard_op)
@@ -1275,7 +1281,8 @@ class ResOpAssembler(BaseAssembler):
         signed = descr.is_result_signed()
         #
         self._emit_call(adr, callargs, fcond,
-                                    resloc, (size, signed))
+                                    resloc, (size, signed),
+                                    can_collect=0)
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, resloc, regalloc, fcond)
@@ -1288,7 +1295,8 @@ class ResOpAssembler(BaseAssembler):
         # NOTE: We assume that  the floating point registers won't be modified.
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regalloc.rm.save_around_call_regs):
-            self._emit_call(imm(self.releasegil_addr), [], fcond)
+            self._emit_call(imm(self.releasegil_addr), [],
+                                        fcond, can_collect=False)
 
     def call_reacquire_gil(self, gcrootmap, save_loc, regalloc, fcond):
         # save the previous result into the stack temporarily, in case it is in
@@ -1305,7 +1313,8 @@ class ResOpAssembler(BaseAssembler):
         assert gcrootmap.is_shadow_stack
         # call the reopenstack() function (also reacquiring the GIL)
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
-            self._emit_call(imm(self.reacqgil_addr), [], fcond)
+            self._emit_call(imm(self.reacqgil_addr), [], fcond,
+                    can_collect=False, reload_frame=True)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
