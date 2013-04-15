@@ -2018,6 +2018,7 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
+        self._store_force_index(guard_op)
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
@@ -2026,7 +2027,6 @@ class Assembler386(BaseAssembler):
             self.push_gcmap(self.mc, gcmap, store=True)
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
-        self._store_force_index(guard_op)
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
         # then reopen the stack
         if gcrootmap:
