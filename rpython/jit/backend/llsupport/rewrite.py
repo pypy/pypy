@@ -8,6 +8,10 @@ from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.metainterp.history import JitCellToken
 
+FLAG_ARRAY = 0
+FLAG_STR = 1
+FLAG_UNICODE = 2
+
 class GcRewriterAssembler(object):
     """ This class performs the following rewrites on the list of operations:
 
@@ -299,15 +303,28 @@ class GcRewriterAssembler(object):
                                    arraydescr):
         """ itemsize is an int, v_length and v_result are boxes
         """
-        if (arraydescr.basesize != self.gc_ll_descr.standard_array_basesize
-            or arraydescr.lendescr.offset !=
-            self.gc_ll_descr.standard_array_length_ofs):
+        gc_descr = self.gc_ll_descr
+        str_descr = gc_descr.str_descr
+        unicode_descr = gc_descr.unicode_descr
+        if (arraydescr.basesize == gc_descr.standard_array_basesize and
+            arraydescr.lendescr.offset == gc_descr.standard_array_length_ofs):
+            flag = FLAG_ARRAY # standard array
+        elif (arraydescr.basesize == str_descr.basesize and
+              arraydescr.lendescr.offset == str_descr.lendescr.offset):
+            flag = FLAG_STR
+        elif (arraydescr.basesize == unicode_descr.basesize and
+              arraydescr.lendescr.offset == unicode_descr.lendescr.offset):
+            # note that this might never be reached if we have the same
+            # offsets, that does not quite matter though
+            flag = FLAG_UNICODE
+        else:
             return False
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
-                          [ConstInt(itemsize), v_length],
+                          [ConstInt(flag), ConstInt(itemsize), v_length],
                           v_result, descr=arraydescr)
         self.newops.append(op)
+        self.recent_mallocs[v_result] = None
         return True
 
     def gen_malloc_nursery_varsize_small(self, sizebox, v_result):
