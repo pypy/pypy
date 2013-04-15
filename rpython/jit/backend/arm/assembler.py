@@ -770,7 +770,7 @@ class AssemblerARM(ResOpAssembler):
     def _load_shadowstack_top(self, mc, reg, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
         mc.gen_load_int(reg.value, rst)
-        self.load_reg(mc, reg.value, reg.value)
+        self.load_reg(mc, reg, reg)
         return rst
 
     def fixup_target_tokens(self, rawstart):
