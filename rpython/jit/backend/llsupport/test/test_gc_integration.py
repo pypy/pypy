@@ -537,6 +537,9 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         self.S = S
         self.cpu = cpu
 
+    def teardown_method(self, meth):
+        rffi.aroundstate._cleanup_()
+
     def test_shadowstack_call(self):
         cpu = self.cpu
         cpu.gc_ll_descr.init_nursery(100)
