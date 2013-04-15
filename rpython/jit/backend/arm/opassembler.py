@@ -352,7 +352,8 @@ class ResOpAssembler(BaseAssembler):
 
     def _emit_call(self, adr, arglocs, fcond=c.AL, resloc=None,
                                             result_info=(-1, -1),
-                                            can_collect=1):
+                                            can_collect=1,
+                                            reload_frame=False):
         if self.cpu.hf_abi:
             stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
                                             resloc, result_info)
@@ -365,7 +366,6 @@ class ResOpAssembler(BaseAssembler):
             gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
             self.push_gcmap(self.mc, gcmap, store=True)
         #the actual call
-        #self.mc.BKPT()
         if adr.is_imm():
             self.mc.BL(adr.value)
         elif adr.is_stack():
@@ -388,6 +388,8 @@ class ResOpAssembler(BaseAssembler):
         if can_collect:
             self._reload_frame_if_necessary(self.mc, can_collect=can_collect)
             self.pop_gcmap(self.mc)
+        elif reload_frame:
+            self._reload_frame_if_necessary(self.mc)
         return fcond
 
     def _restore_sp(self, stack_args, fcond):
@@ -630,7 +632,9 @@ class ResOpAssembler(BaseAssembler):
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
         helper_num = card_marking
-        if self._regalloc is not None and self._regalloc.vfprm.reg_bindings:
+        if is_frame:
+            helper_num = 4
+        elif self._regalloc is not None and self._regalloc.vfprm.reg_bindings:
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
@@ -1264,7 +1268,11 @@ class ResOpAssembler(BaseAssembler):
         resloc = arglocs[0]
 
         if gcrootmap:
-            self.call_release_gil(gcrootmap, arglocs, fcond)
+            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            assert noregs
+            gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
+            self.push_gcmap(self.mc, gcmap, store=True)
+            self.call_release_gil(gcrootmap, arglocs, regalloc, fcond)
         # do the call
         self._store_force_index(guard_op)
         #
@@ -1273,42 +1281,40 @@ class ResOpAssembler(BaseAssembler):
         signed = descr.is_result_signed()
         #
         self._emit_call(adr, callargs, fcond,
-                                    resloc, (size, signed))
+                                    resloc, (size, signed),
+                                    can_collect=0)
         # then reopen the stack
         if gcrootmap:
-            self.call_reacquire_gil(gcrootmap, resloc, fcond)
+            self.call_reacquire_gil(gcrootmap, resloc, regalloc, fcond)
 
         self._emit_guard_may_force(guard_op, arglocs[numargs+1:], numargs)
         return fcond
 
-    def call_release_gil(self, gcrootmap, save_registers, fcond):
-        # First, we need to save away the registers listed in
-        # 'save_registers' that are not callee-save.
+    def call_release_gil(self, gcrootmap, save_registers, regalloc, fcond):
+        # Save caller saved registers and do the call
         # NOTE: We assume that  the floating point registers won't be modified.
-        regs_to_save = []
-        for reg in self._regalloc.rm.save_around_call_regs:
-            if reg in save_registers:
-                regs_to_save.append(reg)
         assert gcrootmap.is_shadow_stack
-        with saved_registers(self.mc, regs_to_save):
-            self._emit_call(imm(self.releasegil_addr), [], fcond)
+        with saved_registers(self.mc, regalloc.rm.save_around_call_regs):
+            self._emit_call(imm(self.releasegil_addr), [],
+                                        fcond, can_collect=False)
 
-    def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
-        # save the previous result into the stack temporarily.
+    def call_reacquire_gil(self, gcrootmap, save_loc, regalloc, fcond):
+        # save the previous result into the stack temporarily, in case it is in
+        # a caller saved register.
         # NOTE: like with call_release_gil(), we assume that we don't need to
         # save vfp regs in this case. Besides the result location
         regs_to_save = []
         vfp_regs_to_save = []
-        if save_loc.is_reg():
+        if save_loc and save_loc in regalloc.rm.save_around_call_regs:
             regs_to_save.append(save_loc)
-        if save_loc.is_vfp_reg():
-            vfp_regs_to_save.append(save_loc)
-        # call the reopenstack() function (also reacquiring the GIL)
-        if len(regs_to_save) % 2 != 1:
             regs_to_save.append(r.ip)  # for alingment
+        elif save_loc and save_loc in regalloc.vfprm.save_around_call_regs:
+            vfp_regs_to_save.append(save_loc)
         assert gcrootmap.is_shadow_stack
+        # call the reopenstack() function (also reacquiring the GIL)
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
-            self._emit_call(imm(self.reacqgil_addr), [], fcond)
+            self._emit_call(imm(self.reacqgil_addr), [], fcond,
+                    can_collect=False, reload_frame=True)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()

@@ -371,69 +371,6 @@ class Assembler386(BaseAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
-    @staticmethod
-    @rgc.no_collect
-    def _release_gil_asmgcc(css):
-        # similar to trackgcroot.py:pypy_asm_stackwalk, first part
-        from rpython.memory.gctransform import asmgcroot
-        new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
-        next = asmgcroot.gcrootanchor.next
-        new.next = next
-        new.prev = asmgcroot.gcrootanchor
-        asmgcroot.gcrootanchor.next = new
-        next.prev = new
-        # and now release the GIL
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    @rgc.no_collect
-    def _reacquire_gil_asmgcc(css):
-        # first reacquire the GIL
-        after = rffi.aroundstate.after
-        if after:
-            after()
-        # similar to trackgcroot.py:pypy_asm_stackwalk, second part
-        from rpython.memory.gctransform import asmgcroot
-        old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
-        prev = old.prev
-        next = old.next
-        prev.next = next
-        next.prev = prev
-
-    @staticmethod
-    @rgc.no_collect
-    def _release_gil_shadowstack():
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    @rgc.no_collect
-    def _reacquire_gil_shadowstack():
-        after = rffi.aroundstate.after
-        if after:
-            after()
-
-    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
-                                                  lltype.Void))
-
-    def _build_release_gil(self, gcrootmap):
-        if gcrootmap.is_shadow_stack:
-            releasegil_func = llhelper(self._NOARG_FUNC,
-                                       self._release_gil_shadowstack)
-            reacqgil_func = llhelper(self._NOARG_FUNC,
-                                     self._reacquire_gil_shadowstack)
-        else:
-            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
-                                       self._release_gil_asmgcc)
-            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
-                                     self._reacquire_gil_asmgcc)
-        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
-        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
-
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
@@ -1041,12 +978,13 @@ class Assembler386(BaseAssembler):
 
     def _emit_call(self, x, arglocs, start=0, tmp=eax,
                    argtypes=None, callconv=FFI_DEFAULT_ABI, can_collect=1,
-                   stack_max=PASS_ON_MY_FRAME):
+                   stack_max=PASS_ON_MY_FRAME, reload_frame=False):
         if can_collect == 1 and not self._is_asmgcc():
             can_collect = 2    # don't bother with jf_extra_stack_depth
         if IS_X86_64:
             return self._emit_call_64(x, arglocs, start, argtypes,
-                                      can_collect, stack_max)
+                                      can_collect, stack_max,
+                                      reload_frame=reload_frame)
         stack_depth = 0
         n = len(arglocs)
         for i in range(start, n):
@@ -1096,6 +1034,8 @@ class Assembler386(BaseAssembler):
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
             self.pop_gcmap(self.mc)
+        elif reload_frame:
+            self._reload_frame_if_necessary(self.mc)
         #
 
     def _fix_stdcall(self, callconv, p):
@@ -1106,7 +1046,7 @@ class Assembler386(BaseAssembler):
         self.mc.SUB_ri(esp.value, p)
 
     def _emit_call_64(self, x, arglocs, start, argtypes,
-                      can_collect, stack_max):
+                      can_collect, stack_max, reload_frame=False):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
@@ -1196,6 +1136,8 @@ class Assembler386(BaseAssembler):
             if align and can_collect == 1:
                 ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
                 self.mc.MOV_bi(ofs, 0)
+        elif reload_frame:
+            self._reload_frame_if_necessary(self.mc)
         if align:
             self.mc.ADD_ri(esp.value, align * WORD)
         if can_collect:
@@ -1988,6 +1930,9 @@ class Assembler386(BaseAssembler):
         self.pending_guard_tokens.append(guard_token)
 
     def genop_call(self, op, arglocs, resloc):
+        return self._genop_call(op, arglocs, resloc)
+
+    def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
         from rpython.jit.backend.llsupport.descr import CallDescr
 
         sizeloc = arglocs[0]
@@ -2005,11 +1950,14 @@ class Assembler386(BaseAssembler):
         assert isinstance(descr, CallDescr)
 
         stack_max = PASS_ON_MY_FRAME
-        if self._is_asmgcc() and op.getopnum() == rop.CALL_RELEASE_GIL:
-            from rpython.memory.gctransform import asmgcroot
-            stack_max -= asmgcroot.JIT_USE_WORDS
-            can_collect = 3    # asmgcc only: don't write jf_extra_stack_depth,
-                               # and reload ebp from the css
+        if is_call_release_gil:
+            if self._is_asmgcc():
+                from rpython.memory.gctransform import asmgcroot
+                stack_max -= asmgcroot.JIT_USE_WORDS
+                can_collect = 3    # asmgcc only: don't write jf_extra_stack_depth,
+                                   # and reload ebp from the css
+            else:
+                can_collect = 0
         else:
             can_collect = 1
 
@@ -2074,13 +2022,16 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
+        self._store_force_index(guard_op)
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
+            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            gcmap = self._regalloc.get_gcmap([eax], noregs=noregs)
+            self.push_gcmap(self.mc, gcmap, store=True)
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
-        self._store_force_index(guard_op)
-        self.genop_call(op, arglocs, result_loc)
+        self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, result_loc)
@@ -2139,7 +2090,8 @@ class Assembler386(BaseAssembler):
                 reg = edi
             self.mc.LEA_rs(reg.value, css)
             args = [reg]
-        self._emit_call(imm(self.reacqgil_addr), args, can_collect=False)
+        self._emit_call(imm(self.reacqgil_addr), args, can_collect=False,
+                        reload_frame=True)
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)

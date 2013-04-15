@@ -1109,7 +1109,7 @@ class AppTestW_ListObject(object):
                 self.i = i
             def __eq__(self, other):
                 if self.i == 9:
-                    del l[i - 1]
+                    del l[self.i - 1]
                     return True
                 else:
                     return False

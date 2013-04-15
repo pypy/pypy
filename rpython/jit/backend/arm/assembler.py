@@ -74,29 +74,6 @@ class AssemblerARM(ResOpAssembler):
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    @staticmethod
-    def _release_gil_shadowstack():
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    def _reacquire_gil_shadowstack():
-        after = rffi.aroundstate.after
-        if after:
-            after()
-
-    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-
-    def _build_release_gil(self, gcrootmap):
-        assert gcrootmap.is_shadow_stack
-        releasegil_func = llhelper(self._NOARG_FUNC,
-                                   self._release_gil_shadowstack)
-        reacqgil_func = llhelper(self._NOARG_FUNC,
-                                 self._reacquire_gil_shadowstack)
-        self.releasegil_addr = rffi.cast(lltype.Signed, releasegil_func)
-        self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
-
     def _build_propagate_exception_path(self):
         if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
@@ -537,7 +514,7 @@ class AssemblerARM(ResOpAssembler):
         clt.allgcrefs = []
         clt.frame_info.clear() # for now
 
-        if False and log:
+        if log:
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
 
@@ -787,13 +764,13 @@ class AssemblerARM(ResOpAssembler):
 
         # restore registers
         self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
-        mc.POP([r.ip.value, r.pc.value]) # return
+        mc.POP([r.ip.value, r.pc.value])  # return
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
     def _load_shadowstack_top(self, mc, reg, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
         mc.gen_load_int(reg.value, rst)
-        mc.gen_load_int(reg.value, reg.value)
+        self.load_reg(mc, reg, reg)
         return rst
 
     def fixup_target_tokens(self, rawstart):

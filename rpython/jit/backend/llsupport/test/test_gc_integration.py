@@ -719,18 +719,24 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         # people actually wreck xmm registers
         cpu = self.cpu
         l = []
+        copied_stack = [None]
 
         def before():
+            # put nonsense on the top of shadowstack
+            frame = rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.gcrootmap.stack[0])
+            assert getmap(frame).count('1') == 7 #
+            copied_stack[0] = cpu.gc_ll_descr.gcrootmap.stack[0]
+            cpu.gc_ll_descr.gcrootmap.stack[0] = 0
             l.append("before")
 
         def after():
+            cpu.gc_ll_descr.gcrootmap.stack[0] = copied_stack[0]
             l.append("after")
 
         invoke_around_extcall(before, after)
 
         def f(frame, x):
             # all the gc pointers are alive p1 -> p7 (but not p0)
-            assert getmap(frame).count('1') == 7 #
             assert x == 1
             return 2
 
