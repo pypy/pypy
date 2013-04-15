@@ -25,9 +25,6 @@ class AppTestThreadSignal(GenericTestThread):
             __pypy__.thread._signals_enter()
 
     def test_enable_signals(self):
-        import sys
-        if sys.platform.startswith('win'):
-            skip('signals not operable on windows')
         import __pypy__, thread, signal, time
 
         def subthread():
@@ -50,8 +47,9 @@ class AppTestThreadSignal(GenericTestThread):
             try:
                 done = []
                 interrupted = []
+                print 'starting',i
                 thread.start_new_thread(subthread, ())
-                for i in range(10):
+                for j in range(10):
                     if len(done): break
                     print '.'
                     time.sleep(0.1)
