@@ -2355,9 +2355,11 @@ class Assembler386(BaseAssembler):
         self.mc.MOV(eax, edi)
         self.mc.MOV(edi, lengthloc)
         self.mc.IMUL(edi, imm(itemsize))
-        self.mc.ADD(edi, heap(nursery_free_adr))
         self.mc.ADD(edi, imm(WORD * 2))
+        self.mc.ADD(edi, heap(nursery_free_adr))
         self.mc.CMP(edi, heap(nursery_top_adr))
+        # write down the tid
+        self.mc.MOV(mem(eax, 0), imm(arraydescr.tid))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr1 = self.mc.get_relative_pos()
         offset = self.mc.get_relative_pos() - jmp_adr0

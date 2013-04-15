@@ -265,8 +265,8 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 2*WORD + 8*1
         # check the nursery content and state
-        assert gc_ll_descr.nursery[0] == 15
-        assert gc_ll_descr.nursery[2 + 8 / WORD] == 15
+        assert gc_ll_descr.nursery[0] == chr(15)
+        assert gc_ll_descr.nursery[2 * WORD + 8] == chr(15)
         assert gc_ll_descr.addrs[0] == nurs_adr + 4 * WORD + 8*1 + 5*2
         # slowpath never called
         assert gc_ll_descr.calls == []
