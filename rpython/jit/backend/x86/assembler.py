@@ -2375,8 +2375,12 @@ class Assembler386(BaseAssembler):
         jmp_adr0 = self.mc.get_relative_pos()
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.MOV(edi, lengthloc)
-        self.mc.IMUL(edi, imm(itemsize))
-        self.mc.ADD(edi, imm(WORD * 2))
+        if itemsize == 0:
+            self.mc.ADD_ri(edi.value, 2 * WORD)
+        else:
+            self.mc.IMUL_ri(edi.value, itemsize)
+            self.mc.ADD_ri(edi.value, WORD * 2 + WORD - 1)
+            self.mc.AND_ri(edi.value, ~(WORD - 1))
         self.mc.ADD(edi, heap(nursery_free_adr))
         self.mc.CMP(edi, heap(nursery_top_adr))
         # write down the tid

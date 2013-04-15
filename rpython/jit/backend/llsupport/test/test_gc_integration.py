@@ -284,7 +284,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         # check the nursery content and state
         assert gc_ll_descr.nursery[0] == chr(15)
         assert gc_ll_descr.nursery[2 * WORD + 8] == chr(15)
-        assert gc_ll_descr.addrs[0] == nurs_adr + 4 * WORD + 8*1 + 5*2
+        assert gc_ll_descr.addrs[0] == nurs_adr + (((4 * WORD + 8*1 + 5*2) + (WORD - 1)) & ~(WORD - 1))
         # slowpath never called
         assert gc_ll_descr.calls == []
 
