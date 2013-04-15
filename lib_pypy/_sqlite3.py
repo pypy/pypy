@@ -998,17 +998,18 @@ class Cursor(object):
 
                 # Actually execute the SQL statement
                 ret = _lib.sqlite3_step(self.__statement._statement)
-                if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
-                    self.__statement._reset()
-                    raise self.__connection._get_exception(ret)
 
                 if ret == _lib.SQLITE_ROW:
                     if multiple:
                         raise ProgrammingError("executemany() can only execute DML statements.")
                     self.__build_row_cast_map()
                     self.__next_row = self.__fetch_one_row()
-                elif ret == _lib.SQLITE_DONE and not multiple:
+                elif ret == _lib.SQLITE_DONE:
+                    if not multiple:
+                        self.__statement._reset()
+                else:
                     self.__statement._reset()
+                    raise self.__connection._get_exception(ret)
 
                 if self.__statement._type in ("UPDATE", "DELETE", "INSERT", "REPLACE"):
                     if self.__rowcount == -1:
