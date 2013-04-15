@@ -166,11 +166,14 @@ class Assembler386(BaseAssembler):
         # store the gc pattern
         mc.MOV_rs(ecx.value, WORD)
         mc.MOV_br(ofs, ecx.value)
-        addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-        mc.SUB_rr(edi.value, eax.value)       # compute the size we want
-        # the arg is already in edi
+        if varsize:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
+        else:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
         mc.SUB_ri(esp.value, 16 - WORD)
         if not varsize:
+            mc.SUB_rr(edi.value, eax.value) # compute the size we want
+            # the arg is already in edi
             if IS_X86_32:
                 mc.MOV_sr(0, edi.value)
                 if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
@@ -179,7 +182,13 @@ class Assembler386(BaseAssembler):
                 # for tests only
                 mc.MOV_rr(esi.value, ebp.value)
         else:
-            return 0
+            if IS_X86_32:
+                xxx
+            else:
+                # offset is 1 extra for call + 1 for SUB above
+                mc.MOV_rs(edi.value, WORD * 3) # itemsize
+                mc.MOV_rs(esi.value, WORD * 5)
+                mc.MOV_rs(edx.value, WORD * 4) # lengthloc
         extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
         mc.MOV_bi(extra_ofs, 16)
         mc.CALL(imm(addr))
@@ -2351,8 +2360,7 @@ class Assembler386(BaseAssembler):
         self.mc.CMP(lengthloc, imm(maxlength))
         self.mc.J_il8(rx86.Conditions['G'], 0) # patched later
         jmp_adr0 = self.mc.get_relative_pos()
-        self.mc.MOV(edi, heap(nursery_free_adr))
-        self.mc.MOV(eax, edi)
+        self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.MOV(edi, lengthloc)
         self.mc.IMUL(edi, imm(itemsize))
         self.mc.ADD(edi, imm(WORD * 2))
@@ -2365,6 +2373,9 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_adr0
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr0-1, chr(offset))
+        self.mc.MOV_si(WORD, itemsize)
+        self.mc.MOV(RawEspLoc(WORD * 2, INT), lengthloc)
+        self.mc.MOV_si(WORD * 3, arraydescr.tid)
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, mov=True)
         self.mc.CALL(imm(self.malloc_slowpath_varsize))
