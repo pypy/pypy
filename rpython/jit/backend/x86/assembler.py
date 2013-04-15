@@ -1926,6 +1926,9 @@ class Assembler386(BaseAssembler):
         self.pending_guard_tokens.append(guard_token)
 
     def genop_call(self, op, arglocs, resloc):
+        return self._genop_call(op, arglocs, resloc)
+
+    def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
         from rpython.jit.backend.llsupport.descr import CallDescr
 
         sizeloc = arglocs[0]
@@ -1943,11 +1946,14 @@ class Assembler386(BaseAssembler):
         assert isinstance(descr, CallDescr)
 
         stack_max = PASS_ON_MY_FRAME
-        if self._is_asmgcc() and op.getopnum() == rop.CALL_RELEASE_GIL:
-            from rpython.memory.gctransform import asmgcroot
-            stack_max -= asmgcroot.JIT_USE_WORDS
-            can_collect = 3    # asmgcc only: don't write jf_extra_stack_depth,
-                               # and reload ebp from the css
+        if is_call_release_gil:
+            if self._is_asmgcc():
+                from rpython.memory.gctransform import asmgcroot
+                stack_max -= asmgcroot.JIT_USE_WORDS
+                can_collect = 3    # asmgcc only: don't write jf_extra_stack_depth,
+                                   # and reload ebp from the css
+            else:
+                can_collect = 0
         else:
             can_collect = 1
 
@@ -2015,10 +2021,13 @@ class Assembler386(BaseAssembler):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
+            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            gcmap = self._regalloc.get_gcmap([eax], noregs=noregs)
+            self.push_gcmap(self.mc, gcmap, store=True)
             self.call_release_gil(gcrootmap, arglocs)
         # do the call
         self._store_force_index(guard_op)
-        self.genop_call(op, arglocs, result_loc)
+        self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, result_loc)
