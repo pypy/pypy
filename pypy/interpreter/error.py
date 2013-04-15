@@ -287,6 +287,10 @@ class OperationError(Exception):
         #
         try:
             if with_traceback:
+                try:
+                    self.normalize_exception(space)
+                except OperationError:
+                    pass
                 w_t = self.w_type
                 w_v = self.get_w_value(space)
                 w_tb = space.wrap(self.get_traceback())
