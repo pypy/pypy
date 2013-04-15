@@ -194,10 +194,17 @@ class AbstractCPU(object):
     def typedescrof(self, TYPE):
         raise NotImplementedError
 
+    def unpack_arraydescr_size(self, arraydescr):
+        """
+        Return basesize, itemsize, is_signed
+        """
+        raise NotImplementedError
+
     @staticmethod
     def cast_int_to_ptr(x, TYPE):
         x = llmemory.cast_int_to_adr(x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
+
 
     # ---------- the backend-dependent operations ----------
 
@@ -234,6 +241,8 @@ class AbstractCPU(object):
     def bh_newstr(self, length):
         raise NotImplementedError
     def bh_newunicode(self, length):
+        raise NotImplementedError
+    def bh_new_raw_buffer(self, size):
         raise NotImplementedError
 
     def bh_arraylen_gc(self, array, arraydescr):
