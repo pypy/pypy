@@ -764,13 +764,13 @@ class AssemblerARM(ResOpAssembler):
 
         # restore registers
         self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
-        mc.POP([r.ip.value, r.pc.value]) # return
+        mc.POP([r.ip.value, r.pc.value])  # return
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
     def _load_shadowstack_top(self, mc, reg, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
         mc.gen_load_int(reg.value, rst)
-        mc.gen_load_int(reg.value, reg.value)
+        self.load_reg(mc, reg.value, reg.value)
         return rst
 
     def fixup_target_tokens(self, rawstart):
