@@ -288,10 +288,11 @@ class AppTestPartialEvaluation:
         assert _codecs.escape_decode(b'\\08')[0] == b'\0' + b'8'
 
     def test_escape_decode_errors(self):
-        raises(ValueError, br"\x".decode, 'string_escape')
-        raises(ValueError, br"[\x]".decode, 'string_escape')
-        raises(ValueError, br"\x0".decode, 'string_escape')
-        raises(ValueError, br"[\x0]".decode, 'string_escape')
+        import _codecs
+        raises(ValueError, _codecs.escape_decode, br"\x")
+        raises(ValueError, _codecs.escape_decode, br"[\x]")
+        raises(ValueError, _codecs.escape_decode, br"\x0")
+        raises(ValueError, _codecs.escape_decode, br"[\x0]")
 
     def test_escape_encode(self):
         import _codecs
