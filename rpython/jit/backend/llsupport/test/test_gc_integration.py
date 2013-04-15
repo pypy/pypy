@@ -678,7 +678,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             frame = rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.gcrootmap.stack[0])
             assert getmap(frame).count('1') == 7 #
             copied_stack[0] = cpu.gc_ll_descr.gcrootmap.stack[0]
-            cpu.gc_ll_descr.gcrootmap.stack[0] = 0
+            cpu.gc_ll_descr.gcrootmap.stack[0] = -42
             l.append("before")
 
         def after():
