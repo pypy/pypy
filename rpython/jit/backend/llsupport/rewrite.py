@@ -102,9 +102,11 @@ class GcRewriterAssembler(object):
             assert isinstance(descr, ArrayDescr)
             self.handle_new_array(descr, op)
         elif opnum == rop.NEWSTR:
-            self.handle_new_array(self.gc_ll_descr.str_descr, op)
+            self.handle_new_array(self.gc_ll_descr.str_descr, op,
+                                  kind=FLAG_STR)
         elif opnum == rop.NEWUNICODE:
-            self.handle_new_array(self.gc_ll_descr.unicode_descr, op)
+            self.handle_new_array(self.gc_ll_descr.unicode_descr, op,
+                                  kind=FLAG_UNICODE)
         else:
             raise NotImplementedError(op.getopname())
 
@@ -116,7 +118,7 @@ class GcRewriterAssembler(object):
         else:
             self.gen_malloc_fixedsize(size, descr.tid, op.result)
 
-    def handle_new_array(self, arraydescr, op):
+    def handle_new_array(self, arraydescr, op, kind=FLAG_ARRAY):
         v_length = op.getarg(0)
         total_size = -1
         if isinstance(v_length, ConstInt):
@@ -131,7 +133,7 @@ class GcRewriterAssembler(object):
             total_size = arraydescr.basesize
         elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
               self.gen_malloc_nursery_varsize(arraydescr.itemsize,
-              v_length, op.result, arraydescr)):
+              v_length, op.result, arraydescr, kind=kind)):
             # note that we cannot initialize tid here, because the array
             # might end up being allocated by malloc_external or some
             # stuff that initializes GC header fields differently
@@ -300,28 +302,17 @@ class GcRewriterAssembler(object):
                                  self.gc_ll_descr.malloc_unicode_descr)
 
     def gen_malloc_nursery_varsize(self, itemsize, v_length, v_result,
-                                   arraydescr):
+                                   arraydescr, kind=FLAG_ARRAY):
         """ itemsize is an int, v_length and v_result are boxes
         """
         gc_descr = self.gc_ll_descr
-        str_descr = gc_descr.str_descr
-        unicode_descr = gc_descr.unicode_descr
-        if (arraydescr.basesize == gc_descr.standard_array_basesize and
-            arraydescr.lendescr.offset == gc_descr.standard_array_length_ofs):
-            flag = FLAG_ARRAY # standard array
-        elif (arraydescr.basesize == str_descr.basesize and
-              arraydescr.lendescr.offset == str_descr.lendescr.offset):
-            flag = FLAG_STR
-        elif (arraydescr.basesize == unicode_descr.basesize and
-              arraydescr.lendescr.offset == unicode_descr.lendescr.offset):
-            # note that this might never be reached if we have the same
-            # offsets, that does not quite matter though
-            flag = FLAG_UNICODE
-        else:
+        if (kind == FLAG_ARRAY and
+            (arraydescr.basesize != gc_descr.standard_array_basesize or
+             arraydescr.lendescr.offset != gc_descr.standard_array_length_ofs)):
             return False
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
-                          [ConstInt(flag), ConstInt(itemsize), v_length],
+                          [ConstInt(kind), ConstInt(itemsize), v_length],
                           v_result, descr=arraydescr)
         self.newops.append(op)
         self.recent_mallocs[v_result] = None

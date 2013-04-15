@@ -263,8 +263,8 @@ class TestMallocFastpath(BaseTestRegalloc):
         arraydescr.tid = 15
         ops = '''
         [i0, i1, i2]
-        p0 = call_malloc_nursery_varsize(8, i0, descr=arraydescr)
-        p1 = call_malloc_nursery_varsize(5, i1, descr=arraydescr)
+        p0 = call_malloc_nursery_varsize(0, 8, i0, descr=arraydescr)
+        p1 = call_malloc_nursery_varsize(0, 5, i1, descr=arraydescr)
         guard_false(i0) [p0, p1]
         '''
         self.interpret(ops, [1, 2, 3],
@@ -286,10 +286,10 @@ class TestMallocFastpath(BaseTestRegalloc):
         self.cpu = self.getcpu(None)
         ops = '''
         [i0, i1, i2]
-        p0 = call_malloc_nursery_varsize(8, i0, descr=arraydescr)
-        p1 = call_malloc_nursery_varsize(5, i1, descr=arraydescr)
-        p3 = call_malloc_nursery_varsize(5, i2, descr=arraydescr)
-        p4 = call_malloc_nursery_varsize(5, i2, descr=arraydescr)
+        p0 = call_malloc_nursery_varsize(0, 8, i0, descr=arraydescr)
+        p1 = call_malloc_nursery_varsize(0, 5, i1, descr=arraydescr)
+        p3 = call_malloc_nursery_varsize(0, 5, i2, descr=arraydescr)
+        p4 = call_malloc_nursery_varsize(0, 5, i2, descr=arraydescr)
         # overflow
         guard_false(i0) [p0, p1, p3, p4]
         '''
@@ -816,7 +816,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
         px = call_may_force(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
         guard_not_forced(descr=faildescr) [p1, p2, p3, px]
-        finish(px, descr=finishdescr)
+        finish(px, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
                         'arraydescr': cpu.arraydescrof(A),
                         'faildescr': BasicFailDescr(1),
@@ -860,7 +860,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
         px = call(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
         guard_false(i0, descr=faildescr) [p1, p2, p3, px]
-        finish(px, descr=finishdescr)
+        finish(px, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
                         'arraydescr': cpu.arraydescrof(A),
                         'faildescr': BasicFailDescr(1),

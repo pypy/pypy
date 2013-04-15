@@ -871,7 +871,7 @@ class RegAlloc(BaseRegalloc):
             sizeloc, gcmap)
 
     def consider_call_malloc_nursery_varsize(self, op):
-        length_box = op.getarg(1)
+        length_box = op.getarg(2)
         arraydescr = op.getdescr()
         assert isinstance(length_box, BoxInt) # we cannot have a const here!
         # looking at the result
@@ -886,9 +886,10 @@ class RegAlloc(BaseRegalloc):
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        itemsize = op.getarg(0).getint()
+        itemsize = op.getarg(1).getint()
         maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
         self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             lengthloc, itemsize, maxlength, gcmap, arraydescr)

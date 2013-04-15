@@ -1,7 +1,7 @@
 import sys
 import os
 
-from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.jit.backend.llsupport import symbolic, jitframe, gc
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -156,22 +156,27 @@ class Assembler386(BaseAssembler):
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _build_malloc_slowpath(self, varsize):
+    def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack,
         nursery_head in eax and the size in edi - eax
         """
+        assert kind in ['fixed', 'str', 'unicode', 'var']
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [eax, edi], self.cpu.supports_floats)
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         # store the gc pattern
         mc.MOV_rs(ecx.value, WORD)
         mc.MOV_br(ofs, ecx.value)
-        if varsize:
-            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
-        else:
+        if kind == 'fixed':
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        elif kind == 'str':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_str')
+        elif kind == 'unicode':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
+        else:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
         mc.SUB_ri(esp.value, 16 - WORD)
-        if not varsize:
+        if kind == 'fixed':
             mc.SUB_rr(edi.value, eax.value) # compute the size we want
             # the arg is already in edi
             if IS_X86_32:
@@ -181,6 +186,11 @@ class Assembler386(BaseAssembler):
             elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
                 # for tests only
                 mc.MOV_rr(esi.value, ebp.value)
+        elif kind == 'str' or kind == 'unicode':
+            if IS_X86_32:
+                xxx
+            else:
+                mc.MOV_rs(edi.value, WORD * 3)
         else:
             if IS_X86_32:
                 xxx
@@ -2354,7 +2364,7 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
 
-    def malloc_cond_varsize(self, nursery_free_adr, nursery_top_adr,
+    def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
                             arraydescr):
         from rpython.jit.backend.llsupport.descr import ArrayDescr
@@ -2376,9 +2386,12 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_adr0
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr0-1, chr(offset))
-        self.mc.MOV_si(WORD, itemsize)
-        self.mc.MOV(RawEspLoc(WORD * 2, INT), lengthloc)
-        self.mc.MOV_si(WORD * 3, arraydescr.tid)
+        if kind == 0:
+            self.mc.MOV_si(WORD, itemsize)
+            self.mc.MOV(RawEspLoc(WORD * 2, INT), lengthloc)
+            self.mc.MOV_si(WORD * 3, arraydescr.tid)
+        else:
+            self.mc.MOV(RawEspLoc(WORD, INT), lengthloc)
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, mov=True)
         self.mc.CALL(imm(self.malloc_slowpath_varsize))
