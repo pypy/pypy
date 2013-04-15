@@ -1089,7 +1089,6 @@ class Cursor(object):
         try:
             next_row = self.__next_row
         except AttributeError:
-            self.__statement._reset()
             raise StopIteration
         del self.__next_row
 
@@ -1097,11 +1096,12 @@ class Cursor(object):
             next_row = self.row_factory(self, next_row)
 
         ret = _lib.sqlite3_step(self.__statement._statement)
-        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
-            self.__statement._reset()
-            raise self.__connection._get_exception(ret)
-        elif ret == _lib.SQLITE_ROW:
+        if ret == _lib.SQLITE_ROW:
             self.__next_row = self.__fetch_one_row()
+        else:
+            self.__statement._reset()
+            if ret != _lib.SQLITE_DONE:
+                raise self.__connection._get_exception(ret)
         return next_row
 
     if sys.version_info[0] < 3:
