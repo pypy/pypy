@@ -2357,6 +2357,9 @@ class Assembler386(BaseAssembler):
     def malloc_cond_varsize(self, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
                             arraydescr):
+        from rpython.jit.backend.llsupport.descr import ArrayDescr
+        assert isinstance(arraydescr, ArrayDescr)
+
         self.mc.CMP(lengthloc, imm(maxlength))
         self.mc.J_il8(rx86.Conditions['G'], 0) # patched later
         jmp_adr0 = self.mc.get_relative_pos()
