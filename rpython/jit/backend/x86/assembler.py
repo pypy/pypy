@@ -2375,12 +2375,11 @@ class Assembler386(BaseAssembler):
         jmp_adr0 = self.mc.get_relative_pos()
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.MOV(edi, lengthloc)
-        if itemsize == 0:
-            self.mc.ADD_ri(edi.value, 2 * WORD)
-        else:
-            self.mc.IMUL_ri(edi.value, itemsize)
-            self.mc.ADD_ri(edi.value, WORD * 2 + WORD - 1)
-            self.mc.AND_ri(edi.value, ~(WORD - 1))
+        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
+        self.mc.IMUL_ri(edi.value, itemsize)
+        header_size = self.gc_size_of_header
+        self.mc.ADD_ri(edi.value, arraydescr.basesize + header_size + WORD - 1)
+        self.mc.AND_ri(edi.value, ~(WORD - 1))
         self.mc.ADD(edi, heap(nursery_free_adr))
         self.mc.CMP(edi, heap(nursery_top_adr))
         # write down the tid
