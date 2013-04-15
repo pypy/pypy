@@ -2390,11 +2390,17 @@ class Assembler386(BaseAssembler):
             self.mc.MOV_si(WORD, itemsize)
             self.mc.MOV(RawEspLoc(WORD * 2, INT), lengthloc)
             self.mc.MOV_si(WORD * 3, arraydescr.tid)
+            addr = self.malloc_slowpath_varsize
         else:
+            if kind == 1:
+                addr = self.malloc_slowpath_str
+            else:
+                assert kind == 2
+                addr = self.malloc_slowpath_unicode
             self.mc.MOV(RawEspLoc(WORD, INT), lengthloc)
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, mov=True)
-        self.mc.CALL(imm(self.malloc_slowpath_varsize))
+        self.mc.CALL(imm(addr))
         offset = self.mc.get_relative_pos() - jmp_adr1
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr1-1, chr(offset))

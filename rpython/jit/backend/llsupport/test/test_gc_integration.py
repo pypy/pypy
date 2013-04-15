@@ -181,6 +181,12 @@ class GCDescrFastpathMalloc(GcLLDescription):
                                                          [lltype.Signed] * 3,
                                                          lltype.Signed)
 
+        def malloc_str(size):
+            self.calls.append(('str', size))
+            return 13
+        self.generate_function('malloc_str', malloc_str, [lltype.Signed],
+                               lltype.Signed)
+
     def get_nursery_free_addr(self):
         return rffi.cast(lltype.Signed, self.addrs)
 
@@ -284,23 +290,26 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_malloc_nursery_varsize_slowpath(self):
         self.cpu = self.getcpu(None)
-        ops = '''
+        ops = """
         [i0, i1, i2]
         p0 = call_malloc_nursery_varsize(0, 8, i0, descr=arraydescr)
         p1 = call_malloc_nursery_varsize(0, 5, i1, descr=arraydescr)
         p3 = call_malloc_nursery_varsize(0, 5, i2, descr=arraydescr)
-        p4 = call_malloc_nursery_varsize(0, 5, i2, descr=arraydescr)
         # overflow
+        p4 = call_malloc_nursery_varsize(0, 5, i2, descr=arraydescr)
+        # we didn't collect, so still overflow
+        p5 = call_malloc_nursery_varsize(1, 5, i2, descr=strdescr)
         guard_false(i0) [p0, p1, p3, p4]
-        '''
+        """
         A = lltype.GcArray(lltype.Signed)
         arraydescr = self.cpu.arraydescrof(A)
         arraydescr.tid = 15
         self.interpret(ops, [10, 3, 3],
-                       namespace={'arraydescr': arraydescr})
+                       namespace={'arraydescr': arraydescr,
+                                  'strdescr': arraydescr})
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
-        assert gc_ll_descr.calls == [(8, 15, 10), (5, 15, 3)]
+        assert gc_ll_descr.calls == [(8, 15, 10), (5, 15, 3), ('str', 3)]
         # one fit, one was too large, one was not fitting
 
     def test_malloc_slowpath(self):
