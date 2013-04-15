@@ -218,7 +218,7 @@ class types(object):
         if   ffi_type == types.void:    return 'v'
         elif ffi_type == types.double:  return 'f'
         elif ffi_type == types.float:   return 'S'
-        elif ffi_type == types.pointer: return 'i'
+        elif ffi_type == types.pointer: return 'u'
         #
         elif ffi_type == types.schar:   return 'i'
         elif ffi_type == types.uchar:   return 'u'

@@ -425,7 +425,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
-        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP)
+        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, threadsafe=False)
 
         def getlogin_llimpl():
             result = os_getlogin()
@@ -1393,7 +1393,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.strerror)
     def register_os_strerror(self):
-        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP)
+        os_strerror = self.llexternal('strerror', [rffi.INT], rffi.CCHARP, threadsafe=False)
 
         def strerror_llimpl(errnum):
             res = os_strerror(rffi.cast(rffi.INT, errnum))
@@ -1784,7 +1784,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, 'ttyname')
     def register_os_ttyname(self):
-        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP)
+        os_ttyname = self.llexternal('ttyname', [lltype.Signed], rffi.CCHARP, threadsafe=False)
 
         def ttyname_llimpl(fd):
             l_name = os_ttyname(fd)

@@ -348,7 +348,7 @@ class BaseBackendTest(Runner):
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             final_descr = True
-            
+
             def __setattr__(self, name, value):
                 if (name == 'index' or name == '_carry_around_for_tests'
                         or name == '_TYPE' or name == '_cpu'):
@@ -2832,6 +2832,11 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not called
 
     def test_assembler_call_propagate_exc(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+        
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph can't fake exceptions well enough, give up")
+
         excdescr = BasicFailDescr(666)
         self.cpu.propagate_exception_descr = excdescr
         self.cpu.setup_once()    # xxx redo it, because we added
@@ -3420,7 +3425,7 @@ class LLtypeBackendTest(BaseBackendTest):
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
         testcases = [(4.0, 2.0), (6.25, 2.5)]
         for arg, expected in testcases:
-            res = self.execute_operation(rop.CALL, 
+            res = self.execute_operation(rop.CALL,
                         [funcbox, boxfloat(arg)],
                          'float', descr=calldescr)
             assert res.getfloat() == expected
@@ -3776,7 +3781,7 @@ class LLtypeBackendTest(BaseBackendTest):
         # memory
         assert values[0] == 0
 
-    def test_compile_bridge_while_running(self):        
+    def test_compile_bridge_while_running(self):
         def func():
             bridge = parse("""
             [i1, i2, px]
@@ -3823,9 +3828,9 @@ class LLtypeBackendTest(BaseBackendTest):
         func2_ptr = llhelper(FPTR2, func2)
         calldescr2 = cpu.calldescrof(FUNC2, FUNC2.ARGS, FUNC2.RESULT,
                                     EffectInfo.MOST_GENERAL)
-        
+
         faildescr = BasicFailDescr(0)
-        
+
         looptoken = JitCellToken()
         loop = parse("""
         [i0, i1, i2]
@@ -3841,7 +3846,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-            
+
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
         assert len(frame.jf_frame) == frame.jf_frame_info.jfi_frame_depth
         ref = self.cpu.get_ref_value(frame, 9)
@@ -3903,7 +3908,7 @@ class LLtypeBackendTest(BaseBackendTest):
                         'calldescr': calldescr,
                         'faildescr': faildescr,
                         'finaldescr2': BasicFinalDescr(1)})
-        
+
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         frame = self.cpu.execute_token(looptoken, 1, 2, 3)
         descr = self.cpu.get_latest_descr(frame)
