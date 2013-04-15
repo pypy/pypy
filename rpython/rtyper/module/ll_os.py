@@ -425,7 +425,7 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
-        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP)
+        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP, threadsafe=False)
 
         def getlogin_llimpl():
             result = os_getlogin()
