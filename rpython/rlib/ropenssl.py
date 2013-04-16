@@ -10,7 +10,7 @@ link_files = []
 testonly_libraries = []
 include_dirs = []
 if sys.platform == 'win32' and platform.name != 'mingw32':
-    libraries = ['libeay32', 'ssleay32',
+    libraries = ['libeay32', 'ssleay32', 'zlib1',
                  'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
