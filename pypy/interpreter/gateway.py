@@ -817,7 +817,7 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     # necessary for unique identifiers for pickling
     f.func_name = func.func_name
     if unwrap_spec is None:
-        unwrap_spec = {}
+        unwrap_spec = getattr(unbound_meth, 'unwrap_spec', {})
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()
