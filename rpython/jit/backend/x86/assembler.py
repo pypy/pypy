@@ -188,17 +188,24 @@ class Assembler386(BaseAssembler):
                 mc.MOV_rr(esi.value, ebp.value)
         elif kind == 'str' or kind == 'unicode':
             if IS_X86_32:
-                xxx
+                # 1 for return value, 3 for alignment
+                mc.MOV_rs(edi.value, WORD * (3 + 1 + 1))
+                mc.MOV_sr(0, edi.value)
             else:
                 mc.MOV_rs(edi.value, WORD * 3)
         else:
             if IS_X86_32:
-                xxx
+                mc.MOV_rs(edi.value, WORD * (3 + 1 + 1)) # itemsize
+                mc.MOV_sr(0, edi.value)
+                mc.MOV_rs(edi.value, WORD * (3 + 3 + 1))
+                mc.MOV_sr(WORD, edi.value) # tid
+                mc.MOV_rs(edi.value, WORD * (3 + 2 + 1))
+                mc.MOV_sr(2 * WORD, edi.value) # length
             else:
                 # offset is 1 extra for call + 1 for SUB above
                 mc.MOV_rs(edi.value, WORD * 3) # itemsize
-                mc.MOV_rs(esi.value, WORD * 5)
-                mc.MOV_rs(edx.value, WORD * 4) # lengthloc
+                mc.MOV_rs(esi.value, WORD * 5) # tid
+                mc.MOV_rs(edx.value, WORD * 4) # length
         extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
         mc.MOV_bi(extra_ofs, 16)
         mc.CALL(imm(addr))
