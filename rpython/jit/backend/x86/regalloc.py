@@ -871,6 +871,10 @@ class RegAlloc(BaseRegalloc):
             sizeloc, gcmap)
 
     def consider_call_malloc_nursery_varsize(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
         length_box = op.getarg(2)
         arraydescr = op.getdescr()
         assert isinstance(length_box, BoxInt) # we cannot have a const here!
@@ -885,7 +889,6 @@ class RegAlloc(BaseRegalloc):
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
         itemsize = op.getarg(1).getint()
         maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
         self.assembler.malloc_cond_varsize(
