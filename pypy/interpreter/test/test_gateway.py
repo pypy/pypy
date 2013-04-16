@@ -138,6 +138,7 @@ class TestGateway:
 
         class BaseA(W_Root):
             def method(self, space, x):
+                "This is a method"
                 pass
 
             def method_with_default(self, space, x=5):
@@ -172,6 +173,9 @@ class TestGateway:
         w_b = B()
         assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
         assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
+
+        doc = space.str_w(space.getattr(w_c, space.wrap('__doc__')))
+        assert doc == "This is a method"
 
         meth_with_default = gateway.interpindirect2app(
             BaseA.method_with_default, {'x': int})

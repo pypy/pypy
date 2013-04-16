@@ -812,6 +812,7 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     exec func_code.compile() in d
     f = d['f']
     f.func_defaults = unbound_meth.func_defaults
+    f.func_doc = unbound_meth.func_doc
     f.__module__ = func.__module__
     # necessary for unique identifiers for pickling
     f.func_name = func.func_name
