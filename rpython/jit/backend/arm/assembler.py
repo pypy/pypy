@@ -13,7 +13,7 @@ from rpython.jit.backend.arm.regalloc import (Regalloc,
     operations as regalloc_operations,
     operations_with_guard as regalloc_operations_with_guard)
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, debug_bridge
+from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, debug_bridge, BaseAssembler
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -25,7 +25,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, compute_uniq
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
-
+from rpython.jit.backend.arm.detect import detect_hardfloat
 
 class AssemblerARM(ResOpAssembler):
 
@@ -48,6 +48,10 @@ class AssemblerARM(ResOpAssembler):
         self._debug = False
         self.loop_run_counters = []
         self.gcrootmap_retaddr_forced = 0
+
+    def setup_once(self):
+        BaseAssembler.setup_once(self)
+        self.hf_abi = detect_hardfloat()
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
