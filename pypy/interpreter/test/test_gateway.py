@@ -135,16 +135,26 @@ class TestGateway:
 
     def test_interpindirect2app(self):
         space = self.space
+
         class BaseA(W_Root):
             def method(self, space, x):
+                pass
+
+            def method_with_default(self, space, x=5):
                 pass
 
         class A(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 2)
 
+            def method_with_default(self, space, x):
+                return space.wrap(x + 2)
+
         class B(BaseA):
             def method(self, space, x):
+                return space.wrap(x + 1)
+
+            def method_with_default(self, space, x):
                 return space.wrap(x + 1)
 
         class FakeTypeDef(object):
@@ -162,6 +172,15 @@ class TestGateway:
         w_b = B()
         assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
         assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
+
+        meth_with_default = gateway.interpindirect2app(
+            BaseA.method_with_default, {'x': int})
+        w_d = space.wrap(meth_with_default)
+
+        assert space.int_w(space.call_function(w_d, w_a, space.wrap(4))) == 4 + 2
+        assert space.int_w(space.call_function(w_d, w_b, space.wrap(-10))) == -10 + 1
+        assert space.int_w(space.call_function(w_d, w_a)) == 5 + 2
+        assert space.int_w(space.call_function(w_d, w_b)) == 5 + 1
 
     def test_interp2app_unwrap_spec(self):
         space = self.space
