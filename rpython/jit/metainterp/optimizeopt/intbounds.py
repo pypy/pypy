@@ -180,7 +180,7 @@ class OptIntBounds(Optimization):
             result = lastop.result
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
-            elif opnum == rop.INT_ADD_OVF:
+            if opnum == rop.INT_ADD_OVF:
                 self.pure(rop.INT_ADD, args[:], result)
                 self.pure(rop.INT_SUB, [result, args[1]], args[0])
                 self.pure(rop.INT_SUB, [result, args[0]], args[1])

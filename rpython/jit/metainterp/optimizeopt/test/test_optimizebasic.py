@@ -216,10 +216,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-                arg = random.randrange(1, 20)
-                if opnum == rop.INT_UNTAG:
-                    arg = arg | 1 # must be an odd int
-                args.append(arg)
     # ----------
 
     def test_remove_guard_class_1(self):

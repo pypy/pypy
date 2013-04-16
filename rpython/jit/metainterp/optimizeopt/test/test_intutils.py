@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.optimizeopt import intutils
+from rpython.jit.metainterp.optimizeopt import intutils
 
 # XXX this file should really be filled with tests for all operations!
 
