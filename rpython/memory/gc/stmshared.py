@@ -11,8 +11,9 @@ assert 1 << WORD_POWER_2 == WORD
 
 # Linux's glibc is good at 'malloc(1023*WORD)': the blocks ("pages") it
 # returns are exactly 1024 words apart, reserving only one extra word
-# for its internal data
-TRANSLATED_PAGE_SIZE = 1023 * WORD
+# for its internal data.  Here we assume that even on other systems it
+# will not use more than two words.
+TRANSLATED_PAGE_SIZE = 1022 * WORD
 
 # This is the largest size that StmGCSharedArea will map to its internal
 # "pages" structures.
@@ -29,11 +30,11 @@ PAGE_PTR = lltype.Ptr(lltype.ForwardReference())
 PAGE_HEADER = lltype.Struct('PageHeader',
     # -- The following pointer makes a chained list of pages.
     ('nextpage', PAGE_PTR),
-    # -- XXX
-    ('xxx1', lltype.Signed),
-    ('xxx2', llmemory.Address),
-    # -- The structure above is 3 words, which is a good value:
-    #    '(1023-3) % N' is zero or very small for various small N's,
+    # -- The following is only used when the page belongs to StmGCSharedArea.
+    #    It makes another free list, used for various purposes.
+    ('secondary_free_list', llmemory.Address),
+    # -- The structure above is 2 words, which is a good value:
+    #    '(1022-2) % N' is zero or very small for various small N's,
     #    i.e. there is not much wasted space.
     )
 PAGE_PTR.TO.become(PAGE_HEADER)
@@ -46,6 +47,7 @@ class StmGCSharedArea(object):
     _alloc_flavor_ = 'raw'
 
     def __init__(self, gc, page_size, small_request_threshold):
+        "NOT_RPYTHON"
         self.gc = gc
         self.page_size = page_size
         self.small_request_threshold = small_request_threshold
@@ -58,20 +60,32 @@ class StmGCSharedArea(object):
         # is used, or if its usage says high after a major collection,
         # it belongs to the lists of StmGCThreadLocalAllocator.
         length = small_request_threshold / WORD + 1
-        self.low_usage_page = lltype.malloc(rffi.CArray(PAGE_PTR), length,
-                                            flavor='raw', zero=True,
-                                            immortal=True)
+        self.low_usage_pages = lltype.malloc(rffi.CArray(PAGE_PTR), length,
+                                             flavor='raw', zero=True,
+                                             immortal=True)
+        self.full_pages = lltype.malloc(rffi.CArray(PAGE_PTR), length,
+                                        flavor='raw', zero=True,
+                                        immortal=True)
         self.nblocks_for_size = lltype.malloc(rffi.CArray(lltype.Signed),
-                                              length, flavor='raw',
+                                              length, flavor='raw', zero=True,
                                               immortal=True)
         self.hdrsize = llmemory.raw_malloc_usage(llmemory.sizeof(PAGE_HEADER))
-        self.nblocks_for_size[0] = 0    # unused
         for i in range(1, length):
             self.nblocks_for_size[i] = (page_size - self.hdrsize) // (WORD * i)
         assert self.nblocks_for_size[length-1] >= 1
+        self.length = length
+        #
+        # Counters for statistics
+        self.count_global_pages = 0
 
     def setup(self):
-        self.ll_low_usage_lock = rthread.allocate_ll_lock()
+        self.ll_global_lock = rthread.allocate_ll_lock()
+
+    def acquire_global_lock(self):
+        rthread.acquire_NOAUTO(self.ll_global_lock, True)
+
+    def release_global_lock(self):
+        rthread.release_NOAUTO(self.ll_global_lock)
 
 
 # ------------------------------------------------------------
@@ -94,10 +108,11 @@ class StmGCThreadLocalAllocator(object):
         # For each size N between WORD and 'small_request_threshold'
         # (included), the corresponding chained list contains pages
         # which store objects of size N.
-        length = sharedarea.small_request_threshold / WORD + 1
+        length = sharedarea.length
         self.pages_for_size = lltype.malloc(
             rffi.CArray(PAGE_PTR), length, flavor='raw', zero=True,
             track_allocation=False)
+        self.count_pages = 0    # for statistics
         #
         # This array contains 'length' chained lists of free locations.
         self.free_loc_for_size = lltype.malloc(
@@ -141,6 +156,7 @@ class StmGCThreadLocalAllocator(object):
             return NULL
         if not we_are_translated():
             self._seen_pages.add(result)
+        self.count_pages += 1
         llarena.arena_reserve(result, llmemory.sizeof(PAGE_HEADER))
         #
         # Initialize the fields of the resulting page
@@ -213,7 +229,27 @@ class StmGCThreadLocalAllocator(object):
         while lst.non_empty():
             self.free_object(lst.pop())
 
+    def gift_all_pages_to_shared_area(self):
+        """Send to the shared area all my pages.  For now we don't extract
+        the information about which locations are free or not; we just stick
+        them into 'full_pages' and leave the next global GC to figure it out.
+        """
+        stmshared = self.sharedarea
+        stmshared.acquire_global_lock()
+        i = stmshared.length - 1
+        while i >= 1:
+            lpage = self.pages_for_size[i]
+            if lpage:
+                gpage = stmshared.full_pages[i]
+                gpage_addr = llmemory.cast_ptr_to_adr(gpage)
+                lpage.secondary_free_list = gpage_addr
+                stmshared.full_pages[i] = lpage
+            i -= 1
+        stmshared.count_global_pages += self.count_pages
+        stmshared.release_global_lock()
+
     def delete(self):
+        self.gift_all_pages_to_shared_area()
         lltype.free(self.free_loc_for_size, flavor='raw',
                     track_allocation=False)
         lltype.free(self.pages_for_size, flavor='raw',

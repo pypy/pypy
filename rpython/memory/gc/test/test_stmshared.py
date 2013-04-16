@@ -17,7 +17,7 @@ class FakeGC:
 
 def test_simple():
     gc = FakeGC()
-    shared = StmGCSharedArea(gc, 10*WORD, 2*WORD)
+    shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
     thl1.malloc_object(2*WORD-1)
@@ -32,11 +32,12 @@ def test_simple():
     assert len(thl1._seen_pages) == 3
     thl1.malloc_object(2*WORD)
     assert len(thl1._seen_pages) == 3
+    assert thl1.count_pages == 3
     thl1.delete()
 
 def test_free():
     gc = FakeGC()
-    shared = StmGCSharedArea(gc, 10*WORD, 2*WORD)
+    shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
     obj = thl1.malloc_object(2*WORD)
@@ -48,7 +49,7 @@ def test_free():
 
 def test_big_object():
     gc = FakeGC()
-    shared = StmGCSharedArea(gc, 10*WORD, 2*WORD)
+    shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
     obj = thl1.malloc_object(3*WORD)
@@ -58,7 +59,7 @@ def test_big_object():
 
 def test_allocation_is_thread_local():
     gc = FakeGC()
-    shared = StmGCSharedArea(gc, 10*WORD, 2*WORD)
+    shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
     thl2 = StmGCThreadLocalAllocator(shared)
@@ -73,3 +74,16 @@ def test_allocation_is_thread_local():
     #
     thl1.delete()
     thl2.delete()
+
+def test_dying_gift_to_shared_area():
+    gc = FakeGC()
+    shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
+    shared.setup()
+    thl1 = StmGCThreadLocalAllocator(shared)
+    thl1.malloc_object(2*WORD)
+    assert thl1.count_pages == 1
+    assert len(thl1._seen_pages) == 1
+    #
+    assert shared.count_global_pages == 0
+    thl1.delete()
+    assert shared.count_global_pages == 1
