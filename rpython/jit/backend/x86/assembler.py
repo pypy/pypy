@@ -1,7 +1,7 @@
 import sys
 import os
 
-from rpython.jit.backend.llsupport import symbolic, jitframe, gc
+from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -2396,16 +2396,16 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_adr0
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr0-1, chr(offset))
-        if kind == 0:
+        if kind == rewrite.FLAG_ARRAY:
             self.mc.MOV_si(WORD, itemsize)
             self.mc.MOV(RawEspLoc(WORD * 2, INT), lengthloc)
             self.mc.MOV_si(WORD * 3, arraydescr.tid)
             addr = self.malloc_slowpath_varsize
         else:
-            if kind == 1:
+            if kind == rewrite.FLAG_STR:
                 addr = self.malloc_slowpath_str
             else:
-                assert kind == 2
+                assert kind == rewrite.FLAG_UNICODE
                 addr = self.malloc_slowpath_unicode
             self.mc.MOV(RawEspLoc(WORD, INT), lengthloc)
         # save the gcmap

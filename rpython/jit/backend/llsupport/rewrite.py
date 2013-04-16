@@ -305,6 +305,8 @@ class GcRewriterAssembler(object):
                                    arraydescr, kind=FLAG_ARRAY):
         """ itemsize is an int, v_length and v_result are boxes
         """
+        if not self.cpu.can_inline_varsize_malloc:
+            return False # temporary, kill when ARM supports it
         gc_descr = self.gc_ll_descr
         if (kind == FLAG_ARRAY and
             (arraydescr.basesize != gc_descr.standard_array_basesize or
