@@ -68,7 +68,7 @@ register_all(vars(), globals())
 def descr__new__(space, w_settype, __args__):
     from pypy.objspace.std.setobject import W_SetObject, newset
     w_obj = space.allocate_instance(W_SetObject, w_settype)
-    W_SetObject.__init__(w_obj, space, newset(space))
+    W_SetObject.__init__(w_obj, space)
     return w_obj
 
 set_typedef = StdTypeDef("set",
@@ -81,4 +81,11 @@ Build an unordered collection.""",
 
 set_typedef.registermethods(globals())
 
-setiter_typedef = StdTypeDef("setiterator")
+def descr_setiterator__length_hint__(space, w_self):
+    from pypy.objspace.std.setobject import W_SetIterObject
+    assert isinstance(w_self, W_SetIterObject)
+    return space.wrap(w_self.iterimplementation.length())
+
+setiter_typedef = StdTypeDef("setiterator",
+    __length_hint__ = gateway.interp2app(descr_setiterator__length_hint__),
+    )

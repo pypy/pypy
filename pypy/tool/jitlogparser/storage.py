@@ -6,7 +6,6 @@ for all loops and bridges, so http requests can refer to them by name
 import py
 import os
 from lib_pypy.disassembler import dis
-from pypy.tool.jitlogparser.parser import Function
 from pypy.tool.jitlogparser.module_finder import gather_all_code_objs
 
 class LoopStorage(object):
@@ -64,14 +63,14 @@ class LoopStorage(object):
         for loop_no, loop in enumerate(loops):
             for op in loop.operations:
                 if op.name.startswith('guard_'):
-                    guard_dict[int(op.descr[len('<Guard'):-1])] = (op, loop)
+                    guard_dict[int(op.descr[len('<Guard0x'):-1], 16)] = (op, loop)
         for loop in loops:
             if loop.comment:
                 comment = loop.comment.strip()
                 if 'entry bridge' in comment:
                     pass
                 elif comment.startswith('# bridge out of'):
-                    no = int(comment[len('# bridge out of Guard '):].split(' ', 1)[0])
+                    no = int(comment[len('# bridge out of Guard 0x'):].split(' ', 1)[0], 16)
                     op, parent = guard_dict[no]
                     op.bridge = loop
                     op.percentage = ((getattr(loop, 'count', 1) * 100) /

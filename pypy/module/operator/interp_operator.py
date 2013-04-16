@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec
 
 def index(space, w_a):
     return space.index(w_a)
@@ -232,11 +233,16 @@ def irepeat(space, w_obj1, w_obj2):
         raise OperationError(space.w_TypeError,
                            space.wrap("non-sequence object can't be repeated"))
 
-    if not (space.is_true(space.isinstance(w_obj2, space.w_int)) or \
-            space.is_true(space.isinstance(w_obj2, space.w_long))):
+    if not (space.isinstance_w(w_obj2, space.w_int) or
+            space.isinstance_w(w_obj2, space.w_long)):
         # second arg has to be int/long
         raise OperationError(space.w_TypeError,
                              space.wrap('an integer is required'))
 
     return space.inplace_mul(w_obj1, w_obj2)
 
+# _length_hint (to be length_hint in 3.4)
+
+@unwrap_spec(default=int)
+def _length_hint(space, w_iterable, default):
+    return space.wrap(space.length_hint(w_iterable, default))

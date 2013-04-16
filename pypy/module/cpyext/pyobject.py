@@ -1,22 +1,23 @@
 import sys
 
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.rlib.objectmodel import specialize, we_are_translated
-from pypy.rlib.rweakref import RWeakKeyDictionary
-from pypy.rpython.annlowlevel import llhelper
+from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.rweakref import RWeakKeyDictionary
+from rpython.rtyper.annlowlevel import llhelper
 
 #________________________________________________________
 # type description
 
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
+    W_BaseObject = W_ObjectObject
 
     def get_dealloc(self, space):
         from pypy.module.cpyext.typeobject import subtype_dealloc
@@ -51,10 +52,14 @@ class BaseCpyTypedescr(object):
     def attach(self, space, pyobj, w_obj):
         pass
 
-    def realize(self, space, ref):
-        # For most types, a reference cannot exist without
-        # a real interpreter object
-        raise InvalidPointerException(str(ref))
+    def realize(self, space, obj):
+        w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+        w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        track_reference(space, obj, w_obj)
+        if w_type is not space.gettypefor(self.W_BaseObject):
+            state = space.fromcache(RefcountState)
+            state.set_lifeline(w_obj, obj)
+        return w_obj
 
 typedescr_cache = {}
 
@@ -145,10 +150,9 @@ class RefcountState:
         # For tests
         self.non_heaptypes_w = []
 
-    def _freeze_(self):
+    def _cleanup_(self):
         assert self.borrow_mapping == {None: {}}
         self.py_objects_r2w.clear() # is not valid anymore after translation
-        return False
 
     def init_r2w_from_w2r(self):
         """Rebuilds the dict py_objects_r2w on startup"""
@@ -369,13 +373,7 @@ def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     assert isinstance(w_type, W_TypeObject)
-    if w_type.is_cpytype():
-        w_obj = space.allocate_instance(W_ObjectObject, w_type)
-        track_reference(space, obj, w_obj)
-        state = space.fromcache(RefcountState)
-        state.set_lifeline(w_obj, obj)
-    else:
-        assert False, "Please add more cases in _Py_NewReference()"
+    get_typedescr(w_type.instancetypedef).realize(space, obj)
 
 def _Py_Dealloc(space, obj):
     from pypy.module.cpyext.api import generic_cpy_call_dont_decref

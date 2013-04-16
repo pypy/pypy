@@ -738,6 +738,7 @@ def iterparse():
     ...     print action, elem.tag
     ... except ET.ParseError, v:
     ...   print v
+    end document
     junk after document element: line 1, column 12
     """
 
@@ -1633,10 +1634,10 @@ def xmltoolkit63():
 
     Check reference leak.
     >>> xmltoolkit63()
-    >>> count = sys.getrefcount(None)
+    >>> count = sys.getrefcount(None)  #doctest: +SKIP
     >>> for i in range(1000):
     ...     xmltoolkit63()
-    >>> sys.getrefcount(None) - count
+    >>> sys.getrefcount(None) - count  #doctest: +SKIP
     0
 
     """

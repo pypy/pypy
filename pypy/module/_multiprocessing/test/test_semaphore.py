@@ -1,13 +1,13 @@
-from pypy.conftest import gettestobjspace
 from pypy.module._multiprocessing.interp_semaphore import (
     RECURSIVE_MUTEX, SEMAPHORE)
 
+
 class AppTestSemaphore:
+    spaceconfig = dict(usemodules=('_multiprocessing', 'thread'))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
-        cls.space = space
-        cls.w_SEMAPHORE = space.wrap(SEMAPHORE)
-        cls.w_RECURSIVE = space.wrap(RECURSIVE_MUTEX)
+        cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
+        cls.w_RECURSIVE = cls.space.wrap(RECURSIVE_MUTEX)
 
     def test_semaphore(self):
         from _multiprocessing import SemLock
@@ -17,6 +17,8 @@ class AppTestSemaphore:
         kind = self.SEMAPHORE
         value = 1
         maxvalue = 1
+        # the following line gets OSError: [Errno 38] Function not implemented
+        # if /dev/shm is not mounted on Linux
         sem = SemLock(kind, value, maxvalue)
         assert sem.kind == kind
         assert sem.maxvalue == maxvalue
@@ -48,6 +50,8 @@ class AppTestSemaphore:
         kind = self.RECURSIVE
         value = 1
         maxvalue = 1
+        # the following line gets OSError: [Errno 38] Function not implemented
+        # if /dev/shm is not mounted on Linux
         sem = SemLock(kind, value, maxvalue)
 
         sem.acquire()
@@ -70,8 +74,10 @@ class AppTestSemaphore:
         maxvalue = 1
         sem = SemLock(kind, value, maxvalue)
 
-        assert sem.acquire()
-        assert not sem.acquire(timeout=0.1)
+        res = sem.acquire()
+        assert res == True
+        res = sem.acquire(timeout=0.1)
+        assert res == False
 
     def test_semaphore_rebuild(self):
         from _multiprocessing import SemLock

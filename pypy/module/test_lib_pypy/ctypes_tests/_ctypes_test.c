@@ -14,6 +14,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <stdio.h>
+#include <errno.h>
 
 #define HAVE_LONG_LONG
 #define LONG_LONG long long
@@ -558,4 +559,11 @@ EXPORT(UN) ret_un_func(UN inp)
 EXPORT(int) my_unused_function(void)
 {
     return 42;
+}
+
+EXPORT(int) test_errno(void)
+{
+    int result = errno;
+    errno = result + 1;
+    return result;
 }

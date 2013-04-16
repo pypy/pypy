@@ -1,5 +1,5 @@
-from pypy.conftest import gettestobjspace
 from pypy.module import _demo
+from pypy.tool.option import make_config, make_objspace
 
 class TestImport:
 
@@ -7,7 +7,8 @@ class TestImport:
         _demo.Module.demo_events = []
 
     def test_startup(self):
-        space = gettestobjspace(usemodules=('_demo',))
+        config = make_config(None, usemodules=('_demo',))
+        space = make_objspace(config)
         w_modules = space.sys.get('modules')
 
         assert _demo.Module.demo_events == ['setup']

@@ -1,20 +1,16 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
+from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
+from rpython.rlib import rposix
+
 
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
 
-def isfake(space, w_obj):
-    """Return whether the argument is faked (stolen from CPython). This is
-    always False after translation."""
-    if we_are_translated():
-        return space.w_False
-    return space.wrap(bool(w_obj.typedef.fakedcpytype))
-    #return space.wrap(bool(getattr(w_obj.typedef, 'fakedcpytype', None)))
 
 def interp_pdb(space):
     """Run an interp-level pdb.
@@ -22,6 +18,7 @@ def interp_pdb(space):
     assert not we_are_translated()
     import pdb
     pdb.set_trace()
+
 
 @unwrap_spec(name=str)
 def method_cache_counter(space, name):
@@ -74,8 +71,33 @@ def do_what_I_mean(space):
     return space.wrap(42)
 
 def list_strategy(space, w_list):
-    from pypy.objspace.std.listobject import W_ListObject
-    str_type = None
     if isinstance(w_list, W_ListObject):
-        str_type = w_list.strategy._applevel_repr
-    return space.wrap(str_type)
+        return space.wrap(w_list.strategy._applevel_repr)
+    else:
+        w_msg = space.wrap("Can only get the list strategy of a list")
+        raise OperationError(space.w_TypeError, w_msg)
+
+@unwrap_spec(fd='c_int')
+def validate_fd(space, fd):
+    try:
+        rposix.validate_fd(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+def get_console_cp(space):
+    from rpython.rlib import rwin32    # Windows only
+    return space.newtuple([
+        space.wrap('cp%d' % rwin32.GetConsoleCP()),
+        space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
+        ])
+
+@unwrap_spec(sizehint=int)
+def resizelist_hint(space, w_iterable, sizehint):
+    if not isinstance(w_iterable, W_ListObject):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("arg 1 must be a 'list'"))
+    w_iterable._resize_hint(sizehint)
+
+@unwrap_spec(sizehint=int)
+def newlist_hint(space, sizehint):
+    return space.newlist_hint(sizehint)

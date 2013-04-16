@@ -17,8 +17,8 @@ This feature is based on a custom primitive called a continulet_.
 Continulets can be directly used by application code, or it is possible
 to write (entirely at app-level) more user-friendly interfaces.
 
-Currently PyPy implements greenlets_ on top of continulets.  It would be
-easy to implement tasklets and channels as well, emulating the model
+Currently PyPy implements greenlets_ on top of continulets.  It also
+implements (an approximation of) tasklets and channels, emulating the model
 of `Stackless Python`_.
 
 Continulets are extremely light-weight, which means that PyPy should be
@@ -29,7 +29,7 @@ memory (4KB) per live continulet, and half a megabyte of virtual memory
 on 32-bit or a complete megabyte on 64-bit.  Moreover, the feature is
 only available (so far) on x86 and x86-64 CPUs; for other CPUs you need
 to add a short page of custom assembler to
-`pypy/translator/c/src/stacklet/`_.
+`rpython/translator/c/src/stacklet/`_.
 
 
 Theory
@@ -199,32 +199,17 @@ Unimplemented features
 The following features (present in some past Stackless version of PyPy)
 are for the time being not supported any more:
 
-* Tasklets and channels (currently ``stackless.py`` seems to import,
-  but you have tasklets on top of coroutines on top of greenlets on
-  top of continulets on top of stacklets, and it's probably not too
-  hard to cut two of these levels by adapting ``stackless.py`` to
-  use directly continulets)
-
 * Coroutines (could be rewritten at app-level)
 
-* Pickling and unpickling continulets (*)
-
-* Continuing execution of a continulet in a different thread (*)
+* Continuing execution of a continulet in a different thread
+  (but if it is "simple enough", you can pickle it and unpickle it
+  in the other thread).
 
 * Automatic unlimited stack (must be emulated__ so far)
 
 * Support for other CPUs than x86 and x86-64
 
 .. __: `recursion depth limit`_
-
-(*) Pickling, as well as changing threads, could be implemented by using
-a "soft" stack switching mode again.  We would get either "hard" or
-"soft" switches, similarly to Stackless Python 3rd version: you get a
-"hard" switch (like now) when the C stack contains non-trivial C frames
-to save, and a "soft" switch (like previously) when it contains only
-simple calls from Python to Python.  Soft-switched continulets would
-also consume a bit less RAM, and the switch might be a bit faster too
-(unsure about that; what is the Stackless Python experience?).
 
 
 Recursion depth limit
@@ -286,9 +271,9 @@ Stacklets
 Continulets are internally implemented using stacklets, which is the
 generic RPython-level building block for "one-shot continuations".  For
 more information about them please see the documentation in the C source
-at `pypy/translator/c/src/stacklet/stacklet.h`_.
+at `rpython/translator/c/src/stacklet/stacklet.h`_.
 
-The module ``pypy.rlib.rstacklet`` is a thin wrapper around the above
+The module ``rpython.rlib.rstacklet`` is a thin wrapper around the above
 functions.  The key point is that new() and switch() always return a
 fresh stacklet handle (or an empty one), and switch() additionally
 consumes one.  It makes no sense to have code in which the returned

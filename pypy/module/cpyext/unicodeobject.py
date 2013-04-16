@@ -1,6 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.lltypesystem import llmemory
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
@@ -12,9 +11,10 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
-from pypy.objspace.std import unicodeobject, unicodetype
-from pypy.rlib import runicode
-from pypy.tool.sourcetools import func_renamer
+from pypy.module._codecs.interp_codecs import CodecState
+from pypy.objspace.std import unicodeobject, unicodetype, stringtype
+from rpython.rlib import runicode
+from rpython.tool.sourcetools import func_renamer
 import sys
 
 ## See comment in stringobject.py.
@@ -89,6 +89,11 @@ def Py_UNICODE_ISSPACE(space, ch):
     return unicodedb.isspace(ord(ch))
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISALPHA(space, ch):
+    """Return 1 or 0 depending on whether ch is an alphabetic character."""
+    return unicodedb.isalpha(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALNUM(space, ch):
     """Return 1 or 0 depending on whether ch is an alphanumeric character."""
     return unicodedb.isalnum(ord(ch))
@@ -104,6 +109,16 @@ def Py_UNICODE_ISDECIMAL(space, ch):
     return unicodedb.isdecimal(ord(ch))
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISDIGIT(space, ch):
+    """Return 1 or 0 depending on whether ch is a digit character."""
+    return unicodedb.isdigit(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISNUMERIC(space, ch):
+    """Return 1 or 0 depending on whether ch is a numeric character."""
+    return unicodedb.isnumeric(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISLOWER(space, ch):
     """Return 1 or 0 depending on whether ch is a lowercase character."""
     return unicodedb.islower(ord(ch))
@@ -112,6 +127,11 @@ def Py_UNICODE_ISLOWER(space, ch):
 def Py_UNICODE_ISUPPER(space, ch):
     """Return 1 or 0 depending on whether ch is an uppercase character."""
     return unicodedb.isupper(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISTITLE(space, ch):
+    """Return 1 or 0 depending on whether ch is a titlecase character."""
+    return unicodedb.istitle(ord(ch))
 
 @cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
 def Py_UNICODE_TOLOWER(space, ch):
@@ -154,6 +174,11 @@ def Py_UNICODE_TONUMERIC(space, ch):
         return unicodedb.numeric(ord(ch))
     except KeyError:
         return -1.0
+
+@cpython_api([], Py_UNICODE, error=CANNOT_FAIL)
+def PyUnicode_GetMax(space):
+    """Get the maximum ordinal for a Unicode character."""
+    return runicode.UNICHR(runicode.MAXUNICODE)
 
 @cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_DATA(space, ref):
@@ -362,7 +387,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     # - unicode is disallowed
     # - raise TypeError for non-string types
-    if space.is_true(space.isinstance(w_obj, space.w_unicode)):
+    if space.isinstance_w(w_obj, space.w_unicode):
         w_meth = None
     else:
         try:
@@ -390,10 +415,21 @@ def PyUnicode_FromStringAndSize(space, s, size):
     needed data. The buffer is copied into the new object. If the buffer is not
     NULL, the return value might be a shared object. Therefore, modification of
     the resulting Unicode object is only allowed when u is NULL."""
-    if not s:
-        raise NotImplementedError
-    w_str = space.wrap(rffi.charpsize2str(s, size))
-    return space.call_method(w_str, 'decode', space.wrap("utf-8"))
+    if s:
+        return make_ref(space, PyUnicode_DecodeUTF8(
+            space, s, size, lltype.nullptr(rffi.CCHARP.TO)))
+    else:
+        return rffi.cast(PyObject, new_empty_unicode(space, size))
+
+@cpython_api([rffi.INT_real], PyObject)
+def PyUnicode_FromOrdinal(space, ordinal):
+    """Create a Unicode Object from the given Unicode code point ordinal.
+
+    The ordinal must be in range(0x10000) on narrow Python builds
+    (UCS2), and range(0x110000) on wide builds (UCS4). A ValueError is
+    raised in case it is not."""
+    w_ordinal = space.wrap(rffi.cast(lltype.Signed, ordinal))
+    return space.call_function(space.builtin.get('unichr'), w_ordinal)
 
 @cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
 def PyUnicode_Resize(space, ref, newsize):
@@ -442,6 +478,7 @@ def make_conversion_functions(suffix, encoding):
         else:
             w_errors = space.w_None
         return space.call_method(w_s, 'decode', space.wrap(encoding), w_errors)
+    globals()['PyUnicode_Decode%s' % suffix] = PyUnicode_DecodeXXX
 
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Encode%s' % suffix)
@@ -455,6 +492,7 @@ def make_conversion_functions(suffix, encoding):
         else:
             w_errors = space.w_None
         return space.call_method(w_u, 'encode', space.wrap(encoding), w_errors)
+    globals()['PyUnicode_Encode%s' % suffix] = PyUnicode_EncodeXXX
 
 make_conversion_functions('UTF8', 'utf-8')
 make_conversion_functions('ASCII', 'ascii')
@@ -490,9 +528,8 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
 
     string = rffi.charpsize2str(s, size)
 
-    #FIXME: I don't like these prefixes
-    if pbyteorder is not None: # correct NULL check?
-        llbyteorder = rffi.cast(lltype.Signed, pbyteorder[0]) # compatible with int?
+    if pbyteorder is not None:
+        llbyteorder = rffi.cast(lltype.Signed, pbyteorder[0])
         if llbyteorder < 0:
             byteorder = "little"
         elif llbyteorder > 0:
@@ -507,15 +544,103 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_16_helper(string, size,
-                                           errors,
-                                           True, # final ? false for multiple passes?
-                                           None, # errorhandler
-                                           byteorder)
+    result, length, byteorder = runicode.str_decode_utf_16_helper(
+        string, size, errors,
+        True, # final ? false for multiple passes?
+        None, # errorhandler
+        byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
 
     return space.wrap(result)
+
+@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
+def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
+    """Decode length bytes from a UTF-32 encoded buffer string and
+    return the corresponding Unicode object.  errors (if non-NULL)
+    defines the error handling. It defaults to "strict".
+
+    If byteorder is non-NULL, the decoder starts decoding using the
+    given byte order:
+    *byteorder == -1: little endian
+    *byteorder == 0:  native order
+    *byteorder == 1:  big endian
+
+    If *byteorder is zero, and the first four bytes of the input data
+    are a byte order mark (BOM), the decoder switches to this byte
+    order and the BOM is not copied into the resulting Unicode string.
+    If *byteorder is -1 or 1, any byte order mark is copied to the
+    output.
+
+    After completion, *byteorder is set to the current byte order at
+    the end of input data.
+
+    In a narrow build codepoints outside the BMP will be decoded as
+    surrogate pairs.
+
+    If byteorder is NULL, the codec starts in native order mode.
+
+    Return NULL if an exception was raised by the codec.
+    """
+    string = rffi.charpsize2str(s, size)
+
+    if pbyteorder:
+        llbyteorder = rffi.cast(lltype.Signed, pbyteorder[0])
+        if llbyteorder < 0:
+            byteorder = "little"
+        elif llbyteorder > 0:
+            byteorder = "big"
+        else:
+            byteorder = "native"
+    else:
+        byteorder = "native"
+
+    if llerrors:
+        errors = rffi.charp2str(llerrors)
+    else:
+        errors = None
+
+    result, length, byteorder = runicode.str_decode_utf_32_helper(
+        string, size, errors,
+        True, # final ? false for multiple passes?
+        None, # errorhandler
+        byteorder)
+    if pbyteorder is not None:
+        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+
+    return space.wrap(result)
+
+@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP],
+             rffi.INT_real, error=-1)
+def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
+    """Takes a Unicode string holding a decimal value and writes it
+    into an output buffer using standard ASCII digit codes.
+
+    The output buffer has to provide at least length+1 bytes of
+    storage area. The output string is 0-terminated.
+
+    The encoder converts whitespace to ' ', decimal characters to
+    their corresponding ASCII digit and all other Latin-1 characters
+    except \0 as-is. Characters outside this range (Unicode ordinals
+    1-256) are treated as errors. This includes embedded NULL bytes.
+
+    Returns 0 on success, -1 on failure.
+    """
+    u = rffi.wcharpsize2unicode(s, length)
+    if llerrors:
+        errors = rffi.charp2str(llerrors)
+    else:
+        errors = None
+    state = space.fromcache(CodecState)
+    result = runicode.unicode_encode_decimal(u, length, errors,
+                                             state.encode_error_handler)
+    i = len(result)
+    output[i] = '\0'
+    i -= 1
+    while i >= 0:
+        output[i] = result[i]
+        i -= 1
+    return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
@@ -538,6 +663,71 @@ def PyUnicode_Format(space, w_format, w_args):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Join(space, w_sep, w_seq):
-    """Join a sequence of strings using the given separator and return the resulting
-    Unicode string."""
+    """Join a sequence of strings using the given separator and return
+    the resulting Unicode string."""
     return space.call_method(w_sep, 'join', w_seq)
+
+@cpython_api([PyObject, PyObject, PyObject, Py_ssize_t], PyObject)
+def PyUnicode_Replace(space, w_str, w_substr, w_replstr, maxcount):
+    """Replace at most maxcount occurrences of substr in str with replstr and
+    return the resulting Unicode object. maxcount == -1 means replace all
+    occurrences."""
+    return space.call_method(w_str, "replace", w_substr, w_replstr,
+                             space.wrap(maxcount))
+
+@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real],
+             rffi.INT_real, error=-1)
+def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
+    """Return 1 if substr matches str[start:end] at the given tail end
+    (direction == -1 means to do a prefix match, direction == 1 a
+    suffix match), 0 otherwise. Return -1 if an error occurred."""
+    str = space.unicode_w(w_str)
+    substr = space.unicode_w(w_substr)
+    if rffi.cast(lltype.Signed, direction) <= 0:
+        return stringtype.stringstartswith(str, substr, start, end)
+    else:
+        return stringtype.stringendswith(str, substr, start, end)
+
+@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
+def PyUnicode_Count(space, w_str, w_substr, start, end):
+    """Return the number of non-overlapping occurrences of substr in
+    str[start:end].  Return -1 if an error occurred."""
+    w_count = space.call_method(w_str, "count", w_substr,
+                                space.wrap(start), space.wrap(end))
+    return space.int_w(w_count)
+
+@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real],
+             Py_ssize_t, error=-2)
+def PyUnicode_Find(space, w_str, w_substr, start, end, direction):
+    """Return the first position of substr in str*[*start:end] using
+    the given direction (direction == 1 means to do a forward search,
+    direction == -1 a backward search).  The return value is the index
+    of the first match; a value of -1 indicates that no match was
+    found, and -2 indicates that an error occurred and an exception
+    has been set."""
+    if rffi.cast(lltype.Signed, direction) > 0:
+        w_pos = space.call_method(w_str, "find", w_substr,
+                                  space.wrap(start), space.wrap(end))
+    else:
+        w_pos = space.call_method(w_str, "rfind", w_substr,
+                                  space.wrap(start), space.wrap(end))
+    return space.int_w(w_pos)
+
+@cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)
+def PyUnicode_Split(space, w_str, w_sep, maxsplit):
+    """Split a string giving a list of Unicode strings.  If sep is
+    NULL, splitting will be done at all whitespace substrings.
+    Otherwise, splits occur at the given separator.  At most maxsplit
+    splits will be done.  If negative, no limit is set.  Separators
+    are not included in the resulting list."""
+    if w_sep is None:
+        w_sep = space.w_None
+    return space.call_method(w_str, "split", w_sep, space.wrap(maxsplit))
+
+@cpython_api([PyObject, rffi.INT_real], PyObject)
+def PyUnicode_Splitlines(space, w_str, keepend):
+    """Split a Unicode string at line breaks, returning a list of
+    Unicode strings.  CRLF is considered to be one line break.  If
+    keepend is 0, the Line break characters are not included in the
+    resulting strings."""
+    return space.call_method(w_str, "splitlines", space.wrap(keepend))

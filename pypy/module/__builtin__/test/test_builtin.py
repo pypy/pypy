@@ -1,6 +1,4 @@
-import autopath
 import sys
-from pypy import conftest
 
 class AppTestBuiltinApp:
     def setup_class(cls):
@@ -21,7 +19,7 @@ class AppTestBuiltinApp:
         # For example if an object x has a __getattr__, we can get
         # AttributeError if attempting to call x.__getattr__ runs out
         # of stack.  That's annoying, so we just work around it.
-        if conftest.option.runappdirect:
+        if cls.runappdirect:
             cls.w_safe_runtimerror = cls.space.wrap(True)
         else:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
@@ -171,28 +169,6 @@ class AppTestBuiltinApp:
             return vars()
         assert f() == {}
         assert g() == {'a':0, 'b':0, 'c':0}
-
-    def test_getattr(self):
-        class a(object):
-            i = 5
-        assert getattr(a, 'i') == 5
-        raises(AttributeError, getattr, a, 'k')
-        assert getattr(a, 'k', 42) == 42
-        assert getattr(a, u'i') == 5
-        raises(AttributeError, getattr, a, u'k')
-        assert getattr(a, u'k', 42) == 42
-
-    def test_getattr_typecheck(self):
-        class A(object):
-            def __getattribute__(self, name):
-                pass
-            def __setattr__(self, name, value):
-                pass
-            def __delattr__(self, name):
-                pass
-        raises(TypeError, getattr, A(), 42)
-        raises(TypeError, setattr, A(), 42, 'x')
-        raises(TypeError, delattr, A(), 42)
 
     def test_sum(self):
         assert sum([]) ==0
@@ -371,6 +347,7 @@ class AppTestBuiltinApp:
         sorted_l = sorted(l, reverse = True, key = lambda x: x.lower())
         assert sorted_l is not l
         assert sorted_l == ['C', 'b', 'a']
+        raises(TypeError, sorted, [], reverse=None)
         
     def test_reversed_simple_sequences(self):
         l = range(5)
@@ -661,9 +638,39 @@ def fn(): pass
         assert vars(C_get_vars()) == {'a':2}
 
 
+class AppTestGetattr:
+    spaceconfig = {}
+
+    def test_getattr(self):
+        class a(object):
+            i = 5
+        assert getattr(a, 'i') == 5
+        raises(AttributeError, getattr, a, 'k')
+        assert getattr(a, 'k', 42) == 42
+        assert getattr(a, u'i') == 5
+        raises(AttributeError, getattr, a, u'k')
+        assert getattr(a, u'k', 42) == 42
+
+    def test_getattr_typecheck(self):
+        class A(object):
+            def __getattribute__(self, name):
+                pass
+            def __setattr__(self, name, value):
+                pass
+            def __delattr__(self, name):
+                pass
+        raises(TypeError, getattr, A(), 42)
+        raises(TypeError, setattr, A(), 42, 'x')
+        raises(TypeError, delattr, A(), 42)
+
+
+class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
+    spaceconfig = {"objspace.std.getattributeshortcut": True}
+
+
 class TestInternal:
     def test_execfile(self, space):
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         fn = str(udir.join('test_execfile'))
         f = open(fn, 'w')
         print >>f, "i=42"
@@ -677,7 +684,7 @@ class TestInternal:
         assert space.eq_w(w_value, space.wrap(42))
 
     def test_execfile_different_lineendings(self, space): 
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         d = udir.ensure('lineending', dir=1)
         dos = d.join('dos.py') 
         f = dos.open('wb') 

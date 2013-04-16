@@ -1,0 +1,14 @@
+<lcgdict>
+
+  <class pattern="cppyy_test_*" />
+
+  <function pattern="get_*" />
+  <function pattern="set_*" />
+  <function pattern="is_*" />
+
+  <variable name="N" />
+
+  <variable name="g_int" />
+  <variable name="g_pod" />
+
+</lcgdict>

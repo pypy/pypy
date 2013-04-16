@@ -166,6 +166,12 @@ class HTTPError(URLError, addinfourl):
     def __str__(self):
         return 'HTTP Error %s: %s' % (self.code, self.msg)
 
+    # since URLError specifies a .reason attribute, HTTPError should also
+    #  provide this attribute. See issue13211 fo discussion.
+    @property
+    def reason(self):
+        return self.msg
+
 # copied from cookielib.py
 _cut_port_re = re.compile(r":\d+$")
 def request_host(request):
@@ -190,7 +196,7 @@ class Request:
                  origin_req_host=None, unverifiable=False):
         # unwrap('<URL:type://host/path>') --> 'type://host/path'
         self.__original = unwrap(url)
-        self.__original, fragment = splittag(self.__original)
+        self.__original, self.__fragment = splittag(self.__original)
         self.type = None
         # self.__r_type is what's left after doing the splittype
         self.host = None
@@ -236,7 +242,10 @@ class Request:
         return self.data
 
     def get_full_url(self):
-        return self.__original
+        if self.__fragment:
+            return '%s#%s' % (self.__original, self.__fragment)
+        else:
+            return self.__original
 
     def get_type(self):
         if self.type is None:
@@ -299,8 +308,9 @@ class OpenerDirector:
     def __init__(self):
         client_version = "Python-urllib/%s" % __version__
         self.addheaders = [('User-agent', client_version)]
-        # manage the individual handlers
+        # self.handlers is retained only for backward compatibility
         self.handlers = []
+        # manage the individual handlers
         self.handle_open = {}
         self.handle_error = {}
         self.process_response = {}
@@ -350,8 +360,6 @@ class OpenerDirector:
             added = True
 
         if added:
-            # the handlers must work in an specific order, the order
-            # is specified in a Handler attribute
             bisect.insort(self.handlers, handler)
             handler.add_parent(self)
 
@@ -578,6 +586,17 @@ class HTTPRedirectHandler(BaseHandler):
         newurl = urlparse.urlunparse(urlparts)
 
         newurl = urlparse.urljoin(req.get_full_url(), newurl)
+
+        # For security reasons we do not allow redirects to protocols
+        # other than HTTP, HTTPS or FTP.
+        newurl_lower = newurl.lower()
+        if not (newurl_lower.startswith('http://') or
+                newurl_lower.startswith('https://') or
+                newurl_lower.startswith('ftp://')):
+            raise HTTPError(newurl, code,
+                            msg + " - Redirection to url '%s' is not allowed" %
+                            newurl,
+                            headers, fp)
 
         # XXX Probably want to forget about the state of the current
         # request, although that might interact poorly with other
@@ -1153,12 +1172,14 @@ class AbstractHTTPHandler(BaseHandler):
 
         try:
             h.request(req.get_method(), req.get_selector(), req.data, headers)
+        except socket.error, err: # XXX what error?
+            h.close()
+            raise URLError(err)
+        else:
             try:
                 r = h.getresponse(buffering=True)
-            except TypeError: #buffering kw not supported
+            except TypeError: # buffering kw not supported
                 r = h.getresponse()
-        except socket.error, err: # XXX what error?
-            raise URLError(err)
 
         # Pick apart the HTTPResponse object to get the addinfourl
         # object initialized properly.
@@ -1384,7 +1405,8 @@ class FTPHandler(BaseHandler):
             raise URLError, ('ftp error: %s' % msg), sys.exc_info()[2]
 
     def connect_ftp(self, user, passwd, host, port, dirs, timeout):
-        fw = ftpwrapper(user, passwd, host, port, dirs, timeout)
+        fw = ftpwrapper(user, passwd, host, port, dirs, timeout,
+                        persistent=False)
 ##        fw.ftp.set_debuglevel(1)
         return fw
 
@@ -1433,3 +1455,9 @@ class CacheFTPHandler(FTPHandler):
                     del self.timeout[k]
                     break
             self.soonest = min(self.timeout.values())
+
+    def clear_cache(self):
+        for conn in self.cache.values():
+            conn.close()
+        self.cache.clear()
+        self.timeout.clear()

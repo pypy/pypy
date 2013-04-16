@@ -1,50 +1,29 @@
-from pypy.conftest import gettestobjspace
-from pypy.module.micronumpy import interp_dtype
-from pypy.module.micronumpy.interp_numarray import NDimArray, Scalar
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
-
+from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix,\
+     byteorder_prefix
+from pypy.conftest import option
+import sys
 
 class BaseNumpyAppTest(object):
+    spaceconfig = dict(usemodules=['micronumpy'])
+
+    @classmethod
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['micronumpy'])
-
-class TestSignature(object):
-    def test_binop_signature(self, space):
-        float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
-
-        ar = NDimArray(10, [10], dtype=float64_dtype)
-        v1 = ar.descr_add(space, ar)
-        v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
-        assert v1.signature is not v2.signature
-        v3 = ar.descr_add(space, Scalar(float64_dtype, 1.0))
-        assert v2.signature is v3.signature
-        v4 = ar.descr_add(space, ar)
-        assert v1.signature is v4.signature
-
-        bool_ar = NDimArray(10, [10], dtype=space.fromcache(interp_dtype.W_BoolDtype))
-        v5 = ar.descr_add(space, bool_ar)
-        assert v5.signature is not v1.signature
-        assert v5.signature is not v2.signature
-        v6 = ar.descr_add(space, bool_ar)
-        assert v5.signature is v6.signature
-
-    def test_slice_signature(self, space):
-        ar = NDimArray(10, [10], dtype=space.fromcache(interp_dtype.W_Float64Dtype))
-        v1 = ar.descr_getitem(space, space.wrap(slice(1, 3, 1)))
-        v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
-        assert v1.signature is v2.signature
-
-        v3 = v2.descr_add(space, v1)
-        v4 = v1.descr_add(space, v2)
-        assert v3.signature is v4.signature
+        if option.runappdirect:
+            if '__pypy__' not in sys.builtin_module_names:
+                import numpy
+                sys.modules['numpypy'] = numpy
+        cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
+        cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
 
 class TestUfuncCoerscion(object):
     def test_binops(self, space):
-        bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
-        int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)
-        int32_dtype = space.fromcache(interp_dtype.W_Int32Dtype)
-        float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+        bool_dtype = get_dtype_cache(space).w_booldtype
+        int8_dtype = get_dtype_cache(space).w_int8dtype
+        int32_dtype = get_dtype_cache(space).w_int32dtype
+        float64_dtype = get_dtype_cache(space).w_float64dtype
 
         # Basic pairing
         assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
@@ -62,19 +41,20 @@ class TestUfuncCoerscion(object):
         assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_to_float=True) is float64_dtype
 
     def test_unaryops(self, space):
-        bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
-        int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)
-        uint8_dtype = space.fromcache(interp_dtype.W_UInt8Dtype)
-        int16_dtype = space.fromcache(interp_dtype.W_Int16Dtype)
-        uint16_dtype = space.fromcache(interp_dtype.W_UInt16Dtype)
-        int32_dtype = space.fromcache(interp_dtype.W_Int32Dtype)
-        uint32_dtype = space.fromcache(interp_dtype.W_UInt32Dtype)
-        long_dtype = space.fromcache(interp_dtype.W_LongDtype)
-        ulong_dtype = space.fromcache(interp_dtype.W_ULongDtype)
-        int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
-        uint64_dtype = space.fromcache(interp_dtype.W_UInt64Dtype)
-        float32_dtype = space.fromcache(interp_dtype.W_Float32Dtype)
-        float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+        bool_dtype = get_dtype_cache(space).w_booldtype
+        int8_dtype = get_dtype_cache(space).w_int8dtype
+        uint8_dtype = get_dtype_cache(space).w_uint8dtype
+        int16_dtype = get_dtype_cache(space).w_int16dtype
+        uint16_dtype = get_dtype_cache(space).w_uint16dtype
+        int32_dtype = get_dtype_cache(space).w_int32dtype
+        uint32_dtype = get_dtype_cache(space).w_uint32dtype
+        long_dtype = get_dtype_cache(space).w_longdtype
+        ulong_dtype = get_dtype_cache(space).w_ulongdtype
+        int64_dtype = get_dtype_cache(space).w_int64dtype
+        uint64_dtype = get_dtype_cache(space).w_uint64dtype
+        float16_dtype = get_dtype_cache(space).w_float16dtype
+        float32_dtype = get_dtype_cache(space).w_float32dtype
+        float64_dtype = get_dtype_cache(space).w_float64dtype
 
         # Normal rules, everything returns itself
         assert find_unaryop_result_dtype(space, bool_dtype) is bool_dtype
@@ -93,9 +73,9 @@ class TestUfuncCoerscion(object):
 
         # Coerce to floats, some of these will eventually be float16, or
         # whatever our smallest float type is.
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
-        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
-        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype 
+        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype 
+        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float16_dtype
         assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, uint16_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype

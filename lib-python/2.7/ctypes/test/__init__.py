@@ -206,3 +206,16 @@ class BasicTestRunner:
         result = unittest.TestResult()
         test(result)
         return result
+
+def xfail(method):
+    """
+    Poor's man xfail: remove it when all the failures have been fixed
+    """
+    def new_method(self, *args, **kwds):
+        try:
+            method(self, *args, **kwds)
+        except:
+            pass
+        else:
+            self.assertTrue(False, "DID NOT RAISE")
+    return new_method

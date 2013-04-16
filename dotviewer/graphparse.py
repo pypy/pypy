@@ -93,6 +93,7 @@ def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
     return result
 
 def parse_plain(graph_id, plaincontent, links={}, fixedfont=False):
+    plaincontent = plaincontent.replace('\r\n', '\n')    # fix Windows EOL
     lines = plaincontent.splitlines(True)
     for i in range(len(lines)-2, -1, -1):
         if lines[i].endswith('\\\n'):   # line ending in '\'

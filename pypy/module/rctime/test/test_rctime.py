@@ -1,10 +1,7 @@
-from pypy.conftest import gettestobjspace
-import os
-
 class AppTestRCTime:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('rctime',))
-        cls.space = space
+    spaceconfig = {
+        "usemodules": ['rctime', 'struct', 'binascii'],
+    }
 
     def test_attributes(self):
         import time as rctime
@@ -14,7 +11,7 @@ class AppTestRCTime:
         assert isinstance(rctime.timezone, int)
         assert isinstance(rctime.tzname, tuple)
         assert isinstance(rctime.__doc__, str)
-    
+
     def test_sleep(self):
         import time as rctime
         import sys
@@ -46,7 +43,7 @@ class AppTestRCTime:
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
         raises(ValueError, rctime.ctime, 1E200)
-    
+
     def test_gmtime(self):
         import time as rctime
         raises(TypeError, rctime.gmtime, "foo")
@@ -64,6 +61,7 @@ class AppTestRCTime:
 
     def test_localtime(self):
         import time as rctime
+        import os
         raises(TypeError, rctime.localtime, "foo")
         rctime.localtime()
         rctime.localtime(None)
@@ -75,7 +73,11 @@ class AppTestRCTime:
         assert 0 <= (t1 - t0) < 1.2
         t = rctime.time()
         assert rctime.localtime(t) == rctime.localtime(t)
-    
+        if os.name == 'nt':
+            raises(ValueError, rctime.localtime, -1)
+        else:
+            rctime.localtime(-1)
+
     def test_mktime(self):
         import time as rctime
         import os, sys
@@ -85,30 +87,38 @@ class AppTestRCTime:
         raises(TypeError, rctime.mktime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
         res = rctime.mktime(rctime.localtime())
         assert isinstance(res, float)
-        
+
         ltime = rctime.localtime()
         rctime.accept2dyear == 0
         ltime = list(ltime)
         ltime[0] = 1899
         raises(ValueError, rctime.mktime, tuple(ltime))
         rctime.accept2dyear == 1
-    
+
         ltime = list(ltime)
         ltime[0] = 67
         ltime = tuple(ltime)
         if os.name != "nt" and sys.maxint < 1<<32:   # time_t may be 64bit
             raises(OverflowError, rctime.mktime, ltime)
-    
+
         ltime = list(ltime)
         ltime[0] = 100
         raises(ValueError, rctime.mktime, tuple(ltime))
-    
+
         t = rctime.time()
         assert long(rctime.mktime(rctime.localtime(t))) == long(t)
         assert long(rctime.mktime(rctime.gmtime(t))) - rctime.timezone == long(t)
         ltime = rctime.localtime()
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
-    
+        if os.name != 'nt':
+            assert rctime.mktime(rctime.localtime(-1)) == -1
+
+        res = rctime.mktime((2000, 1, 1, 0, 0, 0, -1, -1, -1))
+        if os.name == 'nt':
+            assert rctime.ctime(res) == 'Sat Jan 01 00:00:00 2000'
+        else:
+            assert rctime.ctime(res) == 'Sat Jan  1 00:00:00 2000'
+
     def test_asctime(self):
         import time as rctime
         rctime.asctime()
@@ -129,6 +139,16 @@ class AppTestRCTime:
         ltime = rctime.localtime()
         assert rctime.asctime(tuple(ltime)) == rctime.asctime(ltime)
 
+    def test_accept2dyear_access(self):
+        import time as rctime
+
+        accept2dyear = rctime.accept2dyear
+        del rctime.accept2dyear
+        try:
+            assert rctime.asctime((12345,) + (0,) * 8).split()[-1] == '12345'
+        finally:
+            rctime.accept2dyear = accept2dyear
+
     def test_struct_time(self):
         import time as rctime
         raises(TypeError, rctime.struct_time)
@@ -138,18 +158,18 @@ class AppTestRCTime:
         st_time = rctime.struct_time(tup)
         assert str(st_time).startswith('time.struct_time(tm_year=1, ')
         assert len(st_time) == len(tup)
-    
+
     def test_tzset(self):
         import time as rctime
         import os
-        
+
         if not os.name == "posix":
             skip("tzset available only under Unix")
-    
+
         # epoch time of midnight Dec 25th 2002. Never DST in northern
         # hemisphere.
         xmas2002 = 1040774400.0
-    
+
         # these formats are correct for 2002, and possibly future years
         # this format is the 'standard' as documented at:
         # http://www.opengroup.org/onlinepubs/007904975/basedefs/xbd_chap08.html
@@ -158,7 +178,7 @@ class AppTestRCTime:
         eastern = 'EST+05EDT,M4.1.0,M10.5.0'
         victoria = 'AEST-10AEDT-11,M10.5.0,M3.5.0'
         utc = 'UTC+0'
-    
+
         org_TZ = os.environ.get('TZ', None)
         try:
             # Make sure we can switch to UTC time and results are correct
@@ -172,7 +192,7 @@ class AppTestRCTime:
             assert rctime.daylight == 0
             assert rctime.timezone == 0
             assert rctime.localtime(xmas2002).tm_isdst == 0
-            
+
             # make sure we can switch to US/Eastern
             os.environ['TZ'] = eastern
             rctime.tzset()
@@ -183,7 +203,7 @@ class AppTestRCTime:
             assert rctime.timezone == 18000
             assert rctime.altzone == 14400
             assert rctime.localtime(xmas2002).tm_isdst == 0
-            
+
             # now go to the southern hemisphere.
             os.environ['TZ'] = victoria
             rctime.tzset()
@@ -206,7 +226,8 @@ class AppTestRCTime:
 
     def test_strftime(self):
         import time as rctime
-        
+        import os, sys
+
         t = rctime.time()
         tt = rctime.gmtime(t)
         for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
@@ -214,12 +235,24 @@ class AppTestRCTime:
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
             rctime.strftime(format, tt)
-        
+
         raises(TypeError, rctime.strftime, ())
         raises(TypeError, rctime.strftime, (1,))
         raises(TypeError, rctime.strftime, range(8))
         exp = '2000 01 01 00 00 00 1 001'
         assert rctime.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
+
+        # Guard against invalid/non-supported format string
+        # so that Python don't crash (Windows crashes when the format string
+        # input to [w]strftime is not kosher.
+        if os.name == 'nt':
+            raises(ValueError, rctime.strftime, '%f')
+        elif sys.platform == 'darwin' or 'bsd' in sys.platform:
+            # darwin strips % of unknown format codes
+            # http://bugs.python.org/issue9811
+            assert rctime.strftime('%f') == 'f'
+        else:
+            assert rctime.strftime('%f') == '%f'
 
     def test_strftime_ext(self):
         import time as rctime
@@ -234,10 +267,10 @@ class AppTestRCTime:
 
     def test_strftime_bounds_checking(self):
         import time as rctime
-        
+
         # make sure that strftime() checks the bounds of the various parts
         # of the time tuple.
-    
+
         # check year
         raises(ValueError, rctime.strftime, '', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
         if rctime.accept2dyear:

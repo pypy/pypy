@@ -260,7 +260,18 @@ def blowstack(fxn, arg, compare_to):
     # Make sure that calling isinstance with a deeply nested tuple for its
     # argument will raise RuntimeError eventually.
     tuple_arg = (compare_to,)
-    for cnt in xrange(sys.getrecursionlimit()+5):
+
+
+    if test_support.check_impl_detail(cpython=True):
+        RECURSION_LIMIT = sys.getrecursionlimit()
+    else:
+        # on non-CPython implementations, the maximum
+        # actual recursion limit might be higher, but
+        # probably not higher than 99999
+        #
+        RECURSION_LIMIT = 99999
+
+    for cnt in xrange(RECURSION_LIMIT+5):
         tuple_arg = (tuple_arg,)
         fxn(arg, tuple_arg)
 

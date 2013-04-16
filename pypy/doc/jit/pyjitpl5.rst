@@ -13,7 +13,7 @@ story. This section tries to give a high level overview of how PyPy's JIT is
 implemented.  It's helpful to have an understanding of how the `RPython translation
 toolchain`_ works before digging into the sources.
 
-Almost all JIT specific code is found in pypy/jit subdirectories.  Translation
+Almost all JIT specific code is found in rpython/jit subdirectories.  Translation
 time code is in the codewriter directory.  The metainterp directory holds
 platform independent code including the the tracer and the optimizer.  Code in
 the backend directory is responsible for generating machine code.
@@ -149,7 +149,7 @@ Virtuals and Virtualizables
 
 A *virtual* value is an array, struct, or RPython level instance that is created
 during the loop and does not escape from it via calls or longevity past the
-loop.  Since it is only used by the JIT, it be "optimized out"; the value
+loop.  Since it is only used by the JIT, it can be "optimized out"; the value
 doesn't have to be allocated at all and its fields can be stored as first class
 values instead of deferencing them in memory.  Virtuals allow temporary objects
 in the interpreter to be unwrapped.  For example, a W_IntObject in the PyPy can
@@ -175,7 +175,7 @@ article:
 
 * `Tracing the Meta-Level: PyPy's Tracing JIT Compiler`__
 
-.. __: http://codespeak.net/svn/pypy/extradoc/talk/icooolps2009/bolz-tracing-jit-final.pdf
+.. __: https://bitbucket.org/pypy/extradoc/src/tip/talk/icooolps2009/bolz-tracing-jit-final.pdf
 
 as well as the `blog posts with the JIT tag.`__
 

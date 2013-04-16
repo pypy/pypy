@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestGreenlet:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_continuation'], continuation=True)
+    spaceconfig = dict(usemodules=['_continuation'], continuation=True)
 
     def test_simple(self):
         from greenlet import greenlet
@@ -133,6 +129,40 @@ class AppTestGreenlet:
         g2.switch()
         res = g1.switch()
         assert res == "ok"
+
+    def test_throw_GreenletExit(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        l = [0]
+        #
+        def func():
+            l[0] += 1
+            gmain.switch()
+            l[0] += 1
+        #
+        g = greenlet(func)
+        g.switch()
+        assert l[0] == 1
+        g.throw()
+        assert l[0] == 1
+
+    def test_throw_GreenletExit_result(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        l = [0]
+        #
+        def func():
+            l[0] += 1
+            gmain.switch()
+            l[0] += 1
+        #
+        g = greenlet(func)
+        g.switch()
+        assert l[0] == 1
+        ge1 = greenlet.GreenletExit(1, 2, 3)
+        ge2 = g.throw(ge1)
+        assert l[0] == 1
+        assert ge1 is ge2
 
     def test_nondefault_parent(self):
         from greenlet import greenlet
@@ -280,3 +310,12 @@ class AppTestGreenlet:
         assert g.gr_frame.f_code.co_name == 'f2'
         g.switch()
         assert g.gr_frame is None
+
+    def test_override_nonzero(self):
+        from greenlet import greenlet
+        class G(greenlet):
+            def __nonzero__(self):
+                raise ValueError
+        g = G(lambda: 42)
+        x = g.switch()
+        assert x == 42

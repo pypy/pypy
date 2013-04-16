@@ -66,11 +66,11 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2011 PyPy development team.
+Copyright 2003-2013 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
-Portions Copyright (c) 2001-2008 Python Software Foundation.
+Portions Copyright (c) 2001-2013 Python Software Foundation.
 All Rights Reserved.
 
 Portions Copyright (c) 2000 BeOpen.com.
@@ -105,5 +105,6 @@ class sysflags:
     verbose = structseqfield(12)
     unicode = structseqfield(13)
     bytes_warning = structseqfield(14)
+    hash_randomization = structseqfield(15)
 
-null_sysflags = sysflags((0,)*15)
+null_sysflags = sysflags((0,)*16)

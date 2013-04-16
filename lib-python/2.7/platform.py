@@ -183,7 +183,7 @@ def libc_ver(executable=sys.executable,lib='',version='',
         elif so:
             if lib != 'glibc':
                 lib = 'libc'
-                if soversion > version:
+                if soversion and soversion > version:
                     version = soversion
                 if threads and version[-len(threads):] != threads:
                     version = version + threads
@@ -503,7 +503,7 @@ def _syscmd_ver(system='', release='', version='',
             info = pipe.read()
             if pipe.close():
                 raise os.error,'command failed'
-            # XXX How can I supress shell errors from being written
+            # XXX How can I suppress shell errors from being written
             #     to stderr ?
         except os.error,why:
             #print 'Command %s failed: %s' % (cmd,why)
@@ -554,7 +554,7 @@ def win32_ver(release='',version='',csd='',ptype=''):
 
     """ Get additional version information from the Windows Registry
         and return a tuple (version,csd,ptype) referring to version
-        number, CSD level and OS type (multi/single
+        number, CSD level (service pack), and OS type (multi/single
         processor).
 
         As a hint: ptype returns 'Uniprocessor Free' on single
@@ -765,6 +765,7 @@ def _mac_ver_gestalt():
                    0x2: 'PowerPC',
                    0xa: 'i386'}.get(sysa,'')
 
+    versioninfo=('', '', '')
     return release,versioninfo,machine
 
 def _mac_ver_xml():
@@ -1448,9 +1449,10 @@ def python_implementation():
     """ Returns a string identifying the Python implementation.
 
         Currently, the following implementations are identified:
-        'CPython' (C implementation of Python),
-        'IronPython' (.NET implementation of Python),
-        'Jython' (Java implementation of Python).
+          'CPython' (C implementation of Python),
+          'IronPython' (.NET implementation of Python),
+          'Jython' (Java implementation of Python),
+          'PyPy' (Python implementation of Python).
 
     """
     return _sys_version()[0]

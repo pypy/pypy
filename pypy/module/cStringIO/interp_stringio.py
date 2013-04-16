@@ -1,11 +1,11 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.rStringIO import RStringIO
+from rpython.rlib.rStringIO import RStringIO
 
 
-class W_InputOutputType(Wrappable):
+class W_InputOutputType(W_Root):
     softspace = 0    # part of the file object API
 
     def descr___iter__(self):
@@ -146,35 +146,20 @@ class W_InputType(W_InputOutputType):
 
 class W_OutputType(RStringIO, W_InputOutputType):
     def __init__(self, space):
-        RStringIO.__init__(self)
+        self.init()
         self.space = space
 
-    def readline(self, size=-1):
-        p = self.tell()
-        bigbuffer = self.copy_into_bigbuffer()
-        end = len(bigbuffer)
-        if size >= 0 and size < end - p:
-            end = p + size
-        assert p >= 0
-        i = p
-        while i < end:
-            finished = bigbuffer[i] == '\n'
-            i += 1
-            if finished:
-                break
-        self.seek(i)
-        return ''.join(bigbuffer[p:i])
-
-    def descr_truncate(self, w_size=None):  # note: a wrapped size!
+    def descr_truncate(self, w_size=None):
         self.check_closed()
         space = self.space
-        if w_size is None or space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             size = self.tell()
         else:
             size = space.int_w(w_size)
         if size < 0:
             raise OperationError(space.w_IOError, space.wrap("negative size"))
         self.truncate(size)
+        self.seek(0, 2)
 
     @unwrap_spec(buffer='bufferstr')
     def descr_write(self, buffer):
@@ -221,7 +206,8 @@ common_descrs = {
 }
 
 W_InputType.typedef = TypeDef(
-    "cStringIO.StringI",
+    "StringI",
+    __module__   = "cStringIO",
     __doc__      = "Simple type for treating strings as input file streams",
     closed       = GetSetProperty(descr_closed, cls=W_InputType),
     softspace    = GetSetProperty(descr_softspace,
@@ -232,7 +218,8 @@ W_InputType.typedef = TypeDef(
     )
 
 W_OutputType.typedef = TypeDef(
-    "cStringIO.StringO",
+    "StringO",
+    __module__   = "cStringIO",
     __doc__      = "Simple type for output to strings.",
     truncate     = interp2app(W_OutputType.descr_truncate),
     write        = interp2app(W_OutputType.descr_write),
@@ -247,7 +234,7 @@ W_OutputType.typedef = TypeDef(
 # ____________________________________________________________
 
 def StringIO(space, w_string=None):
-    if space.is_w(w_string, space.w_None):
+    if space.is_none(w_string):
         return space.wrap(W_OutputType(space))
     else:
         string = space.bufferstr_w(w_string)

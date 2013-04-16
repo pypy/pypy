@@ -295,12 +295,11 @@ class AppTestUnicodeObject:
         assert u'%x' % ten == 'a'
 
     def test_long_no_overflow(self):
-        big = 100000000000L
-        assert "%x" % big == "174876e800"
+        big = 0x1234567890987654321
+        assert "%x" % big == "1234567890987654321"
 
     def test_missing_cases(self):
-        big = -123456789012345678901234567890L
-        print '%032d' % big
+        big = -123456789012345678901234567890
         assert '%032d' % big == '-0123456789012345678901234567890'
 
     def test_invalid_char(self):

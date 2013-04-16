@@ -253,3 +253,8 @@ class TestPointers(BaseCTypesTestChecker):
         TwoOutArgs(a, byref(b), c, byref(d))
         assert b.value == 7
         assert d.value == 11
+
+    def test_byref_cannot_be_bound(self):
+        class A(object):
+            _byref = byref
+        A._byref(c_int(5))

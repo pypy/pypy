@@ -1,15 +1,10 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import GetSetProperty, default_identity_hash
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std import identitydict
 
 def descr__repr__(space, w_obj):
-    w = space.wrap
     w_type = space.type(w_obj)
     classname = w_type.getname(space)
     w_module = w_type.lookup("__module__")
@@ -64,7 +59,7 @@ _abstract_method_error = app.interphook("_abstract_method_error")
 
 def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.objectobject import W_ObjectObject
-    from pypy.objspace.std.typetype import _precheck_for_new
+    from pypy.objspace.std.typeobject import _precheck_for_new
     # don't allow arguments if the default object.__init__() is about
     # to be called
     w_type = _precheck_for_new(space, w_type)
@@ -126,11 +121,8 @@ def descr___format__(space, w_obj, w_format_spec):
         msg = "format_spec must be a string"
         raise OperationError(space.w_TypeError, space.wrap(msg))
     if space.len_w(w_format_spec) > 0:
-        space.warn(
-            ("object.__format__ with a non-empty format string is "
-                "deprecated"),
-            space.w_PendingDeprecationWarning
-        )
+        msg = "object.__format__ with a non-empty format string is deprecated"
+        space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
     return space.format(w_as_str, w_format_spec)
 
 def descr___subclasshook__(space, __args__):

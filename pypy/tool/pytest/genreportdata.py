@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-import autopath
 import py
 import sys
         

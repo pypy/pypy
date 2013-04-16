@@ -1,6 +1,9 @@
-from pypy.conftest import gettestobjspace, option
+from __future__ import with_statement
 from pypy.interpreter.gateway import interp2app
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
+from pypy.module._io import interp_bufferedio
+from pypy.interpreter.error import OperationError
+import py.test
 
 class AppTestBufferedReader:
     spaceconfig = dict(usemodules=['_io'])
@@ -191,16 +194,37 @@ class AppTestBufferedReader:
         f = _io.BufferedReader(raw)
         assert repr(f) == '<_io.BufferedReader name=%r>' % (self.tmpfile,)
 
+    def test_read_interrupted(self):
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self):
+                self.count = 0
+            def readable(self):
+                return True
+            def readinto(self, buf):
+                self.count += 1
+                if self.count < 3:
+                    raise IOError(errno.EINTR, "interrupted")
+                else:
+                    buf[:3] = "abc"
+                    return 3
+        rawio = MockRawIO()
+        bufio = _io.BufferedReader(rawio)
+        r = bufio.read(4)
+        assert r == "abca"
+        assert rawio.count == 4
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread'])
 
 
 class AppTestBufferedWriter:
+    spaceconfig = dict(usemodules=['_io', 'thread'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        if option.runappdirect:
+        if cls.runappdirect:
             cls.w_readfile = tmpfile.read
         else:
             def readfile(space):
@@ -313,9 +337,14 @@ class AppTestBufferedWriter:
                     except ValueError:
                         pass
                     else:
-                        self._blocker_char = None
-                        self._write_stack.append(b[:n])
-                        raise _io.BlockingIOError(0, "test blocking", n)
+                        if n > 0:
+                            # write data up to the first blocker
+                            self._write_stack.append(b[:n])
+                            return n
+                        else:
+                            # cancel blocker and indicate would block
+                            self._blocker_char = None
+                            return None
                 self._write_stack.append(b)
                 return len(b)
 
@@ -343,6 +372,69 @@ class AppTestBufferedWriter:
         s = raw.pop_written()
         # Previously buffered bytes were flushed
         assert s.startswith("01234567A")
+
+    def test_nonblock_pipe_write_bigbuf(self):
+        self.test_nonblock_pipe_write(16*1024)
+
+    def test_nonblock_pipe_write_smallbuf(self):
+        self.test_nonblock_pipe_write(1024)
+
+    def w_test_nonblock_pipe_write(self, bufsize):
+        import _io as io
+        class NonBlockingPipe(io._BufferedIOBase):
+            "write() returns None when buffer is full"
+            def __init__(self, buffersize=4096):
+                self.buffersize = buffersize
+                self.buffer = b''
+            def readable(self): return True
+            def writable(self): return True
+
+            def write(self, data):
+                available = self.buffersize - len(self.buffer)
+                if available <= 0:
+                    return None
+                self.buffer += data[:available]
+                return min(len(data), available)
+            def read(self, size=-1):
+                if not self.buffer:
+                    return None
+                if size == -1:
+                    size = len(self.buffer)
+                data = self.buffer[:size]
+                self.buffer = self.buffer[size:]
+                return data
+
+        sent = []
+        received = []
+        pipe = NonBlockingPipe()
+        rf = io.BufferedReader(pipe, bufsize)
+        wf = io.BufferedWriter(pipe, bufsize)
+
+        for N in 9999, 7574:
+            try:
+                i = 0
+                while True:
+                    msg = chr(i % 26 + 97) * N
+                    sent.append(msg)
+                    wf.write(msg)
+                    i += 1
+            except io.BlockingIOError as e:
+                sent[-1] = sent[-1][:e.characters_written]
+                received.append(rf.read())
+                msg = b'BLOCKED'
+                wf.write(msg)
+                sent.append(msg)
+        while True:
+            try:
+                wf.flush()
+                break
+            except io.BlockingIOError as e:
+                received.append(rf.read())
+        received += iter(rf.read, None)
+        rf.close()
+        wf.close()
+        sent, received = b''.join(sent), b''.join(received)
+        assert sent == received
 
     def test_read_non_blocking(self):
         import _io
@@ -386,6 +478,41 @@ class AppTestBufferedWriter:
         assert bufio.read() is None
         assert bufio.read() == ""
 
+    def test_write_interrupted(self):
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self):
+                self.count = 0
+            def writable(self):
+                return True
+            def write(self, data):
+                self.count += 1
+                if self.count < 3:
+                    raise IOError(errno.EINTR, "interrupted")
+                else:
+                    return len(data)
+        rawio = MockRawIO()
+        bufio = _io.BufferedWriter(rawio)
+        assert bufio.write("test") == 4
+        bufio.flush()
+        assert rawio.count == 3
+
+    def test_reentrant_write(self):
+        import thread  # Reentrant-safe is only enabled with threads
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def writable(self):
+                return True
+            def write(self, data):
+                bufio.write("something else")
+                return len(data)
+
+        rawio = MockRawIO()
+        bufio = _io.BufferedWriter(rawio)
+        bufio.write("test")
+        exc = raises(RuntimeError, bufio.flush)
+        assert "reentrant" in str(exc.value)  # And not e.g. recursion limit.
+
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io
@@ -414,8 +541,9 @@ class AppTestBufferedRWPair:
         raises(IOError, _io.BufferedRWPair, _io.BytesIO(), NotWritable())
 
 class AppTestBufferedRandom:
+    spaceconfig = dict(usemodules=['_io'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
@@ -428,3 +556,102 @@ class AppTestBufferedRandom:
         f.write('xxxx')
         f.seek(0)
         assert f.read() == 'a\nbxxxx'
+
+    def test_simple_read_after_write(self):
+        import _io
+        raw = _io.FileIO(self.tmpfile, 'wb+')
+        f = _io.BufferedRandom(raw)
+        f.write('abc')
+        f.seek(0)
+        assert f.read() == 'abc'
+
+    def test_write_rewind_write(self):
+        # Various combinations of reading / writing / seeking
+        # backwards / writing again
+        import _io, errno
+        def mutate(bufio, pos1, pos2):
+            assert pos2 >= pos1
+            # Fill the buffer
+            bufio.seek(pos1)
+            bufio.read(pos2 - pos1)
+            bufio.write(b'\x02')
+            # This writes earlier than the previous write, but still inside
+            # the buffer.
+            bufio.seek(pos1)
+            bufio.write(b'\x01')
+
+        b = b"\x80\x81\x82\x83\x84"
+        for i in range(0, len(b)):
+            for j in range(i, len(b)):
+                raw = _io.BytesIO(b)
+                bufio = _io.BufferedRandom(raw, 100)
+                mutate(bufio, i, j)
+                bufio.flush()
+                expected = bytearray(b)
+                expected[j] = 2
+                expected[i] = 1
+                assert raw.getvalue() == str(expected)
+
+    def test_interleaved_read_write(self):
+        import _io as io
+        # Test for issue #12213
+        with io.BytesIO(b'abcdefgh') as raw:
+            with io.BufferedRandom(raw, 100) as f:
+                f.write(b"1")
+                assert f.read(1) == b'b'
+                f.write(b'2')
+                assert f.read1(1) == b'd'
+                f.write(b'3')
+                buf = bytearray(1)
+                f.readinto(buf)
+                assert buf ==  b'f'
+                f.write(b'4')
+                assert f.peek(1) == b'h'
+                f.flush()
+                assert raw.getvalue() == b'1b2d3f4h'
+
+        with io.BytesIO(b'abc') as raw:
+            with io.BufferedRandom(raw, 100) as f:
+                assert f.read(1) == b'a'
+                f.write(b"2")
+                assert f.read(1) == b'c'
+                f.flush()
+                assert raw.getvalue() == b'a2c'
+
+    def test_interleaved_readline_write(self):
+        import _io as io
+        with io.BytesIO(b'ab\ncdef\ng\n') as raw:
+            with io.BufferedRandom(raw) as f:
+                f.write(b'1')
+                assert f.readline() == b'b\n'
+                f.write(b'2')
+                assert f.readline() == b'def\n'
+                f.write(b'3')
+                assert f.readline() == b'\n'
+                f.flush()
+                assert raw.getvalue() == b'1b\n2def\n3\n'
+
+    def test_readline(self):
+        import _io as io
+        with io.BytesIO(b"abc\ndef\nxyzzy\nfoo\x00bar\nanother line") as raw:
+            with io.BufferedRandom(raw, buffer_size=10) as f:
+                assert f.readline() == b"abc\n"
+                assert f.readline(10) == b"def\n"
+                assert f.readline(2) == b"xy"
+                assert f.readline(4) == b"zzy\n"
+                assert f.readline() == b"foo\x00bar\n"
+                assert f.readline(None) == b"another line"
+                raises(TypeError, f.readline, 5.3)
+
+
+class TestNonReentrantLock:
+    spaceconfig = dict(usemodules=['thread'])
+
+    def test_trylock(self, space):
+        lock = interp_bufferedio.TryLock(space)
+        with lock:
+            pass
+        with lock:
+            exc = py.test.raises(OperationError, "with lock: pass")
+        assert exc.value.match(space, space.w_RuntimeError)
+

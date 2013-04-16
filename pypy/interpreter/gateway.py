@@ -4,34 +4,36 @@ Gateway between app-level and interpreter-level:
 * BuiltinCode (call interp-level code from app-level)
 * app2interp  (embed an app-level function into an interp-level callable)
 * interp2app  (publish an interp-level object to be visible from app-level)
+* interpindirect2app (publish an interp-level object to be visible from
+                      app-level as an indirect call to implementation)
 
 """
 
-import types, sys, os
-from pypy.tool.compat import md5
+import sys
+import os
+import types
+import inspect
 
-NoneNotWrapped = object()
-
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.interpreter.error import OperationError
-from pypy.interpreter import eval
-from pypy.interpreter.function import Function, Method, ClassMethod
-from pypy.interpreter.function import FunctionWithFixedCode
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
-from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
-from pypy.interpreter.argument import Arguments, Signature
-from pypy.tool.sourcetools import NiceCompile, compile2
-from pypy.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
-from pypy.rlib import rstackovf
-from pypy.rlib.objectmodel import we_are_translated
-
-# internal non-translatable parts:
 import py
 
+from pypy.interpreter.eval import Code
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.signature import Signature
+from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
+    DescrMismatch)
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
+from rpython.rlib import rstackovf
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
+from rpython.tool.sourcetools import func_with_new_name, compile2
+
+
+# internal non-translatable parts:
 class SignatureBuilder(object):
     "NOT_RPYTHON"
     def __init__(self, func=None, argnames=None, varargname=None,
-                 kwargname=None, name = None):
+                 kwargname=None, name=None):
         self.func = func
         if func is not None:
             self.name = func.__name__
@@ -54,16 +56,18 @@ class SignatureBuilder(object):
 class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
-    bases_order = [Wrappable, W_Root, ObjSpace, Arguments, object]
+    bases_order = [W_Root, ObjSpace, Arguments, object]
 
     def dispatch(self, el, *args):
         if isinstance(el, str):
             getattr(self, "visit_%s" % (el,))(el, *args)
         elif isinstance(el, tuple):
-            if el[0] == 'self':
+            if el[0] == 'INTERNAL:self':
                 self.visit_self(el[1], *args)
             else:
-                self.visit_function(el, *args)
+                assert False, "not supported any more, use WrappedDefault"
+        elif isinstance(el, WrappedDefault):
+            self.visit__W_Root(W_Root, *args)
         elif isinstance(el, type):
             for typ in self.bases_order:
                 if issubclass(el, typ):
@@ -81,8 +85,8 @@ class UnwrapSpecRecipe(object):
         for el in unwrap_spec:
             dispatch(el, *extra)
 
-class UnwrapSpecEmit(UnwrapSpecRecipe):
 
+class UnwrapSpecEmit(UnwrapSpecRecipe):
     def __init__(self):
         self.n = 0
         self.miniglobals = {}
@@ -97,10 +101,11 @@ class UnwrapSpecEmit(UnwrapSpecRecipe):
         self.miniglobals[name] = obj
         return name
 
+
 #________________________________________________________________
 
-class UnwrapSpec_Check(UnwrapSpecRecipe):
 
+class UnwrapSpec_Check(UnwrapSpecRecipe):
     # checks for checking interp2app func argument names wrt unwrap_spec
     # and synthetizing an app-level signature
 
@@ -108,17 +113,14 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.func = original_sig.func
         self.orig_arg = iter(original_sig.argnames).next
 
-    def visit_function(self, (func, cls), app_sig):
-        self.dispatch(cls, app_sig)
-
     def visit_self(self, cls, app_sig):
-        self.visit__Wrappable(cls, app_sig)
+        self.visit__W_Root(cls, app_sig)
 
     def checked_space_method(self, typname, app_sig):
         argname = self.orig_arg()
         assert not argname.startswith('w_'), (
-            "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (typname, argname, self.func))
+            "unwrapped %s argument %s of built-in function %r in %r should "
+            "not start with 'w_'" % (typname, argname, self.func.func_name, self.func.func_globals['__name__']))
         app_sig.append(argname)
 
     def visit_index(self, index, app_sig):
@@ -128,6 +130,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.checked_space_method(el, app_sig)
 
     def visit_str_or_None(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_str0(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_nonnegint(self, el, app_sig):
@@ -142,31 +147,26 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
-    def visit_truncatedint(self, el, app_sig):
+    def visit_truncatedint_w(self, el, app_sig):
         self.checked_space_method(el, app_sig)
-
-    def visit__Wrappable(self, el, app_sig):
-        name = el.__name__
-        argname = self.orig_arg()
-        assert not argname.startswith('w_'), (
-            "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (name, argname, self.func))
-        app_sig.append(argname)
 
     def visit__ObjSpace(self, el, app_sig):
         self.orig_arg()
 
     def visit__W_Root(self, el, app_sig):
-        assert el is W_Root, "%s is not W_Root (forgotten to put .im_func in interp2app argument?)" % (el,)
         argname = self.orig_arg()
+        if argname == 'self':
+            assert el is not W_Root
+            app_sig.append(argname)
+            return
         assert argname.startswith('w_'), (
-            "argument %s of built-in function %r should "
-            "start with 'w_'" % (argname, self.func))
+            "argument %s of built-in function %r in %r should "
+            "start with 'w_'" % (argname, self.func.func_name, self.func.func_globals['__name__']))
         app_sig.append(argname[2:])
 
     def visit__Arguments(self, el, app_sig):
-        argname = self.orig_arg()
-        assert app_sig.varargname is None,(
+        self.orig_arg()
+        assert app_sig.varargname is None, (
             "built-in function %r has conflicting rest args specs" % self.func)
         app_sig.varargname = 'args'
         app_sig.kwargname = 'keywords'
@@ -176,7 +176,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         assert argname.endswith('_w'), (
             "rest arguments arg %s of built-in function %r should end in '_w'" %
             (argname, self.func))
-        assert app_sig.varargname is None,(
+        assert app_sig.varargname is None, (
             "built-in function %r has conflicting rest args specs" % self.func)
         app_sig.varargname = argname[:-2]
 
@@ -185,7 +185,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         assert argname.startswith('w_'), (
             "rest arguments arg %s of built-in function %r should start 'w_'" %
             (argname, self.func))
-        assert app_sig.varargname is None,(
+        assert app_sig.varargname is None, (
             "built-in function %r has conflicting rest args specs" % self.func)
         app_sig.varargname = argname[2:]
 
@@ -205,23 +205,19 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def scopenext(self):
         return "scope_w[%d]" % self.succ()
 
-    def visit_function(self, (func, cls)):
-        self.run_args.append("%s(%s)" % (self.use(func),
-                                         self.scopenext()))
-
     def visit_self(self, typ):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
                              (self.use(typ), self.scopenext()))
-
-    def visit__Wrappable(self, typ):
-        self.run_args.append("space.interp_w(%s, %s)" % (self.use(typ),
-                                                         self.scopenext()))
 
     def visit__ObjSpace(self, el):
         self.run_args.append('space')
 
     def visit__W_Root(self, el):
-        self.run_args.append(self.scopenext())
+        if el is not W_Root:
+            self.run_args.append("space.interp_w(%s, %s)" % (self.use(el),
+                                                         self.scopenext()))
+        else:
+            self.run_args.append(self.scopenext())
 
     def visit__Arguments(self, el):
         self.miniglobals['Arguments'] = Arguments
@@ -249,6 +245,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_str_or_None(self, typ):
         self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
 
+    def visit_str0(self, typ):
+        self.run_args.append("space.str0_w(%s)" % (self.scopenext(),))
+
     def visit_nonnegint(self, typ):
         self.run_args.append("space.gateway_nonnegint_w(%s)" % (
             self.scopenext(),))
@@ -262,8 +261,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_c_nonnegint(self, typ):
         self.run_args.append("space.c_nonnegint_w(%s)" % (self.scopenext(),))
 
-    def visit_truncatedint(self, typ):
-        self.run_args.append("space.truncatedint(%s)" % (self.scopenext(),))
+    def visit_truncatedint_w(self, typ):
+        self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
 
     def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
@@ -278,6 +277,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                 if isinstance(el, tuple):
                     parts.append(''.join([getattr(subel, '__name__', subel)
                                           for subel in el]))
+                elif isinstance(el, WrappedDefault):
+                    parts.append('W_Root')
                 else:
                     parts.append(getattr(el, '__name__', el))
             label = '_'.join(parts)
@@ -314,15 +315,16 @@ class BuiltinActivation(object):
 
     def _run(self, space, scope_w):
         """Subclasses with behavior specific for an unwrap spec are generated"""
-        raise TypeError, "abstract"
+        raise TypeError("abstract")
 
 #________________________________________________________________
+
 
 class FastFuncNotSupported(Exception):
     pass
 
-class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
+class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def __init__(self):
         UnwrapSpecEmit.__init__(self)
         self.args = []
@@ -340,16 +342,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.args.append(arg)
         return arg
 
-    def visit_function(self, (func, cls)):
-        raise FastFuncNotSupported
-
     def visit_self(self, typ):
         self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
                            (self.use(typ), self.nextarg()))
-
-    def visit__Wrappable(self, typ):
-        self.unwrap.append("space.interp_w(%s, %s)" % (self.use(typ),
-                                                       self.nextarg()))
 
     def visit__ObjSpace(self, el):
         if self.finger != 0:
@@ -357,7 +352,11 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space")
 
     def visit__W_Root(self, el):
-        self.unwrap.append(self.nextarg())
+        if el is not W_Root:
+            self.unwrap.append("space.interp_w(%s, %s)" % (self.use(el),
+                                                           self.nextarg()))
+        else:
+            self.unwrap.append(self.nextarg())
 
     def visit__Arguments(self, el):
         raise FastFuncNotSupported
@@ -383,6 +382,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_str_or_None(self, typ):
         self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))
 
+    def visit_str0(self, typ):
+        self.unwrap.append("space.str0_w(%s)" % (self.nextarg(),))
+
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.gateway_nonnegint_w(%s)" % (self.nextarg(),))
 
@@ -395,8 +397,8 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_c_nonnegint(self, typ):
         self.unwrap.append("space.c_nonnegint_w(%s)" % (self.nextarg(),))
 
-    def visit_truncatedint(self, typ):
-        self.unwrap.append("space.truncatedint(%s)" % (self.nextarg(),))
+    def visit_truncatedint_w(self, typ):
+        self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
@@ -430,6 +432,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         return narg, fastfunc
     make_fastfunc = staticmethod(make_fastfunc)
 
+
 def int_unwrapping_space_method(typ):
     assert typ in (int, str, float, unicode, r_longlong, r_uint, r_ulonglong, bool)
     if typ is r_int is r_longlong:
@@ -446,6 +449,7 @@ def unwrap_spec(*spec, **kwargs):
     - positional arguments must be as many as the function parameters
     - keywords arguments allow to change only some parameter specs
     """
+    assert spec or kwargs
     def decorator(func):
         if kwargs:
             if spec:
@@ -456,6 +460,15 @@ def unwrap_spec(*spec, **kwargs):
             func.unwrap_spec = spec
         return func
     return decorator
+
+class WrappedDefault(object):
+    """ Can be used inside unwrap_spec as WrappedDefault(3) which means
+    it'll be treated as W_Root, but fed with default which will be a wrapped
+    argument to constructor.
+    """
+    def __init__(self, default_value):
+        self.default_value = default_value
+
 
 def build_unwrap_spec(func, argnames, self_type=None):
     """build the list of parameter unwrap spec for the function.
@@ -487,11 +500,17 @@ def build_unwrap_spec(func, argnames, self_type=None):
 
     # apply kw_spec
     for name, spec in kw_spec.items():
-        unwrap_spec[argnames.index(name)] = spec
+        try:
+            unwrap_spec[argnames.index(name)] = spec
+        except ValueError:
+            raise ValueError("unwrap_spec() got a keyword %r but it is not "
+                             "the name of an argument of the following "
+                             "function" % (name,))
 
     return unwrap_spec
 
-class BuiltinCode(eval.Code):
+
+class BuiltinCode(Code):
     "The code object implementing a built-in (interpreter-level) hook."
     _immutable_ = True
     hidden_applevel = True
@@ -501,14 +520,11 @@ class BuiltinCode(eval.Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
-    NOT_RPYTHON_ATTRIBUTES = ['_bltin', '_unwrap_spec']
-
-    def __init__(self, func, unwrap_spec = None, self_type = None,
-                 descrmismatch=None):
+    def __init__(self, func, unwrap_spec=None, self_type=None, descrmismatch=None):
         "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
-        eval.Code.__init__(self, func.__name__)
+        Code.__init__(self, func.__name__)
         self.docstring = func.__doc__
 
         self.identifier = "%s-%s-%s" % (func.__module__, func.__name__,
@@ -519,7 +535,6 @@ class BuiltinCode(eval.Code):
         # It is a list of types or singleton objects:
         #  baseobjspace.ObjSpace is used to specify the space argument
         #  baseobjspace.W_Root is for wrapped arguments to keep wrapped
-        #  baseobjspace.Wrappable subclasses imply interp_w and a typecheck
         #  argument.Arguments is for a final rest arguments Arguments object
         # 'args_w' for fixedview applied to rest arguments
         # 'w_args' for rest arguments passed as wrapped tuple
@@ -529,16 +544,17 @@ class BuiltinCode(eval.Code):
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
         argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
+        self._argnames = argnames
 
         if unwrap_spec is None:
             unwrap_spec = build_unwrap_spec(func, argnames, self_type)
 
         if self_type:
-            assert unwrap_spec[0] == 'self',"self_type without 'self' spec element"
+            assert unwrap_spec[0] == 'self', "self_type without 'self' spec element"
             unwrap_spec = list(unwrap_spec)
             if descrmismatch is not None:
-                assert issubclass(self_type, Wrappable)
-                unwrap_spec[0] = ('self', self_type)
+                assert issubclass(self_type, W_Root)
+                unwrap_spec[0] = ('INTERNAL:self', self_type)
                 self.descrmismatch_op = descrmismatch
                 self.descr_reqcls = self_type
             else:
@@ -547,13 +563,10 @@ class BuiltinCode(eval.Code):
             assert descrmismatch is None, (
                 "descrmismatch without a self-type specified")
 
-
         orig_sig = SignatureBuilder(func, argnames, varargname, kwargname)
         app_sig = SignatureBuilder(func)
 
-        UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec,
-                                              app_sig #to populate
-                                              )
+        UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec, app_sig)
         self.sig = argnames, varargname, kwargname = app_sig.signature()
 
         self.minargs = len(argnames)
@@ -584,8 +597,8 @@ class BuiltinCode(eval.Code):
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
         builtin_code = mod.get('builtin_code')
         return space.newtuple([builtin_code,
                                space.newtuple([space.wrap(self.identifier)])])
@@ -619,7 +632,8 @@ class BuiltinCode(eval.Code):
                                                   self.descr_reqcls,
                                                   args)
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -636,11 +650,13 @@ class BuiltinCode(eval.Code):
             raise OperationError(space.w_MemoryError, space.w_None)
         except rstackovf.StackOverflow, e:
             rstackovf.check_stack_overflow()
-            raise space.prebuilt_recursion_error
+            raise OperationError(space.w_RuntimeError,
+                                space.wrap("maximum recursion depth exceeded"))
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)
 
 # (verbose) performance hack below
+
 
 class BuiltinCodePassThroughArguments0(BuiltinCode):
     _immutable_ = True
@@ -655,14 +671,16 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
                                                   self.descr_reqcls,
                                                   args)
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
 
+
 class BuiltinCodePassThroughArguments1(BuiltinCode):
     _immutable_ = True
-    fast_natural_arity = eval.Code.PASSTHROUGHARGS1
+    fast_natural_arity = Code.PASSTHROUGHARGS1
 
     def funcrun_obj(self, func, w_obj, args):
         space = func.space
@@ -674,10 +692,12 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
                                                   self.descr_reqcls,
                                                   args.prepend(w_obj))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
 
 class BuiltinCode0(BuiltinCode):
     _immutable_ = True
@@ -690,10 +710,12 @@ class BuiltinCode0(BuiltinCode):
             raise OperationError(space.w_SystemError,
                                  space.wrap("unexpected DescrMismatch error"))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
 
 class BuiltinCode1(BuiltinCode):
     _immutable_ = True
@@ -703,15 +725,17 @@ class BuiltinCode1(BuiltinCode):
         try:
             w_result = self.fastfunc_1(space, w1)
         except DescrMismatch:
-            return  w1.descr_call_mismatch(space,
-                                           self.descrmismatch_op,
-                                           self.descr_reqcls,
-                                           Arguments(space, [w1]))
+            return w1.descr_call_mismatch(space,
+                                          self.descrmismatch_op,
+                                          self.descr_reqcls,
+                                          Arguments(space, [w1]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
 
 class BuiltinCode2(BuiltinCode):
     _immutable_ = True
@@ -721,15 +745,17 @@ class BuiltinCode2(BuiltinCode):
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except DescrMismatch:
-            return  w1.descr_call_mismatch(space,
-                                           self.descrmismatch_op,
-                                           self.descr_reqcls,
-                                           Arguments(space, [w1, w2]))
+            return w1.descr_call_mismatch(space,
+                                          self.descrmismatch_op,
+                                          self.descr_reqcls,
+                                          Arguments(space, [w1, w2]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
 
 class BuiltinCode3(BuiltinCode):
     _immutable_ = True
@@ -739,15 +765,17 @@ class BuiltinCode3(BuiltinCode):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
         except DescrMismatch:
-            return  w1.descr_call_mismatch(space,
-                                           self.descrmismatch_op,
-                                           self.descr_reqcls,
-                                           Arguments(space, [w1, w2, w3]))
+            return w1.descr_call_mismatch(space,
+                                          self.descrmismatch_op,
+                                          self.descr_reqcls,
+                                          Arguments(space, [w1, w2, w3]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
+
 
 class BuiltinCode4(BuiltinCode):
     _immutable_ = True
@@ -757,36 +785,53 @@ class BuiltinCode4(BuiltinCode):
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except DescrMismatch:
-            return  w1.descr_call_mismatch(space,
-                                           self.descrmismatch_op,
-                                           self.descr_reqcls,
-                                           Arguments(space,
-                                                     [w1, w2, w3, w4]))
+            return w1.descr_call_mismatch(space,
+                                          self.descrmismatch_op,
+                                          self.descr_reqcls,
+                                          Arguments(space,
+                                                    [w1, w2, w3, w4]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
 
+def interpindirect2app(unbound_meth, unwrap_spec=None):
+    base_cls = unbound_meth.im_class
+    func = unbound_meth.im_func
+    args = inspect.getargs(func.func_code)
+    if args.varargs or args.keywords:
+        raise TypeError("Varargs and keywords not supported in unwrap_spec")
+    assert not func.func_defaults
+    argspec = ', '.join([arg for arg in args.args[1:]])
+    func_code = py.code.Source("""
+    def f(w_obj, %(args)s):
+        return w_obj.%(func_name)s(%(args)s)
+    """ % {'args': argspec, 'func_name': func.func_name})
+    d = {}
+    exec func_code.compile() in d
+    f = d['f']
+    f.__module__ = func.__module__
+    # necessary for unique identifiers for pickling
+    f.func_name = func.func_name
+    if unwrap_spec is None:
+        unwrap_spec = {}
+    else:
+        assert isinstance(unwrap_spec, dict)
+        unwrap_spec = unwrap_spec.copy()
+    unwrap_spec['w_obj'] = base_cls
+    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
 
-class interp2app(Wrappable):
+class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""
 
-    # NOTICE interp2app defaults are stored and passed as
-    # wrapped values, this to avoid having scope_w be of mixed
-    # wrapped and unwrapped types;
-    # an exception is made for the NoneNotWrapped special value
-    # which is passed around as default as an unwrapped None,
-    # unwrapped None and wrapped types are compatible
-    #
     # Takes optionally an unwrap_spec, see BuiltinCode
-
-    NOT_RPYTHON_ATTRIBUTES = ['_staticdefs']
 
     instancecache = {}
 
-    def __new__(cls, f, app_name=None, unwrap_spec = None,
-                descrmismatch=None, as_classmethod=False):
+    def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
+                as_classmethod=False):
 
         "NOT_RPYTHON"
         # f must be a function whose name does NOT start with 'app_'
@@ -795,10 +840,10 @@ class interp2app(Wrappable):
             self_type = f.im_class
             f = f.im_func
         if not isinstance(f, types.FunctionType):
-            raise TypeError, "function expected, got %r instead" % f
+            raise TypeError("function expected, got %r instead" % f)
         if app_name is None:
             if f.func_name.startswith('app_'):
-                raise ValueError, ("function name %r suspiciously starts "
+                raise ValueError("function name %r suspiciously starts "
                                    "with 'app_'" % f.func_name)
             app_name = f.func_name
 
@@ -811,25 +856,63 @@ class interp2app(Wrappable):
             result = cls.instancecache[key]
             assert result.__class__ is cls
             return result
-        self = Wrappable.__new__(cls)
+        self = W_Root.__new__(cls)
         cls.instancecache[key] = self
         self._code = BuiltinCode(f, unwrap_spec=unwrap_spec,
-                                 self_type = self_type,
+                                 self_type=self_type,
                                  descrmismatch=descrmismatch)
         self.__name__ = f.func_name
         self.name = app_name
         self.as_classmethod = as_classmethod
-        self._staticdefs = list(f.func_defaults or ())
+
+        if not f.func_defaults:
+            self._staticdefs = []
+        else:
+            argnames = self._code._argnames
+            defaults = f.func_defaults
+            self._staticdefs = zip(argnames[-len(defaults):], defaults)
         return self
 
     def _getdefaults(self, space):
         "NOT_RPYTHON"
         defs_w = []
-        for val in self._staticdefs:
-            if val is NoneNotWrapped:
+        for name, defaultval in self._staticdefs:
+            if name.startswith('w_'):
+                assert defaultval is None, (
+                    "%s: default value for '%s' can only be None, got %r; "
+                    "use unwrap_spec(...=WrappedDefault(default))" % (
+                    self._code.identifier, name, defaultval))
                 defs_w.append(None)
             else:
-                defs_w.append(space.wrap(val))
+                defs_w.append(space.wrap(defaultval))
+        if self._code._unwrap_spec:
+            UNDEFINED = object()
+            alldefs_w = [UNDEFINED] * len(self._code.sig[0])
+            if defs_w:
+                alldefs_w[-len(defs_w):] = defs_w
+            code = self._code
+            assert isinstance(code._unwrap_spec, (list, tuple))
+            assert isinstance(code._argnames, list)
+            assert len(code._unwrap_spec) == len(code._argnames)
+            for i in range(len(code._unwrap_spec)-1, -1, -1):
+                spec = code._unwrap_spec[i]
+                argname = code._argnames[i]
+                if isinstance(spec, tuple) and spec[0] is W_Root:
+                    assert False, "use WrappedDefault"
+                if isinstance(spec, WrappedDefault):
+                    w_default = space.wrap(spec.default_value)
+                    assert isinstance(w_default, W_Root)
+                    assert argname.startswith('w_')
+                    argname = argname[2:]
+                    j = self._code.sig[0].index(argname)
+                    assert alldefs_w[j] in (UNDEFINED, None)
+                    alldefs_w[j] = w_default
+            first_defined = 0
+            while (first_defined < len(alldefs_w) and
+                   alldefs_w[first_defined] is UNDEFINED):
+                first_defined += 1
+            defs_w = alldefs_w[first_defined:]
+            assert UNDEFINED not in defs_w
         return defs_w
 
     # lazy binding to space
@@ -852,11 +935,17 @@ class GatewayCache(SpaceCache):
         space = cache.space
         defs = gateway._getdefaults(space) # needs to be implemented by subclass
         code = gateway._code
-        fn = FunctionWithFixedCode(space, code, None, defs, forcename = gateway.name)
+        fn = FunctionWithFixedCode(space, code, None, defs, forcename=gateway.name)
         if not space.config.translating:
             fn.add_to_table()
         if gateway.as_classmethod:
             fn = ClassMethod(space.wrap(fn))
+        #
+        from pypy.module.sys.vm import exc_info
+        if code._bltin is exc_info:
+            assert space._code_of_sys_exc_info is None
+            space._code_of_sys_exc_info = code
+        #
         return fn
 
 
@@ -884,24 +973,20 @@ class ApplevelClass:
 
     def __init__(self, source, filename=None, modname='__builtin__'):
         # HAAACK (but a good one)
-        if filename is None:
-            f = sys._getframe(1)
-            filename = '<%s:%d>' % (f.f_code.co_filename, f.f_lineno)
         self.filename = filename
         self.source = str(py.code.Source(source).deindent())
         self.modname = modname
-        # look at the first three lines for a NOT_RPYTHON tag
-        first = "\n".join(source.split("\n", 3)[:3])
-        if "NOT_RPYTHON" in first:
-            self.can_use_geninterp = False
-        else:
-            self.can_use_geninterp = True
-        # make source code available for tracebacks
-        lines = [x + "\n" for x in source.split("\n")]
-        py.std.linecache.cache[filename] = (1, None, lines, filename)
+        if filename is None:
+            f = sys._getframe(1)
+            filename = '<%s:%d>' % (f.f_code.co_filename, f.f_lineno)
+        if not os.path.exists(filename):
+            # make source code available for tracebacks
+            lines = [x + "\n" for x in source.split("\n")]
+            py.std.linecache.cache[filename] = (1, None, lines, filename)
+        self.filename = filename
 
     def __repr__(self):
-        return "<ApplevelClass filename=%r can_use_geninterp=%r>" % (self.filename, self.can_use_geninterp)
+        return "<ApplevelClass filename=%r>" % (self.filename,)
 
     def getwdict(self, space):
         return space.fromcache(ApplevelCache).getorbuild(self)
@@ -919,14 +1004,6 @@ class ApplevelClass:
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace):
                 raise TypeError("first argument must be a space instance.")
-            # redirect if the space handles this specially
-            # XXX can this be factored a bit less flow space dependently?
-            if hasattr(space, 'specialcases'):
-                sc = space.specialcases
-                if ApplevelClass in sc:
-                    ret_w = sc[ApplevelClass](space, self, name, args_w)
-                    if ret_w is not None: # it was RPython
-                        return ret_w
             # the last argument can be an Arguments
             w_func = self.wget(space, name)
             if not args_w:
@@ -962,10 +1039,7 @@ class ApplevelCache(SpaceCache):
 
     def build(self, app):
         "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
-        if self.space.config.objspace.geninterp and app.can_use_geninterp:
-            return PyPyCacheDir.build_applevelinterp_dict(app, self.space)
-        else:
-            return build_applevel_dict(app, self.space)
+        return build_applevel_dict(app, self.space)
 
 
 # __________ pure applevel version __________
@@ -979,158 +1053,8 @@ def build_applevel_dict(self, space):
                 filename=self.filename)
     return w_glob
 
-# __________ geninterplevel version __________
-
-class PyPyCacheDir:
-    "NOT_RPYTHON"
-    # similar to applevel, but using translation to interp-level.
-    # This version maintains a cache folder with single files.
-
-    def build_applevelinterp_dict(cls, self, space):
-        "NOT_RPYTHON"
-        # N.B. 'self' is the ApplevelInterp; this is a class method,
-        # just so that we have a convenient place to store the global state.
-        if not cls._setup_done:
-            cls._setup()
-
-        from pypy.translator.geninterplevel import translate_as_module
-        import marshal
-        scramble = md5(cls.seed)
-        scramble.update(marshal.dumps(self.source))
-        key = scramble.hexdigest()
-        initfunc = cls.known_code.get(key)
-        if not initfunc:
-            # try to get it from file
-            name = key
-            if self.filename:
-                prename = os.path.splitext(os.path.basename(self.filename))[0]
-            else:
-                prename = 'zznoname'
-            name = "%s_%s" % (prename, name)
-            try:
-                __import__("pypy._cache."+name)
-            except ImportError, x:
-                # print x
-                pass
-            else:
-                initfunc = cls.known_code[key]
-        if not initfunc:
-            # build it and put it into a file
-            initfunc, newsrc = translate_as_module(
-                self.source, self.filename, self.modname)
-            fname = cls.cache_path.join(name+".py").strpath
-            f = file(get_tmp_file_name(fname), "w")
-            print >> f, """\
-# self-destruct on double-click:
-if __name__ == "__main__":
-    from pypy import _cache
-    import os
-    namestart = os.path.join(os.path.split(_cache.__file__)[0], '%s')
-    for ending in ('.py', '.pyc', '.pyo'):
-        try:
-            os.unlink(namestart+ending)
-        except os.error:
-            pass""" % name
-            print >> f
-            print >> f, newsrc
-            print >> f, "from pypy._cache import known_code"
-            print >> f, "known_code[%r] = %s" % (key, initfunc.__name__)
-            f.close()
-            rename_tmp_to_eventual_file_name(fname)
-        w_glob = initfunc(space)
-        return w_glob
-    build_applevelinterp_dict = classmethod(build_applevelinterp_dict)
-
-    _setup_done = False
-
-    def _setup(cls):
-        """NOT_RPYTHON"""
-        lp = py.path.local
-        import pypy, os
-        p = lp(pypy.__file__).new(basename='_cache').ensure(dir=1)
-        cls.cache_path = p
-        ini = p.join('__init__.py')
-        try:
-            if not ini.check():
-                raise ImportError  # don't import if only a .pyc file left!!!
-            from pypy._cache import known_code, \
-                 GI_VERSION_RENDERED
-        except ImportError:
-            GI_VERSION_RENDERED = 0
-        from pypy.translator.geninterplevel import GI_VERSION
-        cls.seed = md5(str(GI_VERSION)).digest()
-        if GI_VERSION != GI_VERSION_RENDERED or GI_VERSION is None:
-            for pth in p.listdir():
-                if pth.check(file=1):
-                    try:
-                        pth.remove()
-                    except: pass
-            f = file(get_tmp_file_name(str(ini)), "w")
-            f.write("""\
-# This folder acts as a cache for code snippets which have been
-# compiled by compile_as_module().
-# It will get a new entry for every piece of code that has
-# not been seen, yet.
-#
-# Caution! Only the code snippet is checked. If something
-# is imported, changes are not detected. Also, changes
-# to geninterplevel or gateway are also not checked.
-# Exception: There is a checked version number in geninterplevel.py
-#
-# If in doubt, remove this file from time to time.
-
-GI_VERSION_RENDERED = %r
-
-known_code = {}
-
-# self-destruct on double-click:
-def harakiri():
-    import pypy._cache as _c
-    import py
-    lp = py.path.local
-    for pth in lp(_c.__file__).dirpath().listdir():
-        try:
-            pth.remove()
-        except: pass
-
-if __name__ == "__main__":
-    harakiri()
-
-del harakiri
-""" % GI_VERSION)
-            f.close()
-            rename_tmp_to_eventual_file_name(str(ini))
-        import pypy._cache
-        cls.known_code = pypy._cache.known_code
-        cls._setup_done = True
-    _setup = classmethod(_setup)
-
-
-def gethostname(_cache=[]):
-    if not _cache:
-        try:
-            import socket
-            hostname = socket.gethostname()
-        except:
-            hostname = ''
-        _cache.append(hostname)
-    return _cache[0]
-
-def get_tmp_file_name(fname):
-    return '%s~%s~%d' % (fname, gethostname(), os.getpid())
-
-def rename_tmp_to_eventual_file_name(fname):
-    # generated files are first written to the host- and process-specific
-    # file 'tmpname', and then atomically moved to their final 'fname'
-    # to avoid problems if py.py is started several times in parallel
-    tmpname = get_tmp_file_name(fname)
-    try:
-        os.rename(tmpname, fname)
-    except (OSError, IOError):
-        os.unlink(fname)    # necessary on Windows
-        os.rename(tmpname, fname)
-
 # ____________________________________________________________
+
 
 def appdef(source, applevel=ApplevelClass, filename=None):
     """ NOT_RPYTHON: build an app-level helper function, like for example:
@@ -1152,7 +1076,7 @@ def appdef(source, applevel=ApplevelClass, filename=None):
     funcname = source[:p].strip()
     source = source[p:]
     assert source.strip()
-    funcsource = "def %s%s\n"  % (funcname, source)
+    funcsource = "def %s%s\n" % (funcname, source)
     #for debugging of wrong source code: py.std.parser.suite(funcsource)
     a = applevel(funcsource, filename=filename)
     return a.interphook(funcname)
@@ -1166,11 +1090,6 @@ class applevel_temp(ApplevelClass):
     def getwdict(self, space):    # no cache
         return build_applevel_dict(self, space)
 
-
-class applevelinterp_temp(ApplevelClass):
-    hidden_applevel = False
-    def getwdict(self, space):   # no cache
-        return PyPyCacheDir.build_applevelinterp_dict(self, space)
 
 # app2interp_temp is used for testing mainly
 def app2interp_temp(func, applevel_temp=applevel_temp, filename=None):

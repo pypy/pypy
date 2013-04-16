@@ -4,7 +4,7 @@ import re
 import sys
 import struct
 
-from json.scanner import make_scanner
+from json import scanner
 try:
     from _json import scanstring as c_scanstring
 except ImportError:
@@ -62,8 +62,7 @@ BACKSLASH = {
 
 DEFAULT_ENCODING = "utf-8"
 
-def py_scanstring(s, end, encoding=None, strict=True,
-        _b=BACKSLASH, _m=STRINGCHUNK.match):
+def py_scanstring(s, end, encoding=None, strict=True):
     """Scan the string s for a JSON string. End is the index of the
     character in s after the quote that started the JSON string.
     Unescapes all valid JSON string escape sequences and raises ValueError
@@ -78,7 +77,7 @@ def py_scanstring(s, end, encoding=None, strict=True,
     _append = chunks.append
     begin = end - 1
     while 1:
-        chunk = _m(s, end)
+        chunk = STRINGCHUNK.match(s, end)
         if chunk is None:
             raise ValueError(
                 errmsg("Unterminated string starting at", s, begin))
@@ -109,7 +108,7 @@ def py_scanstring(s, end, encoding=None, strict=True,
         # If not a unicode escape sequence, must be in the lookup table
         if esc != 'u':
             try:
-                char = _b[esc]
+                char = BACKSLASH[esc]
             except KeyError:
                 msg = "Invalid \\escape: " + repr(esc)
                 raise ValueError(errmsg(msg, s, end))
@@ -147,7 +146,7 @@ WHITESPACE = re.compile(r'[ \t\n\r]*', FLAGS)
 WHITESPACE_STR = ' \t\n\r'
 
 def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
-               object_pairs_hook, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
+               object_pairs_hook):
     s, end = s_and_end
     pairs = []
     pairs_append = pairs.append
@@ -156,11 +155,17 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
     nextchar = s[end:end + 1]
     # Normally we expect nextchar == '"'
     if nextchar != '"':
-        if nextchar in _ws:
-            end = _w(s, end).end()
+        if nextchar in WHITESPACE_STR:
+            end = WHITESPACE.match(s, end).end()
             nextchar = s[end:end + 1]
         # Trivial empty object
         if nextchar == '}':
+            if object_pairs_hook is not None:
+                result = object_pairs_hook(pairs)
+                return result, end
+            pairs = {}
+            if object_hook is not None:
+                pairs = object_hook(pairs)
             return pairs, end + 1
         elif nextchar != '"':
             raise ValueError(errmsg("Expecting property name", s, end))
@@ -171,17 +176,17 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
         # To skip some function call overhead we optimize the fast paths where
         # the JSON key separator is ": " or just ":".
         if s[end:end + 1] != ':':
-            end = _w(s, end).end()
+            end = WHITESPACE.match(s, end).end()
             if s[end:end + 1] != ':':
                 raise ValueError(errmsg("Expecting : delimiter", s, end))
 
         end += 1
 
         try:
-            if s[end] in _ws:
+            if s[end] in WHITESPACE_STR:
                 end += 1
-                if s[end] in _ws:
-                    end = _w(s, end + 1).end()
+                if s[end] in WHITESPACE_STR:
+                    end = WHITESPACE.match(s, end + 1).end()
         except IndexError:
             pass
 
@@ -193,8 +198,8 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
 
         try:
             nextchar = s[end]
-            if nextchar in _ws:
-                end = _w(s, end + 1).end()
+            if nextchar in WHITESPACE_STR:
+                end = WHITESPACE.match(s, end + 1).end()
                 nextchar = s[end]
         except IndexError:
             nextchar = ''
@@ -207,11 +212,11 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
 
         try:
             nextchar = s[end]
-            if nextchar in _ws:
+            if nextchar in WHITESPACE_STR:
                 end += 1
                 nextchar = s[end]
-                if nextchar in _ws:
-                    end = _w(s, end + 1).end()
+                if nextchar in WHITESPACE_STR:
+                    end = WHITESPACE.match(s, end + 1).end()
                     nextchar = s[end]
         except IndexError:
             nextchar = ''
@@ -228,12 +233,12 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
         pairs = object_hook(pairs)
     return pairs, end
 
-def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
+def JSONArray(s_and_end, scan_once):
     s, end = s_and_end
     values = []
     nextchar = s[end:end + 1]
-    if nextchar in _ws:
-        end = _w(s, end + 1).end()
+    if nextchar in WHITESPACE_STR:
+        end = WHITESPACE.match(s, end + 1).end()
         nextchar = s[end:end + 1]
     # Look-ahead for trivial empty array
     if nextchar == ']':
@@ -246,8 +251,8 @@ def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
             raise ValueError(errmsg("Expecting object", s, end))
         _append(value)
         nextchar = s[end:end + 1]
-        if nextchar in _ws:
-            end = _w(s, end + 1).end()
+        if nextchar in WHITESPACE_STR:
+            end = WHITESPACE.match(s, end + 1).end()
             nextchar = s[end:end + 1]
         end += 1
         if nextchar == ']':
@@ -256,10 +261,10 @@ def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
             raise ValueError(errmsg("Expecting , delimiter", s, end))
 
         try:
-            if s[end] in _ws:
+            if s[end] in WHITESPACE_STR:
                 end += 1
-                if s[end] in _ws:
-                    end = _w(s, end + 1).end()
+                if s[end] in WHITESPACE_STR:
+                    end = WHITESPACE.match(s, end + 1).end()
         except IndexError:
             pass
 
@@ -350,15 +355,15 @@ class JSONDecoder(object):
         self.parse_object = JSONObject
         self.parse_array = JSONArray
         self.parse_string = scanstring
-        self.scan_once = make_scanner(self)
+        self.scan_once = scanner.make_scanner(self)
 
-    def decode(self, s, _w=WHITESPACE.match):
+    def decode(self, s):
         """Return the Python representation of ``s`` (a ``str`` or ``unicode``
         instance containing a JSON document)
 
         """
-        obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-        end = _w(s, end).end()
+        obj, end = self.raw_decode(s, idx=WHITESPACE.match(s, 0).end())
+        end = WHITESPACE.match(s, end).end()
         if end != len(s):
             raise ValueError(errmsg("Extra data", s, end, len(s)))
         return obj

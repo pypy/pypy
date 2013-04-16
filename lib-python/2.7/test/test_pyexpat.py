@@ -6,6 +6,7 @@ import unittest
 
 from xml.parsers import expat
 
+from test import test_support
 from test.test_support import sortdict, run_unittest
 
 
@@ -216,6 +217,16 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(op[14], "End element: u'sub2'")
         self.assertEqual(op[15], "External entity ref: (None, u'entity.file', None)")
         self.assertEqual(op[16], "End element: u'root'")
+
+        # Issue 4877: expat.ParseFile causes segfault on a closed file.
+        fp = open(test_support.TESTFN, 'wb')
+        try:
+            fp.close()
+            parser = expat.ParserCreate()
+            with self.assertRaises(ValueError):
+                parser.ParseFile(fp)
+        finally:
+            test_support.unlink(test_support.TESTFN)
 
 
 class NamespaceSeparatorTest(unittest.TestCase):
@@ -559,6 +570,9 @@ class ChardataBufferTest(unittest.TestCase):
         self.assertEqual(self.n, 4)
 
 class MalformedInputText(unittest.TestCase):
+    # CPython seems to ship its own version of expat, they fixed it on this commit : 
+    # http://svn.python.org/view?revision=74429&view=revision
+    @unittest.skipIf(sys.platform == "darwin", "Expat is broken on Mac OS X 10.6.6")
     def test1(self):
         xml = "\0\r\n"
         parser = expat.ParserCreate()
@@ -568,6 +582,7 @@ class MalformedInputText(unittest.TestCase):
         except expat.ExpatError as e:
             self.assertEqual(str(e), 'unclosed token: line 2, column 0')
 
+    @unittest.skipIf(sys.platform == "darwin", "Expat is broken on Mac OS X 10.6.6")
     def test2(self):
         xml = "<?xml version\xc2\x85='1.0'?>\r\n"
         parser = expat.ParserCreate()

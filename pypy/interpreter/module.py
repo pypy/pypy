@@ -2,11 +2,12 @@
 Module objects.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 
-class Module(Wrappable):
+
+class Module(W_Root):
     """A module."""
 
     _immutable_fields_ = ["w_dict?"]
@@ -31,7 +32,8 @@ class Module(Wrappable):
     def install(self):
         """NOT_RPYTHON: installs this module into space.builtin_modules"""
         w_mod = self.space.wrap(self)
-        self.space.builtin_modules[self.space.unwrap(self.w_name)] = w_mod
+        modulename = self.space.str0_w(self.w_name)
+        self.space.builtin_modules[modulename] = w_mod
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON: to allow built-in modules to do some more setup
@@ -79,7 +81,7 @@ class Module(Wrappable):
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.wrap('__name__'))
         if (w_name is None or
-            not space.is_true(space.isinstance(w_name, space.w_str))):
+            not space.isinstance_w(w_name, space.w_str)):
             # maybe raise exception here (XXX this path is untested)
             return space.w_None
         w_modules = space.sys.get('modules')

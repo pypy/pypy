@@ -2,9 +2,9 @@
 
 """
 Usage: reportstaticdata.py [-m1|-m2|-t] [OPTION]... FILENAME
-Print a report for the static data informations contained in FILENAME
+Print a report for the static data information contained in FILENAME
 
-The static data informations are saved in the file staticdata.info when
+The static data information is saved in the file staticdata.info when
 passing --dump_static_data_info to translate.py.
 
 Options:
@@ -27,8 +27,9 @@ Options:
   --help   Show this help message
 """
 
-import autopath
-from pypy.translator.tool.staticsizereport import print_report
+import sys
+
+from rpython.translator.tool.staticsizereport import print_report
 
 def parse_options(argv):
     kwds = {}
@@ -60,7 +61,6 @@ def parse_options(argv):
 
 
 def main():
-    import sys
     try:
         kwds = parse_options(sys.argv[1:])
     except AssertionError:

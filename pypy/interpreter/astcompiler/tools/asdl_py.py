@@ -79,6 +79,7 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             self.emit("class %s(AST):" % (base,))
             if sum.attributes:
+                self.emit("")
                 args = ", ".join(attr.name.value for attr in sum.attributes)
                 self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
@@ -114,7 +115,7 @@ class ASTNodeVisitor(ASDLVisitor):
             else:
                 names.append(repr(field.name.value))
         sub = (", ".join(names), name.value)
-        self.emit("missing_field(space, self.initialization_state, [%s], %r)"
+        self.emit("self.missing_field(space, [%s], %r)"
                   % sub, 3)
         self.emit("else:", 2)
         # Fill in all the default fields.
@@ -195,17 +196,13 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitConstructor(self, cons, base, extra_attributes):
         self.emit("class %s(%s):" % (cons.name, base))
         self.emit("")
-        for field in self.data.cons_attributes[cons]:
-            subst = (field.name, self.data.field_masks[field])
-            self.emit("_%s_mask = %i" % subst, 1)
-        self.emit("")
         self.make_constructor(cons.fields, cons, extra_attributes, base)
         self.emit("")
         self.emit("def walkabout(self, visitor):", 1)
         self.emit("visitor.visit_%s(self)" % (cons.name,), 2)
         self.emit("")
         self.make_mutate_over(cons, cons.name)
-        self.make_var_syncer(cons.fields + self.data.cons_attributes[cons],
+        self.make_var_syncer(self.data.cons_attributes[cons] + cons.fields,
                              cons, cons.name)
 
     def visitField(self, field):
@@ -294,14 +291,16 @@ class GenericASTVisitorVisitor(ASDLVisitor):
 
 
 asdl_type_map = {
-    "int" : "int_w",
-    "identifier" : "str_w",
-    "bool" : "bool_w"
+    "object" : "%s",
+    "int" : "space.int_w(%s)",
+    "string": "check_string(space, %s)",
+    "identifier" : "space.realstr_w(%s)",
+    "bool" : "space.bool_w(%s)"
 }
 
 def get_unwrapper(tp, name, simple_types):
     if tp in asdl.builtin_types:
-        return "space.%s(%s)" % (asdl_type_map[tp], name)
+        return asdl_type_map[tp] % name
     elif tp in simple_types:
         return "space.interp_w(%s, %s).to_simple_int(space)" % (tp, name)
     else:
@@ -324,7 +323,7 @@ class AppExposeVisitor(ASDLVisitor):
 
     def visitSum(self, sum, name):
         for field in sum.attributes:
-            self.make_property(field, name, True)
+            self.make_property(field, name)
         self.make_typedef(name, "AST", sum.attributes,
                           fields_name="_attributes")
         if not is_simple_sum(sum):
@@ -400,13 +399,10 @@ class AppExposeVisitor(ASDLVisitor):
     def visitField(self, field, name):
         self.make_property(field, name)
 
-    def make_property(self, field, name, different_masks=False):
+    def make_property(self, field, name):
         func = "def %s_get_%s(space, w_self):" % (name, field.name)
         self.emit(func)
-        if different_masks:
-            flag = "w_self._%s_mask" % (field.name,)
-        else:
-            flag = self.data.field_masks[field]
+        flag = self.data.field_masks[field]
         if not field.seq:
             self.emit("if w_self.w_dict is not None:", 1)
             self.emit("    w_obj = w_self.getdictvalue(space, '%s')" % (field.name,), 1)
@@ -458,6 +454,11 @@ class AppExposeVisitor(ASDLVisitor):
                     config = (field.name, field.type, repr(field.opt))
                     self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
                               config, 2)
+                    if field.type.value not in self.data.prod_simple:
+                        self.emit("if type(w_self.%s) is %s:" % (
+                                field.name, field.type), 2)
+                        self.emit("raise OperationError(space.w_TypeError, "
+                                  "space.w_None)", 3)
             else:
                 level = 2
                 if field.opt and field.type.value != "int":
@@ -465,17 +466,15 @@ class AppExposeVisitor(ASDLVisitor):
                     self.emit("w_self.%s = None" % (field.name,), 3)
                     level += 1
                     self.emit("else:", 2)
-                if field.type.value in ("object", "string"):
-                    self.emit("w_self.%s = w_new_value" % (field.name,), level)
-                else:
-                    space_method = asdl_type_map[field.type.value]
-                    config = (field.name, space_method)
-                    self.emit("w_self.%s = space.%s(w_new_value)" % config, level)
+                value = asdl_type_map[field.type.value] % "w_new_value"
+                config = (field.name, value)
+                self.emit("w_self.%s = %s" % config, level)
             self.emit("except OperationError, e:", 1)
             self.emit("    if not e.match(space, space.w_TypeError):", 1)
             self.emit("        raise", 1)
             self.emit("    w_self.setdictvalue(space, '%s', w_new_value)"
                       % (field.name,), 1)
+            self.emit("    w_self.initialization_state &= ~%s" % (flag,), 1)
             self.emit("    return", 1)
             if save_original_object:
                 self.emit("# need to save the original object too", 1)
@@ -505,7 +504,10 @@ class ASDLData(object):
             optional_mask = 0
             for i, field in enumerate(fields):
                 flag = 1 << i
-                field_masks[field] = flag
+                if field not in field_masks:
+                    field_masks[field] = flag
+                else:
+                    assert field_masks[field] == flag
                 if field.opt:
                     optional_mask |= flag
                 else:
@@ -518,9 +520,9 @@ class ASDLData(object):
                 if is_simple_sum(sum):
                     simple_types.add(tp.name.value)
                 else:
+                    attrs = [field for field in sum.attributes]
                     for cons in sum.types:
-                        attrs = [copy_field(field) for field in sum.attributes]
-                        add_masks(cons.fields + attrs, cons)
+                        add_masks(attrs + cons.fields, cons)
                         cons_attributes[cons] = attrs
             else:
                 prod = tp.value
@@ -536,16 +538,24 @@ class ASDLData(object):
 
 
 HEAD = """# Generated by tools/asdl_py.py
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import typedef
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.tool.pairtype import extendabletype
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.tool.pairtype import extendabletype
+from rpython.tool.sourcetools import func_with_new_name
 
 
-class AST(Wrappable):
+def check_string(space, w_obj):
+    if not (space.isinstance_w(w_obj, space.w_str) or
+            space.isinstance_w(w_obj, space.w_unicode)):
+        raise OperationError(space.w_TypeError, space.wrap(
+                'AST string must be of type str or unicode'))
+    return w_obj
+
+
+class AST(W_Root):
 
     w_dict = None
 
@@ -588,12 +598,30 @@ class AST(Wrappable):
             space.setattr(self, w_name,
                           space.getitem(w_state, w_name))
 
+    def missing_field(self, space, required, host):
+        "Find which required field is missing."
+        state = self.initialization_state
+        for i in range(len(required)):
+            if (state >> i) & 1:
+                continue  # field is present
+            missing = required[i]
+            if missing is None:
+                continue  # field is optional
+            w_obj = self.getdictvalue(space, missing)
+            if w_obj is None:
+                err = "required field \\"%s\\" missing from %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+            else:
+                err = "incorrect type for field \\"%s\\" in %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+        raise AssertionError("should not reach here")
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
 
 
-class _FieldsWrapper(Wrappable):
+class _FieldsWrapper(W_Root):
     "Hack around the fact we can\'t store tuples on a TypeDef."
 
     def __init__(self, fields):
@@ -631,15 +659,6 @@ AST.typedef = typedef.TypeDef("AST",
 )
 
 
-def missing_field(space, state, required, host):
-    "Find which required field is missing."
-    for i in range(len(required)):
-        if not (state >> i) & 1:
-            missing = required[i]
-            if missing is not None:
-                 err = "required field \\"%s\\" missing from %s"
-                 raise operationerrfmt(space.w_TypeError, err, missing, host)
-    raise AssertionError("should not reach here")
 
 
 """

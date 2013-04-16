@@ -72,21 +72,24 @@ BaseException
            +-- BytesWarning
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rwin32
+from rpython.rlib import rwin32
+
 
 def readwrite_attrproperty_w(name, cls):
     def fget(space, obj):
         return getattr(obj, name)
+
     def fset(space, obj, w_val):
         setattr(obj, name, w_val)
     return GetSetProperty(fget, fset, cls=cls)
 
-class W_BaseException(Wrappable):
+
+class W_BaseException(W_Root):
     """Superclass representing the base of the exception hierarchy.
 
     The __getitem__ method is provided for backwards-compatibility
@@ -153,8 +156,8 @@ class W_BaseException(Wrappable):
         return self.w_dict
 
     def setdict(self, space, w_dict):
-        if not space.is_true(space.isinstance( w_dict, space.w_dict )):
-            raise OperationError( space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict") )
+        if not space.isinstance_w(w_dict, space.w_dict):
+            raise OperationError(space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict"))
         self.w_dict = w_dict
 
     def descr_reduce(self, space):
@@ -176,8 +179,8 @@ class W_BaseException(Wrappable):
         if self.w_message is None:
             raise OperationError(space.w_AttributeError,
                                  space.wrap("message was deleted"))
-        space.warn("BaseException.message has been deprecated as of Python 2.6",
-                   space.w_DeprecationWarning)
+        msg = "BaseException.message has been deprecated as of Python 2.6"
+        space.warn(space.wrap(msg), space.w_DeprecationWarning)
         return self.w_message
 
     def descr_message_set(self, space, w_new):

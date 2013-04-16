@@ -6,7 +6,7 @@ import cStringIO
 import pickletools
 import copy_reg
 
-from test.test_support import TestFailed, have_unicode, TESTFN
+from test.test_support import TestFailed, have_unicode, TESTFN, impl_detail
 
 # Tests that try a number of pickle protocols should have a
 #     for proto in protocols:
@@ -123,6 +123,21 @@ class metaclass(type):
 
 class use_metaclass(object):
     __metaclass__ = metaclass
+
+class pickling_metaclass(type):
+    def __eq__(self, other):
+        return (type(self) == type(other) and
+                self.reduce_args == other.reduce_args)
+
+    def __reduce__(self):
+        return (create_dynamic_class, self.reduce_args)
+
+    __hash__ = None
+
+def create_dynamic_class(name, bases):
+    result = pickling_metaclass(name, bases, dict())
+    result.reduce_args = (name, bases)
+    return result
 
 # DATA0 .. DATA2 are the pickles we expect under the various protocols, for
 # the object returned by create_data().
@@ -609,6 +624,14 @@ class AbstractPickleTests(unittest.TestCase):
             b = self.loads(s)
             self.assertEqual(a.__class__, b.__class__)
 
+    def test_dynamic_class(self):
+        a = create_dynamic_class("my_dynamic_class", (object,))
+        copy_reg.pickle(pickling_metaclass, pickling_metaclass.__reduce__)
+        for proto in protocols:
+            s = self.dumps(a, proto)
+            b = self.loads(s)
+            self.assertEqual(a, b)
+
     def test_structseq(self):
         import time
         import os
@@ -949,6 +972,7 @@ class AbstractPickleTests(unittest.TestCase):
                              "Failed protocol %d: %r != %r"
                              % (proto, obj, loaded))
 
+    @impl_detail("pypy does not store attribute names", pypy=False)
     def test_attribute_name_interning(self):
         # Test that attribute names of pickled objects are interned when
         # unpickling.
@@ -1091,6 +1115,7 @@ class AbstractPickleModuleTests(unittest.TestCase):
         s = StringIO.StringIO("X''.")
         self.assertRaises(EOFError, self.module.load, s)
 
+    @impl_detail("no full restricted mode in pypy", pypy=False)
     def test_restricted(self):
         # issue7128: cPickle failed in restricted mode
         builtins = {self.module.__name__: self.module,

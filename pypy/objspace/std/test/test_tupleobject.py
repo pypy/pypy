@@ -280,6 +280,8 @@ class AppTestW_TupleObject:
         assert () * 10 == ()
         assert (5,) * 3 == (5,5,5)
         assert (5,2) * 2 == (5,2,5,2)
+
+    def test_mul_identity(self):
         t = (1,2,3)
         assert (t * 1) is t
 
@@ -346,3 +348,54 @@ class AppTestW_TupleObject:
         assert (4, 2, 3, 4).index(4, 1) == 3
         assert (4, 4, 4).index(4, 1, 2) == 1
         raises(ValueError, (1, 2, 3, 4).index, 4, 0, 2)
+
+    def test_comparison(self):
+        assert (() <  ()) is False
+        assert (() <= ()) is True
+        assert (() == ()) is True
+        assert (() != ()) is False
+        assert (() >  ()) is False
+        assert (() >= ()) is True
+        assert ((5,) <  ()) is False
+        assert ((5,) <= ()) is False
+        assert ((5,) == ()) is False
+        assert ((5,) != ()) is True
+        assert ((5,) >  ()) is True
+        assert ((5,) >= ()) is True
+        assert (() <  (5,)) is True
+        assert (() <= (5,)) is True
+        assert (() == (5,)) is False
+        assert (() != (5,)) is True
+        assert (() >  (5,)) is False
+        assert (() >= (5,)) is False
+        assert ((4,) <  (5,)) is True
+        assert ((4,) <= (5,)) is True
+        assert ((4,) == (5,)) is False
+        assert ((4,) != (5,)) is True
+        assert ((4,) >  (5,)) is False
+        assert ((4,) >= (5,)) is False
+        assert ((5,) <  (5,)) is False
+        assert ((5,) <= (5,)) is True
+        assert ((5,) == (5,)) is True
+        assert ((5,) != (5,)) is False
+        assert ((5,) >  (5,)) is False
+        assert ((5,) >= (5,)) is True
+        assert ((6,) <  (5,)) is False
+        assert ((6,) <= (5,)) is False
+        assert ((6,) == (5,)) is False
+        assert ((6,) != (5,)) is True
+        assert ((6,) >  (5,)) is True
+        assert ((6,) >= (5,)) is True
+        N = float('nan')
+        assert ((N,) <  (5,)) is False
+        assert ((N,) <= (5,)) is False
+        assert ((N,) == (5,)) is False
+        assert ((N,) != (5,)) is True
+        assert ((N,) >  (5,)) is False
+        assert ((N,) >= (5,)) is False
+        assert ((5,) <  (N,)) is False
+        assert ((5,) <= (N,)) is False
+        assert ((5,) == (N,)) is False
+        assert ((5,) != (N,)) is True
+        assert ((5,) >  (N,)) is False
+        assert ((5,) >= (N,)) is False

@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
@@ -20,6 +20,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is module.fooType
         print "type of obj has type", type(type(obj))
         print "type of type of obj has type", type(type(type(obj)))
+        assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
         module = self.import_module(name='foo')
@@ -106,6 +107,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.double_member = 9.25;      assert obj.double_member == 9.25
         obj.longlong_member = -2**59;  assert obj.longlong_member == -2**59
         obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
+        obj.ssizet_member = sys.maxint;assert obj.ssizet_member == sys.maxint
         #
 
     def test_staticmethod(self):
@@ -114,6 +116,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.foo == 42
         obj2 = obj.create()
         assert obj2.foo == 42
+
+    def test_classmethod(self):
+        module = self.import_module(name="foo")
+        obj = module.fooType.classmeth()
+        assert obj is module.fooType
 
     def test_new(self):
         module = self.import_module(name='foo')
@@ -281,7 +288,38 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         class C(object):
             pass
         assert module.name_by_heaptype(C) == "C"
-        
+
+    def test_type_dict(self):
+        foo = self.import_module("foo")
+        module = self.import_extension('test', [
+           ("hack_tp_dict", "METH_O",
+            '''
+                 PyTypeObject *type = args->ob_type;
+                 PyObject *a1 = PyLong_FromLong(1);
+                 PyObject *a2 = PyLong_FromLong(2);
+                 PyObject *value;
+
+                 if (PyDict_SetItemString(type->tp_dict, "a",
+                         a1) < 0)
+                     return NULL;
+                 Py_DECREF(a1);
+                 PyType_Modified(type);
+                 value = PyObject_GetAttrString(type, "a");
+                 Py_DECREF(value);
+
+                 if (PyDict_SetItemString(type->tp_dict, "a",
+                         a2) < 0)
+                     return NULL;
+                 Py_DECREF(a2);
+                 PyType_Modified(type);
+                 value = PyObject_GetAttrString(type, "a");
+                 return value;
+             '''
+             )
+            ])
+        obj = foo.new()
+        assert module.hack_tp_dict(obj) == 2
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
@@ -319,7 +357,7 @@ class TestTypes(BaseApiTest):
         w_obj = api._PyType_Lookup(w_type, space.wrap("__invalid"))
         assert w_obj is None
         assert api.PyErr_Occurred() is None
-    
+
 class AppTestSlots(AppTestCpythonExtensionBase):
     def test_some_slots(self):
         module = self.import_extension('foo', [
@@ -414,8 +452,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static int
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
-                PyErr_SetNone(PyExc_ZeroDivisionError);
-                return -1;
+                if (PyInt_Check(key)) {
+                    PyErr_SetNone(PyExc_ZeroDivisionError);
+                    return -1;
+                }
+                return 0;
             }
             PyMappingMethods tp_as_mapping;
             static PyTypeObject Foo_Type = {
@@ -425,3 +466,114 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ''')
         obj = module.new_obj()
         raises(ZeroDivisionError, obj.__setitem__, 5, None)
+        res = obj.__setitem__('foo', None)
+        assert res is None
+
+    def test_sq_contains(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_contains = sq_contains;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static int
+            sq_contains(PyObject *self, PyObject *value)
+            {
+                return 42;
+            }
+            PySequenceMethods tp_as_sequence;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        obj = module.new_obj()
+        res = "foo" in obj
+        assert res is True
+
+    def test_tp_iter(self):
+        module = self.import_extension('foo', [
+           ("tp_iter", "METH_O",
+            '''
+                 if (!args->ob_type->tp_iter)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_iter(args);
+             '''
+             ),
+           ("tp_iternext", "METH_O",
+            '''
+                 if (!args->ob_type->tp_iternext)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_iternext(args);
+             '''
+             )
+            ])
+        l = [1]
+        it = module.tp_iter(l)
+        assert type(it) is type(iter([]))
+        assert module.tp_iternext(it) == 1
+        raises(StopIteration, module.tp_iternext, it)
+        
+    def test_bool(self):
+        module = self.import_extension('foo', [
+            ("newInt", "METH_VARARGS",
+             """
+                IntLikeObject *intObj;
+                long intval;
+                PyObject *name;
+
+                if (!PyArg_ParseTuple(args, "i", &intval))
+                    return NULL;
+
+                IntLike_Type.tp_as_number = &intlike_as_number;
+                intlike_as_number.nb_nonzero = intlike_nb_nonzero;
+                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
+                intObj = PyObject_New(IntLikeObject, &IntLike_Type);
+                if (!intObj) {
+                    return NULL;
+                }
+
+                intObj->value = intval;
+                return (PyObject *)intObj;
+             """)],
+            """
+            typedef struct
+            {
+                PyObject_HEAD
+                int value;
+            } IntLikeObject;
+
+            static int
+            intlike_nb_nonzero(IntLikeObject *v)
+            {
+                if (v->value == -42) {
+                    PyErr_SetNone(PyExc_ValueError);
+                    return -1;
+                }
+                return v->value;
+            }
+
+            PyTypeObject IntLike_Type = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "IntLike",
+                /*tp_basicsize*/        sizeof(IntLikeObject),
+            };
+            static PyNumberMethods intlike_as_number;
+            """)
+        assert not bool(module.newInt(0))
+        assert bool(module.newInt(1))
+        assert bool(module.newInt(-1))
+        raises(ValueError, bool, module.newInt(-42))

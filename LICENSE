@@ -1,9 +1,10 @@
-License for files in the pypy/ directory 
-==================================================
+License
+=======
 
 Except when otherwise stated (look for LICENSE files in directories or
 information at the beginning of each file) all software and
-documentation in the 'pypy' directories is licensed as follows: 
+documentation in the 'pypy', 'ctype_configure', 'dotviewer', 'demo',
+and 'lib_pypy' directories is licensed as follows: 
 
     The MIT License
 
@@ -27,7 +28,7 @@ documentation in the 'pypy' directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2011
+PyPy Copyright holders 2003-2013
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -37,43 +38,47 @@ copyrighted by one or more of the following people and organizations:
     Armin Rigo
     Maciej Fijalkowski
     Carl Friedrich Bolz
-    Antonio Cuni
     Amaury Forgeot d'Arc
+    Antonio Cuni
     Samuele Pedroni
     Michael Hudson
     Holger Krekel
-    Benjamin Peterson
+    Alex Gaynor
     Christian Tismer
     Hakan Ardo
-    Alex Gaynor
+    Benjamin Peterson
+    David Schneider
     Eric van Riet Paap
     Anders Chrigstrom
-    David Schneider
     Richard Emslie
     Dan Villiom Podlaski Christiansen
     Alexander Schremmer
+    Lukas Diekmann
     Aurelien Campeas
     Anders Lehmann
     Camillo Bruni
     Niklaus Haldimann
+    Sven Hager
     Leonardo Santagada
     Toon Verwaest
     Seo Sanghyeon
+    Justin Peel
     Lawrence Oluyede
     Bartosz Skowron
     Jakub Gustak
     Guido Wesdorp
     Daniel Roberts
-    Adrien Di Mascio
     Laura Creighton
+    Adrien Di Mascio
     Ludovic Aubry
     Niko Matsakis
+    Wim Lavrijsen
+    Matti Picus
     Jason Creighton
     Jacob Hallen
     Alex Martelli
     Anders Hammarquist
     Jan de Mooij
-    Wim Lavrijsen
     Stephan Diehl
     Michael Foord
     Stefan Schwarzer
@@ -84,34 +89,36 @@ copyrighted by one or more of the following people and organizations:
     Alexandre Fayolle
     Marius Gedminas
     Simon Burton
-    Justin Peel
+    David Edelsohn
     Jean-Paul Calderone
     John Witulski
-    Lukas Diekmann
+    Timo Paulssen
     holger krekel
-    Wim Lavrijsen
     Dario Bertini
+    Mark Pearse
     Andreas Stührk
     Jean-Philippe St. Pierre
     Guido van Rossum
     Pavel Vinogradov
     Valentino Volonghi
     Paul deGrandis
+    Ilya Osadchiy
+    Ronny Pfannschmidt
     Adrian Kuhn
     tav
     Georg Brandl
+    Philip Jenvey
     Gerald Klix
     Wanja Saatkamp
-    Ronny Pfannschmidt
     Boris Feigin
     Oscar Nierstrasz
     David Malcolm
     Eugene Oden
     Henry Mason
-    Sven Hager
+    Jeff Terrace
     Lukas Renggli
-    Ilya Osadchiy
     Guenter Jantzen
+    Ned Batchelder
     Bert Freudenberg
     Amit Regmi
     Ben Young
@@ -142,7 +149,6 @@ copyrighted by one or more of the following people and organizations:
     Anders Qvist
     Beatrice During
     Alexander Sedov
-    Timo Paulssen
     Corbin Simpson
     Vincent Legoll
     Romain Guillebert
@@ -165,9 +171,10 @@ copyrighted by one or more of the following people and organizations:
     Lucio Torre
     Lene Wagner
     Miguel de Val Borro
-    Ignas Mikalajunas
     Artur Lisiecki
-    Philip Jenvey
+    Bruno Gola
+    Ignas Mikalajunas
+    Stefano Rivera
     Joshua Gilbert
     Godefroid Chappelle
     Yusei Tahara
@@ -179,17 +186,17 @@ copyrighted by one or more of the following people and organizations:
     Kristjan Valur Jonsson
     Bobby Impollonia
     Michael Hudson-Doyle
+    Laurence Tratt
+    Yasir Suhail
     Andrew Thompson
     Anders Sigfridsson
     Floris Bruynooghe
     Jacek Generowicz
     Dan Colish
     Zooko Wilcox-O Hearn
-    Dan Villiom Podlaski Christiansen
-    Anders Hammarquist
+    Dan Loewenherz
     Chris Lambacher
     Dinu Gherman
-    Dan Colish
     Brett Cannon
     Daniel Neuhäuser
     Michael Chermside
@@ -210,6 +217,7 @@ copyrighted by one or more of the following people and organizations:
     DFKI GmbH, Germany 
     Impara, Germany
     Change Maker, Sweden 
+    University of California Berkeley, USA
 
 The PyPy Logo as used by http://speed.pypy.org and others was created
 by Samuel Reis and is distributed on terms of Creative Commons Share Alike
@@ -262,3 +270,24 @@ files from the above website, and the same terms of use apply.
     LineBreak-*.txt
     UnicodeData-*.txt
     UnihanNumeric-*.txt
+
+License for 'dotviewer/font/'
+=============================
+
+Copyright (C) 2008 The Android Open Source Project
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+  
+     http://www.apache.org/licenses/LICENSE-2.0
+  
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Detailled license information is contained in the NOTICE file in the
+directory.
+

@@ -1,4 +1,5 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.interpreter.function import Function, Method
 
 class TestClassObject(BaseApiTest):
@@ -6,8 +7,10 @@ class TestClassObject(BaseApiTest):
         w_class = space.appexec([], """():
             class C:
                 x = None
-                def __init__(self):
+                def __init__(self, *args, **kwargs):
                     self.x = 1
+                    self.args = args
+                    self.__dict__.update(kwargs)
             return C
         """)
 
@@ -20,6 +23,13 @@ class TestClassObject(BaseApiTest):
         w_instance = api.PyInstance_NewRaw(w_class, space.wrap(dict(a=3)))
         assert space.getattr(w_instance, space.wrap('x')) is space.w_None
         assert space.unwrap(space.getattr(w_instance, space.wrap('a'))) == 3
+
+        w_instance = api.PyInstance_New(w_class,
+                                        space.wrap((3,)), space.wrap(dict(y=2)))
+        assert space.unwrap(space.getattr(w_instance, space.wrap('x'))) == 1
+        assert space.unwrap(space.getattr(w_instance, space.wrap('y'))) == 2
+        assert space.unwrap(space.getattr(w_instance, space.wrap('args'))) == (3,)
+        
 
     def test_lookup(self, space, api):
         w_instance = space.appexec([], """():
@@ -51,3 +61,14 @@ class TestClassObject(BaseApiTest):
         assert api.PyInstance_Check(w_instance)
         assert space.is_true(space.call_method(space.builtin, "isinstance",
                                                w_instance, w_class))
+
+class AppTestStringObject(AppTestCpythonExtensionBase):
+    def test_class_type(self):
+        module = self.import_extension('foo', [
+            ("get_classtype", "METH_NOARGS",
+             """
+                 Py_INCREF(&PyClass_Type);
+                 return &PyClass_Type;
+             """)])
+        class C: pass
+        assert module.get_classtype() is type(C)

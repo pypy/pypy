@@ -31,7 +31,7 @@ class NoLogRequestHandler:
         # don't write log messages to stderr
         pass
 
-class SocketlessRequestHandler(BaseHTTPRequestHandler):
+class SocketlessRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self):
         self.get_called = False
         self.protocol_version = "HTTP/1.1"
@@ -41,11 +41,10 @@ class SocketlessRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html')
         self.end_headers()
-        self.wfile.write('<html><body>Data</body></html>\r\n')
+        self.wfile.write(b'<html><body>Data</body></html>\r\n')
 
     def log_message(self, format, *args):
         pass
-
 
 
 class TestServerThread(threading.Thread):
@@ -88,7 +87,7 @@ class BaseTestCase(unittest.TestCase):
         return self.connection.getresponse()
 
 class BaseHTTPRequestHandlerTestCase(unittest.TestCase):
-    """Test the functionaility of the BaseHTTPServer focussing on
+    """Test the functionality of the BaseHTTPServer focussing on
     BaseHTTPRequestHandler.
     """
 
@@ -143,6 +142,13 @@ class BaseHTTPRequestHandlerTestCase(unittest.TestCase):
         self.verify_expected_headers(result[1:-1])
         self.verify_get_called()
         self.assertEqual(result[-1], '<html><body>Data</body></html>\r\n')
+
+    def test_request_length(self):
+        # Issue #10714: huge request lines are discarded, to avoid Denial
+        # of Service attacks.
+        result = self.send_typical_request(b'GET ' + b'x' * 65537)
+        self.assertEqual(result[0], b'HTTP/1.1 414 Request-URI Too Long\r\n')
+        self.assertFalse(self.handler.get_called)
 
 
 class BaseHTTPServerTestCase(BaseTestCase):
@@ -318,8 +324,10 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         f = open(os.path.join(self.tempdir_name, 'index.html'), 'w')
         response = self.request('/' + self.tempdir_name + '/')
         self.check_status_and_reason(response, 200)
-        if os.name == 'posix':
-            # chmod won't work as expected on Windows platforms
+
+        # chmod() doesn't work as expected on Windows, and filesystem
+        # permissions are ignored by root on Unix.
+        if os.name == 'posix' and os.geteuid() != 0:
             os.chmod(self.tempdir, 0)
             response = self.request(self.tempdir_name + '/')
             self.check_status_and_reason(response, 404)
@@ -364,6 +372,9 @@ print "%%s, %%s, %%s" %% (form.getfirst("spam"), form.getfirst("eggs"),
                           form.getfirst("bacon"))
 """
 
+
+@unittest.skipIf(hasattr(os, 'geteuid') and os.geteuid() == 0,
+        "This test can't be run reliably as root (issue #13308).")
 class CGIHTTPServerTestCase(BaseTestCase):
     class request_handler(NoLogRequestHandler, CGIHTTPRequestHandler):
         pass
@@ -484,10 +495,34 @@ class CGIHTTPServerTestCase(BaseTestCase):
                 (res.read(), res.getheader('Content-type'), res.status))
         self.assertEqual(os.environ['SERVER_SOFTWARE'], signature)
 
+
+class SimpleHTTPRequestHandlerTestCase(unittest.TestCase):
+    """ Test url parsing """
+    def setUp(self):
+        self.translated = os.getcwd()
+        self.translated = os.path.join(self.translated, 'filename')
+        self.handler = SocketlessRequestHandler()
+
+    def test_query_arguments(self):
+        path = self.handler.translate_path('/filename')
+        self.assertEqual(path, self.translated)
+        path = self.handler.translate_path('/filename?foo=bar')
+        self.assertEqual(path, self.translated)
+        path = self.handler.translate_path('/filename?a=b&spam=eggs#zot')
+        self.assertEqual(path, self.translated)
+
+    def test_start_with_double_slash(self):
+        path = self.handler.translate_path('//filename')
+        self.assertEqual(path, self.translated)
+        path = self.handler.translate_path('//filename?foo=bar')
+        self.assertEqual(path, self.translated)
+
+
 def test_main(verbose=None):
     try:
         cwd = os.getcwd()
         test_support.run_unittest(BaseHTTPRequestHandlerTestCase,
+                                  SimpleHTTPRequestHandlerTestCase,
                                   BaseHTTPServerTestCase,
                                   SimpleHTTPServerTestCase,
                                   CGIHTTPServerTestCase

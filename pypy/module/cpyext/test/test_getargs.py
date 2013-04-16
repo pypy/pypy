@@ -3,16 +3,10 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestGetargs(AppTestCpythonExtensionBase):
-    def setup_method(self, func):
-        super(AppTestGetargs, self).setup_method(func)
-        self.w_import_parser = self.space.wrap(self.import_parser)
-
-
-    def import_parser(self, implementation, argstyle='METH_VARARGS'):
+    def w_import_parser(self, implementation, argstyle='METH_VARARGS'):
         mod = self.import_extension(
             'modname', [('funcname', argstyle, implementation)])
-        return self.space.getattr(mod, self.space.wrap("funcname"))
-
+        return mod.funcname
 
     def test_pyarg_parse_int(self):
         """
@@ -127,6 +121,46 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
+
+
+    def test_pyarg_parse_string_old_buffer(self):
+        pybuffer = self.import_parser(
+            '''
+            Py_buffer buf;
+            PyObject *result;
+            if (!PyArg_ParseTuple(args, "s*", &buf)) {
+                return NULL;
+            }
+            result = PyString_FromStringAndSize(buf.buf, buf.len);
+            PyBuffer_Release(&buf);
+            return result;
+            ''')
+        assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
+
+
+    def test_pyarg_parse_string_fails(self):
+        """
+        Test the failing case of PyArg_ParseTuple(): it must not keep
+        a reference on the PyObject passed in.
+        """
+        pybuffer = self.import_parser(
+            '''
+            Py_buffer buf1, buf2, buf3;
+            PyObject *result;
+            if (!PyArg_ParseTuple(args, "s*s*s*", &buf1, &buf2, &buf3)) {
+                return NULL;
+            }
+            Py_FatalError("should not get there");
+            return NULL;
+            ''')
+        freed = []
+        class freestring(str):
+            def __del__(self):
+                freed.append('x')
+        raises(TypeError, pybuffer,
+               freestring("string"), freestring("other string"), 42)
+        import gc; gc.collect()
+        assert freed == ['x', 'x']
 
 
     def test_pyarg_parse_charbuf_and_length(self):

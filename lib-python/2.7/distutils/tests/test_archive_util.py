@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 """Tests for distutils.archive_util."""
 __revision__ = "$Id$"
 
 import unittest
 import os
+import sys
 import tarfile
 from os.path import splitdrive
 import warnings
@@ -12,7 +14,7 @@ from distutils.archive_util import (check_archive_formats, make_tarball,
                                     ARCHIVE_FORMATS)
 from distutils.spawn import find_executable, spawn
 from distutils.tests import support
-from test.test_support import check_warnings
+from test.test_support import check_warnings, run_unittest
 
 try:
     import grp
@@ -33,6 +35,18 @@ try:
 except ImportError:
     zlib = None
 
+def can_fs_encode(filename):
+    """
+    Return True if the filename can be saved in the file system.
+    """
+    if os.path.supports_unicode_filenames:
+        return True
+    try:
+        filename.encode(sys.getfilesystemencoding())
+    except UnicodeEncodeError:
+        return False
+    return True
+
 
 class ArchiveUtilTestCase(support.TempdirManager,
                           support.LoggingSilencer,
@@ -40,6 +54,9 @@ class ArchiveUtilTestCase(support.TempdirManager,
 
     @unittest.skipUnless(zlib, "requires zlib")
     def test_make_tarball(self):
+        self._make_tarball('archive')
+
+    def _make_tarball(self, target_name):
         # creating something to tar
         tmpdir = self.mkdtemp()
         self.write_file([tmpdir, 'file1'], 'xxx')
@@ -51,7 +68,7 @@ class ArchiveUtilTestCase(support.TempdirManager,
         unittest.skipUnless(splitdrive(tmpdir)[0] == splitdrive(tmpdir2)[0],
                             "source and target should be on same drive")
 
-        base_name = os.path.join(tmpdir2, 'archive')
+        base_name = os.path.join(tmpdir2, target_name)
 
         # working with relative paths to avoid tar warnings
         old_dir = os.getcwd()
@@ -66,7 +83,7 @@ class ArchiveUtilTestCase(support.TempdirManager,
         self.assertTrue(os.path.exists(tarball))
 
         # trying an uncompressed one
-        base_name = os.path.join(tmpdir2, 'archive')
+        base_name = os.path.join(tmpdir2, target_name)
         old_dir = os.getcwd()
         os.chdir(tmpdir)
         try:
@@ -277,8 +294,35 @@ class ArchiveUtilTestCase(support.TempdirManager,
         finally:
             del ARCHIVE_FORMATS['xxx']
 
+    @unittest.skipUnless(zlib, "requires zlib")
+    def test_make_tarball_unicode(self):
+        """
+        Mirror test_make_tarball, except filename is unicode.
+        """
+        self._make_tarball(u'archive')
+
+    @unittest.skipUnless(zlib, "requires zlib")
+    @unittest.skipUnless(can_fs_encode(u'årchiv'),
+        'File system cannot handle this filename')
+    def test_make_tarball_unicode_latin1(self):
+        """
+        Mirror test_make_tarball, except filename is unicode and contains
+        latin characters.
+        """
+        self._make_tarball(u'årchiv') # note this isn't a real word
+
+    @unittest.skipUnless(zlib, "requires zlib")
+    @unittest.skipUnless(can_fs_encode(u'のアーカイブ'),
+        'File system cannot handle this filename')
+    def test_make_tarball_unicode_extended(self):
+        """
+        Mirror test_make_tarball, except filename is unicode and contains
+        characters outside the latin charset.
+        """
+        self._make_tarball(u'のアーカイブ') # japanese for archive
+
 def test_suite():
     return unittest.makeSuite(ArchiveUtilTestCase)
 
 if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
+    run_unittest(test_suite())

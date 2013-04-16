@@ -1,7 +1,4 @@
-
 from pypy.interpreter.mixedmodule import MixedModule
-import termios
-from pypy.rlib.nonconst import NonConstant
 
 class Module(MixedModule):
     "This module provides an interface to the Posix calls for tty I/O control.\n\
@@ -15,7 +12,7 @@ class Module(MixedModule):
 
     appleveldefs = {
     }
-    
+
     interpleveldefs = {
         'tcdrain'     : 'interp_termios.tcdrain',
         'tcflow'      : 'interp_termios.tcflow',
@@ -26,13 +23,10 @@ class Module(MixedModule):
         'error'       : 'space.fromcache(interp_termios.Cache).w_error',
     }
 
-import termios
-from pypy.module.termios import interp_termios
-
 # XXX this is extremaly not-portable, but how to prevent this?
 
+import termios
 for i in dir(termios):
     val = getattr(termios, i)
     if i.isupper() and type(val) is int:
         Module.interpleveldefs[i] = "space.wrap(%s)" % val
-

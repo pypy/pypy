@@ -376,9 +376,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
             asrt.msg.walkabout(self)
-            self.emit_op_arg(ops.RAISE_VARARGS, 2)
-        else:
-            self.emit_op_arg(ops.RAISE_VARARGS, 1)
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        self.emit_op_arg(ops.RAISE_VARARGS, 1)
         self.use_next_block(end)
 
     def _binop(self, op):
@@ -475,7 +474,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if f_type == F_BLOCK_LOOP:
                     self.emit_jump(ops.CONTINUE_LOOP, block, True)
                     break
-                if self.frame_blocks[i][0] == F_BLOCK_FINALLY_END:
+                if f_type == F_BLOCK_FINALLY_END:
                     self.error("'continue' not supported inside 'finally' " \
                                    "clause",
                                cont)
@@ -564,7 +563,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(handler.body)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
-        self.emit_op(ops.END_FINALLY)
+        self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
+        self.is_dead_code()
         self.use_next_block(otherwise)
         self.visit_sequence(te.orelse)
         self.use_next_block(end)
@@ -904,8 +904,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Set(self, s):
         self.update_position(s.lineno)
+        elt_count = len(s.elts) if s.elts is not None else 0
         self.visit_sequence(s.elts)
-        self.emit_op_arg(ops.BUILD_SET, len(s.elts))
+        self.emit_op_arg(ops.BUILD_SET, elt_count)
 
     def visit_Name(self, name):
         self.update_position(name.lineno)
@@ -965,7 +966,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
-    def _listcomp_generator(self, gens, gen_index, elt):
+    def _listcomp_generator(self, gens, gen_index, elt, single=False):
         start = self.new_block()
         skip = self.new_block()
         if_cleanup = self.new_block()
@@ -973,6 +974,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         gen = gens[gen_index]
         assert isinstance(gen, ast.comprehension)
         gen.iter.walkabout(self)
+        if single:
+            self.emit_op_arg(ops.BUILD_LIST_FROM_ARG, 0)
         self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
         self.emit_jump(ops.FOR_ITER, anchor)
@@ -998,8 +1001,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ListComp(self, lc):
         self.update_position(lc.lineno)
-        self.emit_op_arg(ops.BUILD_LIST, 0)
-        self._listcomp_generator(lc.generators, 0, lc.elt)
+        if len(lc.generators) != 1 or lc.generators[0].ifs:
+            single = False
+            self.emit_op_arg(ops.BUILD_LIST, 0)
+        else:
+            single = True
+        self._listcomp_generator(lc.generators, 0, lc.elt, single=single)
 
     def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()

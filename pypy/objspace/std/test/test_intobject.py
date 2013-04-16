@@ -2,8 +2,8 @@ import py
 import sys
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import r_uint, is_valid_int
+from rpython.rlib.rbigint import rbigint
 
 
 class TestW_IntObject:
@@ -15,7 +15,7 @@ class TestW_IntObject:
         while 1:
             ires = x << n
             lres = l << n
-            if type(ires) is long or lres != ires:
+            if not is_valid_int(ires) or lres != ires:
                 return n
             n += 1
 
@@ -268,7 +268,7 @@ class TestW_IntObject:
 
     def test_int(self):
         f1 = iobj.W_IntObject(1)
-        result = iobj.int__Int(self.space, f1)
+        result = f1.int(self.space)
         assert result == f1
 
     def test_oct(self):
@@ -500,12 +500,7 @@ class AppTestInt:
 
 
 class AppTestIntOptimizedAdd(AppTestInt):
-    def setup_class(cls):
-        from pypy.conftest import gettestobjspace
-        cls.space = gettestobjspace(**{"objspace.std.optimized_int_add": True})
+    spaceconfig = {"objspace.std.optimized_int_add": True}
 
 class AppTestIntOptimizedComp(AppTestInt):
-    def setup_class(cls):
-        from pypy.conftest import gettestobjspace
-        cls.space = gettestobjspace(**{"objspace.std.optimized_comparison_op": True})
-        
+    spaceconfig = {"objspace.std.optimized_comparison_op": True}

@@ -1,9 +1,9 @@
 
 # -*- coding: utf-8 -*-
 
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway, argument
-from pypy.interpreter.gateway import ObjSpace, W_Root
+from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
+from pypy.interpreter.signature import Signature
 import py
 import sys
 
@@ -21,24 +21,28 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    gateway.W_Root,
                                                    'args_w'])
-        assert code.signature() == argument.Signature(['x', 'y'], 'hello', None)
+        assert code.signature() == Signature(['x', 'y'], 'hello', None)
         def d(self, w_boo):
             pass
+
+        class W_X(W_Root):
+            pass
+
         code = gateway.BuiltinCode(d, unwrap_spec= ['self',
-                                                   gateway.W_Root], self_type=gateway.Wrappable)
-        assert code.signature() == argument.Signature(['self', 'boo'], None, None)
+                                                   gateway.W_Root], self_type=W_X)
+        assert code.signature() == Signature(['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass
         code = gateway.BuiltinCode(e, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.W_Root,
                                                    gateway.Arguments])
-        assert code.signature() == argument.Signature(['x', 'y'], 'args', 'keywords')
+        assert code.signature() == Signature(['x', 'y'], 'args', 'keywords')
 
         def f(space, index):
             pass
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace, "index"])
-        assert code.signature() == argument.Signature(["index"], None, None)
+        assert code.signature() == Signature(["index"], None, None)
 
 
     def test_call(self):
@@ -101,14 +105,6 @@ class TestGateway:
         g3 = gateway.app2interp_temp(noapp_g3, gateway.applevel_temp)
         assert self.space.eq_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
 
-    def test_app2interp2(self):
-        """same but using transformed code"""
-        w = self.space.wrap
-        def noapp_g3(a, b):
-            return a+b
-        g3 = gateway.app2interp_temp(noapp_g3, gateway.applevelinterp_temp)
-        assert self.space.eq_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
-
     def test_app2interp_general_args(self):
         w = self.space.wrap
         def app_general(x, *args, **kwds):
@@ -136,6 +132,36 @@ class TestGateway:
         assert self.space.eq_w(
             space.call_function(w_app_g3, w('foo'), w('bar')),
             w('foobar'))
+
+    def test_interpindirect2app(self):
+        space = self.space
+        class BaseA(W_Root):
+            def method(self, space, x):
+                pass
+
+        class A(BaseA):
+            def method(self, space, x):
+                return space.wrap(x + 2)
+
+        class B(BaseA):
+            def method(self, space, x):
+                return space.wrap(x + 1)
+
+        class FakeTypeDef(object):
+            rawdict = {}
+            bases = {}
+            applevel_subclasses_base = None
+            name = 'foo'
+            hasdict = False
+            weakrefable = False
+            doc = 'xyz'
+
+        meth = gateway.interpindirect2app(BaseA.method, {'x': int})
+        w_c = space.wrap(meth)
+        w_a = A()
+        w_b = B()
+        assert space.int_w(space.call_function(w_c, w_a, space.wrap(1))) == 1 + 2
+        assert space.int_w(space.call_function(w_c, w_b, space.wrap(-10))) == -10 + 1
 
     def test_interp2app_unwrap_spec(self):
         space = self.space
@@ -175,7 +201,7 @@ class TestGateway:
                                space.wrap(True))
 
     def test_caching_methods(self):
-        class Base(gateway.Wrappable):
+        class Base(gateway.W_Root):
             def f(self):
                 return 1
 
@@ -206,7 +232,7 @@ class TestGateway:
                        space.call_function, w_app_g, space.wrap(-1))
 
     def test_interp2app_unwrap_spec_c_int(self):
-        from pypy.rlib.rarithmetic import r_longlong
+        from rpython.rlib.rarithmetic import r_longlong
         space = self.space
         w = space.wrap
         def g(space, x):
@@ -447,25 +473,6 @@ class TestGateway:
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(42))
 
-
-    def test_interp2app_unwrap_spec_func(self):
-        space = self.space
-        w = space.wrap
-        def g_id(space, w_x):
-            return w_x
-        l =[]
-        def checker(w_x):
-            l.append(w_x)
-            return w_x
-
-        app_g_id = gateway.interp2app_temp(g_id,
-                                           unwrap_spec=[gateway.ObjSpace,
-                                                        (checker, gateway.W_Root)])
-        w_app_g_id = space.wrap(app_g_id)
-        assert space.eq_w(space.call_function(w_app_g_id,w("foo")),w("foo"))
-        assert len(l) == 1
-        assert space.eq_w(l[0], w("foo"))
-
     def test_interp2app_classmethod(self):
         space = self.space
         w = space.wrap
@@ -598,6 +605,46 @@ class TestGateway:
         unwrap_spec = gateway.BuiltinCode(f)._unwrap_spec
         assert unwrap_spec == [ObjSpace, W_Root, int]
 
+    def test_unwrap_spec_default_applevel(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x = WrappedDefault(42))
+        def g(space, w_x):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(42))
+        #
+        args = argument.Arguments(space, [space.wrap(84)])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(84))
+
+    def test_unwrap_spec_default_applevel_2(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x = (WrappedDefault(42)), y=int)
+        def g(space, w_x, y=10):
+            return space.add(w_x, space.wrap(y))
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(52))
+        #
+        args = argument.Arguments(space, [space.wrap(84)])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(94))
+        #
+        args = argument.Arguments(space, [space.wrap(84), space.wrap(-1)])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(83))
+
+    def test_unwrap_spec_default_applevel_bogus(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x = WrappedDefault(42), y=int)
+        def g(space, w_x, y):
+            never_called
+        py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
+
+
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
     def test_anything(self):
@@ -702,12 +749,9 @@ y = a.m(33)
         assert isinstance(called[0], argument.Arguments)
 
 class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
-
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('itertools',), **{
+    spaceconfig = dict(usemodules=('itertools',), **{
             "objspace.opcodes.CALL_METHOD": True
             })
-        cls.space = space
 
 class AppTestKeywordsToBuiltinSanity(object):
 

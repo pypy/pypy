@@ -1,8 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
-from pypy.rpython.lltypesystem import rffi, lltype
 
 class Module(MixedModule):
     interpleveldefs = {
@@ -28,7 +26,6 @@ class Module(MixedModule):
 
 
 # import these modules to register api functions by side-effect
-import pypy.module.cpyext.thread
 import pypy.module.cpyext.pyobject
 import pypy.module.cpyext.boolobject
 import pypy.module.cpyext.floatobject
@@ -45,6 +42,8 @@ import pypy.module.cpyext.intobject
 import pypy.module.cpyext.longobject
 import pypy.module.cpyext.listobject
 import pypy.module.cpyext.sequence
+import pypy.module.cpyext.buffer
+import pypy.module.cpyext.bufferobject
 import pypy.module.cpyext.eval
 import pypy.module.cpyext.import_
 import pypy.module.cpyext.mapping

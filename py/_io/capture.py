@@ -12,7 +12,7 @@ if sys.version_info < (3,0):
     class TextIO(StringIO):
         def write(self, data):
             if not isinstance(data, unicode):
-                data = unicode(data, getattr(self, '_encoding', 'UTF-8'))
+                data = unicode(data, getattr(self, '_encoding', 'UTF-8'), 'replace')
             StringIO.write(self, data)
 else:
     TextIO = StringIO
@@ -176,7 +176,7 @@ class Capture(object):
 
 
 class StdCaptureFD(Capture):
-    """ This class allows to capture writes to FD1 and FD2
+    """ This class allows capturing writes to FD1 and FD2
         and may connect a NULL file to FD0 (and prevent
         reads from sys.stdin).  If any of the 0,1,2 file descriptors
         is invalid it will not be captured.
@@ -258,14 +258,17 @@ class StdCaptureFD(Capture):
                 f = getattr(self, name).tmpfile
                 f.seek(0)
                 res = f.read()
+                enc = getattr(f, 'encoding', None)
+                if enc:
+                    res = py.builtin._totext(res, enc, 'replace')
                 f.truncate(0)
                 f.seek(0)
             l.append(res)
         return l
 
 class StdCapture(Capture):
-    """ This class allows to capture writes to sys.stdout|stderr "in-memory"
-        and will raise errors on tries to read from sys.stdin. It only
+    """ This class allows capturing writes to sys.stdout|stderr "in-memory"
+        and will raise errors on read attempts from sys.stdin. It only
         modifies sys.stdout|stderr|stdin attributes and does not
         touch underlying File Descriptors (use StdCaptureFD for that).
     """

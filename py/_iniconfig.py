@@ -103,6 +103,7 @@ class IniConfig(object):
     def _parseline(self, line, lineno):
         # comments
         line = line.split('#')[0].rstrip()
+        line = line.split(';')[0].rstrip()
         # blank lines
         if not line:
             return None, None

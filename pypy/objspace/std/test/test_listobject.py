@@ -1,9 +1,10 @@
 # coding: iso-8859-15
+import py
 import random
-from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
+     IntegerListStrategy, ObjectListStrategy
 from pypy.interpreter.error import OperationError
-
-from pypy.conftest import gettestobjspace, option
+from rpython.rlib.rarithmetic import is_valid_int
 
 
 class TestW_ListObject(object):
@@ -47,6 +48,46 @@ class TestW_ListObject(object):
         l2 = r.getitems()
         for i in range(7):
             assert self.space.eq_w(l[i], l2[i])
+
+    def test_getitems_fixedsize(self):
+        w = self.space.wrap
+        from pypy.objspace.std.listobject import make_range_list
+        rangelist = make_range_list(self.space, 1,1,7)
+        emptylist = W_ListObject(self.space, [])
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
+        strlist = W_ListObject(self.space, [w('1'),w('2'),w('3'),w('4'),w('5'),w('6'),w('7')])
+        floatlist = W_ListObject(self.space, [w(1.0),w(2.0),w(3.0),w(4.0),w(5.0),w(6.0),w(7.0)])
+        objlist = W_ListObject(self.space, [w(1),w('2'),w(3.0),w(4),w(5),w(6),w(7)])
+
+        emptylist_copy = emptylist.getitems_fixedsize()
+        assert emptylist_copy == []
+
+        rangelist_copy = rangelist.getitems_fixedsize()
+        intlist_copy = intlist.getitems_fixedsize()
+        strlist_copy = strlist.getitems_fixedsize()
+        floatlist_copy = floatlist.getitems_fixedsize()
+        objlist_copy = objlist.getitems_fixedsize()
+        for i in range(7):
+            assert self.space.eq_w(rangelist_copy[i], rangelist.getitem(i))
+            assert self.space.eq_w(intlist_copy[i], intlist.getitem(i))
+            assert self.space.eq_w(strlist_copy[i], strlist.getitem(i))
+            assert self.space.eq_w(floatlist_copy[i], floatlist.getitem(i))
+            assert self.space.eq_w(objlist_copy[i], objlist.getitem(i))
+
+        emptylist_copy = emptylist.getitems_unroll()
+        assert emptylist_copy == []
+
+        rangelist_copy = rangelist.getitems_unroll()
+        intlist_copy = intlist.getitems_unroll()
+        strlist_copy = strlist.getitems_unroll()
+        floatlist_copy = floatlist.getitems_unroll()
+        objlist_copy = objlist.getitems_unroll()
+        for i in range(7):
+            assert self.space.eq_w(rangelist_copy[i], rangelist.getitem(i))
+            assert self.space.eq_w(intlist_copy[i], intlist.getitem(i))
+            assert self.space.eq_w(strlist_copy[i], strlist.getitem(i))
+            assert self.space.eq_w(floatlist_copy[i], floatlist.getitem(i))
+            assert self.space.eq_w(objlist_copy[i], objlist.getitem(i))
 
     def test_random_getitem(self):
         w = self.space.wrap
@@ -160,6 +201,15 @@ class TestW_ListObject(object):
         w_res = self.space.mul(w(n), w_lis)
         assert self.space.eq_w(w_lis3, w_res)
 
+    def test_mul_does_not_clone(self):
+        # only testing right mul at the moment
+        w = self.space.wrap
+        arg = w(2)
+        w_lis = W_ListObject(self.space, [arg])
+        w_lis.clone = None
+        # does not crash
+        self.space.mul(w_lis, w(5))
+
     def test_setitem(self):
         w = self.space.wrap
         w_list = W_ListObject(self.space, [w(5), w(3)])
@@ -201,7 +251,7 @@ class TestW_ListObject(object):
                 self.space.raises_w(self.space.w_IndexError,
                                     self.space.setitem, w_list, w(key), w(42))
             else:
-                if isinstance(value, int):   # non-slicing
+                if is_valid_int(value):   # non-slicing
                     if random.random() < 0.25:   # deleting
                         self.space.delitem(w_list, w(key))
                         del expected[key]
@@ -350,13 +400,42 @@ class TestW_ListObject(object):
         assert self.space.eq_w(self.space.le(w_list4, w_list3),
                            self.space.w_True)
 
+    def test_sizehint(self):
+        space = self.space
+        w_l = space.newlist([], sizehint=10)
+        assert isinstance(w_l.strategy, SizeListStrategy)
+        space.call_method(w_l, 'append', space.wrap(3))
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        w_l = space.newlist([], sizehint=10)
+        space.call_method(w_l, 'append', space.w_None)
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+
+    def test_newlist_hint(self):
+        space = self.space
+        w_lst = space.newlist_hint(13)
+        assert isinstance(w_lst.strategy, SizeListStrategy)
+        assert w_lst.strategy.sizehint == 13
+
+    def test_find_fast_on_intlist(self, monkeypatch):
+        monkeypatch.setattr(self.space, "eq_w", None)
+        w = self.space.wrap
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
+        res = intlist.find(w(4), 0, 7)
+        assert res == 3
+        res = intlist.find(w(4), 0, 100)
+        assert res == 3
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 4, 7)
+        with py.test.raises(ValueError):
+            intlist.find(w(4), 0, 2)
 
 class AppTestW_ListObject(object):
     def setup_class(cls):
         import sys
-        on_cpython = (option.runappdirect and
-                            not hasattr(sys, 'pypy_translation_info'))
+        on_cpython = (cls.runappdirect and
+                      not hasattr(sys, 'pypy_translation_info'))
         cls.w_on_cpython = cls.space.wrap(on_cpython)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
@@ -433,6 +512,14 @@ class AppTestW_ListObject(object):
         list.__init__(l, ['a', 'b', 'c'])
         assert l is l0
         assert l == ['a', 'b', 'c']
+        list.__init__(l)
+        assert l == []
+
+    def test_explicit_new_init_more_cases(self):
+        for assignment in [[], (), [3], ["foo"]]:
+            l = [1, 2]
+            l.__init__(assignment)
+            assert l == list(assignment)
 
     def test_extend_list(self):
         l = l0 = [1]
@@ -858,6 +945,18 @@ class AppTestW_ListObject(object):
         l[::-1] = l
         assert l == [6,5,4,3,2,1]
 
+    def test_setitem_slice_performance(self):
+        # because of a complexity bug, this used to take forever on a
+        # translated pypy.  On CPython2.6 -A, it takes around 5 seconds.
+        if self.runappdirect:
+            count = 16*1024*1024
+        else:
+            count = 1024
+        b = [None] * count
+        for i in range(count):
+            b[i:i+1] = ['y']
+        assert b == ['y'] * count
+
     def test_recursive_repr(self):
         l = []
         assert repr(l) == '[]'
@@ -1010,7 +1109,7 @@ class AppTestW_ListObject(object):
                 self.i = i
             def __eq__(self, other):
                 if self.i == 9:
-                    del l[i - 1]
+                    del l[self.i - 1]
                     return True
                 else:
                     return False
@@ -1108,11 +1207,104 @@ class AppTestW_ListObject(object):
         assert l == []
         assert list(g) == []
 
-class AppTestForRangeLists(AppTestW_ListObject):
+    def test_uses_custom_iterator(self):
+        # obscure corner case: space.listview*() must not shortcut subclasses
+        # of dicts, because the OrderedDict in the stdlib relies on this.
+        # we extend the use case to lists and sets, i.e. all types that have
+        # strategies, to avoid surprizes depending on the strategy.
+        class X: pass
+        for base, arg in [
+                (list, []), (list, [5]), (list, ['x']), (list, [X]), (list, [u'x']),
+                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]), (set, [u'x']),
+                (dict, []), (dict, [(5,6)]), (dict, [('x',7)]), (dict, [(X,8)]),
+                (dict, [(u'x', 7)]),
+                ]:
+            print base, arg
+            class SubClass(base):
+                def __iter__(self):
+                    return iter("foobar")
+            sub = SubClass(arg)
+            assert list(sub) == ['f', 'o', 'o', 'b', 'a', 'r']
+            l = []
+            l.extend(sub)
+            assert l == ['f', 'o', 'o', 'b', 'a', 'r']
+            # test another list strategy
+            l = ['Z']
+            l.extend(sub)
+            assert l == ['Z', 'f', 'o', 'o', 'b', 'a', 'r']
 
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withrangelist" :
-                                       True})
+            class Sub2(base):
+                pass
+            assert list(Sub2(arg)) == list(base(arg))
+            s = set()
+            s.update(Sub2(arg))
+            assert s == set(base(arg))
+
+    def test_comparison(self):
+        assert ([] <  []) is False
+        assert ([] <= []) is True
+        assert ([] == []) is True
+        assert ([] != []) is False
+        assert ([] >  []) is False
+        assert ([] >= []) is True
+        assert ([5] <  []) is False
+        assert ([5] <= []) is False
+        assert ([5] == []) is False
+        assert ([5] != []) is True
+        assert ([5] >  []) is True
+        assert ([5] >= []) is True
+        assert ([] <  [5]) is True
+        assert ([] <= [5]) is True
+        assert ([] == [5]) is False
+        assert ([] != [5]) is True
+        assert ([] >  [5]) is False
+        assert ([] >= [5]) is False
+        assert ([4] <  [5]) is True
+        assert ([4] <= [5]) is True
+        assert ([4] == [5]) is False
+        assert ([4] != [5]) is True
+        assert ([4] >  [5]) is False
+        assert ([4] >= [5]) is False
+        assert ([5] <  [5]) is False
+        assert ([5] <= [5]) is True
+        assert ([5] == [5]) is True
+        assert ([5] != [5]) is False
+        assert ([5] >  [5]) is False
+        assert ([5] >= [5]) is True
+        assert ([6] <  [5]) is False
+        assert ([6] <= [5]) is False
+        assert ([6] == [5]) is False
+        assert ([6] != [5]) is True
+        assert ([6] >  [5]) is True
+        assert ([6] >= [5]) is True
+        N = float('nan')
+        assert ([N] <  [5]) is False
+        assert ([N] <= [5]) is False
+        assert ([N] == [5]) is False
+        assert ([N] != [5]) is True
+        assert ([N] >  [5]) is False
+        assert ([N] >= [5]) is False
+        assert ([5] <  [N]) is False
+        assert ([5] <= [N]) is False
+        assert ([5] == [N]) is False
+        assert ([5] != [N]) is True
+        assert ([5] >  [N]) is False
+        assert ([5] >= [N]) is False
+
+    def test_resizelist_hint(self):
+        import __pypy__
+        l2 = []
+        __pypy__.resizelist_hint(l2, 100)
+        l1 = [1, 2, 3]
+        l1[:] = l2
+        assert len(l1) == 0
+
+    def test_use_method_for_wrong_object(self):
+        raises(TypeError, list.append.im_func, 1, 2)
+
+
+class AppTestForRangeLists(AppTestW_ListObject):
+    spaceconfig = {"objspace.std.withrangelist": True}
 
     def test_range_simple_backwards(self):
         x = range(5,1)
@@ -1198,12 +1390,50 @@ class AppTestForRangeLists(AppTestW_ListObject):
         l.reverse()
         assert l == [2,1,0]
 
+    def test_issue1266(self):
+        l = range(1)
+        l.pop()
+        # would previously crash
+        l.append(1)
+        assert l == [1]
+
+        l = range(1)
+        l.pop()
+        # would previously crash
+        l.reverse()
+        assert l == []
+
+    def test_issue1266_ovf(self):
+        import sys
+
+        l = range(0, sys.maxint, sys.maxint)
+        l.append(sys.maxint)
+        # -2 would be next in the range sequence if overflow were
+        # allowed
+        l.append(-2)
+        assert l == [0, sys.maxint, -2]
+        assert -2 in l
+
+        l = range(-sys.maxint, sys.maxint, sys.maxint // 10)
+        item11 = l[11]
+        assert l[::11] == [-sys.maxint, item11]
+        assert item11 in l[::11]
+
+
+class AppTestWithoutStrategies(object):
+    spaceconfig = {"objspace.std.withliststrategies": False}
+
+    def test_no_shared_empty_list(self):
+        l = []
+        copy = l[:]
+        copy.append({})
+        assert copy == [{}]
+
+        notshared = l[:]
+        assert notshared == []
 
 class AppTestListFastSubscr:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.optimized_list_getitem" :
-                                       True})
+    spaceconfig = {"objspace.std.optimized_list_getitem": True}
 
     def test_getitem(self):
         import operator

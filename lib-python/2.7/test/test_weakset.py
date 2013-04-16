@@ -57,14 +57,17 @@ class TestWeakSet(unittest.TestCase):
         self.assertEqual(len(self.s), len(self.d))
         self.assertEqual(len(self.fs), 1)
         del self.obj
+        test_support.gc_collect()
         self.assertEqual(len(self.fs), 0)
 
     def test_contains(self):
         for c in self.letters:
             self.assertEqual(c in self.s, c in self.d)
-        self.assertRaises(TypeError, self.s.__contains__, [[]])
+        # 1 is not weakref'able, but that TypeError is caught by __contains__
+        self.assertNotIn(1, self.s)
         self.assertIn(self.obj, self.fs)
         del self.obj
+        test_support.gc_collect()
         self.assertNotIn(SomeClass('F'), self.fs)
 
     def test_union(self):
@@ -203,6 +206,7 @@ class TestWeakSet(unittest.TestCase):
         self.assertEqual(self.s, dup)
         self.assertRaises(TypeError, self.s.add, [])
         self.fs.add(Foo())
+        test_support.gc_collect()
         self.assertTrue(len(self.fs) == 1)
         self.fs.add(self.obj)
         self.assertTrue(len(self.fs) == 1)
@@ -329,10 +333,11 @@ class TestWeakSet(unittest.TestCase):
         next(it)             # Trigger internal iteration
         # Destroy an item
         del items[-1]
-        gc.collect()    # just in case
+        test_support.gc_collect()
         # We have removed either the first consumed items, or another one
         self.assertIn(len(list(it)), [len(items), len(items) - 1])
         del it
+        test_support.gc_collect()
         # The removal has been committed
         self.assertEqual(len(s), len(items))
 

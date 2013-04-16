@@ -1,8 +1,11 @@
-from pypy.conftest import gettestobjspace
+import os
+import py
+
+if os.name != 'posix':
+    py.test.skip('pwd module only available on unix')
 
 class AppTestPwd:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['pwd'])
+    spaceconfig = dict(usemodules=['pwd'])
 
     def test_getpwuid(self):
         import pwd, sys

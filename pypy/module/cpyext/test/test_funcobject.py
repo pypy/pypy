@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
@@ -80,6 +80,14 @@ class TestFunctionObject(BaseApiTest):
         assert w_code.co_firstlineno == 3
         rffi.free_charp(filename)
         rffi.free_charp(funcname)
+
+    def test_getnumfree(self, space, api):
+        w_function = space.appexec([], """():
+            a = 5
+            def method(x): return a, x
+            return method
+        """)
+        assert api.PyCode_GetNumFree(w_function.code) == 1
 
     def test_classmethod(self, space, api):
         w_function = space.appexec([], """():

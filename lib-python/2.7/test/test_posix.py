@@ -11,10 +11,14 @@ import time
 import os
 import pwd
 import shutil
+import stat
 import sys
+import tempfile
 import unittest
 import warnings
 
+_DUMMY_SYMLINK = os.path.join(tempfile.gettempdir(),
+                              test_support.TESTFN + '-dummy-symlink')
 
 warnings.filterwarnings('ignore', '.* potential security risk .*',
                         RuntimeWarning)
@@ -25,9 +29,11 @@ class PosixTester(unittest.TestCase):
         # create empty file
         fp = open(test_support.TESTFN, 'w+')
         fp.close()
+        self.teardown_files = [ test_support.TESTFN ]
 
     def tearDown(self):
-        os.unlink(test_support.TESTFN)
+        for teardown_file in self.teardown_files:
+            os.unlink(teardown_file)
 
     def testNoArgFunctions(self):
         # test posix functions which take no arguments and have
@@ -38,11 +44,13 @@ class PosixTester(unittest.TestCase):
                              "getpid", "getpgrp", "getppid", "getuid",
                            ]
 
-        for name in NO_ARG_FUNCTIONS:
-            posix_func = getattr(posix, name, None)
-            if posix_func is not None:
-                posix_func()
-                self.assertRaises(TypeError, posix_func, 1)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "", DeprecationWarning)
+            for name in NO_ARG_FUNCTIONS:
+                posix_func = getattr(posix, name, None)
+                if posix_func is not None:
+                    posix_func()
+                    self.assertRaises(TypeError, posix_func, 1)
 
     if hasattr(posix, 'getresuid'):
         def test_getresuid(self):
@@ -256,7 +264,7 @@ class PosixTester(unittest.TestCase):
     def test_lchown(self):
         os.unlink(test_support.TESTFN)
         # create a symlink
-        os.symlink('/tmp/dummy-symlink-target', test_support.TESTFN)
+        os.symlink(_DUMMY_SYMLINK, test_support.TESTFN)
         self._test_all_chown_common(posix.lchown, test_support.TESTFN)
 
     def test_chdir(self):
@@ -290,14 +298,18 @@ class PosixTester(unittest.TestCase):
 
     def test_tempnam(self):
         if hasattr(posix, 'tempnam'):
-            self.assertTrue(posix.tempnam())
-            self.assertTrue(posix.tempnam(os.curdir))
-            self.assertTrue(posix.tempnam(os.curdir, 'blah'))
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", "tempnam", DeprecationWarning)
+                self.assertTrue(posix.tempnam())
+                self.assertTrue(posix.tempnam(os.curdir))
+                self.assertTrue(posix.tempnam(os.curdir, 'blah'))
 
     def test_tmpfile(self):
         if hasattr(posix, 'tmpfile'):
-            fp = posix.tmpfile()
-            fp.close()
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", "tmpfile", DeprecationWarning)
+                fp = posix.tmpfile()
+                fp.close()
 
     def test_utime(self):
         if hasattr(posix, 'utime'):
@@ -309,17 +321,49 @@ class PosixTester(unittest.TestCase):
             posix.utime(test_support.TESTFN, (int(now), int(now)))
             posix.utime(test_support.TESTFN, (now, now))
 
-    def test_chflags(self):
-        if hasattr(posix, 'chflags'):
-            st = os.stat(test_support.TESTFN)
-            if hasattr(st, 'st_flags'):
-                posix.chflags(test_support.TESTFN, st.st_flags)
+    def _test_chflags_regular_file(self, chflags_func, target_file):
+        st = os.stat(target_file)
+        self.assertTrue(hasattr(st, 'st_flags'))
+        chflags_func(target_file, st.st_flags | stat.UF_IMMUTABLE)
+        try:
+            new_st = os.stat(target_file)
+            self.assertEqual(st.st_flags | stat.UF_IMMUTABLE, new_st.st_flags)
+            try:
+                fd = open(target_file, 'w+')
+            except IOError as e:
+                self.assertEqual(e.errno, errno.EPERM)
+        finally:
+            posix.chflags(target_file, st.st_flags)
 
-    def test_lchflags(self):
-        if hasattr(posix, 'lchflags'):
-            st = os.stat(test_support.TESTFN)
-            if hasattr(st, 'st_flags'):
-                posix.lchflags(test_support.TESTFN, st.st_flags)
+    @unittest.skipUnless(hasattr(posix, 'chflags'), 'test needs os.chflags()')
+    def test_chflags(self):
+        self._test_chflags_regular_file(posix.chflags, test_support.TESTFN)
+
+    @unittest.skipUnless(hasattr(posix, 'lchflags'), 'test needs os.lchflags()')
+    def test_lchflags_regular_file(self):
+        self._test_chflags_regular_file(posix.lchflags, test_support.TESTFN)
+
+    @unittest.skipUnless(hasattr(posix, 'lchflags'), 'test needs os.lchflags()')
+    def test_lchflags_symlink(self):
+        testfn_st = os.stat(test_support.TESTFN)
+
+        self.assertTrue(hasattr(testfn_st, 'st_flags'))
+
+        os.symlink(test_support.TESTFN, _DUMMY_SYMLINK)
+        self.teardown_files.append(_DUMMY_SYMLINK)
+        dummy_symlink_st = os.lstat(_DUMMY_SYMLINK)
+
+        posix.lchflags(_DUMMY_SYMLINK,
+                       dummy_symlink_st.st_flags | stat.UF_IMMUTABLE)
+        try:
+            new_testfn_st = os.stat(test_support.TESTFN)
+            new_dummy_symlink_st = os.lstat(_DUMMY_SYMLINK)
+
+            self.assertEqual(testfn_st.st_flags, new_testfn_st.st_flags)
+            self.assertEqual(dummy_symlink_st.st_flags | stat.UF_IMMUTABLE,
+                             new_dummy_symlink_st.st_flags)
+        finally:
+            posix.lchflags(_DUMMY_SYMLINK, dummy_symlink_st.st_flags)
 
     def test_getcwd_long_pathnames(self):
         if hasattr(posix, 'getcwd'):
@@ -364,6 +408,7 @@ class PosixTester(unittest.TestCase):
                 os.chdir(curdir)
                 shutil.rmtree(base_path)
 
+    @unittest.skipUnless(hasattr(os, 'getegid'), "test needs os.getegid()")
     def test_getgroups(self):
         with os.popen('id -G') as idg:
             groups = idg.read().strip()
@@ -373,9 +418,11 @@ class PosixTester(unittest.TestCase):
 
         # 'id -G' and 'os.getgroups()' should return the same
         # groups, ignoring order and duplicates.
+        # #10822 - it is implementation defined whether posix.getgroups()
+        # includes the effective gid so we include it anyway, since id -G does
         self.assertEqual(
                 set([int(x) for x in groups.split()]),
-                set(posix.getgroups()))
+                set(posix.getgroups() + [posix.getegid()]))
 
 class PosixGroupsTester(unittest.TestCase):
 

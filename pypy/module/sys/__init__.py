@@ -1,6 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 import sys
 
 _WIN = sys.platform == 'win32'
@@ -42,9 +42,11 @@ class Module(MixedModule):
         'argv'                  : 'state.get(space).w_argv',
         'py3kwarning'           : 'space.w_False',
         'warnoptions'           : 'state.get(space).w_warnoptions', 
-        'builtin_module_names'  : 'state.w_None',
+        'builtin_module_names'  : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
-        'pypy_initial_path'     : 'state.pypy_initial_path',
+        'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
+        'pypy_find_executable'  : 'initpath.pypy_find_executable',
+        'pypy_resolvedirof'     : 'initpath.pypy_resolvedirof',
 
         '_getframe'             : 'vm._getframe', 
         '_current_frames'       : 'currentframes._current_frames', 
@@ -89,18 +91,18 @@ class Module(MixedModule):
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
-    
+
     appleveldefs = {
-        'excepthook'            : 'app.excepthook', 
-        '__excepthook__'        : 'app.excepthook', 
-        'exit'                  : 'app.exit', 
+        'excepthook'            : 'app.excepthook',
+        '__excepthook__'        : 'app.excepthook',
+        'exit'                  : 'app.exit',
         'exitfunc'              : 'app.exitfunc',
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',
         'flags'                 : 'app.null_sysflags',
     }
 
-    def setbuiltinmodule(self, w_module, name): 
+    def setbuiltinmodule(self, w_module, name):
         w_name = self.space.wrap(name)
         w_modules = self.get('modules')
         self.space.setitem(w_modules, w_name, w_module)
@@ -118,8 +120,8 @@ class Module(MixedModule):
 
     def getmodule(self, name):
         space = self.space
-        w_modules = self.get('modules') 
-        try: 
+        w_modules = self.get('modules')
+        try:
             return space.getitem(w_modules, space.wrap(name))
         except OperationError, e: 
             if not e.match(space, space.w_KeyError): 
@@ -170,3 +172,7 @@ class Module(MixedModule):
     def get_flag(self, name):
         space = self.space
         return space.int_w(space.getattr(self.get('flags'), space.wrap(name)))
+
+    def get_state(self, space):
+        from pypy.module.sys import state
+        return state.get(space)

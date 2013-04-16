@@ -3,7 +3,7 @@
 # For now this is here, living at app-level.
 #
 # The issue is that for now we don't support writing interp-level
-# subclasses of Wrappable that inherit at app-level from a type like
+# subclasses of W_Root that inherit at app-level from a type like
 # 'dict'.  But what we can do is write individual methods at
 # interp-level.
 
@@ -11,16 +11,18 @@ import _collections
 
 
 class defaultdict(dict):
-    
+
     def __init__(self, *args, **kwds):
-        self.default_factory = None
-        if 'default_factory' in kwds:
-            self.default_factory = kwds.pop('default_factory')
-        elif len(args) > 0 and (callable(args[0]) or args[0] is None):
-            self.default_factory = args[0]
+        if len(args) > 0:
+            default_factory = args[0]
             args = args[1:]
+            if not callable(default_factory) and default_factory is not None:
+                raise TypeError("first argument must be callable")
+        else:
+            default_factory = None
+        self.default_factory = default_factory
         super(defaultdict, self).__init__(*args, **kwds)
- 
+
     def __missing__(self, key):
         pass    # this method is written at interp-level
     __missing__.func_code = _collections.__missing__.func_code
@@ -36,8 +38,8 @@ class defaultdict(dict):
             recurse.remove(id(self))
 
     def copy(self):
-        return type(self)(self, default_factory=self.default_factory)
-    
+        return type(self)(self.default_factory, self)
+
     def __copy__(self):
         return self.copy()
 

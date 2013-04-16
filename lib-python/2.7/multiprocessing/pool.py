@@ -3,7 +3,33 @@
 #
 # multiprocessing/pool.py
 #
-# Copyright (c) 2007-2008, R Oudkerk --- see COPYING.txt
+# Copyright (c) 2006-2008, R Oudkerk
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. Neither the name of author nor the names of any contributors may be
+#    used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
 #
 
 __all__ = ['Pool']
@@ -99,6 +125,8 @@ class Pool(object):
                 processes = cpu_count()
             except NotImplementedError:
                 processes = 1
+        if processes < 1:
+            raise ValueError("Number of processes must be at least 1")
 
         if initializer is not None and not hasattr(initializer, '__call__'):
             raise TypeError('initializer must be a callable')
@@ -266,9 +294,15 @@ class Pool(object):
 
     @staticmethod
     def _handle_workers(pool):
-        while pool._worker_handler._state == RUN and pool._state == RUN:
+        thread = threading.current_thread()
+
+        # Keep maintaining workers until the cache gets drained, unless the pool
+        # is terminated.
+        while thread._state == RUN or (pool._cache and thread._state != TERMINATE):
             pool._maintain_pool()
             time.sleep(0.1)
+        # send sentinel to stop workers
+        pool._taskqueue.put(None)
         debug('worker handler exiting')
 
     @staticmethod
@@ -387,7 +421,6 @@ class Pool(object):
         if self._state == RUN:
             self._state = CLOSE
             self._worker_handler._state = CLOSE
-            self._taskqueue.put(None)
 
     def terminate(self):
         debug('terminating pool')
@@ -421,7 +454,6 @@ class Pool(object):
 
         worker_handler._state = TERMINATE
         task_handler._state = TERMINATE
-        taskqueue.put(None)                 # sentinel
 
         debug('helping task handler/workers to finish')
         cls._help_stuff_finish(inqueue, task_handler, len(pool))
@@ -430,6 +462,11 @@ class Pool(object):
 
         result_handler._state = TERMINATE
         outqueue.put(None)                  # sentinel
+
+        # We must wait for the worker handler to exit before terminating
+        # workers because we don't want workers to be restarted behind our back.
+        debug('joining worker handler')
+        worker_handler.join()
 
         # Terminate workers which haven't already finished.
         if pool and hasattr(pool[0], 'terminate'):

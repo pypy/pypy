@@ -1,18 +1,19 @@
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rstruct.error import StructError
-from pypy.rlib.rstruct.formatiterator import FormatIterator
-from pypy.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.rstruct.formatiterator import FormatIterator
+from rpython.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
 from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
 
-    def __init__(self, space, args_w):
+    def __init__(self, space, args_w, size):
         self.space = space
         self.args_w = args_w
         self.args_index = 0
-        self.result = []      # list of characters
+        self.result = StringBuilder(size)
 
     # This *should* be always unroll safe, the only way to get here is by
     # unroll the interpret function, which means the fmt is const, and thus
@@ -29,9 +30,8 @@ class PackFormatIterator(FormatIterator):
 
     @jit.unroll_safe
     def align(self, mask):
-        pad = (-len(self.result)) & mask
-        for i in range(pad):
-            self.result.append('\x00')
+        pad = (-self.result.getlength()) & mask
+        self.result.append_multiple_char('\x00', pad)
 
     def finished(self):
         if self.args_index != len(self.args_w):
@@ -83,12 +83,11 @@ class PackFormatIterator(FormatIterator):
 
         def _maybe_float(self, w_obj):
             space = self.space
-            if space.is_true(space.isinstance(w_obj, space.w_float)):
-                space.warn("struct: integer argument expected, got float",
-                           space.w_DeprecationWarning)
+            if space.isinstance_w(w_obj, space.w_float):
+                msg = "struct: integer argument expected, got float"
             else:
-                space.warn("integer argument expected, got non-integer",
-                           space.w_DeprecationWarning)
+                msg = "integer argument expected, got non-integer"
+            space.warn(space.wrap(msg), space.w_DeprecationWarning)
             return space.int(w_obj)   # wrapped float -> wrapped int or long
 
     else:

@@ -2,14 +2,15 @@ import py
 
 
 class AppTestAST:
+    spaceconfig = {
+        "usemodules": ['struct', 'binascii'],
+    }
 
     def setup_class(cls):
-        cls.w_ast = cls.space.appexec([], """():
-    import _ast
-    return _ast""")
+        cls.w_ast = cls.space.getbuiltinmodule('_ast')
 
     def w_get_ast(self, source, mode="exec"):
-        import _ast as ast
+        ast = self.ast
         mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST)
         assert isinstance(mod, ast.mod)
         return mod
@@ -50,8 +51,9 @@ class AppTestAST:
         s = mod.body
         assert s.s == "hi"
         s.s = "pypy"
+        assert eval(compile(mod, "<test>", "eval")) == "pypy"
         s.s = 43
-        assert eval(compile(mod, "<test>", "eval")) == 43
+        raises(TypeError, compile, mod, "<test>", "eval")
 
     def test_empty_initialization(self):
         ast = self.ast
@@ -252,14 +254,16 @@ from __future__ import generators""")
         assert x.right == n3
 
     def test_functiondef(self):
-        import _ast as ast
+        import ast
         fAst = ast.FunctionDef(
             name="foo",
             args=ast.arguments(
                 args=[], vararg=None, kwarg=None, defaults=[],
                 kwonlyargs=[], kw_defaults=[]),
-            body=[], decorator_list=[], lineno=5, col_offset=0)
+            body=[ast.Expr(ast.Str('docstring'))],
+            decorator_list=[], lineno=5, col_offset=0)
         exprAst = ast.Interactive(body=[fAst])
+        ast.fix_missing_locations(exprAst)
         compiled = compile(exprAst, "<foo>", "single")
         #
         d = {}
@@ -285,3 +289,43 @@ from __future__ import generators""")
                 [], lineno=1, col_offset=0)
         ])
         exec compile(body, '<string>', 'exec')
+
+    def test_empty_set(self):
+        import ast
+        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))])
+        ast.fix_missing_locations(m)
+        compile(m, "<test>", "exec")
+
+    def test_invalid_sum(self):
+        import _ast as ast
+        pos = dict(lineno=2, col_offset=3)
+        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)])
+        exc = raises(TypeError, compile, m, "<test>", "exec")
+
+    def test_invalid_identitifer(self):
+        import ast
+        m = ast.Module([ast.Expr(ast.Name(u"x", ast.Load()))])
+        ast.fix_missing_locations(m)
+        exc = raises(TypeError, compile, m, "<test>", "exec")
+
+    def test_invalid_string(self):
+        import ast
+        m = ast.Module([ast.Expr(ast.Str(43))])
+        ast.fix_missing_locations(m)
+        exc = raises(TypeError, compile, m, "<test>", "exec")
+
+    def test_hacked_lineno(self):
+        import _ast
+        stmt = '''if 1:
+            try:
+                foo
+            except Exception as error:
+                bar
+            except Baz as error:
+                bar
+            '''
+        mod = compile(stmt, "<test>", "exec", _ast.PyCF_ONLY_AST)
+        # These lineno are invalid, but should not crash the interpreter.
+        mod.body[0].body[0].handlers[0].lineno = 7
+        mod.body[0].body[0].handlers[1].lineno = 6
+        code = compile(mod, "<test>", "exec")

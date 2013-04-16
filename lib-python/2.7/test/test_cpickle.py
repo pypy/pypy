@@ -61,27 +61,27 @@ class cPickleFastPicklerTests(AbstractPickleTests):
     error = cPickle.BadPickleGet
 
     def test_recursive_list(self):
-        self.assertRaises(ValueError,
+        self.assertRaises((ValueError, RuntimeError),
                           AbstractPickleTests.test_recursive_list,
                           self)
 
     def test_recursive_tuple(self):
-        self.assertRaises(ValueError,
+        self.assertRaises((ValueError, RuntimeError),
                           AbstractPickleTests.test_recursive_tuple,
                           self)
 
     def test_recursive_inst(self):
-        self.assertRaises(ValueError,
+        self.assertRaises((ValueError, RuntimeError),
                           AbstractPickleTests.test_recursive_inst,
                           self)
 
     def test_recursive_dict(self):
-        self.assertRaises(ValueError,
+        self.assertRaises((ValueError, RuntimeError),
                           AbstractPickleTests.test_recursive_dict,
                           self)
 
     def test_recursive_multi(self):
-        self.assertRaises(ValueError,
+        self.assertRaises((ValueError, RuntimeError),
                           AbstractPickleTests.test_recursive_multi,
                           self)
 

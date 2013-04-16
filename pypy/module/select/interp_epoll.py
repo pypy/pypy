@@ -2,15 +2,16 @@ from __future__ import with_statement
 
 import errno
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.tool import rffi_platform
-from pypy.rlib._rsocket_rffi import socketclose, FD_SETSIZE
-from pypy.rlib.rposix import get_errno
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
+from rpython.rlib._rsocket_rffi import socketclose, FD_SETSIZE
+from rpython.rlib.rposix import get_errno
+from rpython.rlib.rarithmetic import intmask
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 eci = ExternalCompilationInfo(
@@ -29,10 +30,22 @@ CConfig.epoll_event = rffi_platform.Struct("struct epoll_event", [
     ("data", CConfig.epoll_data)
 ])
 
-for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL"]:
+public_symbols = dict.fromkeys([
+    "EPOLLIN", "EPOLLOUT", "EPOLLPRI", "EPOLLERR", "EPOLLHUP",
+    "EPOLLET", "EPOLLONESHOT", "EPOLLRDNORM", "EPOLLRDBAND",
+    "EPOLLWRNORM", "EPOLLWRBAND", "EPOLLMSG"
+    ])
+for symbol in public_symbols:
     setattr(CConfig, symbol, rffi_platform.DefinedConstantInteger(symbol))
 
+for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL"]:
+    setattr(CConfig, symbol, rffi_platform.ConstantInteger(symbol))
+
 cconfig = rffi_platform.configure(CConfig)
+
+for symbol in public_symbols:
+    public_symbols[symbol] = intmask(cconfig[symbol])
+
 
 epoll_event = cconfig["epoll_event"]
 EPOLL_CTL_ADD = cconfig["EPOLL_CTL_ADD"]
@@ -50,13 +63,13 @@ epoll_ctl = rffi.llexternal(
 )
 epoll_wait = rffi.llexternal(
     "epoll_wait",
-    [rffi.INT, lltype.Ptr(rffi.CArray(epoll_event)), rffi.INT, rffi.INT],
+    [rffi.INT, rffi.CArrayPtr(epoll_event), rffi.INT, rffi.INT],
     rffi.INT,
     compilation_info=eci,
 )
 
 
-class W_Epoll(Wrappable):
+class W_Epoll(W_Root):
     def __init__(self, space, epfd):
         self.epfd = epfd
 
@@ -115,7 +128,6 @@ class W_Epoll(Wrappable):
         return space.wrap(self.epfd)
 
     def descr_close(self, space):
-        self.check_closed(space)
         self.close()
 
     @unwrap_spec(eventmask=int)

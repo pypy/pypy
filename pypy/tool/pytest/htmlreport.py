@@ -75,6 +75,7 @@ class HtmlReport(object):
 
     def render_test_references(self, result): 
         dest = self.make_single_test_result(result)
+        #XXX: ask hg for differences between test and vendor branch
         modified = result.ismodifiedtest() and " [mod]" or ""
         return html.div(html.a(result.path.purebasename + modified, 
                       href=self.getrelpath(dest)),

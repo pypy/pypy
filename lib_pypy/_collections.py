@@ -5,9 +5,11 @@
 #   (nondist/sandbox/collections/pydeque.py rev 1.1, Raymond Hettinger)
 #
 
-import operator
+# Note that PyPy also contains a built-in module '_collections' which will hide
+# this one if compiled in.
+
 try:
-    from thread import get_ident as _thread_ident
+    from threading import _get_ident as _thread_ident
 except ImportError:
     def _thread_ident():
         return -1
@@ -94,7 +96,7 @@ class deque(object):
 
     def pop(self):
         if self.left is self.right and self.leftndx > self.rightndx:
-            raise IndexError, "pop from an empty deque"
+            raise IndexError("pop from an empty deque")
         x = self.right[self.rightndx]
         self.right[self.rightndx] = None
         self.length -= 1
@@ -115,7 +117,7 @@ class deque(object):
 
     def popleft(self):
         if self.left is self.right and self.leftndx > self.rightndx:
-            raise IndexError, "pop from an empty deque"
+            raise IndexError("pop from an empty deque")
         x = self.left[self.leftndx]
         self.left[self.leftndx] = None
         self.length -= 1
@@ -142,18 +144,24 @@ class deque(object):
         return c
 
     def remove(self, value):
-        # Need to be defensive for mutating comparisons
-        for i in range(len(self)):
-            if self[i] == value:
-                del self[i]
-                return
-        raise ValueError("deque.remove(x): x not in deque")
+        # Need to defend mutating or failing comparisons
+        i = 0
+        try:
+            for i in range(len(self)):
+                if self[0] == value:
+                    self.popleft()
+                    return
+                self.append(self.popleft())
+            i += 1
+            raise ValueError("deque.remove(x): x not in deque")
+        finally:
+            self.rotate(i)
 
     def rotate(self, n=1):
         length = len(self)
-        if length == 0:
+        if length <= 1:
             return
-        halflen = (length+1) >> 1
+        halflen = length >> 1
         if n > halflen or n < -halflen:
             n %= length
             if n > halflen:
@@ -313,7 +321,7 @@ class deque(object):
         return type(self), (list(self), self.maxlen)
 
     def __hash__(self):
-        raise TypeError, "deque objects are unhashable"
+        raise TypeError("deque objects are unhashable")
 
     def __copy__(self):
         return self.__class__(self, self.maxlen)
@@ -365,11 +373,11 @@ class deque_iterator(object):
         self.counter = len(deq)
         def giveup():
             self.counter = 0
-            raise RuntimeError, "deque mutated during iteration"
+            raise RuntimeError("deque mutated during iteration")
         self._gen = itergen(deq.state, giveup)
 
     def next(self):
-        res =  self._gen.next()
+        res = next(self._gen)
         self.counter -= 1
         return res
 
@@ -379,12 +387,14 @@ class deque_iterator(object):
 class defaultdict(dict):
     
     def __init__(self, *args, **kwds):
-        self.default_factory = None
-        if 'default_factory' in kwds:
-            self.default_factory = kwds.pop('default_factory')
-        elif len(args) > 0 and (callable(args[0]) or args[0] is None):
-            self.default_factory = args[0]
+        if len(args) > 0:
+            default_factory = args[0]
             args = args[1:]
+            if not callable(default_factory) and default_factory is not None:
+                raise TypeError("first argument must be callable")
+        else:
+            default_factory = None
+        self.default_factory = default_factory
         super(defaultdict, self).__init__(*args, **kwds)
  
     def __missing__(self, key):
@@ -404,7 +414,7 @@ class defaultdict(dict):
             recurse.remove(id(self))
 
     def copy(self):
-        return type(self)(self, default_factory=self.default_factory)
+        return type(self)(self.default_factory, self)
     
     def __copy__(self):
         return self.copy()

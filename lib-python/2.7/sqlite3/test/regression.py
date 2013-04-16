@@ -264,6 +264,50 @@ class RegressionTests(unittest.TestCase):
         """
         self.assertRaises(sqlite.Warning, self.con, 1)
 
+    def CheckUpdateDescriptionNone(self):
+        """
+        Call Cursor.update with an UPDATE query and check that it sets the
+        cursor's description to be None.
+        """
+        cur = self.con.cursor()
+        cur.execute("CREATE TABLE foo (id INTEGER)")
+        cur.execute("UPDATE foo SET id = 3 WHERE id = 1")
+        self.assertEqual(cur.description, None)
+
+    def CheckStatementCache(self):
+        cur = self.con.cursor()
+        cur.execute("CREATE TABLE foo (id INTEGER)")
+        values = [(i,) for i in xrange(5)]
+        cur.executemany("INSERT INTO foo (id) VALUES (?)", values)
+
+        cur.execute("SELECT id FROM foo")
+        self.assertEqual(list(cur), values)
+        self.con.commit()
+        cur.execute("SELECT id FROM foo")
+        self.assertEqual(list(cur), values)
+
+    def CheckRecursiveCursorUse(self):
+        """
+        http://bugs.python.org/issue10811
+
+        Recursively using a cursor, such as when reusing it from a generator led to segfaults.
+        Now we catch recursive cursor usage and raise a ProgrammingError.
+        """
+        con = sqlite.connect(":memory:")
+
+        cur = con.cursor()
+        cur.execute("create table a (bar)")
+        cur.execute("create table b (baz)")
+
+        def foo():
+            cur.execute("insert into a (bar) values (?)", (1,))
+            yield 1
+
+        with self.assertRaises(sqlite.ProgrammingError):
+            cur.executemany("insert into b (baz) values (?)",
+                            ((i,) for i in foo()))
+
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))

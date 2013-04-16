@@ -1,10 +1,10 @@
-from pypy.conftest import gettestobjspace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import os
 
 class AppTestFileIO:
+    spaceconfig = dict(usemodules=['_io'] + (['fcntl'] if os.name != 'nt' else []))
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
@@ -41,7 +41,12 @@ class AppTestFileIO:
 
     def test_open_directory(self):
         import _io
+        import os
         raises(IOError, _io.FileIO, self.tmpdir, "rb")
+        if os.name != 'nt':
+            fd = os.open(self.tmpdir, os.O_RDONLY)
+            raises(IOError, _io.FileIO, fd, "rb")
+            os.close(fd)
 
     def test_readline(self):
         import _io
@@ -133,6 +138,22 @@ class AppTestFileIO:
         f.close()
         assert a == 'a\nbxxxxxxx'
 
+    def test_nonblocking_read(self):
+        try:
+            import os, fcntl
+        except ImportError:
+            skip("need fcntl to set nonblocking mode")
+        r_fd, w_fd = os.pipe()
+        # set nonblocking
+        fcntl.fcntl(r_fd, fcntl.F_SETFL, os.O_NONBLOCK)
+        import _io
+        f = _io.FileIO(r_fd, 'r')
+        # Read from stream sould return None
+        assert f.read() is None
+        assert f.read(10) is None
+        a = bytearray('x' * 10)
+        assert f.readinto(a) is None
+
     def test_repr(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'r')
@@ -144,3 +165,42 @@ class AppTestFileIO:
         f.close()
         assert repr(f) == "<_io.FileIO [closed]>"
 
+def test_flush_at_exit():
+    from pypy import conftest
+    from pypy.tool.option import make_config, make_objspace
+    from rpython.tool.udir import udir
+
+    tmpfile = udir.join('test_flush_at_exit')
+    config = make_config(conftest.option)
+    space = make_objspace(config)
+    space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
+        import io
+        f = io.open(tmpfile, 'w', encoding='ascii')
+        f.write('42')
+        # no flush() and no close()
+        import sys; sys._keepalivesomewhereobscure = f
+    """)
+    space.finish()
+    assert tmpfile.read() == '42'
+
+def test_flush_at_exit_IOError_and_ValueError():
+    from pypy import conftest
+    from pypy.tool.option import make_config, make_objspace
+
+    config = make_config(conftest.option)
+    space = make_objspace(config)
+    space.appexec([], """():
+        import io
+        class MyStream(io.IOBase):
+            def flush(self):
+                raise IOError
+
+        class MyStream2(io.IOBase):
+            def flush(self):
+                raise ValueError
+
+        s = MyStream()
+        s2 = MyStream2()
+        import sys; sys._keepalivesomewhereobscure = s
+    """)
+    space.finish() # the IOError has been ignored

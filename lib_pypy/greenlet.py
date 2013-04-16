@@ -1,5 +1,6 @@
-import _continuation, sys
+import _continuation
 
+__version__ = "0.4.0"
 
 # ____________________________________________________________
 # Exceptions
@@ -57,7 +58,8 @@ class greenlet(_continulet):
     def __switch(target, methodname, *args):
         current = getcurrent()
         #
-        while not target:
+        while not (target.__main or _continulet.is_pending(target)):
+            # inlined __nonzero__ ^^^ in case it's overridden
             if not target.__started:
                 if methodname == 'switch':
                     greenlet_func = _greenlet_start
@@ -77,8 +79,6 @@ class greenlet(_continulet):
         try:
             unbound_method = getattr(_continulet, methodname)
             args = unbound_method(current, *args, to=target)
-        except GreenletExit, e:
-            args = (e,)
         finally:
             _tls.current = current
         #
@@ -111,7 +111,7 @@ class greenlet(_continulet):
 # Internal stuff
 
 try:
-    from thread import _local
+    from threading import local as _local
 except ImportError:
     class _local(object):    # assume no threads
         pass
@@ -132,6 +132,8 @@ def _greenlet_start(greenlet, args):
     _tls.current = greenlet
     try:
         res = greenlet.run(*args)
+    except GreenletExit, e:
+        res = e
     finally:
         _continuation.permute(greenlet, greenlet.parent)
     return (res,)

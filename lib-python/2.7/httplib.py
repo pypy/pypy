@@ -212,6 +212,9 @@ responses = {
 # maximal amount of data to read at one time in _safe_read
 MAXAMOUNT = 1048576
 
+# maximal line length when calling readline().
+_MAXLINE = 65536
+
 class HTTPMessage(mimetools.Message):
 
     def addheader(self, key, value):
@@ -274,7 +277,9 @@ class HTTPMessage(mimetools.Message):
                 except IOError:
                     startofline = tell = None
                     self.seekable = 0
-            line = self.fp.readline()
+            line = self.fp.readline(_MAXLINE + 1)
+            if len(line) > _MAXLINE:
+                raise LineTooLong("header line")
             if not line:
                 self.status = 'EOF in headers'
                 break
@@ -404,7 +409,10 @@ class HTTPResponse:
                 break
             # skip the header from the 100 response
             while True:
-                skip = self.fp.readline().strip()
+                skip = self.fp.readline(_MAXLINE + 1)
+                if len(skip) > _MAXLINE:
+                    raise LineTooLong("header line")
+                skip = skip.strip()
                 if not skip:
                     break
                 if self.debuglevel > 0:
@@ -563,7 +571,9 @@ class HTTPResponse:
         value = []
         while True:
             if chunk_left is None:
-                line = self.fp.readline()
+                line = self.fp.readline(_MAXLINE + 1)
+                if len(line) > _MAXLINE:
+                    raise LineTooLong("chunk size")
                 i = line.find(';')
                 if i >= 0:
                     line = line[:i] # strip chunk-extensions
@@ -598,7 +608,9 @@ class HTTPResponse:
         # read and discard trailer up to the CRLF terminator
         ### note: we shouldn't have any trailers!
         while True:
-            line = self.fp.readline()
+            line = self.fp.readline(_MAXLINE + 1)
+            if len(line) > _MAXLINE:
+                raise LineTooLong("trailer line")
             if not line:
                 # a vanishingly small number of sites EOF without
                 # sending the trailer
@@ -703,7 +715,10 @@ class HTTPConnection:
                 try:
                     port = int(host[i+1:])
                 except ValueError:
-                    raise InvalidURL("nonnumeric port: '%s'" % host[i+1:])
+                    if host[i+1:] == "":  # http://foo.com:/ == http://foo.com/
+                        port = self.default_port
+                    else:
+                        raise InvalidURL("nonnumeric port: '%s'" % host[i+1:])
                 host = host[:i]
             else:
                 port = self.default_port
@@ -730,7 +745,9 @@ class HTTPConnection:
             raise socket.error("Tunnel connection failed: %d %s" % (code,
                                                                     message.strip()))
         while True:
-            line = response.fp.readline()
+            line = response.fp.readline(_MAXLINE + 1)
+            if len(line) > _MAXLINE:
+                raise LineTooLong("header line")
             if line == '\r\n': break
 
 
@@ -790,7 +807,7 @@ class HTTPConnection:
         del self._buffer[:]
         # If msg and message_body are sent in a single send() call,
         # it will avoid performance problems caused by the interaction
-        # between delayed ack and the Nagle algorithim.
+        # between delayed ack and the Nagle algorithm.
         if isinstance(message_body, str):
             msg += message_body
             message_body = None
@@ -925,10 +942,10 @@ class HTTPConnection:
         """Indicate that the last header line has been sent to the server.
 
         This method sends the request to the server.  The optional
-        message_body argument can be used to pass message body
+        message_body argument can be used to pass a message body
         associated with the request.  The message body will be sent in
-        the same packet as the message headers if possible.  The
-        message_body should be a string.
+        the same packet as the message headers if it is string, otherwise it is
+        sent as a separate packet.
         """
         if self.__state == _CS_REQ_STARTED:
             self.__state = _CS_REQ_SENT
@@ -1010,7 +1027,11 @@ class HTTPConnection:
             kwds["buffering"] = True;
         response = self.response_class(*args, **kwds)
 
-        response.begin()
+        try:
+            response.begin()
+        except:
+            response.close()
+            raise
         assert response.will_close != _UNKNOWN
         self.__state = _CS_IDLE
 
@@ -1233,6 +1254,11 @@ class BadStatusLine(HTTPException):
         self.args = line,
         self.line = line
 
+class LineTooLong(HTTPException):
+    def __init__(self, line_type):
+        HTTPException.__init__(self, "got more than %d bytes when reading %s"
+                                     % (_MAXLINE, line_type))
+
 # for backwards compatibility
 error = HTTPException
 
@@ -1303,71 +1329,3 @@ class LineAndFileWrapper:
             return L + self._file.readlines()
         else:
             return L + self._file.readlines(size)
-
-def test():
-    """Test this module.
-
-    A hodge podge of tests collected here, because they have too many
-    external dependencies for the regular test suite.
-    """
-
-    import sys
-    import getopt
-    opts, args = getopt.getopt(sys.argv[1:], 'd')
-    dl = 0
-    for o, a in opts:
-        if o == '-d': dl = dl + 1
-    host = 'www.python.org'
-    selector = '/'
-    if args[0:]: host = args[0]
-    if args[1:]: selector = args[1]
-    h = HTTP()
-    h.set_debuglevel(dl)
-    h.connect(host)
-    h.putrequest('GET', selector)
-    h.endheaders()
-    status, reason, headers = h.getreply()
-    print 'status =', status
-    print 'reason =', reason
-    print "read", len(h.getfile().read())
-    print
-    if headers:
-        for header in headers.headers: print header.strip()
-    print
-
-    # minimal test that code to extract host from url works
-    class HTTP11(HTTP):
-        _http_vsn = 11
-        _http_vsn_str = 'HTTP/1.1'
-
-    h = HTTP11('www.python.org')
-    h.putrequest('GET', 'http://www.python.org/~jeremy/')
-    h.endheaders()
-    h.getreply()
-    h.close()
-
-    try:
-        import ssl
-    except ImportError:
-        pass
-    else:
-
-        for host, selector in (('sourceforge.net', '/projects/python'),
-                               ):
-            print "https://%s%s" % (host, selector)
-            hs = HTTPS()
-            hs.set_debuglevel(dl)
-            hs.connect(host)
-            hs.putrequest('GET', selector)
-            hs.endheaders()
-            status, reason, headers = hs.getreply()
-            print 'status =', status
-            print 'reason =', reason
-            print "read", len(hs.getfile().read())
-            print
-            if headers:
-                for header in headers.headers: print header.strip()
-            print
-
-if __name__ == '__main__':
-    test()

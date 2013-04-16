@@ -100,4 +100,3 @@ PySys_WriteStderr(const char *format, ...)
     sys_write("stderr", stderr, format, va);
     va_end(va);
 }
-

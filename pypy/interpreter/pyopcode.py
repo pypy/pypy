@@ -6,18 +6,17 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
-from pypy.interpreter.pycode import PyCode
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit, rstackovf
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.debug import check_nonneg
-from pypy.tool.stdlib_opcode import (bytecode_spec, host_bytecode_spec,
-                                     unrolling_all_opcode_descs, opmap,
-                                     host_opmap)
+from pypy.interpreter.pycode import PyCode, BytecodeCorruption
+from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit, rstackovf
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.debug import check_nonneg
+from pypy.tool.stdlib_opcode import (bytecode_spec,
+                                     unrolling_all_opcode_descs)
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -64,9 +63,6 @@ class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
     minus the ones related to nested scopes."""
 
-    # for logbytecode:
-    last_opcode = -1
-
     bytecode_spec = bytecode_spec
     opcode_method_names = bytecode_spec.method_names
     opcodedesc = bytecode_spec.opcodedesc
@@ -91,10 +87,6 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
         except OperationError, operr:
             next_instr = self.handle_operation_error(ec, operr)
-        except Reraise:
-            operr = self.last_exception
-            next_instr = self.handle_operation_error(ec, operr,
-                                                     attach_tb=False)
         except RaiseWithExplicitTraceback, e:
             next_instr = self.handle_operation_error(ec, e.operr,
                                                      attach_tb=False)
@@ -105,9 +97,11 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_MemoryError)
         except rstackovf.StackOverflow, e:
+            # Note that this case catches AttributeError!
             rstackovf.check_stack_overflow()
-            w_err = self.space.prebuilt_recursion_error
-            next_instr = self.handle_operation_error(ec, w_err)
+            next_instr = self.handle_asynchronous_error(ec,
+                self.space.w_RuntimeError,
+                self.space.wrap("maximum recursion depth exceeded"))
         return next_instr
 
     def handle_asynchronous_error(self, ec, w_type, w_value=None):
@@ -175,14 +169,6 @@ class __extend__(pyframe.PyFrame):
                 next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
-            if space.config.objspace.logbytecodes:
-                space.bytecodecounts[opcode] += 1
-                try:
-                    probs = space.bytecodetransitioncount[self.last_opcode]
-                except KeyError:
-                    probs = space.bytecodetransitioncount[self.last_opcode] = {}
-                probs[opcode] = probs.get(opcode, 0) + 1
-                self.last_opcode = opcode
 
             if opcode >= self.HAVE_ARGUMENT:
                 lo = ord(co_code[next_instr])
@@ -191,6 +177,11 @@ class __extend__(pyframe.PyFrame):
                 oparg = (hi * 256) | lo
             else:
                 oparg = 0
+
+            # note: the structure of the code here is such that it makes
+            # (after translation) a big "if/elif" chain, which is then
+            # turned into a switch().  It starts here: even if the first
+            # one is not an "if" but a "while" the effect is the same.
 
             while opcode == self.opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
@@ -226,7 +217,7 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
 
             if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, next_instr, ec)
+                return self.jump_absolute(oparg, ec)
 
             if we_are_translated():
                 for opdesc in unrolling_all_opcode_descs:
@@ -240,6 +231,8 @@ class __extend__(pyframe.PyFrame):
                         'END_FINALLY', 'JUMP_ABSOLUTE'):
                         continue   # opcodes implemented above
 
+                    # the following "if" is part of the big switch described
+                    # above.
                     if opcode == opdesc.index:
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)
@@ -262,19 +255,7 @@ class __extend__(pyframe.PyFrame):
                                              "code=%d, name=%s" %
                                              (self.last_instr, opcode,
                                               methodname))
-                try:
-                    res = meth(oparg, next_instr)
-                except Exception:
-                    if 0:
-                        import dis, sys
-                        print "*** %s at offset %d (%s)" % (sys.exc_info()[0],
-                                                            self.last_instr,
-                                                            methodname)
-                        try:
-                            dis.dis(co_code)
-                        except:
-                            pass
-                    raise
+                res = meth(oparg, next_instr)
                 if res is not None:
                     next_instr = res
 
@@ -541,7 +522,7 @@ class __extend__(pyframe.PyFrame):
             ec = self.space.getexecutioncontext()
             while frame:
                 if frame.last_exception is not None:
-                    operror = ec._convert_exc(frame.last_exception)
+                    operror = frame.last_exception
                     break
                 frame = frame.f_backref()
             else:
@@ -549,7 +530,7 @@ class __extend__(pyframe.PyFrame):
                     space.wrap("raise: no active exception to re-raise"))
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
-            raise Reraise
+            raise RaiseWithExplicitTraceback(operror)
 
         w_value = w_traceback = space.w_None
         if nbargs >= 3:
@@ -560,7 +541,7 @@ class __extend__(pyframe.PyFrame):
             w_type = self.popvalue()
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
-        if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
+        if space.is_w(w_traceback, space.w_None):
             # common case
             raise operror
         else:
@@ -601,16 +582,28 @@ class __extend__(pyframe.PyFrame):
         block.cleanup(self)  # the block knows how to clean up the value stack
 
     def end_finally(self):
-        # unlike CPython, when we reach this opcode the value stack has
-        # always been set up as follows (topmost first):
-        #   [exception type  or None]
-        #   [exception value or None]
-        #   [wrapped stack unroller ]
-        self.popvalue()   # ignore the exception type
-        self.popvalue()   # ignore the exception value
-        w_unroller = self.popvalue()
-        unroller = self.space.interpclass_w(w_unroller)
-        return unroller
+        # unlike CPython, there are two statically distinct cases: the
+        # END_FINALLY might be closing an 'except' block or a 'finally'
+        # block.  In the first case, the stack contains three items:
+        #   [exception type we are now handling]
+        #   [exception value we are now handling]
+        #   [wrapped SApplicationException]
+        # In the case of a finally: block, the stack contains only one
+        # item (unlike CPython which can have 1, 2 or 3 items):
+        #   [wrapped subclass of SuspendedUnroller]
+        w_top = self.popvalue()
+        if self.space.is_w(w_top, self.space.w_None):
+            # case of a finally: block with no exception
+            return None
+        if isinstance(w_top, SuspendedUnroller):
+            # case of a finally: block with a suspended unroller
+            return w_top
+        else:
+            # case of an except: block.  We popped the exception type
+            self.popvalue()        #     Now we pop the exception value
+            w_unroller = self.popvalue()
+            assert w_unroller is not None
+            return w_unroller
 
     def BUILD_CLASS(self, oparg, next_instr):
         w_methodsdict = self.popvalue()
@@ -713,6 +706,19 @@ class __extend__(pyframe.PyFrame):
         w_list = self.space.newlist(items)
         self.pushvalue(w_list)
 
+    def BUILD_LIST_FROM_ARG(self, _, next_instr):
+        # this is a little dance, because list has to be before the
+        # value
+        last_val = self.popvalue()
+        try:
+            lgt = self.space.len_w(last_val)
+        except OperationError, e:
+            if e.async(self.space):
+                raise
+            lgt = 0 # oh well
+        self.pushvalue(self.space.newlist([], sizehint=lgt))
+        self.pushvalue(last_val)
+
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
@@ -758,17 +764,16 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
-        if self.space.is_true(self.space.isinstance(w_2, self.space.w_tuple)):
-            for w_t in self.space.fixedview(w_2):
-                if self.space.is_true(self.space.isinstance(w_t,
-                                                            self.space.w_str)):
-                    self.space.warn("catching of string exceptions is "
-                                    "deprecated",
-                                    self.space.w_DeprecationWarning)
-        elif self.space.is_true(self.space.isinstance(w_2, self.space.w_str)):
-            self.space.warn("catching of string exceptions is deprecated",
-                            self.space.w_DeprecationWarning)
-        return self.space.newbool(self.space.exception_match(w_1, w_2))
+        space = self.space
+        if space.isinstance_w(w_2, space.w_tuple):
+            for w_t in space.fixedview(w_2):
+                if space.isinstance_w(w_t, space.w_str):
+                    msg = "catching of string exceptions is deprecated"
+                    space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        elif space.isinstance_w(w_2, space.w_str):
+            msg = "catching of string exceptions is deprecated"
+            space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
@@ -779,7 +784,7 @@ class __extend__(pyframe.PyFrame):
                 w_result = getattr(self, attr)(w_1, w_2)
                 break
         else:
-            raise BytecodeCorruption, "bad COMPARE_OP oparg"
+            raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
 
     def IMPORT_NAME(self, nameindex, next_instr):
@@ -836,7 +841,8 @@ class __extend__(pyframe.PyFrame):
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
-    def jump_absolute(self, jumpto, next_instr, ec):
+    def jump_absolute(self, jumpto, ec):
+        # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         return jumpto
 
@@ -922,30 +928,13 @@ class __extend__(pyframe.PyFrame):
 
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
-        # This opcode changed a lot between CPython versions
-        if (self.pycode.magic >= 0xa0df2ef
-            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
-            or self.pycode.magic >= 0xa0df2d1):
-            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
-            self.popvalue()
-            self.popvalue()
-            w_unroller = self.popvalue()
-            w_exitfunc = self.popvalue()
-            self.pushvalue(w_unroller)
-            self.pushvalue(self.space.w_None)
-            self.pushvalue(self.space.w_None)
-        elif self.pycode.magic >= 0xa0df28c:
-            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
-            w_exitfunc = self.popvalue()
-            w_unroller = self.peekvalue(2)
-        else:
-            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
-
-        unroller = self.space.interpclass_w(w_unroller)
-        is_app_exc = (unroller is not None and
-                      isinstance(unroller, SApplicationException))
-        if is_app_exc:
-            operr = unroller.operr
+        w_unroller = self.popvalue()
+        w_exitfunc = self.popvalue()
+        self.pushvalue(w_unroller)
+        if isinstance(w_unroller, SApplicationException):
+            # app-level exception
+            operr = w_unroller.operr
+            self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
@@ -954,7 +943,7 @@ class __extend__(pyframe.PyFrame):
                 w_traceback)
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None, 2)
+                self.settopvalue(self.space.w_None)
         else:
             self.call_contextmanager_exit_function(
                 w_exitfunc,
@@ -1140,25 +1129,24 @@ class __extend__(pyframe.CPythonFrame):
 class ExitFrame(Exception):
     pass
 
+
 class Return(ExitFrame):
     """Raised when exiting a frame via a 'return' statement."""
+
+
 class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
 
-class Reraise(Exception):
-    """Raised at interp-level by a bare 'raise' statement."""
+
 class RaiseWithExplicitTraceback(Exception):
-    """Raised at interp-level by a 3-arguments 'raise' statement."""
+    """Raised at interp-level by a 0- or 3-arguments 'raise' statement."""
     def __init__(self, operr):
         self.operr = operr
-
-class BytecodeCorruption(Exception):
-    """Detected bytecode corruption.  Never caught; it's an error."""
 
 
 ### Frame Blocks ###
 
-class SuspendedUnroller(Wrappable):
+class SuspendedUnroller(W_Root):
     """Abstract base class for interpreter-level objects that
     instruct the interpreter to change the control flow and the
     block stack.
@@ -1178,10 +1166,6 @@ class SuspendedUnroller(Wrappable):
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
-    # NB. for the flow object space, the state_(un)pack_variables methods
-    # give a way to "pickle" and "unpickle" the SuspendedUnroller by
-    # enumerating the Variables it contains.
-
 class SReturnValue(SuspendedUnroller):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
@@ -1191,12 +1175,6 @@ class SReturnValue(SuspendedUnroller):
         self.w_returnvalue = w_returnvalue
     def nomoreblocks(self):
         return self.w_returnvalue
-
-    def state_unpack_variables(self, space):
-        return [self.w_returnvalue]
-    def state_pack_variables(space, w_returnvalue):
-        return SReturnValue(w_returnvalue)
-    state_pack_variables = staticmethod(state_pack_variables)
 
 class SApplicationException(SuspendedUnroller):
     """Signals an application-level exception
@@ -1208,23 +1186,10 @@ class SApplicationException(SuspendedUnroller):
     def nomoreblocks(self):
         raise RaiseWithExplicitTraceback(self.operr)
 
-    def state_unpack_variables(self, space):
-        return [self.operr.w_type, self.operr.get_w_value(space)]
-    def state_pack_variables(space, w_type, w_value):
-        return SApplicationException(OperationError(w_type, w_value))
-    state_pack_variables = staticmethod(state_pack_variables)
-
 class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
     _immutable_ = True
     kind = 0x04
-
-    def state_unpack_variables(self, space):
-        return []
-    def state_pack_variables(space):
-        return SBreakLoop.singleton
-    state_pack_variables = staticmethod(state_pack_variables)
-
 SBreakLoop.singleton = SBreakLoop()
 
 class SContinueLoop(SuspendedUnroller):
@@ -1234,12 +1199,6 @@ class SContinueLoop(SuspendedUnroller):
     kind = 0x08
     def __init__(self, jump_to):
         self.jump_to = jump_to
-
-    def state_unpack_variables(self, space):
-        return [space.wrap(self.jump_to)]
-    def state_pack_variables(space, w_jump_to):
-        return SContinueLoop(space.int_w(w_jump_to))
-    state_pack_variables = staticmethod(state_pack_variables)
 
 
 class FrameBlock(object):
@@ -1278,10 +1237,6 @@ class FrameBlock(object):
                                w(self.valuestackdepth)])
 
     def handle(self, frame, unroller):
-        next_instr = self.really_handle(frame, unroller)   # JIT hack
-        return r_uint(next_instr)
-
-    def really_handle(self, frame, unroller):
         """ Purely abstract method
         """
         raise NotImplementedError
@@ -1293,17 +1248,19 @@ class LoopBlock(FrameBlock):
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.append_block(self)
-            return unroller.jump_to
+            jumpto = unroller.jump_to
+            ec = frame.space.getexecutioncontext()
+            return r_uint(frame.jump_absolute(jumpto, ec))
         else:
             # jump to the end of the loop
             self.cleanupstack(frame)
-            return self.handlerposition
+            return r_uint(self.handlerposition)
 
 
 class ExceptBlock(FrameBlock):
@@ -1313,14 +1270,13 @@ class ExceptBlock(FrameBlock):
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
         assert isinstance(unroller, SApplicationException)
         operationerr = unroller.operr
-        if frame.space.full_exceptions:
-            operationerr.normalize_exception(frame.space)
+        operationerr.normalize_exception(frame.space)
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
@@ -1328,7 +1284,7 @@ class ExceptBlock(FrameBlock):
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class FinallyBlock(FrameBlock):
@@ -1338,37 +1294,23 @@ class FinallyBlock(FrameBlock):
     _opname = 'SETUP_FINALLY'
     handling_mask = -1     # handles every kind of SuspendedUnroller
 
-    def cleanup(self, frame):
-        # upon normal entry into the finally: part, the standard Python
-        # bytecode pushes a single None for END_FINALLY.  In our case we
-        # always push three values into the stack: the wrapped ctlflowexc,
-        # the exception value and the exception type (which are all None
-        # here).
-        self.cleanupstack(frame)
-        # one None already pushed by the bytecode
-        frame.pushvalue(frame.space.w_None)
-        frame.pushvalue(frame.space.w_None)
-
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
         frame.pushvalue(frame.space.wrap(unroller))
-        frame.pushvalue(frame.space.w_None)
-        frame.pushvalue(frame.space.w_None)
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
 
     _immutable_ = True
 
-    def really_handle(self, frame, unroller):
-        if (frame.space.full_exceptions and
-            isinstance(unroller, SApplicationException)):
+    def handle(self, frame, unroller):
+        if isinstance(unroller, SApplicationException):
             unroller.operr.normalize_exception(frame.space)
-        return FinallyBlock.really_handle(self, frame, unroller)
+        return FinallyBlock.handle(self, frame, unroller)
 
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
@@ -1419,11 +1361,9 @@ app = gateway.applevel(r'''
             if lastchar.isspace() and lastchar != ' ':
                 return
         file_softspace(stream, True)
-    print_item_to._annspecialcase_ = "specialize:argtype(0)"
 
     def print_item(x):
         print_item_to(x, sys_stdout())
-    print_item._annspecialcase_ = "flowspace:print_item"
 
     def print_newline_to(stream):
         stream.write("\n")
@@ -1431,7 +1371,6 @@ app = gateway.applevel(r'''
 
     def print_newline():
         print_newline_to(sys_stdout())
-    print_newline._annspecialcase_ = "flowspace:print_newline"
 
     def file_softspace(file, newflag):
         try:

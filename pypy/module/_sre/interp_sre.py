@@ -1,24 +1,25 @@
 import sys
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask
-from pypy.tool.pairtype import extendabletype
-
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import jit
 
 # ____________________________________________________________
 #
 # Constants and exposed functions
 
-from pypy.rlib.rsre import rsre_core
-from pypy.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
+from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
+
 
 @unwrap_spec(char_ord=int, flags=int)
 def w_getlower(space, char_ord, flags):
     return space.wrap(getlower(char_ord, flags))
+
 
 def w_getcodesize(space):
     return space.wrap(CODESIZE)
@@ -29,53 +30,43 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 
 # ____________________________________________________________
 #
-# Additional methods on the classes XxxMatchContext
 
-class __extend__(rsre_core.AbstractMatchContext):
-    __metaclass__ = extendabletype
-    def _w_slice(self, space, start, end):
-        raise NotImplementedError
-    def _w_string(self, space):
-        raise NotImplementedError
-
-class __extend__(rsre_core.StrMatchContext):
-    __metaclass__ = extendabletype
-    def _w_slice(self, space, start, end):
-        return space.wrap(self._string[start:end])
-    def _w_string(self, space):
-        return space.wrap(self._string)
-
-class __extend__(rsre_core.UnicodeMatchContext):
-    __metaclass__ = extendabletype
-    def _w_slice(self, space, start, end):
-        return space.wrap(self._unicodestr[start:end])
-    def _w_string(self, space):
-        return space.wrap(self._unicodestr)
 
 def slice_w(space, ctx, start, end, w_default):
     if 0 <= start <= end:
-        return ctx._w_slice(space, start, end)
+        if isinstance(ctx, rsre_core.StrMatchContext):
+            return space.wrap(ctx._string[start:end])
+        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+            return space.wrap(ctx._unicodestr[start:end])
+        else:
+            # unreachable
+            raise SystemError
     return w_default
 
+
+@jit.look_inside_iff(lambda ctx, num_groups: jit.isconstant(num_groups))
 def do_flatten_marks(ctx, num_groups):
     # Returns a list of RPython-level integers.
     # Unlike the app-level groups() method, groups are numbered from 0
     # and the returned list does not start with the whole match range.
     if num_groups == 0:
         return None
-    result = [-1] * (2*num_groups)
+    result = [-1] * (2 * num_groups)
     mark = ctx.match_marks
     while mark is not None:
-        index = mark.gid
+        index = jit.promote(mark.gid)
         if result[index] == -1:
             result[index] = mark.position
         mark = mark.prev
     return result
 
+
+@jit.look_inside_iff(lambda space, ctx, fmarks, num_groups, w_default: jit.isconstant(num_groups))
 def allgroups_w(space, ctx, fmarks, num_groups, w_default):
-    grps = [slice_w(space, ctx, fmarks[i*2], fmarks[i*2+1], w_default)
+    grps = [slice_w(space, ctx, fmarks[i * 2], fmarks[i * 2 + 1], w_default)
             for i in range(num_groups)]
     return space.newtuple(grps)
+
 
 def import_re(space):
     w_builtin = space.getbuiltinmodule('__builtin__')
@@ -98,8 +89,8 @@ def searchcontext(space, ctx):
 #
 # SRE_Pattern class
 
-class W_SRE_Pattern(Wrappable):
-    _immutable_fields_ = ["code", "flags"]
+class W_SRE_Pattern(W_Root):
+    _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
     def cannot_copy_w(self):
         space = self.space
@@ -110,18 +101,24 @@ class W_SRE_Pattern(Wrappable):
         """Make a StrMatchContext or a UnicodeMatchContext for searching
         in the given w_string object."""
         space = self.space
-        if pos < 0: pos = 0
-        if endpos < pos: endpos = pos
-        if space.is_true(space.isinstance(w_string, space.w_unicode)):
+        if pos < 0:
+            pos = 0
+        if endpos < pos:
+            endpos = pos
+        if space.isinstance_w(w_string, space.w_unicode):
             unicodestr = space.unicode_w(w_string)
-            if pos > len(unicodestr): pos = len(unicodestr)
-            if endpos > len(unicodestr): endpos = len(unicodestr)
+            if pos > len(unicodestr):
+                pos = len(unicodestr)
+            if endpos > len(unicodestr):
+                endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         else:
             str = space.bufferstr_w(w_string)
-            if pos > len(str): pos = len(str)
-            if endpos > len(str): endpos = len(str)
+            if pos > len(str):
+                pos = len(str)
+            if endpos > len(str):
+                endpos = len(str)
             return rsre_core.StrMatchContext(self.code, str,
                                              pos, endpos, self.flags)
 
@@ -221,7 +218,7 @@ class W_SRE_Pattern(Wrappable):
             w_filter = w_ptemplate
             filter_is_callable = True
         else:
-            if space.is_true(space.isinstance(w_ptemplate, space.w_unicode)):
+            if space.isinstance_w(w_ptemplate, space.w_unicode):
                 filter_as_unicode = space.unicode_w(w_ptemplate)
                 literal = u'\\' not in filter_as_unicode
             else:
@@ -275,11 +272,8 @@ class W_SRE_Pattern(Wrappable):
         if last_pos < ctx.end:
             sublist_w.append(slice_w(space, ctx, last_pos, ctx.end,
                                      space.w_None))
-        if n == 0:
-            # not just an optimization -- see test_sub_unicode
-            return w_string, n
 
-        if space.is_true(space.isinstance(w_string, space.w_unicode)):
+        if space.isinstance_w(w_string, space.w_unicode):
             w_emptystr = space.wrap(u'')
         else:
             w_emptystr = space.wrap('')
@@ -288,7 +282,8 @@ class W_SRE_Pattern(Wrappable):
         return w_item, n
 
 
-@unwrap_spec(flags=int, groups=int)
+@unwrap_spec(flags=int, groups=int, w_groupindex=WrappedDefault(None),
+             w_indexgroup=WrappedDefault(None))
 def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
     n = space.len_w(w_code)
@@ -326,12 +321,13 @@ W_SRE_Pattern.typedef = TypeDef(
     groups       = interp_attrproperty('num_groups', W_SRE_Pattern),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
 )
+W_SRE_Pattern.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
 # SRE_Match class
 
-class W_SRE_Match(Wrappable):
+class W_SRE_Match(W_Root):
     flatten_cache = None
 
     def __init__(self, srepat, ctx):
@@ -344,6 +340,7 @@ class W_SRE_Match(Wrappable):
         raise OperationError(space.w_TypeError,
                              space.wrap("cannot copy this match object"))
 
+    @jit.look_inside_iff(lambda self, args_w: jit.isconstant(len(args_w)))
     def group_w(self, args_w):
         space = self.space
         ctx = self.ctx
@@ -360,11 +357,13 @@ class W_SRE_Match(Wrappable):
                 results[i] = slice_w(space, ctx, start, end, space.w_None)
             return space.newtuple(results)
 
+    @unwrap_spec(w_default=WrappedDefault(None))
     def groups_w(self, w_default=None):
         fmarks = self.flatten_marks()
         num_groups = self.srepat.num_groups
         return allgroups_w(self.space, self.ctx, fmarks, num_groups, w_default)
 
+    @unwrap_spec(w_default=WrappedDefault(None))
     def groupdict_w(self, w_default=None):
         space = self.space
         w_dict = space.newdict()
@@ -389,13 +388,16 @@ class W_SRE_Match(Wrappable):
         return space.call_method(w_re, '_expand', space.wrap(self.srepat),
                                  space.wrap(self), w_template)
 
-    def start_w(self, w_groupnum=0):
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
+    def start_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[0])
 
-    def end_w(self, w_groupnum=0):
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
+    def end_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[1])
 
-    def span_w(self, w_groupnum=0):
+    @unwrap_spec(w_groupnum=WrappedDefault(0))
+    def span_w(self, w_groupnum):
         start, end = self.do_span(w_groupnum)
         return self.space.newtuple([self.space.wrap(start),
                                     self.space.wrap(end)])
@@ -468,7 +470,13 @@ class W_SRE_Match(Wrappable):
         return space.newtuple(result_w)
 
     def fget_string(self, space):
-        return self.ctx._w_string(space)
+        ctx = self.ctx
+        if isinstance(ctx, rsre_core.StrMatchContext):
+            return space.wrap(ctx._string)
+        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+            return space.wrap(ctx._unicodestr)
+        else:
+            raise SystemError
 
 
 W_SRE_Match.typedef = TypeDef(
@@ -491,6 +499,7 @@ W_SRE_Match.typedef = TypeDef(
     lastindex    = GetSetProperty(W_SRE_Match.fget_lastindex),
     regs         = GetSetProperty(W_SRE_Match.fget_regs),
 )
+W_SRE_Match.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________
 #
@@ -498,8 +507,7 @@ W_SRE_Match.typedef = TypeDef(
 # This is mostly an internal class in CPython.
 # Our version is also directly iterable, to make finditer() easier.
 
-class W_SRE_Scanner(Wrappable):
-
+class W_SRE_Scanner(W_Root):
     def __init__(self, pattern, ctx):
         self.space = pattern.space
         self.srepat = pattern
@@ -547,3 +555,4 @@ W_SRE_Scanner.typedef = TypeDef(
     search   = interp2app(W_SRE_Scanner.search_w),
     pattern  = interp_attrproperty('srepat', W_SRE_Scanner),
 )
+W_SRE_Scanner.typedef.acceptable_as_base_class = False

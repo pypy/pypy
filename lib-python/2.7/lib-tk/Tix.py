@@ -163,7 +163,7 @@ class tixCommand:
         extensions) exist, then the image type is chosen according to the
         depth of the X display: xbm images are chosen on monochrome
         displays and color images are chosen on color displays. By using
-        tix_ getimage, you can advoid hard coding the pathnames of the
+        tix_ getimage, you can avoid hard coding the pathnames of the
         image files in your application. When successful, this command
         returns the name of the newly created image, which can be used to
         configure the -image option of the Tk and Tix widgets.
@@ -171,7 +171,7 @@ class tixCommand:
         return self.tk.call('tix', 'getimage', name)
 
     def tix_option_get(self, name):
-        """Gets  the options  manitained  by  the  Tix
+        """Gets  the options  maintained  by  the  Tix
         scheme mechanism. Available options include:
 
             active_bg       active_fg      bg
@@ -576,7 +576,7 @@ class ButtonBox(TixWidget):
 
 class ComboBox(TixWidget):
     """ComboBox - an Entry field with a dropdown menu. The user can select a
-    choice by either typing in the entry subwdget or selecting from the
+    choice by either typing in the entry subwidget or selecting from the
     listbox subwidget.
 
     Subwidget       Class
@@ -869,7 +869,7 @@ class HList(TixWidget, XView, YView):
     """HList - Hierarchy display  widget can be used to display any data
     that have a hierarchical structure, for example, file system directory
     trees. The list entries are indented and connected by branch lines
-    according to their places in the hierachy.
+    according to their places in the hierarchy.
 
     Subwidgets - None"""
 
@@ -1520,7 +1520,7 @@ class TList(TixWidget, XView, YView):
         self.tk.call(self._w, 'selection', 'set', first, last)
 
 class Tree(TixWidget):
-    """Tree - The tixTree widget can be used to display hierachical
+    """Tree - The tixTree widget can be used to display hierarchical
     data in a tree form. The user can adjust
     the view of the tree by opening or closing parts of the tree."""
 
@@ -1874,13 +1874,13 @@ class Grid(TixWidget, XView, YView):
         return self.tk.call(self, 'info', 'bbox', x, y)
 
     def move_column(self, from_, to, offset):
-        """Moves the the range of columns from position FROM through TO by
+        """Moves the range of columns from position FROM through TO by
         the distance indicated by OFFSET. For example, move_column(2, 4, 1)
         moves the columns 2,3,4 to columns 3,4,5."""
         self.tk.call(self, 'move', 'column', from_, to, offset)
 
     def move_row(self, from_, to, offset):
-        """Moves the the range of rows from position FROM through TO by
+        """Moves the range of rows from position FROM through TO by
         the distance indicated by OFFSET.
         For example, move_row(2, 4, 1) moves the rows 2,3,4 to rows 3,4,5."""
         self.tk.call(self, 'move', 'row', from_, to, offset)
@@ -1939,7 +1939,7 @@ class Grid(TixWidget, XView, YView):
               pad0 pixels
                      Specifies the paddings to the top of a row.
               pad1 pixels
-                     Specifies the paddings to the the bottom of a row.
+                     Specifies the paddings to the bottom of a row.
               size val
                      Specifies  the height of a row.
                      Val may be: "auto" -- the height of the row  is  set  the

@@ -21,6 +21,8 @@ Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)
     return result;
 }
 
+#define PyComplex_FromCComplex(c) _PyComplex_FromCComplex(&c)
+
 #ifdef __cplusplus
 }
 #endif

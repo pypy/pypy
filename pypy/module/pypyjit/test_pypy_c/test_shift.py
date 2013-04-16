@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 class TestShift(BaseTestPyPyC):
@@ -56,13 +56,17 @@ class TestShift(BaseTestPyPyC):
         log = self.run(main, [3])
         assert log.result == 99
         loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint == 2147483647:
+            SHIFT = 31
+        else:
+            SHIFT = 63
         assert loop.match_by_id('div', """
             i10 = int_floordiv(i6, i7)
             i11 = int_mul(i10, i7)
             i12 = int_sub(i6, i11)
-            i14 = int_rshift(i12, 63)
+            i14 = int_rshift(i12, %d)
             i15 = int_add(i10, i14)
-        """)
+        """ % SHIFT)
 
     def test_division_to_rshift_allcases(self):
         """

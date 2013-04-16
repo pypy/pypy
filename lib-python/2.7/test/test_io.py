@@ -43,6 +43,10 @@ try:
     import threading
 except ImportError:
     threading = None
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 __metaclass__ = type
 bytes = support.py3k_bytes
@@ -228,9 +232,14 @@ class MockNonBlockWriterIO:
             except ValueError:
                 pass
             else:
-                self._blocker_char = None
-                self._write_stack.append(b[:n])
-                raise self.BlockingIOError(0, "test blocking", n)
+                if n > 0:
+                    # write data up to the first blocker
+                    self._write_stack.append(b[:n])
+                    return n
+                else:
+                    # cancel blocker and indicate would block
+                    self._blocker_char = None
+                    return None
         self._write_stack.append(b)
         return len(b)
 
@@ -585,7 +594,24 @@ class IOTest(unittest.TestCase):
         self.assertEqual(rawio.read(2), b"")
 
 class CIOTest(IOTest):
-    pass
+
+    def test_IOBase_finalize(self):
+        # Issue #12149: segmentation fault on _PyIOBase_finalize when both a
+        # class which inherits IOBase and an object of this class are caught
+        # in a reference cycle and close() is already in the method cache.
+        class MyIO(self.IOBase):
+            def close(self):
+                pass
+
+        # create an instance to populate the method cache
+        MyIO()
+        obj = MyIO()
+        obj.obj = obj
+        wr = weakref.ref(obj)
+        del MyIO
+        del obj
+        support.gc_collect()
+        self.assertTrue(wr() is None, wr)
 
 class PyIOTest(IOTest):
     test_array_writes = unittest.skip(
@@ -701,6 +727,13 @@ class CommonBufferedTests:
         b.close()
         self.assertRaises(ValueError, b.flush)
 
+    def test_readonly_attributes(self):
+        raw = self.MockRawIO()
+        buf = self.tp(raw)
+        x = self.MockRawIO()
+        with self.assertRaises((AttributeError, TypeError)):
+            buf.raw = x
+
 
 class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
     read_mode = "rb"
@@ -791,13 +824,16 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
         # Inject some None's in there to simulate EWOULDBLOCK
         rawio = self.MockRawIO((b"abc", b"d", None, b"efg", None, None, None))
         bufio = self.tp(rawio)
-
         self.assertEqual(b"abcd", bufio.read(6))
         self.assertEqual(b"e", bufio.read(1))
         self.assertEqual(b"fg", bufio.read())
         self.assertEqual(b"", bufio.peek(1))
-        self.assertTrue(None is bufio.read())
+        self.assertIsNone(bufio.read())
         self.assertEqual(b"", bufio.read())
+
+        rawio = self.MockRawIO((b"a", None, None))
+        self.assertEqual(b"a", rawio.readall())
+        self.assertIsNone(rawio.readall())
 
     def test_read_past_eof(self):
         rawio = self.MockRawIO((b"abc", b"d", b"efg"))
@@ -1340,15 +1376,18 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
         rw.seek(0, 0)
         self.assertEqual(b"asdf", rw.read(4))
 
-        rw.write(b"asdf")
+        rw.write(b"123f")
         rw.seek(0, 0)
-        self.assertEqual(b"asdfasdfl", rw.read())
+        self.assertEqual(b"asdf123fl", rw.read())
         self.assertEqual(9, rw.tell())
         rw.seek(-4, 2)
         self.assertEqual(5, rw.tell())
         rw.seek(2, 1)
         self.assertEqual(7, rw.tell())
         self.assertEqual(b"fl", rw.read(11))
+        rw.flush()
+        self.assertEqual(b"asdf123fl", raw.getvalue())
+
         self.assertRaises(TypeError, rw.seek, 0.0)
 
     def check_flush_and_read(self, read_func):
@@ -1455,6 +1494,32 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
             self.assertEqual(s,
                 b"A" + b"B" * overwrite_size + b"A" * (9 - overwrite_size))
 
+    def test_write_rewind_write(self):
+        # Various combinations of reading / writing / seeking backwards / writing again
+        def mutate(bufio, pos1, pos2):
+            assert pos2 >= pos1
+            # Fill the buffer
+            bufio.seek(pos1)
+            bufio.read(pos2 - pos1)
+            bufio.write(b'\x02')
+            # This writes earlier than the previous write, but still inside
+            # the buffer.
+            bufio.seek(pos1)
+            bufio.write(b'\x01')
+
+        b = b"\x80\x81\x82\x83\x84"
+        for i in range(0, len(b)):
+            for j in range(i, len(b)):
+                raw = self.BytesIO(b)
+                bufio = self.tp(raw, 100)
+                mutate(bufio, i, j)
+                bufio.flush()
+                expected = bytearray(b)
+                expected[j] = 2
+                expected[i] = 1
+                self.assertEqual(raw.getvalue(), expected,
+                                 "failed result for i=%d, j=%d" % (i, j))
+
     def test_truncate_after_read_or_write(self):
         raw = self.BytesIO(b"A" * 10)
         bufio = self.tp(raw, 100)
@@ -1466,6 +1531,44 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
     def test_misbehaved_io(self):
         BufferedReaderTest.test_misbehaved_io(self)
         BufferedWriterTest.test_misbehaved_io(self)
+
+    def test_interleaved_read_write(self):
+        # Test for issue #12213
+        with self.BytesIO(b'abcdefgh') as raw:
+            with self.tp(raw, 100) as f:
+                f.write(b"1")
+                self.assertEqual(f.read(1), b'b')
+                f.write(b'2')
+                self.assertEqual(f.read1(1), b'd')
+                f.write(b'3')
+                buf = bytearray(1)
+                f.readinto(buf)
+                self.assertEqual(buf, b'f')
+                f.write(b'4')
+                self.assertEqual(f.peek(1), b'h')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'1b2d3f4h')
+
+        with self.BytesIO(b'abc') as raw:
+            with self.tp(raw, 100) as f:
+                self.assertEqual(f.read(1), b'a')
+                f.write(b"2")
+                self.assertEqual(f.read(1), b'c')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'a2c')
+
+    def test_interleaved_readline_write(self):
+        with self.BytesIO(b'ab\ncdef\ng\n') as raw:
+            with self.tp(raw) as f:
+                f.write(b'1')
+                self.assertEqual(f.readline(), b'b\n')
+                f.write(b'2')
+                self.assertEqual(f.readline(), b'def\n')
+                f.write(b'3')
+                self.assertEqual(f.readline(), b'\n')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'1b\n2def\n3\n')
+
 
 class CBufferedRandomTest(CBufferedReaderTest, CBufferedWriterTest, BufferedRandomTest):
     tp = io.BufferedRandom
@@ -2211,6 +2314,12 @@ class TextIOWrapperTest(unittest.TestCase):
         txt.close()
         self.assertRaises(ValueError, txt.flush)
 
+    def test_readonly_attributes(self):
+        txt = self.TextIOWrapper(self.BytesIO(self.testdata), encoding="ascii")
+        buf = self.BytesIO(self.testdata)
+        with self.assertRaises((AttributeError, TypeError)):
+            txt.buffer = buf
+
 class CTextIOWrapperTest(TextIOWrapperTest):
 
     def test_initialization(self):
@@ -2237,6 +2346,21 @@ class CTextIOWrapperTest(TextIOWrapperTest):
         self.assertTrue(wr() is None, wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"456def")
+
+    def test_rwpair_cleared_before_textio(self):
+        # Issue 13070: TextIOWrapper's finalization would crash when called
+        # after the reference to the underlying BufferedRWPair's writer got
+        # cleared by the GC.
+        for i in range(1000):
+            b1 = self.BufferedRWPair(self.MockRawIO(), self.MockRawIO())
+            t1 = self.TextIOWrapper(b1, encoding="ascii")
+            b2 = self.BufferedRWPair(self.MockRawIO(), self.MockRawIO())
+            t2 = self.TextIOWrapper(b2, encoding="ascii")
+            # circular references
+            t1.buddy = t2
+            t2.buddy = t1
+        support.gc_collect()
+
 
 class PyTextIOWrapperTest(TextIOWrapperTest):
     pass
@@ -2429,6 +2553,8 @@ class MiscIOTest(unittest.TestCase):
             self.assertRaises(ValueError, f.read)
             if hasattr(f, "read1"):
                 self.assertRaises(ValueError, f.read1, 1024)
+            if hasattr(f, "readall"):
+                self.assertRaises(ValueError, f.readall)
             if hasattr(f, "readinto"):
                 self.assertRaises(ValueError, f.readinto, bytearray(1024))
             self.assertRaises(ValueError, f.readline)
@@ -2493,6 +2619,68 @@ class MiscIOTest(unittest.TestCase):
         # baseline "io" module.
         self._check_abc_inheritance(io)
 
+    @unittest.skipUnless(fcntl, 'fcntl required for this test')
+    def test_nonblock_pipe_write_bigbuf(self):
+        self._test_nonblock_pipe_write(16*1024)
+
+    @unittest.skipUnless(fcntl, 'fcntl required for this test')
+    def test_nonblock_pipe_write_smallbuf(self):
+        self._test_nonblock_pipe_write(1024)
+
+    def _set_non_blocking(self, fd):
+        flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+        self.assertNotEqual(flags, -1)
+        res = fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+        self.assertEqual(res, 0)
+
+    def _test_nonblock_pipe_write(self, bufsize):
+        sent = []
+        received = []
+        r, w = os.pipe()
+        self._set_non_blocking(r)
+        self._set_non_blocking(w)
+
+        # To exercise all code paths in the C implementation we need
+        # to play with buffer sizes.  For instance, if we choose a
+        # buffer size less than or equal to _PIPE_BUF (4096 on Linux)
+        # then we will never get a partial write of the buffer.
+        rf = self.open(r, mode='rb', closefd=True, buffering=bufsize)
+        wf = self.open(w, mode='wb', closefd=True, buffering=bufsize)
+
+        with rf, wf:
+            for N in 9999, 73, 7574:
+                try:
+                    i = 0
+                    while True:
+                        msg = bytes([i % 26 + 97]) * N
+                        sent.append(msg)
+                        wf.write(msg)
+                        i += 1
+
+                except self.BlockingIOError as e:
+                    self.assertEqual(e.args[0], errno.EAGAIN)
+                    sent[-1] = sent[-1][:e.characters_written]
+                    received.append(rf.read())
+                    msg = b'BLOCKED'
+                    wf.write(msg)
+                    sent.append(msg)
+
+            while True:
+                try:
+                    wf.flush()
+                    break
+                except self.BlockingIOError as e:
+                    self.assertEqual(e.args[0], errno.EAGAIN)
+                    self.assertEqual(e.characters_written, 0)
+                    received.append(rf.read())
+
+            received += iter(rf.read, None)
+
+        sent, received = b''.join(sent), b''.join(received)
+        self.assertTrue(sent == received)
+        self.assertTrue(wf.closed)
+        self.assertTrue(rf.closed)
+
 class CMiscIOTest(MiscIOTest):
     io = io
 
@@ -2513,9 +2701,37 @@ class SignalsTest(unittest.TestCase):
         1 // 0
 
     @unittest.skipUnless(threading, 'Threading required for this test.')
+    @unittest.skipIf(sys.platform in ('freebsd5', 'freebsd6', 'freebsd7'),
+                     'issue #12429: skip test on FreeBSD <= 7')
     def check_interrupted_write(self, item, bytes, **fdopen_kwargs):
         """Check that a partial write, when it gets interrupted, properly
-        invokes the signal handler."""
+        invokes the signal handler, and bubbles up the exception raised
+        in the latter."""
+
+        # XXX This test has three flaws that appear when objects are
+        # XXX not reference counted.
+
+        # - if wio.write() happens to trigger a garbage collection,
+        #   the signal exception may be raised when some __del__
+        #   method is running; it will not reach the assertRaises()
+        #   call.
+
+        # - more subtle, if the wio object is not destroyed at once
+        #   and survives this function, the next opened file is likely
+        #   to have the same fileno (since the file descriptor was
+        #   actively closed).  When wio.__del__ is finally called, it
+        #   will close the other's test file...  To trigger this with
+        #   CPython, try adding "global wio" in this function.
+
+        # - This happens only for streams created by the _pyio module,
+        #   because a wio.close() that fails still consider that the
+        #   file needs to be closed again.  You can try adding an
+        #   "assert wio.closed" at the end of the function.
+
+        # Fortunately, a little gc.gollect() seems to be enough to
+        # work around all these issues.
+        support.gc_collect()
+
         read_results = []
         def _read():
             s = os.read(r, 1)
@@ -2561,11 +2777,141 @@ class SignalsTest(unittest.TestCase):
     def test_interrupted_write_text(self):
         self.check_interrupted_write("xy", b"xy", mode="w", encoding="ascii")
 
+    def check_reentrant_write(self, data, **fdopen_kwargs):
+        def on_alarm(*args):
+            # Will be called reentrantly from the same thread
+            wio.write(data)
+            1//0
+        signal.signal(signal.SIGALRM, on_alarm)
+        r, w = os.pipe()
+        wio = self.io.open(w, **fdopen_kwargs)
+        try:
+            signal.alarm(1)
+            # Either the reentrant call to wio.write() fails with RuntimeError,
+            # or the signal handler raises ZeroDivisionError.
+            with self.assertRaises((ZeroDivisionError, RuntimeError)) as cm:
+                while 1:
+                    for i in range(100):
+                        wio.write(data)
+                        wio.flush()
+                    # Make sure the buffer doesn't fill up and block further writes
+                    os.read(r, len(data) * 100)
+            exc = cm.exception
+            if isinstance(exc, RuntimeError):
+                self.assertTrue(str(exc).startswith("reentrant call"), str(exc))
+        finally:
+            wio.close()
+            os.close(r)
+
+    def test_reentrant_write_buffered(self):
+        self.check_reentrant_write(b"xy", mode="wb")
+
+    def test_reentrant_write_text(self):
+        self.check_reentrant_write("xy", mode="w", encoding="ascii")
+
+    def check_interrupted_read_retry(self, decode, **fdopen_kwargs):
+        """Check that a buffered read, when it gets interrupted (either
+        returning a partial result or EINTR), properly invokes the signal
+        handler and retries if the latter returned successfully."""
+        r, w = os.pipe()
+        fdopen_kwargs["closefd"] = False
+        def alarm_handler(sig, frame):
+            os.write(w, b"bar")
+        signal.signal(signal.SIGALRM, alarm_handler)
+        try:
+            rio = self.io.open(r, **fdopen_kwargs)
+            os.write(w, b"foo")
+            signal.alarm(1)
+            # Expected behaviour:
+            # - first raw read() returns partial b"foo"
+            # - second raw read() returns EINTR
+            # - third raw read() returns b"bar"
+            self.assertEqual(decode(rio.read(6)), "foobar")
+        finally:
+            rio.close()
+            os.close(w)
+            os.close(r)
+
+    def test_interrupterd_read_retry_buffered(self):
+        self.check_interrupted_read_retry(lambda x: x.decode('latin1'),
+                                          mode="rb")
+
+    def test_interrupterd_read_retry_text(self):
+        self.check_interrupted_read_retry(lambda x: x,
+                                          mode="r")
+
+    @unittest.skipUnless(threading, 'Threading required for this test.')
+    def check_interrupted_write_retry(self, item, **fdopen_kwargs):
+        """Check that a buffered write, when it gets interrupted (either
+        returning a partial result or EINTR), properly invokes the signal
+        handler and retries if the latter returned successfully."""
+        select = support.import_module("select")
+        # A quantity that exceeds the buffer size of an anonymous pipe's
+        # write end.
+        N = 1024 * 1024
+        r, w = os.pipe()
+        fdopen_kwargs["closefd"] = False
+        # We need a separate thread to read from the pipe and allow the
+        # write() to finish.  This thread is started after the SIGALRM is
+        # received (forcing a first EINTR in write()).
+        read_results = []
+        write_finished = False
+        def _read():
+            while not write_finished:
+                while r in select.select([r], [], [], 1.0)[0]:
+                    s = os.read(r, 1024)
+                    read_results.append(s)
+        t = threading.Thread(target=_read)
+        t.daemon = True
+        def alarm1(sig, frame):
+            signal.signal(signal.SIGALRM, alarm2)
+            signal.alarm(1)
+        def alarm2(sig, frame):
+            t.start()
+        signal.signal(signal.SIGALRM, alarm1)
+        try:
+            wio = self.io.open(w, **fdopen_kwargs)
+            signal.alarm(1)
+            # Expected behaviour:
+            # - first raw write() is partial (because of the limited pipe buffer
+            #   and the first alarm)
+            # - second raw write() returns EINTR (because of the second alarm)
+            # - subsequent write()s are successful (either partial or complete)
+            self.assertEqual(N, wio.write(item * N))
+            wio.flush()
+            write_finished = True
+            t.join()
+            self.assertEqual(N, sum(len(x) for x in read_results))
+        finally:
+            write_finished = True
+            os.close(w)
+            os.close(r)
+            # This is deliberate. If we didn't close the file descriptor
+            # before closing wio, wio would try to flush its internal
+            # buffer, and could block (in case of failure).
+            try:
+                wio.close()
+            except IOError as e:
+                if e.errno != errno.EBADF:
+                    raise
+
+    def test_interrupterd_write_retry_buffered(self):
+        self.check_interrupted_write_retry(b"x", mode="wb")
+
+    def test_interrupterd_write_retry_text(self):
+        self.check_interrupted_write_retry("x", mode="w", encoding="latin1")
+
+
 class CSignalsTest(SignalsTest):
     io = io
 
 class PySignalsTest(SignalsTest):
     io = pyio
+
+    # Handling reentrancy issues would slow down _pyio even more, so the
+    # tests are disabled.
+    test_reentrant_write_buffered = None
+    test_reentrant_write_text = None
 
 
 def test_main():

@@ -1,14 +1,17 @@
 import math
 import sys
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib import rfloat, rarithmetic
-from pypy.interpreter import gateway, typedef
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rfloat, rarithmetic
+from pypy.interpreter import typedef
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault,\
+     interpindirect2app
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import ParseStringError
 from pypy.objspace.std.strutil import string_to_float
+from pypy.objspace.std.model import W_Object
+from rpython.rlib.rbigint import rbigint
 
 
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
@@ -21,7 +24,8 @@ def descr_conjugate(space, w_float):
 register_all(vars(), globals())
 
 
-def descr__new__(space, w_floattype, w_x=0.0):
+@unwrap_spec(w_x = WrappedDefault(0.0))
+def descr__new__(space, w_floattype, w_x):
     from pypy.objspace.std.floatobject import W_FloatObject
     w_value = w_x     # 'x' is the keyword argument name in CPython
     w_special = space.lookup(w_value, "__float__")
@@ -33,18 +37,16 @@ def descr__new__(space, w_floattype, w_x=0.0):
         if space.is_w(w_floattype, space.w_float):
             return w_obj
         value = space.float_w(w_obj)
-    elif space.isinstance_w(w_value, space.w_str):
-        strvalue = space.str_w(w_value)
+    elif (space.isinstance_w(w_value, space.w_str) or
+          space.isinstance_w(w_value, space.w_bytearray)):
+        strvalue = space.bufferstr_w(w_value)
         try:
             value = string_to_float(strvalue)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
     elif space.isinstance_w(w_value, space.w_unicode):
-        if space.config.objspace.std.withropeunicode:
-            from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-        else:
-            from unicodeobject import unicode_to_decimal_w
+        from unicodeobject import unicode_to_decimal_w
         strvalue = unicode_to_decimal_w(space, w_value)
         try:
             value = string_to_float(strvalue)
@@ -59,7 +61,7 @@ def descr__new__(space, w_floattype, w_x=0.0):
 
 
 def detect_floatformat():
-    from pypy.rpython.lltypesystem import rffi, lltype
+    from rpython.rtyper.lltypesystem import rffi, lltype
     buf = lltype.malloc(rffi.CCHARP.TO, 8, flavor='raw')
     rffi.cast(rffi.DOUBLEP, buf)[0] = 9006104071832581.0
     packed = rffi.charpsize2str(buf, 8)
@@ -86,7 +88,7 @@ def detect_floatformat():
 
 _double_format, _float_format = detect_floatformat()
 
-@gateway.unwrap_spec(kind=str)
+@unwrap_spec(kind=str)
 def descr___getformat__(space, w_cls, kind):
     if kind == "float":
         return space.wrap(_float_format)
@@ -111,7 +113,7 @@ def _hex_digit(s, j, co_end, float_digits):
         i = co_end - 1 - j
     return _hex_from_char(s[i])
 
-@gateway.unwrap_spec(s=str)
+@unwrap_spec(s=str)
 def descr_fromhex(space, w_cls, s):
     length = len(s)
     i = 0
@@ -270,17 +272,42 @@ def descr_get_imag(space, w_obj):
 
 # ____________________________________________________________
 
+class W_AbstractFloatObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        from rpython.rlib.longlong2float import float2longlong
+        if not isinstance(w_other, W_AbstractFloatObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        one = float2longlong(space.float_w(self))
+        two = float2longlong(space.float_w(w_other))
+        return one == two
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from rpython.rlib.longlong2float import float2longlong
+        from pypy.objspace.std.model import IDTAG_FLOAT as tag
+        val = float2longlong(space.float_w(self))
+        b = rbigint.fromrarith_int(val)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+    def int(self, space):
+        raise NotImplementedError
+
 float_typedef = StdTypeDef("float",
     __doc__ = '''float(x) -> floating point number
 
 Convert a string or number to a floating point number, if possible.''',
-    __new__ = gateway.interp2app(descr__new__),
-    __getformat__ = gateway.interp2app(descr___getformat__,
-                                       as_classmethod=True),
-    fromhex = gateway.interp2app(descr_fromhex,
-                                 as_classmethod=True),
-    conjugate = gateway.interp2app(descr_conjugate),
+    __new__ = interp2app(descr__new__),
+    __getformat__ = interp2app(descr___getformat__, as_classmethod=True),
+    fromhex = interp2app(descr_fromhex, as_classmethod=True),
+    conjugate = interp2app(descr_conjugate),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
+    __int__ = interpindirect2app(W_AbstractFloatObject.int),
 )
 float_typedef.registermethods(globals())

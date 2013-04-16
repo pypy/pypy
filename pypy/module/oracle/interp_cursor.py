@@ -1,10 +1,9 @@
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.module.oracle import roci, interp_error
 from pypy.module.oracle.config import w_string, string_w, StringBuffer
@@ -14,7 +13,7 @@ from pypy.module.oracle.interp_error import get
 # XXX are those "assert isinstance(xxx, interp_variable.W_Variable)" necessary?
 # the bindList should annotate to SomeList(SomeInstance(W_Variable))
 
-class W_Cursor(Wrappable):
+class W_Cursor(W_Root):
     def __init__(self, space, connection):
         self.connection = connection
         self.environment = connection.environment
@@ -83,7 +82,7 @@ class W_Cursor(Wrappable):
         # perform binds
         if w_vars is None:
             pass
-        elif space.is_true(space.isinstance(w_vars, space.w_dict)):
+        elif space.isinstance_w(w_vars, space.w_dict):
             self._setBindVariablesByName(space, w_vars, 1, 0, 0)
         else:
             self._setBindVariablesByPos(space, w_vars, 1, 0, 0)
@@ -115,7 +114,7 @@ class W_Cursor(Wrappable):
     def executemany(self, space, w_stmt, w_list_of_args):
         if space.is_w(w_stmt, space.w_None):
             w_stmt = None
-        if not space.is_true(space.isinstance(w_list_of_args, space.w_list)):
+        if not space.isinstance_w(w_list_of_args, space.w_list):
             raise OperationError(
                 space.w_TypeError,
                 space.wrap("list expected"))
@@ -138,7 +137,7 @@ class W_Cursor(Wrappable):
         for i in range(numrows):
             w_arguments = args_w[i]
             deferred = i < numrows - 1
-            if space.is_true(space.isinstance(w_arguments, space.w_dict)):
+            if space.isinstance_w(w_arguments, space.w_dict):
                 self._setBindVariablesByName(
                     space, w_arguments, numrows, i, deferred)
             else:
@@ -164,7 +163,7 @@ class W_Cursor(Wrappable):
     @unwrap_spec(name=str)
     def callfunc(self, space, name, w_returnType, w_parameters=None):
         retvar = interp_variable.newVariableByType(space, self, w_returnType, 1)
-        if space.is_w(w_parameters, space.w_None):
+        if space.is_none(w_parameters):
             w_parameters = None
 
         self._call(space, name, retvar, w_parameters)
@@ -174,7 +173,7 @@ class W_Cursor(Wrappable):
 
     @unwrap_spec(name=str)
     def callproc(self, space, name, w_parameters=None):
-        if space.is_w(w_parameters, space.w_None):
+        if space.is_none(w_parameters):
             w_parameters = None
 
         self._call(space, name, None, w_parameters)
@@ -318,7 +317,7 @@ class W_Cursor(Wrappable):
         if e.match(space, get(space).w_DatabaseError):
             attrptr = lltype.malloc(rffi.CArrayPtr(roci.ub4).TO, 1, flavor='raw')
             try:
-                status = roci.OCIAttrGet(
+                roci.OCIAttrGet(
                     self.handle, roci.OCI_HTYPE_STMT,
                     rffi.cast(roci.dvoidp, attrptr),
                     lltype.nullptr(roci.Ptr(roci.ub4).TO),
@@ -604,7 +603,7 @@ class W_Cursor(Wrappable):
     def _setBindVariableHelper(self, space, w_value, origVar,
                                numElements, arrayPos, defer):
 
-        valueIsVariable = space.is_true(space.isinstance(w_value, get(space).w_Variable))
+        valueIsVariable = space.isinstance_w(w_value, get(space).w_Variable)
         newVar = None
 
         # handle case where variable is already bound
@@ -763,7 +762,7 @@ class W_Cursor(Wrappable):
 
         return space.w_None
 
-    def fetchmany(self, space, w_numRows=NoneNotWrapped):
+    def fetchmany(self, space, w_numRows=None):
         if w_numRows is not None:
             numRows = space.int_w(w_numRows)
         else:
@@ -860,8 +859,6 @@ class W_Cursor(Wrappable):
 
     def _createRow(self, space):
         items_w = []
-        numItems = len(self.fetchVariables)
-
         # acquire the value for each item
         for var in self.fetchVariables:
             assert isinstance(var, interp_variable.W_Variable)
@@ -957,7 +954,7 @@ class W_Cursor(Wrappable):
     @unwrap_spec(size=int)
     def var(self, space, w_type, size=0, w_arraysize=None,
             w_inconverter=None, w_outconverter=None):
-        if space.is_w(w_arraysize, space.w_None):
+        if space.is_none(w_arraysize):
             arraySize = self.bindArraySize
         else:
             arraySize = space.int_w(w_arraysize)
@@ -982,9 +979,9 @@ class W_Cursor(Wrappable):
             size = varType.size
 
         # determine the number of elements to create
-        if space.is_true(space.isinstance(w_value, space.w_list)):
+        if space.isinstance_w(w_value, space.w_list):
             numElements = space.len_w(w_value)
-        elif space.is_true(space.isinstance(w_value, space.w_int)):
+        elif space.isinstance_w(w_value, space.w_int):
             numElements = space.int_w(w_value)
         else:
             raise OperationError(
@@ -996,7 +993,7 @@ class W_Cursor(Wrappable):
         var.makeArray(space)
 
         # set the value, if applicable
-        if space.is_true(space.isinstance(w_value, space.w_list)):
+        if space.isinstance_w(w_value, space.w_list):
             var.setArrayValue(space, w_value)
 
         return var

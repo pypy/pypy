@@ -62,8 +62,14 @@ def descr_fromkeys(space, w_type, w_keys, w_fill=None):
         w_fill = space.w_None
     if space.is_w(w_type, space.w_dict):
         w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
-        for w_key in space.listview(w_keys):
-            w_dict.setitem(w_key, w_fill)
+
+        strlist = space.listview_str(w_keys)
+        if strlist is not None:
+            for key in strlist:
+                w_dict.setitem_str(key, w_fill)
+        else:
+            for w_key in space.listview(w_keys):
+                w_dict.setitem(w_key, w_fill)
     else:
         w_dict = space.call_function(w_type)
         for w_key in space.listview(w_keys):
@@ -133,6 +139,12 @@ dict_typedef.registermethods(globals())
 
 # ____________________________________________________________
 
+def descr_dictiter__length_hint__(space, w_self):
+    from pypy.objspace.std.dictmultiobject import W_BaseDictMultiIterObject
+    assert isinstance(w_self, W_BaseDictMultiIterObject)
+    return space.wrap(w_self.iteratorimplementation.length())
+
+
 def descr_dictiter__reduce__(w_self, space):
     """
     This is a slightly special case of pickling.
@@ -189,7 +201,8 @@ def descr_dictiter__reduce__(w_self, space):
 
 
 dictiter_typedef = StdTypeDef("dictionaryiterator",
-    __reduce__ = gateway.interp2app(descr_dictiter__reduce__),
+    __length_hint__ = gateway.interp2app(descr_dictiter__length_hint__),
+    __reduce__      = gateway.interp2app(descr_dictiter__reduce__),
     )
 
 # ____________________________________________________________

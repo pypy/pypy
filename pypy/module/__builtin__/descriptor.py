@@ -1,12 +1,13 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod, ClassMethod
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
     generic_new_descr)
 from pypy.objspace.descroperation import object_getattribute
 
-class W_Super(Wrappable):
+
+class W_Super(W_Root):
     def __init__(self, space, w_starttype, w_objtype, w_self):
         self.w_starttype = w_starttype
         self.w_objtype = w_objtype
@@ -48,8 +49,9 @@ class W_Super(Wrappable):
                                    w(self), w(name))
 
 def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
-    if space.is_w(w_obj_or_type, space.w_None):
+    if space.is_none(w_obj_or_type):
         w_type = None  # unbound super object
+        w_obj_or_type = space.w_None
     else:
         w_objtype = space.type(w_obj_or_type)
         if space.is_true(space.issubtype(w_objtype, space.w_type)) and \
@@ -90,12 +92,17 @@ class C(B):
         super(C, self).meth(arg)"""
 )
 
-class W_Property(Wrappable):
+
+class W_Property(W_Root):
     _immutable_fields_ = ["w_fget", "w_fset", "w_fdel"]
 
     def __init__(self, space):
         pass
 
+    @unwrap_spec(w_fget = WrappedDefault(None),
+                 w_fset = WrappedDefault(None),
+                 w_fdel = WrappedDefault(None),
+                 w_doc = WrappedDefault(None))
     def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset
@@ -187,4 +194,3 @@ class C(object):
 # descriptor for the instances.
 W_Property.typedef.rawdict['__doc__'] = interp_attrproperty_w('w_doc',
                                                               W_Property)
-

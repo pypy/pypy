@@ -1,10 +1,12 @@
+import py
+from py.test import raises
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import app2interp
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 
 class TestW_StdObjSpace:
 
     def test_wrap_wrap(self):
+        py.test.skip("maybe unskip in the future")
         raises(TypeError,
                           self.space.wrap,
                           self.space.wrap(0))
@@ -30,8 +32,8 @@ class TestW_StdObjSpace:
         assert ('lt', False) in res
         assert ('setitem', False) in res
         assert ('mod', False) not in res
-        assert ('pop', True) in res
-        assert ('reverse', True) in res
+        assert ('pop', True) not in res
+        assert ('reverse', True) not in res
         assert ('popitem', True) not in res
 
     def test_sliceindices(self):
@@ -74,3 +76,20 @@ class TestW_StdObjSpace:
         space = gettestobjspace(withstrbuf=True)
         cls = space._get_interplevel_cls(space.w_str)
         assert cls is W_AbstractStringObject
+
+    def test_wrap_various_unsigned_types(self):
+        import sys
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        space = self.space
+        value = sys.maxint * 2
+        x = rffi.cast(lltype.Unsigned, value)
+        assert space.eq_w(space.wrap(value), space.wrap(x))
+        x = rffi.cast(rffi.UINTPTR_T, value)
+        assert x > 0
+        assert space.eq_w(space.wrap(value), space.wrap(x))
+        value = 60000
+        x = rffi.cast(rffi.USHORT, value)
+        assert space.eq_w(space.wrap(value), space.wrap(x))
+        value = 200
+        x = rffi.cast(rffi.UCHAR, value)
+        assert space.eq_w(space.wrap(value), space.wrap(x))

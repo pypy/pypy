@@ -5,6 +5,7 @@ show how the type behave.
 Later...
 """
 
+from __future__ import with_statement
 from ctypes import *
 import sys
 import py
@@ -20,7 +21,7 @@ except NameError:
 def setup_module(mod):
     import conftest
     _ctypes_test = str(conftest.sofile)
-    mod.dll = CDLL(_ctypes_test)
+    mod.dll = CDLL(_ctypes_test, use_errno=True)
     if sys.platform == "win32":
         mod.windll = WinDLL(_ctypes_test)
 
@@ -461,6 +462,17 @@ class TestFunctions(BaseCTypesTestChecker):
         callback = proto(callback)
         raises(ArgumentError, lambda: callback((1, 2, 3, 4), POINT()))
 
+    def test_argument_conversion_and_checks(self):
+        py.test.skip("XXX currently broken on PyPy, sorry")
+        strlen = dll.my_strchr
+        strlen.argtypes = [c_char_p, c_int]
+        strlen.restype = c_char_p
+        assert strlen("eggs", ord("g")) == "ggs"
+
+        # Should raise ArgumentError, not segfault
+        py.test.raises(ArgumentError, strlen, 0, 0)
+        py.test.raises(ArgumentError, strlen, False, 0)
+
     def test_union_as_passed_value(self):
         class UN(Union):
             _fields_ = [("x", c_short),
@@ -483,7 +495,22 @@ class TestFunctions(BaseCTypesTestChecker):
         assert tf_b(-126) == -42
         assert tf_b._ptr is ptr
 
+    def test_custom_from_param(self):
+        class A(c_byte):
+            @classmethod
+            def from_param(cls, obj):
+                seen.append(obj)
+                return -126
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        tf_b.argtypes = [A]
+        seen = []
+        assert tf_b("yadda") == -42
+        assert seen == ["yadda"]
+
     def test_warnings(self):
+        py.test.skip("warnings are disabled")
         import warnings
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
@@ -521,3 +548,14 @@ class TestFunctions(BaseCTypesTestChecker):
             assert len(w) == 0
             
         warnings.resetwarnings()
+
+
+    def test_errno(self):
+        test_errno = dll.test_errno
+        test_errno.restype = c_int
+        set_errno(42)
+        res = test_errno()
+        n = get_errno()
+        assert (res, n) == (42, 43)
+        set_errno(0)
+        assert get_errno() == 0

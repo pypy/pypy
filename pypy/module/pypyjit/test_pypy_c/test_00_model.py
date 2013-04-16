@@ -4,13 +4,16 @@ import types
 import subprocess
 import py
 from lib_pypy import disassembler
-from pypy.tool.udir import udir
-from pypy.tool import logparser
-from pypy.jit.tool.jitoutput import parse_prof
-from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, \
-    LoopWithIds, OpMatcher
+from rpython.tool.udir import udir
+from rpython.tool import logparser
+from rpython.jit.tool.jitoutput import parse_prof
+from pypy.module.pypyjit.test_pypy_c.model import (Log, find_ids_range,
+                                                   find_ids,
+                                                   OpMatcher, InvalidMatch)
 
 class BaseTestPyPyC(object):
+    log_string = 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary'
+    
     def setup_class(cls):
         if '__pypy__' not in sys.builtin_module_names:
             py.test.skip("must run this test with pypy")
@@ -45,17 +48,22 @@ class BaseTestPyPyC(object):
         cmdline = [sys.executable]
         if not import_site:
             cmdline.append('-S')
-        for key, value in jitopts.iteritems():
-            cmdline += ['--jit', '%s=%s' % (key, value)]
+        if jitopts:
+            jitcmdline = ['%s=%s' % (key, value)
+                          for key, value in jitopts.items()]
+            cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
         #
-        print cmdline, logfile
-        env={'PYPYLOG': 'jit-log-opt,jit-log-noopt,jit-summary:' + str(logfile)}
+        env = os.environ.copy()
+        env['PYPYLOG'] = self.log_string + ':' + str(logfile)
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
+        if getattr(pipe, 'returncode', 0) < 0:
+            raise IOError("subprocess was killed by signal %d" % (
+                pipe.returncode,))
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
         if stderr.startswith('debug_alloc.h:'):   # lldebug builds
@@ -67,6 +75,7 @@ class BaseTestPyPyC(object):
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(rawtraces)
         log.result = eval(stdout)
+        log.logfile = str(logfile)
         #
         summaries  = logparser.extract_category(rawlog, 'jit-summary')
         if len(summaries) > 0:
@@ -113,13 +122,18 @@ class TestLog(object):
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
 
-class TestOpMatcher(object):
+class TestOpMatcher_(object):
 
     def match(self, src1, src2, **kwds):
         from pypy.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
-        matcher = OpMatcher(loop.operations, src=src1)
-        return matcher.match(src2, **kwds)
+        matcher = OpMatcher(loop.operations)
+        try:
+            res = matcher.match(src2, **kwds)
+            assert res is True
+            return True
+        except InvalidMatch:
+            return False
 
     def test_match_var(self):
         match_var = OpMatcher([]).match_var
@@ -185,6 +199,12 @@ class TestOpMatcher(object):
         expected = """
             i5 = int_add(i2, 1)
             # missing op at the end
+        """
+        assert not self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_add(i2, 2)
+            jump(i5, descr=...)
         """
         assert not self.match(loop, expected)
 
@@ -278,6 +298,49 @@ class TestOpMatcher(object):
         """
         assert self.match(loop, expected)
 
+    def test_match_any_order(self):
+        loop = """
+            [i0, i1]
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            jump(i2, i3, descr=...)
+        """
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i3 = int_add(i1, 2)
+            i2 = int_add(i0, 1)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            i4 = int_add(i1, 3)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert not self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert not self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
 
@@ -317,14 +380,17 @@ class TestRunPyPyC(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
         assert loops[0].filename == self.filepath
-        assert not loops[0].is_entry_bridge
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) == 0        
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         assert len(loops) == 1
-        assert loops[0].is_entry_bridge
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) > 0
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge='*')
-        assert len(loops) == 2
+        assert len(loops) == 1
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 2
 
     def test_loops_by_id(self):
         def f():
@@ -428,10 +494,10 @@ class TestRunPyPyC(BaseTestPyPyC):
             i8 = int_add(i4, 1)
             # signal checking stuff
             guard_not_invalidated(descr=...)
-            i10 = getfield_raw(37212896, descr=<.* pypysig_long_struct.c_value .*>)
+            i10 = getfield_raw(..., descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
         #
         assert loop.match("""
@@ -439,15 +505,15 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
         #
-        assert not loop.match("""
+        py.test.raises(InvalidMatch, loop.match, """
             i6 = int_lt(i4, 1003)
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
             --TICK--
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_match_by_id(self):
@@ -487,9 +553,8 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_no_exception(descr=...)
         """)
         #
-        assert not loop.match_by_id('ntohs', """
+        py.test.raises(InvalidMatch, loop.match_by_id, 'ntohs', """
             guard_not_invalidated(descr=...)
             p12 = call(ConstClass(foobar), 1, descr=...)
             guard_no_exception(descr=...)
         """)
-        

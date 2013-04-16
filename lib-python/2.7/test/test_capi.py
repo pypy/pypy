@@ -13,6 +13,17 @@ except ImportError:
     threading = None
 import _testcapi
 
+skips = []
+if test_support.check_impl_detail(pypy=True):
+    skips += [
+            'test_broken_memoryview',
+            'test_capsule',
+            'test_lazy_hash_inheritance',
+            'test_widechar',
+            'TestThreadState',
+            'TestPendingCalls',
+            ]
+
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class TestPendingCalls(unittest.TestCase):
 
@@ -86,7 +97,7 @@ class TestPendingCalls(unittest.TestCase):
                 context.event.set()
 
     def test_pendingcalls_non_threaded(self):
-        #again, just using the main thread, likely they will all be dispathced at
+        #again, just using the main thread, likely they will all be dispatched at
         #once.  It is ok to ask for too many, because we loop until we find a slot.
         #the loop can be interrupted to dispatch.
         #there are only 32 dispatch slots, so we go for twice that!
@@ -99,7 +110,7 @@ class TestPendingCalls(unittest.TestCase):
 def test_main():
 
     for name in dir(_testcapi):
-        if name.startswith('test_'):
+        if name.startswith('test_') and name not in skips:
             test = getattr(_testcapi, name)
             if test_support.verbose:
                 print "internal", name
@@ -126,7 +137,7 @@ def test_main():
             raise test_support.TestFailed, \
                   "Couldn't find main thread correctly in the list"
 
-    if threading:
+    if threading and 'TestThreadState' not in skips:
         import thread
         import time
         TestThreadState()
@@ -134,7 +145,8 @@ def test_main():
         t.start()
         t.join()
 
-    test_support.run_unittest(TestPendingCalls)
+    if 'TestPendingCalls' not in skips:
+        test_support.run_unittest(TestPendingCalls)
 
 if __name__ == "__main__":
     test_main()

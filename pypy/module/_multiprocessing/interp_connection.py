@@ -1,12 +1,12 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rpoll
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rpoll, rsocket
 import sys
 
 READABLE = 1
@@ -25,7 +25,8 @@ def BufferTooShort(space, w_data):
 def w_handle(space, handle):
     return space.wrap(rffi.cast(rffi.INTPTR_T, handle))
 
-class W_BaseConnection(Wrappable):
+
+class W_BaseConnection(W_Root):
     BUFFER_SIZE = 1024
 
     def __init__(self, flags):
@@ -100,7 +101,6 @@ class W_BaseConnection(Wrappable):
 
         res, newbuf = self.do_recv_string(
             space, self.BUFFER_SIZE, maxlength)
-        res = intmask(res) # XXX why?
         try:
             if newbuf:
                 return space.wrap(rffi.charpsize2str(newbuf, res))
@@ -117,7 +117,6 @@ class W_BaseConnection(Wrappable):
 
         res, newbuf = self.do_recv_string(
             space, length - offset, PY_SSIZE_T_MAX)
-        res = intmask(res) # XXX why?
         try:
             if newbuf:
                 raise BufferTooShort(space, space.wrap(
@@ -148,7 +147,6 @@ class W_BaseConnection(Wrappable):
 
         res, newbuf = self.do_recv_string(
             space, self.BUFFER_SIZE, PY_SSIZE_T_MAX)
-        res = intmask(res) # XXX why?
         try:
             if newbuf:
                 w_received = space.wrap(rffi.charpsize2str(newbuf, res))
@@ -166,7 +164,8 @@ class W_BaseConnection(Wrappable):
 
         return w_unpickled
 
-    def poll(self, space, w_timeout=0.0):
+    @unwrap_spec(w_timeout=WrappedDefault(0.0))
+    def poll(self, space, w_timeout):
         self._check_readable(space)
         if space.is_w(w_timeout, space.w_None):
             timeout = -1.0 # block forever
@@ -196,20 +195,20 @@ class W_FileConnection(W_BaseConnection):
 
     if sys.platform == 'win32':
         def WRITE(self, data):
-            from pypy.rlib._rsocket_rffi import send, geterrno
+            from rpython.rlib._rsocket_rffi import send, geterrno
             length = send(self.fd, data, len(data), 0)
             if length < 0:
                 raise WindowsError(geterrno(), "send")
             return length
         def READ(self, size):
-            from pypy.rlib._rsocket_rffi import socketrecv, geterrno
+            from rpython.rlib._rsocket_rffi import socketrecv, geterrno
             with rffi.scoped_alloc_buffer(size) as buf:
                 length = socketrecv(self.fd, buf.raw, buf.size, 0)
                 if length < 0:
                     raise WindowsError(geterrno(), "recv")
                 return buf.str(length)
         def CLOSE(self):
-            from pypy.rlib._rsocket_rffi import socketclose
+            from rpython.rlib._rsocket_rffi import socketclose
             socketclose(self.fd)
     else:
         def WRITE(self, data):
@@ -255,7 +254,9 @@ class W_FileConnection(W_BaseConnection):
         # "header" and the "body" of the message and send them at once.
         message = lltype.malloc(rffi.CCHARP.TO, size + 4, flavor='raw')
         try:
-            rffi.cast(rffi.UINTP, message)[0] = rffi.r_uint(size) # XXX htonl!
+            length = rffi.r_uint(rsocket.htonl(
+                    rffi.cast(lltype.Unsigned, size)))
+            rffi.cast(rffi.UINTP, message)[0] = length
             i = size - 1
             while i >= 0:
                 message[4 + i] = buffer[offset + i]
@@ -267,7 +268,8 @@ class W_FileConnection(W_BaseConnection):
     def do_recv_string(self, space, buflength, maxlength):
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as length_ptr:
             self._recvall(space, rffi.cast(rffi.CCHARP, length_ptr), 4)
-            length = intmask(length_ptr[0])
+            length = intmask(rsocket.ntohl(
+                    rffi.cast(lltype.Unsigned, length_ptr[0])))
         if length > maxlength: # bad message, close connection
             self.flags &= ~READABLE
             if self.flags == 0:
@@ -342,7 +344,7 @@ W_FileConnection.typedef = TypeDef(
 
 class W_PipeConnection(W_BaseConnection):
     if sys.platform == 'win32':
-        from pypy.rlib.rwin32 import INVALID_HANDLE_VALUE
+        from rpython.rlib.rwin32 import INVALID_HANDLE_VALUE
 
     def __init__(self, handle, flags):
         W_BaseConnection.__init__(self, flags)
@@ -371,7 +373,7 @@ class W_PipeConnection(W_BaseConnection):
         return w_handle(space, self.handle)
 
     def do_close(self):
-        from pypy.rlib.rwin32 import CloseHandle
+        from rpython.rlib.rwin32 import CloseHandle
         if self.is_valid():
             CloseHandle(self.handle)
             self.handle = self.INVALID_HANDLE_VALUE
@@ -379,7 +381,7 @@ class W_PipeConnection(W_BaseConnection):
     def do_send_string(self, space, buffer, offset, size):
         from pypy.module._multiprocessing.interp_win32 import (
             _WriteFile, ERROR_NO_SYSTEM_RESOURCES)
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
 
         charp = rffi.str2charp(buffer)
         written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
@@ -401,7 +403,7 @@ class W_PipeConnection(W_BaseConnection):
     def do_recv_string(self, space, buflength, maxlength):
         from pypy.module._multiprocessing.interp_win32 import (
             _ReadFile, _PeekNamedPipe, ERROR_BROKEN_PIPE, ERROR_MORE_DATA)
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
         from pypy.interpreter.error import wrap_windowserror
 
         read_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
@@ -413,7 +415,7 @@ class W_PipeConnection(W_BaseConnection):
                                self.buffer, min(self.BUFFER_SIZE, buflength),
                                read_ptr, rffi.NULL)
             if result:
-                return read_ptr[0], lltype.nullptr(rffi.CCHARP.TO)
+                return intmask(read_ptr[0]), lltype.nullptr(rffi.CCHARP.TO)
 
             err = rwin32.GetLastError()
             if err == ERROR_BROKEN_PIPE:
@@ -456,7 +458,7 @@ class W_PipeConnection(W_BaseConnection):
     def do_poll(self, space, timeout):
         from pypy.module._multiprocessing.interp_win32 import (
             _PeekNamedPipe, _GetTickCount, _Sleep)
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
         from pypy.interpreter.error import wrap_windowserror
         bytes_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
                                  flavor='raw')
@@ -476,7 +478,7 @@ class W_PipeConnection(W_BaseConnection):
         block = timeout < 0
         if not block:
             # XXX does not check for overflow
-            deadline = _GetTickCount() + int(1000 * timeout + 0.5)
+            deadline = intmask(_GetTickCount()) + int(1000 * timeout + 0.5)
         else:
             deadline = 0
 
@@ -500,7 +502,7 @@ class W_PipeConnection(W_BaseConnection):
                 return True
 
             if not block:
-                now = _GetTickCount()
+                now = intmask(_GetTickCount())
                 if now > deadline:
                     return False
                 diff = deadline - now

@@ -1,10 +1,10 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    PyObjectFields, generic_cpy_call, CONST_STRING,
+    PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL, Py_ssize_t,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pycode import PyCode
@@ -48,6 +48,7 @@ def init_functionobject(space):
 
 PyFunction_Check, PyFunction_CheckExact = build_type_checkers("Function", Function)
 PyMethod_Check, PyMethod_CheckExact = build_type_checkers("Method", Method)
+PyCode_Check, PyCode_CheckExact = build_type_checkers("Code", PyCode)
 
 def function_attach(space, py_obj, w_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
@@ -115,10 +116,6 @@ def PyMethod_Class(space, w_method):
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
 
-@cpython_api([PyObject], PyObject)
-def PyClassMethod_New(space, w_function):
-    return space.call_method(space.builtin, "classmethod", w_function)
-
 def unwrap_list_of_strings(space, w_list):
     return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
 
@@ -166,4 +163,10 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                              lnotab="",
                              freevars=[],
                              cellvars=[]))
+
+@cpython_api([PyCodeObject], Py_ssize_t, error=CANNOT_FAIL)
+def PyCode_GetNumFree(space, w_co):
+    """Return the number of free variables in co."""
+    co = space.interp_w(PyCode, w_co)
+    return len(co.co_freevars)
 

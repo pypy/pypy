@@ -20,11 +20,11 @@ This is the case for tuples, xrange objects, and itertools.repeat().
 
 Some containers become temporarily immutable during iteration.  This includes
 dicts, sets, and collections.deque.  Their implementation is equally simple
-though they need to permantently set their length to zero whenever there is
+though they need to permanently set their length to zero whenever there is
 an attempt to iterate after a length mutation.
 
 The situation slightly more involved whenever an object allows length mutation
-during iteration.  Lists and sequence iterators are dynanamically updatable.
+during iteration.  Lists and sequence iterators are dynamically updatable.
 So, if a list is extended during iteration, the iterator will continue through
 the new items.  If it shrinks to a point before the most recent iteration,
 then no further items are available and the length is reported at zero.
@@ -94,7 +94,11 @@ class TestRepeat(TestInvariantWithoutMutations):
 
     def test_no_len_for_infinite_repeat(self):
         # The repeat() object can also be infinite
-        self.assertRaises(TypeError, len, repeat(None))
+        if test_support.check_impl_detail(pypy=True):
+            # 3.4 (PEP 424) behavior
+            self.assertEqual(len(repeat(None)), NotImplemented)
+        else:
+            self.assertRaises(TypeError, len, repeat(None))
 
 class TestXrange(TestInvariantWithoutMutations):
 
@@ -230,6 +234,7 @@ class TestLengthHintExceptions(unittest.TestCase):
         self.assertRaises(RuntimeError, b.extend, BadLen())
         self.assertRaises(RuntimeError, b.extend, BadLengthHint())
 
+    @test_support.impl_detail("PEP 424 disallows None results", pypy=False)
     def test_invalid_hint(self):
         # Make sure an invalid result doesn't muck-up the works
         self.assertEqual(list(NoneLengthHint()), list(range(10)))

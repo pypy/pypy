@@ -213,11 +213,15 @@ def generator_function():
         "finally"
 def generator_example():
     # any() will leave the generator before its end
-    x = any(generator_function())
+    x = any(generator_function()); gc.collect()
 
     # the following lines were not traced
     for x in range(10):
         y = x
+
+# On CPython, when the generator is decref'ed to zero, we see the trace
+# for the "finally:" portion.  On PyPy, we don't see it before the next
+# garbage collection.  That's why we put gc.collect() on the same line above.
 
 generator_example.events = ([(0, 'call'),
                              (2, 'line'),
@@ -282,11 +286,11 @@ class TraceTestCase(unittest.TestCase):
         self.compare_events(func.func_code.co_firstlineno,
                             tracer.events, func.events)
 
-    def set_and_retrieve_none(self):
+    def test_set_and_retrieve_none(self):
         sys.settrace(None)
         assert sys.gettrace() is None
 
-    def set_and_retrieve_func(self):
+    def test_set_and_retrieve_func(self):
         def fn(*args):
             pass
 
@@ -323,17 +327,24 @@ class TraceTestCase(unittest.TestCase):
         self.run_test(tighterloop_example)
 
     def test_13_genexp(self):
-        self.run_test(generator_example)
-        # issue1265: if the trace function contains a generator,
-        # and if the traced function contains another generator
-        # that is not completely exhausted, the trace stopped.
-        # Worse: the 'finally' clause was not invoked.
-        tracer = Tracer()
-        sys.settrace(tracer.traceWithGenexp)
-        generator_example()
-        sys.settrace(None)
-        self.compare_events(generator_example.__code__.co_firstlineno,
-                            tracer.events, generator_example.events)
+        if self.using_gc:
+            test_support.gc_collect()
+            gc.enable()
+        try:
+            self.run_test(generator_example)
+            # issue1265: if the trace function contains a generator,
+            # and if the traced function contains another generator
+            # that is not completely exhausted, the trace stopped.
+            # Worse: the 'finally' clause was not invoked.
+            tracer = Tracer()
+            sys.settrace(tracer.traceWithGenexp)
+            generator_example()
+            sys.settrace(None)
+            self.compare_events(generator_example.__code__.co_firstlineno,
+                                tracer.events, generator_example.events)
+        finally:
+            if self.using_gc:
+                gc.disable()
 
     def test_14_onliner_if(self):
         def onliners():

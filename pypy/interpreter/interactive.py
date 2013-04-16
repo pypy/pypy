@@ -1,5 +1,4 @@
-from pypy.interpreter import error
-from pypy.interpreter import baseobjspace, module, main
+from pypy.interpreter import main, error
 import sys
 import code
 import time
@@ -126,7 +125,6 @@ class PyPyConsole(code.InteractiveConsole):
         #banner = "Python %s in pypy\n%s / %s" % (
         #    sys.version, self.__class__.__name__,
         #    self.space.__class__.__name__)
-        w_sys = self.space.sys
         major, minor, micro, tag, rev = self.space.unwrap(self.space.sys.get('pypy_version_info'))
         elapsed = time.time() - self.space._starttime
         version = "%d.%d.%d" % (major, minor, micro)
@@ -208,8 +206,6 @@ class PyPyConsole(code.InteractiveConsole):
             self.space.settrace()
 
     def checktrace(self):
-        from pypy.objspace import trace
-
         s = self.space
 
         # Did we modify __pytrace__
@@ -221,7 +217,6 @@ class PyPyConsole(code.InteractiveConsole):
             print "Tracing disabled"
 
         if self.tracelevel == 0 and tracelevel > 0:
-            trace.create_trace_space(s)
             self.space.unsettrace()
             print "Tracing enabled"
 
@@ -230,4 +225,3 @@ class PyPyConsole(code.InteractiveConsole):
 
 class IncompleteInput(Exception):
     pass
-

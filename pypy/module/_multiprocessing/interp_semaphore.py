@@ -1,21 +1,21 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import rgc
-from pypy.rlib.rarithmetic import r_uint
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.module.thread import ll_thread
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rgc
+from rpython.rlib.rarithmetic import r_uint
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rlib import rthread
 from pypy.module._multiprocessing.interp_connection import w_handle
 import sys, os, time, errno
 
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     from pypy.module._multiprocessing.interp_win32 import (
         handle_w, _GetTickCount)
 
@@ -31,7 +31,7 @@ if sys.platform == 'win32':
         rwin32.BOOL)
 
 else:
-    from pypy.rlib import rposix
+    from rpython.rlib import rposix
 
     if sys.platform == 'darwin':
         libraries = []
@@ -190,13 +190,13 @@ else:
             lltype.free(now, flavor='raw')
 
     def handle_w(space, w_handle):
-        return rffi.cast(SEM_T, space.uint_w(w_handle))
+        return rffi.cast(SEM_T, space.int_w(w_handle))
 
 class CounterState:
     def __init__(self, space):
         self.counter = 0
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.counter = 0
 
     def getCount(self):
@@ -225,7 +225,7 @@ if sys.platform == 'win32':
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
             full_msecs = 0
-        elif space.is_w(w_timeout, space.w_None):
+        elif space.is_none(w_timeout):
             full_msecs = rwin32.INFINITE
         else:
             timeout = space.float_w(w_timeout)
@@ -235,7 +235,7 @@ if sys.platform == 'win32':
             elif timeout >= 0.5 * rwin32.INFINITE: # 25 days
                 raise OperationError(space.w_OverflowError,
                                      space.wrap("timeout is too large"))
-            full_msecs = int(timeout + 0.5)
+            full_msecs = r_uint(int(timeout + 0.5))
 
         # check whether we can acquire without blocking
         res = rwin32.WaitForSingleObject(self.handle, 0)
@@ -243,7 +243,7 @@ if sys.platform == 'win32':
         if res != rwin32.WAIT_TIMEOUT:
             return True
 
-        msecs = r_uint(full_msecs)
+        msecs = full_msecs
         start = _GetTickCount()
 
         while True:
@@ -269,7 +269,7 @@ if sys.platform == 'win32':
                 ticks = _GetTickCount()
                 if r_uint(ticks - start) >= full_msecs:
                     return False
-                msecs = r_uint(full_msecs - (ticks - start))
+                msecs = full_msecs - r_uint(ticks - start)
 
         # handle result
         if res != rwin32.WAIT_TIMEOUT:
@@ -318,7 +318,7 @@ else:
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
             deadline = lltype.nullptr(TIMESPECP.TO)
-        elif space.is_w(w_timeout, space.w_None):
+        elif space.is_none(w_timeout):
             deadline = lltype.nullptr(TIMESPECP.TO)
         else:
             timeout = space.float_w(w_timeout)
@@ -416,7 +416,7 @@ else:
             return semlock_getvalue(self, space) == 0
 
 
-class W_SemLock(Wrappable):
+class W_SemLock(W_Root):
     def __init__(self, handle, kind, maxvalue):
         self.handle = handle
         self.kind = kind
@@ -434,7 +434,7 @@ class W_SemLock(Wrappable):
         return space.wrap(self.count)
 
     def _ismine(self):
-        return self.count > 0 and ll_thread.get_ident() == self.last_tid
+        return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
         return space.wrap(self._ismine())
@@ -466,7 +466,7 @@ class W_SemLock(Wrappable):
             raise wrap_oserror(space, e)
 
         if got:
-            self.last_tid = ll_thread.get_ident()
+            self.last_tid = rthread.get_ident()
             self.count += 1
             return space.w_True
         else:

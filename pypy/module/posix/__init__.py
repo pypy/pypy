@@ -1,8 +1,7 @@
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rpython.module.ll_os import RegisterOs
+from rpython.rtyper.module.ll_os import RegisterOs
 
-import os, sys
+import os
 exec 'import %s as posix' % os.name
 
 # this is the list of function which is *not* present in the posix module of
@@ -89,15 +88,19 @@ corresponding Unix manual entries for more information on calls."""
     '_exit'     : 'interp_posix._exit',
     'utime'     : 'interp_posix.utime',
     '_statfields': 'interp_posix.getstatfields(space)',
+    'kill'      : 'interp_posix.kill',
+    'abort'     : 'interp_posix.abort',
+    'urandom'   : 'interp_posix.urandom',
     }
-
-    if os.name == 'nt':
-        interpleveldefs['urandom'] = 'interp_posix.win32_urandom'
 
     if hasattr(os, 'chown'):
         interpleveldefs['chown'] = 'interp_posix.chown'
     if hasattr(os, 'lchown'):
         interpleveldefs['lchown'] = 'interp_posix.lchown'
+    if hasattr(os, 'fchown'):
+        interpleveldefs['fchown'] = 'interp_posix.fchown'
+    if hasattr(os, 'fchmod'):
+        interpleveldefs['fchmod'] = 'interp_posix.fchmod'
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
     if hasattr(os, 'fsync'):
@@ -110,9 +113,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os
         interpleveldefs['unsetenv'] = 'interp_posix.unsetenv'
-    if hasattr(os, 'kill') and sys.platform != 'win32':
-        interpleveldefs['kill'] = 'interp_posix.kill'
-        interpleveldefs['abort'] = 'interp_posix.abort'
     if hasattr(os, 'killpg'):
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):

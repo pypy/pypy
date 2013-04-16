@@ -2,11 +2,13 @@ import unittest
 from ctypes import *
 
 import _ctypes_test
+from ctypes.test import xfail
 
 lib = CDLL(_ctypes_test.__file__)
 
 class StringPtrTestCase(unittest.TestCase):
 
+    @xfail
     def test__POINTER_c_char(self):
         class X(Structure):
             _fields_ = [("str", POINTER(c_char))]
@@ -27,6 +29,7 @@ class StringPtrTestCase(unittest.TestCase):
 
         self.assertRaises(TypeError, setattr, x, "str", "Hello, World")
 
+    @xfail
     def test__c_char_p(self):
         class X(Structure):
             _fields_ = [("str", c_char_p)]

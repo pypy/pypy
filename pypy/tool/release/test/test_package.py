@@ -1,6 +1,6 @@
 
 import py
-from pypy.tool.autopath import pypydir
+from pypy.conftest import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, os, sys
@@ -15,9 +15,9 @@ def test_dir_structure(test='test'):
         basename = 'pypy-c'
         rename_pypy_c = 'pypy'
         exe_name_in_archive = 'bin/pypy'
-    pypy_c = py.path.local(pypydir).join('translator', 'goal', basename)
+    pypy_c = py.path.local(pypydir).join('goal', basename)
     if not pypy_c.check():
-        os.system("echo faked_pypy_c> %s" % (pypy_c,))
+        pypy_c.write("#!/bin/sh")
         pypy_c.chmod(0755)
         fake_pypy_c = True
     else:
@@ -33,7 +33,7 @@ def test_dir_structure(test='test'):
         assert not prefix.join('lib_pypy', 'py').check()
         assert not prefix.join('lib_pypy', 'ctypes_configure').check()
         assert prefix.join('LICENSE').check()
-        assert prefix.join('README').check()
+        assert prefix.join('README.rst').check()
         if package.USE_ZIPFILE_MODULE:
             zh = zipfile.ZipFile(str(builddir.join('%s.zip' % test)))
             assert zh.open('%s/lib_pypy/syslog.py' % test)
@@ -45,8 +45,11 @@ def test_dir_structure(test='test'):
             assert exe.mode == 0755
             assert exe.uname == ''
             assert exe.gname == ''
-            assert exe.uid == 0
-            assert exe.gid == 0
+            # The tar program on MacOSX or the FreeBSDs does not support
+            # setting the numeric uid and gid when creating a tar file.
+            if not(sys.platform == 'darwin' or sys.platform.startswith('freebsd')):
+                assert exe.uid == 0
+                assert exe.gid == 0
 
         # the headers file could be not there, because they are copied into
         # trunk/include only during translation

@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObjectFields, cpython_struct,
     CANNOT_FAIL)
@@ -85,5 +85,4 @@ def PyTraceBack_Here(space, w_frame):
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyTraceBack_Check(space, w_obj):
-    obj = space.interpclass_w(w_obj)
-    return obj is not None and isinstance(obj, PyTraceback)
+    return isinstance(w_obj, PyTraceback)

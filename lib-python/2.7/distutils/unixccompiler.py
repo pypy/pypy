@@ -125,7 +125,22 @@ class UnixCCompiler(CCompiler):
                   }
 
     if sys.platform[:6] == "darwin":
+        import platform
+        if platform.machine() == 'i386':
+            if platform.architecture()[0] == '32bit':
+                arch = 'i386'
+            else:
+                arch = 'x86_64'
+        else:
+            # just a guess
+            arch = platform.machine()
         executables['ranlib'] = ["ranlib"]
+        executables['linker_so'] += ['-undefined', 'dynamic_lookup']
+
+        for k, v in executables.iteritems():
+            if v and v[0] == 'cc':
+                v += ['-arch', arch]
+
 
     # Needed for the filename generation methods provided by the base
     # class, CCompiler.  NB. whoever instantiates/uses a particular
@@ -309,7 +324,7 @@ class UnixCCompiler(CCompiler):
             # On OSX users can specify an alternate SDK using
             # '-isysroot', calculate the SDK root if it is specified
             # (and use it further on)
-            cflags = sysconfig.get_config_var('CFLAGS')
+            cflags = sysconfig.get_config_var('CFLAGS') or ''
             m = re.search(r'-isysroot\s+(\S+)', cflags)
             if m is None:
                 sysroot = '/'

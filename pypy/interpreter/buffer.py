@@ -15,14 +15,15 @@ Buffer protocol support.
 # free the typecheck that __buffer__() really returned a wrapped Buffer.
 
 import operator
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import compute_hash
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.rstring import StringBuilder
 
 
-class Buffer(Wrappable):
+class Buffer(W_Root):
     """Abstract base class for memory views."""
 
     __slots__ = ()     # no extra slot here
@@ -43,6 +44,9 @@ class Buffer(Wrappable):
         # May be overridden.  No bounds checks.
         return ''.join([self.getitem(i) for i in range(start, stop, step)])
 
+    def get_raw_address(self):
+        raise ValueError("no raw buffer")
+
     # __________ app-level support __________
 
     def descr_len(self, space):
@@ -60,7 +64,7 @@ class Buffer(Wrappable):
         if not isinstance(self, RWBuffer):
             raise OperationError(space.w_TypeError,
                                  space.wrap("buffer is read-only"))
-        start, stop, step = space.decode_index(w_index, self.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step == 0:  # index only
             if len(newstring) != 1:
                 msg = 'buffer[index]=x: x must be a single character'
@@ -68,9 +72,8 @@ class Buffer(Wrappable):
             char = newstring[0]   # annotator hint
             self.setitem(start, char)
         elif step == 1:
-            length = stop - start
-            if length != len(newstring):
-                msg = "buffer slice assignment is wrong size"
+            if len(newstring) != size:
+                msg = "right operand length must match slice length"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             self.setslice(start, newstring)
         else:
@@ -90,12 +93,11 @@ class Buffer(Wrappable):
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
-            other = space.interpclass_w(w_other)
-            if not isinstance(other, Buffer):
+            if not isinstance(w_other, Buffer):
                 return space.w_NotImplemented
             # xxx not the most efficient implementation
             str1 = self.as_str()
-            str2 = other.as_str()
+            str2 = w_other.as_str()
             return space.wrap(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp
@@ -142,6 +144,7 @@ class RWBuffer(Buffer):
         for i in range(len(string)):
             self.setitem(start + i, string[i])
 
+
 @unwrap_spec(offset=int, size=int)
 def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     # w_subtype can only be exactly 'buffer' for now
@@ -152,12 +155,13 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     if space.isinstance_w(w_object, space.w_unicode):
         # unicode objects support the old buffer interface
         # but not the new buffer interface (change in python  2.7)
-        from pypy.rlib.rstruct.unichar import pack_unichar
-        charlist = []
-        for unich in space.unicode_w(w_object):
-            pack_unichar(unich, charlist)
+        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
+        unistr = space.unicode_w(w_object)
+        builder = StringBuilder(len(unistr) * UNICODE_SIZE)
+        for unich in unistr:
+            pack_unichar(unich, builder)
         from pypy.interpreter.buffer import StringBuffer
-        w_buffer = space.wrap(StringBuffer(''.join(charlist)))
+        w_buffer = space.wrap(StringBuffer(builder.build()))
     else:
         w_buffer = space.buffer(w_object)
 
@@ -205,7 +209,7 @@ extend to the end of the target object (or with the specified size).
     __mul__ = interp2app(Buffer.descr_mul),
     __rmul__ = interp2app(Buffer.descr_mul),
     __repr__ = interp2app(Buffer.descr_repr),
-    )
+)
 Buffer.typedef.acceptable_as_base_class = False
 
 # ____________________________________________________________

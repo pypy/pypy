@@ -1,4 +1,10 @@
-from pypy.module.thread import ll_thread as thread
+from rpython.rlib import rthread
+from pypy.module.thread.error import wrap_thread_error
+from pypy.interpreter.executioncontext import ExecutionContext
+
+
+ExecutionContext._signals_enabled = 0     # default value
+
 
 class OSThreadLocals:
     """Thread-local storage for OS-level threads.
@@ -8,17 +14,16 @@ class OSThreadLocals:
 
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
-        self._freeze_()
+        self._cleanup_()
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self._valuedict.clear()
         self._mainthreadident = 0
         self._mostrecentkey = 0        # fast minicaching for the common case
         self._mostrecentvalue = None   # fast minicaching for the common case
-        return False
 
     def getvalue(self):
-        ident = thread.get_ident()
+        ident = rthread.get_ident()
         if ident == self._mostrecentkey:
             result = self._mostrecentvalue
         else:
@@ -30,9 +35,10 @@ class OSThreadLocals:
         return result
 
     def setvalue(self, value):
-        ident = thread.get_ident()
+        ident = rthread.get_ident()
         if value is not None:
-            if len(self._valuedict) == 0:
+            if self._mainthreadident == 0:
+                value._signals_enabled = 1    # the main thread is enabled
                 self._mainthreadident = ident
             self._valuedict[ident] = value
         else:
@@ -44,28 +50,39 @@ class OSThreadLocals:
         self._mostrecentkey = ident
         self._mostrecentvalue = value
 
-    def getmainthreadvalue(self):
-        ident = self._mainthreadident
-        return self._valuedict.get(ident, None)
+    def signals_enabled(self):
+        ec = self.getvalue()
+        return ec._signals_enabled
+
+    def enable_signals(self, space):
+        ec = self.getvalue()
+        ec._signals_enabled += 1
+
+    def disable_signals(self, space):
+        ec = self.getvalue()
+        new = ec._signals_enabled - 1
+        if new < 0:
+            raise wrap_thread_error(space,
+                "cannot disable signals in thread not enabled for signals")
+        ec._signals_enabled = new
 
     def getallvalues(self):
         return self._valuedict
 
-    def enter_thread(self, space):
-        "Notification that the current thread is just starting."
-        ec = space.getexecutioncontext()
-        ec.thread_exit_funcs = []
-
     def leave_thread(self, space):
         "Notification that the current thread is about to stop."
+        from pypy.module.thread.os_local import thread_is_stopping
         try:
-            ec = space.getexecutioncontext()
-            while ec.thread_exit_funcs:
-                exit_func, w_obj = ec.thread_exit_funcs.pop()
-                exit_func(w_obj)
+            thread_is_stopping(self.getvalue())
         finally:
             self.setvalue(None)
 
-    def atthreadexit(self, space, exit_func, w_obj):
-        ec = space.getexecutioncontext()
-        ec.thread_exit_funcs.append((exit_func, w_obj))
+    def reinit_threads(self, space):
+        "Called in the child process after a fork()"
+        ident = rthread.get_ident()
+        ec = self.getvalue()
+        if ident != self._mainthreadident:
+            ec._signals_enabled += 1
+        self._cleanup_()
+        self._mainthreadident = ident
+        self.setvalue(ec)

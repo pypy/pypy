@@ -3,81 +3,8 @@ Arguments objects.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
-
-
-class Signature(object):
-    _immutable_ = True
-    _immutable_fields_ = ["argnames[*]"]
-    __slots__ = ("argnames", "varargname", "kwargname")
-
-    def __init__(self, argnames, varargname=None, kwargname=None):
-        self.argnames = argnames
-        self.varargname = varargname
-        self.kwargname = kwargname
-
-    @jit.elidable
-    def find_argname(self, name):
-        try:
-            return self.argnames.index(name)
-        except ValueError:
-            return -1
-
-    def num_argnames(self):
-        return len(self.argnames)
-
-    def has_vararg(self):
-        return self.varargname is not None
-
-    def has_kwarg(self):
-        return self.kwargname is not None
-
-    def scope_length(self):
-        scopelen = len(self.argnames)
-        scopelen += self.has_vararg()
-        scopelen += self.has_kwarg()
-        return scopelen
-
-    def getallvarnames(self):
-        argnames = self.argnames
-        if self.varargname is not None:
-            argnames = argnames + [self.varargname]
-        if self.kwargname is not None:
-            argnames = argnames + [self.kwargname]
-        return argnames
-
-    def __repr__(self):
-        return "Signature(%r, %r, %r)" % (
-                self.argnames, self.varargname, self.kwargname)
-
-    def __eq__(self, other):
-        if not isinstance(other, Signature):
-            return NotImplemented
-        return (self.argnames == other.argnames and
-                self.varargname == other.varargname and
-                self.kwargname == other.kwargname)
-
-    def __ne__(self, other):
-        if not isinstance(other, Signature):
-            return NotImplemented
-        return not self == other
-
-
-    # make it look tuply for its use in the annotator
-
-    def __len__(self):
-        return 3
-
-    def __getitem__(self, i):
-        if i == 0:
-            return self.argnames
-        if i == 1:
-            return self.varargname
-        if i == 2:
-            return self.kwargname
-        raise IndexError
-
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
 
 
 class Arguments(object):
@@ -85,6 +12,10 @@ class Arguments(object):
     Collects the arguments of a function call.
 
     Instances should be considered immutable.
+
+    Some parts of this class are written in a slightly convoluted style to help
+    the JIT. It is really crucial to get this right, because Python's argument
+    semantics are complex, but calls occur everywhere.
     """
 
     ###  Construction  ###
@@ -106,12 +37,10 @@ class Arguments(object):
             make_sure_not_resized(self.keywords_w)
 
         make_sure_not_resized(self.arguments_w)
-        if w_stararg is not None:
-            self._combine_starargs_wrapped(w_stararg)
-        # if we have a call where **args are used at the callsite
-        # we shouldn't let the JIT see the argument matching
-        self._dont_jit = (w_starstararg is not None and
-                          self._combine_starstarargs_wrapped(w_starstararg))
+        self._combine_wrapped(w_stararg, w_starstararg)
+        # a flag that specifies whether the JIT can unroll loops that operate
+        # on the keywords
+        self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -125,7 +54,7 @@ class Arguments(object):
 
     ###  Manipulation  ###
 
-    @jit.look_inside_iff(lambda self: not self._dont_jit)
+    @jit.look_inside_iff(lambda self: self._jit_few_keywords)
     def unpack(self): # slowish
         "Return a ([w1,w2...], {'kw':w3...}) pair."
         kwds_w = {}
@@ -169,9 +98,18 @@ class Arguments(object):
     def _combine_starstarargs_wrapped(self, w_starstararg):
         # unpack the ** arguments
         space = self.space
+        keywords, values_w = space.view_as_kwargs(w_starstararg)
+        if keywords is not None: # this path also taken for empty dicts
+            if self.keywords is None:
+                self.keywords = keywords
+                self.keywords_w = values_w
+            else:
+                _check_not_duplicate_kwargs(
+                    self.space, self.keywords, keywords, values_w)
+                self.keywords = self.keywords + keywords
+                self.keywords_w = self.keywords_w + values_w
+            return
         if space.isinstance_w(w_starstararg, space.w_dict):
-            if not space.is_true(w_starstararg):
-                return False # don't call unpackiterable - it's jit-opaque
             keys_w = space.unpackiterable(w_starstararg)
         else:
             try:
@@ -186,46 +124,17 @@ class Arguments(object):
                                    "a mapping, not %s" % (typename,)))
                 raise
             keys_w = space.unpackiterable(w_keys)
-        if keys_w:
-            self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
-            return True
-        else:
-            return False    # empty dict; don't disable the JIT
-
-    def _do_combine_starstarargs_wrapped(self, keys_w, w_starstararg):
-        space = self.space
         keywords_w = [None] * len(keys_w)
         keywords = [None] * len(keys_w)
-        i = 0
-        for w_key in keys_w:
-            try:
-                key = space.str_w(w_key)
-            except OperationError, e:
-                if e.match(space, space.w_TypeError):
-                    raise OperationError(
-                        space.w_TypeError,
-                        space.wrap("keywords must be strings"))
-                if e.match(space, space.w_UnicodeEncodeError):
-                    # Allow this to pass through
-                    key = None
-                else:
-                    raise
-            else:
-                if self.keywords and key in self.keywords:
-                    raise operationerrfmt(self.space.w_TypeError,
-                                          "got multiple values "
-                                          "for keyword argument "
-                                          "'%s'", key)
-            keywords[i] = key
-            keywords_w[i] = space.getitem(w_starstararg, w_key)
-            i += 1
+        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords, keywords_w, self.keywords)
+        self.keyword_names_w = keys_w
         if self.keywords is None:
             self.keywords = keywords
             self.keywords_w = keywords_w
         else:
             self.keywords = self.keywords + keywords
             self.keywords_w = self.keywords_w + keywords_w
-        self.keyword_names_w = keys_w
+
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
@@ -246,34 +155,14 @@ class Arguments(object):
 
     ###  Parsing for function calls  ###
 
-    # XXX: this should be @jit.look_inside_iff, but we need key word arguments,
-    # and it doesn't support them for now.
+    @jit.unroll_safe
     def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
                          blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
-        Return the number of arguments filled in.
         """
-        if jit.we_are_jitted() and self._dont_jit:
-            return self._match_signature_jit_opaque(w_firstarg, scope_w,
-                                                    signature, defaults_w,
-                                                    blindargs)
-        return self._really_match_signature(w_firstarg, scope_w, signature,
-                                            defaults_w, blindargs)
-
-    @jit.dont_look_inside
-    def _match_signature_jit_opaque(self, w_firstarg, scope_w, signature,
-                                    defaults_w, blindargs):
-        return self._really_match_signature(w_firstarg, scope_w, signature,
-                                            defaults_w, blindargs)
-
-    @jit.unroll_safe
-    def _really_match_signature(self, w_firstarg, scope_w, signature,
-                                defaults_w=None, blindargs=0):
-        #
+        #   w_firstarg = a first argument to be inserted (e.g. self) or None
         #   args_w = list of the normal actual parameters, wrapped
-        #   kwds_w = real dictionary {'keyword': wrapped parameter}
-        #   argnames = list of formal parameter names
         #   scope_w = resulting list of wrapped values
         #
 
@@ -281,38 +170,29 @@ class Arguments(object):
         # so all values coming from there can be assumed constant. It assumes
         # that the length of the defaults_w does not vary too much.
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
-        has_vararg = signature.has_vararg()
-        has_kwarg = signature.has_kwarg()
-        extravarargs = None
-        input_argcount =  0
 
+        # put the special w_firstarg into the scope, if it exists
         if w_firstarg is not None:
             upfront = 1
             if co_argcount > 0:
                 scope_w[0] = w_firstarg
-                input_argcount = 1
-            else:
-                extravarargs = [w_firstarg]
         else:
             upfront = 0
 
         args_w = self.arguments_w
         num_args = len(args_w)
+        avail = num_args + upfront
 
         keywords = self.keywords
-        keywords_w = self.keywords_w
         num_kwds = 0
         if keywords is not None:
             num_kwds = len(keywords)
 
-        avail = num_args + upfront
 
+        # put as many positional input arguments into place as available
+        input_argcount = upfront
         if input_argcount < co_argcount:
-            # put as many positional input arguments into place as available
-            if avail > co_argcount:
-                take = co_argcount - input_argcount
-            else:
-                take = num_args
+            take = min(num_args, co_argcount - upfront)
 
             # letting the JIT unroll this loop is safe, because take is always
             # smaller than co_argcount
@@ -321,11 +201,10 @@ class Arguments(object):
             input_argcount += take
 
         # collect extra positional arguments into the *vararg
-        if has_vararg:
+        if signature.has_vararg():
             args_left = co_argcount - upfront
             if args_left < 0:  # check required by rpython
-                assert extravarargs is not None
-                starargs_w = extravarargs
+                starargs_w = [w_firstarg]
                 if num_args:
                     starargs_w = starargs_w + args_w
             elif num_args > args_left:
@@ -334,86 +213,65 @@ class Arguments(object):
                 starargs_w = []
             scope_w[co_argcount] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            raise ArgErrCount(avail, num_kwds,
-                              co_argcount, has_vararg, has_kwarg,
-                              defaults_w, 0)
+            raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
 
-        # the code assumes that keywords can potentially be large, but that
-        # argnames is typically not too large
-        num_remainingkwds = num_kwds
-        used_keywords = None
-        if keywords:
-            # letting JIT unroll the loop is *only* safe if the callsite didn't
-            # use **args because num_kwds can be arbitrarily large otherwise.
-            used_keywords = [False] * num_kwds
-            for i in range(num_kwds):
-                name = keywords[i]
-                # If name was not encoded as a string, it could be None. In that
-                # case, it's definitely not going to be in the signature.
-                if name is None:
-                    continue
-                j = signature.find_argname(name)
-                if j < 0:
-                    continue
-                elif j < input_argcount:
-                    # check that no keyword argument conflicts with these. note
-                    # that for this purpose we ignore the first blindargs,
-                    # which were put into place by prepend().  This way,
-                    # keywords do not conflict with the hidden extra argument
-                    # bound by methods.
-                    if blindargs <= j:
-                        raise ArgErrMultipleValues(name)
+        # if a **kwargs argument is needed, create the dict
+        w_kwds = None
+        if signature.has_kwarg():
+            w_kwds = self.space.newdict(kwargs=True)
+            scope_w[co_argcount + signature.has_vararg()] = w_kwds
+
+        # handle keyword arguments
+        num_remainingkwds = 0
+        keywords_w = self.keywords_w
+        kwds_mapping = None
+        if num_kwds:
+            # kwds_mapping maps target indexes in the scope (minus input_argcount)
+            # to positions in the keywords_w list
+            kwds_mapping = [0] * (co_argcount - input_argcount)
+            # initialize manually, for the JIT :-(
+            for i in range(len(kwds_mapping)):
+                kwds_mapping[i] = -1
+            # match the keywords given at the call site to the argument names
+            # the called function takes
+            # this function must not take a scope_w, to make the scope not
+            # escape
+            num_remainingkwds = _match_keywords(
+                    signature, blindargs, input_argcount, keywords,
+                    kwds_mapping, self._jit_few_keywords)
+            if num_remainingkwds:
+                if w_kwds is not None:
+                    # collect extra keyword arguments into the **kwarg
+                    _collect_keyword_args(
+                            self.space, keywords, keywords_w, w_kwds,
+                            kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
                 else:
-                    assert scope_w[j] is None
-                    scope_w[j] = keywords_w[i]
-                    used_keywords[i] = True # mark as used
-                    num_remainingkwds -= 1
+                    if co_argcount == 0:
+                        raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+                    raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
+                                            kwds_mapping, self.keyword_names_w)
+
+        # check for missing arguments and fill them from the kwds,
+        # or with defaults, if available
         missing = 0
         if input_argcount < co_argcount:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
+            j = 0
+            kwds_index = -1
             for i in range(input_argcount, co_argcount):
-                if scope_w[i] is not None:
-                    continue
+                if kwds_mapping is not None:
+                    kwds_index = kwds_mapping[j]
+                    j += 1
+                    if kwds_index >= 0:
+                        scope_w[i] = keywords_w[kwds_index]
+                        continue
                 defnum = i - def_first
                 if defnum >= 0:
                     scope_w[i] = defaults_w[defnum]
                 else:
-                    # error: not enough arguments.  Don't signal it immediately
-                    # because it might be related to a problem with */** or
-                    # keyword arguments, which will be checked for below.
                     missing += 1
-
-        # collect extra keyword arguments into the **kwarg
-        if has_kwarg:
-            w_kwds = self.space.newdict()
-            if num_remainingkwds:
-                #
-                limit = len(keywords)
-                if self.keyword_names_w is not None:
-                    limit -= len(self.keyword_names_w)
-                for i in range(len(keywords)):
-                    if not used_keywords[i]:
-                        if i < limit:
-                            w_key = self.space.wrap(keywords[i])
-                        else:
-                            w_key = self.keyword_names_w[i - limit]
-                        self.space.setitem(w_kwds, w_key, keywords_w[i])
-                #
-            scope_w[co_argcount + has_vararg] = w_kwds
-        elif num_remainingkwds:
-            if co_argcount == 0:
-                raise ArgErrCount(avail, num_kwds,
-                              co_argcount, has_vararg, has_kwarg,
-                              defaults_w, missing)
-            raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
-                                    used_keywords, self.keyword_names_w)
-
-        if missing:
-            raise ArgErrCount(avail, num_kwds,
-                              co_argcount, has_vararg, has_kwarg,
-                              defaults_w, missing)
-
-        return co_argcount + has_vararg + has_kwarg
+            if missing:
+                raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
 
 
 
@@ -425,11 +283,12 @@ class Arguments(object):
         scope_w must be big enough for signature.
         """
         try:
-            return self._match_signature(w_firstarg,
-                                         scope_w, signature, defaults_w, 0)
+            self._match_signature(w_firstarg,
+                                  scope_w, signature, defaults_w, 0)
         except ArgErr, e:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap(e.getmsg(fnname)))
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
+        return signature.scope_length()
 
     def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
@@ -450,8 +309,8 @@ class Arguments(object):
         try:
             return self._parse(w_firstarg, signature, defaults_w, blindargs)
         except ArgErr, e:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap(e.getmsg(fnname)))
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
 
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
@@ -476,148 +335,101 @@ class Arguments(object):
                 space.setitem(w_kwds, w_key, self.keywords_w[i])
         return w_args, w_kwds
 
-class ArgumentsForTranslation(Arguments):
-    def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None):
-        self.w_stararg = w_stararg
-        self.w_starstararg = w_starstararg
-        self.combine_has_happened = False
-        Arguments.__init__(self, space, args_w, keywords, keywords_w)
+# JIT helper functions
+# these functions contain functionality that the JIT is not always supposed to
+# look at. They should not get a self arguments, which makes the amount of
+# arguments annoying :-(
 
-    def combine_if_necessary(self):
-        if self.combine_has_happened:
-            return
-        self._combine_wrapped(self.w_stararg, self.w_starstararg)
-        self.combine_has_happened = True
+@jit.look_inside_iff(lambda space, existingkeywords, keywords, keywords_w:
+        jit.isconstant(len(keywords) and
+        jit.isconstant(existingkeywords)))
+def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
+    # looks quadratic, but the JIT should remove all of it nicely.
+    # Also, all the lists should be small
+    for key in keywords:
+        for otherkey in existingkeywords:
+            if otherkey == key:
+                raise operationerrfmt(space.w_TypeError,
+                                      "got multiple values "
+                                      "for keyword argument "
+                                      "'%s'", key)
 
-    def prepend(self, w_firstarg): # used often
-        "Return a new Arguments with a new argument inserted first."
-        return ArgumentsForTranslation(self.space, [w_firstarg] + self.arguments_w,
-                                       self.keywords, self.keywords_w, self.w_stararg,
-                                       self.w_starstararg)
-
-    def copy(self):
-        return ArgumentsForTranslation(self.space, self.arguments_w,
-                                       self.keywords, self.keywords_w, self.w_stararg,
-                                       self.w_starstararg)
-
-
-
-    def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
-                         blindargs=0):
-        self.combine_if_necessary()
-        # _match_signature is destructive
-        return Arguments._match_signature(
-               self, w_firstarg, scope_w, signature,
-               defaults_w, blindargs)
-
-    def unpack(self):
-        self.combine_if_necessary()
-        return Arguments.unpack(self)
-
-    def match_signature(self, signature, defaults_w):
-        """Parse args and kwargs according to the signature of a code object,
-        or raise an ArgErr in case of failure.
-        """
-        return self._parse(None, signature, defaults_w)
-
-    def unmatch_signature(self, signature, data_w):
-        """kind of inverse of match_signature"""
-        args_w, kwds_w = self.unpack()
-        need_cnt = len(args_w)
-        need_kwds = kwds_w.keys()
-        space = self.space
-        argnames, varargname, kwargname = signature
-        cnt = len(argnames)
-        data_args_w = data_w[:cnt]
-        if varargname:
-            data_w_stararg = data_w[cnt]
-            cnt += 1
+def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
+        keywords_w, existingkeywords):
+    i = 0
+    for w_key in keys_w:
+        try:
+            key = space.str_w(w_key)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("keywords must be strings"))
+            if e.match(space, space.w_UnicodeEncodeError):
+                # Allow this to pass through
+                key = None
+            else:
+                raise
         else:
-            data_w_stararg = space.newtuple([])
+            if existingkeywords and key in existingkeywords:
+                raise operationerrfmt(space.w_TypeError,
+                                      "got multiple values "
+                                      "for keyword argument "
+                                      "'%s'", key)
+        keywords[i] = key
+        keywords_w[i] = space.getitem(w_starstararg, w_key)
+        i += 1
 
-        unfiltered_kwds_w = {}
-        if kwargname:
-            data_w_starargarg = data_w[cnt]
-            for w_key in space.unpackiterable(data_w_starargarg):
-                key = space.str_w(w_key)
-                w_value = space.getitem(data_w_starargarg, w_key)
-                unfiltered_kwds_w[key] = w_value
-            cnt += 1
-        assert len(data_w) == cnt
-
-        ndata_args_w = len(data_args_w)
-        if ndata_args_w >= need_cnt:
-            args_w = data_args_w[:need_cnt]
-            for argname, w_arg in zip(argnames[need_cnt:], data_args_w[need_cnt:]):
-                unfiltered_kwds_w[argname] = w_arg
-            assert not space.is_true(data_w_stararg)
+@jit.look_inside_iff(
+    lambda signature, blindargs, input_argcount,
+           keywords, kwds_mapping, jiton: jiton)
+def _match_keywords(signature, blindargs, input_argcount,
+                    keywords, kwds_mapping, _):
+    # letting JIT unroll the loop is *only* safe if the callsite didn't
+    # use **args because num_kwds can be arbitrarily large otherwise.
+    num_kwds = num_remainingkwds = len(keywords)
+    for i in range(num_kwds):
+        name = keywords[i]
+        # If name was not encoded as a string, it could be None. In that
+        # case, it's definitely not going to be in the signature.
+        if name is None:
+            continue
+        j = signature.find_argname(name)
+        # if j == -1 nothing happens, because j < input_argcount and
+        # blindargs > j
+        if j < input_argcount:
+            # check that no keyword argument conflicts with these. note
+            # that for this purpose we ignore the first blindargs,
+            # which were put into place by prepend().  This way,
+            # keywords do not conflict with the hidden extra argument
+            # bound by methods.
+            if blindargs <= j:
+                raise ArgErrMultipleValues(name)
         else:
-            stararg_w = space.unpackiterable(data_w_stararg)
-            datalen = len(data_args_w)
-            args_w = [None] * (datalen + len(stararg_w))
-            for i in range(0, datalen):
-                args_w[i] = data_args_w[i]
-            for i in range(0, len(stararg_w)):
-                args_w[i + datalen] = stararg_w[i]
-            assert len(args_w) == need_cnt
+            kwds_mapping[j - input_argcount] = i # map to the right index
+            num_remainingkwds -= 1
+    return num_remainingkwds
 
-        keywords = []
-        keywords_w = []
-        for key in need_kwds:
-            keywords.append(key)
-            keywords_w.append(unfiltered_kwds_w[key])
-
-        return ArgumentsForTranslation(self.space, args_w, keywords, keywords_w)
-
-    @staticmethod
-    def frompacked(space, w_args=None, w_kwds=None):
-        raise NotImplementedError("go away")
-
-    @staticmethod
-    def fromshape(space, (shape_cnt,shape_keys,shape_star,shape_stst), data_w):
-        args_w = data_w[:shape_cnt]
-        p = end_keys = shape_cnt + len(shape_keys)
-        if shape_star:
-            w_star = data_w[p]
-            p += 1
+@jit.look_inside_iff(
+    lambda space, keywords, keywords_w, w_kwds, kwds_mapping,
+        keyword_names_w, jiton: jiton)
+def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
+                          keyword_names_w, _):
+    limit = len(keywords)
+    if keyword_names_w is not None:
+        limit -= len(keyword_names_w)
+    for i in range(len(keywords)):
+        # again a dangerous-looking loop that either the JIT unrolls
+        # or that is not too bad, because len(kwds_mapping) is small
+        for j in kwds_mapping:
+            if i == j:
+                break
         else:
-            w_star = None
-        if shape_stst:
-            w_starstar = data_w[p]
-            p += 1
-        else:
-            w_starstar = None
-        return ArgumentsForTranslation(space, args_w, list(shape_keys),
-                                       data_w[shape_cnt:end_keys], w_star,
-                                       w_starstar)
-
-    def flatten(self):
-        """ Argument <-> list of w_objects together with "shape" information """
-        shape_cnt, shape_keys, shape_star, shape_stst = self._rawshape()
-        data_w = self.arguments_w + [self.keywords_w[self.keywords.index(key)]
-                                         for key in shape_keys]
-        if shape_star:
-            data_w.append(self.w_stararg)
-        if shape_stst:
-            data_w.append(self.w_starstararg)
-        return (shape_cnt, shape_keys, shape_star, shape_stst), data_w
-
-    def _rawshape(self, nextra=0):
-        assert not self.combine_has_happened
-        shape_cnt  = len(self.arguments_w)+nextra        # Number of positional args
-        if self.keywords:
-            shape_keys = self.keywords[:]                # List of keywords (strings)
-            shape_keys.sort()
-        else:
-            shape_keys = []
-        shape_star = self.w_stararg is not None   # Flag: presence of *arg
-        shape_stst = self.w_starstararg is not None # Flag: presence of **kwds
-        return shape_cnt, tuple(shape_keys), shape_star, shape_stst # shape_keys are sorted
-
-def rawshape(args, nextra=0):
-    return args._rawshape(nextra)
-
+            if i < limit:
+                w_key = space.wrap(keywords[i])
+            else:
+                w_key = keyword_names_w[i - limit]
+            space.setitem(w_kwds, w_key, keywords_w[i])
 
 #
 # ArgErr family of exceptions raised in case of argument mismatch.
@@ -626,34 +438,31 @@ def rawshape(args, nextra=0):
 
 class ArgErr(Exception):
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         raise NotImplementedError
 
 class ArgErrCount(ArgErr):
 
-    def __init__(self, got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
+    def __init__(self, got_nargs, nkwds, signature,
                  defaults_w, missing_args):
-        self.expected_nargs = expected_nargs
-        self.has_vararg = has_vararg
-        self.has_kwarg = has_kwarg
+        self.signature = signature
 
         self.num_defaults = 0 if defaults_w is None else len(defaults_w)
         self.missing_args = missing_args
         self.num_args = got_nargs
         self.num_kwds = nkwds
 
-    def getmsg(self, fnname):
-        n = self.expected_nargs
+    def getmsg(self):
+        n = self.signature.num_argnames()
         if n == 0:
-            msg = "%s() takes no arguments (%d given)" % (
-                fnname,
+            msg = "takes no arguments (%d given)" % (
                 self.num_args + self.num_kwds)
         else:
             defcount = self.num_defaults
-            has_kwarg = self.has_kwarg
+            has_kwarg = self.signature.has_kwarg()
             num_args = self.num_args
             num_kwds = self.num_kwds
-            if defcount == 0 and not self.has_vararg:
+            if defcount == 0 and not self.signature.has_vararg():
                 msg1 = "exactly"
                 if not has_kwarg:
                     num_args += num_kwds
@@ -672,8 +481,7 @@ class ArgErrCount(ArgErr):
                 msg2 = " non-keyword"
             else:
                 msg2 = ""
-            msg = "%s() takes %s %d%s argument%s (%d given)" % (
-                fnname,
+            msg = "takes %s %d%s argument%s (%d given)" % (
                 msg1,
                 n,
                 msg2,
@@ -686,21 +494,20 @@ class ArgErrMultipleValues(ArgErr):
     def __init__(self, argname):
         self.argname = argname
 
-    def getmsg(self, fnname):
-        msg = "%s() got multiple values for keyword argument '%s'" % (
-            fnname,
+    def getmsg(self):
+        msg = "got multiple values for keyword argument '%s'" % (
             self.argname)
         return msg
 
 class ArgErrUnknownKwds(ArgErr):
 
-    def __init__(self, space, num_remainingkwds, keywords, used_keywords,
+    def __init__(self, space, num_remainingkwds, keywords, kwds_mapping,
                  keyword_names_w):
         name = ''
         self.num_kwds = num_remainingkwds
         if num_remainingkwds == 1:
             for i in range(len(keywords)):
-                if not used_keywords[i]:
+                if i not in kwds_mapping:
                     name = keywords[i]
                     if name is None:
                         # We'll assume it's unicode. Encode it.
@@ -722,13 +529,11 @@ class ArgErrUnknownKwds(ArgErr):
                     break
         self.kwd_name = name
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         if self.num_kwds == 1:
-            msg = "%s() got an unexpected keyword argument '%s'" % (
-                fnname,
+            msg = "got an unexpected keyword argument '%s'" % (
                 self.kwd_name)
         else:
-            msg = "%s() got %d unexpected keyword arguments" % (
-                fnname,
+            msg = "got %d unexpected keyword arguments" % (
                 self.num_kwds)
         return msg

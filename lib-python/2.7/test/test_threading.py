@@ -10,6 +10,8 @@ threading = test.test_support.import_module('threading')
 import time
 import unittest
 import weakref
+import os
+import subprocess
 
 from test import lock_tests
 
@@ -159,6 +161,7 @@ class ThreadTests(BaseTestCase):
 
     # PyThreadState_SetAsyncExc() is a CPython-only gimmick, not (currently)
     # exposed at the Python level.  This test relies on ctypes to get at it.
+    @test.test_support.cpython_only
     def test_PyThreadState_SetAsyncExc(self):
         try:
             import ctypes
@@ -264,6 +267,7 @@ class ThreadTests(BaseTestCase):
         finally:
             threading._start_new_thread = _start_new_thread
 
+    @test.test_support.cpython_only
     def test_finalize_runnning_thread(self):
         # Issue 1402: the PyGILState_Ensure / _Release functions may be called
         # very late on python exit: on deallocation of a running thread for
@@ -275,7 +279,6 @@ class ThreadTests(BaseTestCase):
                 print("test_finalize_with_runnning_thread can't import ctypes")
             return  # can't do anything
 
-        import subprocess
         rc = subprocess.call([sys.executable, "-c", """if 1:
             import ctypes, sys, time, thread
 
@@ -306,7 +309,6 @@ class ThreadTests(BaseTestCase):
     def test_finalize_with_trace(self):
         # Issue1733757
         # Avoid a deadlock when sys.settrace steps into threading._shutdown
-        import subprocess
         p = subprocess.Popen([sys.executable, "-c", """if 1:
             import sys, threading
 
@@ -341,7 +343,6 @@ class ThreadTests(BaseTestCase):
     def test_join_nondaemon_on_shutdown(self):
         # Issue 1722344
         # Raising SystemExit skipped threading._shutdown
-        import subprocess
         p = subprocess.Popen([sys.executable, "-c", """if 1:
                 import threading
                 from time import sleep
@@ -384,6 +385,7 @@ class ThreadTests(BaseTestCase):
         finally:
             sys.setcheckinterval(old_interval)
 
+    @test.test_support.cpython_only
     def test_no_refcycle_through_target(self):
         class RunSelfFunction(object):
             def __init__(self, should_raise):
@@ -418,6 +420,13 @@ class ThreadTests(BaseTestCase):
 
 class ThreadJoinOnShutdown(BaseTestCase):
 
+    # Between fork() and exec(), only async-safe functions are allowed (issues
+    # #12316 and #11870), and fork() from a worker thread is known to trigger
+    # problems with some operating systems (issue #3863): skip problematic tests
+    # on platforms known to behave badly.
+    platforms_to_skip = ('freebsd4', 'freebsd5', 'freebsd6', 'netbsd5',
+                         'os2emx')
+
     def _run_and_join(self, script):
         script = """if 1:
             import sys, os, time, threading
@@ -426,9 +435,11 @@ class ThreadJoinOnShutdown(BaseTestCase):
             def joiningfunc(mainthread):
                 mainthread.join()
                 print 'end of thread'
+                # stdout is fully buffered because not a tty, we have to flush
+                # before exit.
+                sys.stdout.flush()
         \n""" + script
 
-        import subprocess
         p = subprocess.Popen([sys.executable, "-c", script], stdout=subprocess.PIPE)
         rc = p.wait()
         data = p.stdout.read().replace('\r', '')
@@ -450,11 +461,10 @@ class ThreadJoinOnShutdown(BaseTestCase):
         self._run_and_join(script)
 
 
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_2_join_in_forked_process(self):
         # Like the test above, but from a forked interpreter
-        import os
-        if not hasattr(os, 'fork'):
-            return
         script = """if 1:
             childpid = os.fork()
             if childpid != 0:
@@ -468,19 +478,11 @@ class ThreadJoinOnShutdown(BaseTestCase):
             """
         self._run_and_join(script)
 
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_3_join_in_forked_from_thread(self):
         # Like the test above, but fork() was called from a worker thread
         # In the forked process, the main Thread object must be marked as stopped.
-        import os
-        if not hasattr(os, 'fork'):
-            return
-        # Skip platforms with known problems forking from a worker thread.
-        # See http://bugs.python.org/issue3863.
-        if sys.platform in ('freebsd4', 'freebsd5', 'freebsd6', 'netbsd5',
-                           'os2emx'):
-            print >>sys.stderr, ('Skipping test_3_join_in_forked_from_thread'
-                                 ' due to known OS bugs on'), sys.platform
-            return
         script = """if 1:
             main_thread = threading.current_thread()
             def worker():
@@ -499,6 +501,169 @@ class ThreadJoinOnShutdown(BaseTestCase):
             w.start()
             """
         self._run_and_join(script)
+
+    def assertScriptHasOutput(self, script, expected_output):
+        p = subprocess.Popen([sys.executable, "-c", script],
+                             stdout=subprocess.PIPE)
+        rc = p.wait()
+        data = p.stdout.read().decode().replace('\r', '')
+        self.assertEqual(rc, 0, "Unexpected error")
+        self.assertEqual(data, expected_output)
+
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
+    def test_4_joining_across_fork_in_worker_thread(self):
+        # There used to be a possible deadlock when forking from a child
+        # thread.  See http://bugs.python.org/issue6643.
+
+        # The script takes the following steps:
+        # - The main thread in the parent process starts a new thread and then
+        #   tries to join it.
+        # - The join operation acquires the Lock inside the thread's _block
+        #   Condition.  (See threading.py:Thread.join().)
+        # - We stub out the acquire method on the condition to force it to wait
+        #   until the child thread forks.  (See LOCK ACQUIRED HERE)
+        # - The child thread forks.  (See LOCK HELD and WORKER THREAD FORKS
+        #   HERE)
+        # - The main thread of the parent process enters Condition.wait(),
+        #   which releases the lock on the child thread.
+        # - The child process returns.  Without the necessary fix, when the
+        #   main thread of the child process (which used to be the child thread
+        #   in the parent process) attempts to exit, it will try to acquire the
+        #   lock in the Thread._block Condition object and hang, because the
+        #   lock was held across the fork.
+
+        script = """if 1:
+            import os, time, threading
+
+            finish_join = False
+            start_fork = False
+
+            def worker():
+                # Wait until this thread's lock is acquired before forking to
+                # create the deadlock.
+                global finish_join
+                while not start_fork:
+                    time.sleep(0.01)
+                # LOCK HELD: Main thread holds lock across this call.
+                childpid = os.fork()
+                finish_join = True
+                if childpid != 0:
+                    # Parent process just waits for child.
+                    os.waitpid(childpid, 0)
+                # Child process should just return.
+
+            w = threading.Thread(target=worker)
+
+            # Stub out the private condition variable's lock acquire method.
+            # This acquires the lock and then waits until the child has forked
+            # before returning, which will release the lock soon after.  If
+            # someone else tries to fix this test case by acquiring this lock
+            # before forking instead of resetting it, the test case will
+            # deadlock when it shouldn't.
+            condition = w._block
+            orig_acquire = condition.acquire
+            call_count_lock = threading.Lock()
+            call_count = 0
+            def my_acquire():
+                global call_count
+                global start_fork
+                orig_acquire()  # LOCK ACQUIRED HERE
+                start_fork = True
+                if call_count == 0:
+                    while not finish_join:
+                        time.sleep(0.01)  # WORKER THREAD FORKS HERE
+                with call_count_lock:
+                    call_count += 1
+            condition.acquire = my_acquire
+
+            w.start()
+            w.join()
+            print('end of main')
+            """
+        self.assertScriptHasOutput(script, "end of main\n")
+
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
+    def test_5_clear_waiter_locks_to_avoid_crash(self):
+        # Check that a spawned thread that forks doesn't segfault on certain
+        # platforms, namely OS X.  This used to happen if there was a waiter
+        # lock in the thread's condition variable's waiters list.  Even though
+        # we know the lock will be held across the fork, it is not safe to
+        # release locks held across forks on all platforms, so releasing the
+        # waiter lock caused a segfault on OS X.  Furthermore, since locks on
+        # OS X are (as of this writing) implemented with a mutex + condition
+        # variable instead of a semaphore, while we know that the Python-level
+        # lock will be acquired, we can't know if the internal mutex will be
+        # acquired at the time of the fork.
+
+        script = """if True:
+            import os, time, threading
+
+            start_fork = False
+
+            def worker():
+                # Wait until the main thread has attempted to join this thread
+                # before continuing.
+                while not start_fork:
+                    time.sleep(0.01)
+                childpid = os.fork()
+                if childpid != 0:
+                    # Parent process just waits for child.
+                    (cpid, rc) = os.waitpid(childpid, 0)
+                    assert cpid == childpid
+                    assert rc == 0
+                    print('end of worker thread')
+                else:
+                    # Child process should just return.
+                    pass
+
+            w = threading.Thread(target=worker)
+
+            # Stub out the private condition variable's _release_save method.
+            # This releases the condition's lock and flips the global that
+            # causes the worker to fork.  At this point, the problematic waiter
+            # lock has been acquired once by the waiter and has been put onto
+            # the waiters list.
+            condition = w._block
+            orig_release_save = condition._release_save
+            def my_release_save():
+                global start_fork
+                orig_release_save()
+                # Waiter lock held here, condition lock released.
+                start_fork = True
+            condition._release_save = my_release_save
+
+            w.start()
+            w.join()
+            print('end of main thread')
+            """
+        output = "end of worker thread\nend of main thread\n"
+        self.assertScriptHasOutput(script, output)
+
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
+    def test_reinit_tls_after_fork(self):
+        # Issue #13817: fork() would deadlock in a multithreaded program with
+        # the ad-hoc TLS implementation.
+
+        def do_fork_and_wait():
+            # just fork a child process and wait it
+            pid = os.fork()
+            if pid > 0:
+                os.waitpid(pid, 0)
+            else:
+                os._exit(0)
+
+        # start a bunch of threads that will fork() child processes
+        threads = []
+        for i in range(16):
+            t = threading.Thread(target=do_fork_and_wait)
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
 
 
 class ThreadingExceptionTests(BaseTestCase):
@@ -545,6 +710,37 @@ class SemaphoreTests(lock_tests.SemaphoreTests):
 class BoundedSemaphoreTests(lock_tests.BoundedSemaphoreTests):
     semtype = staticmethod(threading.BoundedSemaphore)
 
+    @unittest.skipUnless(sys.platform == 'darwin', 'test macosx problem')
+    def test_recursion_limit(self):
+        # Issue 9670
+        # test that excessive recursion within a non-main thread causes
+        # an exception rather than crashing the interpreter on platforms
+        # like Mac OS X or FreeBSD which have small default stack sizes
+        # for threads
+        script = """if True:
+            import threading
+
+            def recurse():
+                return recurse()
+
+            def outer():
+                try:
+                    recurse()
+                except RuntimeError:
+                    pass
+
+            w = threading.Thread(target=outer)
+            w.start()
+            w.join()
+            print('end of main thread')
+            """
+        expected_output = "end of main thread\n"
+        p = subprocess.Popen([sys.executable, "-c", script],
+                             stdout=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        data = stdout.decode().replace('\r', '')
+        self.assertEqual(p.returncode, 0, "Unexpected error")
+        self.assertEqual(data, expected_output)
 
 def test_main():
     test.test_support.run_unittest(LockTests, RLockTests, EventTests,

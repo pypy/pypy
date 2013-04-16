@@ -1,12 +1,10 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.pyopcode import LoopBlock
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib import jit
 
 
-class GeneratorIterator(Wrappable):
+class GeneratorIterator(W_Root):
     "An iterator created by a generator."
     _immutable_fields_ = ['pycode']
 
@@ -92,15 +90,16 @@ return next yielded value or raise StopIteration."""
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """x.throw(typ[,val[,tb]]) -> raise exception in generator,
 return next yielded value or raise StopIteration."""
+        if w_val is None:
+            w_val = self.space.w_None
         return self.throw(w_type, w_val, w_tb)
-
 
     def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
 
         msg = "throw() third argument must be a traceback object"
-        if space.is_w(w_tb, space.w_None):
+        if space.is_none(w_tb):
             tb = None
         else:
             tb = check_traceback(space, w_tb, msg)
@@ -162,7 +161,9 @@ return next yielded value or raise StopIteration."""
     # generate 2 versions of the function and 2 jit drivers.
     def _create_unpack_into():
         jitdriver = jit.JitDriver(greens=['pycode'],
-                                  reds=['self', 'frame', 'results'])
+                                  reds=['self', 'frame', 'results'],
+                                  name='unpack_into')
+
         def unpack_into(self, results):
             """This is a hack for performance: runs the generator and collects
             all produced items in a list."""

@@ -226,7 +226,7 @@ class Page:
         )
 
     def render_revision_header(self, sample):
-        """return a header for a report with informations about
+        """return a header for a report with information about
         committer, messages, revision date.
         """
         revision_id = pyhtml.li('Revision ID: %s' % (sample.revision_id,))

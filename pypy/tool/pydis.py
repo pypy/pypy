@@ -5,7 +5,6 @@ XXX this only works for python-2.3 because of the linenumber
 
 """
 
-import autopath
 import sys
 
 from pypy.tool import stdlib_opcode
@@ -148,7 +147,6 @@ def pydis(co):
     n = len(code)
     i = 0
     extended_arg = 0
-    free = None
     while i < n:
         c = code[i]
         op = ord(c)
@@ -172,7 +170,7 @@ def pydis(co):
             i = i+2
             if op == EXTENDED_ARG:
                 extended_arg = oparg*65536L
-        
+
         disresult.append(current_bytecodeindex, oparg, lineno)
     assert disresult is not None
     return disresult

@@ -9,6 +9,7 @@ import shutil
 import unittest
 
 from test.test_support import run_unittest, check_py3k_warnings
+from test.test_support import check_impl_detail
 from repr import repr as r # Don't shadow builtin repr
 from repr import Repr
 
@@ -145,8 +146,11 @@ class ReprTests(unittest.TestCase):
         # Functions
         eq(repr(hash), '<built-in function hash>')
         # Methods
-        self.assertTrue(repr(''.split).startswith(
-            '<built-in method split of str object at 0x'))
+        if check_impl_detail(cpython=True):
+            self.assertTrue(repr(''.split).startswith(
+                '<built-in method split of str object at 0x'))
+        elif check_impl_detail(pypy=True):
+            eq(repr(''.split), "<bound method str.split of ''>")
 
     def test_xrange(self):
         eq = self.assertEqual
@@ -185,7 +189,10 @@ class ReprTests(unittest.TestCase):
     def test_descriptors(self):
         eq = self.assertEqual
         # method descriptors
-        eq(repr(dict.items), "<method 'items' of 'dict' objects>")
+        if check_impl_detail(cpython=True):
+            eq(repr(dict.items), "<method 'items' of 'dict' objects>")
+        elif check_impl_detail(pypy=True):
+            eq(repr(dict.items), "<unbound method dict.items>")
         # XXX member descriptors
         # XXX attribute descriptors
         # XXX slot descriptors
@@ -247,8 +254,14 @@ class LongReprTest(unittest.TestCase):
         eq = self.assertEqual
         touch(os.path.join(self.subpkgname, self.pkgname + os.extsep + 'py'))
         from areallylongpackageandmodulenametotestreprtruncation.areallylongpackageandmodulenametotestreprtruncation import areallylongpackageandmodulenametotestreprtruncation
-        eq(repr(areallylongpackageandmodulenametotestreprtruncation),
-           "<module '%s' from '%s'>" % (areallylongpackageandmodulenametotestreprtruncation.__name__, areallylongpackageandmodulenametotestreprtruncation.__file__))
+        # On PyPy, we use %r to format the file name; on CPython it is done
+        # with '%s'.  It seems to me that %r is safer <arigo>.
+        if '__pypy__' in sys.builtin_module_names:
+            eq(repr(areallylongpackageandmodulenametotestreprtruncation),
+               "<module %r from %r>" % (areallylongpackageandmodulenametotestreprtruncation.__name__, areallylongpackageandmodulenametotestreprtruncation.__file__))
+        else:
+            eq(repr(areallylongpackageandmodulenametotestreprtruncation),
+               "<module '%s' from '%s'>" % (areallylongpackageandmodulenametotestreprtruncation.__name__, areallylongpackageandmodulenametotestreprtruncation.__file__))
         eq(repr(sys), "<module 'sys' (built-in)>")
 
     def test_type(self):

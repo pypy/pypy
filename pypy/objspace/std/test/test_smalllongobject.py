@@ -2,8 +2,8 @@ import py
 import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject
-from pypy.conftest import gettestobjspace
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.tool.pytest.objspace import gettestobjspace
+from rpython.rlib.rarithmetic import r_longlong
 from pypy.interpreter.error import OperationError
 
 
@@ -39,10 +39,12 @@ def test_direct():
     wx = space.and_(w14000000000000, w_huge)
     assert space.is_true(space.eq(wx, w14000000000000))
 
+    w_obj = W_SmallLongObject.fromint(42)
+    assert space.unwrap(w_obj) == 42
+
 
 class AppTestSmallLong(test_longobject.AppTestLong):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsmalllong": True})
+    spaceconfig = {"objspace.std.withsmalllong": True}
 
     def test_sl_simple(self):
         import __pypy__

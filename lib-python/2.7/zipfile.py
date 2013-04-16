@@ -236,16 +236,14 @@ def _EndRecData(fpin):
         # found the magic number; attempt to unpack and interpret
         recData = data[start:start+sizeEndCentDir]
         endrec = list(struct.unpack(structEndArchive, recData))
-        comment = data[start+sizeEndCentDir:]
-        # check that comment length is correct
-        if endrec[_ECD_COMMENT_SIZE] == len(comment):
-            # Append the archive comment and start offset
-            endrec.append(comment)
-            endrec.append(maxCommentStart + start)
+        commentSize = endrec[_ECD_COMMENT_SIZE] #as claimed by the zip file
+        comment = data[start+sizeEndCentDir:start+sizeEndCentDir+commentSize]
+        endrec.append(comment)
+        endrec.append(maxCommentStart + start)
 
-            # Try to read the "Zip64 end of central directory" structure
-            return _EndRecData64(fpin, maxCommentStart + start - filesize,
-                                 endrec)
+        # Try to read the "Zip64 end of central directory" structure
+        return _EndRecData64(fpin, maxCommentStart + start - filesize,
+                             endrec)
 
     # Unable to find a valid end of central directory structure
     return
@@ -292,6 +290,10 @@ class ZipInfo (object):
 
         self.filename = filename        # Normalized file name
         self.date_time = date_time      # year, month, day, hour, min, sec
+
+        if date_time[0] < 1980:
+            raise ValueError('ZIP does not support timestamps before 1980')
+
         # Standard values:
         self.compress_type = ZIP_STORED # Type of compression for the file
         self.comment = ""               # Comment for each file
@@ -473,9 +475,11 @@ class ZipExtFile(io.BufferedIOBase):
     # Search for universal newlines or line chunks.
     PATTERN = re.compile(r'^(?P<chunk>[^\r\n]+)|(?P<newline>\n|\r\n?)')
 
-    def __init__(self, fileobj, mode, zipinfo, decrypter=None):
+    def __init__(self, fileobj, mode, zipinfo, decrypter=None,
+                 close_fileobj=False):
         self._fileobj = fileobj
         self._decrypter = decrypter
+        self._close_fileobj = close_fileobj
 
         self._compress_type = zipinfo.compress_type
         self._compress_size = zipinfo.compress_size
@@ -647,6 +651,12 @@ class ZipExtFile(io.BufferedIOBase):
         self._offset += len(data)
         return data
 
+    def close(self):
+        try:
+            if self._close_fileobj:
+                self._fileobj.close()
+        finally:
+            super(ZipExtFile, self).close()
 
 
 class ZipFile:
@@ -864,7 +874,8 @@ class ZipFile:
 
     def read(self, name, pwd=None):
         """Return file bytes (as a string) for name."""
-        return self.open(name, "r", pwd).read()
+        with self.open(name, "r", pwd) as fp:
+            return fp.read()
 
     def open(self, name, mode="r", pwd=None):
         """Return file-like object for 'name'."""
@@ -887,8 +898,12 @@ class ZipFile:
             zinfo = name
         else:
             # Get info object for name
-            zinfo = self.getinfo(name)
-
+            try:
+                zinfo = self.getinfo(name)
+            except KeyError:
+                if not self._filePassed:
+                    zef_file.close()
+                raise
         zef_file.seek(zinfo.header_offset, 0)
 
         # Skip the file header:
@@ -902,6 +917,8 @@ class ZipFile:
             zef_file.read(fheader[_FH_EXTRA_FIELD_LENGTH])
 
         if fname != zinfo.orig_filename:
+            if not self._filePassed:
+                zef_file.close()
             raise BadZipfile, \
                       'File name in directory "%s" and header "%s" differ.' % (
                           zinfo.orig_filename, fname)
@@ -913,6 +930,8 @@ class ZipFile:
             if not pwd:
                 pwd = self.pwd
             if not pwd:
+                if not self._filePassed:
+                    zef_file.close()
                 raise RuntimeError, "File %s is encrypted, " \
                       "password required for extraction" % name
 
@@ -931,9 +950,12 @@ class ZipFile:
                 # compare against the CRC otherwise
                 check_byte = (zinfo.CRC >> 24) & 0xff
             if ord(h[11]) != check_byte:
+                if not self._filePassed:
+                    zef_file.close()
                 raise RuntimeError("Bad password for file", name)
 
-        return  ZipExtFile(zef_file, mode, zinfo, zd)
+        return ZipExtFile(zef_file, mode, zinfo, zd,
+                          close_fileobj=not self._filePassed)
 
     def extract(self, member, path=None, pwd=None):
         """Extract a member from the archive to the current working directory,
@@ -991,7 +1013,7 @@ class ZipFile:
             return targetpath
 
         source = self.open(member, pwd=pwd)
-        target = file(targetpath, "wb")
+        target = open(targetpath, "wb")
         shutil.copyfileobj(source, target)
         source.close()
         target.close()

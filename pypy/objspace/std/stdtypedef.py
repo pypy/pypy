@@ -7,8 +7,8 @@ from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std import model
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.rlib import jit
-from pypy.tool.sourcetools import compile2
+from rpython.rlib import jit
+from rpython.tool.sourcetools import compile2
 
 __all__ = ['StdTypeDef', 'SMM']
 
@@ -186,10 +186,10 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
     app_defaults = multimethod.extras.get('defaults', ())
     i = len(argnames) - len(app_defaults)
     wrapper_signature = wrapper_arglist[:]
+    unwrap_spec_kwds = {}
     for app_default in app_defaults:
         name = wrapper_signature[i]
-        wrapper_signature[i] = '%s=%s' % (name, name)
-        miniglobals[name] = app_default
+        unwrap_spec_kwds[name] = gateway.WrappedDefault(app_default)
         i += 1
 
     wrapper_signature.insert(0, wrapper_signature.pop(selfindex))
@@ -202,12 +202,6 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
             src.append(wrapper_arg)
             dest.append(expr_arg)
     renaming = ', '.join(dest) +" = "+', '.join(src)
-
-    # add a call to resolve_target to give the thunk space a chance to replace
-    # the thing with something else
-    offset = len(multimethod.argnames_before)
-    renaming += "; %s = space.resolve_target(%s)" % (
-            exprargs[selfindex+offset], exprargs[selfindex+offset])
 
     if allow_NotImplemented_results and (len(multimethod.specialnames) > 1 or
                                          multimethod.name.startswith('inplace_')):
@@ -239,7 +233,10 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
 """        % (prefix, wrapper_sig, renaming, expr,
               multimethod.operatorsymbol, ', '.join(solid_arglist))
     exec compile2(code, '', 'exec') in miniglobals 
-    return miniglobals["%s_perform_call" % prefix]
+    func = miniglobals["%s_perform_call" % prefix]
+    if unwrap_spec_kwds:
+        func = gateway.unwrap_spec(**unwrap_spec_kwds)(func)
+    return func
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):
     """NOT_RPYTHON"""

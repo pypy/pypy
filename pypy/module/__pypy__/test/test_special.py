@@ -1,22 +1,12 @@
 import py
-from pypy.conftest import gettestobjspace, option
 
 class AppTest(object):
+    spaceconfig = {"objspace.usemodules.select": False,
+                   "objspace.std.withrangelist": True}
+
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("does not make sense on pypy-c")
-        cls.space = gettestobjspace(**{"objspace.usemodules.select": False, "objspace.std.withrangelist": True})
-
-    def test__isfake(self):
-        from __pypy__ import isfake
-        assert not isfake(map)
-        assert not isfake(object)
-        assert not isfake(isfake)
-
-    def test__isfake_currently_true(self):
-        from __pypy__ import isfake
-        import select
-        assert isfake(select)
 
     def test_cpumodel(self):
         import __pypy__
@@ -57,17 +47,18 @@ class AppTest(object):
 
     def test_list_strategy(self):
         from __pypy__ import list_strategy
-        l = [1,2,3]
+
+        l = [1, 2, 3]
         assert list_strategy(l) == "int"
-        l = ["a","b","c"]
+        l = ["a", "b", "c"]
         assert list_strategy(l) == "str"
-        l = [1.1,2.2,3.3]
+        l = [1.1, 2.2, 3.3]
         assert list_strategy(l) == "float"
         l = range(3)
         assert list_strategy(l) == "range"
-        l = [1,"b",3]
+        l = [1, "b", 3]
         assert list_strategy(l) == "object"
         l = []
         assert list_strategy(l) == "empty"
         o = 5
-        assert list_strategy(o) == None
+        raises(TypeError, list_strategy, 5)

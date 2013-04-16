@@ -1,13 +1,13 @@
 from __future__ import with_statement
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rpoll, rsocket
-from pypy.rlib.ropenssl import *
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rpoll, rsocket
+from rpython.rlib.ropenssl import *
 
 from pypy.module._socket import interp_socket
 
@@ -119,7 +119,8 @@ if HAVE_OPENSSL_RAND:
             raise ssl_error(space, msg)
         return space.wrap(bytes)
 
-class SSLObject(Wrappable):
+
+class SSLObject(W_Root):
     def __init__(self, space):
         self.space = space
         self.w_socket = None
@@ -432,7 +433,8 @@ class SSLObject(Wrappable):
                     raise _ssl_seterror(self.space, self, length)
                 try:
                     # this is actually an immutable bytes sequence
-                    return self.space.wrap(rffi.charp2str(buf_ptr[0]))
+                    return self.space.wrap(rffi.charpsize2str(buf_ptr[0],
+                                                              length))
                 finally:
                     libssl_OPENSSL_free(buf_ptr[0])
         else:
@@ -546,7 +548,7 @@ def _get_peer_alt_names(space, certificate):
 
     try:
         alt_names_w = []
-        i = 0
+        i = -1
         while True:
             i = libssl_X509_get_ext_by_NID(
                 certificate, NID_subject_alt_name, i)
@@ -644,23 +646,23 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
 
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
     w_timeout = space.call_method(w_sock, "gettimeout")
-    if space.is_w(w_timeout, space.w_None):
+    if space.is_none(w_timeout):
         has_timeout = False
     else:
         has_timeout = True
-    if space.is_w(w_key_file, space.w_None):
+    if space.is_none(w_key_file):
         key_file = None
     else:
         key_file = space.str_w(w_key_file)
-    if space.is_w(w_cert_file, space.w_None):
+    if space.is_none(w_cert_file):
         cert_file = None
     else:
         cert_file = space.str_w(w_cert_file)
-    if space.is_w(w_cacerts_file, space.w_None):
+    if space.is_none(w_cacerts_file):
         cacerts_file = None
     else:
         cacerts_file = space.str_w(w_cacerts_file)
-    if space.is_w(w_ciphers, space.w_None):
+    if space.is_none(w_ciphers):
         ciphers = None
     else:
         ciphers = space.str_w(w_ciphers)
@@ -709,7 +711,8 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
             raise ssl_error(space, "SSL_CTX_use_certificate_chain_file error")
 
     # ssl compatibility
-    libssl_SSL_CTX_set_options(ss.ctx, SSL_OP_ALL)
+    libssl_SSL_CTX_set_options(ss.ctx, 
+                               SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
 
     verification_mode = SSL_VERIFY_NONE
     if cert_mode == PY_SSL_CERT_OPTIONAL:
@@ -787,7 +790,11 @@ def check_socket_and_wait_for_timeout(space, w_sock, writing):
 def _ssl_seterror(space, ss, ret):
     assert ret <= 0
 
-    if ss and ss.ssl:
+    if ss is None:
+        errval = libssl_ERR_peek_last_error()
+        errstr = rffi.charp2str(libssl_ERR_error_string(errval, None))
+        return ssl_error(space, errstr, errval)
+    elif ss.ssl:
         err = libssl_SSL_get_error(ss.ssl, ret)
     else:
         err = SSL_ERROR_SSL
@@ -878,38 +885,3 @@ def _test_decode_cert(space, filename, verbose=True):
             libssl_X509_free(x)
     finally:
         libssl_BIO_free(cert)
-
-# this function is needed to perform locking on shared data
-# structures. (Note that OpenSSL uses a number of global data
-# structures that will be implicitly shared whenever multiple threads
-# use OpenSSL.) Multi-threaded applications will crash at random if
-# it is not set.
-#
-# locking_function() must be able to handle up to CRYPTO_num_locks()
-# different mutex locks. It sets the n-th lock if mode & CRYPTO_LOCK, and
-# releases it otherwise.
-#
-# filename and line are the file number of the function setting the
-# lock. They can be useful for debugging.
-_ssl_locks = []
-
-def _ssl_thread_locking_function(mode, n, filename, line):
-    n = intmask(n)
-    if n < 0 or n >= len(_ssl_locks):
-        return
-
-    if intmask(mode) & CRYPTO_LOCK:
-        _ssl_locks[n].acquire(True)
-    else:
-        _ssl_locks[n].release()
-
-def _ssl_thread_id_function():
-    from pypy.module.thread import ll_thread
-    return rffi.cast(rffi.LONG, ll_thread.get_ident())
-
-def setup_ssl_threads():
-    from pypy.module.thread import ll_thread
-    for i in range(libssl_CRYPTO_num_locks()):
-        _ssl_locks.append(ll_thread.allocate_lock())
-    libssl_CRYPTO_set_locking_callback(_ssl_thread_locking_function)
-    libssl_CRYPTO_set_id_callback(_ssl_thread_id_function)

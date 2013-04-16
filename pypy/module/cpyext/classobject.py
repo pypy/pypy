@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     PyObjectFields, CANNOT_FAIL,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
@@ -21,6 +21,12 @@ def PyInstance_NewRaw(space, w_class, w_dict):
     if w_dict is not None:
         w_result.setdict(space, w_dict)
     return w_result
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def PyInstance_New(space, w_cls, w_arg, w_kw):
+    """Create a new instance of a specific class.  The parameters arg and kw are
+    used as the positional and keyword parameters to the object's constructor."""
+    return space.call(w_cls, w_arg, w_kw)
 
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL)
 def _PyInstance_Lookup(space, w_instance, w_name):

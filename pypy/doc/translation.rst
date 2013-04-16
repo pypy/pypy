@@ -90,7 +90,7 @@ steps (see also the figure below):
 (although these steps are not quite as distinct as you might think from
 this presentation).
 
-There is an `interactive interface`_ called `pypy/bin/translatorshell.py`_ to the
+There is an `interactive interface`_ called `rpython/bin/translatorshell.py`_ to the
 translation process which allows you to interactively work through these
 stages.
 
@@ -99,7 +99,7 @@ The following figure gives a simplified overview (`PDF color version`_):
     .. image:: image/translation-greyscale-small.png
 
 
-.. _`PDF color version`: image/translation.pdf
+.. _`PDF color version`: https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/image/translation.pdf
 .. _`bytecode evaluator`: interpreter.html
 .. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
@@ -116,7 +116,7 @@ describing object spaces`_. Here we describe the data structures produced by it,
 which are the basic data structures of the translation
 process.
 
-All these types are defined in `pypy/objspace/flow/model.py`_ (which is a rather
+All these types are defined in `rpython/flowspace/model.py`_ (which is a rather
 important module in the PyPy source base, to reinforce the point).
 
 The flow graph of a function is represented by the class ``FunctionGraph``.
@@ -155,7 +155,7 @@ the types and their attributes in some detail:
                    function.  The two input variables are the exception class
                    and the exception value, respectively.  (No other block will
                    actually link to the exceptblock if the function does not
-                   explicitely raise exceptions.)
+                   explicitly raise exceptions.)
 
 
 ``Block``
@@ -325,7 +325,7 @@ Mutable Values and Containers
 Mutable objects need special treatment during annotation, because
 the annotation of contained values needs to be possibly updated to account
 for mutation operations, and consequently the annotation information
-reflown through the relevant parts of the flow the graphs.
+reflown through the relevant parts of the flow graphs.
 
 * ``SomeList`` stands for a list of homogeneous type (i.e. all the
   elements of the list are represented by a single common ``SomeXxx``
@@ -503,8 +503,8 @@ Malloc Removal
 
 Since RPython is a garbage collected language there is a lot of heap memory
 allocation going on all the time, which would either not occur at all in a more
-traditional explicitely managed language or results in an object which dies at
-a time known in advance and can thus be explicitely deallocated. For example a
+traditional explicitly managed language or results in an object which dies at
+a time known in advance and can thus be explicitly deallocated. For example a
 loop of the following form::
 
     for i in range(n):
@@ -696,7 +696,7 @@ programs directly into Java bytecode, similarly to what GenCLI does.
 
 So far it is the second most mature high level backend after GenCLI:
 it still can't translate the full Standard Interpreter, but after the
-Leysin sprint we were able to compile and run the rpytstone and
+Leysin sprint we were able to compile and run the rpystone and
 richards benchmarks.
 
 GenJVM is almost entirely the work of Niko Matsakis, who worked on it

@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, Py_ssize_t, CANNOT_FAIL,
                                     build_type_checkers)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, Py_DecRef,
@@ -53,6 +53,20 @@ def PySet_Discard(space, w_s, w_obj):
     space.call_method(w_s, 'discard', w_obj)
     return 0
 
+
+@cpython_api([PyObject], PyObject)
+def PySet_Pop(space, w_set):
+    """Return a new reference to an arbitrary object in the set, and removes the
+    object from the set.  Return NULL on failure.  Raise KeyError if the
+    set is empty. Raise a SystemError if set is an not an instance of
+    set or its subtype."""
+    return space.call_method(w_set, "pop")
+
+@cpython_api([PyObject], rffi.INT_real, error=-1)
+def PySet_Clear(space, w_set):
+    """Empty an existing set of all elements."""
+    space.call_method(w_set, 'clear')
+    return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
 def PySet_GET_SIZE(space, w_s):

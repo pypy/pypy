@@ -112,6 +112,8 @@ class CmdLineTest(unittest.TestCase):
             self._check_script(script_dir, script_name, script_dir, '')
 
     def test_directory_compiled(self):
+        if test.test_support.check_impl_detail(pypy=True):
+            raise unittest.SkipTest("pypy won't load lone .pyc files")
         with temp_dir() as script_dir:
             script_name = _make_test_script(script_dir, '__main__')
             compiled_name = compile_script(script_name)
@@ -173,6 +175,8 @@ class CmdLineTest(unittest.TestCase):
                                script_name, 'test_pkg')
 
     def test_package_compiled(self):
+        if test.test_support.check_impl_detail(pypy=True):
+            raise unittest.SkipTest("pypy won't load lone .pyc files")
         with temp_dir() as script_dir:
             pkg_dir = os.path.join(script_dir, 'test_pkg')
             make_pkg(pkg_dir)

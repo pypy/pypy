@@ -1,8 +1,8 @@
 import os
 import sys
 
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.annlowlevel import llhelper
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.annlowlevel import llhelper
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.typedef import GetSetProperty
@@ -28,12 +28,13 @@ from pypy.module.cpyext.typeobjectdefs import (
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
+from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rstring import rsplit
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.rstring import rsplit
+from rpython.rlib.objectmodel import specialize
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
-from pypy.rlib import jit
+from rpython.rlib import jit
 
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
@@ -247,7 +248,7 @@ def inherit_special(space, pto, base_pto):
     Py_DecRef(space, base_object_pyo)
 
 def check_descr(space, w_self, w_type):
-    if not space.is_true(space.isinstance(w_self, w_type)):
+    if not space.isinstance_w(w_self, w_type):
         raise DescrMismatch()
 
 class GettersAndSetters:
@@ -306,6 +307,8 @@ class W_PyCTypeObject(W_TypeObject):
         if not space.is_true(space.issubtype(self, space.w_type)):
             self.flag_cpytype = True
         self.flag_heaptype = False
+        if pto.c_tp_doc:
+            self.w_doc = space.wrap(rffi.charp2str(pto.c_tp_doc))
 
 @bootstrap_function
 def init_typeobject(space):
@@ -418,8 +421,21 @@ def str_getcharbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             external=False, error=-1)
+def buf_getreadbuffer(space, pyref, segment, ref):
+    from pypy.module.cpyext.bufferobject import PyBufferObject
+    if segment != 0:
+        raise OperationError(space.w_SystemError, space.wrap
+                             ("accessing non-existent string segment"))
+    py_buf = rffi.cast(PyBufferObject, pyref)
+    ref[0] = py_buf.c_b_ptr
+    #Py_DecRef(space, pyref)
+    return py_buf.c_b_size
+
 def setup_string_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
+    lltype.render_immortal(c_buf)
     c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
                                       str_segcount.api_func.get_wrapper(space))
     c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
@@ -428,6 +444,15 @@ def setup_string_buffer_procs(space, pto):
                                  str_getcharbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
+
+def setup_buffer_buffer_procs(space, pto):
+    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
+    lltype.render_immortal(c_buf)
+    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
+                                      str_segcount.api_func.get_wrapper(space))
+    c_buf.c_bf_getreadbuffer = llhelper(buf_getreadbuffer.api_func.functype,
+                                 buf_getreadbuffer.api_func.get_wrapper(space))
+    pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def type_dealloc(space, obj):
@@ -464,7 +489,7 @@ def type_alloc(space, w_metatype):
     pto.c_tp_as_sequence = heaptype.c_as_sequence
     pto.c_tp_as_mapping = heaptype.c_as_mapping
     pto.c_tp_as_buffer = heaptype.c_as_buffer
-    
+
     return rffi.cast(PyObject, heaptype)
 
 def type_attach(space, py_obj, w_type):
@@ -484,6 +509,8 @@ def type_attach(space, py_obj, w_type):
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)
+    if space.is_w(w_type, space.gettypefor(Buffer)):
+        setup_buffer_buffer_procs(space, pto)
 
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
             PyObject_Del.api_func.get_wrapper(space))
@@ -599,7 +626,6 @@ def _type_realize(space, py_obj):
     Creates an interpreter type from a PyTypeObject structure.
     """
     # missing:
-    # setting __doc__ if not defined and tp_doc defined
     # inheriting tp_as_* slots
     # unsupported:
     # tp_mro, tp_subclasses
@@ -703,6 +729,9 @@ def PyType_Modified(space, w_obj):
     subtypes.  This function must be called after any manual
     modification of the attributes or base classes of the type.
     """
-    # PyPy already takes care of direct modifications to type.__dict__
-    # (which is a W_DictProxyObject).
-    pass
+    # Invalidate the type cache in case of a builtin type.
+    if not isinstance(w_obj, W_TypeObject):
+        return
+    if w_obj.is_cpytype():
+        w_obj.mutated(None)
+

@@ -1,7 +1,10 @@
 # This tests the internal _objects attribute
 import unittest
 from ctypes import *
-from sys import getrefcount as grc
+try:
+    from sys import getrefcount as grc
+except ImportError:
+    grc = None      # e.g. PyPy
 
 # XXX This test must be reviewed for correctness!!!
 
@@ -22,6 +25,8 @@ class ObjectsTestCase(unittest.TestCase):
         self.assertEqual(id(a), id(b))
 
     def test_ints(self):
+        if grc is None:
+            return unittest.skip("no sys.getrefcount()")
         i = 42000123
         refcnt = grc(i)
         ci = c_int(i)
@@ -29,11 +34,19 @@ class ObjectsTestCase(unittest.TestCase):
         self.assertEqual(ci._objects, None)
 
     def test_c_char_p(self):
+        if grc is None:
+            return unittest.skip("no sys.getrefcount()")
         s = "Hello, World"
         refcnt = grc(s)
         cs = c_char_p(s)
         self.assertEqual(refcnt + 1, grc(s))
-        self.assertSame(cs._objects, s)
+        try:
+            # Moving gcs need to allocate a nonmoving buffer
+            cs._objects._obj
+        except AttributeError:
+            self.assertSame(cs._objects, s)
+        else:
+            self.assertSame(cs._objects._obj, s)
 
     def test_simple_struct(self):
         class X(Structure):

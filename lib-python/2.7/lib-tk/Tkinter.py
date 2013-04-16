@@ -30,7 +30,7 @@ button.pack(side=BOTTOM)
 tk.mainloop()
 """
 
-__version__ = "$Revision$"
+__version__ = "$Revision: 81008 $"
 
 import sys
 if sys.platform == "win32":
@@ -1660,7 +1660,7 @@ class Wm:
 
 class Tk(Misc, Wm):
     """Toplevel widget of Tk which represents mostly the main window
-    of an appliation. It has an associated Tcl interpreter."""
+    of an application. It has an associated Tcl interpreter."""
     _w = '.'
     def __init__(self, screenName=None, baseName=None, className='Tk',
                  useTk=1, sync=0, use=None):

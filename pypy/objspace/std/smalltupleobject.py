@@ -3,19 +3,20 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 
 class W_SmallTupleObject(W_AbstractTupleObject):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
 
-    def tolist(self):
-        raise NotImplementedError
+    #def tolist(self):   --- inherited from W_AbstractTupleObject
+    #    raise NotImplementedError
 
     def length(self):
         raise NotImplementedError
@@ -50,6 +51,9 @@ def make_specialized_class(n):
             for i in iter_n:
                 l[i] = getattr(self, 'w_value%s' % i)
             return l
+
+        # same source code, but builds and returns a resizable list
+        getitems_copy = func_with_new_name(tolist, 'getitems_copy')
 
         def length(self):
             return n

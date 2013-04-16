@@ -10,16 +10,6 @@ from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler import ast, consts
 
 
-try:
-    all
-except NameError:
-    def all(iterable):
-        for x in iterable:
-            if not x:
-                return False
-        return True
-
-
 class TestAstBuilder:
 
     def setup_class(cls):
@@ -1115,6 +1105,17 @@ class TestAstBuilder:
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(sentence))
 
+    def test_string_bug(self):
+        space = self.space
+        source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parser.parse_source(source, info)
+        assert info.encoding == "utf8"
+        s = ast_from_node(space, tree, info).body[0].value
+        assert isinstance(s, ast.Str)
+        expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
+        assert space.eq_w(s.s, space.wrap(''.join(expected)))
+
     def test_number(self):
         def get_num(s):
             node = self.get_first_expr(s)
@@ -1143,7 +1144,7 @@ class TestAstBuilder:
         assert space.eq_w(get_num("-0"), space.wrap(0))
         assert space.eq_w(get_num("-0xAAAAAAL"), space.wrap(-0xAAAAAAL))
         n = get_num(str(-sys.maxint - 1))
-        assert space.is_true(space.isinstance(n, space.w_int))
+        assert space.isinstance_w(n, space.w_int)
         for num in ("0o53", "0O53", "0o0000053", "0O00053"):
             assert space.eq_w(get_num(num), space.wrap(053))
         for num in ("0b00101", "0B00101", "0b101", "0B101"):

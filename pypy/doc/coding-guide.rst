@@ -175,15 +175,15 @@ for pure integer objects, for instance.
 RPython
 =================
 
-RPython Definition, not
------------------------
+RPython Definition
+------------------
 
-The list and exact details of the "RPython" restrictions are a somewhat
-evolving topic.  In particular, we have no formal language definition
-as we find it more practical to discuss and evolve the set of
-restrictions while working on the whole program analysis.  If you
-have any questions about the restrictions below then please feel
-free to mail us at pypy-dev at codespeak net.
+RPython is a restricted subset of Python that is amenable to static analysis.
+Although there are additions to the language and some things might surprisingly
+work, this is a rough list of restrictions that should be considered. Note
+that there are tons of special cased restrictions that you'll encounter
+as you go. The exact definition is "RPython is everything that our translation
+toolchain can accept" :)
 
 .. _`wrapped object`: coding-guide.html#wrapping-rules
 
@@ -198,7 +198,7 @@ Flow restrictions
   contain both a string and a int must be avoided.  It is allowed to
   mix None (basically with the role of a null pointer) with many other
   types: `wrapped objects`, class instances, lists, dicts, strings, etc.
-  but *not* with int and floats.
+  but *not* with int, floats or tuples.
 
 **constants**
 
@@ -209,9 +209,12 @@ Flow restrictions
   have this restriction, so if you need mutable global state, store it
   in the attributes of some prebuilt singleton instance.
 
+
+
 **control structures**
 
-  all allowed but yield, ``for`` loops restricted to builtin types
+  all allowed, ``for`` loops restricted to builtin types, generators
+  very restricted.
 
 **range**
 
@@ -226,7 +229,8 @@ Flow restrictions
 
 **generators**
 
-  generators are not supported.
+  generators are supported, but their exact scope is very limited. you can't
+  merge two different generator in one control point.
 
 **exceptions**
 
@@ -245,22 +249,32 @@ We are using
 
 **strings**
 
-  a lot of, but not all string methods are supported.  Indexes can be
+  a lot of, but not all string methods are supported and those that are
+  supported, not necesarilly accept all arguments.  Indexes can be
   negative.  In case they are not, then you get slightly more efficient
   code if the translator can prove that they are non-negative.  When
   slicing a string it is necessary to prove that the slice start and
-  stop indexes are non-negative.
+  stop indexes are non-negative. There is no implicit str-to-unicode cast
+  anywhere. Simple string formatting using the ``%`` operator works, as long
+  as the format string is known at translation time; the only supported
+  formatting specifiers are ``%s``, ``%d``, ``%x``, ``%o``, ``%f``, plus
+  ``%r`` but only for user-defined instances. Modifiers such as conversion
+  flags, precision, length etc. are not supported. Moreover, it is forbidden
+  to mix unicode and strings when formatting.
 
 **tuples**
 
   no variable-length tuples; use them to store or return pairs or n-tuples of
-  values. Each combination of types for elements and length constitute a separate
-  and not mixable type.
+  values. Each combination of types for elements and length constitute
+  a separate and not mixable type.
 
 **lists**
 
   lists are used as an allocated array.  Lists are over-allocated, so list.append()
-  is reasonably fast.  Negative or out-of-bound indexes are only allowed for the
+  is reasonably fast. However, if you use a fixed-size list, the code
+  is more efficient. Annotator can figure out most of the time that your
+  list is fixed-size, even when you use list comprehension.
+  Negative or out-of-bound indexes are only allowed for the
   most common operations, as follows:
 
   - *indexing*:
@@ -287,16 +301,14 @@ We are using
 
 **dicts**
 
-  dicts with a unique key type only, provided it is hashable. 
-  String keys have been the only allowed key types for a while, but this was generalized. 
-  After some re-optimization,
-  the implementation could safely decide that all string dict keys should be interned.
+  dicts with a unique key type only, provided it is hashable. Custom
+  hash functions and custom equality will not be honored.
+  Use ``rpython.rlib.objectmodel.r_dict`` for custom hash functions.
 
 
 **list comprehensions**
 
-  may be used to create allocated, initialized arrays.
-  After list over-allocation was introduced, there is no longer any restriction.
+  May be used to create allocated, initialized arrays.
 
 **functions**
 
@@ -316,7 +328,7 @@ We are using
 **builtin functions**
 
   A number of builtin functions can be used.  The precise set can be
-  found in `pypy/annotation/builtin.py`_ (see ``def builtin_xxx()``).
+  found in `rpython/annotator/builtin.py`_ (see ``def builtin_xxx()``).
   Some builtin functions may be limited in what they support, though.
 
   ``int, float, str, ord, chr``... are available as simple conversion
@@ -334,9 +346,8 @@ We are using
 
 **objects**
 
-  in PyPy, wrapped objects are borrowed from the object space. Just like
-  in CPython, code that needs e.g. a dictionary can use a wrapped dict
-  and the object space operations on it.
+  Normal rules apply. Special methods are not honoured, except ``__init__``,
+  ``__del__`` and ``__iter__``.
 
 This layout makes the number of types to take care about quite limited.
 
@@ -354,7 +365,7 @@ a consistent behavior before and after translation.
 We use normal integers for signed arithmetic.  It means that before
 translation we get longs in case of overflow, and after translation we get a
 silent wrap-around.  Whenever we need more control, we use the following
-helpers (which live the `pypy/rlib/rarithmetic.py`_):
+helpers (which live in `rpython/rlib/rarithmetic.py`_):
 
 **ovfcheck()**
 
@@ -382,7 +393,9 @@ helpers (which live the `pypy/rlib/rarithmetic.py`_):
   In a few cases (e.g. hash table manipulation), we need machine-sized unsigned
   arithmetic.  For these cases there is the r_uint class, which is a pure
   Python implementation of word-sized unsigned integers that silently wrap
-  around.  The purpose of this class (as opposed to helper functions as above)
+  around.  ("word-sized" and "machine-sized" are used equivalently and mean
+  the native size, which you get using "unsigned long" in C.)
+  The purpose of this class (as opposed to helper functions as above)
   is consistent typing: both Python and the annotator will propagate r_uint
   instances in the program and interpret all the operations between them as
   unsigned.  Instances of r_uint are special-cased by the code generators to
@@ -573,7 +586,7 @@ Modules in PyPy
 
 Modules visible from application programs are imported from
 interpreter or application level files.  PyPy reuses almost all python
-modules of CPython's standard library, currently from version 2.7.1.  We
+modules of CPython's standard library, currently from version 2.7.3.  We
 sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 
@@ -602,10 +615,6 @@ here are examples for the possible locations::
     >>>> cPickle.__file__
     '/home/hpk/pypy-dist/lib_pypy/cPickle..py'
 
-    >>>> import opcode
-    >>>> opcode.__file__
-    '/home/hpk/pypy-dist/lib-python/modified-2.7/opcode.py'
-
     >>>> import os
     >>>> os.__file__
     '/home/hpk/pypy-dist/lib-python/2.7/os.py'
@@ -631,13 +640,9 @@ Here is the order in which PyPy looks up Python modules:
 
     contains pure Python reimplementation of modules.
 
-*lib-python/modified-2.7/*
-
-    The files and tests that we have modified from the CPython library.
-
 *lib-python/2.7/*
 
-    The unmodified CPython library. **Never ever check anything in there**.
+    The modified CPython library.
 
 .. _`modify modules`:
 
@@ -650,16 +655,9 @@ often due to the fact that PyPy works with all new-style classes
 by default and CPython has a number of places where it relies
 on some classes being old-style.
 
-If you want to change a module or test contained in ``lib-python/2.7``
-then make sure that you copy the file to our ``lib-python/modified-2.7``
-directory first.  In mercurial commandline terms this reads::
-
-    $ hg cp lib-python/2.7/somemodule.py lib-python/modified-2.7/
-
-and subsequently you edit and commit
-``lib-python/modified-2.7/somemodule.py``.  This copying operation is
-important because it keeps the original CPython tree clean and makes it
-obvious what we had to change.
+We just maintain those changes in place,
+to see what is changed we have a branch called `vendot/stdlib`
+wich contains the unmodified cpython stdlib
 
 .. _`mixed module mechanism`:
 .. _`mixed modules`:
@@ -834,7 +832,7 @@ feature requests or see what's going on
 for the next milestone, both from an E-Mail and from a
 web interface.
 
-.. _`development tracker`: https://codespeak.net/issue/pypy-dev/
+.. _`development tracker`: https://bugs.pypy.org/
 
 use your codespeak login or register
 ------------------------------------
@@ -843,7 +841,7 @@ If you have an existing codespeak account, you can use it to login within the
 tracker. Else, you can `register with the tracker`_ easily.
 
 
-.. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
+.. _`register with the tracker`: https://bugs.pypy.org/user?@template=register
 .. _`roundup`: http://roundup.sourceforge.net/
 
 

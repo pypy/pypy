@@ -1,14 +1,11 @@
-from pypy.conftest import gettestobjspace
-import py
 import errno
-def setup_module(mod): 
-    mod.space = gettestobjspace(usemodules=['errno'])
 
-class AppTestErrno: 
+class AppTestErrno:
+    spaceconfig = dict(usemodules=['errno'])
+
     def setup_class(cls): 
-        cls.space = space 
-        cls.w_errno = space.appexec([], "(): import errno ; return errno")
-        cls.w_errorcode = space.wrap(errno.errorcode)
+        cls.w_errno = cls.space.appexec([], "(): import errno ; return errno")
+        cls.w_errorcode = cls.space.wrap(errno.errorcode)
 
     def test_posix(self):
         assert self.errno.__file__

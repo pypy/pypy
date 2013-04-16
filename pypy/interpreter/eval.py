@@ -2,12 +2,11 @@
 This module defines the abstract base classes that support execution:
 Code and Frame.
 """
-from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 
 
-class Code(Wrappable):
+class Code(W_Root):
     """A code is a compiled version of some source code.
     Abstract base class."""
     _immutable_ = True
@@ -53,19 +52,20 @@ class Code(Wrappable):
     def funcrun_obj(self, func, w_obj, args):
         return self.funcrun(func, args.prepend(w_obj))
 
-class Frame(Wrappable):
+
+class Frame(W_Root):
     """A frame is an environment supporting the execution of a code object.
     Abstract base class."""
 
     def __init__(self, space, w_globals=None):
-        self.space      = space
-        self.w_globals  = w_globals  # wrapped dict of globals
-        self.w_locals   = None       # wrapped dict of locals
+        self.space = space
+        self.w_globals = w_globals  # wrapped dict of globals
+        self.w_locals = None       # wrapped dict of locals
 
     def run(self):
         "Abstract method to override. Runs the frame"
-        raise TypeError, "abstract"
-    
+        raise TypeError("abstract")
+
     def getdictscope(self):
         "Get the locals as a dictionary."
         self.fast2locals()
@@ -87,18 +87,17 @@ class Frame(Wrappable):
 
     def getfastscope(self):
         "Abstract. Get the fast locals as a list."
-        raise TypeError, "abstract"
+        raise TypeError("abstract")
 
     def setfastscope(self, scope_w):
         """Abstract. Initialize the fast locals from a list of values,
         where the order is according to self.getcode().signature()."""
-        raise TypeError, "abstract"
+        raise TypeError("abstract")
 
     def getfastscopelength(self):
         "Abstract. Get the expected number of locals."
-        raise TypeError, "abstract"
+        raise TypeError("abstract")
 
-    @jit.dont_look_inside
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         if self.w_locals is None:
@@ -112,7 +111,6 @@ class Frame(Wrappable):
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
 
-    @jit.dont_look_inside
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
         assert self.w_locals is not None

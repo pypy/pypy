@@ -2,9 +2,9 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.rfloat import rstring_to_float, INFINITY, NAN
-from pypy.rlib.rbigint import rbigint, parse_digit_string
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rfloat import rstring_to_float, INFINITY, NAN
+from rpython.rlib.rbigint import rbigint, parse_digit_string
 from pypy.interpreter.error import OperationError
 import math
 
@@ -177,10 +177,12 @@ def string_to_float(s):
         return INFINITY
     elif low == "infinity" or low == "+infinity":
         return INFINITY
-    elif low == "nan" or low == "-nan" or low == "+nan":
+    elif low == "nan" or low == "+nan":
         return NAN
+    elif low == "-nan":
+        return -NAN
 
     try:
         return rstring_to_float(s)
     except ValueError:
-        raise ParseStringError("invalid literal for float()")
+        raise ParseStringError("invalid literal for float(): '%s'" % s)

@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import (generic_cpy_call, cpython_api, PyObject,
     CANNOT_FAIL)
 import pypy.module.__builtin__.operation as operation
-from pypy.rpython.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi
 
 
 @cpython_api([PyObject, PyObject], PyObject)
@@ -22,7 +22,7 @@ def PyObject_GetIter(space, w_obj):
     cannot be iterated."""
     return space.iter(w_obj)
 
-@cpython_api([PyObject], PyObject, error=CANNOT_FAIL)
+@cpython_api([PyObject], PyObject)
 def PyIter_Next(space, w_obj):
     """Return the next value from the iteration o.  If the object is an
     iterator, this retrieves the next value from the iteration, and returns

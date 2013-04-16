@@ -203,7 +203,9 @@ class AppTestObject:
             l.append(i + sys.maxint)
             l.append(i - sys.maxint)
             l.append(i + 1j)
+            l.append(i - 1j)
             l.append(1 + i * 1j)
+            l.append(1 - i * 1j)
             s = str(i)
             l.append(s)
             u = unicode(s)
@@ -253,10 +255,19 @@ class AppTestObject:
         y = 2j
         assert id(x) != id(y)
 
+    def test_object_hash_immutable(self):
+        x = 42
+        y = 40
+        y += 2
+        assert object.__hash__(x) == object.__hash__(y)
+
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()
     w_a = space.wrap("a")
     space.type = None
+    # if it crashes, it means that space._type_isinstance didn't go through
+    # the fast path, and tries to call type() (which is set to None just
+    # above)
     space.isinstance_w(w_a, space.w_str) # does not crash

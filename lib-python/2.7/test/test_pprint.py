@@ -233,7 +233,16 @@ class QueryTestCase(unittest.TestCase):
                                   frozenset([0, 2]),
                                   frozenset([0, 1])])}"""
         cube = test.test_set.cube(3)
-        self.assertEqual(pprint.pformat(cube), cube_repr_tgt)
+        # XXX issues of dictionary order, and for the case below,
+        # order of items in the frozenset([...]) representation.
+        # Whether we get precisely cube_repr_tgt or not is open
+        # to implementation-dependent choices (this test probably
+        # fails horribly in CPython if we tweak the dict order too).
+        got = pprint.pformat(cube)
+        if test.test_support.check_impl_detail(cpython=True):
+            self.assertEqual(got, cube_repr_tgt)
+        else:
+            self.assertEqual(eval(got), cube)
         cubo_repr_tgt = """\
 {frozenset([frozenset([0, 2]), frozenset([0])]): frozenset([frozenset([frozenset([0,
                                                                                   2]),
@@ -393,7 +402,11 @@ class QueryTestCase(unittest.TestCase):
                                                                                         2])])])}"""
 
         cubo = test.test_set.linegraph(cube)
-        self.assertEqual(pprint.pformat(cubo), cubo_repr_tgt)
+        got = pprint.pformat(cubo)
+        if test.test_support.check_impl_detail(cpython=True):
+            self.assertEqual(got, cubo_repr_tgt)
+        else:
+            self.assertEqual(eval(got), cubo)
 
     def test_depth(self):
         nested_tuple = (1, (2, (3, (4, (5, 6)))))

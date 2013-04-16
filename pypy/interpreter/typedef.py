@@ -1,18 +1,18 @@
-"""
-
-
-"""
 import py
-from pypy.interpreter.gateway import interp2app, BuiltinCode
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
-from pypy.rlib.jit import promote
 
-class TypeDef:
-    def __init__(self, __name, __base=None, **rawdict):
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
+     WrappedDefault)
+
+from rpython.rlib.jit import promote
+from rpython.rlib.objectmodel import compute_identity_hash, specialize
+from rpython.tool.sourcetools import compile2, func_with_new_name
+
+
+class TypeDef(object):
+    def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -26,22 +26,31 @@ class TypeDef:
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.pop('__doc__', None)
         for base in bases:
-            self.hasdict     |= base.hasdict
+            self.hasdict |= base.hasdict
             self.weakrefable |= base.weakrefable
         self.rawdict = {}
         self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
-        # xxx used by faking
-        self.fakedcpytype = None
         self.add_entries(**rawdict)
-    
+        assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
+        if __total_ordering__ == 'auto':
+            self.auto_total_ordering()
+
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
         for key, value in rawdict.items():
             if isinstance(value, (interp2app, GetSetProperty)):
                 value.name = key
         self.rawdict.update(rawdict)
-    
+
+    def auto_total_ordering(self):
+        assert '__lt__' in self.rawdict, "__total_ordering='auto' requires __lt__"
+        assert '__eq__' in self.rawdict, "__total_ordering='auto' requires __eq__"
+        self.add_entries(__le__ = auto__le__,
+                         __gt__ = auto__gt__,
+                         __ge__ = auto__ge__,
+                         __ne__ = auto__ne__)
+
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
         return True
@@ -50,11 +59,35 @@ class TypeDef:
         return "<%s name=%r>" % (self.__class__.__name__, self.name)
 
 
+# generic special cmp methods defined on top of __lt__ and __eq__, used by
+# automatic total ordering
+
+@interp2app
+def auto__le__(space, w_self, w_other):
+    return space.not_(space.lt(w_other, w_self))
+
+@interp2app
+def auto__gt__(space, w_self, w_other):
+    return space.lt(w_other, w_self)
+
+@interp2app
+def auto__ge__(space, w_self, w_other):
+    return space.not_(space.lt(w_self, w_other))
+
+@interp2app
+def auto__ne__(space, w_self, w_other):
+    return space.not_(space.eq(w_self, w_other))
+
+
 # ____________________________________________________________
 #  Hash support
 
 def default_identity_hash(space, w_obj):
-    return space.wrap(compute_identity_hash(w_obj))
+    w_unique_id = w_obj.immutable_unique_id(space)
+    if w_unique_id is None:     # common case
+        return space.wrap(compute_identity_hash(w_obj))
+    else:
+        return space.hash(w_unique_id)
 
 # ____________________________________________________________
 #
@@ -70,6 +103,13 @@ def default_identity_hash(space, w_obj):
 # features, but limit ourselves to 6, chosen a bit arbitrarily based on
 # typical usage (case 1 is the most common kind of app-level subclasses;
 # case 2 is the memory-saving kind defined with __slots__).
+#
+#  +----------------------------------------------------------------+
+#  | NOTE: if withmapdict is enabled, the following doesn't apply!  |
+#  | Map dicts can flexibly allow any slots/__dict__/__weakref__ to |
+#  | show up only when needed.  In particular there is no way with  |
+#  | mapdict to prevent some objects from being weakrefable.        |
+#  +----------------------------------------------------------------+
 #
 #     dict   slots   del   weakrefable
 #
@@ -193,7 +233,7 @@ def _builduserclswithfeature(config, supercls, *features):
 
     def add(Proto):
         for key, value in Proto.__dict__.items():
-            if (not key.startswith('__') and not key.startswith('_mixin_') 
+            if (not key.startswith('__') and not key.startswith('_mixin_')
                     or key == '__del__'):
                 if hasattr(value, "func_name"):
                     value = func_with_new_name(value, value.func_name)
@@ -280,13 +320,13 @@ def _builduserclswithfeature(config, supercls, *features):
         class Proto(object):
             def getdict(self, space):
                 return self.w__dict__
-            
+
             def setdict(self, space, w_dict):
                 self.w__dict__ = check_new_dictionary(space, w_dict)
-            
+
             def user_setup(self, space, w_subtype):
                 self.w__dict__ = space.newdict(
-                    instance=True, classofinstance=w_subtype)
+                    instance=True)
                 base_user_setup(self, space, w_subtype)
 
             def setclass(self, space, w_subtype):
@@ -302,7 +342,7 @@ def _builduserclswithfeature(config, supercls, *features):
 # a couple of helpers for the Proto classes above, factored out to reduce
 # the translated code size
 def check_new_dictionary(space, w_dict):
-    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+    if not space.isinstance_w(w_dict, space.w_dict):
         raise OperationError(space.w_TypeError,
                 space.wrap("setting dictionary to a non-dict"))
     from pypy.objspace.std import dictmultiobject
@@ -341,14 +381,14 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
         """
     else:
         cls_name = cls.__name__
-        assert issubclass(cls, Wrappable)
+        assert issubclass(cls, W_Root)
         source = """
         def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
             obj = space.descr_self_interp_w(%(cls_name)s, w_obj)
             return %(name)s(%(args)s, %(extra)s)
         """
         miniglobals[cls_name] = cls
-    
+
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
@@ -385,7 +425,7 @@ def _make_objclass_getter(cls):
         return unknown_objclass_getter, cls
     miniglobals = {}
     if isinstance(cls, str):
-        assert cls.startswith('<'),"pythontype typecheck should begin with <"
+        assert cls.startswith('<'), "pythontype typecheck should begin with <"
         cls_name = cls[1:]
         typeexpr = "space.w_%s" % cls_name
     else:
@@ -399,7 +439,7 @@ def _make_objclass_getter(cls):
     res = miniglobals['objclass_getter'], cls
     return res
 
-class GetSetProperty(Wrappable):
+class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
 
     @specialize.arg(7)
@@ -421,6 +461,7 @@ class GetSetProperty(Wrappable):
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
+    @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
         """property.__get__(obj[, type]) -> value
         Read the value of the property of the given obj."""
@@ -432,7 +473,7 @@ class GetSetProperty(Wrappable):
         else:
             try:
                 return self.fget(self, space, w_obj)
-            except DescrMismatch, e:
+            except DescrMismatch:
                 return w_obj.descr_call_mismatch(
                     space, '__getattribute__',
                     self.reqcls, Arguments(space, [w_obj,
@@ -447,7 +488,7 @@ class GetSetProperty(Wrappable):
                                  space.wrap("readonly attribute"))
         try:
             fset(self, space, w_obj, w_value)
-        except DescrMismatch, e:
+        except DescrMismatch:
             w_obj.descr_call_mismatch(
                 space, '__setattr__',
                 self.reqcls, Arguments(space, [w_obj,
@@ -463,12 +504,12 @@ class GetSetProperty(Wrappable):
                                  space.wrap("cannot delete attribute"))
         try:
             fdel(self, space, w_obj)
-        except DescrMismatch, e:
+        except DescrMismatch:
             w_obj.descr_call_mismatch(
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
                                                space.wrap(self.name)]))
-    
+
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
 
@@ -486,7 +527,7 @@ def interp_attrproperty_w(name, cls, doc=None):
             return space.w_None
         else:
             return w_value
-    
+
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 GetSetProperty.typedef = TypeDef(
@@ -501,24 +542,25 @@ GetSetProperty.typedef = TypeDef(
 GetSetProperty.typedef.acceptable_as_base_class = False
 
 
-class Member(Wrappable):
+class Member(W_Root):
     """For slots."""
     _immutable_ = True
+
     def __init__(self, index, name, w_cls):
         self.index = index
         self.name = name
         self.w_cls = w_cls
-    
+
     def typecheck(self, space, w_obj):
-        if not space.is_true(space.isinstance(w_obj, self.w_cls)):
+        if not space.isinstance_w(w_obj, self.w_cls):
             raise operationerrfmt(space.w_TypeError,
                                   "descriptor '%s' for '%s'"
                                   " objects doesn't apply to '%s' object",
                                   self.name,
                                   self.w_cls.name,
                                   space.type(w_obj).getname(space))
-    
-    def descr_member_get(self, space, w_obj, w_w_cls=None):
+
+    def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
@@ -530,13 +572,13 @@ class Member(Wrappable):
                 raise OperationError(space.w_AttributeError,
                                      space.wrap(self.name)) # XXX better message
             return w_result
-    
+
     def descr_member_set(self, space, w_obj, w_value):
         """member.__set__(obj, value)
         Write into the slot 'member' of the given 'obj'."""
         self.typecheck(space, w_obj)
         w_obj.setslotvalue(self.index, w_value)
-    
+
     def descr_member_del(self, space, w_obj):
         """member.__delete__(obj)
         Delete the value of the slot 'member' from the given 'obj'."""
@@ -575,9 +617,8 @@ from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.interpreter.module import Module
-from pypy.interpreter.function import Function, Method, StaticMethod
-from pypy.interpreter.function import ClassMethod
-from pypy.interpreter.function import BuiltinFunction, descr_function_get
+from pypy.interpreter.function import (Function, Method, StaticMethod,
+    ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.nestedscope import Cell
@@ -621,8 +662,10 @@ def fget_co_argcount(space, code): # unwrapping through unwrap_spec
 def fget_co_flags(space, code): # unwrapping through unwrap_spec
     sig = code.signature()
     flags = 0
-    if sig.has_vararg(): flags |= CO_VARARGS
-    if sig.has_kwarg(): flags |= CO_VARKEYWORDS
+    if sig.has_vararg():
+        flags |= CO_VARARGS
+    if sig.has_kwarg():
+        flags |= CO_VARKEYWORDS
     return space.wrap(flags)
 
 def fget_co_consts(space, code): # unwrapping through unwrap_spec
@@ -634,7 +677,7 @@ weakref_descr = GetSetProperty(descr_get_weakref,
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):
-    """Make instances of the Wrappable subclass 'cls' weakrefable.
+    """Make instances of the W_Root subclass 'cls' weakrefable.
     This returns the '__weakref__' desctriptor to use for the TypeDef.
     Note that if the class also defines a custom '__del__', the
     __del__ should call self.clear_all_weakrefs() before it clears
@@ -643,10 +686,13 @@ def make_weakref_descr(cls):
     # force the interface into the given cls
     def getweakref(self):
         return self._lifeline_
+
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+
     def delweakref(self):
         self._lifeline_ = None
+
     cls._lifeline_ = None
     cls.getweakref = getweakref
     cls.setweakref = setweakref
@@ -686,7 +732,7 @@ PyCode.typedef = TypeDef('code',
     __eq__ = interp2app(PyCode.descr_code__eq__),
     __ne__ = descr_generic_ne,
     __hash__ = interp2app(PyCode.descr_code__hash__),
-    __reduce__   = interp2app(PyCode.descr__reduce__),
+    __reduce__ = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
@@ -695,9 +741,9 @@ PyCode.typedef = TypeDef('code',
     co_code = interp_attrproperty('co_code', cls=PyCode),
     co_consts = GetSetProperty(PyCode.fget_co_consts),
     co_names = GetSetProperty(PyCode.fget_co_names),
-    co_varnames =  GetSetProperty(PyCode.fget_co_varnames),
-    co_freevars =  GetSetProperty(PyCode.fget_co_freevars),
-    co_cellvars =  GetSetProperty(PyCode.fget_co_cellvars),
+    co_varnames = GetSetProperty(PyCode.fget_co_varnames),
+    co_freevars = GetSetProperty(PyCode.fget_co_freevars),
+    co_cellvars = GetSetProperty(PyCode.fget_co_cellvars),
     co_filename = interp_attrproperty('co_filename', cls=PyCode),
     co_name = interp_attrproperty('co_name', cls=PyCode),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
@@ -707,7 +753,7 @@ PyCode.typedef = TypeDef('code',
 PyCode.typedef.acceptable_as_base_class = False
 
 PyFrame.typedef = TypeDef('frame',
-    __reduce__   = interp2app(PyFrame.descr__reduce__),
+    __reduce__ = interp2app(PyFrame.descr__reduce__),
     __setstate__ = interp2app(PyFrame.descr__setstate__),
     f_builtins = GetSetProperty(PyFrame.fget_f_builtins),
     f_lineno = GetSetProperty(PyFrame.fget_f_lineno, PyFrame.fset_f_lineno),
@@ -768,15 +814,16 @@ Function.typedef = TypeDef("function",
     func_dict = getset_func_dict,
     func_defaults = getset_func_defaults,
     func_globals = interp_attrproperty_w('w_func_globals', cls=Function),
-    func_closure = GetSetProperty( Function.fget_func_closure ),
+    func_closure = GetSetProperty(Function.fget_func_closure),
     __code__ = getset_func_code,
     __doc__ = getset_func_doc,
     __name__ = getset_func_name,
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
+    __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
-    )
+)
 Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(
@@ -784,9 +831,9 @@ Method.typedef = TypeDef(
     __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
-    im_func  = interp_attrproperty_w('w_function', cls=Method),
+    im_func = interp_attrproperty_w('w_function', cls=Method),
     __func__ = interp_attrproperty_w('w_function', cls=Method),
-    im_self  = interp_attrproperty_w('w_instance', cls=Method),
+    im_self = interp_attrproperty_w('w_instance', cls=Method),
     __self__ = interp_attrproperty_w('w_instance', cls=Method),
     im_class = interp_attrproperty_w('w_class', cls=Method),
     __getattribute__ = interp2app(Method.descr_method_getattribute),
@@ -843,7 +890,7 @@ object is passed as the implied first argument.""",
 
 def always_none(self, obj):
     return None
-BuiltinFunction.typedef = TypeDef("builtin_function",**Function.typedef.rawdict)
+BuiltinFunction.typedef = TypeDef("builtin_function", **Function.typedef.rawdict)
 BuiltinFunction.typedef.rawdict.update({
     '__new__': interp2app(BuiltinFunction.descr_builtinfunction__new__.im_func),
     '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
@@ -854,12 +901,12 @@ del BuiltinFunction.typedef.rawdict['__get__']
 BuiltinFunction.typedef.acceptable_as_base_class = False
 
 PyTraceback.typedef = TypeDef("traceback",
-    __reduce__   = interp2app(PyTraceback.descr__reduce__),
+    __reduce__ = interp2app(PyTraceback.descr__reduce__),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
-    tb_frame  = interp_attrproperty('frame', cls=PyTraceback),
-    tb_lasti  = interp_attrproperty('lasti', cls=PyTraceback),
+    tb_frame = interp_attrproperty('frame', cls=PyTraceback),
+    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback),
     tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
-    tb_next   = interp_attrproperty('next', cls=PyTraceback),
+    tb_next = interp_attrproperty('next', cls=PyTraceback),
     )
 PyTraceback.typedef.acceptable_as_base_class = False
 
@@ -894,12 +941,12 @@ Cell.typedef = TypeDef("cell",
 Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("Ellipsis",
-    __repr__   = interp2app(Ellipsis.descr__repr__),
+    __repr__ = interp2app(Ellipsis.descr__repr__),
 )
 Ellipsis.typedef.acceptable_as_base_class = False
 
 NotImplemented.typedef = TypeDef("NotImplemented",
-    __repr__   = interp2app(NotImplemented.descr__repr__),
+    __repr__ = interp2app(NotImplemented.descr__repr__),
 )
 NotImplemented.typedef.acceptable_as_base_class = False
 

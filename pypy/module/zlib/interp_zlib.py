@@ -1,12 +1,12 @@
 import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask, r_uint
-from pypy.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.objectmodel import keepalive_until_here
 
-from pypy.rlib import rzlib
+from rpython.rlib import rzlib
 
 
 if intmask(2**31) == -2**31:
@@ -20,7 +20,7 @@ else:
         return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
 
 
-@unwrap_spec(string='bufferstr', start='truncatedint')
+@unwrap_spec(string='bufferstr', start='truncatedint_w')
 def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     """
     crc32(string[, start]) -- Compute a CRC-32 checksum of string.
@@ -41,7 +41,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     return space.wrap(checksum)
 
 
-@unwrap_spec(string='bufferstr', start='truncatedint')
+@unwrap_spec(string='bufferstr', start='truncatedint_w')
 def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     """
     adler32(string[, start]) -- Compute an Adler-32 checksum of string.
@@ -109,7 +109,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
     return space.wrap(result)
 
 
-class ZLibObject(Wrappable):
+class ZLibObject(W_Root):
     """
     Common base class for Compress and Decompress.
     """

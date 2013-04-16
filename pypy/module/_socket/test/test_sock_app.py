@@ -1,12 +1,12 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
-from pypy.tool.udir import udir
-from pypy.rlib import rsocket
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.tool.pytest.objspace import gettestobjspace
+from rpython.tool.udir import udir
+from rpython.rlib import rsocket
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket', 'array'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
@@ -20,31 +20,34 @@ def test_gethostname():
     assert space.unwrap(host) == socket.gethostname()
 
 def test_gethostbyname():
-    host = "localhost"
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyname(host)")
-    assert space.unwrap(ip) == socket.gethostbyname(host)
+    for host in ["localhost", "127.0.0.1"]:
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyname(host)")
+        assert space.unwrap(ip) == socket.gethostbyname(host)
 
 def test_gethostbyname_ex():
-    host = "localhost"
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyname_ex(host)")
-    assert isinstance(space.unwrap(ip), tuple)
-    assert space.unwrap(ip) == socket.gethostbyname_ex(host)
+    for host in ["localhost", "127.0.0.1"]:
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyname_ex(host)")
+        assert space.unwrap(ip) == socket.gethostbyname_ex(host)
 
 def test_gethostbyaddr():
-    host = "localhost"
-    expected = socket.gethostbyaddr(host)
-    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) in expecteds
-    host = "127.0.0.1"
-    expected = socket.gethostbyaddr(host)
-    expecteds = (expected, expected[:2]+(['0.0.0.0'],))
-    ip = space.appexec([w_socket, space.wrap(host)],
-                       "(_socket, host): return _socket.gethostbyaddr(host)")
-    assert space.unwrap(ip) in expecteds
+    try:
+        socket.gethostbyaddr("::1")
+    except socket.herror:
+        ipv6 = False
+    else:
+        ipv6 = True
+    for host in ["localhost", "127.0.0.1", "::1"]:
+        if host == "::1" and not ipv6:
+            from pypy.interpreter.error import OperationError
+            with py.test.raises(OperationError):
+                space.appexec([w_socket, space.wrap(host)],
+                              "(_socket, host): return _socket.gethostbyaddr(host)")
+            continue
+        ip = space.appexec([w_socket, space.wrap(host)],
+                           "(_socket, host): return _socket.gethostbyaddr(host)")
+        assert space.unwrap(ip) == socket.gethostbyaddr(host)
 
 def test_getservbyname():
     name = "smtp"
@@ -228,25 +231,34 @@ def test_getaddrinfo():
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
 
-def test_unknown_addr_as_object():    
-    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
+def test_unknown_addr_as_object():
+    from pypy.module._socket.interp_socket import addr_as_object
+    c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw', track_allocation=False)
     c_addr.c_sa_data[0] = 'c'
     rffi.setintfield(c_addr, 'c_sa_family', 15)
     # XXX what size to pass here? for the purpose of this test it has
     #     to be short enough so we have some data, 1 sounds good enough
     #     + sizeof USHORT
-    w_obj = rsocket.Address(c_addr, 1 + 2).as_object(-1, space)
-    assert space.is_true(space.isinstance(w_obj, space.w_tuple))
+    w_obj = addr_as_object(rsocket.Address(c_addr, 1 + 2), -1, space)
+    assert space.isinstance_w(w_obj, space.w_tuple)
     assert space.int_w(space.getitem(w_obj, space.wrap(0))) == 15
     assert space.str_w(space.getitem(w_obj, space.wrap(1))) == 'c'
 
 def test_addr_raw_packet():
+    from pypy.module._socket.interp_socket import addr_as_object
     if not hasattr(rsocket._c, 'sockaddr_ll'):
         py.test.skip("posix specific test")
+    # HACK: To get the correct interface numer of lo, which in most cases is 1,
+    # but can be anything (i.e. 39), we need to call the libc function
+    # if_nametoindex to get the correct index
+    import ctypes
+    libc = ctypes.CDLL(ctypes.util.find_library('c'))
+    ifnum = libc.if_nametoindex('lo')
+
     c_addr_ll = lltype.malloc(rsocket._c.sockaddr_ll, flavor='raw')
     addrlen = rffi.sizeof(rsocket._c.sockaddr_ll)
     c_addr = rffi.cast(lltype.Ptr(rsocket._c.sockaddr), c_addr_ll)
-    rffi.setintfield(c_addr_ll, 'c_sll_ifindex', 1)
+    rffi.setintfield(c_addr_ll, 'c_sll_ifindex', ifnum)
     rffi.setintfield(c_addr_ll, 'c_sll_protocol', 8)
     rffi.setintfield(c_addr_ll, 'c_sll_pkttype', 13)
     rffi.setintfield(c_addr_ll, 'c_sll_hatype', 0)
@@ -258,7 +270,7 @@ def test_addr_raw_packet():
     # fd needs to be somehow valid
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     fd = s.fileno()
-    w_obj = rsocket.make_address(c_addr, addrlen).as_object(fd, space)
+    w_obj = addr_as_object(rsocket.make_address(c_addr, addrlen), fd, space)
     lltype.free(c_addr_ll, flavor='raw')
     assert space.is_true(space.eq(w_obj, space.newtuple([
         space.wrap('lo'),
@@ -353,13 +365,15 @@ class AppTestSocket:
         assert isinstance(s.fileno(), int)
 
     def test_socket_close(self):
-        import _socket
+        import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         fileno = s.fileno()
         assert s.fileno() >= 0
         s.close()
         assert s.fileno() < 0
         s.close()
+        if os.name != 'nt':
+            raises(OSError, os.close, fileno)
 
     def test_socket_close_error(self):
         import _socket, os
@@ -367,15 +381,14 @@ class AppTestSocket:
             skip("Windows sockets are not files")
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         os.close(s.fileno())
-        raises(_socket.error, s.close)
+        s.close()
 
     def test_socket_connect(self):
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX temporarily we use python.org to test, will have more robust tests
-        # in the absence of a network connection later when more parts of the
-        # socket API are implemented.  Currently skip the test if there is no
-        # connection.
+        # it would be nice to have a test which works even if there is no
+        # network connection. However, this one is "good enough" for now. Skip
+        # it if there is no connection.
         try:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
@@ -529,26 +542,31 @@ class AppTestSocket:
         import _socket, os
         if not hasattr(_socket, 'AF_UNIX'):
             skip('AF_UNIX not supported.')
-        sockpath = os.path.join(self.udir, 'app_test_unix_socket_connect')
+        oldcwd = os.getcwd()
+        os.chdir(self.udir)
+        try:
+            sockpath = 'app_test_unix_socket_connect'
 
-        serversock = _socket.socket(_socket.AF_UNIX)
-        serversock.bind(sockpath)
-        serversock.listen(1)
+            serversock = _socket.socket(_socket.AF_UNIX)
+            serversock.bind(sockpath)
+            serversock.listen(1)
 
-        clientsock = _socket.socket(_socket.AF_UNIX)
-        clientsock.connect(sockpath)
-        s, addr = serversock.accept()
-        assert not addr
+            clientsock = _socket.socket(_socket.AF_UNIX)
+            clientsock.connect(sockpath)
+            s, addr = serversock.accept()
+            assert not addr
 
-        s.send('X')
-        data = clientsock.recv(100)
-        assert data == 'X'
-        clientsock.send('Y')
-        data = s.recv(100)
-        assert data == 'Y'
+            s.send('X')
+            data = clientsock.recv(100)
+            assert data == 'X'
+            clientsock.send('Y')
+            data = s.recv(100)
+            assert data == 'Y'
 
-        clientsock.close()
-        s.close()
+            clientsock.close()
+            s.close()
+        finally:
+            os.chdir(oldcwd)
 
 
 class AppTestSocketTCP:
@@ -607,13 +625,19 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == '?'
         # test send() timeout
+        count = 0
         try:
             while 1:
-                cli.send('foobar' * 70)
+                count += cli.send('foobar' * 70)
         except timeout:
             pass
+        t.recv(count)    
         # test sendall() timeout
-        raises(timeout, cli.sendall, 'foobar' * 70)
+        try:
+            while 1:
+                cli.sendall('foobar' * 70)
+        except timeout:
+            pass
         # done
         cli.close()
         t.close()

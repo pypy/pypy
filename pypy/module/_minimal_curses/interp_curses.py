@@ -13,8 +13,8 @@ class curses_error(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
-from pypy.annotation.model import SomeString
+from rpython.annotator.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
+from rpython.annotator.model import SomeString
 
 # this is necessary due to annmixlevel
 FORCE_ATTRIBUTES_INTO_CLASSES[curses_error] = {'msg': SomeString()}
@@ -48,7 +48,7 @@ def setupterm(space, w_termname=None, fd=-1):
         fd = space.int_w(space.call_function(space.getattr(w_stdout,
                                              space.wrap('fileno'))))
     try:
-        if space.is_w(w_termname, space.w_None) or w_termname is None:
+        if space.is_none(w_termname):
             _curses_setupterm_null(fd)
         else:
             _curses_setupterm(space.str_w(w_termname), fd)

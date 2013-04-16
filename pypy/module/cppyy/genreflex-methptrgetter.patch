@@ -1,0 +1,126 @@
+Index: cint/reflex/python/genreflex/gendict.py
+===================================================================
+--- cint/reflex/python/genreflex/gendict.py	(revision 43705)
++++ cint/reflex/python/genreflex/gendict.py	(working copy)
+@@ -52,6 +52,7 @@
+     self.typedefs_for_usr = []
+     self.gccxmlvers = gccxmlvers
+     self.split = opts.get('split', '')
++    self.with_methptrgetter = opts.get('with_methptrgetter', False)
+     # The next is to avoid a known problem with gccxml that it generates a
+     # references to id equal '_0' which is not defined anywhere
+     self.xref['_0'] = {'elem':'Unknown', 'attrs':{'id':'_0','name':''}, 'subelems':[]}
+@@ -1306,6 +1307,8 @@
+     bases = self.getBases( attrs['id'] )
+     if inner and attrs.has_key('demangled') and self.isUnnamedType(attrs['demangled']) :
+       cls = attrs['demangled']
++      if self.xref[attrs['id']]['elem'] == 'Union':
++         return 80*' '
+       clt = ''
+     else:
+       cls = self.genTypeName(attrs['id'],const=True,colon=True)
+@@ -1343,7 +1346,7 @@
+       # Inner class/struct/union/enum.
+       for m in memList :
+         member = self.xref[m]
+-        if member['elem'] in ('Class','Struct','Union','Enumeration') \
++        if member['elem'] in ('Class','Struct','Enumeration') \
+            and member['attrs'].get('access') in ('private','protected') \
+            and not self.isUnnamedType(member['attrs'].get('demangled')):
+           cmem = self.genTypeName(member['attrs']['id'],const=True,colon=True)
+@@ -1981,8 +1984,15 @@
+     else    : params  = '0'
+     s = '  .AddFunctionMember(%s, Reflex::Literal("%s"), %s%s, 0, %s, %s)' % (self.genTypeID(id), name, type, id, params, mod)
+     s += self.genCommentProperty(attrs)
++    s += self.genMethPtrGetterProperty(type, attrs)
+     return s
+ #----------------------------------------------------------------------------------
++  def genMethPtrGetterProperty(self, type, attrs):
++    funcname = self.nameOfMethPtrGetter(type, attrs)
++    if funcname is None:
++      return ''
++    return '\n  .AddProperty("MethPtrGetter", (void*)%s)' % funcname
++#----------------------------------------------------------------------------------
+   def genMCODef(self, type, name, attrs, args):
+     id       = attrs['id']
+     cl       = self.genTypeName(attrs['context'],colon=True)
+@@ -2049,8 +2059,44 @@
+           if returns == 'void' : body += '  }\n'
+           else :                 body += '  }\n'
+     body += '}\n'
+-    return head + body;
++    methptrgetter = self.genMethPtrGetter(type, name, attrs, args)
++    return head + body + methptrgetter
+ #----------------------------------------------------------------------------------
++  def nameOfMethPtrGetter(self, type, attrs):
++    id = attrs['id']
++    if self.with_methptrgetter and 'static' not in attrs and type in ('operator', 'method'):
++      return '%s%s_methptrgetter' % (type, id)
++    return None
++#----------------------------------------------------------------------------------  
++  def genMethPtrGetter(self, type, name, attrs, args):
++    funcname = self.nameOfMethPtrGetter(type, attrs)
++    if funcname is None:
++      return ''
++    id = attrs['id']
++    cl = self.genTypeName(attrs['context'],colon=True)
++    rettype = self.genTypeName(attrs['returns'],enum=True, const=True, colon=True)
++    arg_type_list = [self.genTypeName(arg['type'], colon=True) for arg in args]
++    constness = attrs.get('const', 0) and 'const' or ''
++    lines = []
++    a = lines.append
++    a('static void* %s(void* o)' % (funcname,))
++    a('{')
++    if name == 'EmitVA':
++      # TODO: this is for ROOT TQObject, the problem being that ellipses is not
++      # exposed in the arguments and that makes the generated code fail if the named
++      # method is overloaded as is with TQObject::EmitVA
++      a('  return (void*)0;')
++    else:
++      # declare a variable "meth" which is a member pointer
++      a('  %s (%s::*meth)(%s)%s;' % (rettype, cl, ', '.join(arg_type_list), constness))
++      a('  meth = (%s (%s::*)(%s)%s)&%s::%s;' % \
++         (rettype, cl, ', '.join(arg_type_list), constness, cl, name))
++      a('  %s* obj = (%s*)o;' % (cl, cl))
++      a('  return (void*)(obj->*meth);')
++    a('}')
++    return '\n'.join(lines)
++
++#----------------------------------------------------------------------------------
+   def getDefaultArgs(self, args):
+     n = 0
+     for a in args :
+Index: cint/reflex/python/genreflex/genreflex.py
+===================================================================
+--- cint/reflex/python/genreflex/genreflex.py	(revision 43705)
++++ cint/reflex/python/genreflex/genreflex.py	(working copy)
+@@ -108,6 +108,10 @@
+          Print extra debug information while processing. Keep intermediate files\n
+       --quiet
+          Do not print informational messages\n
++      --with-methptrgetter
++         Add the property MethPtrGetter to every FunctionMember. It contains a pointer to a
++         function which you can call to get the actual function pointer of the method that it's
++         stored in the vtable.  It works only with gcc.
+       -h, --help
+          Print this help\n
+      """ 
+@@ -127,7 +131,8 @@
+       opts, args = getopt.getopt(options, 'ho:s:c:I:U:D:PC', \
+       ['help','debug=', 'output=','selection_file=','pool','dataonly','interpreteronly','deep','gccxmlpath=',
+        'capabilities=','rootmap=','rootmap-lib=','comments','iocomments','no_membertypedefs',
+-       'fail_on_warnings', 'quiet', 'gccxmlopt=', 'reflex', 'split=','no_templatetypedefs','gccxmlpost='])
++       'fail_on_warnings', 'quiet', 'gccxmlopt=', 'reflex', 'split=','no_templatetypedefs','gccxmlpost=',
++       'with-methptrgetter'])
+     except getopt.GetoptError, e:
+       print "--->> genreflex: ERROR:",e
+       self.usage(2)
+@@ -186,6 +191,8 @@
+         self.rootmap = a
+       if o in ('--rootmap-lib',):
+         self.rootmaplib = a
++      if o in ('--with-methptrgetter',):
++        self.opts['with_methptrgetter'] = True
+       if o in ('-I', '-U', '-D', '-P', '-C') :
+         # escape quotes; we need to use " because of windows cmd
+         poseq = a.find('=')

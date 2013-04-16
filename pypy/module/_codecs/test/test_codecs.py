@@ -1,11 +1,7 @@
-import autopath
-from pypy.conftest import gettestobjspace
-
-
 class AppTestCodecs:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata',))
-        cls.space = space
+    spaceconfig = {
+        "usemodules": ['unicodedata', 'struct', 'binascii'],
+    }
 
     def test_register_noncallable(self):
         import _codecs
@@ -22,7 +18,7 @@ class AppTestCodecs:
     def test_ucs4(self):
         x = u'\U00100000'
         y = x.encode("raw-unicode-escape").decode("raw-unicode-escape")
-        assert x == y 
+        assert x == y
 
     def test_named_unicode(self):
         assert unicode('\\N{SPACE}','unicode-escape') == u" "
@@ -57,26 +53,25 @@ class AppTestCodecs:
     def test_unicodedecodeerror(self):
         assert str(UnicodeDecodeError(
             "ascii", "g\xfcrk", 1, 2, "ouch")) == "'ascii' codec can't decode byte 0xfc in position 1: ouch"
-        
+
         assert str(UnicodeDecodeError(
             "ascii", "g\xfcrk", 1, 3, "ouch")) == "'ascii' codec can't decode bytes in position 1-2: ouch"
-        
 
     def test_unicodetranslateerror(self):
         import sys
         assert str(UnicodeTranslateError(
             u"g\xfcrk", 1, 2, "ouch"))== "can't translate character u'\\xfc' in position 1: ouch"
-        
+
         assert str(UnicodeTranslateError(
             u"g\u0100rk", 1, 2, "ouch"))== "can't translate character u'\\u0100' in position 1: ouch"
-        
+
         assert str(UnicodeTranslateError(
             u"g\uffffrk", 1, 2, "ouch"))== "can't translate character u'\\uffff' in position 1: ouch"
-        
+
         if sys.maxunicode > 0xffff and len(unichr(0x10000)) == 1:
             assert str(UnicodeTranslateError(
                 u"g\U00010000rk", 1, 2, "ouch"))== "can't translate character u'\\U00010000' in position 1: ouch"
-            
+
         assert str(UnicodeTranslateError(
             u"g\xfcrk", 1, 3, "ouch"))=="can't translate characters in position 1-2: ouch"
 
@@ -84,22 +79,22 @@ class AppTestCodecs:
         import sys
         assert str(UnicodeEncodeError(
             "ascii", u"g\xfcrk", 1, 2, "ouch"))=="'ascii' codec can't encode character u'\\xfc' in position 1: ouch"
-            
+
         assert str(UnicodeEncodeError(
             "ascii", u"g\xfcrk", 1, 4, "ouch"))== "'ascii' codec can't encode characters in position 1-3: ouch"
-            
+
         assert str(UnicodeEncodeError(
             "ascii", u"\xfcx", 0, 1, "ouch"))=="'ascii' codec can't encode character u'\\xfc' in position 0: ouch"
 
         assert str(UnicodeEncodeError(
             "ascii", u"\u0100x", 0, 1, "ouch"))=="'ascii' codec can't encode character u'\\u0100' in position 0: ouch"
-       
+
         assert str(UnicodeEncodeError(
             "ascii", u"\uffffx", 0, 1, "ouch"))=="'ascii' codec can't encode character u'\\uffff' in position 0: ouch"
         if sys.maxunicode > 0xffff and len(unichr(0x10000)) == 1:
             assert str(UnicodeEncodeError(
                 "ascii", u"\U00010000x", 0, 1, "ouch")) =="'ascii' codec can't encode character u'\\U00010000' in position 0: ouch"
-    
+
     def test_indexerror(self):
         test =   "\\"     # trailing backslash
         raises (ValueError, test.decode,'string-escape')
@@ -122,10 +117,7 @@ class AppTestCodecs:
         assert unicode_escape_decode('\\x61\\x62\\x63') == (u'abc', 12)
 
 class AppTestPartialEvaluation:
-
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('array',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('array',))
 
     def test_partial_utf8(self):
         import _codecs
@@ -143,7 +135,7 @@ class AppTestPartialEvaluation:
                 u"\x00\xff\u07ff\u0800",
                 u"\x00\xff\u07ff\u0800\uffff",
             ]
-            
+
         buffer = ''
         result = u""
         for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff".encode(encoding), check_partial):
@@ -180,13 +172,12 @@ class AppTestPartialEvaluation:
             assert result == partialresult
 
     def test_bug1098990_a(self):
-
         import codecs, StringIO
         self.encoding = 'utf-8'
         s1 = u"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n"
         s2 = u"offending line: ladfj askldfj klasdj fskla dfzaskdj fasklfj laskd fjasklfzzzzaa%whereisthis!!!\r\n"
         s3 = u"next line.\r\n"
-       
+
         s = (s1+s2+s3).encode(self.encoding)
         stream = StringIO.StringIO(s)
         reader = codecs.getreader(self.encoding)(stream)
@@ -212,8 +203,8 @@ class AppTestPartialEvaluation:
         assert reader.readline() == s3
         assert reader.readline() == s4
         assert reader.readline() == s5
-        assert reader.readline() == u""    
-    
+        assert reader.readline() == u""
+
     def test_seek_utf16le(self):
         # all codecs should be able to encode these
         import codecs, StringIO
@@ -225,7 +216,6 @@ class AppTestPartialEvaluation:
             reader.seek(0, 0)
             line = reader.readline()
             assert s[:len(line)] == line
-
 
     def test_unicode_internal_encode(self):
         import sys
@@ -290,6 +280,12 @@ class AppTestPartialEvaluation:
         assert '\\01'.decode('string_escape') == chr(01)
         assert '\\0f'.decode('string_escape') == chr(0) + 'f'
         assert '\\08'.decode('string_escape') == chr(0) + '8'
+
+    def test_escape_decode_errors(self):
+        raises(ValueError, br"\x".decode, 'string_escape')
+        raises(ValueError, br"[\x]".decode, 'string_escape')
+        raises(ValueError, br"\x0".decode, 'string_escape')
+        raises(ValueError, br"[\x0]".decode, 'string_escape')
 
     def test_escape_encode(self):
         assert '"'.encode('string_escape') == '"'
@@ -585,13 +581,21 @@ class AppTestPartialEvaluation:
             assert exc.end == 3
 
     def test_utf7_surrogate(self):
-        raises(UnicodeDecodeError, '+3ADYAA-'.decode, 'utf-7')
+        assert '+3ADYAA-'.decode('utf-7') == u'\udc00\ud800'
 
     def test_utf_16_encode_decode(self):
-        import codecs
+        import codecs, sys
         x = u'123abc'
-        assert codecs.getencoder('utf-16')(x) == ('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
-        assert codecs.getdecoder('utf-16')('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
+        if sys.byteorder == 'big':
+            assert codecs.getencoder('utf-16')(x) == (
+                    '\xfe\xff\x001\x002\x003\x00a\x00b\x00c', 6)
+            assert codecs.getdecoder('utf-16')(
+                    '\xfe\xff\x001\x002\x003\x00a\x00b\x00c') == (x, 14)
+        else:
+            assert codecs.getencoder('utf-16')(x) == (
+                    '\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
+            assert codecs.getdecoder('utf-16')(
+                    '\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
 
     def test_unicode_escape(self):        
         assert u'\\'.encode('unicode-escape') == '\\\\'

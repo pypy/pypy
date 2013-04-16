@@ -42,7 +42,7 @@ class Test_MultibyteCodec(unittest.TestCase):
         dec = codecs.getdecoder('euc-kr')
         myreplace  = lambda exc: (u'', sys.maxint+1)
         codecs.register_error('test.cjktest', myreplace)
-        self.assertRaises(IndexError, dec,
+        self.assertRaises((IndexError, OverflowError), dec,
                           'apple\x92ham\x93spam', 'test.cjktest')
 
     def test_codingspec(self):
@@ -148,7 +148,8 @@ class Test_IncrementalDecoder(unittest.TestCase):
 class Test_StreamReader(unittest.TestCase):
     def test_bug1728403(self):
         try:
-            open(TESTFN, 'w').write('\xa1')
+            with open(TESTFN, 'w') as f:
+                f.write('\xa1')
             f = codecs.open(TESTFN, encoding='cp949')
             self.assertRaises(UnicodeDecodeError, f.read, 2)
         finally:
@@ -236,6 +237,36 @@ class Test_ISO2022(unittest.TestCase):
         for x in xrange(0x10000, 0x110000):
             # Any ISO 2022 codec will cause the segfault
             myunichr(x).encode('iso_2022_jp', 'ignore')
+
+class TestStateful(unittest.TestCase):
+    text = u'\u4E16\u4E16'
+    encoding = 'iso-2022-jp'
+    expected = b'\x1b$B@$@$'
+    expected_reset = b'\x1b$B@$@$\x1b(B'
+
+    def test_encode(self):
+        self.assertEqual(self.text.encode(self.encoding), self.expected_reset)
+
+    def test_incrementalencoder(self):
+        encoder = codecs.getincrementalencoder(self.encoding)()
+        output = b''.join(
+            encoder.encode(char)
+            for char in self.text)
+        self.assertEqual(output, self.expected)
+
+    def test_incrementalencoder_final(self):
+        encoder = codecs.getincrementalencoder(self.encoding)()
+        last_index = len(self.text) - 1
+        output = b''.join(
+            encoder.encode(char, index == last_index)
+            for index, char in enumerate(self.text))
+        self.assertEqual(output, self.expected_reset)
+
+class TestHZStateful(TestStateful):
+    text = u'\u804a\u804a'
+    encoding = 'hz'
+    expected = b'~{ADAD'
+    expected_reset = b'~{ADAD~}'
 
 def test_main():
     test_support.run_unittest(__name__)

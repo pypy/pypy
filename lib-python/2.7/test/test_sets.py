@@ -686,7 +686,9 @@ class TestCopying(unittest.TestCase):
         set_list = sorted(self.set)
         self.assertEqual(len(dup_list), len(set_list))
         for i, el in enumerate(dup_list):
-            self.assertIs(el, set_list[i])
+            # Object identity is not guarnteed for immutable objects, so we
+            # can't use assertIs here.
+            self.assertEqual(el, set_list[i])
 
     def test_deep_copy(self):
         dup = copy.deepcopy(self.set)

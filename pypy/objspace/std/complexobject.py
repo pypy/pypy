@@ -5,9 +5,11 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rbigint import rbigint
-from pypy.rlib.rfloat import (
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
+from rpython.rlib import jit, rcomplex
+from rpython.rlib.rarithmetic import intmask, r_ulonglong
 
 import math
 
@@ -16,7 +18,7 @@ class W_AbstractComplexObject(W_Object):
     __slots__ = ()
 
     def is_w(self, space, w_other):
-        from pypy.rlib.longlong2float import float2longlong
+        from rpython.rlib.longlong2float import float2longlong
         if not isinstance(w_other, W_AbstractComplexObject):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
@@ -31,15 +33,15 @@ class W_AbstractComplexObject(W_Object):
         imag2 = float2longlong(imag2)
         return real1 == real2 and imag1 == imag2
 
-    def unique_id(self, space):
+    def immutable_unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.unique_id(self, space)
-        from pypy.rlib.longlong2float import float2longlong
+            return None
+        from rpython.rlib.longlong2float import float2longlong
         from pypy.objspace.std.model import IDTAG_COMPLEX as tag
         real = space.float_w(space.getattr(self, space.wrap("real")))
         imag = space.float_w(space.getattr(self, space.wrap("imag")))
         real_b = rbigint.fromrarith_int(float2longlong(real))
-        imag_b = rbigint.fromrarith_int(float2longlong(imag))
+        imag_b = rbigint.fromrarith_int(r_ulonglong(float2longlong(imag)))
         val = real_b.lshift(64).or_(imag_b).lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(val)
 
@@ -61,6 +63,9 @@ class W_ComplexObject(W_AbstractComplexObject):
         """ representation for debugging purposes """
         return "<W_ComplexObject(%f,%f)>" % (w_self.realval, w_self.imagval)
 
+    def as_tuple(self):
+        return (self.realval, self.imagval)
+
     def sub(self, other):
         return W_ComplexObject(self.realval - other.realval,
                                self.imagval - other.imagval)
@@ -71,37 +76,12 @@ class W_ComplexObject(W_AbstractComplexObject):
         return W_ComplexObject(r, i)
 
     def div(self, other):
-        r1, i1 = self.realval, self.imagval
-        r2, i2 = other.realval, other.imagval
-        if r2 < 0:
-            abs_r2 = - r2
-        else:
-            abs_r2 = r2
-        if i2 < 0:
-            abs_i2 = - i2
-        else:
-            abs_i2 = i2
-        if abs_r2 >= abs_i2:
-            if abs_r2 == 0.0:
-                raise ZeroDivisionError
-            else:
-                ratio = i2 / r2
-                denom = r2 + i2 * ratio
-                rr = (r1 + i1 * ratio) / denom
-                ir = (i1 - r1 * ratio) / denom
-        else:
-            ratio = r2 / i2
-            denom = r2 * ratio + i2
-            assert i2 != 0.0
-            rr = (r1 * ratio + i1) / denom
-            ir = (i1 * ratio - r1) / denom
-        return W_ComplexObject(rr,ir)
+        rr, ir = rcomplex.c_div(self.as_tuple(), other.as_tuple())
+        return W_ComplexObject(rr, ir)
 
     def divmod(self, space, other):
-        space.warn(
-            "complex divmod(), // and % are deprecated",
-            space.w_DeprecationWarning
-        )
+        space.warn(space.wrap("complex divmod(), // and % are deprecated"),
+                   space.w_DeprecationWarning)
         w_div = self.div(other)
         div = math.floor(w_div.realval)
         w_mod = self.sub(
@@ -109,30 +89,13 @@ class W_ComplexObject(W_AbstractComplexObject):
         return (W_ComplexObject(div, 0), w_mod)
 
     def pow(self, other):
-        r1, i1 = self.realval, self.imagval
-        r2, i2 = other.realval, other.imagval
-        if r2 == 0.0 and i2 == 0.0:
-            rr, ir = 1, 0
-        elif r1 == 0.0 and i1 == 0.0:
-            if i2 != 0.0 or r2 < 0.0:
-                raise ZeroDivisionError
-            rr, ir = (0.0, 0.0)
-        else:
-            vabs = math.hypot(r1,i1)
-            len = math.pow(vabs,r2)
-            at = math.atan2(i1,r1)
-            phase = at * r2
-            if i2 != 0.0:
-                len /= math.exp(at * i2)
-                phase += i2 * math.log(vabs)
-            rr = len * math.cos(phase)
-            ir = len * math.sin(phase)
+        rr, ir = rcomplex.c_pow(self.as_tuple(), other.as_tuple())
         return W_ComplexObject(rr, ir)
 
-    def pow_int(self, n):
-        if n > 100 or n < -100:
-            return self.pow(W_ComplexObject(1.0 * n, 0.0))
-        elif n > 0:
+    def pow_small_int(self, n):
+        if n >= 0:
+            if jit.isconstant(n) and n == 2:
+                return self.mul(self)
             return self.pow_positive_int(n)
         else:
             return w_one.div(self.pow_positive_int(-n))
@@ -147,6 +110,9 @@ class W_ComplexObject(W_AbstractComplexObject):
             self = self.mul(self)
 
         return w_result
+
+    def int(self, space):
+        raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
 
 registerimplementation(W_ComplexObject)
 
@@ -172,7 +138,7 @@ def delegate_Float2Complex(space, w_float):
 def hash__Complex(space, w_value):
     hashreal = _hash_float(space, w_value.realval)
     hashimg = _hash_float(space, w_value.imagval)
-    combined = hashreal + 1000003 * hashimg
+    combined = intmask(hashreal + 1000003 * hashimg)
     return space.newint(combined)
 
 def add__Complex_Complex(space, w_complex1, w_complex2):
@@ -217,10 +183,10 @@ def floordiv__Complex_Complex(space, w_complex1, w_complex2):
 def pow__Complex_Complex_ANY(space, w_complex, w_exponent, thirdArg):
     if not space.is_w(thirdArg, space.w_None):
         raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
-    int_exponent = int(w_exponent.realval)
     try:
-        if w_exponent.imagval == 0.0 and w_exponent.realval == int_exponent:
-            w_p = w_complex.pow_int(int_exponent)
+        r = w_exponent.realval
+        if w_exponent.imagval == 0.0 and -100.0 <= r <= 100.0 and r == int(r):
+            w_p = w_complex.pow_small_int(int(r))
         else:
             w_p = w_complex.pow(w_exponent)
     except ZeroDivisionError:
@@ -281,9 +247,6 @@ def coerce__Complex_Complex(space, w_complex1, w_complex2):
 
 def float__Complex(space, w_complex):
     raise OperationError(space.w_TypeError, space.wrap("can't convert complex to float; use abs(z)"))
-
-def int__Complex(space, w_complex):
-    raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
 
 def complex_conjugate__Complex(space, w_self):
     #w_real = space.call_function(space.w_float,space.wrap(w_self.realval))

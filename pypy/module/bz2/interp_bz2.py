@@ -1,15 +1,15 @@
 from __future__ import with_statement
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem import lltype
+from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.streamio import Stream
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.platform import platform as compiler
-from pypy.rlib.rarithmetic import intmask, r_longlong
+from rpython.rlib.streamio import Stream
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import platform as compiler
+from rpython.rlib.rarithmetic import intmask, r_longlong
 import sys
 
 
@@ -319,8 +319,8 @@ newlines are available only when reading.""",
 
 def open_bz2file_as_stream(space, w_path, mode="r", buffering=-1,
                            compresslevel=9):
-    from pypy.rlib.streamio import decode_mode, open_path_helper
-    from pypy.rlib.streamio import construct_stream_tower
+    from rpython.rlib.streamio import decode_mode, open_path_helper
+    from rpython.rlib.streamio import construct_stream_tower
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
     if reading and writing:
         raise OperationError(space.w_ValueError,
@@ -328,7 +328,7 @@ def open_bz2file_as_stream(space, w_path, mode="r", buffering=-1,
     if basemode == "a":
         raise OperationError(space.w_ValueError,
                              space.wrap("cannot append to bz2 file"))
-    stream = open_path_helper(space.str_w(w_path), os_flags, False)
+    stream = open_path_helper(space.str0_w(w_path), os_flags, False)
     if reading:
         bz2stream = ReadBZ2Filter(space, stream, buffering)
         buffering = 0     # by construction, the ReadBZ2Filter acts like
@@ -357,8 +357,8 @@ class ReadBZ2Filter(Stream):
             buffering = 1024   # minimum amount of compressed data read at once
         self.buffering = buffering
 
-    def close(self):
-        self.stream.close()
+    def close1(self, closefileno):
+        self.stream.close1(closefileno)
 
     def tell(self):
         return self.readlength
@@ -406,12 +406,16 @@ class ReadBZ2Filter(Stream):
             read += length
 
     def readall(self):
-        w_result = self.decompressor.decompress(self.stream.readall())
-        if self.decompressor.running:
-            raise OperationError(self.space.w_EOFError,
-                                 self.space.wrap("compressed file ended before the logical end-of-the-stream was detected"))
-        result = self.space.str_w(w_result)
-        self.readlength += len(result)
+        raw = self.stream.readall()
+        if raw:
+            w_result = self.decompressor.decompress(raw)
+            if self.decompressor.running:
+                raise OperationError(self.space.w_EOFError,
+                                     self.space.wrap("compressed file ended before the logical end-of-the-stream was detected"))
+            result = self.space.str_w(w_result)
+            self.readlength += len(result)
+        else:
+            result = ""
         if len(self.buffer) != self.pos:
             pos = self.pos
             assert pos >= 0
@@ -475,9 +479,9 @@ class WriteBZ2Filter(Stream):
         self.compressor = W_BZ2Compressor(space, compresslevel)
         self.writtenlength = 0
 
-    def close(self):
+    def close1(self, closefileno):
         self.stream.write(self.space.str_w(self.compressor.flush()))
-        self.stream.close()
+        self.stream.close1(closefileno)
 
     def write(self, data):
         self.stream.write(self.space.str_w(self.compressor.compress(data)))
@@ -508,7 +512,7 @@ def descr_compressor__new__(space, w_subtype, compresslevel=9):
     W_BZ2Compressor.__init__(x, space, compresslevel)
     return space.wrap(x)
 
-class W_BZ2Compressor(Wrappable):
+class W_BZ2Compressor(W_Root):
     """BZ2Compressor([compresslevel=9]) -> compressor object
 
     Create a new compressor object. This object may be used to compress
@@ -612,7 +616,8 @@ def descr_decompressor__new__(space, w_subtype):
     W_BZ2Decompressor.__init__(x, space)
     return space.wrap(x)
 
-class W_BZ2Decompressor(Wrappable):
+
+class W_BZ2Decompressor(W_Root):
     """BZ2Decompressor() -> decompressor object
 
     Create a new decompressor object. This object may be used to decompress
@@ -649,11 +654,11 @@ class W_BZ2Decompressor(Wrappable):
         was found after the end of stream, it'll be ignored and saved in
         unused_data attribute."""
 
-        if data == '':
-            return self.space.wrap('')
         if not self.running:
             raise OperationError(self.space.w_EOFError,
                 self.space.wrap("end of stream was already found"))
+        if data == '':
+            return self.space.wrap('')
 
         in_bufsize = len(data)
 

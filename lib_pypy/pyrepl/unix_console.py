@@ -185,16 +185,6 @@ class UnixConsole(Console):
         old_offset = offset = self.__offset
         height = self.height
 
-        if 0:
-            global counter
-            try:
-                counter
-            except NameError:
-                counter = 0
-            self.__write_code(curses.tigetstr("setaf"), counter)
-            counter += 1
-            if counter > 8:
-                counter = 0
 
         # we make sure the cursor is on the screen, and that we're
         # using all of the screen if we can
@@ -398,6 +388,7 @@ class UnixConsole(Console):
 
         if hasattr(self, 'old_sigwinch'):
             signal.signal(signal.SIGWINCH, self.old_sigwinch)
+            del self.old_sigwinch
 
     def __sigwinch(self, signum, frame):
         self.height, self.width = self.getheightwidth()
@@ -496,7 +487,7 @@ class UnixConsole(Console):
             if iscode:
                 self.__tputs(text)
             else:
-                os.write(self.output_fd, text.encode(self.encoding))
+                os.write(self.output_fd, text.encode(self.encoding, 'replace'))
         del self.__buffer[:]
 
     def __tputs(self, fmt, prog=delayprog):

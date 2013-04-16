@@ -482,10 +482,13 @@ class SvnWCCommandPath(common.PathBase):
         except py.process.cmdexec.Error:
             e = sys.exc_info()[1]
             strerr = e.err.lower()
-            if strerr.find('file not found') != -1:
+            if strerr.find('not found') != -1:
+                raise py.error.ENOENT(self)
+            elif strerr.find("E200009:") != -1:
                 raise py.error.ENOENT(self)
             if (strerr.find('file exists') != -1 or
                 strerr.find('file already exists') != -1 or
+                strerr.find('w150002:') != -1 or
                 strerr.find("can't create directory") != -1):
                 raise py.error.EEXIST(self)
             raise
@@ -593,7 +596,7 @@ class SvnWCCommandPath(common.PathBase):
         out = self._authsvn('lock').strip()
         if not out:
             # warning or error, raise exception
-            raise Exception(out[4:])
+            raise ValueError("unknown error in svn lock command")
 
     def unlock(self):
         """ unset a previously set lock """
@@ -1066,6 +1069,8 @@ class XMLWCStatus(WCStatus):
                 modrev = '?'
                 author = '?'
                 date = ''
+            elif itemstatus == "replaced":
+                pass
             else:
                 #print entryel.toxml()
                 commitel = entryel.getElementsByTagName('commit')[0]
@@ -1148,7 +1153,11 @@ class InfoSvnWCCommand:
             raise  ValueError("Not a versioned resource")
             #raise ValueError, "Not a versioned resource %r" % path
         self.kind = d['nodekind'] == 'directory' and 'dir' or d['nodekind']
-        self.rev = int(d['revision'])
+        try:
+            self.rev = int(d['revision'])
+        except KeyError:
+            self.rev = None
+
         self.path = py.path.local(d['path'])
         self.size = self.path.size()
         if 'lastchangedrev' in d:

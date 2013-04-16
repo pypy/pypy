@@ -4,26 +4,27 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.debug import check_annotation
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.debug import check_annotation
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import get_positive_index
-from pypy.objspace.std.listtype import get_list_index
+from pypy.objspace.std.listobject import get_positive_index, get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.strutil import ParseStringError
+from pypy.objspace.std.strutil import string_to_float
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
-from pypy.interpreter.argument import Signature
 from pypy.interpreter.buffer import RWBuffer
+from pypy.interpreter.signature import Signature
 from pypy.objspace.std.bytearraytype import (
     makebytearraydata_w, getbytevalue,
     new_bytearray
 )
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 
 class W_BytearrayObject(W_Object):
@@ -111,8 +112,14 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     length = len(data)
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
-    newdata = [data[start + i*step] for i in range(slicelength)]
+    if step == 1 and 0 <= start <= stop:
+        newdata = data[start:stop]
+    else:
+        newdata = _getitem_slice_multistep(data, start, step, slicelength)
     return W_BytearrayObject(newdata)
+
+def _getitem_slice_multistep(data, start, step, slicelength):
+    return [data[start + i*step] for i in range(slicelength)]
 
 def contains__Bytearray_Int(space, w_bytearray, w_char):
     char = space.int_w(w_char)
@@ -279,19 +286,6 @@ def repr__Bytearray(space, w_bytearray):
 def str__Bytearray(space, w_bytearray):
     return space.wrap(''.join(w_bytearray.data))
 
-def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    char = w_char.intval
-    bytearray = w_bytearray.data
-    length = len(bytearray)
-    start, stop = slicetype.unwrap_start_stop(
-            space, length, w_start, w_stop, False)
-    count = 0
-    for i in range(start, min(stop, length)):
-        c = w_bytearray.data[i]
-        if ord(c) == char:
-            count += 1
-    return space.wrap(count)
-
 def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)
@@ -414,8 +408,8 @@ def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
         result = w_bytearray.data.pop(index)
     except IndexError:
         if not w_bytearray.data:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "cannot pop an empty bytearray"))
+            raise OperationError(space.w_IndexError, space.wrap(
+                "pop from empty bytearray"))
         raise OperationError(space.w_IndexError, space.wrap(
             "pop index out of range"))
     return space.wrap(ord(result))
@@ -566,18 +560,18 @@ def str_rpartition__Bytearray_ANY(space, w_bytearray, w_sub):
 # __________________________________________________________
 # Mutability methods
 
-def list_append__Bytearray_ANY(space, w_bytearray, w_item):
+def bytearray_append__Bytearray_ANY(space, w_bytearray, w_item):
     from pypy.objspace.std.bytearraytype import getbytevalue
     w_bytearray.data.append(getbytevalue(space, w_item))
 
-def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
+def bytearray_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
 
-def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
+def bytearray_extend__Bytearray_ANY(space, w_bytearray, w_other):
     w_bytearray.data += makebytearraydata_w(space, w_other)
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
-    list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
+    bytearray_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
     return w_bytearray1
 
 def inplace_add__Bytearray_ANY(space, w_bytearray1, w_iterable2):
@@ -624,8 +618,8 @@ def _delitem_slice_helper(space, items, start, step, slicelength):
 
     if step == 1:
         assert start >= 0
-        assert slicelength >= 0
-        del items[start:start+slicelength]
+        if slicelength > 0:
+            del items[start:start+slicelength]
     else:
         n = len(items)
         i = start
@@ -662,10 +656,11 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
             while i >= lim:
                 items[i] = items[i-delta]
                 i -= 1
-        elif start >= 0:
-            del items[start:start+delta]
+        elif delta == 0:
+            pass
         else:
-            assert delta==0   # start<0 is only possible with slicelength==0
+            assert start >= 0   # start<0 is only possible with slicelength==0
+            del items[start:start+delta]
     elif len2 != slicelength:  # No resize for extended slices
         raise operationerrfmt(space.w_ValueError, "attempt to "
               "assign sequence of size %d to extended slice of size %d",

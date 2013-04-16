@@ -16,11 +16,11 @@ class TestGlobals(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("loadglobal", """
-            p10 = getfield_gc(p0, descr=<GcPtrFieldDescr .*Frame.inst_w_globals .*>)
+            p10 = getfield_gc(p0, descr=<FieldP .*Frame.inst_w_globals .*>)
             guard_value(p10, ConstPtr(ptr11), descr=...)
-            p12 = getfield_gc(p10, descr=<GcPtrFieldDescr .*W_DictMultiObject.inst_strategy .*>)
+            p12 = getfield_gc(p10, descr=<FieldP .*W_DictMultiObject.inst_strategy .*>)
             guard_value(p12, ConstPtr(ptr13), descr=...)
             guard_not_invalidated(descr=...)
-            p19 = getfield_gc(ConstPtr(p17), descr=<GcPtrFieldDescr .*W_DictMultiObject.inst_strategy .*>)
+            p19 = getfield_gc(ConstPtr(p17), descr=<FieldP .*W_DictMultiObject.inst_strategy .*>)
             guard_value(p19, ConstPtr(ptr20), descr=...)
         """)

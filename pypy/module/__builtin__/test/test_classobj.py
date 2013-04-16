@@ -1,6 +1,5 @@
 from __future__ import with_statement
 import py
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
 
 
@@ -394,14 +393,14 @@ class AppTestOldstyle(object):
     def test_unary_method(self):
         class A:
             def __pos__(self):
-                 return -1
+                return -1
         a = A()
         assert +a == -1
 
     def test_cmp(self):
         class A:
             def __lt__(self, other):
-                 return True
+                return True
         a = A()
         b = A()
         assert a < b
@@ -431,7 +430,7 @@ class AppTestOldstyle(object):
             def __add__(self, other):
                 return 1 + other
             def __coerce__(self, other):
-                 return self, int(other)
+                return self, int(other)
 
         a = A()
         assert a + 1 == 2
@@ -442,7 +441,7 @@ class AppTestOldstyle(object):
         l = []
         class A:
             def __coerce__(self, other):
-                 l.append(other)
+                l.append(other)
 
         a = A()
         raises(TypeError, "a + 1")
@@ -469,8 +468,8 @@ class AppTestOldstyle(object):
             def __init__(self):
                 self.l = []
             def __iadd__(self, other):
-                 self.l.append(other)
-                 return self
+                self.l.append(other)
+                return self
         a1 = a = A()
         a += 1
         assert a is a1
@@ -532,11 +531,11 @@ class AppTestOldstyle(object):
         a = A()
         raises(TypeError, hash, a)
         bigint = sys.maxint + 1
-        class A: # can return long 
+        class A: # can return long
             def __hash__(self):
                 return long(bigint)
         a = A()
-        assert hash(a) == -bigint 
+        assert hash(a) == -bigint
 
     def test_index(self):
         import sys
@@ -725,11 +724,11 @@ class AppTestOldstyle(object):
         class X:
             def __iter__(self):
                 return Y()
-         
+
         class Y:
             def next(self):
                 return 3
-         
+
         for i in X():
             assert i == 3
             break
@@ -751,7 +750,7 @@ class AppTestOldstyle(object):
             skip("assignment to __del__ doesn't give a warning in CPython")
 
         import warnings
-        
+
         warnings.simplefilter('error', RuntimeWarning)
         try:
             class X:
@@ -1064,7 +1063,7 @@ class AppTestOldstyle(object):
 
 class AppTestOldStyleClassStrDict(object):
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py")
         def is_strdict(space, w_class):
             from pypy.objspace.std.dictmultiobject import StringDictStrategy
@@ -1080,9 +1079,10 @@ class AppTestOldStyleClassStrDict(object):
         assert self.is_strdict(A)
 
 class AppTestOldStyleMapDict(AppTestOldstyle):
+    spaceconfig = {"objspace.std.withmapdict": True}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py")
         def has_mapdict(space, w_inst):
             return space.wrap(w_inst._get_mapdict_map() is not None)
@@ -1096,4 +1096,3 @@ class AppTestOldStyleMapDict(AppTestOldstyle):
         a = A()
         assert a.x == 42
         assert self.has_mapdict(a)
-

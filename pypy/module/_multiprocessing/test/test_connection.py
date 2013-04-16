@@ -1,6 +1,5 @@
 import py
 import sys
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app, W_Root
 
 class TestImport:
@@ -9,11 +8,11 @@ class TestImport:
         from pypy.module._multiprocessing import interp_semaphore
 
 class AppTestBufferTooShort:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
-        cls.space = space
+    spaceconfig = dict(usemodules=['_multiprocessing', 'thread', 'signal',
+                                   'itertools'])
 
-        if option.runappdirect:
+    def setup_class(cls):
+        if cls.runappdirect:
             def raiseBufferTooShort(self, data):
                 import multiprocessing
                 raise multiprocessing.BufferTooShort(data)
@@ -22,7 +21,7 @@ class AppTestBufferTooShort:
             from pypy.module._multiprocessing import interp_connection
             def raiseBufferTooShort(space, w_data):
                 raise interp_connection.BufferTooShort(space, w_data)
-            cls.w_raiseBufferTooShort = space.wrap(
+            cls.w_raiseBufferTooShort = cls.space.wrap(
                 interp2app(raiseBufferTooShort))
 
     def test_exception(self):
@@ -36,6 +35,9 @@ class AppTestBufferTooShort:
 class BaseConnectionTest(object):
     def test_connection(self):
         rhandle, whandle = self.make_pair()
+
+        whandle.send_bytes("abc")
+        assert rhandle.recv_bytes(100) == "abc"
 
         obj = [1, 2.0, "hello"]
         whandle.send(obj)
@@ -66,14 +68,14 @@ class BaseConnectionTest(object):
         assert rhandle.readable
 
 class AppTestWinpipeConnection(BaseConnectionTest):
+    spaceconfig = dict(usemodules=('_multiprocessing', 'thread', 'signal'))
+
     def setup_class(cls):
         if sys.platform != "win32":
             py.test.skip("win32 only")
 
-        if not option.runappdirect:
-            space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
-            cls.space = space
-
+        if not cls.runappdirect:
+            space = cls.space
             # stubs for some modules,
             # just for multiprocessing to import correctly on Windows
             w_modules = space.sys.get('modules')
@@ -87,40 +89,43 @@ class AppTestWinpipeConnection(BaseConnectionTest):
 
         return multiprocessing.Pipe(duplex=False)
 
+
 class AppTestSocketConnection(BaseConnectionTest):
+    spaceconfig = {
+        "usemodules": [
+            '_multiprocessing', 'thread', 'signal', 'struct', 'array',
+            'itertools', '_socket', 'binascii',
+        ]
+    }
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
-        cls.space = space
-        cls.w_connections = space.newlist([])
+        cls.w_connections = cls.space.newlist([])
 
-        def socketpair(space):
-            "A socket.socketpair() that works on Windows"
-            import socket, errno
-            serverSocket = socket.socket()
-            serverSocket.bind(('127.0.0.1', 0))
-            serverSocket.listen(1)
+    def w_socketpair(self):
+        "A socket.socketpair() that works on Windows"
+        import errno
+        import socket
 
-            client = socket.socket()
-            client.setblocking(False)
-            try:
-                client.connect(('127.0.0.1', serverSocket.getsockname()[1]))
-            except socket.error, e:
-                assert e.args[0] in (errno.EINPROGRESS, errno.EWOULDBLOCK)
-            server, addr = serverSocket.accept()
+        serverSocket = socket.socket()
+        serverSocket.bind(('127.0.0.1', 0))
+        serverSocket.listen(1)
 
-            # keep sockets alive during the test
-            space.call_method(cls.w_connections, "append", space.wrap(server))
-            space.call_method(cls.w_connections, "append", space.wrap(client))
+        client = socket.socket()
+        client.setblocking(False)
+        try:
+            client.connect(('127.0.0.1', serverSocket.getsockname()[1]))
+        except socket.error, e:
+            assert e.args[0] in (errno.EINPROGRESS, errno.EWOULDBLOCK)
+        server, addr = serverSocket.accept()
 
-            return space.wrap((server.fileno(), client.fileno()))
-        if option.runappdirect:
-            cls.w_socketpair = lambda self: socketpair(space)
-        else:
-            cls.w_socketpair = space.wrap(interp2app(socketpair))
+        # keep sockets alive during the test
+        self.connections.append(server)
+        self.connections.append(client)
+
+        return server.fileno(), client.fileno()
 
     def w_make_pair(self):
         import _multiprocessing
-        import os
 
         fd1, fd2 = self.socketpair()
         rhandle = _multiprocessing.Connection(fd1, writable=False)
@@ -151,3 +156,20 @@ class AppTestSocketConnection(BaseConnectionTest):
 
         raises(IOError, _multiprocessing.Connection, -1)
         raises(IOError, _multiprocessing.Connection, -15)
+
+    def test_byte_order(self):
+        import socket
+        if not 'fromfd' in dir(socket):
+            skip('No fromfd in socket')
+        # The exact format of net strings (length in network byte
+        # order) is important for interoperation with others
+        # implementations.
+        rhandle, whandle = self.make_pair()
+        whandle.send_bytes("abc")
+        whandle.send_bytes("defg")
+        sock = socket.fromfd(rhandle.fileno(),
+                             socket.AF_INET, socket.SOCK_STREAM)
+        data1 = sock.recv(7)
+        assert data1 == '\x00\x00\x00\x03abc'
+        data2 = sock.recv(8)
+        assert data2 == '\x00\x00\x00\x04defg'

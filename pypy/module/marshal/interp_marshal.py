@@ -1,17 +1,18 @@
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rstackovf
+from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
 
 
 Py_MARSHAL_VERSION = 2
 
-def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
+@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
     # special case real files for performance
-    file = space.interpclass_w(w_f)
-    if isinstance(file, W_File):
-        writer = DirectStreamWriter(space, file)
+    if isinstance(w_f, W_File):
+        writer = DirectStreamWriter(space, w_f)
     else:
         writer = FileWriter(space, w_f)
     try:
@@ -23,7 +24,8 @@ def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     finally:
         writer.finished()
 
-def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
+@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+def dumps(space, w_data, w_version):
     """Return the string that would have been written to a file
 by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))
@@ -33,9 +35,8 @@ by dump(data, file)."""
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
     # special case real files for performance
-    file = space.interpclass_w(w_f)
-    if isinstance(file, W_File):
-        reader = DirectStreamReader(space, file)
+    if isinstance(w_f, W_File):
+        reader = DirectStreamReader(space, w_f)
     else:
         reader = FileReader(space, w_f)
     try:
@@ -47,10 +48,8 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
-    space.timer.start("marshal loads")
     u = StringUnmarshaller(space, w_str)
     obj = u.load_w_obj()
-    space.timer.stop("marshal loads")
     return obj
 
 
@@ -234,7 +233,6 @@ class Marshaller(_Base):
         lng = len(lst_w)
         self.put_int(lng)
         idx = 0
-        space = self.space
         while idx < lng:
             w_obj = lst_w[idx]
             self.space.marshal_w(w_obj, self)
@@ -327,8 +325,10 @@ def invalid_typecode(space, u, tc):
     # %r not supported in rpython
     #u.raise_exc('invalid typecode in unmarshal: %r' % tc)
     c = ord(tc)
-    if c < 32 or c > 126:
-        s = '\\x' + hex(c)
+    if c < 16:
+        s = '\\x0%x' % c
+    elif c < 32 or c > 126:
+        s = '\\x%x' % c
     elif tc == '\\':
         s = r'\\'
     else:

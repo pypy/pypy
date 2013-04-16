@@ -3,17 +3,18 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.objectmodel import we_are_translated, compute_hash, specialize
-from pypy.rlib.objectmodel import compute_unique_id
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import we_are_translated, compute_hash, specialize
+from rpython.rlib.objectmodel import compute_unique_id
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder, split
+from rpython.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
+from rpython.rlib import jit
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
@@ -32,10 +33,24 @@ class W_AbstractStringObject(W_Object):
             return False
         return space.str_w(self) is space.str_w(w_other)
 
-    def unique_id(self, space):
+    def immutable_unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.unique_id(self, space)
+            return None
         return space.wrap(compute_unique_id(space.str_w(self)))
+
+    def unicode_w(w_self, space):
+        # Use the default encoding.
+        from pypy.objspace.std.unicodetype import unicode_from_string, \
+                decode_object
+        w_defaultencoding = space.call_function(space.sys.get(
+                                                'getdefaultencoding'))
+        from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
+            unicode_from_string, decode_object
+        encoding, errors = _get_encoding_and_errors(space, w_defaultencoding,
+                                                    space.w_None)
+        if encoding is None and errors is None:
+            return space.unicode_w(unicode_from_string(space, w_self))
+        return space.unicode_w(decode_object(space, w_self, encoding, errors))
 
 
 class W_StringObject(W_AbstractStringObject):
@@ -55,10 +70,13 @@ class W_StringObject(W_AbstractStringObject):
     def str_w(w_self, space):
         return w_self._value
 
-    def unicode_w(w_self, space):
-        # XXX should this use the default encoding?
-        from pypy.objspace.std.unicodetype import plain_str2unicode
-        return plain_str2unicode(space, w_self._value)
+    def listview_str(w_self):
+        return _create_list_from_string(w_self._value)
+
+def _create_list_from_string(value):
+    # need this helper function to allow the jit to look inside and inline
+    # listview_str
+    return [s for s in value]
 
 registerimplementation(W_StringObject)
 
@@ -331,7 +349,7 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     return space.newlist(res_w)
 
 def make_rsplit_with_delim(funcname, sliced):
-    from pypy.tool.sourcetools import func_with_new_name
+    from rpython.tool.sourcetools import func_with_new_name
 
     def fn(space, w_self, w_by, w_maxsplit=-1):
         maxsplit = space.int_w(w_maxsplit)
@@ -381,6 +399,8 @@ def str_join__String_ANY(space, w_self, w_list):
 
     return _str_join_many_items(space, w_self, list_w, size)
 
+@jit.look_inside_iff(lambda space, w_self, list_w, size:
+                     jit.loop_unrolling_heuristic(list_w, size))
 def _str_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     reslen = len(self) * (size - 1)
@@ -514,44 +534,58 @@ def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
         return space.wrap(input)
 
-    #print "from replace, input: %s, sub: %s, by: %s" % (input, sub, by)
-
     if not sub:
         upper = len(input)
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
             assert upper >= 0
-        substrings_w = [""]
+
+        try:
+            result_size = ovfcheck(upper * len(by))
+            result_size = ovfcheck(result_size + upper)
+            result_size = ovfcheck(result_size + len(by))
+            remaining_size = len(input) - upper
+            result_size = ovfcheck(result_size + remaining_size)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("replace string is too long")
+            )
+        builder = StringBuilder(result_size)
         for i in range(upper):
-            c = input[i]
-            substrings_w.append(c)
-        substrings_w.append(input[upper:])
+            builder.append(by)
+            builder.append(input[i])
+        builder.append(by)
+        builder.append_slice(input, upper, len(input))
     else:
+        # First compute the exact result size
+        count = input.count(sub)
+        if count > maxsplit and maxsplit > 0:
+            count = maxsplit
+        diff_len = len(by) - len(sub)
+        try:
+            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(result_size + len(input))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("replace string is too long")
+            )
+
+        builder = StringBuilder(result_size)
         start = 0
         sublen = len(sub)
-        substrings_w = []
 
         while maxsplit != 0:
             next = input.find(sub, start)
             if next < 0:
                 break
-            substrings_w.append(input[start:next])
+            builder.append_slice(input, start, next)
+            builder.append(by)
             start = next + sublen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-        substrings_w.append(input[start:])
+        builder.append_slice(input, start, len(input))
 
-    try:
-        # XXX conservative estimate. If your strings are that close
-        # to overflowing, bad luck.
-        one = ovfcheck(len(substrings_w) * len(by))
-        ovfcheck(one + len(input))
-    except OverflowError:
-        raise OperationError(
-            space.w_OverflowError,
-            space.wrap("replace string is too long"))
-
-    return space.wrap(by.join(substrings_w))
+    return space.wrap(builder.build())
 
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):
@@ -878,7 +912,6 @@ def mul_string_times(space, w_str, w_times):
         s = input[0] * mul
     else:
         s = input * mul
-    # xxx support again space.config.objspace.std.withstrjoin?
     return W_StringObject(s)
 
 def mul__String_ANY(space, w_str, w_times):
