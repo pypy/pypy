@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from rpython.annotator import model as annmodel
 from rpython.rtyper.controllerentry import Controller
 from rpython.rtyper.extfunc import register_external
@@ -10,27 +11,32 @@ str0 = ll_os.str0
 
 # ____________________________________________________________
 #
-# Annotation support to control access to 'os.environ' in the RPython program
+# Annotation support to control access to 'os.environ' in the RPython
+# program
 
 class OsEnvironController(Controller):
     knowntype = os.environ.__class__
 
     def convert(self, obj):
-        return None     # 'None' is good enough, there is only one os.environ
+        # 'None' is good enough, there is only one os.environ
+        return None
 
     def getitem(self, obj, key):
-        # in the RPython program reads of 'os.environ[key]' are redirected here
+        # in the RPython program reads of 'os.environ[key]' are
+        # redirected here
         result = r_getenv(key)
         if result is None:
             raise KeyError
         return result
 
     def setitem(self, obj, key, value):
-        # in the RPython program, 'os.environ[key] = value' is redirected here
+        # in the RPython program, 'os.environ[key] = value' is
+        # redirected here
         r_putenv(key, value)
 
     def delitem(self, obj, key):
-        # in the RPython program, 'del os.environ[key]' is redirected here
+        # in the RPython program, 'del os.environ[key]' is redirected
+        # here
         absent = r_getenv(key) is None
         # Always call unsetenv(), to get eventual OSErrors
         r_unsetenv(key)
@@ -38,16 +44,18 @@ class OsEnvironController(Controller):
             raise KeyError
 
     def get_keys(self, obj):
-        # 'os.environ.keys' is redirected here - note that it's the getattr
-        # that arrives here, not the actual method call!
+        # 'os.environ.keys' is redirected here - note that it's the
+        # getattr that arrives here, not the actual method call!
         return r_envkeys
 
     def get_items(self, obj):
-        # 'os.environ.items' is redirected here (not the actual method call!)
+        # 'os.environ.items' is redirected here (not the actual method
+        # call!)
         return r_envitems
 
     def get_get(self, obj):
-        # 'os.environ.get' is redirected here (not the actual method call!)
+        # 'os.environ.get' is redirected here (not the actual method
+        # call!)
         return r_getenv
 
 # ____________________________________________________________
@@ -57,7 +65,8 @@ class OsEnvironController(Controller):
 def r_getenv(name):
     just_a_placeholder     # should return None if name not found
 
-os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP, threadsafe=False)
+os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP,
+                            threadsafe=False)
 
 def getenv_llimpl(name):
     l_name = rffi.str2charp(name)
@@ -69,7 +78,8 @@ def getenv_llimpl(name):
     rffi.free_charp(l_name)
     return result
 
-register_external(r_getenv, [str0], annmodel.SomeString(can_be_None=True, no_nul=True),
+register_external(r_getenv, [str0],
+                  annmodel.SomeString(can_be_None=True, no_nul=True),
                   export_name='ll_os.ll_os_getenv',
                   llimpl=getenv_llimpl)
 
@@ -148,9 +158,8 @@ elif sys.platform.startswith('win'):
         '_environ',
         ExternalCompilationInfo(includes=['stdlib.h']))
 else:
-    os_get_environ, _os_set_environ = rffi.CExternVariable(rffi.CCHARPP,
-                                                           'environ',
-                                                           ExternalCompilationInfo())
+    os_get_environ, _os_set_environ = rffi.CExternVariable(
+        rffi.CCHARPP, 'environ', ExternalCompilationInfo())
 
 # ____________________________________________________________
 
