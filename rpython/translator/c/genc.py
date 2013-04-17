@@ -355,6 +355,11 @@ class CStandaloneBuilder(CBuilder):
 
     def cmdexec(self, args='', env=None, err=False, expect_crash=False):
         assert self._compiled
+        if env is None:
+            envrepr = ''
+        else:
+            envrepr = ' [env=%r]' % (env,)
+        log.cmdexec('%s %s%s' % (self.executable_name, args, envrepr))
         res = self.translator.platform.execute(self.executable_name, args,
                                                env=env)
         if res.returncode != 0:

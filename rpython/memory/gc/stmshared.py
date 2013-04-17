@@ -80,13 +80,7 @@ class StmGCSharedArea(object):
         self.count_global_pages = 0
 
     def setup(self):
-        self.ll_global_lock = rthread.allocate_ll_lock()
-
-    def acquire_global_lock(self):
-        rthread.acquire_NOAUTO(self.ll_global_lock, True)
-
-    def release_global_lock(self):
-        rthread.release_NOAUTO(self.ll_global_lock)
+        pass
 
 
 # ------------------------------------------------------------
@@ -239,7 +233,7 @@ class StmGCThreadLocalAllocator(object):
         them out.
         """
         stmshared = self.sharedarea
-        stmshared.acquire_global_lock()
+        stmshared.gc.acquire_global_lock()
         i = stmshared.length - 1
         while i >= 1:
             lpage = self.pages_for_size[i]
@@ -250,7 +244,7 @@ class StmGCThreadLocalAllocator(object):
                 stmshared.full_pages[i] = lpage
             i -= 1
         stmshared.count_global_pages += self.count_pages
-        stmshared.release_global_lock()
+        stmshared.gc.release_global_lock()
 
     def delete(self):
         self.gift_all_pages_to_shared_area()

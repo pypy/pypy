@@ -203,14 +203,17 @@ class StmGC(MovingGCBase):
         llop.nop(lltype.Void, llhelper(self.stm_operations.DUPLICATE,
                                        self._stm_duplicate))
         #
+        self.ll_global_lock = rthread.null_ll_lock
         self.sharedarea.setup()
         #
         self.linked_list_stmtls = None
-        self.ll_global_lock = rthread.allocate_ll_lock()
         #
         self.stm_operations.descriptor_init()
         self.stm_operations.begin_inevitable_transaction()
         self.setup_thread()
+        #
+        # Now the gc is running, we can allocate this lock object
+        self.ll_global_lock = rthread.allocate_ll_lock()
 
     def setup_thread(self):
         """Build the StmGCTLS object and start a transaction at the level
@@ -237,15 +240,22 @@ class StmGC(MovingGCBase):
         stmtls.delete()
 
     def acquire_global_lock(self):
-        rthread.acquire_NOAUTO(self.ll_global_lock, True)
+        if self.ll_global_lock:
+            rthread.acquire_NOAUTO(self.ll_global_lock, True)
 
     def release_global_lock(self):
-        rthread.release_NOAUTO(self.ll_global_lock)
+        if self.ll_global_lock:
+            rthread.release_NOAUTO(self.ll_global_lock)
 
     def add_in_linked_list(self, stmtls):
         self.acquire_global_lock()
+        stmnext = self.linked_list_stmtls
         stmtls.linked_list_prev = None
-        stmtls.linked_list_next = self.linked_list_stmtls
+        stmtls.linked_list_next = stmnext
+        if stmnext is not None:
+            ll_assert(stmnext.linked_list_prev is None,
+                      "add_in_linked_list: bad linked list")
+            stmnext.linked_list_prev = stmtls
         self.linked_list_stmtls = stmtls
         self.release_global_lock()
 
@@ -254,9 +264,9 @@ class StmGC(MovingGCBase):
         c = 0
         stmprev = stmtls.linked_list_prev
         stmnext = stmtls.linked_list_next
-        if stmnext:
+        if stmnext is not None:
             stmnext.linked_list_prev = stmprev
-        if stmprev:
+        if stmprev is not None:
             stmprev.linked_list_next = stmnext
             c += 1
         if stmtls is self.linked_list_stmtls:

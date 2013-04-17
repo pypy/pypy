@@ -200,6 +200,7 @@ def acquire_NOAUTO(ll_lock, flag):
     res = c_thread_acquirelock_NOAUTO(ll_lock, flag)
     res = rffi.cast(lltype.Signed, res)
     return bool(res)
+acquire_NOAUTO._annenforceargs_ = (None, bool)
 
 def release_NOAUTO(ll_lock):
     if not we_are_translated():
