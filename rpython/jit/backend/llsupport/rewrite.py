@@ -8,19 +8,29 @@ from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from rpython.jit.metainterp.history import JitCellToken
 
+FLAG_ARRAY = 0
+FLAG_STR = 1
+FLAG_UNICODE = 2
+
 class GcRewriterAssembler(object):
-    # This class performs the following rewrites on the list of operations:
-    #
-    # - Remove the DEBUG_MERGE_POINTs.
-    #
-    # - Turn all NEW_xxx to either a CALL_MALLOC_GC, or a CALL_MALLOC_NURSERY
-    #   followed by SETFIELDs in order to initialize their GC fields.  The
-    #   two advantages of CALL_MALLOC_NURSERY is that it inlines the common
-    #   path, and we need only one such operation to allocate several blocks
-    #   of memory at once.
-    #
-    # - Add COND_CALLs to the write barrier before SETFIELD_GC and
-    #   SETARRAYITEM_GC operations.
+    """ This class performs the following rewrites on the list of operations:
+
+     - Remove the DEBUG_MERGE_POINTs.
+
+     - Turn all NEW_xxx to either a CALL_MALLOC_GC, or a CALL_MALLOC_NURSERY
+       followed by SETFIELDs in order to initialize their GC fields.  The
+       two advantages of CALL_MALLOC_NURSERY is that it inlines the common
+       path, and we need only one such operation to allocate several blocks
+       of memory at once.
+
+     - Add COND_CALLs to the write barrier before SETFIELD_GC and
+       SETARRAYITEM_GC operations.
+
+    recent_mallocs contains a dictionary of variable -> None. If a variable
+    is in the dictionary, next setfields can be called without a write barrier,
+    because the variable got allocated after the last potentially collecting
+    resop
+    """
 
     _previous_size = -1
     _op_malloc_nursery = None
@@ -32,7 +42,7 @@ class GcRewriterAssembler(object):
         self.cpu = cpu
         self.newops = []
         self.known_lengths = {}
-        self.recent_mallocs = {}     # set of variables
+        self.recent_mallocs = {}
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -92,9 +102,11 @@ class GcRewriterAssembler(object):
             assert isinstance(descr, ArrayDescr)
             self.handle_new_array(descr, op)
         elif opnum == rop.NEWSTR:
-            self.handle_new_array(self.gc_ll_descr.str_descr, op)
+            self.handle_new_array(self.gc_ll_descr.str_descr, op,
+                                  kind=FLAG_STR)
         elif opnum == rop.NEWUNICODE:
-            self.handle_new_array(self.gc_ll_descr.unicode_descr, op)
+            self.handle_new_array(self.gc_ll_descr.unicode_descr, op,
+                                  kind=FLAG_UNICODE)
         else:
             raise NotImplementedError(op.getopname())
 
@@ -106,7 +118,7 @@ class GcRewriterAssembler(object):
         else:
             self.gen_malloc_fixedsize(size, descr.tid, op.result)
 
-    def handle_new_array(self, arraydescr, op):
+    def handle_new_array(self, arraydescr, op, kind=FLAG_ARRAY):
         v_length = op.getarg(0)
         total_size = -1
         if isinstance(v_length, ConstInt):
@@ -119,6 +131,14 @@ class GcRewriterAssembler(object):
                 pass    # total_size is still -1
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
+        elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
+              self.gen_malloc_nursery_varsize(arraydescr.itemsize,
+              v_length, op.result, arraydescr, kind=kind)):
+            # note that we cannot initialize tid here, because the array
+            # might end up being allocated by malloc_external or some
+            # stuff that initializes GC header fields differently
+            self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
+            return
         if (total_size >= 0 and
                 self.gen_malloc_nursery(total_size, op.result)):
             self.gen_initialize_tid(op.result, arraydescr.tid)
@@ -152,7 +172,7 @@ class GcRewriterAssembler(object):
                                size_box,
                                descr=descrs.jfi_frame_size)
             self.newops.append(op0)
-            self.gen_malloc_nursery_varsize(size_box, frame, is_small=True)
+            self.gen_malloc_nursery_varsize_small(size_box, frame)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             length_box = history.BoxInt()
             op1 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
@@ -281,10 +301,28 @@ class GcRewriterAssembler(object):
         self._gen_call_malloc_gc([ConstInt(addr), v_num_elem], v_result,
                                  self.gc_ll_descr.malloc_unicode_descr)
 
-    def gen_malloc_nursery_varsize(self, sizebox, v_result, is_small=False):
+    def gen_malloc_nursery_varsize(self, itemsize, v_length, v_result,
+                                   arraydescr, kind=FLAG_ARRAY):
+        """ itemsize is an int, v_length and v_result are boxes
+        """
+        if not self.cpu.can_inline_varsize_malloc:
+            return False # temporary, kill when ARM supports it
+        gc_descr = self.gc_ll_descr
+        if (kind == FLAG_ARRAY and
+            (arraydescr.basesize != gc_descr.standard_array_basesize or
+             arraydescr.lendescr.offset != gc_descr.standard_array_length_ofs)):
+            return False
+        self.emitting_an_operation_that_can_collect()
+        op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
+                          [ConstInt(kind), ConstInt(itemsize), v_length],
+                          v_result, descr=arraydescr)
+        self.newops.append(op)
+        self.recent_mallocs[v_result] = None
+        return True
+
+    def gen_malloc_nursery_varsize_small(self, sizebox, v_result):
         """ Generate CALL_MALLOC_NURSERY_VARSIZE_SMALL
         """
-        assert is_small
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE_SMALL,
                           [sizebox],

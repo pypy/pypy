@@ -85,6 +85,7 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
+        tzdescr = None # noone cares
         #
         namespace.update(locals())
         #
@@ -107,7 +108,9 @@ class FakeTracker(object):
 
 class BaseFakeCPU(object):
     JITFRAME_FIXED_SIZE = 0
-    
+
+    can_inline_varsize_malloc = True
+
     def __init__(self):
         self.tracker = FakeTracker()
         self._cache = {}
@@ -121,7 +124,7 @@ class BaseFakeCPU(object):
 
     def unpack_arraydescr_size(self, d):
         return 0, d.itemsize, 0
-    
+
     def arraydescrof(self, ARRAY):
         try:
             return self._cache[ARRAY]
@@ -129,7 +132,7 @@ class BaseFakeCPU(object):
             r = ArrayDescr(1, 2, FieldDescr('len', 0, 0, 0), 0)
             self._cache[ARRAY] = r
             return r
-        
+
     def fielddescrof(self, STRUCT, fname):
         key = (STRUCT, fname)
         try:
@@ -407,10 +410,21 @@ class TestFramework(RewriteTests):
             jump(i0)
         """, """
             [i0]
-            p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
-                                %(bdescr.tid)d, i0,           \
-                                descr=malloc_array_descr)
+            p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
+            setfield_gc(p0, i0, descr=blendescr)
             jump(i0)
+        """)
+
+    def test_rewrite_new_string(self):
+        self.check_rewrite("""
+        [i0]
+        p0 = newstr(i0)
+        jump(i0)
+        """, """
+        [i0]
+        p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
+        setfield_gc(p0, i0, descr=strlendescr)
+        jump(i0)
         """)
 
     def test_rewrite_assembler_nonstandard_array(self):
@@ -533,10 +547,12 @@ class TestFramework(RewriteTests):
             p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
             setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
-            p2 = call_malloc_gc(ConstClass(malloc_unicode), i2, \
-                                descr=malloc_unicode_descr)
-            p3 = call_malloc_gc(ConstClass(malloc_str), i2, \
-                                descr=malloc_str_descr)
+            p2 = call_malloc_nursery_varsize(2, 4, i2, \
+                                descr=unicodedescr)
+            setfield_gc(p2, i2, descr=unicodelendescr)
+            p3 = call_malloc_nursery_varsize(1, 1, i2, \
+                                descr=strdescr)
+            setfield_gc(p3, i2, descr=strlendescr)
             jump()
         """)
 
@@ -716,8 +732,9 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
-            p1 = call_malloc_gc(ConstClass(malloc_str), i0, \
-                                descr=malloc_str_descr)
+            p1 = call_malloc_nursery_varsize(1, 1, i0, \
+                                descr=strdescr)
+            setfield_gc(p1, i0, descr=strlendescr)
             cond_call_gc_wb(p0, p1, descr=wbdescr)
             setfield_raw(p0, p1, descr=tzdescr)
             jump()

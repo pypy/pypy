@@ -54,7 +54,7 @@ class X86RegisterManager(RegisterManager):
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
-    
+
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
@@ -103,7 +103,7 @@ class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
         FrameManager.__init__(self)
         self.base_ofs = base_ofs
-    
+
     def frame_pos(self, i, box_type):
         return FrameLoc(i, get_ebp_ofs(self.base_ofs, i), box_type)
 
@@ -870,6 +870,33 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)
 
+    def consider_call_malloc_nursery_varsize(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        length_box = op.getarg(2)
+        arraydescr = op.getdescr()
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # looking at the result
+        self.rm.force_allocate_reg(op.result, selected_reg=eax)
+        #
+        # We need edx as a temporary, but otherwise don't save any more
+        # register.  See comments in _build_malloc_slowpath().
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
+        lengthloc = self.rm.make_sure_var_in_reg(length_box, [op.result, tmp_box])
+        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
+
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
         gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)
@@ -1313,7 +1340,7 @@ class RegAlloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
-        
+
 
     def consider_keepalive(self, op):
         pass
