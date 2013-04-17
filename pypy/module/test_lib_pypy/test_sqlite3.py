@@ -136,7 +136,7 @@ def test_connection_del(tmpdir):
         resource.setrlimit(resource.RLIMIT_NOFILE, limit)
 
 def test_on_conflict_rollback_executemany(con):
-    major, minor, micro = _sqlite3.sqlite_version.split('.')
+    major, minor, micro = _sqlite3.sqlite_version.split('.')[:3]
     if (int(major), int(minor), int(micro)) < (3, 2, 2):
         pytest.skip("requires sqlite3 version >= 3.2.2")
     con.execute("create table foo(x, unique(x) on conflict rollback)")

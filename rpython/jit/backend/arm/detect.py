@@ -1,5 +1,5 @@
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.clibffi import FFI_DEFAULT_ABI, FFI_SYSV, FFI_VFP
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import CompilationError
 
@@ -14,10 +14,7 @@ static void __attribute__((optimize("O0"))) pypy__arm_has_vfp()
     """])
 
 def detect_hardfloat():
-    # http://gcc.gnu.org/ml/gcc-patches/2010-10/msg02419.html
-    if rffi_platform.getdefined('__ARM_PCS_VFP', ''):
-       return rffi_platform.getconstantinteger('__ARM_PCS_VFP', '')
-    return False
+    return FFI_DEFAULT_ABI == FFI_VFP
 
 def detect_float():
     """Check for hardware float support

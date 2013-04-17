@@ -53,6 +53,11 @@ allocate a temporary buffer where to store the arguments.
 .. branch: improve-docs-2
 Improve documents and straighten out links
 
+.. branch: fast-newarray
+Inline the fast path of newarray in the assembler.
+Disabled on ARM until we fix issues.
+
+
 .. branches we don't care about
 .. branch: autoreds
 .. branch: reflex-support
@@ -129,3 +134,5 @@ cffi implementation of sqlite3
 
 .. branch: release-2.0-beta2
 .. branch: unbreak-freebsd
+
+.. branch: virtualref-virtualizable

@@ -70,6 +70,14 @@ class BaseAssembler(object):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
+        if hasattr(gc_ll_descr, 'minimal_size_in_nursery'):
+            self.gc_minimal_size_in_nursery = gc_ll_descr.minimal_size_in_nursery
+        else:
+            self.gc_minimal_size_in_nursery = 0
+        if hasattr(gc_ll_descr, 'gcheaderbuilder'):
+            self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
+        else:
+            self.gc_size_of_header = WORD # for tests
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
@@ -85,7 +93,20 @@ class BaseAssembler(object):
             self._build_wb_slowpath(True, withfloats=True)
         self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
-            self._build_malloc_slowpath()
+            # generate few slowpaths for various cases
+            self.malloc_slowpath = self._build_malloc_slowpath(kind='fixed')
+            self.malloc_slowpath_varsize = self._build_malloc_slowpath(
+                kind='var')
+        if hasattr(gc_ll_descr, 'malloc_str'):
+            self.malloc_slowpath_str = self._build_malloc_slowpath(kind='str')
+        else:
+            self.malloc_slowpath_str = None
+        if hasattr(gc_ll_descr, 'malloc_unicode'):
+            self.malloc_slowpath_unicode = self._build_malloc_slowpath(
+                kind='unicode')
+        else:
+            self.malloc_slowpath_unicode = None
+
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
             self._build_release_gil(gc_ll_descr.gcrootmap)

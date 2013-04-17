@@ -415,6 +415,7 @@ class GcLLDescr_framework(GcLLDescription):
             return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                    type_id, size,
                                                    False, False, False)
+
         self.generate_function('malloc_nursery', malloc_nursery_slowpath,
                                [lltype.Signed])
 
@@ -567,6 +568,9 @@ class GcLLDescr_framework(GcLLDescription):
     def get_malloc_slowpath_addr(self):
         return self.get_malloc_fn_addr('malloc_nursery')
 
+    def get_malloc_slowpath_array_addr(self):
+        return self.get_malloc_fn_addr('malloc_array')
+    
 # ____________________________________________________________
 
 def get_ll_description(gcdescr, translator=None, rtyper=None):

@@ -1,6 +1,6 @@
 # Generates the resource cache
-from lib_pypy.ctypes_config_cache import rebuild
-rebuild.rebuild_one('resource.ctc.py')
+#from lib_pypy.ctypes_config_cache import rebuild
+#rebuild.rebuild_one('resource.ctc.py')
 
 import os
 

@@ -1,7 +1,12 @@
+import py
+try:
+    from lib_pypy import resource
+except ImportError:
+    py.test.skip('no resource module available')
+
 from lib_pypy.ctypes_config_cache import rebuild
 rebuild.rebuild_one('resource.ctc.py')
 
-from lib_pypy import resource
 
 def test_resource():
     x = resource.getrusage(resource.RUSAGE_SELF)
