@@ -278,7 +278,7 @@ class AssemblerARM(ResOpAssembler):
         mc.CMP_ri(r.r0.value, 0)
         mc.B(self.propagate_exception_path, c=c.EQ)
         #
-        self._reload_frame_if_necessary(mc, align_stack=True)
+        self._reload_frame_if_necessary(mc)
         self._pop_all_regs_from_jitframe(mc, [r.r0, r.r1], self.cpu.supports_floats)
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
@@ -293,7 +293,7 @@ class AssemblerARM(ResOpAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath = rawstart
 
-    def _reload_frame_if_necessary(self, mc, align_stack=False, can_collect=0):
+    def _reload_frame_if_necessary(self, mc):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             rst = gcrootmap.get_root_stack_top_addr()
@@ -305,7 +305,7 @@ class AssemblerARM(ResOpAssembler):
             # frame never uses card marking, so we enforce this is not
             # an array
             self._write_barrier_fastpath(mc, wbdescr, [r.fp], array=False,
-                                         is_frame=True)#, align_stack=align_stack)
+                                         is_frame=True)
 
     def propagate_memoryerror_if_r0_is_null(self):
         # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null

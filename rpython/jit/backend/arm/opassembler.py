@@ -350,9 +350,10 @@ class ResOpAssembler(BaseAssembler):
         return cond
 
     def _emit_call(self, adr, arglocs, fcond=c.AL, resloc=None,
-                                            result_info=(-1, -1),
-                                            can_collect=1,
-                                            reload_frame=False):
+                    result_info=(-1, -1),
+                    # whether to worry about a CALL that can collect; this
+                    # is always true except in call_release_gil
+                    can_collect=True):
         if self.hf_abi:
             stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
                                             resloc, result_info)
@@ -361,7 +362,11 @@ class ResOpAssembler(BaseAssembler):
                                             resloc, result_info)
 
         if can_collect:
+            # we push *now* the gcmap, describing the status of GC registers
+            # after the rearrangements done just above, ignoring the return
+            # value eax, if necessary
             noregs = self.cpu.gc_ll_descr.is_shadow_stack()
+            assert noregs
             gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
             self.push_gcmap(self.mc, gcmap, store=True)
         #the actual call
@@ -385,10 +390,8 @@ class ResOpAssembler(BaseAssembler):
                 self._ensure_result_bit_extension(resloc, result_info[0],
                                                           result_info[1])
         if can_collect:
-            self._reload_frame_if_necessary(self.mc, can_collect=can_collect)
-            self.pop_gcmap(self.mc)
-        elif reload_frame:
             self._reload_frame_if_necessary(self.mc)
+            self.pop_gcmap(self.mc)
         return fcond
 
     def _restore_sp(self, stack_args, fcond):
@@ -1259,6 +1262,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
 
+        self._store_force_index(guard_op)
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         numargs = op.numargs()
@@ -1267,24 +1271,27 @@ class ResOpAssembler(BaseAssembler):
         resloc = arglocs[0]
 
         if gcrootmap:
-            noregs = self.cpu.gc_ll_descr.is_shadow_stack()
-            assert noregs
-            gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
+            # we put the gcmap now into the frame before releasing the GIL,
+            # and pop it below after reacquiring the GIL.  The assumption
+            # is that this gcmap describes correctly the situation at any
+            # point in-between: all values containing GC pointers should
+            # be safely saved out of registers by now, and will not be
+            # manipulated by any of the following CALLs.
+            gcmap = self._regalloc.get_gcmap(noregs=True)
             self.push_gcmap(self.mc, gcmap, store=True)
             self.call_release_gil(gcrootmap, arglocs, regalloc, fcond)
         # do the call
-        self._store_force_index(guard_op)
-        #
         descr = op.getdescr()
         size = descr.get_result_size()
         signed = descr.is_result_signed()
         #
         self._emit_call(adr, callargs, fcond,
                                     resloc, (size, signed),
-                                    can_collect=0)
+                                    can_collect=False)
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, resloc, regalloc, fcond)
+            self.pop_gcmap(self.mc)     # remove the gcmap saved above
 
         self._emit_guard_may_force(guard_op, arglocs[numargs+1:], numargs)
         return fcond
@@ -1313,7 +1320,7 @@ class ResOpAssembler(BaseAssembler):
         # call the reopenstack() function (also reacquiring the GIL)
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
             self._emit_call(imm(self.reacqgil_addr), [], fcond,
-                    can_collect=False, reload_frame=True)
+                    can_collect=False)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
