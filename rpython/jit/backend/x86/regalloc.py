@@ -853,8 +853,9 @@ class RegAlloc(BaseRegalloc):
     def consider_call_malloc_nursery_varsize_frame(self, op):
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt) # we cannot have a const here!
-        # size_box can be anywhere (including the stack, or eax, or edi)
-        sizeloc = self.rm.loc(size_box)
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with eax or edi)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
         self.rm.possibly_free_var(size_box)
         # the result will be in eax
         self.rm.force_allocate_reg(op.result, selected_reg=eax)

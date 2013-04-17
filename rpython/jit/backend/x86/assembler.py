@@ -2368,7 +2368,7 @@ class Assembler386(BaseAssembler):
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
-        if not isinstance(sizeloc, RegLoc) or sizeloc is eax:
+        if sizeloc is eax:
             self.mc.MOV(edi, sizeloc)
             sizeloc = edi
         self.mc.MOV(eax, heap(nursery_free_adr))
