@@ -15,6 +15,10 @@ class FakeGC:
         self._object_sizes[obj] = size
     def get_size_incl_hash(self, obj):
         return self._object_sizes[obj]
+    def acquire_global_lock(self):
+        pass
+    def release_global_lock(self):
+        pass
 
 
 def test_simple():
