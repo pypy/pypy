@@ -1014,7 +1014,7 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_var(t)
         return [imm(size)]
 
-    def prepare_op_call_malloc_nursery_varsize_small(self, op, fcond):
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt)
 

@@ -2833,7 +2833,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_assembler_call_propagate_exc(self):
         from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-        
+
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph can't fake exceptions well enough, give up")
 
@@ -3477,10 +3477,10 @@ class LLtypeBackendTest(BaseBackendTest):
         ops = """
         [i0]
         i1 = int_force_ge_zero(i0)    # but forced to be in a register
-        finish(i1, descr=1)
+        finish(i1, descr=descr)
         """
+        descr = BasicFinalDescr()
         loop = parse(ops, self.cpu, namespace=locals())
-        descr = loop.operations[-1].getdescr()
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         for inp, outp in [(2,2), (-3, 0)]:
@@ -3493,21 +3493,20 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("pointless test on non-asm")
         from rpython.jit.backend.tool.viewcode import machine_code_dump
         import ctypes
+        targettoken = TargetToken()
         ops = """
         [i2]
         i0 = same_as(i2)    # but forced to be in a register
-        label(i0, descr=1)
+        label(i0, descr=targettoken)
         i1 = int_add(i0, i0)
-        guard_true(i1, descr=faildesr) [i1]
-        jump(i1, descr=1)
+        guard_true(i1, descr=faildescr) [i1]
+        jump(i1, descr=targettoken)
         """
         faildescr = BasicFailDescr(2)
         loop = parse(ops, self.cpu, namespace=locals())
-        faildescr = loop.operations[-2].getdescr()
-        jumpdescr = loop.operations[-1].getdescr()
         bridge_ops = """
         [i0]
-        jump(i0, descr=jumpdescr)
+        jump(i0, descr=targettoken)
         """
         bridge = parse(bridge_ops, self.cpu, namespace=locals())
         looptoken = JitCellToken()

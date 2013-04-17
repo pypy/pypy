@@ -2,16 +2,6 @@
 /************************************************************/
  /***  C header subsection: support functions              ***/
 
-/* a temporary(?) workaround for GCC 4.8.  See:
-    http://stackoverflow.com/questions/16016627/
-*/
-#ifdef __GNUC__
-# if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8)
-#  pragma GCC optimize("no-aggressive-loop-optimizations")
-# endif
-#endif
-
-
 #define RUNNING_ON_LLINTERP	0
 #define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
 

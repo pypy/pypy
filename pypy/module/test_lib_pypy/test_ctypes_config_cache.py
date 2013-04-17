@@ -33,6 +33,10 @@ def run(filename, outputname):
 
 
 def test_syslog():
+    try:
+        import lib_pypy.syslog
+    except ImportError:
+        py.test.skip('no syslog on this platform')
     d = run('syslog.ctc.py', '_syslog_cache.py')
     assert 'LOG_NOTICE' in d
 
