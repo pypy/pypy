@@ -69,14 +69,9 @@ os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP,
                             threadsafe=False)
 
 def getenv_llimpl(name):
-    l_name = rffi.str2charp(name)
-    l_result = os_getenv(l_name)
-    if l_result:
-        result = rffi.charp2str(l_result)
-    else:
-        result = None
-    rffi.free_charp(l_name)
-    return result
+    with rffi.scoped_str2charp(name) as l_name:
+        l_result = os_getenv(l_name)
+        return rffi.charp2str(l_result) if l_result else None
 
 register_external(r_getenv, [str0],
                   annmodel.SomeString(can_be_None=True, no_nul=True),
@@ -122,9 +117,8 @@ if hasattr(__import__(os.name), 'unsetenv'):
     os_unsetenv = rffi.llexternal('unsetenv', [rffi.CCHARP], rffi.INT)
 
     def unsetenv_llimpl(name):
-        l_name = rffi.str2charp(name)
-        error = rffi.cast(lltype.Signed, os_unsetenv(l_name))
-        rffi.free_charp(l_name)
+        with rffi.scoped_str2charp(name) as l_name:
+            error = rffi.cast(lltype.Signed, os_unsetenv(l_name))
         if error:
             raise OSError(rposix.get_errno(), "os_unsetenv failed")
         try:
