@@ -115,7 +115,7 @@ class StmShadowStackRootWalker(BaseRootWalker):
             gc = self.gc
             addr = end
             while True:
-                addr = root_iterator.nextleft(gc, addr)
+                addr = root_iterator.nextleft(gc, llmemory.NULL, addr)
                 if addr.signed[0] == END_MARKER:
                     break
                 callback(arg, addr)

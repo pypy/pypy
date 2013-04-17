@@ -1258,7 +1258,7 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         else:
             try:
                 analyzer = FinalizerAnalyzer(self.translator)
-                light = not analyzer..analyze_light_finalizer(g)
+                light = not analyzer.analyze_light_finalizer(g)
             except lltype.DelayedPointer:
                 light = False    # XXX bah, too bad
         return fptr, light
