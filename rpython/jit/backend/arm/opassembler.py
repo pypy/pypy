@@ -366,7 +366,6 @@ class ResOpAssembler(BaseAssembler):
             # after the rearrangements done just above, ignoring the return
             # value eax, if necessary
             noregs = self.cpu.gc_ll_descr.is_shadow_stack()
-            assert noregs
             gcmap = self._regalloc.get_gcmap([r.r0], noregs=noregs)
             self.push_gcmap(self.mc, gcmap, store=True)
         #the actual call
