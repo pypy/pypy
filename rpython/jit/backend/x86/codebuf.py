@@ -7,7 +7,6 @@ from rpython.jit.backend.x86.rx86 import X86_32_CodeBuilder, X86_64_CodeBuilder
 from rpython.jit.backend.x86.regloc import LocationCodeBuilder
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64, WORD
 from rpython.jit.backend.x86 import valgrind
-
 # XXX: Seems nasty to change the superclass of MachineCodeBlockWrapper
 # like this
 if IS_X86_32:

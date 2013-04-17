@@ -109,7 +109,6 @@ class FfiCallTests(object):
             assert res == rvalue or (res, rvalue) == (654321, None)
             self.check_operations_history(call_may_force=0,
                                           call_release_gil=expected_call_release_gil)
-
     def test_simple_call_int(self):
         self._run([types.signed] * 2, types.signed, [456, 789], -42)
 

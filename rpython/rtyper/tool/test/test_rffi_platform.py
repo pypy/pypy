@@ -281,9 +281,6 @@ def test_memory_alignment():
     assert a % struct.calcsize("P") == 0
 
 def test_external_lib():
-    # XXX this one seems to be a bit too platform-specific. Check
-    #     how to test it on windows correctly (using so_prefix?)
-    #     and what are alternatives to LD_LIBRARY_PATH
     eci = ExternalCompilationInfo()
     c_source = """
     int f(int a, int b)
@@ -291,12 +288,17 @@ def test_external_lib():
         return (a + b);
     }
     """
+    if platform.cc == 'cl.exe':
+        c_source = '__declspec(dllexport) ' + c_source
+        libname = 'libc_lib'
+    else:
+        libname = 'c_lib'
     tmpdir = udir.join('external_lib').ensure(dir=1)
     c_file = tmpdir.join('libc_lib.c')
     c_file.write(c_source)
     l = platform.compile([c_file], eci, standalone=False)
     eci = ExternalCompilationInfo(
-        libraries = ['c_lib'],
+        libraries = [libname],
         library_dirs = [str(tmpdir)]
         )
     rffi_platform.verify_eci(eci)
