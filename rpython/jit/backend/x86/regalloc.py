@@ -876,19 +876,21 @@ class RegAlloc(BaseRegalloc):
         if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
             raise Exception("unreachable code")
             # for boehm, this function should never be called
-        length_box = op.getarg(2)
         arraydescr = op.getdescr()
+        length_box = op.getarg(2)
         assert isinstance(length_box, BoxInt) # we cannot have a const here!
-        # looking at the result
+        # the result will be in eax
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        #
-        # We need edx as a temporary, but otherwise don't save any more
-        # register.  See comments in _build_malloc_slowpath().
+        # we need edi as a temporary
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
-        lengthloc = self.rm.make_sure_var_in_reg(length_box, [op.result, tmp_box])
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != eax, edi.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
         #
         itemsize = op.getarg(1).getint()
         maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
