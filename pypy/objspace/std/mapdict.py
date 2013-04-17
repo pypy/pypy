@@ -867,9 +867,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 # we have a data descriptor, which means the dictionary value
                 # (if any) has no relevance.
                 from pypy.interpreter.typedef import Member
-                descr = space.interpclass_w(w_descr)
-                if isinstance(descr, Member):    # it is a slot -- easy case
-                    selector = ("slot", SLOTS_STARTING_FROM + descr.index)
+                if isinstance(w_descr, Member):    # it is a slot -- easy case
+                    selector = ("slot", SLOTS_STARTING_FROM + w_descr.index)
             else:
                 # There is a non-data descriptor in the class.  If there is
                 # also a dict attribute, use the latter, caching its position.

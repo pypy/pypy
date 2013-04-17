@@ -12,6 +12,11 @@ import sys as _sys
 import heapq as _heapq
 from itertools import repeat as _repeat, chain as _chain, starmap as _starmap
 from itertools import imap as _imap
+try:
+    from __pypy__ import newdict
+except ImportError:
+    assert '__pypy__' not in _sys.builtin_module_names
+    newdict = lambda _ : {}
 
 try:
     from thread import get_ident as _get_ident
@@ -326,8 +331,11 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
 
     # Execute the template string in a temporary namespace and
     # support tracing utilities by setting a value for frame.f_globals['__name__']
-    namespace = dict(__name__='namedtuple_%s' % typename,
-                     OrderedDict=OrderedDict, _property=property, _tuple=tuple)
+    namespace = newdict('module')
+    namespace['OrderedDict'] = OrderedDict
+    namespace['_property'] = property
+    namespace['_tuple'] = tuple
+    namespace['__name__'] = 'namedtuple_%s' % typename
     try:
         exec template in namespace
     except SyntaxError, e:

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from rpython.flowspace.model import Constant, mkentrymap, c_last_exception
 from rpython.translator.simplify import simplify_graph
-from rpython.flowspace.objspace import FlowObjSpace
+from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowSpaceFrame
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
@@ -34,7 +34,7 @@ class Base:
         except AttributeError:
             pass
         #name = func.func_name
-        graph = self.space.build_flow(func, **kwds)
+        graph = build_flow(func, **kwds)
         graph.source = inspect.getsource(func)
         self.show(graph)
         return graph
@@ -42,9 +42,6 @@ class Base:
     def show(self, graph):
         if option.view:
             graph.show()
-
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
 
     def all_operations(self, graph):
         result = {}
@@ -702,6 +699,35 @@ class TestFlowObjSpace(Base):
             for op in block.operations:
                 assert not op.opname == "call_args"
 
+    def test_starstar_call(self):
+        """Check that CALL_FUNCTION_KW and CALL_FUNCTION_VAR_KW raise a
+        useful error.
+        """
+        def g(a, b, c):
+            return a*b*c
+        def f1():
+            return g(**{'a':0})
+        with py.test.raises(FlowingError) as excinfo:
+            graph = self.codetest(f1)
+        assert 'Dict-unpacking' in str(excinfo.value)
+        def f2():
+            return g(*(0,), **{'c':3})
+        with py.test.raises(FlowingError) as excinfo:
+            graph = self.codetest(f2)
+        assert 'Dict-unpacking' in str(excinfo.value)
+
+    def test_kwarg_call(self):
+        def g(x):
+            return x
+        def f():
+            return g(x=2)
+        graph = self.codetest(f)
+        for block in graph.iterblocks():
+            for op in block.operations:
+                assert op.opname == "call_args"
+                assert op.args == map(Constant,
+                        [g, (0, ('x',), False, False), 2])
+
     def test_catch_importerror_1(self):
         def f():
             try:
@@ -740,7 +766,7 @@ class TestFlowObjSpace(Base):
 
     def test_relative_import(self):
         def f():
-            from ..test.test_objspace import FlowObjSpace
+            from ..objspace import build_flow
         # Check that the function works in Python
         assert f() is None
         self.codetest(f)

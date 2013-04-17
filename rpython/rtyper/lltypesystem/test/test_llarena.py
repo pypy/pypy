@@ -302,6 +302,7 @@ def test_arena_protect():
 
 class TestStandalone(test_standalone.StandaloneTests):
     def test_compiled_arena_protect(self):
+        import sys
         S = lltype.Struct('S', ('x', lltype.Signed))
         #
         def fn(argv):
@@ -326,5 +327,14 @@ class TestStandalone(test_standalone.StandaloneTests):
         data = cbuilder.cmdexec('0')
         assert data == '133\n'
         if has_protect:
+            if sys.platform.startswith('win'):
+                # Do not open error dialog box
+                import ctypes
+                SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
+                old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+                new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+                ctypes.windll.kernel32.SetErrorMode(new_err_mode)
             cbuilder.cmdexec('1', expect_crash=True)
             cbuilder.cmdexec('2', expect_crash=True)
+            if sys.platform.startswith('win'):
+                ctypes.windll.kernel32.SetErrorMode(old_err_mode)

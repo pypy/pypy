@@ -1,4 +1,6 @@
-class AppTestNumpy:
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+
+class AppTestNumpy(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=['micronumpy'])
 
     def test_imports(self):
@@ -41,3 +43,20 @@ class AppTestNumpy:
                      'unicode', 'str']:
             assert name not in locals()
             assert getattr(numpypy, name) is getattr(__builtin__, name)
+
+    def test_typeinfo(self):
+        import numpypy
+        assert 'typeinfo' not in dir(numpypy)
+        assert 'typeinfo' in dir(numpypy.core.multiarray)
+
+    def test_set_string_function(self):
+        import numpypy
+        assert numpypy.set_string_function is not \
+               numpypy.core.multiarray.set_string_function
+
+    def test_constants(self):
+        import math
+        import numpypy
+        assert numpypy.PZERO == numpypy.NZERO == 0.0
+        assert math.isinf(numpypy.inf)
+        assert math.isnan(numpypy.nan)

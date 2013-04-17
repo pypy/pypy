@@ -138,7 +138,6 @@ class W_File(W_AbstractStream):
         self.fdopenstream(stream, fd, mode)
 
     def direct_close(self):
-        space = self.space
         stream = self.stream
         if stream is not None:
             self.newlines = self.stream.getnewlines()
@@ -591,7 +590,7 @@ def is_wouldblock_error(e):
     return False
 
 
-@unwrap_spec(file=W_File, encoding="str_or_None", errors="str_or_None")
-def set_file_encoding(space, file, encoding=None, errors=None):
-    file.encoding = encoding
-    file.errors = errors
+@unwrap_spec(w_file=W_File, encoding="str_or_None", errors="str_or_None")
+def set_file_encoding(space, w_file, encoding=None, errors=None):
+    w_file.encoding = encoding
+    w_file.errors = errors

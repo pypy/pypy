@@ -2,7 +2,7 @@
 # StringIO-based cStringIO implementation.
 #
 
-# Note that PyPy contains also a built-in module 'cStringIO' which will hide
+# Note that PyPy also contains a built-in module 'cStringIO' which will hide
 # this one if compiled in.
 
 from StringIO import *

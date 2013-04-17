@@ -5,7 +5,6 @@ RPython-compliant way.
 
 from __future__ import absolute_import
 
-import py
 import sys
 import types
 import math

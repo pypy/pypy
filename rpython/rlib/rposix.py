@@ -267,4 +267,3 @@ if os.name == 'nt':
     os_kill = rwin32.os_kill
 else:
     os_kill = os.kill
-

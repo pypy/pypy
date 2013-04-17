@@ -4,8 +4,9 @@ from __future__ import with_statement
 
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import intmask, r_uint, is_emulated_long
+from rpython.rlib.rarithmetic import intmask, is_emulated_long
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rmmap import alloc
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
@@ -15,6 +16,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 from rpython.conftest import cdir
+from platform import machine
 import py
 import os
 import sys
@@ -34,6 +36,8 @@ _FREEBSD_7 = platform.name == "freebsd7"
 
 _LITTLE_ENDIAN = sys.byteorder == 'little'
 _BIG_ENDIAN = sys.byteorder == 'big'
+
+_ARM = rffi_platform.getdefined('__arm__', '')
 
 if _WIN32:
     from rpython.rlib import rwin32
@@ -115,10 +119,10 @@ elif _MINGW:
         )
 
     eci = rffi_platform.configure_external_library(
-        'libffi-5', eci,
+        'ffi-5', eci,
         [dict(prefix='libffi-',
               include_dir='include', library_dir='.libs'),
-         dict(prefix=r'c:\mingw64', include_dir='include', library_dir='lib'),
+         dict(prefix=r'c:\\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
     USE_C_LIBFFI_MSVC = True
@@ -153,6 +157,10 @@ class CConfig:
     FFI_DEFAULT_ABI = rffi_platform.ConstantInteger('FFI_DEFAULT_ABI')
     if _WIN32 and not _WIN64:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
+
+    if _ARM:
+        FFI_SYSV = rffi_platform.ConstantInteger('FFI_SYSV')
+        FFI_VFP = rffi_platform.ConstantInteger('FFI_VFP')
 
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
 
@@ -327,6 +335,9 @@ FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
+if _ARM:
+    FFI_SYSV = cConfig.FFI_SYSV
+    FFI_VFP = cConfig.FFI_VFP
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
 FFI_CIFP = lltype.Ptr(cConfig.ffi_cif)
 

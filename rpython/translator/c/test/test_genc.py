@@ -483,12 +483,16 @@ def test_entrypoints():
     assert hasattr(ctypes.CDLL(str(t.driver.c_entryp)), 'foobar')
 
 def test_exportstruct():
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
     from rpython.rlib.exports import export_struct
     def f():
         return 42
     FOO = Struct("FOO", ("field1", Signed))
     foo = malloc(FOO, flavor="raw")
     foo.field1 = 43
+    # maybe export_struct should add the struct name to eci automatically?
+    # https://bugs.pypy.org/issue1361
+    foo._obj._compilation_info = ExternalCompilationInfo(export_symbols=['BarStruct'])
     export_struct("BarStruct", foo._obj)
     t = Translation(f, [], backend="c")
     t.annotate()

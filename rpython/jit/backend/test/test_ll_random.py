@@ -258,7 +258,8 @@ class GetFieldOperation(test_random.AbstractOperation):
             names = names[1:]
         name = r.choice(names)
         descr = builder.cpu.fielddescrof(S, name)
-        descr._random_info = 'cpu.fielddescrof(%s, %r)' % (S._name, name)
+        descr._random_info = 'cpu.fielddescrof(..., %r)' % (name,)
+        descr._random_type = S
         TYPE = getattr(S, name)
         return v, descr, TYPE
 
@@ -279,8 +280,8 @@ class GetInteriorFieldOperation(test_random.AbstractOperation):
         v_index = builder.get_index(len(array), r)
         name = r.choice(A.OF._names)
         descr = builder.cpu.interiorfielddescrof(A, name)
-        descr._random_info = 'cpu.interiorfielddescrof(%s, %r)' % (A.OF._name,
-                                                                   name)
+        descr._random_info = 'cpu.interiorfielddescrof(..., %r)' % (name,)
+        descr._random_type = A
         TYPE = getattr(A.OF, name)
         return v, v_index, descr, TYPE
 
@@ -320,7 +321,8 @@ class SetInteriorFieldOperation(GetInteriorFieldOperation):
 class NewOperation(test_random.AbstractOperation):
     def size_descr(self, builder, S):
         descr = builder.cpu.sizeof(S)
-        descr._random_info = 'cpu.sizeof(%s)' % (S._name,)
+        descr._random_info = 'cpu.sizeof(...)'
+        descr._random_type = S
         return descr
 
     def produce_into(self, builder, r):
@@ -339,6 +341,7 @@ class ArrayOperation(test_random.AbstractOperation):
     def array_descr(self, builder, A):
         descr = builder.cpu.arraydescrof(A)
         descr._random_info = 'cpu.arraydescrof(...)'
+        descr._random_type = A
         return descr
 
 class GetArrayItemOperation(ArrayOperation):

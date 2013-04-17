@@ -28,6 +28,9 @@
 
 */
 
+#if defined(__MINGW32__)
+#   include <windows.h>
+#endif
 #include <limits.h>
 
 #ifndef LLONG_MAX

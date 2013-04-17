@@ -57,7 +57,7 @@ class OsEnvironController(Controller):
 def r_getenv(name):
     just_a_placeholder     # should return None if name not found
 
-os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP)
+os_getenv = rffi.llexternal('getenv', [rffi.CCHARP], rffi.CCHARP, threadsafe=False)
 
 def getenv_llimpl(name):
     l_name = rffi.str2charp(name)

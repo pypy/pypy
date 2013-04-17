@@ -387,6 +387,8 @@ def test_cmp_none():
     assert (x != None) is True
     assert (x == ["hello"]) is False
     assert (x != ["hello"]) is True
+    y = cast(p, 0)
+    assert (y == None) is False
 
 def test_invalid_indexing():
     p = new_primitive_type("int")
@@ -766,6 +768,7 @@ def test_struct_init_list():
     assert s.a2 == 456
     assert s.a3 == 0
     assert s.p4 == cast(BVoidP, 0)
+    assert s.p4 != 0
     #
     s = newp(BStructPtr, {'a2': 41122, 'a3': -123})
     assert s.a1 == 0
@@ -778,9 +781,11 @@ def test_struct_init_list():
     p = newp(BIntPtr, 14141)
     s = newp(BStructPtr, [12, 34, 56, p])
     assert s.p4 == p
+    assert s.p4
     #
     s = newp(BStructPtr, [12, 34, 56, cast(BVoidP, 0)])
     assert s.p4 == cast(BVoidP, 0)
+    assert not s.p4
     #
     py.test.raises(TypeError, newp, BStructPtr, [12, 34, 56, None])
 
@@ -998,8 +1003,11 @@ def test_call_function_23():
     f = cast(BFunc23, _testfunc(23))
     res = f(b"foo")
     assert res == 1000 * ord(b'f')
-    res = f(None)
+    res = f(cast(BVoidP, 0))        # NULL
     assert res == -42
+    py.test.raises(TypeError, f, None)
+    py.test.raises(TypeError, f, 0)
+    py.test.raises(TypeError, f, 0.0)
 
 def test_call_function_23_bis():
     # declaring the function as int(unsigned char*)
@@ -2254,6 +2262,7 @@ def test_autocast_float():
 
 def test_longdouble():
     py_py = 'PY_DOT_PY' in globals()
+    BInt = new_primitive_type("int")
     BLongDouble = new_primitive_type("long double")
     BLongDoublePtr = new_pointer_type(BLongDouble)
     BLongDoubleArray = new_array_type(BLongDoublePtr, None)
@@ -2271,21 +2280,23 @@ def test_longdouble():
     assert float(x) == 1.23
     assert int(x) == 1
     #
-    BFunc19 = new_function_type((BLongDouble,), BLongDouble)
+    BFunc19 = new_function_type((BLongDouble, BInt), BLongDouble)
     f = cast(BFunc19, _testfunc(19))
-    start = 8
+    start = lstart = 1.5
     for i in range(107):
-        start = f(start)
-    if sizeof(BLongDouble) > sizeof(new_primitive_type("double")):
-        if not py_py:
-            assert repr(start).startswith("<cdata 'long double' 6.15")
-            assert repr(start).endswith("E+902>")
-        #
-        c = newp(BLongDoubleArray, [start])
-        x = c[0]
-        if not py_py:
-            assert repr(x).endswith("E+902>")
-            assert float(x) == float("inf")
+        start = 4 * start - start * start
+        lstart = f(lstart, 1)
+    lother = f(1.5, 107)
+    if not py_py:
+        assert float(lstart) == float(lother)
+        assert repr(lstart) == repr(lother)
+        if sizeof(BLongDouble) > sizeof(new_primitive_type("double")):
+            assert float(lstart) != start
+            assert repr(lstart).startswith("<cdata 'long double' ")
+    #
+    c = newp(BLongDoubleArray, [lstart])
+    x = c[0]
+    assert float(f(lstart, 107)) == float(f(x, 107))
 
 def test_get_array_of_length_zero():
     for length in [0, 5, 10]:
@@ -2700,6 +2711,13 @@ def test_setslice_array():
     d = newp(BShortArray, [40, 50])
     c[1:3] = d
     assert list(c) == [0, 40, 50, 30, 0]
+
+def test_cdata_name_module_doc():
+    p = new_primitive_type("signed char")
+    x = cast(p, 17)
+    assert x.__module__ == '_cffi_backend'
+    assert x.__name__ == '<cdata>'
+    assert hasattr(x, '__doc__')
 
 def test_version():
     # this test is here mostly for PyPy

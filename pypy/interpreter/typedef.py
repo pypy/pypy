@@ -1,7 +1,7 @@
 import py
 
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
+from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
      WrappedDefault)
@@ -342,7 +342,7 @@ def _builduserclswithfeature(config, supercls, *features):
 # a couple of helpers for the Proto classes above, factored out to reduce
 # the translated code size
 def check_new_dictionary(space, w_dict):
-    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+    if not space.isinstance_w(w_dict, space.w_dict):
         raise OperationError(space.w_TypeError,
                 space.wrap("setting dictionary to a non-dict"))
     from pypy.objspace.std import dictmultiobject
@@ -381,7 +381,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
         """
     else:
         cls_name = cls.__name__
-        assert issubclass(cls, Wrappable)
+        assert issubclass(cls, W_Root)
         source = """
         def descr_typecheck_%(name)s(closure, space, w_obj, %(extra)s):
             obj = space.descr_self_interp_w(%(cls_name)s, w_obj)
@@ -439,7 +439,7 @@ def _make_objclass_getter(cls):
     res = miniglobals['objclass_getter'], cls
     return res
 
-class GetSetProperty(Wrappable):
+class GetSetProperty(W_Root):
     _immutable_fields_ = ["fget", "fset", "fdel"]
 
     @specialize.arg(7)
@@ -542,7 +542,7 @@ GetSetProperty.typedef = TypeDef(
 GetSetProperty.typedef.acceptable_as_base_class = False
 
 
-class Member(Wrappable):
+class Member(W_Root):
     """For slots."""
     _immutable_ = True
 
@@ -552,7 +552,7 @@ class Member(Wrappable):
         self.w_cls = w_cls
 
     def typecheck(self, space, w_obj):
-        if not space.is_true(space.isinstance(w_obj, self.w_cls)):
+        if not space.isinstance_w(w_obj, self.w_cls):
             raise operationerrfmt(space.w_TypeError,
                                   "descriptor '%s' for '%s'"
                                   " objects doesn't apply to '%s' object",
@@ -677,7 +677,7 @@ weakref_descr = GetSetProperty(descr_get_weakref,
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):
-    """Make instances of the Wrappable subclass 'cls' weakrefable.
+    """Make instances of the W_Root subclass 'cls' weakrefable.
     This returns the '__weakref__' desctriptor to use for the TypeDef.
     Note that if the class also defines a custom '__del__', the
     __del__ should call self.clear_all_weakrefs() before it clears
@@ -686,10 +686,13 @@ def make_weakref_descr(cls):
     # force the interface into the given cls
     def getweakref(self):
         return self._lifeline_
+
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+
     def delweakref(self):
         self._lifeline_ = None
+
     cls._lifeline_ = None
     cls.getweakref = getweakref
     cls.setweakref = setweakref

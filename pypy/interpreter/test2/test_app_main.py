@@ -700,6 +700,10 @@ class TestNonInteractive:
         assert 'hello world\n' in data
         assert '42\n' in data
 
+    def test_option_S_copyright(self):
+        data = self.run('-S -i', expect_prompt=True, expect_banner=True)
+        assert 'copyright' not in data
+
     def test_non_interactive_stdout_fully_buffered(self):
         path = getscript(r"""
             import sys, time

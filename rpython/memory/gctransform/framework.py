@@ -7,8 +7,7 @@ from rpython.memory import gctypelayout
 from rpython.memory.gctransform.log import log
 from rpython.memory.gctransform.support import get_rtti, ll_call_destructor
 from rpython.memory.gctransform.transform import GCTransformer
-from rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, \
-     WEAKREFPTR
+from rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, WEAKREFPTR
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.backendopt import graphanalyze
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
@@ -237,6 +236,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         # thread support
         if translator.config.translation.continuation:
+            root_walker.stacklet_support = True
             root_walker.need_stacklet_support(self, getfn)
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)
@@ -359,7 +359,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             malloc_fast = func_with_new_name(
                 malloc_fast_meth,
                 "malloc_fast")
-            s_False = annmodel.SomeBool(); s_False.const = False
+            s_False = annmodel.SomeBool()
+            s_False.const = False
             self.malloc_fast_ptr = getfn(
                 malloc_fast,
                 [s_gc, s_typeid16,
@@ -377,7 +378,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             malloc_varsize_clear_fast = func_with_new_name(
                 GCClass.malloc_varsize_clear.im_func,
                 "malloc_varsize_clear_fast")
-            s_False = annmodel.SomeBool(); s_False.const = False
+            s_False = annmodel.SomeBool()
+            s_False.const = False
             self.malloc_varsize_clear_fast_ptr = getfn(
                 malloc_varsize_clear_fast,
                 [s_gc, s_typeid16,
@@ -427,10 +429,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
                                              annmodel.SomeAddress())
-        if getattr(GCClass, 'set_extra_threshold', False):
-            self.setextrathreshold_ptr = getfn(
-                GCClass.set_extra_threshold.im_func,
-                [s_gc, annmodel.SomeInteger()], annmodel.s_None)
 
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
@@ -636,7 +634,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     sys.stdout = prev
                 raise Exception("'no_collect' function can trigger collection:"
                                 " %s\n%s" % (func, err.getvalue()))
-            
+
         if self.write_barrier_ptr:
             self.clean_sets = (
                 find_initializing_stores(self.collect_analyzer, graph))
@@ -671,11 +669,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_type_id = rmodel.inputconst(TYPE_ID, type_id)
         info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
-        kind_and_fptr = self.special_funcptr_for_type(TYPE)
-        has_finalizer = (kind_and_fptr is not None and
-                         kind_and_fptr[0] == "finalizer")
-        has_light_finalizer = (kind_and_fptr is not None and
-                               kind_and_fptr[0] == "light_finalizer")
+        fptrs = self.special_funcptr_for_type(TYPE)
+        has_finalizer = "finalizer" in fptrs
+        has_light_finalizer = "light_finalizer" in fptrs
         if has_light_finalizer:
             has_finalizer = True
         c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
@@ -823,11 +819,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.root_walker.gc_shadowstackref_context_ptr, op.args[0]],
                   resultvar=op.result)
-
-    def gct_gc_shadowstackref_destroy(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_shadowstackref_destroy_ptr, op.args[0]])
 
     def gct_gc_save_current_state_away(self, hop):
         op = hop.spaceop
@@ -981,13 +972,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.obtainfreespace_ptr, self.c_const_gc, v_number],
                   resultvar=hop.spaceop.result)
-        self.pop_roots(hop, livevars)
-
-    def gct_gc_set_extra_threshold(self, hop):
-        livevars = self.push_roots(hop)
-        [v_size] = hop.spaceop.args
-        hop.genop("direct_call",
-                  [self.setextrathreshold_ptr, self.c_const_gc, v_size])
         self.pop_roots(hop, livevars)
 
     def gct_gc_set_max_heap_size(self, hop):
@@ -1204,7 +1188,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if self.gcdata.gc.moving_gc and not keep_current_args:
             # moving GCs don't borrow, so the caller does not need to keep
             # the arguments alive
-            livevars = [var for var in hop.livevars_after_op()]
+            livevars = hop.livevars_after_op()
         else:
             livevars = hop.livevars_after_op() + hop.current_op_keeps_alive()
         return livevars
@@ -1248,8 +1232,8 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
                                             None)
 
     def has_light_finalizer(self, TYPE):
-        special = self.special_funcptr_for_type(TYPE)
-        return special is not None and special[0] == 'light_finalizer'
+        fptrs = self.special_funcptr_for_type(TYPE)
+        return "light_finalizer" in fptrs
 
     def has_custom_trace(self, TYPE):
         rtti = get_rtti(TYPE)
@@ -1263,18 +1247,20 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         destrptr = rtti._obj.destructor_funcptr
         DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
         typename = TYPE.__name__
-        def ll_finalizer(addr, ignored):
+        def ll_finalizer(addr):
             v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
             ll_call_destructor(destrptr, v, typename)
-            return llmemory.NULL
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
-                [llmemory.Address, llmemory.Address], llmemory.Address)
+                [llmemory.Address], lltype.Void)
         g = destrptr._obj.graph
         if self.translator.config.translation.stm:
             light = False    # XXX no working finalizers with STM so far
         else:
-            analyzer = FinalizerAnalyzer(self.translator)
-            light = not analyzer.analyze_light_finalizer(g)
+            try:
+                analyzer = FinalizerAnalyzer(self.translator)
+                light = not analyzer..analyze_light_finalizer(g)
+            except lltype.DelayedPointer:
+                light = False    # XXX bah, too bad
         return fptr, light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
@@ -1318,6 +1304,7 @@ class BaseRootWalker(object):
     def __init__(self, gctransformer):
         self.gcdata = gctransformer.gcdata
         self.gc = self.gcdata.gc
+        self.stacklet_support = False
 
     def _freeze_(self):
         return True

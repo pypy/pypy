@@ -2,7 +2,6 @@ import py
 
 from rpython.annotator import model as annmodel
 from rpython.conftest import option
-from rpython.flowspace.objspace import FlowObjSpace
 from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
     MixLevelHelperAnnotator, PseudoHighLevelCallable, llhelper,
     cast_instance_to_base_ptr, cast_base_ptr_to_instance, base_ptr_lltype)
@@ -31,9 +30,6 @@ def derived(op, orig):
 
 
 class TestLowLevelAnnotateTestCase:
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-
     from rpython.annotator.annrpython import RPythonAnnotator
 
     def annotate(self, ll_function, argtypes):

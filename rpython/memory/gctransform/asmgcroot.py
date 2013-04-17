@@ -1,13 +1,15 @@
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-     copygraph, SpaceOperation)
+     copygraph, SpaceOperation, checkgraph)
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker)
 from rpython.rtyper.rbuiltin import gen_cast
-from rpython.translator.unsimplify import copyvar
+from rpython.translator.unsimplify import copyvar, varoftype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
 
@@ -22,6 +24,7 @@ IS_64_BITS = sys.maxint > 2147483647
 
 class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
     _asmgcc_save_restore_arguments = None
+    _seen_gctransformer_hint_close_stack = None
 
     def push_roots(self, hop, keep_current_args=False):
         livevars = self.get_livevars_for_roots(hop, keep_current_args)
@@ -57,10 +60,22 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     def handle_call_with_close_stack(self, hop):
         fnptr = hop.spaceop.args[0].value
+        if self._seen_gctransformer_hint_close_stack is None:
+            self._seen_gctransformer_hint_close_stack = {}
+        if fnptr._obj.graph not in self._seen_gctransformer_hint_close_stack:
+            self._transform_hint_close_stack(fnptr)
+            self._seen_gctransformer_hint_close_stack[fnptr._obj.graph] = True
+        #
+        livevars = self.push_roots(hop)
+        self.default(hop)
+        self.pop_roots(hop, livevars)
+
+    def _transform_hint_close_stack(self, fnptr):
         # We cannot easily pass variable amount of arguments of the call
         # across the call to the pypy_asm_stackwalk helper.  So we store
-        # them away and restore them.  We need to make a new graph
-        # that starts with restoring the arguments.
+        # them away and restore them.  More precisely, we need to
+        # replace 'graph' with code that saves the arguments, and make
+        # a new graph that starts with restoring the arguments.
         if self._asmgcc_save_restore_arguments is None:
             self._asmgcc_save_restore_arguments = {}
         sradict = self._asmgcc_save_restore_arguments
@@ -80,25 +95,52 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
                 sradict[key] = Constant(p, lltype.Ptr(CONTAINER))
             sra.append(sradict[key])
         #
-        # store the value of the arguments
-        livevars = self.push_roots(hop)
-        c_item0 = Constant('item0', lltype.Void)
-        for v_arg, c_p in zip(hop.spaceop.args[1:], sra):
-            if isinstance(v_arg.concretetype, lltype.Ptr):
-                v_arg = hop.genop("cast_ptr_to_adr", [v_arg],
-                                  resulttype=llmemory.Address)
-            hop.genop("bare_setfield", [c_p, c_item0, v_arg])
-        #
         # make a copy of the graph that will reload the values
-        graph2 = copygraph(fnptr._obj.graph)
+        graph = fnptr._obj.graph
+        graph2 = copygraph(graph)
+        #
+        # edit the original graph to only store the value of the arguments
+        block = Block(graph.startblock.inputargs)
+        c_item0 = Constant('item0', lltype.Void)
+        assert len(block.inputargs) == len(sra)
+        for v_arg, c_p in zip(block.inputargs, sra):
+            if isinstance(v_arg.concretetype, lltype.Ptr):
+                v_adr = varoftype(llmemory.Address)
+                block.operations.append(
+                    SpaceOperation("cast_ptr_to_adr", [v_arg], v_adr))
+                v_arg = v_adr
+            v_void = varoftype(lltype.Void)
+            block.operations.append(
+                SpaceOperation("bare_setfield", [c_p, c_item0, v_arg], v_void))
+        #
+        # call asm_stackwalk(graph2)
+        FUNC2 = lltype.FuncType([], FUNC1.RESULT)
+        fnptr2 = lltype.functionptr(FUNC2,
+                                    fnptr._obj._name + '_reload',
+                                    graph=graph2)
+        c_fnptr2 = Constant(fnptr2, lltype.Ptr(FUNC2))
+        HELPERFUNC = lltype.FuncType([lltype.Ptr(FUNC2),
+                                      ASM_FRAMEDATA_HEAD_PTR], FUNC1.RESULT)
+        v_asm_stackwalk = varoftype(lltype.Ptr(HELPERFUNC), "asm_stackwalk")
+        block.operations.append(
+            SpaceOperation("cast_pointer", [c_asm_stackwalk], v_asm_stackwalk))
+        v_result = varoftype(FUNC1.RESULT)
+        block.operations.append(
+            SpaceOperation("indirect_call", [v_asm_stackwalk, c_fnptr2,
+                                             c_gcrootanchor,
+                                             Constant(None, lltype.Void)],
+                           v_result))
+        block.closeblock(Link([v_result], graph.returnblock))
+        graph.startblock = block
+        #
+        # edit the copy of the graph to reload the values
         block2 = graph2.startblock
         block1 = Block([])
         reloadedvars = []
         for v, c_p in zip(block2.inputargs, sra):
             v = copyvar(None, v)
             if isinstance(v.concretetype, lltype.Ptr):
-                w = Variable('tmp')
-                w.concretetype = llmemory.Address
+                w = varoftype(llmemory.Address)
             else:
                 w = v
             block1.operations.append(SpaceOperation('getfield',
@@ -109,21 +151,9 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
             reloadedvars.append(v)
         block1.closeblock(Link(reloadedvars, block2))
         graph2.startblock = block1
-        FUNC2 = lltype.FuncType([], FUNC1.RESULT)
-        fnptr2 = lltype.functionptr(FUNC2,
-                                    fnptr._obj._name + '_reload',
-                                    graph=graph2)
-        c_fnptr2 = Constant(fnptr2, lltype.Ptr(FUNC2))
-        HELPERFUNC = lltype.FuncType([lltype.Ptr(FUNC2),
-                                      ASM_FRAMEDATA_HEAD_PTR], FUNC1.RESULT)
         #
-        v_asm_stackwalk = hop.genop("cast_pointer", [c_asm_stackwalk],
-                                    resulttype=lltype.Ptr(HELPERFUNC))
-        hop.genop("indirect_call",
-                  [v_asm_stackwalk, c_fnptr2, c_gcrootanchor,
-                   Constant(None, lltype.Void)],
-                  resultvar=hop.spaceop.result)
-        self.pop_roots(hop, livevars)
+        checkgraph(graph)
+        checkgraph(graph2)
 
 
 class AsmStackRootWalker(BaseRootWalker):
@@ -135,20 +165,17 @@ class AsmStackRootWalker(BaseRootWalker):
             self.walk_stack_from()
         self._asm_callback = _asm_callback
         self._shape_decompressor = ShapeDecompressor()
-        if hasattr(gctransformer.translator, '_jit2gc'):
+        self._with_jit = hasattr(gctransformer.translator, '_jit2gc')
+        if self._with_jit:
             jit2gc = gctransformer.translator._jit2gc
-            self._extra_gcmapstart  = jit2gc['gcmapstart']
-            self._extra_gcmapend    = jit2gc['gcmapend']
-            self._extra_mark_sorted = jit2gc['gcmarksorted']
-        else:
-            self._extra_gcmapstart  = lambda: llmemory.NULL
-            self._extra_gcmapend    = lambda: llmemory.NULL
-            self._extra_mark_sorted = lambda: True
+            self.frame_tid = jit2gc['frame_tid']
+        self.gctransformer = gctransformer
 
     def need_stacklet_support(self, gctransformer, getfn):
         # stacklet support: BIG HACK for rlib.rstacklet
         from rpython.rlib import _stacklet_asmgcc
         _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
+        _stacklet_asmgcc.complete_destrptr(gctransformer)
 
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.
@@ -287,6 +314,8 @@ class AsmStackRootWalker(BaseRootWalker):
             stackscount += 1
         #
         expected = rffi.stackcounter.stacks_counter
+        if NonConstant(0):
+            rffi.stackcounter.stacks_counter += 42    # hack to force it
         ll_assert(not (stackscount < expected), "non-closed stacks around")
         ll_assert(not (stackscount > expected), "stacks counter corruption?")
         lltype.free(otherframe, flavor='raw')
@@ -359,12 +388,12 @@ class AsmStackRootWalker(BaseRootWalker):
         # try to locate the caller function based on retaddr.
         # set up self._shape_decompressor.
         #
-        self.locate_caller_based_on_retaddr(retaddr)
+        ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
+        self.locate_caller_based_on_retaddr(retaddr, ebp_in_caller)
         #
         # found!  Enumerate the GC roots in the caller frame
         #
         collect_stack_root = self.gcdata._gc_collect_stack_root
-        ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
         gc = self.gc
         while True:
             location = self._shape_decompressor.next()
@@ -391,46 +420,40 @@ class AsmStackRootWalker(BaseRootWalker):
         # of the entry point, stop walking"
         return caller.frame_address != llmemory.NULL
 
-    def locate_caller_based_on_retaddr(self, retaddr):
+    def locate_caller_based_on_retaddr(self, retaddr, ebp_in_caller):
         gcmapstart = llop.gc_asmgcroot_static(llmemory.Address, 0)
         gcmapend   = llop.gc_asmgcroot_static(llmemory.Address, 1)
         item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
         if item:
             self._shape_decompressor.setpos(item.signed[1])
             return
-        gcmapstart2 = self._extra_gcmapstart()
-        gcmapend2   = self._extra_gcmapend()
-        if gcmapstart2 != gcmapend2:
-            # we have a non-empty JIT-produced table to look in
-            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
+
+        if not self._shape_decompressor.sorted:
+            # the item may have been not found because the main array was
+            # not sorted.  Sort it and try again.
+            win32_follow_gcmap_jmp(gcmapstart, gcmapend)
+            sort_gcmap(gcmapstart, gcmapend)
+            self._shape_decompressor.sorted = True
+            item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
             if item:
-                self._shape_decompressor.setaddr(item)
+                self._shape_decompressor.setpos(item.signed[1])
                 return
-            # maybe the JIT-produced table is not sorted?
-            was_already_sorted = self._extra_mark_sorted()
-            if not was_already_sorted:
-                sort_gcmap(gcmapstart2, gcmapend2)
-                item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
-                if item:
-                    self._shape_decompressor.setaddr(item)
-                    return
-            # there is a rare risk that the array contains *two* entries
-            # with the same key, one of which is dead (null value), and we
-            # found the dead one above.  Solve this case by replacing all
-            # dead keys with nulls, sorting again, and then trying again.
-            replace_dead_entries_with_nulls(gcmapstart2, gcmapend2)
-            sort_gcmap(gcmapstart2, gcmapend2)
-            item = search_in_gcmap2(gcmapstart2, gcmapend2, retaddr)
-            if item:
-                self._shape_decompressor.setaddr(item)
-                return
-        # the item may have been not found because the main array was
-        # not sorted.  Sort it and try again.
-        win32_follow_gcmap_jmp(gcmapstart, gcmapend)
-        sort_gcmap(gcmapstart, gcmapend)
-        item = search_in_gcmap(gcmapstart, gcmapend, retaddr)
-        if item:
-            self._shape_decompressor.setpos(item.signed[1])
+
+        if self._with_jit:
+            # item not found.  We assume that it's a JIT-generated
+            # location -- but we check for consistency that ebp points
+            # to a JITFRAME object.
+            from rpython.jit.backend.llsupport.jitframe import STACK_DEPTH_OFS
+            
+            tid = self.gc.get_possibly_forwarded_type_id(ebp_in_caller)
+            ll_assert(rffi.cast(lltype.Signed, tid) ==
+                      rffi.cast(lltype.Signed, self.frame_tid),
+                      "found a stack frame that does not belong "
+                      "anywhere I know, bug in asmgcc")
+            # fish the depth
+            extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+            extra_stack_depth //= rffi.sizeof(lltype.Signed)
+            self._shape_decompressor.setjitframe(extra_stack_depth)
             return
         llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
 
@@ -561,27 +584,83 @@ def _compare_gcmap_entries(addr1, addr2):
 class ShapeDecompressor:
     _alloc_flavor_ = "raw"
 
+    sorted = False
+
     def setpos(self, pos):
         if pos < 0:
             pos = ~ pos     # can ignore this "range" marker here
         gccallshapes = llop.gc_asmgcroot_static(llmemory.Address, 2)
         self.addr = gccallshapes + pos
+        self.jit_index = -1
 
-    def setaddr(self, addr):
-        self.addr = addr
+    def setjitframe(self, extra_stack_depth):
+        self.jit_index = 0
+        self.extra_stack_depth = extra_stack_depth
 
     def next(self):
-        value = 0
-        addr = self.addr
-        while True:
-            b = ord(addr.char[0])
-            addr += 1
-            value += b
-            if b < 0x80:
-                break
-            value = (value - 0x80) << 7
-        self.addr = addr
-        return value
+        index = self.jit_index
+        if index < 0:
+            # case "outside the jit"
+            addr = self.addr
+            value = 0
+            while True:
+                b = ord(addr.char[0])
+                addr += 1
+                value += b
+                if b < 0x80:
+                    break
+                value = (value - 0x80) << 7
+            self.addr = addr
+            return value
+        else:
+            # case "in the jit"
+            from rpython.jit.backend.x86.arch import FRAME_FIXED_SIZE
+            from rpython.jit.backend.x86.arch import PASS_ON_MY_FRAME
+            self.jit_index = index + 1
+            if index == 0:
+                # the jitframe is an object in EBP
+                return LOC_REG | ((INDEX_OF_EBP + 1) << 2)
+            if index == 1:
+                return 0
+            # the remaining returned values should be:
+            #      saved %rbp
+            #      saved %r15           or on 32bit:
+            #      saved %r14             saved %ebp
+            #      saved %r13             saved %edi
+            #      saved %r12             saved %esi
+            #      saved %rbx             saved %ebx
+            #      return addr            return addr
+            stack_depth = PASS_ON_MY_FRAME + self.extra_stack_depth
+            if IS_64_BITS:
+                if index == 2:   # rbp
+                    return LOC_ESP_PLUS | (stack_depth << 2)
+                if index == 3:   # r15
+                    return LOC_ESP_PLUS | ((stack_depth + 5) << 2)
+                if index == 4:   # r14
+                    return LOC_ESP_PLUS | ((stack_depth + 4) << 2)
+                if index == 5:   # r13
+                    return LOC_ESP_PLUS | ((stack_depth + 3) << 2)
+                if index == 6:   # r12
+                    return LOC_ESP_PLUS | ((stack_depth + 2) << 2)
+                if index == 7:   # rbx
+                    return LOC_ESP_PLUS | ((stack_depth + 1) << 2)
+                if index == 8:   # return addr
+                    return (LOC_ESP_PLUS |
+                        ((FRAME_FIXED_SIZE + self.extra_stack_depth) << 2))
+            else:
+                if index == 2:   # ebp
+                    return LOC_ESP_PLUS | (stack_depth << 2)
+                if index == 3:   # edi
+                    return LOC_ESP_PLUS | ((stack_depth + 3) << 2)
+                if index == 4:   # esi
+                    return LOC_ESP_PLUS | ((stack_depth + 2) << 2)
+                if index == 5:   # ebx
+                    return LOC_ESP_PLUS | ((stack_depth + 1) << 2)
+                if index == 6:   # return addr
+                    return (LOC_ESP_PLUS |
+                        ((FRAME_FIXED_SIZE + self.extra_stack_depth) << 2))
+            llop.debug_fatalerror(lltype.Void, "asmgcroot: invalid index")
+            return 0   # annotator fix
 
 # ____________________________________________________________
 
@@ -609,6 +688,8 @@ else:
     INDEX_OF_EBP      = 3
     FRAME_PTR         = CALLEE_SAVED_REGS    # the frame is at index 4 in the array
 
+JIT_USE_WORDS = 2 + FRAME_PTR + 1
+
 ASM_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 # used internally by walk_stack_from()
@@ -632,13 +713,16 @@ gcrootanchor.prev = gcrootanchor
 gcrootanchor.next = gcrootanchor
 c_gcrootanchor = Constant(gcrootanchor, ASM_FRAMEDATA_HEAD_PTR)
 
+eci = ExternalCompilationInfo(pre_include_bits=['#define PYPY_USE_ASMGCC'])
+
 pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                      [ASM_CALLBACK_PTR,
                                       ASM_FRAMEDATA_HEAD_PTR],
                                      lltype.Signed,
                                      sandboxsafe=True,
                                      _nowrapper=True,
-                                     random_effects_on_gcobjs=True)
+                                     random_effects_on_gcobjs=True,
+                                     compilation_info=eci)
 c_asm_stackwalk = Constant(pypy_asm_stackwalk,
                            lltype.typeOf(pypy_asm_stackwalk))
 

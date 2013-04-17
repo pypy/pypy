@@ -2,7 +2,7 @@
 """
 
 from rpython.tool.pairtype import extendabletype
-from pypy.interpreter import eval, baseobjspace, pycode
+from pypy.interpreter import eval, pycode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.executioncontext import ExecutionContext

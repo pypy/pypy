@@ -1,10 +1,11 @@
 import weakref
 from rpython.rlib import jit
-from pypy.interpreter.baseobjspace import Wrappable, W_Root
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
 from rpython.rlib.rshrinklist import AbstractShrinkList
+
 
 class WRefShrinkList(AbstractShrinkList):
     def must_keep(self, wref):
@@ -14,7 +15,7 @@ class WRefShrinkList(AbstractShrinkList):
 ExecutionContext._thread_local_objs = None
 
 
-class Local(Wrappable):
+class Local(W_Root):
     """Thread-local data"""
 
     @jit.dont_look_inside

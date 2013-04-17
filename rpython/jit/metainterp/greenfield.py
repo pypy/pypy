@@ -1,8 +1,4 @@
-from rpython.jit.metainterp.typesystem import deref
-
-
 class GreenFieldInfo(object):
-
     def __init__(self, cpu, jd):
         self.cpu = cpu
         self.jitdriver_sd = jd

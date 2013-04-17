@@ -49,7 +49,6 @@ def _current_frames(space):
     This function should be used for specialized purposes only."""
     w_result = space.newdict()
     w_fake_frame = app.wget(space, "fake_frame")
-    w_fake_code  = app.wget(space, "fake_code")
     try:
         ecs = space.threadlocals.getallvalues()
     except ValueError:
@@ -67,7 +66,7 @@ def _current_frames(space):
             vref = f.f_backref
         else:
             frames.append(None)
-        #
+
         w_topframe = space.wrap(None)
         w_prevframe = None
         for f in frames:
@@ -77,7 +76,7 @@ def _current_frames(space):
             else:
                 space.setattr(w_prevframe, space.wrap('f_back'), w_nextframe)
             w_prevframe = w_nextframe
-        #
+
         space.setitem(w_result,
                       space.wrap(thread_ident),
                       w_topframe)

@@ -49,7 +49,7 @@ class TestString(BaseTestPyPyC):
             guard_true(i32, descr=...)
             i34 = int_add(i6, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i34, p7, p8, i9, i10, p11, i12, p13, descr=...)
+            jump(..., descr=...)
         """ % (-sys.maxint-1, SHIFT))
 
     def test_long(self):
@@ -115,7 +115,7 @@ class TestString(BaseTestPyPyC):
             i58 = int_add_ovf(i6, i57)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=...)
+            jump(..., descr=...)
         """ % (-sys.maxint-1, SHIFT))
 
     def test_str_mod(self):
@@ -164,7 +164,7 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i40 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i40, i38, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_getattr_promote(self):
@@ -237,3 +237,23 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         loop.match_by_id('callone', '')    # nothing
+
+    def test_lookup_codec(self):
+        log = self.run("""
+        import codecs
+
+        def main(n):
+            for i in xrange(n):
+                codecs.lookup('utf8')
+            return i
+        """, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match("""
+        i45 = int_lt(i43, i26)
+        guard_true(i45, descr=...)
+        i46 = int_add(i43, 1)
+        setfield_gc(p15, i46, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
+        guard_not_invalidated(descr=...)
+        --TICK--
+        jump(..., descr=...)
+        """)

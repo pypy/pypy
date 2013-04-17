@@ -15,7 +15,6 @@ class BaseNumpyAppTest(object):
             if '__pypy__' not in sys.builtin_module_names:
                 import numpy
                 sys.modules['numpypy'] = numpy
-                sys.modules['_numpypy'] = numpy
         cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
         cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
 

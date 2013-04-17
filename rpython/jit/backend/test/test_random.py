@@ -1,9 +1,8 @@
-import py, sys
+import sys
 import pytest
 from rpython.rlib.rarithmetic import intmask, LONG_BIT
-from rpython.rtyper.lltypesystem import llmemory
-from rpython.jit.metainterp.history import BasicFailDescr, TreeLoop
-from rpython.jit.metainterp.history import BoxInt, ConstInt, JitCellToken
+from rpython.jit.metainterp.history import BasicFailDescr, TreeLoop, BasicFinalDescr
+from rpython.jit.metainterp.history import BoxInt, ConstInt, JitCellToken, Box
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, TargetToken
 from rpython.jit.metainterp.history import BoxFloat, ConstFloat, Const
 from rpython.jit.metainterp.history import INT, FLOAT
@@ -11,6 +10,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.codewriter import longlong
+from rpython.rtyper.lltypesystem import lltype, rstr, rclass
 
 class PleaseRewriteMe(Exception):
     pass
@@ -42,10 +42,12 @@ class OperationBuilder(object):
         self.should_fail_by = None
         self.counter = 0
         assert len(self.intvars) == len(dict.fromkeys(self.intvars))
+        self.descr_counters = {}
 
     def fork(self, cpu, loop, vars):
         fork = self.__class__(cpu, loop, vars)
         fork.prebuilt_ptr_consts = self.prebuilt_ptr_consts
+        fork.descr_counters = self.descr_counters
         return fork
 
     def do(self, opnum, argboxes, descr=None):
@@ -88,21 +90,14 @@ class OperationBuilder(object):
                 seen[v] = True
         return subset
 
-    def process_operation(self, s, op, names, subops):
+    def process_operation(self, s, op, names):
         args = []
         for v in op.getarglist():
             if v in names:
                 args.append(names[v])
-##            elif isinstance(v, ConstAddr):
-##                try:
-##                    name = ''.join([v.value.ptr.name[i]
-##                                    for i in range(len(v.value.ptr.name)-1)])
-##                except AttributeError:
-##                    args.append('ConstAddr(...)')
-##                else:
-##                    args.append(
-##                        'ConstAddr(llmemory.cast_ptr_to_adr(%s_vtable), cpu)'
-##                        % name)
+            elif isinstance(v, ConstPtr):
+                assert not v.value # otherwise should be in the names
+                args.append('ConstPtr(lltype.nullptr(llmemory.GCREF.TO))')
             elif isinstance(v, ConstFloat):
                 args.append('ConstFloat(longlong.getfloatstorage(%r))'
                             % v.getfloat())
@@ -114,23 +109,32 @@ class OperationBuilder(object):
             descrstr = ''
         else:
             try:
-                descrstr = ', ' + op.getdescr()._random_info
+                descrstr = ', ' + getattr(op.getdescr(), '_random_info')
             except AttributeError:
-                descrstr = ', descr=...'
+                if op.opnum == rop.LABEL:
+                    descrstr = ', TargetToken()'
+                else:
+                    descrstr = ', descr=' + self.descr_counters.get(op.getdescr(), '...')
         print >>s, '        ResOperation(rop.%s, [%s], %s%s),' % (
             opname[op.getopnum()], ', '.join(args), names[op.result], descrstr)
-        #if getattr(op, 'suboperations', None) is not None:
-        #    subops.append(op)
 
-    def print_loop(self):
-        #raise PleaseRewriteMe()
+    def print_loop(self, output, fail_descr=None, fail_args=None):
         def update_names(ops):
             for op in ops:
                 v = op.result
                 if v not in names:
                     writevar(v, 'tmp')
-                #if getattr(op, 'suboperations', None) is not None:
-                #    update_names(op.suboperations)
+                if op.is_guard() or op.opnum == rop.FINISH:
+                    descr = op.getdescr()
+                    no = len(self.descr_counters)
+                    if op.is_guard():
+                        name = 'faildescr%d' % no
+                        clsname = 'BasicFailDescr'
+                    else:
+                        name = 'finishdescr%d' % no
+                        clsname = 'BasicFinalDescr'
+                    self.descr_counters[descr] = name
+                    print >>s, "    %s = %s()" % (name, clsname)
 
         def print_loop_prebuilt(ops):
             for op in ops:
@@ -138,17 +142,71 @@ class OperationBuilder(object):
                     if isinstance(arg, ConstPtr):
                         if arg not in names:
                             writevar(arg, 'const_ptr')
-                #if getattr(op, 'suboperations', None) is not None:
-                #    print_loop_prebuilt(op.suboperations)
 
-        if pytest.config.option.output:
-            s = open(pytest.config.option.output, "w")
-        else:
-            s = sys.stdout
+        def type_descr(TP):
+            if TP in TYPE_NAMES:
+                return TYPE_NAMES[TP]
+            elif isinstance(TP, lltype.Primitive):
+                return _type_descr(TP) # don't cache
+            else:
+                descr = _type_descr(TP)
+                no = len(TYPE_NAMES)
+                tp_name = 'S' + str(no)
+                TYPE_NAMES[TP] = tp_name
+                print >>s, '    %s = %s' % (tp_name, descr)
+                return tp_name
+
+        def _type_descr(TP):
+            if isinstance(TP, lltype.Ptr):
+                return "lltype.Ptr(%s)" % type_descr(TP.TO)
+            if isinstance(TP, lltype.Struct):
+                if TP._gckind == 'gc':
+                    pref = 'Gc'
+                else:
+                    pref = ''
+                fields = []
+                for k in TP._names:
+                    v = getattr(TP, k)
+                    fields.append('("%s", %s)' % (k, type_descr(v)))
+                return "lltype.%sStruct('Sx', %s)" % (pref,
+                                                       ", ".join(fields))
+            elif isinstance(TP, lltype.GcArray):
+                return "lltype.GcArray(%s)" % (type_descr(TP.OF),)
+            if TP._name.upper() == TP._name:
+                return 'rffi.%s' % TP._name
+            return 'lltype.%s' % TP._name
+
+        s = output
         names = {None: 'None'}
-        subops = []
+        TYPE_NAMES = {
+            rstr.STR: 'rstr.STR',
+            rstr.UNICODE: 'rstr.UNICODE',
+            rclass.OBJECT: 'rclass.OBJECT',
+            rclass.OBJECT_VTABLE: 'rclass.OBJECT_VTABLE',
+        }
+        for op in self.loop.operations:
+            descr = op.getdescr()
+            if hasattr(descr, '_random_info'):
+                tp_name = type_descr(descr._random_type)
+                descr._random_info = descr._random_info.replace('...', tp_name)
+
         #
         def writevar(v, nameprefix, init=''):
+            if nameprefix == 'const_ptr':
+                if not v.value:
+                    return 'lltype.nullptr(llmemory.GCREF.TO)'
+                TYPE = v.value._obj.ORIGTYPE
+                cont = lltype.cast_opaque_ptr(TYPE, v.value)
+                if TYPE.TO._is_varsize():
+                    if isinstance(TYPE.TO, lltype.GcStruct):
+                        lgt = len(cont.chars)
+                    else:
+                        lgt = len(cont)
+                    init = 'lltype.malloc(%s, %d)' % (TYPE_NAMES[TYPE.TO],
+                                                      lgt)
+                else:
+                    init = 'lltype.malloc(%s)' % TYPE_NAMES[TYPE.TO]
+                init = 'lltype.cast_opaque_ptr(llmemory.GCREF, %s)' % init
             names[v] = '%s%d' % (nameprefix, len(names))
             print >>s, '    %s = %s(%s)' % (names[v], v.__class__.__name__,
                                             init)
@@ -162,37 +220,38 @@ class OperationBuilder(object):
         update_names(self.loop.operations)
         print_loop_prebuilt(self.loop.operations)
         #
-        print >>s, '    cpu = CPU(None, None)'
+        if fail_descr is None:
+            print >>s, '    cpu = CPU(None, None)'
+            print >>s, '    cpu.setup_once()'
         if hasattr(self.loop, 'inputargs'):
             print >>s, '    inputargs = [%s]' % (
                 ', '.join([names[v] for v in self.loop.inputargs]))
+        else:
+            print >>s, '    inputargs = [%s]' % (
+                ', '.join([names[v] for v in fail_args]))
         print >>s, '    operations = ['
         for op in self.loop.operations:
-            self.process_operation(s, op, names, subops)
+            self.process_operation(s, op, names) 
         print >>s, '        ]'
-        while subops:
-            next = subops.pop(0)
-            #for op in next.suboperations:
-            #    self.process_operation(s, op, names, subops)
-        # XXX think what to do about the one below
-                #if len(op.suboperations) > 1:
-                #    continue # XXX
-                #[op] = op.suboperations
-                #assert op.opnum == rop.FAIL
-                #print >>s, '    operations[%d].suboperations = [' % i
-                #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
-                #    ', '.join([names[v] for v in op.args]))
-        print >>s, '    looptoken = JitCellToken()'
-        print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
+        for i, op in enumerate(self.loop.operations):
+            if op.is_guard():
+                fa = ", ".join([names[v] for v in op.getfailargs()])
+                print >>s, '    operations[%d].setfailargs([%s])' % (i, fa)
+        if fail_descr is None:
+            print >>s, '    looptoken = JitCellToken()'
+            print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
+        else:
+            print >>s, '    cpu.compile_bridge(%s, inputargs, operations, looptoken)' % self.descr_counters[fail_descr]
         if hasattr(self.loop, 'inputargs'):
+            vals = []
             for i, v in enumerate(self.loop.inputargs):
-                if isinstance(v, (BoxFloat, ConstFloat)):
-                    print >>s, ('    cpu.set_future_value_float(%d,'
-                        'longlong.getfloatstorage(%r))' % (i, v.getfloat()))
+                assert isinstance(v, Box)
+                if isinstance(v, BoxFloat):
+                    vals.append("longlong.getfloatstorage(%r)" % v.getfloat())
                 else:
-                    print >>s, '    cpu.set_future_value_int(%d, %d)' % (i,
-                                                                       v.value)
-        print >>s, '    op = cpu.execute_token(looptoken)'
+                    vals.append("%r" % v.getint())
+            print >>s, '    loop_args = [%s]' % ", ".join(vals)
+        print >>s, '    frame = cpu.execute_token(looptoken, *loop_args)'
         if self.should_fail_by is None:
             fail_args = self.loop.operations[-1].getarglist()
         else:
@@ -200,16 +259,18 @@ class OperationBuilder(object):
         for i, v in enumerate(fail_args):
             if isinstance(v, (BoxFloat, ConstFloat)):
                 print >>s, ('    assert longlong.getrealfloat('
-                    'cpu.get_latest_value_float(%d)) == %r' % (i, v.value))
+                    'cpu.get_float_value(frame, %d)) == %r' % (i, v.value))
             else:
-                print >>s, ('    assert cpu.get_latest_value_int(%d) == %d'
+                print >>s, ('    assert cpu.get_int_value(frame, %d) == %d'
                             % (i, v.value))
         self.names = names
-        if pytest.config.option.output:
-            s.close()
+        s.flush()
 
-    def getfaildescr(self):
-        descr = BasicFailDescr()
+    def getfaildescr(self, is_finish=False):
+        if is_finish:
+            descr = BasicFinalDescr()
+        else:
+            descr = BasicFailDescr()
         self.cpu._faildescr_keepalive.append(descr)
         return descr
 
@@ -535,8 +596,9 @@ def get_cpu():
 class RandomLoop(object):
     dont_generate_more = False
 
-    def __init__(self, cpu, builder_factory, r, startvars=None):
+    def __init__(self, cpu, builder_factory, r, startvars=None, output=None):
         self.cpu = cpu
+        self.output = output
         if startvars is None:
             startvars = []
             if cpu.supports_floats:
@@ -564,7 +626,8 @@ class RandomLoop(object):
         self.subloops = []
         self.build_random_loop(cpu, builder_factory, r, startvars, allow_delay)
 
-    def build_random_loop(self, cpu, builder_factory, r, startvars, allow_delay):
+    def build_random_loop(self, cpu, builder_factory, r, startvars,
+                          allow_delay):
 
         loop = TreeLoop('test_random_function')
         loop.inputargs = startvars[:]
@@ -581,6 +644,8 @@ class RandomLoop(object):
         self.loop = loop
         dump(loop)
         cpu.compile_loop(loop.inputargs, loop.operations, loop._jitcelltoken)
+        if self.output:
+            builder.print_loop(self.output)
 
     def insert_label(self, loop, position, r):
         assert not hasattr(loop, '_targettoken')
@@ -627,7 +692,7 @@ class RandomLoop(object):
         r.shuffle(endvars)
         endvars = endvars[:1]
         loop.operations.append(ResOperation(rop.FINISH, endvars, None,
-                                            descr=builder.getfaildescr()))
+                                    descr=builder.getfaildescr(is_finish=True)))
         if builder.should_fail_by:
             self.should_fail_by = builder.should_fail_by
             self.guard_op = builder.guard_op
@@ -639,8 +704,6 @@ class RandomLoop(object):
         self.expected = {}
         for v in endvars:
             self.expected[v] = v.value
-        if pytest.config.option.output:
-            builder.print_loop()
 
     def runjitcelltoken(self):
         if self.startvars == self.loop.inputargs:
@@ -694,9 +757,9 @@ class RandomLoop(object):
                                            self.should_fail_by.getdescr()))
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
-                value = cpu.get_latest_value_float(deadframe, i)
+                value = cpu.get_float_value(deadframe, i)
             else:
-                value = cpu.get_latest_value_int(deadframe, i)
+                value = cpu.get_int_value(deadframe, i)
             do_assert(value == self.expected[v],
                 "Got %r, expected %r for value #%d" % (value,
                                                        self.expected[v],
@@ -791,6 +854,9 @@ class RandomLoop(object):
         self.builder.cpu.compile_bridge(fail_descr, fail_args,
                                         subloop.operations,
                                         self.loop._jitcelltoken)
+
+        if self.output:
+            bridge_builder.print_loop(self.output, fail_descr, fail_args)
         return True
 
 def dump(loop):
@@ -798,10 +864,17 @@ def dump(loop):
     if hasattr(loop, 'inputargs'):
         print >> sys.stderr, '\t', loop.inputargs
     for op in loop.operations:
-        print >> sys.stderr, '\t', op
+        if op.is_guard():
+            print >> sys.stderr, '\t', op, op.getfailargs()
+        else:
+            print >> sys.stderr, '\t', op
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):
-    loop = RandomLoop(cpu, BuilderClass, r)
+    if pytest.config.option.output:
+        output = open(pytest.config.option.output, "w")
+    else:
+        output = None
+    loop = RandomLoop(cpu, BuilderClass, r, output=output)
     while True:
         loop.run_loop()
         if loop.guard_op is not None:
@@ -813,6 +886,8 @@ def check_random_function(cpu, BuilderClass, r, num=None, max=None):
         print '    # passed (%d/%d).' % (num + 1, max)
     else:
         print '    # passed.'
+    if pytest.config.option.output:
+        output.close()
     print
 
 def test_random_function(BuilderClass=OperationBuilder):

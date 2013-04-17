@@ -33,7 +33,7 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
-     "_bisect", "binascii", "_multiprocessing", '_warnings',
+     "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
      "_continuation", "_cffi_backend", "_csv"]
 ))
@@ -189,11 +189,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),
 
-        BoolOption("withsmallint", "use tagged integers",
-                   default=False,
-                   requires=[("objspace.std.withprebuiltint", False),
-                             ("translation.taggedpointers", True)]),
-
         BoolOption("withprebuiltint", "prebuild commonly used int objects",
                    default=False),
 
@@ -204,9 +199,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                   default=100, cmdline="--prebuiltintto"),
 
         BoolOption("withsmalllong", "use a version of 'long' in a C long long",
-                   default=False,
-                   requires=[("objspace.std.withsmallint", False)]),
-                             #  ^^^ because of missing delegate_xx2yy
+                   default=False),
 
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),

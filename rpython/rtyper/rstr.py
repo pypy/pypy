@@ -2,8 +2,7 @@ from rpython.annotator import model as annmodel
 from rpython.rlib import jit
 from rpython.rtyper import rint
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem.lltype import (Signed, Bool, Void, UniChar,
-    typeOf)
+from rpython.rtyper.lltypesystem.lltype import Signed, Bool, Void, UniChar
 from rpython.rtyper.rmodel import IntegerRepr, IteratorRepr, inputconst, Repr
 from rpython.rtyper.rtuple import AbstractTupleRepr
 from rpython.tool.pairtype import pairtype, pair
