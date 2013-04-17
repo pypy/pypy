@@ -63,6 +63,7 @@ class StmGCSharedArea(object):
         self.low_usage_pages = lltype.malloc(rffi.CArray(PAGE_PTR), length,
                                              flavor='raw', zero=True,
                                              immortal=True)
+        # ^^^ XXX not used so far
         self.full_pages = lltype.malloc(rffi.CArray(PAGE_PTR), length,
                                         flavor='raw', zero=True,
                                         immortal=True)
@@ -197,7 +198,8 @@ class StmGCThreadLocalAllocator(object):
             return llarena.arena_malloc(
                 llmemory.raw_malloc_usage(totalsize), 0)
 
-    def malloc_object(self, totalsize):
+    def malloc_object(self, objsize):
+        totalsize = self.gc.gcheaderbuilder.size_gc_header + objsize
         addr = self.malloc_object_addr(totalsize)
         llarena.arena_reserve(addr, _dummy_size(totalsize))
         return addr + self.gc.gcheaderbuilder.size_gc_header
@@ -210,9 +212,10 @@ class StmGCThreadLocalAllocator(object):
 
     def free_object(self, obj):
         adr1 = obj - self.gc.gcheaderbuilder.size_gc_header
-        osize = self.gc.get_size_incl_hash(obj)
-        if osize <= self.sharedarea.small_request_threshold:
-            size_class = (osize + WORD_POWER_2 - 1) >> WORD_POWER_2
+        totalsize = (self.gc.gcheaderbuilder.size_gc_header +
+                     self.gc.get_size_incl_hash(obj))
+        if totalsize <= self.sharedarea.small_request_threshold:
+            size_class = (totalsize + WORD_POWER_2 - 1) >> WORD_POWER_2
             self._free_size_class(adr1, size_class)
         else:
             llarena.arena_free(llarena.getfakearenaaddress(adr1))
@@ -232,7 +235,8 @@ class StmGCThreadLocalAllocator(object):
     def gift_all_pages_to_shared_area(self):
         """Send to the shared area all my pages.  For now we don't extract
         the information about which locations are free or not; we just stick
-        them into 'full_pages' and leave the next global GC to figure it out.
+        them into 'full_pages' and leave it to the next global GC to figure
+        them out.
         """
         stmshared = self.sharedarea
         stmshared.acquire_global_lock()

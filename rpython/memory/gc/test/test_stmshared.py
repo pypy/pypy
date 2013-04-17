@@ -3,9 +3,11 @@ from rpython.memory.gc.stmshared import StmGCSharedArea
 from rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
 
 
+SGH = 3
+
 class FakeGC:
     class gcheaderbuilder:
-        size_gc_header = 3
+        size_gc_header = SGH
     def __init__(self):
         self._object_sizes = {}
     def set_size(self, obj, size):
@@ -20,17 +22,17 @@ def test_simple():
     shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
-    thl1.malloc_object(2*WORD-1)
+    thl1.malloc_object(2*WORD-1-SGH)
     assert len(thl1._seen_pages) == 1
-    thl1.malloc_object(2*WORD)
+    thl1.malloc_object(2*WORD-SGH)
     assert len(thl1._seen_pages) == 1
-    thl1.malloc_object(1*WORD)
+    thl1.malloc_object(1*WORD-SGH)
     assert len(thl1._seen_pages) == 2
-    thl1.malloc_object(2*WORD)
+    thl1.malloc_object(2*WORD-SGH)
     assert len(thl1._seen_pages) == 2
-    thl1.malloc_object(2*WORD)
+    thl1.malloc_object(2*WORD-SGH)
     assert len(thl1._seen_pages) == 3
-    thl1.malloc_object(2*WORD)
+    thl1.malloc_object(2*WORD-SGH)
     assert len(thl1._seen_pages) == 3
     assert thl1.count_pages == 3
     thl1.delete()
@@ -40,10 +42,10 @@ def test_free():
     shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
-    obj = thl1.malloc_object(2*WORD)
-    gc.set_size(obj, 2*WORD)
+    obj = thl1.malloc_object(2*WORD-SGH)
+    gc.set_size(obj, 2*WORD-SGH)
     thl1.free_object(obj)
-    obj2 = thl1.malloc_object(2*WORD)
+    obj2 = thl1.malloc_object(2*WORD-SGH)
     assert obj2 == obj     # reusing the same location
     thl1.delete()
 
@@ -52,8 +54,8 @@ def test_big_object():
     shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
-    obj = thl1.malloc_object(3*WORD)
-    gc.set_size(obj, 3*WORD)
+    obj = thl1.malloc_object(3*WORD-SGH)
+    gc.set_size(obj, 3*WORD-SGH)
     thl1.free_object(obj)
     thl1.delete()
 
@@ -65,11 +67,11 @@ def test_allocation_is_thread_local():
     thl2 = StmGCThreadLocalAllocator(shared)
     #
     assert len(thl1._seen_pages) == 0
-    thl1.malloc_object(2*WORD)
+    thl1.malloc_object(2*WORD-SGH)
     assert len(thl1._seen_pages) == 1
     #
     assert len(thl2._seen_pages) == 0
-    thl2.malloc_object(2*WORD)
+    thl2.malloc_object(2*WORD-SGH)
     assert len(thl2._seen_pages) == 1
     #
     thl1.delete()
@@ -80,7 +82,7 @@ def test_dying_gift_to_shared_area():
     shared = StmGCSharedArea(gc, 9*WORD, 2*WORD)
     shared.setup()
     thl1 = StmGCThreadLocalAllocator(shared)
-    thl1.malloc_object(2*WORD)
+    thl1.malloc_object(2*WORD-SGH)
     assert thl1.count_pages == 1
     assert len(thl1._seen_pages) == 1
     #
