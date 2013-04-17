@@ -34,7 +34,7 @@ class RewriteTests(object):
                                  ('t', lltype.Signed))
         tdescr = get_size_descr(self.gc_ll_descr, T)
         tdescr.tid = 5678
-        get_field_descr(self.gc_ll_descr, T, 'z')
+        tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
