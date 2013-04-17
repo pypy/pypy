@@ -75,6 +75,10 @@ static volatile revision_t global_cur_time = 2;
 static volatile revision_t next_locked_value = LOCKED + 3;   /* always odd */
 static __thread struct tx_descriptor *thread_descriptor = NULL;
 
+/* a multi-reader, single-writer lock: transactions normally take a reader
+   lock, so don't conflict with each other; when we need to do a global GC,
+   we take a writer lock to "stop the world".  Note the initializer here,
+   which should give the correct priority for reached_safe_point(). */
 static pthread_rwlock_t rwlock_in_transaction =
          PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 

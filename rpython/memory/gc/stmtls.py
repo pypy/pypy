@@ -272,16 +272,31 @@ class StmGCTLS(object):
             fatalerror("malloc in a non-main thread but outside a transaction")
         if llmemory.raw_malloc_usage(size) > self.nursery_size // 8 * 7:
             fatalerror("XXX object too large to ever fit in the nursery")
+        #
+        self.local_collection(run_finalizers=True)
+        #
+        # call this here in case another thread is waiting for a global GC
         self.stm_operations.should_break_transaction()
-        step = 0
-        while True:
-            free = self.nursery_free
-            top  = self.nursery_top
-            if (top - free) >= llmemory.raw_malloc_usage(size):
-                return free
-            ll_assert(step < 2, "nursery must be empty [0]")
-            self.local_collection(run_finalizers=(step==0))
-            step += 1
+        #
+        # if we have now enough space, return it
+        free = self.nursery_free
+        top  = self.nursery_top
+        if (top - free) >= llmemory.raw_malloc_usage(size):
+            return free
+        #
+        # no, it might be because we ran finalizers or did a global GC.
+        # Try again without running the finalizers.
+        self.local_collection(run_finalizers=False)
+        #
+        # now we must have enough space
+        free = self.nursery_free
+        top  = self.nursery_top
+        if (top - free) >= llmemory.raw_malloc_usage(size):
+            return free
+        #
+        ll_assert(False,
+                  "local_collection(run_finalizers=0) didn't free enough mem")
+        return NULL
 
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,

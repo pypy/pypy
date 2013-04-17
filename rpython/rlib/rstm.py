@@ -46,12 +46,6 @@ def charp_inspect_abort_info():
 def abort_and_retry():
     stmgcintf.StmOperations.abort_and_retry()
 
-def start_single_thread():
-    stmgcintf.StmOperations.start_single_thread()
-
-def stop_single_thread():
-    stmgcintf.StmOperations.stop_single_thread()
-
 def before_external_call():
     if not is_atomic():
         e = get_errno()

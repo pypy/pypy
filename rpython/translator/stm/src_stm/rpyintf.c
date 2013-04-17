@@ -243,6 +243,8 @@ static void reached_safe_point(void)
     {
       err = pthread_rwlock_unlock(&rwlock_in_transaction);
       assert(err == 0);
+      /* another thread should be waiting in pthread_rwlock_wrlock(),
+         which takes priority here */
       err = pthread_rwlock_rdlock(&rwlock_in_transaction);
       assert(err == 0);
     }
