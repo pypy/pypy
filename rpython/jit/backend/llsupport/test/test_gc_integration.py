@@ -239,13 +239,13 @@ class TestMallocFastpath(BaseTestRegalloc):
         # slowpath never called
         assert gc_ll_descr.calls == []
 
-    def test_malloc_nursery_varsize_small(self):
+    def test_malloc_nursery_varsize_frame(self):
         self.cpu = self.getcpu(None)
         ops = '''
         [i0, i1, i2]
-        p0 = call_malloc_nursery_varsize_small(i0)
-        p1 = call_malloc_nursery_varsize_small(i1)
-        p2 = call_malloc_nursery_varsize_small(i2)
+        p0 = call_malloc_nursery_varsize_frame(i0)
+        p1 = call_malloc_nursery_varsize_frame(i1)
+        p2 = call_malloc_nursery_varsize_frame(i2)
         guard_true(i0) [p0, p1, p2]
         '''
         self.interpret(ops, [16, 32, 16])

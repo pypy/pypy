@@ -1348,7 +1348,7 @@ class ResOpAssembler(BaseAssembler):
             )
         self._alignment_check()
         return fcond
-    emit_op_call_malloc_nursery_varsize_small = emit_op_call_malloc_nursery
+    emit_op_call_malloc_nursery_varsize_frame = emit_op_call_malloc_nursery
 
 
     def _alignment_check(self):

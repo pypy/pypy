@@ -2366,11 +2366,16 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
 
-    def malloc_cond_varsize_small(self, nursery_free_adr, nursery_top_adr,
+    def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
-        self.mc.MOV(edi, heap(nursery_free_adr))
-        self.mc.MOV(eax, edi)
-        self.mc.ADD(edi, sizeloc)
+        if not isinstance(sizeloc, RegLoc) or sizeloc is eax:
+            self.mc.MOV(edi, sizeloc)
+            sizeloc = edi
+        self.mc.MOV(eax, heap(nursery_free_adr))
+        if sizeloc is edi:
+            self.mc.ADD_rr(edi.value, eax.value)
+        else:
+            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
         self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2389,7 +2394,7 @@ class Assembler386(BaseAssembler):
         assert isinstance(arraydescr, ArrayDescr)
 
         self.mc.CMP(lengthloc, imm(maxlength))
-        self.mc.J_il8(rx86.Conditions['G'], 0) # patched later
+        self.mc.J_il8(rx86.Conditions['A'], 0) # patched later
         jmp_adr0 = self.mc.get_relative_pos()
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.MOV(edi, lengthloc)

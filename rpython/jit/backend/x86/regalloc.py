@@ -837,7 +837,7 @@ class RegAlloc(BaseRegalloc):
         # looking at the result
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         #
-        # We need edx as a temporary, but otherwise don't save any more
+        # We need edi as a temporary, but otherwise don't save any more
         # register.  See comments in _build_malloc_slowpath().
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
@@ -850,22 +850,22 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             size, gcmap)
 
-    def consider_call_malloc_nursery_varsize_small(self, op):
+    def consider_call_malloc_nursery_varsize_frame(self, op):
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt) # we cannot have a const here!
-        # looking at the result
+        # size_box can be anywhere (including the stack, or eax, or edi)
+        sizeloc = self.rm.loc(size_box)
+        self.rm.possibly_free_var(size_box)
+        # the result will be in eax
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        #
-        # We need edx as a temporary, but otherwise don't save any more
-        # register.  See comments in _build_malloc_slowpath().
+        # we need edi as a temporary
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
-        sizeloc = self.rm.make_sure_var_in_reg(size_box, [op.result, tmp_box])
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        self.assembler.malloc_cond_varsize_small(
+        self.assembler.malloc_cond_varsize_frame(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)

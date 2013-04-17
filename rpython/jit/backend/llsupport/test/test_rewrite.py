@@ -764,7 +764,7 @@ class TestFramework(RewriteTests):
         """, """
         [i0, f0]
         i1 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_size)
-        p1 = call_malloc_nursery_varsize_small(i1)
+        p1 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p1, 0, descr=tiddescr)
         i2 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
         setfield_gc(p1, i2, descr=framelendescr)
