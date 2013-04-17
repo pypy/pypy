@@ -47,12 +47,12 @@ class StructDefNode(NodeWithDependencies):
     typetag = 'struct'
     extra_union_for_varlength = True
 
-    def __init__(self, db, STRUCT, varlength=1):
+    def __init__(self, db, STRUCT, varlength=None):
         NodeWithDependencies.__init__(self, db)
         self.STRUCT = STRUCT
         self.LLTYPE = STRUCT
         self.varlength = varlength
-        if varlength == 1:
+        if varlength is None:
             basename = STRUCT._name
             with_number = True
         else:
@@ -93,7 +93,7 @@ class StructDefNode(NodeWithDependencies):
         self.fields = []
         db = self.db
         STRUCT = self.STRUCT
-        if self.varlength != 1:
+        if self.varlength is not None:
             self.normalizedtypename = db.gettype(STRUCT, who_asks=self)
         if needs_gcheader(self.STRUCT):
             HDR = db.gcpolicy.struct_gcheader_definition(self)
@@ -120,7 +120,7 @@ class StructDefNode(NodeWithDependencies):
                 rtti = getRuntimeTypeInfo(STRUCT)
             except ValueError:
                 pass
-        if self.varlength == 1:
+        if self.varlength is None:
             self.db.gcpolicy.struct_setup(self, rtti)
         return self.gcinfo
     gcinfo = defaultproperty(computegcinfo)
@@ -160,12 +160,14 @@ class StructDefNode(NodeWithDependencies):
             if typename == PrimitiveType[Void]:
                 line = '/* %s */' % line
             else:
+                if is_empty and typename.endswith('[RPY_VARLENGTH]'):
+                    yield '\tRPY_DUMMY_VARLENGTH'
                 is_empty = False
             yield '\t' + line
         if is_empty:
             yield '\t' + 'char _dummy; /* this struct is empty */'
         yield '};'
-        if self.varlength != 1:
+        if self.varlength is not None:
             assert self.typetag == 'struct'
             yield 'union %su {' % self.name
             yield '  struct %s a;' % self.name
@@ -182,7 +184,7 @@ class StructDefNode(NodeWithDependencies):
 
     def debug_offsets(self):
         # generate number exprs giving the offset of the elements in the struct
-        assert self.varlength == 1
+        assert self.varlength is None
         for name in self.fieldnames:
             FIELD_T = self.c_struct_field_type(name)
             if FIELD_T is Void:
@@ -196,18 +198,25 @@ class StructDefNode(NodeWithDependencies):
                     yield 'offsetof(%s %s, %s)' % (self.typetag,
                                                    self.name, cname)
 
+def deflength(varlength):
+    if varlength is None:
+        return 'RPY_VARLENGTH'
+    elif varlength == 0:
+        return 'RPY_LENGTH0'
+    else:
+        return varlength
 
 class ArrayDefNode(NodeWithDependencies):
     typetag = 'struct'
     extra_union_for_varlength = True
 
-    def __init__(self, db, ARRAY, varlength=1):
+    def __init__(self, db, ARRAY, varlength=None):
         NodeWithDependencies.__init__(self, db)
         self.ARRAY = ARRAY
         self.LLTYPE = ARRAY
         self.gcfields = []
         self.varlength = varlength
-        if varlength == 1:
+        if varlength is None:
             basename = 'array'
             with_number = True
         else:
@@ -226,7 +235,7 @@ class ArrayDefNode(NodeWithDependencies):
         db = self.db
         ARRAY = self.ARRAY
         self.gcinfo    # force it to be computed
-        if self.varlength != 1:
+        if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
         if needs_gcheader(ARRAY):
             HDR = db.gcpolicy.array_gcheader_definition(self)
@@ -238,7 +247,7 @@ class ArrayDefNode(NodeWithDependencies):
     def computegcinfo(self):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
-        if self.varlength == 1:
+        if self.varlength is None:
             self.db.gcpolicy.array_setup(self)
         return self.gcinfo
     gcinfo = defaultproperty(computegcinfo)
@@ -269,21 +278,22 @@ class ArrayDefNode(NodeWithDependencies):
             yield '\t' + cdecl(typename, fname) + ';'
         if not self.ARRAY._hints.get('nolength', False):
             yield '\tlong length;'
-        line = '%s;' % cdecl(self.itemtypename, 'items[%d]'% self.varlength)
+        line = '%s;' % cdecl(self.itemtypename,
+                             'items[%s]' % deflength(self.varlength))
         if self.ARRAY.OF is Void:    # strange
             line = '/* array of void */'
             if self.ARRAY._hints.get('nolength', False):
                 line = 'char _dummy; ' + line
         yield '\t' + line
         yield '};'
-        if self.varlength != 1:
+        if self.varlength is not None:
             yield 'union %su {' % self.name
             yield '  struct %s a;' % self.name
             yield '  %s;' % cdecl(self.normalizedtypename, 'b')
             yield '};'
 
     def visitor_lines(self, prefix, on_item):
-        assert self.varlength == 1
+        assert self.varlength is None
         ARRAY = self.ARRAY
         # we need a unique name for this C variable, or at least one that does
         # not collide with the expression in 'prefix'
@@ -310,7 +320,7 @@ class ArrayDefNode(NodeWithDependencies):
 
     def debug_offsets(self):
         # generate three offsets for debugging inspection
-        assert self.varlength == 1
+        assert self.varlength is None
         if not self.ARRAY._hints.get('nolength', False):
             yield 'offsetof(struct %s, length)' % (self.name,)
         else:
@@ -333,7 +343,7 @@ class BareBoneArrayDefNode(NodeWithDependencies):
     forward_decl = None
     extra_union_for_varlength = False
 
-    def __init__(self, db, ARRAY, varlength=1):
+    def __init__(self, db, ARRAY, varlength=None):
         NodeWithDependencies.__init__(self, db)
         self.ARRAY = ARRAY
         self.LLTYPE = ARRAY
@@ -342,8 +352,8 @@ class BareBoneArrayDefNode(NodeWithDependencies):
         # There is no such thing as an array of voids:
         # we use a an array of chars instead; only the pointer can be void*.
         self.itemtypename = db.gettype(contained_type, who_asks=self)
-        self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
-                                                      (self.varlength,))
+        self.fulltypename = self.itemtypename.replace('@', '(@)[%s]' %
+                                                      deflength(varlength))
         if ARRAY._hints.get("render_as_void"):
             self.fullptrtypename = 'void *@'
         else:
@@ -493,7 +503,8 @@ class ContainerNode(Node):
         Node.__init__(self, db)
         self.obj = obj
         self.typename = db.gettype(T)  #, who_asks=self)
-        self.implementationtypename = db.gettype(T, varlength=self.getlength())
+        self.implementationtypename = db.gettype(
+            T, varlength=self.getvarlength())
         parent, parentindex = parentlink(obj)
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
@@ -559,8 +570,8 @@ class ContainerNode(Node):
     def startupcode(self):
         return []
 
-    def getlength(self):
-        return 1
+    def getvarlength(self):
+        return None
 
 assert not USESLOTS or '__dict__' not in dir(ContainerNode)
 
@@ -578,10 +589,10 @@ class StructNode(ContainerNode):
         for name in T._names:
             yield getattr(self.obj, name)
 
-    def getlength(self):
+    def getvarlength(self):
         T = self.getTYPE()
         if T._arrayfld is None:
-            return 1
+            return None
         else:
             array = getattr(self.obj, T._arrayfld)
             return len(array.items)
@@ -696,7 +707,7 @@ class ArrayNode(ContainerNode):
     def enum_dependencies(self):
         return self.obj.items
 
-    def getlength(self):
+    def getvarlength(self):
         return len(self.obj.items)
 
     def initializationexpr(self, decoration=''):
@@ -765,8 +776,8 @@ class FixedSizeArrayNode(ContainerNode):
         for i in range(self.obj.getlength()):
             yield self.obj.getitem(i)
 
-    def getlength(self):
-        return 1    # not variable-sized!
+    def getvarlength(self):
+        return None    # not variable-sized!
 
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
