@@ -178,7 +178,8 @@ class Assembler386(BaseAssembler):
             addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
         else:
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
-        mc.SUB_ri(esp.value, 16 - WORD)
+        mc.SUB_ri(esp.value, 16 - WORD)  # restore 16-byte alignment
+        # magically, the above is enough on X86_32 to reserve 3 stack places
         if kind == 'fixed':
             mc.SUB_rr(edi.value, eax.value) # compute the size we want
             # the arg is already in edi
@@ -191,21 +192,23 @@ class Assembler386(BaseAssembler):
                 mc.MOV_rr(esi.value, ebp.value)
         elif kind == 'str' or kind == 'unicode':
             if IS_X86_32:
-                # 1 for return value, 3 for alignment
-                mc.MOV_rs(edi.value, WORD * (3 + 1 + 1))
+                # stack layout: [---][---][---][ret][gcmap][length]...
+                mc.MOV_rs(edi.value, WORD * 5)  # pick 'length'
                 mc.MOV_sr(0, edi.value)
             else:
+                # stack layout: [---][ret][gcmap][length]...
                 mc.MOV_rs(edi.value, WORD * 3)
         else:
             if IS_X86_32:
-                mc.MOV_rs(edi.value, WORD * (3 + 1 + 1)) # itemsize
+                # stack layout: [--][--][--][ret][gcmap][itemsize][length][tid]
+                mc.MOV_rs(edi.value, WORD * 5)  # pick 'itemsize'
                 mc.MOV_sr(0, edi.value)
-                mc.MOV_rs(edi.value, WORD * (3 + 3 + 1))
-                mc.MOV_sr(WORD, edi.value) # tid
-                mc.MOV_rs(edi.value, WORD * (3 + 2 + 1))
-                mc.MOV_sr(2 * WORD, edi.value) # length
+                mc.MOV_rs(edi.value, WORD * 7)  # pick 'tid'
+                mc.MOV_sr(WORD, edi.value)
+                mc.MOV_rs(edi.value, WORD * 6)  # pick 'length'
+                mc.MOV_sr(2 * WORD, edi.value)
             else:
-                # offset is 1 extra for call + 1 for SUB above
+                # stack layout: [---][ret][gcmap][itemsize][length][tid]...
                 mc.MOV_rs(edi.value, WORD * 3) # itemsize
                 mc.MOV_rs(esi.value, WORD * 5) # tid
                 mc.MOV_rs(edx.value, WORD * 4) # length
@@ -2425,7 +2428,7 @@ class Assembler386(BaseAssembler):
                 addr = self.malloc_slowpath_unicode
             self.mc.MOV(RawEspLoc(WORD, INT), lengthloc)
         # save the gcmap
-        self.push_gcmap(self.mc, gcmap, mov=True)
+        self.push_gcmap(self.mc, gcmap, mov=True)   # mov into RawEspLoc(0)
         self.mc.CALL(imm(addr))
         offset = self.mc.get_relative_pos() - jmp_adr1
         assert 0 < offset <= 127
