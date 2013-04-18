@@ -207,15 +207,8 @@ def _skipspace(data, pos):
 
 def _detect_arm_cpu(data):
     # check for the presence of a 'Processor' entry
-    start = _findend(data, 'Processor', 0)
-    if start >= 0:
-        # *** data[start:linepos] == "   : ARMv6-compatible processor rev 7\n"
-        start = _skipspace(data, start)
-        if data[start] == ':':
-            # *** data[start:linepos] == ": ARMv6-compatible processor rev 7\n"
-            start = _skipspace(data, start + 1)
-            return data[start], data[start + 1], data[start + 2] == 'A','R','M'
-    return False
+    p = _findend(data, 'Processor', 0)
+    return p >= 0 and _findend(data, 'ARMv', p) > 0
 
 # ---------- Darwin ----------
 

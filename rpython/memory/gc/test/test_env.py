@@ -172,3 +172,12 @@ cache size      : 3072 KB
 """)
     result = env.get_L2cache_linux2(str(filepath))
     assert result == -1
+
+def test__detect_arm():
+    assert env._detect_arm_cpu("Processor       : ARMv6-compatible processor rev 7 (v6l)")
+    assert not env._detect_arm_cpu("""\
+processor   : 0
+vendor_id   : GenuineIntel
+cpu family  : 6
+model       : 37
+""")
