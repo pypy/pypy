@@ -116,5 +116,5 @@ class AbstractARMCPU(AbstractLLCPU):
 
 
 class CPU_ARM(AbstractARMCPU):
-    """ARM v7"""
-    backend_name = "armv7"
+    """ARM"""
+    backend_name = "arm"
