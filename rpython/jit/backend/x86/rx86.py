@@ -125,12 +125,7 @@ def encode_immediate(mc, immediate, width, orbyte):
     elif width == 'q' and mc.WORD == 8:
         mc.writeimm64(immediate)
     else:
-        if mc._use_16_bit_immediate:
-            # special case for the default width='i' for immediate(),
-            # to support 16-bit if the flag is set by regloc.py
-            mc.writeimm16(immediate)
-        else:
-            mc.writeimm32(immediate)
+        mc.writeimm32(immediate)
     return 0
 
 def immediate(argnum, width='i'):
@@ -311,9 +306,6 @@ REX_B = 1
 def encode_rex(mc, rexbyte, basevalue, orbyte):
     if mc.WORD == 8:
         assert 0 <= rexbyte < 8
-        # XXX: Hack. Ignore REX.W if we are using 16-bit operands
-        if mc._use_16_bit_immediate:
-            basevalue &= ~REX_W
         if basevalue != 0 or rexbyte != 0:
             if basevalue == 0:
                 basevalue = 0x40
@@ -454,9 +446,6 @@ def shifts(mod_field):
 class AbstractX86CodeBuilder(object):
     """Abstract base class."""
 
-    # Used by the 16-bit version of instructions
-    _use_16_bit_immediate = False
-
     def writechar(self, char):
         raise NotImplementedError
 
@@ -500,7 +489,7 @@ class AbstractX86CodeBuilder(object):
     CMP_jr = insn(rex_w, '\x39', register(2, 8), abs_(1))
 
     CMP32_mi = insn(rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
-
+    CMP16_mi = insn('\x66', rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'h'))
     CMP8_ri = insn(rex_fw, '\x80', byte_register(1), '\xF8', immediate(2, 'b'))
 
     AND8_rr = insn(rex_fw, '\x20', byte_register(1), byte_register(2,8), '\xC0')
@@ -732,6 +721,8 @@ for insnname, rex_type in [('MOV', rex_w), ('MOV32', rex_nw)]:
 
 define_modrm_modes('MOV8_*r', [rex_fw, '\x88', byte_register(2, 8)], regtype='BYTE')
 define_modrm_modes('MOV8_*i', [rex_fw, '\xC6', orbyte(0<<3)], [immediate(2, 'b')], regtype='BYTE')
+define_modrm_modes('MOV16_*r', ['\x66', rex_nw, '\x89', register(2, 8)])
+define_modrm_modes('MOV16_*i', ['\x66', rex_nw, '\xC7', orbyte(0<<3)], [immediate(2, 'h')])
 
 define_modrm_modes('MOVZX8_r*', [rex_w, '\x0F\xB6', register(1, 8)], regtype='BYTE')
 define_modrm_modes('MOVSX8_r*', [rex_w, '\x0F\xBE', register(1, 8)], regtype='BYTE')
