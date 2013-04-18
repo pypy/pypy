@@ -59,8 +59,10 @@ class RegrTest:
     def __init__(self, basename, core=False, compiler=None, usemodules='',
                  skip=None):
         self.basename = basename
-        self._usemodules = usemodules.split() + ['signal', 'rctime', 'binascii', '_socket',
-                'select', 'fcntl', '_posixsubprocess']
+        self._usemodules = usemodules.split() + [
+            '_socket', 'binascii', 'rctime', 'select', 'signal']
+        if not sys.platform == 'win32':
+            self._usemodules.extend(['_posixsubprocess', 'fcntl'])
         self._compiler = compiler
         self.core = core
         self.skip = skip
