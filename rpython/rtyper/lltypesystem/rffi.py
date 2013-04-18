@@ -1059,7 +1059,7 @@ class scoped_str2charp:
             self.buf = str2charp(value)
         else:
             self.buf = lltype.nullptr(CCHARP.TO)
-    __init__._annenforceargs_ = [None, str]
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1073,7 +1073,8 @@ class scoped_unicode2wcharp:
             self.buf = unicode2wcharp(value)
         else:
             self.buf = lltype.nullptr(CWCHARP.TO)
-    __init__._annenforceargs_ = [None, unicode]
+    __init__._annenforceargs_ = [None,
+                                 annmodel.SomeUnicodeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
