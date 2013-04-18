@@ -73,6 +73,33 @@ void run_in_transaction(void(*cb)(void), int expected)
 
 /************************************************************/
 
+void test_bool_cas(void)
+{
+    volatile Unsigned bv = 10;
+
+    assert(bool_cas(&bv, 10, 15));
+    assert(bv == 15);
+    assert(!bool_cas(&bv, 10, 15));
+    assert(bv == 15);
+    assert(!bool_cas(&bv, 10, 25));
+    assert(bv == 15);
+    assert(bool_cas(&bv, 15, 14));
+    assert(bv == 14);
+}
+
+void test_fetch_and_add(void)
+{
+    volatile Unsigned bv = 14;
+
+    assert(fetch_and_add(&bv, 2) == 14);
+    assert(bv == 16);
+    assert(fetch_and_add(&bv, 7) == 16);
+    assert(fetch_and_add(&bv, (Unsigned)-1) == 23);
+    assert(bv == 22);
+}
+
+/************************************************************/
+
 void test_set_get_del(void)
 {
     stm_set_tls((void *)42);
@@ -365,6 +392,9 @@ void test_single_thread(void)
 
 int main(int argc, char **argv)
 {
+    XTEST(bool_cas);
+    XTEST(fetch_and_add);
+
     DescriptorInit();
     XTEST(set_get_del);
     XTEST(run_all_transactions);

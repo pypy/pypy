@@ -21,11 +21,13 @@
 
 #ifdef __llvm__
 #  define HAS_SYNC_BOOL_COMPARE_AND_SWAP
+#  define HAS_SYNC_FETCH_AND_ADD
 #endif
 
 #ifdef __GNUC__
 #  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
 #    define HAS_SYNC_BOOL_COMPARE_AND_SWAP
+#    define HAS_SYNC_FETCH_AND_ADD
 #  endif
 #endif
 
@@ -55,6 +57,35 @@ bool_cas(volatile Unsigned *ptr, Unsigned old, Unsigned _new)
                  : "q"(_new), "m"(*ptr), "a"(old)
                  : "memory");
     return prev == old;
+}
+/* end */
+#endif
+
+#ifdef HAS_SYNC_FETCH_AND_ADD
+#  define fetch_and_add __sync_fetch_and_add
+#else
+/* x86 (32 bits and 64 bits) */
+static inline Unsigned
+fetch_and_add(volatile Unsigned *ptr, Unsigned value)
+{
+    Unsigned prev;
+#if defined(__amd64__)
+    assert(sizeof(Unsigned) == 8);
+#elif defined(__i386__)
+    assert(sizeof(Unsigned) == 4);
+#else
+#   error "the custom version of fetch_and_add() is only for x86 or x86-64"
+#endif
+    asm volatile("lock;"
+#if defined(__amd64__)
+                 "xaddq %1, %2;"
+#else
+                 "xaddl %1, %2;"
+#endif
+                 : "=r"(prev)
+                 : "0"(value), "m"(*ptr)
+                 : "memory");
+    return prev;
 }
 /* end */
 #endif
