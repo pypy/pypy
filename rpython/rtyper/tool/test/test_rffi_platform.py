@@ -288,7 +288,7 @@ def test_external_lib():
         return (a + b);
     }
     """
-    if platform.cc == 'cl.exe':
+    if platform.name == 'mscv':
         c_source = '__declspec(dllexport) ' + c_source
         libname = 'libc_lib'
     else:
