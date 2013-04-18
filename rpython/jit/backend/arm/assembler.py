@@ -249,7 +249,9 @@ class AssemblerARM(ResOpAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
-    def _build_malloc_slowpath(self):
+    def _build_malloc_slowpath(self, kind):
+        if kind != 'fixed':
+            return 0
         mc = InstrBuilder(self.cpu.arch_version)
         self._push_all_regs_to_jitframe(mc, [r.r0, r.r1], self.cpu.supports_floats)
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
