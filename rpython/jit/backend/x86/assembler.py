@@ -2415,8 +2415,9 @@ class Assembler386(BaseAssembler):
         jmp_adr0 = self.mc.get_relative_pos()
 
         self.mc.MOV(eax, heap(nursery_free_adr))
-        shift = size2shift(itemsize)
-        if shift < 0:
+        if _valid_addressing_size(itemsize):
+            shift = _get_scale(itemsize)
+        else:
             self.mc.IMUL_rri(edi.value, varsizeloc.value, itemsize)
             varsizeloc = edi
             shift = 0
@@ -2522,14 +2523,6 @@ def heap(addr):
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
     raise NotImplementedError(msg)
-
-def size2shift(size):
-    "Return a result 0..3 such that (1<<result) == size, or -1 if impossible"
-    if size == 1: return 0
-    if size == 2: return 1
-    if size == 4: return 2
-    if size == 8: return 3
-    return -1
 
 class BridgeAlreadyCompiled(Exception):
     pass
