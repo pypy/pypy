@@ -313,9 +313,11 @@ def _pythonize(pyclass):
     if '__eq__' in pyclass.__dict__:
         def __eq__(self, other):
             if other is None: return not self
-            if type(self) is not type(other): return False
             if not self and not other: return True
-            return self._cxx_eq(other)
+            try:
+                return self._cxx_eq(other)
+            except TypeError:
+                return NotImplemented
         pyclass._cxx_eq = pyclass.__dict__['__eq__']
         pyclass.__eq__ = __eq__
 
