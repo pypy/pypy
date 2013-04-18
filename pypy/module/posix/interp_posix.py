@@ -1172,6 +1172,6 @@ def urandom(space, n):
     """
     context = get(space).random_context
     try:
-        return space.wrap(rurandom.urandom(context, n))
+        return space.wrapbytes(rurandom.urandom(context, n))
     except OSError, e:
         raise wrap_oserror(space, e)
