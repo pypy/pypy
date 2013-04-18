@@ -25,7 +25,6 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, compute_uniq
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.backend.arm.detect import detect_hardfloat
 
 class AssemblerARM(ResOpAssembler):
 
@@ -51,7 +50,6 @@ class AssemblerARM(ResOpAssembler):
 
     def setup_once(self):
         BaseAssembler.setup_once(self)
-        self.hf_abi = detect_hardfloat()
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, 'setup_once() not called?'

@@ -7,6 +7,7 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.backend.arm.detect import detect_hardfloat
+from rpython.jit.backend.arm.detect import detect_arch_version
 
 jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
 
@@ -26,7 +27,7 @@ class AbstractARMCPU(AbstractLLCPU):
     frame_reg = fp
 
     hf_abi = False        # use hard float abi flag
-    arch_version = 7
+    arch_version = 6      # assume ARMv6 as base case
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -46,6 +47,8 @@ class AbstractARMCPU(AbstractLLCPU):
         self.assembler = AssemblerARM(self, self.translate_support_code)
 
     def setup_once(self):
+        self.arch_version = detect_arch_version()
+        self.hf_abi = detect_hardfloat()
         self.assembler.setup_once()
 
     def finish_once(self):
@@ -115,8 +118,3 @@ class AbstractARMCPU(AbstractLLCPU):
 class CPU_ARM(AbstractARMCPU):
     """ARM v7"""
     backend_name = "armv7"
-
-class CPU_ARMv6(AbstractARMCPU):
-    """ ARM v6, uses hardfp ABI, requires vfp"""
-    arch_version = 6
-    backend_name = "armv6"

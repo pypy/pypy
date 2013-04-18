@@ -354,7 +354,7 @@ class ResOpAssembler(BaseAssembler):
                     # whether to worry about a CALL that can collect; this
                     # is always true except in call_release_gil
                     can_collect=True):
-        if self.hf_abi:
+        if self.cpu.hf_abi:
             stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
                                             resloc, result_info)
         else:
@@ -382,7 +382,7 @@ class ResOpAssembler(BaseAssembler):
 
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None:
-            if resloc.is_vfp_reg() and not self.hf_abi:
+            if resloc.is_vfp_reg() and not self.cpu.hf_abi:
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
             elif resloc.is_reg() and result_info != (-1, -1):
