@@ -1537,22 +1537,50 @@ class Assembler386(BaseAssembler):
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
+    def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
+        """Produce one operation to do roughly
+               targetreg = sourcereg * itemsize
+           except that the targetreg may still need shifting by 0,1,2,3.
+        """
+        if (itemsize & 7) == 0:
+            shift = 3
+        elif (itemsize & 3) == 0:
+            shift = 2
+        elif (itemsize & 1) == 0:
+            shift = 1
+        else:
+            shift = 0
+        itemsize >>= shift
+        #
+        if _valid_addressing_size(itemsize - 1):
+            mc.LEA_ra(targetreg, (sourcereg, sourcereg,
+                                  _get_scale(itemsize - 1), 0))
+        elif _valid_addressing_size(itemsize):
+            mc.LEA_ra(targetreg, (rx86.NO_BASE_REGISTER, sourcereg,
+                                  _get_scale(itemsize), 0))
+        else:
+            mc.IMUL_rri(targetreg, sourcereg, itemsize)
+        #
+        return shift
+
     def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
                                 base_loc, ofs_loc):
         assert isinstance(itemsize_loc, ImmedLoc)
+        itemsize = itemsize_loc.value
         if isinstance(index_loc, ImmedLoc):
-            temp_loc = imm(index_loc.value * itemsize_loc.value)
-        elif _valid_addressing_size(itemsize_loc.value):
-            return AddressLoc(base_loc, index_loc, _get_scale(itemsize_loc.value), ofs_loc.value)
+            temp_loc = imm(index_loc.value * itemsize)
+            shift = 0
+        elif _valid_addressing_size(itemsize):
+            temp_loc = index_loc
+            shift = _get_scale(itemsize)
         else:
-            # XXX should not use IMUL in more cases, it can use a clever LEA
-            assert isinstance(temp_loc, RegLoc)
             assert isinstance(index_loc, RegLoc)
+            assert isinstance(temp_loc, RegLoc)
             assert not temp_loc.is_xmm
-            self.mc.IMUL_rri(temp_loc.value, index_loc.value,
-                             itemsize_loc.value)
+            shift = self._imul_const_scaled(self.mc, temp_loc.value,
+                                            index_loc.value, itemsize)
         assert isinstance(ofs_loc, ImmedLoc)
-        return AddressLoc(base_loc, temp_loc, 0, ofs_loc.value)
+        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
     def genop_getinteriorfield_gc(self, op, arglocs, resloc):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
@@ -2418,9 +2446,9 @@ class Assembler386(BaseAssembler):
         if _valid_addressing_size(itemsize):
             shift = _get_scale(itemsize)
         else:
-            self.mc.IMUL_rri(edi.value, varsizeloc.value, itemsize)
+            shift = self._imul_const_scaled(self.mc, edi.value,
+                                            varsizeloc.value, itemsize)
             varsizeloc = edi
-            shift = 0
         # now varsizeloc is a register != eax.  The size of
         # the variable part of the array is (varsizeloc << shift)
         assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
