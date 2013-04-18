@@ -55,9 +55,9 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                 # the following is clumsy, but the data types used as arguments are
                 # very limited, so it'll do for now
                 if isinstance(argtype, ctypeprim.W_CTypePrimitiveSigned):
-                    misc.write_raw_integer_data(data, rffi.cast(rffi.LONG, obj._long), argtype.size)
+                    misc.write_raw_signed_data(data, rffi.cast(rffi.LONG, obj._long), argtype.size)
                 elif isinstance(argtype, ctypeprim.W_CTypePrimitiveUnsigned):
-                    misc.write_raw_integer_data(data, rffi.cast(rffi.ULONG, obj._long), argtype.size)
+                    misc.write_raw_unsigned_data(data, rffi.cast(rffi.ULONG, obj._long), argtype.size)
                 elif obj._voidp != rffi.cast(rffi.VOIDP, 0):
                     data = rffi.cast(rffi.VOIDPP, data)
                     data[0] = obj._voidp

@@ -13,8 +13,13 @@ else:
 if sys.maxint == 2**63 - 1:
     arch += '64'
 
+hg = py.path.local.sysfind('hg')
+branch = hg.sysexec('branch').strip()
+if branch == 'default':
+    branch = 'trunk'
+
 filename = 'pypy-c-jit-latest-%s.tar.bz2' % arch
-url = 'http://buildbot.pypy.org/nightly/trunk/%s' % filename
+url = 'http://buildbot.pypy.org/nightly/%s/%s' % (branch, filename)
 tmp = py.path.local.mkdtemp()
 mydir = tmp.chdir()
 print 'Downloading pypy to', tmp

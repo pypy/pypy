@@ -146,7 +146,7 @@ class W_InputType(W_InputOutputType):
 
 class W_OutputType(RStringIO, W_InputOutputType):
     def __init__(self, space):
-        RStringIO.__init__(self)
+        self.init()
         self.space = space
 
     def descr_truncate(self, w_size=None):
@@ -159,6 +159,7 @@ class W_OutputType(RStringIO, W_InputOutputType):
         if size < 0:
             raise OperationError(space.w_IOError, space.wrap("negative size"))
         self.truncate(size)
+        self.seek(0, 2)
 
     @unwrap_spec(buffer='bufferstr')
     def descr_write(self, buffer):

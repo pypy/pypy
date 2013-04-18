@@ -174,8 +174,11 @@ class TestRegallocMov(BaseMovTest):
         s = stack(8191)
         r6 = r(6)
         expected = [
-                    mi('gen_load_int', 'helper', s.value, cond=AL),
-                    mi('LDR_rr', r6.value, fp.value, 'helper', cond=AL)]
+                   mi('PUSH', [lr.value], cond=AL),
+                   mi('gen_load_int', lr.value, 32940, cond=AL),
+                   mi('LDR_rr', r6.value, fp.value, lr.value, cond=AL),
+                   mi('POP', [lr.value], cond=AL),
+        ]
         self.mov(s, r6, expected)
 
     def test_mov_float_imm_to_vfp_reg(self):
@@ -422,8 +425,11 @@ class TestRegallocPush(BaseMovTest):
 
     def test_push_big_stack(self):
         s = stack(1025)
-        e = [mi('gen_load_int', 'helper', s.value, cond=AL),
-            mi('LDR_rr', ip.value, fp.value, 'helper', cond=AL),
+        e = [
+            mi('PUSH', [lr.value], cond=AL),
+            mi('gen_load_int', lr.value, s.value, cond=AL),
+            mi('LDR_rr', ip.value, fp.value, lr.value, cond=AL),
+            mi('POP', [lr.value], cond=AL),
             mi('PUSH', [ip.value], cond=AL)
             ]
         self.push(s, e)
@@ -444,9 +450,11 @@ class TestRegallocPush(BaseMovTest):
     def test_push_large_stackfloat(self):
         sf = stack_float(100)
         e = [
-            mi('gen_load_int', 'helper', sf.value, cond=AL),
-            mi('ADD_rr', 'helper', fp.value, 'helper', cond=AL),
-            mi('VLDR', vfp_ip.value, 'helper', cond=AL),
+            mi('PUSH', [ip.value], cond=AL),
+            mi('gen_load_int', ip.value, sf.value, cond=AL),
+            mi('ADD_rr', ip.value, fp.value, ip.value, cond=AL),
+            mi('VLDR', vfp_ip.value, ip.value, cond=AL),
+            mi('POP', [ip.value], cond=AL),
             mi('VPUSH', [vfp_ip.value], cond=AL),
         ]
         self.push(sf, e)

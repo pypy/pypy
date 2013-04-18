@@ -43,8 +43,20 @@ Improved RPython typing
 Rudimentary support for bytearray in RPython
 
 .. branch: refactor-call_release_gil
-Fix a bug which casused cffi to return the wrong result when calling a C
+Fix a bug which caused cffi to return the wrong result when calling a C
 function which calls a Python callback which forces the frames
+
+.. branch: virtual-raw-mallocs
+JIT optimizations which make cffi calls even faster, by removing the need to
+allocate a temporary buffer where to store the arguments.
+
+.. branch: improve-docs-2
+Improve documents and straighten out links
+
+.. branch: fast-newarray
+Inline the fast path of newarray in the assembler.
+Disabled on ARM until we fix issues.
+
 
 .. branches we don't care about
 .. branch: autoreds
@@ -115,9 +127,12 @@ Documentation fixes after going through the docs at PyCon 2013 sprint.
 .. branch: remove-list-smm
 .. branch: bridge-logging
 .. branch: curses_cffi
-
 cffi implementation of _curses
 
 .. branch: sqlite-cffi
-
 cffi implementation of sqlite3
+
+.. branch: release-2.0-beta2
+.. branch: unbreak-freebsd
+
+.. branch: virtualref-virtualizable

@@ -255,19 +255,7 @@ class __extend__(pyframe.PyFrame):
                                              "code=%d, name=%s" %
                                              (self.last_instr, opcode,
                                               methodname))
-                try:
-                    res = meth(oparg, next_instr)
-                except Exception:
-                    if 0:
-                        import dis, sys
-                        print "*** %s at offset %d (%s)" % (sys.exc_info()[0],
-                                                            self.last_instr,
-                                                            methodname)
-                        try:
-                            dis.dis(co_code)
-                        except:
-                            pass
-                    raise
+                res = meth(oparg, next_instr)
                 if res is not None:
                     next_instr = res
 

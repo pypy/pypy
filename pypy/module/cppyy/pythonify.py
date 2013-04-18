@@ -46,6 +46,11 @@ class CppyyTemplateType(object):
             fullname += '>'
         return getattr(self._scope, fullname)
 
+    def __getitem__(self, *args):
+        if args and type(args[0]) == tuple:
+            return self.__call__(*(args[0]))
+        return self.__call__(*args)
+
 
 def clgen_callback(name):
     return get_pycppclass(name)

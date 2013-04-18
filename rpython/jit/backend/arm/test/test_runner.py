@@ -27,18 +27,18 @@ class TestARM(LLtypeBackendTest):
     bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                 'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                 'blx', 'mov', 'mov', 'bx']
-    if CPU.backend_name.startswith('armv7'):
+    if CPU.arch_version == 7:
         bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                     'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                     'blx', 'mov', 'mov', 'bx']
     else:
         bridge_loop_instructions = ['ldr', 'mov', 'nop', 'nop', 'nop', 'cmp', 'bge',
                               'push', 'ldr', 'mov',
-                              '', # inline constant
+                              '*', # inline constant
                               'push', 'ldr', 'mov',
-                              'ldrsblt', #inline constant (decodes as instruction)
+                              '*', # inline constant
                               'blx', 'ldr', 'mov',
-                              '', # inline constant
+                              '*', # inline constant
                               'bx']
 
     def get_cpu(self):

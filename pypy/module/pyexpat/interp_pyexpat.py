@@ -475,8 +475,8 @@ getting the advantage of providing document type information to the parser.
 
     def w_convert(self, space, s):
         if self.returns_unicode:
-            from pypy.interpreter.unicodehelper import PyUnicode_DecodeUTF8
-            return space.wrap(PyUnicode_DecodeUTF8(space, s))
+            from pypy.interpreter.unicodehelper import decode_utf8
+            return space.wrap(decode_utf8(space, s))
         else:
             return space.wrap(s)
 

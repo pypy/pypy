@@ -2712,6 +2712,13 @@ def test_setslice_array():
     c[1:3] = d
     assert list(c) == [0, 40, 50, 30, 0]
 
+def test_cdata_name_module_doc():
+    p = new_primitive_type("signed char")
+    x = cast(p, 17)
+    assert x.__module__ == '_cffi_backend'
+    assert x.__name__ == '<cdata>'
+    assert hasattr(x, '__doc__')
+
 def test_version():
     # this test is here mostly for PyPy
     assert __version__ == "0.6"

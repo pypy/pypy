@@ -280,8 +280,13 @@ class W_CData(W_Root):
         return self.ctype.iter(self)
 
     @specialize.argtype(1)
-    def write_raw_integer_data(self, source):
-        misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
+    def write_raw_signed_data(self, source):
+        misc.write_raw_signed_data(self._cdata, source, self.ctype.size)
+        keepalive_until_here(self)
+
+    @specialize.argtype(1)
+    def write_raw_unsigned_data(self, source):
+        misc.write_raw_unsigned_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
     def write_raw_float_data(self, source):
@@ -389,6 +394,7 @@ class W_CDataSliced(W_CData):
 W_CData.typedef = TypeDef(
     'CData',
     __module__ = '_cffi_backend',
+    __name__ = '<cdata>',
     __repr__ = interp2app(W_CData.repr),
     __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),

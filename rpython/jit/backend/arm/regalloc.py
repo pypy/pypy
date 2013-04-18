@@ -554,10 +554,9 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
-        args = []
-        args.append(None)
+        args = [None] * (op.numargs() + 1)
         for i in range(op.numargs()):
-            args.append(self.loc(op.getarg(i)))
+            args[i + 1] = self.loc(op.getarg(i))
         # spill variables that need to be saved around calls
         self.vfprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -1015,7 +1014,7 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_var(t)
         return [imm(size)]
 
-    def prepare_op_call_malloc_nursery_varsize_small(self, op, fcond):
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt)
 
@@ -1091,6 +1090,7 @@ class Regalloc(BaseRegalloc):
         #jump_op = self.final_jump_op
         #if jump_op is not None and jump_op.getdescr() is descr:
         #    self._compute_hint_frame_locations_from_descr(descr)
+        return []
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         args = self._prepare_call(op, save_all_regs=True)

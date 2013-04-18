@@ -202,6 +202,22 @@ class AppTestADVANCEDCPP:
         assert gbl.a_ns.T4('a_ns::T4<T3<int,double> >')\
                is gbl.a_ns.T4(gbl.a_ns.T4(gbl.T3(int, 'double')))
 
+        #----- mix in some of the alternative syntax
+        assert gbl.T1['int'] is gbl.T1('int')
+        assert gbl.T1[int]   is gbl.T1('int')
+        assert gbl.T2['T1<int>']     is gbl.T2('T1<int>')
+        assert gbl.T2[gbl.T1('int')] is gbl.T2('T1<int>')
+        assert gbl.T2[gbl.T1(int)] is gbl.T2('T1<int>')
+        assert gbl.T3['int,double']    is gbl.T3('int,double')
+        assert gbl.T3['int', 'double'] is gbl.T3('int,double')
+        assert gbl.T3[int, 'double']   is gbl.T3('int,double')
+        assert gbl.T3['T1<int>,T2<T1<int> >'] is gbl.T3('T1<int>,T2<T1<int> >')
+        assert gbl.T3['T1<int>', gbl.T2[gbl.T1[int]]] is gbl.T3('T1<int>,T2<T1<int> >')
+
+        assert gbl.a_ns.T4[int] is gbl.a_ns.T4('int')
+        assert gbl.a_ns.T4['a_ns::T4<T3<int,double> >']\
+               is gbl.a_ns.T4(gbl.a_ns.T4(gbl.T3(int, 'double')))
+
         #-----
         t1 = gbl.T1(int)()
         assert t1.m_t1        == 1
@@ -223,6 +239,7 @@ class AppTestADVANCEDCPP:
         assert t2.m_t2.get_value() == 32
         assert t2.m_t2.m_t1        == 32
         t2.destruct()
+
 
     def test05_abstract_classes(self):
         """Test non-instatiatability of abstract classes"""

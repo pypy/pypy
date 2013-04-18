@@ -184,6 +184,8 @@ class FunctionGcRootTracker(object):
                 continue
             self.currentlineno = lineno
             insn = []
+            if line.startswith('\trep;'):
+                line = '\t'+line[5:].lstrip()
             match = self.r_insn.match(line)
 
             if self.r_bottom_marker.match(line):
@@ -663,6 +665,12 @@ class FunctionGcRootTracker(object):
 
     def visit_ret(self, line):
         return InsnRet(self.CALLEE_SAVE_REGISTERS)
+
+    def visit_rep(self, line):
+        # 'rep ret' or 'rep; ret': bad reasons for this bogus 'rep' here
+        if line.split()[:2] == ['rep', 'ret']:
+            return self.visit_ret(line)
+        return []
 
     def visit_jmp(self, line):
         tablelabels = []

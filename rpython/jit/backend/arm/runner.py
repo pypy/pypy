@@ -6,6 +6,8 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.jit.backend.arm.detect import detect_hardfloat
+from rpython.jit.backend.arm.detect import detect_arch_version
 
 jitframe.STATICSIZE = JITFRAME_FIXED_SIZE
 
@@ -16,7 +18,7 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_floats = True
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
-    supports_singlefloats = True
+    supports_singlefloats = not detect_hardfloat()
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = range(len(all_regs))
@@ -25,7 +27,7 @@ class AbstractARMCPU(AbstractLLCPU):
     frame_reg = fp
 
     hf_abi = False        # use hard float abi flag
-    arch_version = 7
+    arch_version = 6      # assume ARMv6 as base case
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -45,6 +47,8 @@ class AbstractARMCPU(AbstractLLCPU):
         self.assembler = AssemblerARM(self, self.translate_support_code)
 
     def setup_once(self):
+        self.arch_version = detect_arch_version()
+        self.hf_abi = detect_hardfloat()
         self.assembler.setup_once()
 
     def finish_once(self):
@@ -112,22 +116,5 @@ class AbstractARMCPU(AbstractLLCPU):
 
 
 class CPU_ARM(AbstractARMCPU):
-    """ARM v7 uses softfp ABI, requires vfp"""
-    backend_name = "armv7"
-
-
-class CPU_ARMHF(AbstractARMCPU):
-    """ARM v7 uses hardfp ABI, requires vfp"""
-    hf_abi = True
-    backend_name = "armv7hf"
-    supports_floats = True
-    supports_singlefloats = False
-
-
-class CPU_ARMv6HF(AbstractARMCPU):
-    """ ARM v6, uses hardfp ABI, requires vfp"""
-    hf_abi = True
-    arch_version = 6
-    backend_name = "armv6hf"
-    supports_floats = True
-    supports_singlefloats = False
+    """ARM"""
+    backend_name = "arm"
