@@ -109,14 +109,9 @@ def hkey_w(w_hkey, space):
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
     elif space.isinstance_w(w_hkey, space.w_int):
-        try:
-            value = space.int_w(w_hkey)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
-        else:
+        if space.is_true(space.lt(w_hkey, space.wrap(0))):
             return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
+        return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
     else:
         errstring = space.wrap("The object is not a PyHKEY object")
         raise OperationError(space.w_TypeError, errstring)
@@ -373,7 +368,7 @@ def convert_from_regdata(space, buf, buflen, typ):
         return space.newlist(l)
 
     else: # REG_BINARY and all other types
-        return space.wrap(rffi.charpsize2str(buf, buflen))
+        return space.wrapbytes(rffi.charpsize2str(buf, buflen))
 
 @unwrap_spec(value_name=str, typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):

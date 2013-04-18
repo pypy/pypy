@@ -45,9 +45,12 @@ class AppTestFfi:
             ("Unicode Value", u"A unicode Value", _winreg.REG_SZ),
             ("Str Expand", "The path is %path%", _winreg.REG_EXPAND_SZ),
             ("Multi Str", ["Several", "string", u"values"], _winreg.REG_MULTI_SZ),
-            ("Raw data", "binary"+chr(0)+"data", _winreg.REG_BINARY),
             ]
-        cls.w_test_data = space.wrap(test_data)
+        cls.w_test_data = w_test_data = space.wrap(test_data)
+        w_btest = space.newtuple([space.wrap("Raw data"),
+                                  space.wrapbytes("binary\x00data"),
+                                  space.wrap(_winreg.REG_BINARY)])
+        w_test_data.append(w_btest)
 
     def teardown_class(cls):
         import _winreg
