@@ -140,6 +140,9 @@ class FakeGC:
             if addr.address[0]:
                 callback(addr, arg)
 
+    def maybe_major_collection(self):
+        pass
+
 
 class TestStmGCTLS(object):
 

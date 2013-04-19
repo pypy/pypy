@@ -22,8 +22,8 @@ eci = ExternalCompilationInfo(
 
 
 bool_cas = rffi.llexternal('pypy_bool_cas', [llmemory.Address]*3, lltype.Bool,
-                           compilation_info=eci, macro=True)
+                           compilation_info=eci, macro=True, _nowrapper=True)
 fetch_and_add = rffi.llexternal('pypy_fetch_and_add', [llmemory.Address,
                                                        lltype.Signed],
-                                lltype.Signed,
-                                compilation_info=eci, macro=True)
+                                lltype.Signed, compilation_info=eci,
+                                macro=True, _nowrapper=True)

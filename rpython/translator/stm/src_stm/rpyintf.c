@@ -65,6 +65,7 @@ long stm_is_inevitable(void)
 static unsigned long stm_regular_length_limit = ULONG_MAX;
 
 /* sync_required is either 0 or 0xffffffff */
+#define SYNC_REQUIRED  ((unsigned long)-1)
 static volatile unsigned long sync_required = 0;
 static void reached_safe_point(void);
 
@@ -215,7 +216,7 @@ void stm_start_single_thread(void)
      Warning, may block waiting for rwlock_in_transaction while another
      thread runs a major GC itself! */
   int err;
-  sync_required = (unsigned long)-1;
+  sync_required = SYNC_REQUIRED;
   err = pthread_rwlock_unlock(&rwlock_in_transaction);
   assert(err == 0);
   err = pthread_rwlock_wrlock(&rwlock_in_transaction);
@@ -244,22 +245,19 @@ void stm_stop_single_thread(void)
 
 static void reached_safe_point(void)
 {
-  /* Warning: all places that call this function from RPython code
-     must do so with a llop with canmallocgc=True!  The release of
-     the rwlock_in_transaction below means a major GC could run in
-     another thread! */
+  /* Warning, may block waiting for rwlock_in_transaction while another
+     thread runs a major GC */
   int err;
   struct tx_descriptor *d = thread_descriptor;
+  assert(d->active);
   assert(in_single_thread != d);
-  if (d->active)
-    {
-      err = pthread_rwlock_unlock(&rwlock_in_transaction);
-      assert(err == 0);
-      /* another thread should be waiting in pthread_rwlock_wrlock(),
-         which takes priority here */
-      err = pthread_rwlock_rdlock(&rwlock_in_transaction);
-      assert(err == 0);
-    }
+
+  err = pthread_rwlock_unlock(&rwlock_in_transaction);
+  assert(err == 0);
+  /* another thread should be waiting in pthread_rwlock_wrlock(),
+     which takes priority here */
+  err = pthread_rwlock_rdlock(&rwlock_in_transaction);
+  assert(err == 0);
 }
 
 void stm_abort_and_retry(void)

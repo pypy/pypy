@@ -274,8 +274,8 @@ class StmGCTLS(object):
         if llmemory.raw_malloc_usage(size) > self.nursery_size // 8 * 7:
             fatalerror("XXX object too large to ever fit in the nursery")
         #
-        if not self.gc.maybe_major_collection():
-            self.local_collection(run_finalizers=True)
+        self.local_collection(run_finalizers=True)
+        self.gc.maybe_major_collection()
         #
         # if we have now enough space, return it
         free = self.nursery_free

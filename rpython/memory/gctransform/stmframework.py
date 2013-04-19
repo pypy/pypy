@@ -163,8 +163,7 @@ class StmShadowStackRootWalker(BaseRootWalker):
         base = self.stackgcdata.root_stack_base
         llmemory.raw_free(base)
 
-    def walk_roots(self, *args):
-        "NOT_RPYTHON"
+    def walk_roots(self, c1, c2, c3):
         raise NotImplementedError
 
     def walk_stack_roots(self, *args):

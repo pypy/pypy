@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
 from rpython.rlib.debug import ll_assert, fatalerror
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib import rthread, atomic_ops
 
 WORD = LONG_BIT // 8
@@ -78,6 +79,7 @@ class StmGCSharedArea(object):
         #
         # Counters for statistics
         self.count_global_pages = 0
+        self.num_major_collects = 0
         self.v_count_total_bytes = lltype.malloc(rffi.CArray(lltype.Unsigned),
                                                  1, flavor='raw',
                                                  immortal=True, zero=True)
@@ -91,6 +93,31 @@ class StmGCSharedArea(object):
     def fetch_count_total_bytes_and_add(self, increment):
         adr = rffi.cast(llmemory.Address, self.v_count_total_bytes)
         return r_uint(atomic_ops.fetch_and_add(adr, increment))
+
+    def do_major_collection(self):
+        """Perform a major collection."""
+        # At this point all other threads should be blocked or running
+        # external C code or careful non-GC-using code, with all GC roots
+        # in their shadow stack.  Even if some nurseries are not empty
+        # we can still trace through them: a major collection does not
+        # move any object.  The point is only that after the "sweep" phase,
+        # we have identified all locations that are now free, and added
+        # them to the chained lists of StmGCSharedArea for reuse.
+        debug_start("gc-collect")
+        debug_print()
+        debug_print(".----------- Full collection ------------------")
+        debug_print("| used before collection:",
+                    self.fetch_count_total_bytes(), "bytes")
+        #
+        fatalerror("do_major_collection: in-progress")
+        #
+        self.num_major_collects += 1
+        debug_print("| used after collection:",
+                    self.fetch_count_total_bytes(), "bytes")
+        debug_print("| number of major collects:        ",
+                    self.num_major_collects)
+        debug_print("`----------------------------------------------")
+        debug_stop("gc-collect")
 
 
 # ------------------------------------------------------------
