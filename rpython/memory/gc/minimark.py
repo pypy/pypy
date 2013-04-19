@@ -130,6 +130,7 @@ TID_MASK            = (first_gcflag << 8) - 1
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                               ('forw', llmemory.Address))
 FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)
+NURSARRAY = lltype.Array(llmemory.Address)
 
 # ____________________________________________________________
 
@@ -263,7 +264,7 @@ class MiniMarkGC(MovingGCBase):
         self.nursery_top  = NULL
         self.nursery_real_top = NULL
         self.debug_tiny_nursery = -1
-        self.debug_rotating_nurseries = None
+        self.debug_rotating_nurseries = lltype.nullptr(NURSARRAY)
         self.extra_threshold = 0
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
@@ -471,23 +472,32 @@ class MiniMarkGC(MovingGCBase):
             # and use them alternatively, while mprotect()ing the unused
             # ones to detect invalid access.
             debug_start("gc-debug")
-            self.debug_rotating_nurseries = []
-            for i in range(22):
+            self.debug_rotating_nurseries = lltype.malloc(
+                NURSARRAY, 22, flavor='raw', track_allocation=False)
+            i = 0
+            while i < 22:
                 nurs = self._alloc_nursery()
                 llarena.arena_protect(nurs, self._nursery_memory_size(), True)
-                self.debug_rotating_nurseries.append(nurs)
+                self.debug_rotating_nurseries[i] = nurs
+                i += 1
             debug_print("allocated", len(self.debug_rotating_nurseries),
                         "extra nurseries")
             debug_stop("gc-debug")
 
     def debug_rotate_nursery(self):
-        if self.debug_rotating_nurseries is not None:
+        if self.debug_rotating_nurseries:
             debug_start("gc-debug")
             oldnurs = self.nursery
             llarena.arena_protect(oldnurs, self._nursery_memory_size(), True)
-            self.debug_rotating_nurseries.append(oldnurs)
             #
-            newnurs = self.debug_rotating_nurseries.pop(0)
+            newnurs = self.debug_rotating_nurseries[0]
+            i = 0
+            while i < len(self.debug_rotating_nurseries) - 1:
+                self.debug_rotating_nurseries[i] = (
+                    self.debug_rotating_nurseries[i + 1])
+                i += 1
+            self.debug_rotating_nurseries[i] = oldnurs
+            #
             llarena.arena_protect(newnurs, self._nursery_memory_size(), False)
             self.nursery = newnurs
             self.nursery_top = self.nursery + self.initial_cleanup
