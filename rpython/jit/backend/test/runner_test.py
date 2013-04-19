@@ -3935,3 +3935,19 @@ class LLtypeBackendTest(BaseBackendTest):
         descr = self.cpu.get_latest_descr(frame)
         assert descr.identifier == 42
         assert not self.cpu.grab_exc_value(frame)
+
+    def test_setarrayitem_raw_short(self):
+        # setarrayitem_raw(140737353744432, 0, 30583, descr=<ArrayS 2>)
+        A = rffi.CArray(rffi.SHORT)
+        arraydescr = self.cpu.arraydescrof(A)
+        a = lltype.malloc(A, 2, flavor='raw')
+        a[0] = rffi.cast(rffi.SHORT, 666)
+        a[1] = rffi.cast(rffi.SHORT, 777)
+        a_int = rffi.cast(lltype.Signed, a)
+        print 'a_int:', a_int
+        self.execute_operation(rop.SETARRAYITEM_RAW,
+                               [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],
+                               'void', descr=arraydescr)
+        assert rffi.cast(lltype.Signed, a[0]) == -7654
+        assert rffi.cast(lltype.Signed, a[1]) == 777
+        lltype.free(a, flavor='raw')
