@@ -107,7 +107,7 @@ extern "C" {
 
     /* misc helpers ----------------------------------------------------------- */
     long long cppyy_strtoll(const char* str);
-    unsigned long long cppyy_strtuoll(const char* str);
+    unsigned long long cppyy_strtoull(const char* str);
     void cppyy_free(void* ptr);
 
     cppyy_object_t cppyy_charp2stdstring(const char* str);
