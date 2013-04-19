@@ -19,6 +19,7 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
     supports_singlefloats = not detect_hardfloat()
+    can_inline_varsize_malloc = True
 
     from rpython.jit.backend.arm.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = range(len(all_regs))

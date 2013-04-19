@@ -191,7 +191,7 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def _emit_guard(self, op, arglocs, fcond, save_exc,
-                                    is_guard_not_invalidated=False, 
+                                    is_guard_not_invalidated=False,
                                     is_guard_not_forced=False):
         assert isinstance(save_exc, bool)
         assert isinstance(fcond, int)
@@ -297,7 +297,7 @@ class ResOpAssembler(BaseAssembler):
         return self._emit_guard(op, locs, fcond, save_exc=False,
                                             is_guard_not_invalidated=True)
 
-    def emit_op_label(self, op, arglocs, regalloc, fcond): 
+    def emit_op_label(self, op, arglocs, regalloc, fcond):
         self._check_frame_depth_debug(self.mc)
         return fcond
 
@@ -1334,23 +1334,6 @@ class ResOpAssembler(BaseAssembler):
         self._alignment_check()
         return fcond
 
-    def emit_op_call_malloc_nursery(self, op, arglocs, regalloc, fcond):
-        # registers r0 and r1 are allocated for this call
-        assert len(arglocs) == 1
-        sizeloc = arglocs[0]
-        gc_ll_descr = self.cpu.gc_ll_descr
-        gcmap = regalloc.get_gcmap([r.r0, r.r1])
-        self.malloc_cond(
-            gc_ll_descr.get_nursery_free_addr(),
-            gc_ll_descr.get_nursery_top_addr(),
-            sizeloc,
-            gcmap
-            )
-        self._alignment_check()
-        return fcond
-    emit_op_call_malloc_nursery_varsize_frame = emit_op_call_malloc_nursery
-
-
     def _alignment_check(self):
         if not self.debug:
             return
@@ -1436,7 +1419,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
         self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
-    
+
     def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
