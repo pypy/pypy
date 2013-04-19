@@ -77,9 +77,9 @@ class _PROCESS_INFORMATION(ctypes.Structure):
                 ("dwProcessID", ctypes.c_int),
                 ("dwThreadID", ctypes.c_int)]
 
-_CreateProcess = _kernel32.CreateProcessA
-_CreateProcess.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p,
-                           ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p,
+_CreateProcess = _kernel32.CreateProcessW
+_CreateProcess.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p, ctypes.c_void_p,
+                           ctypes.c_int, ctypes.c_int, ctypes.c_wchar_p, ctypes.c_wchar_p,
                            ctypes.POINTER(_STARTUPINFO), ctypes.POINTER(_PROCESS_INFORMATION)]
 _CreateProcess.restype = ctypes.c_int
 
