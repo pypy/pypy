@@ -132,10 +132,10 @@ class CStringExecutor(FunctionExecutor):
     def execute(self, space, cppmethod, cppthis, num_args, args):
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ccpresult = rffi.cast(rffi.CCHARP, lresult)
-        if ccpresult:
-            result = rffi.charp2str(ccpresult)  # TODO: make it a choice to free
-            return space.wrap(result)
-        return space.wrap('')
+        if ccpresult == rffi.cast(rffi.CCHARP, 0):
+            return space.wrap("")
+        result = rffi.charp2str(ccpresult)   # TODO: make it a choice to free
+        return space.wrap(result)
 
 
 class ConstructorExecutor(FunctionExecutor):
