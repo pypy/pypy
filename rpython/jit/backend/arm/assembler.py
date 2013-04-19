@@ -289,9 +289,7 @@ class AssemblerARM(ResOpAssembler):
         self.store_reg(mc, r.ip, r.fp, ofs)
         # return
         mc.POP([r.ip.value, r.pc.value])
-
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_slowpath = rawstart
+        return mc.materialize(self.cpu.asmmemmgr, [])
 
     def _reload_frame_if_necessary(self, mc):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
