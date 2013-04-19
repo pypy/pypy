@@ -10,6 +10,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
+from rpython.jit.backend.arm.detect import detect_arch_version
 
 
 CPU = getcpuclass()
@@ -27,7 +28,8 @@ class TestARM(LLtypeBackendTest):
     bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                 'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                 'blx', 'mov', 'mov', 'bx']
-    if CPU.cpuinfo.arch_version == 7:
+    arch_version = detect_arch_version()
+    if arch_version == 7:
         bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                     'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                     'blx', 'mov', 'mov', 'bx']
