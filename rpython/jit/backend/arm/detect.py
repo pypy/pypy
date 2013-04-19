@@ -1,7 +1,6 @@
 import os
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.clibffi import FFI_DEFAULT_ABI, FFI_SYSV, FFI_VFP
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import CompilationError
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -46,9 +45,11 @@ def detect_arch_version(filename="/proc/cpuinfo"):
     # "Processor       : ARMv%d-compatible processor rev 7 (v6l)"
     i = buf.find('ARMv')
     if i == -1:
-        raise ValueError("Unknown Processor entry")
-
-    n = int(buf[i + 4])
+        n = 6
+        debug_print("Could not detect architecture version, "
+                    "falling back to", "ARMv%d" % n)
+    else:
+        n = int(buf[i + 4])
 
     if n < 6:
         raise ValueError("Unsupported ARM architecture version")
