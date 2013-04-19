@@ -938,12 +938,27 @@ class AppTestEnvironment(object):
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        posix = self.posix
+        import sys
+        environ = self.posix.environ
+        item_type = str if sys.platform.startswith('win') else bytes
+        for k, v in environ.items():
+            assert type(k) is item_type
+            assert type(v) is item_type
+        name = next(iter(environ))
+        assert environ[name] is not None
+        del environ[name]
+        raises(KeyError, lambda: environ[name])
+
+    @py.test.mark.dont_track_allocations('putenv intentionally keeps strings alive')
+    def test_environ_nonascii(self):
         os = self.os
-        assert posix.environ[b'PATH']
-        del posix.environ[b'PATH']
-        def fn(): posix.environ[b'PATH']
-        raises(KeyError, fn)
+        name, value = 'PYPY_TEST_日本', 'foobar日本'
+        os.environ[name] = value
+        assert os.environ[name] == value
+        assert os.getenv(name) == value
+        del os.environ[name]
+        assert os.environ.get(name) is None
+        assert os.getenv(name) is None
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):

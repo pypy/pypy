@@ -12,7 +12,7 @@ import sys
 
 _WIN32 = sys.platform == 'win32'
 if _WIN32:
-    from rpython.rlib.rwin32 import _MAX_ENV
+    from rpython.rlib import rwin32
 
 c_int = "c_int"
 
@@ -481,6 +481,7 @@ class State:
         self.w_environ = space.newdict()
         self.random_context = rurandom.init_urandom()
     def startup(self, space):
+        space.call_method(self.w_environ, 'clear')
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
         # don't capture the environment in the translated pypy
@@ -493,29 +494,46 @@ class State:
 def get(space):
     return space.fromcache(State)
 
-def _convertenviron(space, w_env):
-    space.call_method(w_env, 'clear')
-    for key, value in os.environ.items():
-        space.setitem(w_env, space.wrapbytes(key), space.wrapbytes(value))
+if _WIN32:
+    def _convertenviron(space, w_env):
+        # _wenviron must be initialized in this way if the program is
+        # started through main() instead of wmain()
+        rwin32._wgetenv(u"")
+        for key, value in rwin32._wenviron_items():
+            space.setitem(w_env, space.wrap(key), space.wrap(value))
 
-def putenv(space, w_name, w_value):
-    """Change or add an environment variable."""
-    if _WIN32 and len(name) > _MAX_ENV:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "the environment variable is longer than %d bytes" % _MAX_ENV))
-    try:
-        dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    @unwrap_spec(name=unicode, value=unicode)
+    def putenv(space, name, value):
+        """Change or add an environment variable."""
+        # len includes space for '=' and a trailing NUL
+        if len(name) + len(value) + 2 > rwin32._MAX_ENV:
+            msg = ("the environment variable is longer than %d characters" %
+                   rwin32._MAX_ENV)
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        try:
+            rwin32._wputenv(name, value)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+else:
+    def _convertenviron(space, w_env):
+        for key, value in os.environ.items():
+            space.setitem(w_env, space.wrapbytes(key), space.wrapbytes(value))
 
-def unsetenv(space, w_name):
-    """Delete an environment variable."""
-    try:
-        dispatch_filename(rposix.unsetenv)(space, w_name)
-    except KeyError:
-        pass
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    def putenv(space, w_name, w_value):
+        """Change or add an environment variable."""
+        try:
+            dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+
+    def unsetenv(space, w_name):
+        """Delete an environment variable."""
+        try:
+            dispatch_filename(rposix.unsetenv)(space, w_name)
+        except KeyError:
+            pass
+        except OSError, e:
+            raise wrap_oserror(space, e)
 
 
 @unwrap_spec(w_dirname=WrappedDefault(u"."))
