@@ -506,7 +506,7 @@ class StdStringConverter(InstanceConverter):
 
     def __init__(self, space, extra):
         from pypy.module.cppyy import interp_cppyy
-        cppclass = interp_cppyy.scope_byname(space, "std::string")
+        cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
         InstanceConverter.__init__(self, space, cppclass)
 
     def _unwrap_object(self, space, w_obj):
@@ -534,7 +534,7 @@ class StdStringRefConverter(InstancePtrConverter):
 
     def __init__(self, space, extra):
         from pypy.module.cppyy import interp_cppyy
-        cppclass = interp_cppyy.scope_byname(space, "std::string")
+        cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
         InstancePtrConverter.__init__(self, space, cppclass)
 
 
