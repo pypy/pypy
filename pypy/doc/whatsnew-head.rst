@@ -43,11 +43,11 @@ Improved RPython typing
 Rudimentary support for bytearray in RPython
 
 .. branch: refactor-call_release_gil
-Fix a bug which casused cffi to return the wrong result when calling a C
+Fix a bug which caused cffi to return the wrong result when calling a C
 function which calls a Python callback which forces the frames
 
 .. branch: virtual-raw-mallocs
-JIT optimizations which makes cffi calls even faster, by removing the need to
+JIT optimizations which make cffi calls even faster, by removing the need to
 allocate a temporary buffer where to store the arguments.
 
 .. branch: improve-docs-2
