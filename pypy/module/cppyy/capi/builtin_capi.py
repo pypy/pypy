@@ -284,7 +284,7 @@ _c_is_subtype = rffi.llexternal(
     threadsafe=ts_reflect,
     compilation_info=backend.eci,
     elidable_function=True)
-@jit.elidable_promote()
+@jit.elidable_promote('2')
 def c_is_subtype(space, derived, base):
     if derived == base:
         return 1
