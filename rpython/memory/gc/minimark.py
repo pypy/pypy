@@ -351,8 +351,6 @@ class MiniMarkGC(MovingGCBase):
             # hacking at the current nursery position in collect_and_reserve().
             if newsize <= 0:
                 newsize = env.estimate_best_nursery_size()
-                #         4*1024*1024   # fixed to 4MB by default
-                #        (it was env.estimate_best_nursery_size())
                 if newsize <= 0:
                     newsize = defaultsize
             if newsize < minsize:
