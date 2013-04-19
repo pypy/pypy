@@ -27,7 +27,7 @@ class TestARM(LLtypeBackendTest):
     bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                 'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                 'blx', 'mov', 'mov', 'bx']
-    if CPU.arch_version == 7:
+    if CPU.cpuinfo.arch_version == 7:
         bridge_loop_instructions = ['ldr', 'mov', 'nop', 'cmp', 'bge',
                                     'push', 'mov', 'mov', 'push', 'mov', 'mov',
                                     'blx', 'mov', 'mov', 'bx']
