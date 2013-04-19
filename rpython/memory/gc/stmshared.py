@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
 from rpython.rlib.debug import ll_assert, fatalerror
-from rpython.rlib import rthread
+from rpython.rlib import rthread, atomic_ops
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -78,9 +78,19 @@ class StmGCSharedArea(object):
         #
         # Counters for statistics
         self.count_global_pages = 0
+        self.v_count_total_bytes = lltype.malloc(rffi.CArray(lltype.Unsigned),
+                                                 1, flavor='raw',
+                                                 immortal=True, zero=True)
 
     def setup(self):
         pass
+
+    def fetch_count_total_bytes(self):
+        return self.v_count_total_bytes[0]
+
+    def fetch_count_total_bytes_and_add(self, increment):
+        adr = rffi.cast(llmemory.Address, self.v_count_total_bytes)
+        return r_uint(atomic_ops.fetch_and_add(adr, increment))
 
 
 # ------------------------------------------------------------
@@ -145,16 +155,18 @@ class StmGCThreadLocalAllocator(object):
     def _allocate_new_page(self, size_class):
         """Allocate and return a new page for the given size_class."""
         #
-        result = llarena.arena_malloc(self.sharedarea.page_size, 0)
+        sharedarea = self.sharedarea
+        result = llarena.arena_malloc(sharedarea.page_size, 0)
         if not result:
             fatalerror("FIXME: Out of memory! (should raise MemoryError)")
             return NULL
         if not we_are_translated():
             self._seen_pages.add(result)
         self.count_pages += 1
-        llarena.arena_reserve(result, llmemory.sizeof(PAGE_HEADER))
+        sharedarea.fetch_count_total_bytes_and_add(sharedarea.page_size)
         #
         # Initialize the fields of the resulting page
+        llarena.arena_reserve(result, llmemory.sizeof(PAGE_HEADER))
         page = llmemory.cast_adr_to_ptr(result, PAGE_PTR)
         page.nextpage = self.pages_for_size[size_class]
         self.pages_for_size[size_class] = page
@@ -165,7 +177,7 @@ class StmGCThreadLocalAllocator(object):
                   "free_loc_for_size is supposed to contain NULL here")
         self.free_loc_for_size[size_class] = head
         #
-        i = self.sharedarea.nblocks_for_size[size_class]
+        i = sharedarea.nblocks_for_size[size_class]
         nsize = size_class << WORD_POWER_2
         current = head
         while True:
@@ -189,8 +201,13 @@ class StmGCThreadLocalAllocator(object):
             size_class = (nsize + WORD_POWER_2 - 1) >> WORD_POWER_2
             return self._malloc_size_class(size_class)
         else:
-            return llarena.arena_malloc(
-                llmemory.raw_malloc_usage(totalsize), 0)
+            count = llmemory.raw_malloc_usage(totalsize)
+            result = llarena.arena_malloc(count, 0)
+            # increment the counter *after* arena_malloc() returned
+            # successfully, otherwise we might increment it of a huge
+            # bogus number
+            self.sharedarea.fetch_count_total_bytes_and_add(count)
+            return result
 
     def malloc_object(self, objsize):
         totalsize = self.gc.gcheaderbuilder.size_gc_header + objsize
@@ -212,6 +229,10 @@ class StmGCThreadLocalAllocator(object):
             size_class = (totalsize + WORD_POWER_2 - 1) >> WORD_POWER_2
             self._free_size_class(adr1, size_class)
         else:
+            # decrement the counter *before* we free the memory,
+            # otherwise there could in theory be a race condition that
+            # ends up overflowing the counter
+            self.sharedarea.fetch_count_total_bytes_and_add(-totalsize)
             llarena.arena_free(llarena.getfakearenaaddress(adr1))
 
     def free_and_clear(self):

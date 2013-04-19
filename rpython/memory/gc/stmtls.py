@@ -166,6 +166,7 @@ class StmGCTLS(object):
         nursery and track which objects are still alive now, and
         then mark all these objects as global."""
         self.local_collection(end_of_transaction=True)
+        self.gc.maybe_major_collection()
         if not self.local_nursery_is_empty():
             self.local_collection(end_of_transaction=True,
                                   run_finalizers=False)
@@ -273,10 +274,8 @@ class StmGCTLS(object):
         if llmemory.raw_malloc_usage(size) > self.nursery_size // 8 * 7:
             fatalerror("XXX object too large to ever fit in the nursery")
         #
-        self.local_collection(run_finalizers=True)
-        #
-        # call this here in case another thread is waiting for a global GC
-        self.stm_operations.should_break_transaction()
+        if not self.gc.maybe_major_collection():
+            self.local_collection(run_finalizers=True)
         #
         # if we have now enough space, return it
         free = self.nursery_free

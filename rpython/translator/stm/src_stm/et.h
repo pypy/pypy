@@ -87,7 +87,6 @@ void BeginInevitableTransaction(void);
 //int _FakeReach(gcptr);
 void CommitTransaction(void);
 void BecomeInevitable(const char *why);
-//void BeginInevitableTransaction(void);
 int DescriptorInit(void);
 void DescriptorDone(void);
 

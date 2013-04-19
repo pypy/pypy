@@ -63,8 +63,9 @@ long stm_is_inevitable(void)
 }
 
 static unsigned long stm_regular_length_limit = ULONG_MAX;
-static volatile int break_please = 0;
 
+/* sync_required is either 0 or 0xffffffff */
+static volatile unsigned long sync_required = 0;
 static void reached_safe_point(void);
 
 void stm_add_atomic(long delta)
@@ -86,9 +87,10 @@ long stm_should_break_transaction(void)
 
   /* a single comparison to handle all cases:
 
+     - first, if sync_required == 0xffffffff, this should return True.
+
      - if d->atomic, then we should return False.  This is done by
-       forcing reads_size_limit to ULONG_MAX as soon as atomic > 0,
-       and no possible value of 'count_reads' is greater than ULONG_MAX.
+       forcing reads_size_limit to ULONG_MAX as soon as atomic > 0.
 
      - otherwise, if is_inevitable(), then we should return True.
        This is done by forcing both reads_size_limit and
@@ -109,10 +111,7 @@ long stm_should_break_transaction(void)
     assert(d->reads_size_limit_nonatomic == 0);
 #endif
 
-  if (break_please)
-    reached_safe_point();
-
-  return d->count_reads > d->reads_size_limit;
+  return (sync_required | d->count_reads) >= d->reads_size_limit;
 }
 
 void stm_set_transaction_length(long length_max)
@@ -178,9 +177,14 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
       }
       if (!d->atomic)
         BeginTransaction(&_jmpbuf);
-
-      if (break_please)
-        reached_safe_point();
+      else
+        {
+          /* atomic transaction: a common case is that callback() returned
+             even though we are atomic because we need a major GC.  For
+             that case, release and require the rw lock here. */
+          if (sync_required)
+            reached_safe_point();
+        }
 
       /* invoke the callback in the new transaction */
       result = callback(arg, counter);
@@ -207,14 +211,16 @@ void stm_start_single_thread(void)
 {
   /* Called by the GC, just after a minor collection, when we need to do
      a major collection.  When it returns, it acquired the "write lock"
-     which prevents any other thread from running a transaction. */
+     which prevents any other thread from running in a transaction.
+     Warning, may block waiting for rwlock_in_transaction while another
+     thread runs a major GC itself! */
   int err;
-  break_please = 1;
+  sync_required = (unsigned long)-1;
   err = pthread_rwlock_unlock(&rwlock_in_transaction);
   assert(err == 0);
   err = pthread_rwlock_wrlock(&rwlock_in_transaction);
   assert(err == 0);
-  break_please = 0;
+  sync_required = 0;
 
   assert(in_single_thread == NULL);
   in_single_thread = thread_descriptor;
@@ -223,6 +229,8 @@ void stm_start_single_thread(void)
 
 void stm_stop_single_thread(void)
 {
+  /* Warning, may block waiting for rwlock_in_transaction while another
+     thread runs a major GC */
   int err;
 
   assert(in_single_thread == thread_descriptor);
@@ -236,6 +244,10 @@ void stm_stop_single_thread(void)
 
 static void reached_safe_point(void)
 {
+  /* Warning: all places that call this function from RPython code
+     must do so with a llop with canmallocgc=True!  The release of
+     the rwlock_in_transaction below means a major GC could run in
+     another thread! */
   int err;
   struct tx_descriptor *d = thread_descriptor;
   assert(in_single_thread != d);

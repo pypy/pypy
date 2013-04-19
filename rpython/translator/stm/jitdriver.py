@@ -159,7 +159,7 @@ class JitDriverSplitter(object):
                 raise cast_base_ptr_to_instance(Exception, p.got_exception)
             return p.result_value
 """     % (', '.join(['a%d' % i for i in irange]),
-           '\n            '.join(['p.a%d = a%d' % (i, i) for i in irange]))
+           '; '.join(['p.a%d = a%d' % (i, i) for i in irange]))
         d = {'CONTAINER': CONTAINER,
              'lltype': lltype,
              'perform_transaction': perform_transaction,

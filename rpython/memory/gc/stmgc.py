@@ -182,6 +182,10 @@ class StmGC(MovingGCBase):
         #
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
+        self.major_collection_threshold = 1.82     # xxx
+        self.min_heap_size = r_uint(8 * self.nursery_size)
+        self.real_limit_for_major_gc = self.min_heap_pages
+        self.dyn_limit_for_major_gc = self.real_limit_for_major_gc
         #self.maximum_extra_threshold = 0
         self.sharedarea = stmshared.StmGCSharedArea(self, page_size,
                                                     small_request_threshold)
@@ -238,6 +242,7 @@ class StmGC(MovingGCBase):
         self.remove_from_linked_list(stmtls)
         self.stm_operations.begin_inevitable_transaction()
         stmtls.delete()
+    teardown_thread._dont_inline_ = True
 
     def acquire_global_lock(self):
         if self.ll_global_lock:
@@ -330,9 +335,10 @@ class StmGC(MovingGCBase):
 
 
     def collect(self, gen=1):
-        self.get_tls().local_collection()
-        if gen > 0:
-            debug_print("XXX not implemented: global collect()")
+        if gen <= 0:
+            self.get_tls().local_collection()
+        else:
+            self.major_collection(force=True)
 
     def start_transaction(self):
         self.get_tls().start_transaction()
@@ -399,6 +405,41 @@ class StmGC(MovingGCBase):
 ##            self.maximum_extra_threshold = reserved_size
 ##        stmtls = self.get_tls()
 ##        stmtls.set_extra_threshold(reserved_size)
+
+    # ----------
+    # major collections
+
+    def maybe_major_collection(self):
+        """Check the memory usage, and maybe do a major GC collection."""
+        if (self.sharedarea.fetch_count_total_bytes() >=
+                self.dyn_limit_for_major_gc):
+            self.major_collection()
+            return True
+        else:
+            return False
+
+    def major_collection(self, force=False):
+        """Do a major collection.  This uses a stop-the-world system."""
+        #
+        # When the present function is called we know we'll do at least
+        # one major GC.  Setting this limit to 0 now will invite other
+        # threads to enter major_collection() soon too.
+        self.dyn_limit_for_major_gc = r_uint(0)
+        #
+        # While still running multithreaded, do a local collection.
+        # This is not strictly needed.
+        self.get_tls().local_collection(run_finalizers=False)
+        #
+        # Now wait until we can acquire the RW lock in exclusive mode.
+        self.stm_operations.start_single_thread()
+        #
+        # At this point all other threads should be blocked or running
+        # external C code
+        if (self.sharedarea.fetch_count_total_bytes() >=
+                self.limit_for_major_collection):
+            xxxxxxx
+        self.stm_operations.stop_single_thread()
+    major_collection._dont_inline_ = True
 
     # ----------
     # id() and identityhash() support

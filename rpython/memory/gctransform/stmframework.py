@@ -163,14 +163,13 @@ class StmShadowStackRootWalker(BaseRootWalker):
         base = self.stackgcdata.root_stack_base
         llmemory.raw_free(base)
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_roots(self, *args):
+        "NOT_RPYTHON"
         raise NotImplementedError
-        # XXX only to walk the main thread's shadow stack, so far
-        stackgcdata = self.stackgcdata
-        if self.gcdata.main_thread_stack_base != stackgcdata.root_stack_base:
-            fatalerror_notb("XXX not implemented: walk_stack_roots in thread")
-        self.rootstackhook(collect_stack_root, self.gcdata.gc,
-                           stackgcdata.root_stack_top)
+
+    def walk_stack_roots(self, *args):
+        "NOT_RPYTHON"
+        raise NotImplementedError
 
     @specialize.argtype(2)
     def walk_current_stack_roots(self, collect_stack_root, arg):
