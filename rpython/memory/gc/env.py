@@ -279,7 +279,7 @@ NURSERY_SIZE_UNKNOWN_CACHE = 1024*1024
 def best_nursery_size_for_L2cache(L2cache):
     # Heuristically, the best nursery size to choose is about half
     # of the L2 cache.
-    if L2cache > 1024 * 1024: # we don't want to have nursery estimated
+    if L2cache > 2 * 1024 * 1024: # we don't want to have nursery estimated
         # on L2 when L3 is present
         return L2cache // 2
     else:

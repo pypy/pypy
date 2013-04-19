@@ -619,6 +619,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         func = getattr(graph, 'func', None)
         if func and getattr(func, '_gc_no_collect_', False):
             if self.collect_analyzer.analyze_direct_call(graph):
+                print '!'*79
+                ca = CollectAnalyzer(self.translator)
+                ca.verbose = True
+                ca.analyze_direct_call(graph)
+                # ^^^ for the dump of which operation in which graph actually
+                # causes it to return True
                 raise Exception("'no_collect' function can trigger collection:"
                                 " %s" % func)
 
