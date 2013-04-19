@@ -296,12 +296,11 @@ _c_base_offset = rffi.llexternal(
     threadsafe=ts_reflect,
     compilation_info=backend.eci,
     elidable_function=True)
-@jit.elidable_promote()
+@jit.elidable_promote('1,2,4')
 def c_base_offset(space, derived, base, address, direction):
     if derived == base:
         return 0
     return _c_base_offset(derived.handle, base.handle, address, direction)
-@jit.elidable_promote()
 def c_base_offset1(space, derived_h, base, address, direction):
     return _c_base_offset(derived_h, base.handle, address, direction)
 
