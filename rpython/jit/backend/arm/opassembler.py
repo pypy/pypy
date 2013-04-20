@@ -1320,6 +1320,7 @@ class ResOpAssembler(BaseAssembler):
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
             self._emit_call(imm(self.reacqgil_addr), [], fcond,
                     can_collect=False)
+        self._reload_frame_if_necessary(self.mc)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
