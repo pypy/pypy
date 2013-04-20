@@ -13,8 +13,9 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
-from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
-    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
+from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls)
+from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
                                        PASS_ON_MY_FRAME)
@@ -1523,7 +1524,7 @@ class Assembler386(BaseAssembler):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
-        scale = _get_scale(size_loc.value)
+        scale = get_scale(size_loc.value)
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
@@ -1537,22 +1538,50 @@ class Assembler386(BaseAssembler):
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
+    def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
+        """Produce one operation to do roughly
+               targetreg = sourcereg * itemsize
+           except that the targetreg may still need shifting by 0,1,2,3.
+        """
+        if (itemsize & 7) == 0:
+            shift = 3
+        elif (itemsize & 3) == 0:
+            shift = 2
+        elif (itemsize & 1) == 0:
+            shift = 1
+        else:
+            shift = 0
+        itemsize >>= shift
+        #
+        if valid_addressing_size(itemsize - 1):
+            mc.LEA_ra(targetreg, (sourcereg, sourcereg,
+                                  get_scale(itemsize - 1), 0))
+        elif valid_addressing_size(itemsize):
+            mc.LEA_ra(targetreg, (rx86.NO_BASE_REGISTER, sourcereg,
+                                  get_scale(itemsize), 0))
+        else:
+            mc.IMUL_rri(targetreg, sourcereg, itemsize)
+        #
+        return shift
+
     def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
                                 base_loc, ofs_loc):
         assert isinstance(itemsize_loc, ImmedLoc)
+        itemsize = itemsize_loc.value
         if isinstance(index_loc, ImmedLoc):
-            temp_loc = imm(index_loc.value * itemsize_loc.value)
-        elif _valid_addressing_size(itemsize_loc.value):
-            return AddressLoc(base_loc, index_loc, _get_scale(itemsize_loc.value), ofs_loc.value)
+            temp_loc = imm(index_loc.value * itemsize)
+            shift = 0
+        elif valid_addressing_size(itemsize):
+            temp_loc = index_loc
+            shift = get_scale(itemsize)
         else:
-            # XXX should not use IMUL in more cases, it can use a clever LEA
-            assert isinstance(temp_loc, RegLoc)
             assert isinstance(index_loc, RegLoc)
+            assert isinstance(temp_loc, RegLoc)
             assert not temp_loc.is_xmm
-            self.mc.IMUL_rri(temp_loc.value, index_loc.value,
-                             itemsize_loc.value)
+            shift = self._imul_const_scaled(self.mc, temp_loc.value,
+                                            index_loc.value, itemsize)
         assert isinstance(ofs_loc, ImmedLoc)
-        return AddressLoc(base_loc, temp_loc, 0, ofs_loc.value)
+        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
     def genop_getinteriorfield_gc(self, op, arglocs, resloc):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
@@ -1582,7 +1611,7 @@ class Assembler386(BaseAssembler):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
         assert isinstance(baseofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
-        scale = _get_scale(size_loc.value)
+        scale = get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
@@ -2415,11 +2444,12 @@ class Assembler386(BaseAssembler):
         jmp_adr0 = self.mc.get_relative_pos()
 
         self.mc.MOV(eax, heap(nursery_free_adr))
-        shift = size2shift(itemsize)
-        if shift < 0:
-            self.mc.IMUL_rri(edi.value, varsizeloc.value, itemsize)
+        if valid_addressing_size(itemsize):
+            shift = get_scale(itemsize)
+        else:
+            shift = self._imul_const_scaled(self.mc, edi.value,
+                                            varsizeloc.value, itemsize)
             varsizeloc = edi
-            shift = 0
         # now varsizeloc is a register != eax.  The size of
         # the variable part of the array is (varsizeloc << shift)
         assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
@@ -2522,14 +2552,6 @@ def heap(addr):
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
     raise NotImplementedError(msg)
-
-def size2shift(size):
-    "Return a result 0..3 such that (1<<result) == size, or -1 if impossible"
-    if size == 1: return 0
-    if size == 2: return 1
-    if size == 4: return 2
-    if size == 8: return 3
-    return -1
 
 class BridgeAlreadyCompiled(Exception):
     pass

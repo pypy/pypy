@@ -52,7 +52,7 @@ class OSThreadLocals:
 
     def signals_enabled(self):
         ec = self.getvalue()
-        return ec._signals_enabled
+        return ec is not None and ec._signals_enabled
 
     def enable_signals(self, space):
         ec = self.getvalue()
@@ -72,10 +72,12 @@ class OSThreadLocals:
     def leave_thread(self, space):
         "Notification that the current thread is about to stop."
         from pypy.module.thread.os_local import thread_is_stopping
-        try:
-            thread_is_stopping(self.getvalue())
-        finally:
-            self.setvalue(None)
+        ec = self.getvalue()
+        if ec is not None:
+            try:
+                thread_is_stopping(ec)
+            finally:
+                self.setvalue(None)
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"

@@ -1057,6 +1057,28 @@ class BaseBackendTest(Runner):
         r = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 4, vsdescr)
         assert r == 4
 
+    def test_array_of_structs_all_sizes(self):
+        # x86 has special support that can be used for sizes
+        #   1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 16, 18, 20, 24, 32, 36, 40, 64, 72
+        for length in range(1, 75):
+            ITEM = lltype.FixedSizeArray(lltype.Char, length)
+            a_box, A = self.alloc_array_of(ITEM, 5)
+            a = a_box.getref(lltype.Ptr(A))
+            middle = length // 2
+            a[3][middle] = chr(65 + length)
+            fdescr = self.cpu.interiorfielddescrof(A, 'item%d' % middle)
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC,
+                                       [a_box, BoxInt(3)],
+                                       'int', descr=fdescr)
+            r = r.getint()
+            assert r == 65 + length
+            self.execute_operation(rop.SETINTERIORFIELD_GC,
+                                   [a_box, BoxInt(2), BoxInt(r + 1)],
+                                   'void', descr=fdescr)
+            r1 = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 2,
+                                                  fdescr)
+            assert r1 == r + 1
+
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")
         r = self.execute_operation(rop.STRLEN, [s_box], 'int')
@@ -3913,3 +3935,20 @@ class LLtypeBackendTest(BaseBackendTest):
         descr = self.cpu.get_latest_descr(frame)
         assert descr.identifier == 42
         assert not self.cpu.grab_exc_value(frame)
+
+    def test_setarrayitem_raw_short(self):
+        # setarrayitem_raw(140737353744432, 0, 30583, descr=<ArrayS 2>)
+        A = rffi.CArray(rffi.SHORT)
+        arraydescr = self.cpu.arraydescrof(A)
+        a = lltype.malloc(A, 2, flavor='raw')
+        a[0] = rffi.cast(rffi.SHORT, 666)
+        a[1] = rffi.cast(rffi.SHORT, 777)
+        addr = llmemory.cast_ptr_to_adr(a)
+        a_int = heaptracker.adr2int(addr)
+        print 'a_int:', a_int
+        self.execute_operation(rop.SETARRAYITEM_RAW,
+                               [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],
+                               'void', descr=arraydescr)
+        assert rffi.cast(lltype.Signed, a[0]) == -7654
+        assert rffi.cast(lltype.Signed, a[1]) == 777
+        lltype.free(a, flavor='raw')

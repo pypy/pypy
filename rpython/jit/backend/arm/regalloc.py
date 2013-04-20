@@ -2,7 +2,8 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib import rgc
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc
+        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc, \
+        get_scale
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
@@ -1011,20 +1012,72 @@ class Regalloc(BaseRegalloc):
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
+
+        sizeloc = size_box.getint()
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = self.get_gcmap([r.r0, r.r1])
         self.possibly_free_var(t)
-        return [imm(size)]
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
 
     def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
         size_box = op.getarg(0)
-        assert isinstance(size_box, BoxInt)
-
+        assert isinstance(size_box, BoxInt) # we cannot have a const here!
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with r0 or r1)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.possibly_free_var(size_box)
+        #
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        #
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
-        argloc = self.make_sure_var_in_reg(size_box,
-                                            forbidden_vars=[op.result, t])
+        #
+        gcmap = self.get_gcmap([r.r0, r.r1])
         self.possibly_free_var(t)
-        return [argloc]
+        #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.assembler.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc,
+            gcmap
+            )
+        self.assembler._alignment_check()
+
+    def prepare_op_call_malloc_nursery_varsize(self, op, fcond):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        arraydescr = op.getdescr()
+        length_box = op.getarg(2)
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # the result will be in r0
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
+        # we need r1 as a temporary
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.r1)
+        gcmap = self.get_gcmap([r.r0, r.r1]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != r0, r1.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
@@ -1210,13 +1263,6 @@ def notimplemented_with_guard(self, op, guard_op, fcond):
 operations = [notimplemented] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
-
-def get_scale(size):
-    scale = 0
-    while (1 << scale) < size:
-        scale += 1
-    assert (1 << scale) == size
-    return scale
 
 for key, value in rop.__dict__.items():
     key = key.lower()

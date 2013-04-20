@@ -3,6 +3,7 @@ from __future__ import with_statement
 import os
 
 from rpython.jit.backend.arm import conditions as c, registers as r
+from rpython.jit.backend.arm import shift
 from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD, FUNC_ALIGN,
     JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
@@ -12,8 +13,9 @@ from rpython.jit.backend.arm.regalloc import (Regalloc,
     CoreRegisterManager, check_imm_arg, VFPRegisterManager,
     operations as regalloc_operations,
     operations_with_guard as regalloc_operations_with_guard)
-from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, debug_bridge, BaseAssembler
+from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_size
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -25,7 +27,6 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, compute_uniq
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.backend.arm.detect import detect_hardfloat
 
 class AssemblerARM(ResOpAssembler):
 
@@ -51,14 +52,13 @@ class AssemblerARM(ResOpAssembler):
 
     def setup_once(self):
         BaseAssembler.setup_once(self)
-        self.hf_abi = detect_hardfloat()
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         if we_are_translated():
             self.debug = False
         self.current_clt = looptoken.compiled_loop_token
-        self.mc = InstrBuilder(self.cpu.arch_version)
+        self.mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self.pending_guards = []
         assert self.datablockwrapper is None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -82,20 +82,20 @@ class AssemblerARM(ResOpAssembler):
         if not self.cpu.propagate_exception_descr:
             return      # not supported (for tests, or non-translated)
         #
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        mc.LDR_ri(r.r0.value, r.fp.value, imm=ofs)
+        self.store_reg(mc, r.r0, r.fp, ofs)
         propagate_exception_descr = rffi.cast(lltype.Signed,
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         # put propagate_exception_descr into frame
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        mc.gen_load_int(r.r0.value, propagate_exception_descr)
-        mc.STR_ri(r.r0.value, r.fp.value, imm=ofs)
+        mc.gen_load_int(r.r1.value, propagate_exception_descr)
+        self.store_reg(mc, r.r0, r.fp, ofs)
         mc.MOV_rr(r.r0.value, r.fp.value)
         self.gen_func_epilog(mc)
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -167,7 +167,7 @@ class AssemblerARM(ResOpAssembler):
         #    |  my own retaddr       |    <-- sp
         #    +-----------------------+
         #
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         # save argument registers and return address
         mc.PUSH([reg.value for reg in r.argument_regs] + [r.ip.value, r.lr.value])
         # stack is aligned here
@@ -208,7 +208,7 @@ class AssemblerARM(ResOpAssembler):
         # write barriers.  It must save all registers, and optionally
         # all vfp registers.  It takes a single argument which is in r0.
         # It must keep stack alignment accordingly.
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         #
         exc0 = exc1 = None
         mc.PUSH([r.ip.value, r.lr.value]) # push two words to keep alignment
@@ -251,26 +251,60 @@ class AssemblerARM(ResOpAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
-    def _build_malloc_slowpath(self):
-        mc = InstrBuilder(self.cpu.arch_version)
+    def _build_malloc_slowpath(self, kind):
+        """ While arriving on slowpath, we have a gcpattern on stack 0.
+        The arguments are passed in r0 and r10, as follows:
+
+        kind == 'fixed': nursery_head in r0 and the size in r1 - r0.
+
+        kind == 'str/unicode': length of the string to allocate in r0.
+
+        kind == 'var': length to allocate in r1, tid in r0,
+                       and itemsize on the stack.
+
+        This function must preserve all registers apart from r0 and r1.
+        """
+        assert kind in ['fixed', 'str', 'unicode', 'var']
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
+        #
         self._push_all_regs_to_jitframe(mc, [r.r0, r.r1], self.cpu.supports_floats)
-        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        #
+        if kind == 'fixed':
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        elif kind == 'str':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_str')
+        elif kind == 'unicode':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
+        else:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
+        if kind == 'fixed':
+            # stack layout: [gcmap]
+            # At this point we know that the values we need to compute the size
+            # are stored in r0 and r1.
+            mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value) # compute the size we want
+
+            if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                mc.MOV_rr(r.r1.value, r.fp.value)
+        elif kind == 'str' or kind == 'unicode':
+            # stack layout: [gcmap]
+            mc.MOV_rr(r.r0.value, r.r1.value)
+        else:  # var
+            # stack layout: [gcmap][itemsize]...
+            # tid is in r0
+            # length is in r1
+            mc.MOV_rr(r.r2.value, r.r1.value)
+            mc.MOV_rr(r.r1.value, r.r0.value)
+            mc.POP([r.r0.value])  # load itemsize
         # store the gc pattern
-        mc.POP([r.r2.value])
-        self.store_reg(mc, r.r2, r.fp, ofs)
+        mc.POP([r.r4.value])
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        self.store_reg(mc, r.r4, r.fp, ofs)
+        #
         # We need to push two registers here because we are going to make a
         # call an therefore the stack needs to be 8-byte aligned
         mc.PUSH([r.ip.value, r.lr.value])
-        # At this point we know that the values we need to compute the size
-        # are stored in r0 and r1.
-        mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value) # compute the size we want
-
-        if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-            mc.MOV_rr(r.r1.value, r.fp.value)
-
-        addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        #
         mc.BL(addr)
-
         #
         # If the slowpath malloc failed, we raise a MemoryError that
         # always interrupts the current loop, as a "good enough"
@@ -290,8 +324,9 @@ class AssemblerARM(ResOpAssembler):
         # return
         mc.POP([r.ip.value, r.pc.value])
 
+        #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_slowpath = rawstart
+        return rawstart
 
     def _reload_frame_if_necessary(self, mc):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -364,7 +399,7 @@ class AssemblerARM(ResOpAssembler):
                 self.load_reg(mc, vfpr, r.fp, ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self._push_all_regs_to_jitframe(mc, [], withfloats)
 
         if exc:
@@ -647,7 +682,7 @@ class AssemblerARM(ResOpAssembler):
                                 expected_size=expected_size)
 
     def _patch_frame_depth(self, adr, allocated_depth):
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         mc.gen_load_int(r.lr.value, allocated_depth)
         mc.copy_to_raw_memory(adr)
 
@@ -723,7 +758,7 @@ class AssemblerARM(ResOpAssembler):
         # f) store the address of the new jitframe in the shadowstack
         # c) set the gcmap field to 0 in the new jitframe
         # g) restore registers and return
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats)
         # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
         # and the expected_size pushed in _check_stack_frame
@@ -783,7 +818,7 @@ class AssemblerARM(ResOpAssembler):
         self.target_tokens_currently_compiling = None
 
     def _patch_stackadjust(self, adr, allocated_depth):
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         mc.gen_load_int(r.lr.value, allocated_depth)
         mc.copy_to_raw_memory(adr)
 
@@ -823,7 +858,7 @@ class AssemblerARM(ResOpAssembler):
                 # patch the guard jumpt to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
-                mc = InstrBuilder(self.cpu.arch_version)
+                mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
                 mc.B_offs(relative_offset, c.get_opposite_of(tok.fcond))
                 mc.copy_to_raw_memory(guard_pos)
             else:
@@ -902,7 +937,7 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.ASR_ri(resloc.value, resloc.value, 16)
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
-        b = InstrBuilder(self.cpu.arch_version)
+        b = InstrBuilder(self.cpu.cpuinfo.arch_version)
         patch_addr = faildescr._arm_failure_recovery_block
         assert patch_addr != 0
         b.B(bridge_addr)
@@ -1170,21 +1205,17 @@ class AssemblerARM(ResOpAssembler):
         else:
             raise AssertionError('Trying to pop to an invalid location')
 
-    def malloc_cond(self, nursery_free_adr, nursery_top_adr, sizeloc, gcmap):
-        if sizeloc.is_imm():     # must be correctly aligned
-            assert sizeloc.value & (WORD-1) == 0
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
+        assert size & (WORD-1) == 0
 
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
         self.mc.LDR_ri(r.r0.value, r.r0.value)
 
-        if sizeloc.is_imm():
-            if check_imm_arg(sizeloc.value):
-                self.mc.ADD_ri(r.r1.value, r.r0.value, sizeloc.value)
-            else:
-                self.mc.gen_load_int(r.r1.value, sizeloc.value)
-                self.mc.ADD_rr(r.r1.value, r.r0.value, r.r1.value)
+        if check_imm_arg(size):
+            self.mc.ADD_ri(r.r1.value, r.r0.value, size)
         else:
-            self.mc.ADD_rr(r.r1.value, r.r0.value, sizeloc.value)
+            self.mc.gen_load_int(r.r1.value, size)
+            self.mc.ADD_rr(r.r1.value, r.r0.value, r.r1.value)
 
         self.mc.gen_load_int(r.ip.value, nursery_top_adr)
         self.mc.LDR_ri(r.ip.value, r.ip.value)
@@ -1205,6 +1236,128 @@ class AssemblerARM(ResOpAssembler):
         self.mc.gen_load_int(r.ip.value, nursery_free_adr)
         self.mc.STR_ri(r.r1.value, r.ip.value)
 
+    def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
+                                  sizeloc, gcmap):
+        if sizeloc is r.r0:
+            self.mc.MOV_rr(r.r1.value, r.r0.value)
+            sizeloc = r.r1
+        self.mc.gen_load_int(r.r0.value, nursery_free_adr)
+        self.mc.LDR_ri(r.r0.value, r.r0.value)
+        #
+        self.mc.ADD_rr(r.r1.value, r.r0.value, sizeloc.value)
+        #
+        self.mc.gen_load_int(r.ip.value, nursery_top_adr)
+        self.mc.LDR_ri(r.ip.value, r.ip.value)
+
+        self.mc.CMP_rr(r.r1.value, r.ip.value)
+        #
+        self.push_gcmap(self.mc, gcmap, push=True, cond=c.HI)
+
+        self.mc.BL(self.malloc_slowpath, c=c.HI)
+
+        self.mc.gen_load_int(r.ip.value, nursery_free_adr)
+        self.mc.STR_ri(r.r1.value, r.ip.value)
+
+    def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
+                            lengthloc, itemsize, maxlength, gcmap,
+                            arraydescr):
+        from rpython.jit.backend.llsupport.descr import ArrayDescr
+        assert isinstance(arraydescr, ArrayDescr)
+
+        # lengthloc is the length of the array, which we must not modify!
+        assert lengthloc is not r.r0 and lengthloc is not r.r1
+        if lengthloc.is_reg():
+            varsizeloc = lengthloc
+        else:
+            assert lengthloc.is_stack()
+            self.regalloc_mov(lengthloc, r.r1)
+            varsizeloc = r.r1
+        #
+        if check_imm_arg(maxlength):
+            self.mc.CMP_ri(varsizeloc.value, maxlength)
+        else:
+            self.mc.gen_load_int(r.ip.value, maxlength)
+            self.mc.CMP_rr(varsizeloc.value, r.ip.value)
+        jmp_adr0 = self.mc.currpos()  # jump to (large)
+        self.mc.BKPT()
+        #
+        self.mc.gen_load_int(r.r0.value, nursery_free_adr)
+        self.mc.LDR_ri(r.r0.value, r.r0.value)
+
+
+        if valid_addressing_size(itemsize):
+            shiftsize = get_scale(itemsize)
+        else:
+            shiftsize = self._mul_const_scaled(self.mc, r.lr, varsizeloc,
+                                                itemsize)
+            varsizeloc = r.lr
+        # now varsizeloc is a register != r0.  The size of
+        # the variable part of the array is (varsizeloc << shiftsize)
+        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
+        constsize = arraydescr.basesize + self.gc_size_of_header
+        force_realignment = (itemsize % WORD) != 0
+        if force_realignment:
+            constsize += WORD - 1
+        self.mc.gen_load_int(r.ip.value, constsize)
+        # constsize + (varsizeloc << shiftsize)
+        self.mc.ADD_rr(r.r1.value, r.ip.value, varsizeloc.value,
+                                imm=shiftsize, shifttype=shift.LSL)
+        self.mc.ADD_rr(r.r1.value, r.r1.value, r.r0.value)
+        if force_realignment:
+            self.mc.MVN_ri(r.ip.value, imm=(WORD - 1))
+            self.mc.AND_rr(r.r1.value, r.r1.value, r.ip.value)
+        # now r1 contains the total size in bytes, rounded up to a multiple
+        # of WORD, plus nursery_free_adr
+        #
+        self.mc.gen_load_int(r.ip.value, nursery_top_adr)
+        self.mc.LDR_ri(r.ip.value, r.ip.value)
+
+        self.mc.CMP_rr(r.r1.value, r.ip.value)
+        jmp_adr1 = self.mc.currpos()  # jump to (after-call)
+        self.mc.BKPT()
+        #
+        # (large)
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_adr0, WORD)
+        pmc.B_offs(currpos, c.GT)
+        #
+        # save the gcmap
+        self.push_gcmap(self.mc, gcmap, push=True)
+        #
+        if kind == rewrite.FLAG_ARRAY:
+            self.mc.gen_load_int(r.r0.value, arraydescr.tid)
+            self.regalloc_mov(lengthloc, r.r1)
+            self.regalloc_push(imm(itemsize))
+            addr = self.malloc_slowpath_varsize
+        else:
+            if kind == rewrite.FLAG_STR:
+                addr = self.malloc_slowpath_str
+            else:
+                assert kind == rewrite.FLAG_UNICODE
+                addr = self.malloc_slowpath_unicode
+            self.regalloc_mov(lengthloc, r.r1)
+        self.mc.BL(addr)
+        #
+        jmp_location = self.mc.currpos()  # jump to (done)
+        self.mc.BKPT()
+        # (after-call)
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_adr1, WORD)
+        pmc.B_offs(currpos, c.LS)
+        #
+        # write down the tid, but not if it's the result of the CALL
+        self.mc.gen_load_int(r.ip.value, arraydescr.tid)
+        self.mc.STR_ri(r.ip.value, r.r0.value)
+
+        # while we're at it, this line is not needed if we've done the CALL
+        self.mc.gen_load_int(r.ip.value, nursery_free_adr)
+        self.mc.STR_ri(r.r1.value, r.ip.value)
+        # (done)
+        # skip instructions after call
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
+        pmc.B_offs(currpos)
+
     def push_gcmap(self, mc, gcmap, push=False, store=False, cond=c.AL):
         ptr = rffi.cast(lltype.Signed, gcmap)
         if push:
@@ -1222,6 +1375,32 @@ class AssemblerARM(ResOpAssembler):
         mc.gen_load_int(r.ip.value, 0)
         self.store_reg(mc, r.ip, r.fp, ofs)
 
+    def _mul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
+        """Produce one operation to do roughly
+               targetreg = sourcereg * itemsize
+           except that the targetreg may still need shifting by 0,1,2,3.
+        """
+        if (itemsize & 7) == 0:
+            shiftsize = 3
+        elif (itemsize & 3) == 0:
+            shiftsize = 2
+        elif (itemsize & 1) == 0:
+            shiftsize = 1
+        else:
+            shiftsize = 0
+        itemsize >>= shiftsize
+        #
+        if valid_addressing_size(itemsize - 1):
+            self.mc.ADD_rr(targetreg.value, sourcereg.value, sourcereg.value,
+                                imm=get_scale(itemsize - 1), shifttype=shift.LSL)
+        elif valid_addressing_size(itemsize):
+            self.mc.LSL_ri(targetreg.value, sourcereg.value,
+                    get_scale(itemsize))
+        else:
+            mc.gen_load_int(targetreg.value, itemsize)
+            mc.MUL(targetreg.value, sourcereg.value, targetreg.value)
+        #
+        return shiftsize
 
 def not_implemented(msg):
     os.write(2, '[ARM/asm] %s\n' % msg)

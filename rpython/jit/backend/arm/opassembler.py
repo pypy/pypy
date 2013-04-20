@@ -191,7 +191,7 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def _emit_guard(self, op, arglocs, fcond, save_exc,
-                                    is_guard_not_invalidated=False, 
+                                    is_guard_not_invalidated=False,
                                     is_guard_not_forced=False):
         assert isinstance(save_exc, bool)
         assert isinstance(fcond, int)
@@ -297,7 +297,7 @@ class ResOpAssembler(BaseAssembler):
         return self._emit_guard(op, locs, fcond, save_exc=False,
                                             is_guard_not_invalidated=True)
 
-    def emit_op_label(self, op, arglocs, regalloc, fcond): 
+    def emit_op_label(self, op, arglocs, regalloc, fcond):
         self._check_frame_depth_debug(self.mc)
         return fcond
 
@@ -354,7 +354,7 @@ class ResOpAssembler(BaseAssembler):
                     # whether to worry about a CALL that can collect; this
                     # is always true except in call_release_gil
                     can_collect=True):
-        if self.hf_abi:
+        if self.cpu.cpuinfo.hf_abi:
             stack_args, adr = self._setup_call_hf(adr, arglocs, fcond,
                                             resloc, result_info)
         else:
@@ -382,7 +382,7 @@ class ResOpAssembler(BaseAssembler):
 
         # ensure the result is wellformed and stored in the correct location
         if resloc is not None:
-            if resloc.is_vfp_reg() and not self.hf_abi:
+            if resloc.is_vfp_reg() and not self.cpu.cpuinfo.hf_abi:
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
             elif resloc.is_reg() and result_info != (-1, -1):
@@ -1230,7 +1230,7 @@ class ResOpAssembler(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        mc = InstrBuilder(self.cpu.arch_version)
+        mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
 
@@ -1320,6 +1320,7 @@ class ResOpAssembler(BaseAssembler):
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
             self._emit_call(imm(self.reacqgil_addr), [], fcond,
                     can_collect=False)
+        self._reload_frame_if_necessary(self.mc)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()
@@ -1333,23 +1334,6 @@ class ResOpAssembler(BaseAssembler):
         self.propagate_memoryerror_if_r0_is_null()
         self._alignment_check()
         return fcond
-
-    def emit_op_call_malloc_nursery(self, op, arglocs, regalloc, fcond):
-        # registers r0 and r1 are allocated for this call
-        assert len(arglocs) == 1
-        sizeloc = arglocs[0]
-        gc_ll_descr = self.cpu.gc_ll_descr
-        gcmap = regalloc.get_gcmap([r.r0, r.r1])
-        self.malloc_cond(
-            gc_ll_descr.get_nursery_free_addr(),
-            gc_ll_descr.get_nursery_top_addr(),
-            sizeloc,
-            gcmap
-            )
-        self._alignment_check()
-        return fcond
-    emit_op_call_malloc_nursery_varsize_frame = emit_op_call_malloc_nursery
-
 
     def _alignment_check(self):
         if not self.debug:
@@ -1436,7 +1420,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
         self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
-    
+
     def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()

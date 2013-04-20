@@ -44,6 +44,7 @@ class TestDecode(object):
                                     object_pairs_hook=OrderedDict,
                                     object_hook=lambda x: None),
                          OrderedDict(p))
+        self.assertEqual(self.loads("{}", object_pairs_hook=list), [])
 
 
 class TestPyDecode(TestDecode, PyTest): pass
