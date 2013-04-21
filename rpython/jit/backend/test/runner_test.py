@@ -3943,7 +3943,8 @@ class LLtypeBackendTest(BaseBackendTest):
         a = lltype.malloc(A, 2, flavor='raw')
         a[0] = rffi.cast(rffi.SHORT, 666)
         a[1] = rffi.cast(rffi.SHORT, 777)
-        a_int = rffi.cast(lltype.Signed, a)
+        addr = llmemory.cast_ptr_to_adr(a)
+        a_int = heaptracker.adr2int(addr)
         print 'a_int:', a_int
         self.execute_operation(rop.SETARRAYITEM_RAW,
                                [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],

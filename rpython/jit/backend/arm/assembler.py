@@ -87,15 +87,15 @@ class AssemblerARM(ResOpAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        mc.LDR_ri(r.r0.value, r.fp.value, imm=ofs)
+        self.store_reg(mc, r.r0, r.fp, ofs)
         propagate_exception_descr = rffi.cast(lltype.Signed,
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         # put propagate_exception_descr into frame
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        mc.gen_load_int(r.r0.value, propagate_exception_descr)
-        mc.STR_ri(r.r0.value, r.fp.value, imm=ofs)
+        mc.gen_load_int(r.r1.value, propagate_exception_descr)
+        self.store_reg(mc, r.r0, r.fp, ofs)
         mc.MOV_rr(r.r0.value, r.fp.value)
         self.gen_func_epilog(mc)
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
