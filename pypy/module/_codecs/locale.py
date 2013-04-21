@@ -70,7 +70,7 @@ def unicode_encode_locale_surrogateescape(u, errorhandler=None):
             pypy_wchar2char_free(sbuf)
 
 
-def unicode_decode_locale_surrogateescape(s, errorhandler=None):
+def str_decode_locale_surrogateescape(s, errorhandler=None):
     """Decode strs via the locale codecs (POSIX mrbtowc) with the
     surrogateescape handler.
 

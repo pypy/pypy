@@ -53,9 +53,9 @@ def fsdecode(space, w_string):
         # Python we cannot use it before the codecs are ready. use the
         # locale codec instead
         from pypy.module._codecs.locale import (
-            unicode_decode_locale_surrogateescape)
+            str_decode_locale_surrogateescape)
         bytes = space.bytes_w(w_string)
-        uni = unicode_decode_locale_surrogateescape(
+        uni = str_decode_locale_surrogateescape(
             bytes, errorhandler=decode_error_handler(space))
     else:
         from pypy.module.sys.interp_encoding import getfilesystemencoding
