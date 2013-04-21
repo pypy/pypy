@@ -41,9 +41,6 @@ class StmGCTLS(object):
                 llmemory.Address)
             self.adr_of_stack_top  = llop.gc_adr_of_root_stack_top(
                 llmemory.Address)
-        if StmGCThreadLocalAllocator is None:
-            from rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
-        self.StmGCThreadLocalAllocator = StmGCThreadLocalAllocator
         #
         # --- current position, or NULL when mallocs are forbidden
         self.nursery_free = NULL
@@ -62,8 +59,12 @@ class StmGCTLS(object):
         self.nursery_top  = self.nursery_stop
         #
         # --- a thread-local allocator for the shared area
-        self.sharedarea_tls = self.StmGCThreadLocalAllocator(
+        if StmGCThreadLocalAllocator is None:
+            from rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
+        self.sharedarea_tls = StmGCThreadLocalAllocator(
             self.gc.sharedarea)
+        # --- a chained list of regular local objects, linked via 'revision'.
+        self.regular_chained_list = NULL
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
         self.local_weakrefs = self.AddressStack()
@@ -199,10 +200,9 @@ class StmGCTLS(object):
         else:
             self.detect_flag_combination = -1
         #
-        # Move away the previous sharedarea_tls and start a new one.
-        previous_sharedarea_tls = self.sharedarea_tls
-        self.sharedarea_tls = self.StmGCThreadLocalAllocator(
-            self.gc.sharedarea)
+        # Move away the previous chained_list and start a new one.
+        previous_chained_list = self.regular_chained_list
+        self.regular_chained_list = NULL
         #
         # List of LOCAL objects pending a visit.  Note that no GLOBAL
         # object can at any point contain a reference to a LOCAL object.
@@ -238,7 +238,7 @@ class StmGCTLS(object):
         #
         # Visit all previous OLD objects.  Free the ones that have not been
         # visited above, and reset GCFLAG_VISITED on the others.
-        self.mass_free_old_local(previous_sharedarea_tls)
+        self.mass_free_old_local(previous_chained_list)
         #
         # Note that the last step guarantees the invariant that between
         # collections, all the objects linked within 'self.sharedarea_tls'
@@ -310,10 +310,10 @@ class StmGCTLS(object):
     def _promote_locals_to_globals(self):
         ll_assert(self.local_nursery_is_empty(), "nursery must be empty [1]")
         #
-        # Promote all objects in sharedarea_tls to global.
+        # Promote all objects in 'regular_chained_list' to global.
         # This is the "real" equivalent of _FakeReach() in et.c.
-        obj = self.sharedarea_tls.chained_list
-        self.sharedarea_tls.chained_list = NULL
+        obj = self.regular_chained_list
+        self.regular_chained_list = NULL
         #
         while obj:
             hdr = self.gc.header(obj)
@@ -338,9 +338,13 @@ class StmGCTLS(object):
         #if self.rawmalloced_objects:
         #    xxx     # free the rawmalloced_objects still around
 
-        # free the old unused local objects still allocated in the
-        # StmGCThreadLocalAllocator
-        self.sharedarea_tls.free_and_clear()
+        # free the old unused local objects still in the chained list
+        obj = self.regular_chained_list
+        self.regular_chained_list = NULL
+        while obj:
+            next = self.gc.obj_revision(obj)
+            self.sharedarea_tls.free_object(obj)
+            obj = next
         # forget the local weakrefs.
         self.local_weakrefs.clear()
 
@@ -483,7 +487,7 @@ class StmGCTLS(object):
         #
         # Register the object here, not before the memcopy() that would
         # overwrite its 'revision' field
-        self._register_newly_malloced_obj(newobj)
+        self._register_regular_obj(newobj)
         #
         # Set the YOUNG copy's GCFLAG_VISITED and set its revision to
         # point to the OLD copy.
@@ -579,8 +583,9 @@ class StmGCTLS(object):
         #
         return newobj
 
-    def _register_newly_malloced_obj(self, obj):
-        self.sharedarea_tls.add_regular(obj)
+    def _register_regular_obj(self, obj):
+        self.gc.set_obj_revision(obj, self.regular_chained_list)
+        self.regular_chained_list = obj
 
     def collect_roots_from_tldict(self):
         if not we_are_translated():
@@ -658,16 +663,14 @@ class StmGCTLS(object):
         self.local_weakrefs = new
         old.delete()
 
-    def mass_free_old_local(self, previous_sharedarea_tls):
-        obj = previous_sharedarea_tls.chained_list
-        previous_sharedarea_tls.delete()
+    def mass_free_old_local(self, obj):
         while obj != NULL:
             hdr = self.gc.header(obj)
             next = hdr_revision(hdr)
             if hdr.tid & GCFLAG_VISITED:
-                # survives: relink in the new sharedarea_tls
+                # survives: relink in the new chained list
                 hdr.tid -= GCFLAG_VISITED
-                self.sharedarea_tls.add_regular(obj)
+                self._register_regular_obj(obj)
             else:
                 # dies
                 self.sharedarea_tls.free_object(obj)

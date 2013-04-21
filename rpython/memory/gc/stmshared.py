@@ -106,18 +106,35 @@ class StmGCSharedArea(object):
         debug_start("gc-collect")
         debug_print()
         debug_print(".----------- Full collection ------------------")
-        debug_print("| used before collection:",
+        debug_print("| used before collection:   ",
                     self.fetch_count_total_bytes(), "bytes")
         #
-        fatalerror("do_major_collection: in-progress")
+        # Note that a major collection is non-moving.  The goal is only to
+        # find and free some of the objects allocated by the ArenaCollection.
+        # We first visit all objects and set the flag GCFLAG_VISITED on them.
+        self.objects_to_trace = self.AddressStack()
+        #
+        # The stacks...
+        self.collect_stack_roots_from_every_thread()
         #
         self.num_major_collects += 1
-        debug_print("| used after collection:",
+        debug_print("| used after collection:    ",
                     self.fetch_count_total_bytes(), "bytes")
-        debug_print("| number of major collects:        ",
+        debug_print("| number of major collects: ",
                     self.num_major_collects)
         debug_print("`----------------------------------------------")
         debug_stop("gc-collect")
+
+    def collect_stack_roots_from_every_thread(self):
+        self.gc.root_walker.walk_all_stack_roots(self._collect_stack_root,
+                                                 None)
+
+    def _collect_stack_root(self, ignored, root):
+        self.visit(root.address[0])
+
+    def visit(self, obj):
+        hdr = self.gc.header(obj)
+        XXX
 
 
 # ------------------------------------------------------------
@@ -133,7 +150,6 @@ class StmGCThreadLocalAllocator(object):
     def __init__(self, sharedarea):
         self.gc = sharedarea.gc
         self.sharedarea = sharedarea
-        self.chained_list = NULL
         #
         # The array 'pages_for_size' contains 'length' chained lists
         # of pages currently managed by this thread.
@@ -242,12 +258,6 @@ class StmGCThreadLocalAllocator(object):
         llarena.arena_reserve(addr, _dummy_size(totalsize))
         return addr + self.gc.gcheaderbuilder.size_gc_header
 
-    def add_regular(self, obj):
-        """After malloc_object(), register the object in the internal chained
-        list.  For objects whose 'revision' field is not otherwise needed."""
-        self.gc.set_obj_revision(obj, self.chained_list)
-        self.chained_list = obj
-
     def free_object(self, obj):
         adr1 = obj - self.gc.gcheaderbuilder.size_gc_header
         totalsize = (self.gc.gcheaderbuilder.size_gc_header +
@@ -261,18 +271,6 @@ class StmGCThreadLocalAllocator(object):
             # ends up overflowing the counter
             self.sharedarea.fetch_count_total_bytes_and_add(-totalsize)
             llarena.arena_free(llarena.getfakearenaaddress(adr1))
-
-    def free_and_clear(self):
-        obj = self.chained_list
-        self.chained_list = NULL
-        while obj:
-            next = self.gc.obj_revision(obj)
-            self.free_object(obj)
-            obj = next
-
-    def free_and_clear_list(self, lst):
-        while lst.non_empty():
-            self.free_object(lst.pop())
 
     def gift_all_pages_to_shared_area(self):
         """Send to the shared area all my pages.  For now we don't extract

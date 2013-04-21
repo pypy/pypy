@@ -238,8 +238,8 @@ class StmGC(MovingGCBase):
         stmtls = self.get_tls()
         stmtls.stop_transaction()
         self.stm_operations.commit_transaction()
-        self.remove_from_linked_list(stmtls)
         self.stm_operations.begin_inevitable_transaction()
+        self.remove_from_linked_list(stmtls)
         stmtls.delete()
     teardown_thread._dont_inline_ = True
 
@@ -535,6 +535,7 @@ class StmGC(MovingGCBase):
         return mangle_hash(i)
 
     def can_move(self, addr):
+        raise NotImplementedError("stmgc.can_move")
         tls = self.get_tls()
         if tls.is_in_nursery(addr):
             return True
