@@ -9,6 +9,8 @@ from pypy.module.cppyy import interp_cppyy, capi
 # These tests are for the backend that support the fast path only.
 if capi.identify() == 'CINT':
     py.test.skip("CINT does not support fast path")
+elif capi.identify() == 'loadable_capi':
+    py.test.skip("can not currently use FakeSpace with _cffi_backend")
 
 # load cpyext early, or its global vars are counted as leaks in the test
 # (note that the module is not otherwise used in the test itself)

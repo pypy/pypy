@@ -682,10 +682,12 @@ class X86_64_CodeBuilder(AbstractX86CodeBuilder):
 
 def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype='GPR'):
     def add_insn(code, *modrm):
-        args = before_modrm + list(modrm) + after_modrm
+        args = before_modrm + list(modrm)
         methname = insnname_template.replace('*', code)
-        if methname.endswith('_rr') or methname.endswith('_xx'):
+        if (methname.endswith('_rr') or methname.endswith('_xx')
+                or methname.endswith('_ri')):
             args.append('\xC0')
+        args += after_modrm
 
         if regtype == 'XMM':
             insn_func = xmminsn(*args)

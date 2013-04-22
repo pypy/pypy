@@ -42,7 +42,7 @@ extern "C" {
     void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
-    void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t klass, int nargs, void* args);
     cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type);
 
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, cppyy_index_t idx);
@@ -81,6 +81,10 @@ extern "C" {
     char* cppyy_method_arg_default(cppyy_scope_t scope, cppyy_index_t idx, int arg_index);
     char* cppyy_method_signature(cppyy_scope_t scope, cppyy_index_t idx);
 
+    int cppyy_method_is_template(cppyy_scope_t scope, cppyy_index_t idx);
+    int cppyy_method_num_template_args(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_template_arg_name(cppyy_scope_t scope, cppyy_index_t idx, cppyy_index_t iarg);
+
     cppyy_method_t cppyy_get_method(cppyy_scope_t scope, cppyy_index_t idx);
     cppyy_index_t cppyy_get_global_operator(
         cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
@@ -103,7 +107,7 @@ extern "C" {
 
     /* misc helpers ----------------------------------------------------------- */
     long long cppyy_strtoll(const char* str);
-    unsigned long long cppyy_strtuoll(const char* str);
+    unsigned long long cppyy_strtoull(const char* str);
     void cppyy_free(void* ptr);
 
     cppyy_object_t cppyy_charp2stdstring(const char* str);

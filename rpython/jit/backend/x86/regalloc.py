@@ -1380,16 +1380,6 @@ def get_ebp_ofs(base_ofs, position):
     # i.e. the n'th word beyond the fixed frame size.
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
-def _valid_addressing_size(size):
-    return size == 1 or size == 2 or size == 4 or size == 8
-
-def _get_scale(size):
-    assert _valid_addressing_size(size)
-    if size < 4:
-        return size - 1         # 1, 2 => 0, 1
-    else:
-        return (size >> 2) + 1  # 4, 8 => 2, 3
-
 def not_implemented(msg):
     os.write(2, '[x86/regalloc] %s\n' % msg)
     raise NotImplementedError(msg)
