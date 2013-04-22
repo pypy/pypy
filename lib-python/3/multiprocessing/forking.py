@@ -79,10 +79,13 @@ class _C:
 ForkingPickler.register(type(_C().f), _reduce_method)
 
 
-def _reduce_method_descriptor(m):
-    return getattr, (m.__objclass__, m.__name__)
-ForkingPickler.register(type(list.append), _reduce_method_descriptor)
-ForkingPickler.register(type(int.__add__), _reduce_method_descriptor)
+if type(list.append) is not type(ForkingPickler.save):
+    # Some python implementations have plain functions even for builtin
+    # types
+    def _reduce_method_descriptor(m):
+        return getattr, (m.__objclass__, m.__name__)
+    ForkingPickler.register(type(list.append), _reduce_method_descriptor)
+    ForkingPickler.register(type(int.__add__), _reduce_method_descriptor)
 
 try:
     from functools import partial
