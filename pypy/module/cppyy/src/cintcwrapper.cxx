@@ -173,13 +173,13 @@ static inline char* type_cppstring_to_cstring(const std::string& tname) {
     return cppstring_to_cstring(true_name);
 }
 
-static inline TClassRef type_from_handle(cppyy_type_t handle) {
+static inline TClassRef& type_from_handle(cppyy_type_t handle) {
     assert((ClassRefs_t::size_type)handle < g_classrefs.size());
     return g_classrefs[(ClassRefs_t::size_type)handle];
 }
 
 static inline TFunction* type_get_method(cppyy_type_t handle, cppyy_index_t idx) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass())
         return (TFunction*)cr->GetListOfMethods()->At(idx);
     return (TFunction*)idx;
@@ -220,7 +220,7 @@ static inline void fixup_args(G__param* libp) {
 
 /* name to opaque C++ scope representation -------------------------------- */
 int cppyy_num_scopes(cppyy_scope_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         /* not supported as CINT does not store classes hierarchically */
         return 0;
@@ -229,7 +229,7 @@ int cppyy_num_scopes(cppyy_scope_t handle) {
 }
 
 char* cppyy_scope_name(cppyy_scope_t handle, int iscope) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         /* not supported as CINT does not store classes hierarchically */
         assert(!"scope name lookup not supported on inner scopes");
@@ -274,9 +274,16 @@ char* cppyy_resolve_name(const char* cppitem_name) {
 }
 
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
+    // CINT still has trouble with std:: sometimes ... 
+    if (strncmp(scope_name, "std::", 5) == 0)
+        scope_name = &scope_name[5];
+
     ClassRefIndices_t::iterator icr = g_classref_indices.find(scope_name);
     if (icr != g_classref_indices.end())
         return (cppyy_type_t)icr->second;
+
+    if (strcmp(scope_name, "#define") == 0)
+        return (cppyy_type_t)NULL;
 
     // use TClass directly, to enable auto-loading
     TClassRef cr(TClass::GetClass(scope_name, kTRUE, kTRUE));
@@ -303,6 +310,10 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
     if (!G__defined_templateclass((char*)template_name))
         return (cppyy_type_t)NULL;
 
+    // #include for specific, pre-compiled STL classes
+    if (strcmp(template_name, "std::map") == 0)
+        gROOT->ProcessLine("#include <map>");
+
     // the following yields a dummy TClassRef, but its name can be queried
     ClassRefs_t::size_type sz = g_classrefs.size();
     g_classref_indices[template_name] = sz;
@@ -311,7 +322,7 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
 }
 
 cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
-    TClassRef cr = type_from_handle(klass);
+    TClassRef& cr = type_from_handle(klass);
     TClass* clActual = cr->GetActualClass( (void*)obj );
     if (clActual && clActual != cr.GetClass()) {
         // TODO: lookup through name should not be needed
@@ -323,7 +334,7 @@ cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
 
 /* memory management ------------------------------------------------------ */
 cppyy_object_t cppyy_allocate(cppyy_type_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     return (cppyy_object_t)malloc(cr->Size());
 }
 
@@ -332,7 +343,7 @@ void cppyy_deallocate(cppyy_type_t /*handle*/, cppyy_object_t instance) {
 }
 
 void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     cr->Destructor((void*)self, true);
 }
 
@@ -448,10 +459,19 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     return cppstring_to_cstring("");
 }
 
-void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-    G__setgvp((long)self);
-    cppyy_call_T(method, self, nargs, args);
+cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
+    cppyy_object_t self = (cppyy_object_t)NULL;
+    if ((InterpretedFuncs_t::size_type)method >= g_interpreted.size()) {
+        G__setgvp((long)G__PVOID);
+        self = (cppyy_object_t)cppyy_call_l(method, (cppyy_object_t)NULL, nargs, args);
+    } else {
+    // for macro's/interpreted classes
+        self = cppyy_allocate(handle);
+        G__setgvp((long)self);
+        cppyy_call_T(method, self, nargs, args);
+    }
     G__setgvp((long)G__PVOID);
+    return self;
 }
 
 cppyy_object_t cppyy_call_o(cppyy_type_t method, cppyy_object_t self, int nargs, void* args,
@@ -492,7 +512,7 @@ size_t cppyy_function_arg_typeoffset() {
 
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_scope_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetClassInfo())
         return cr->Property() & G__BIT_ISNAMESPACE;
     if (strcmp(cr.GetClassName(), "") == 0)
@@ -508,7 +528,7 @@ int cppyy_is_enum(const char* type_name) {
 
 /* type/class reflection information -------------------------------------- */
 char* cppyy_final_name(cppyy_type_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetClassInfo()) {
         std::string true_name = G__TypeInfo(cr->GetName()).TrueName();
         std::string::size_type pos = true_name.rfind("::");
@@ -520,7 +540,7 @@ char* cppyy_final_name(cppyy_type_t handle) {
 }
 
 char* cppyy_scoped_final_name(cppyy_type_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetClassInfo()) {
         std::string true_name = G__TypeInfo(cr->GetName()).TrueName();
         return cppstring_to_cstring(true_name);
@@ -535,29 +555,29 @@ int cppyy_has_complex_hierarchy(cppyy_type_t handle) {
 }
 
 int cppyy_num_bases(cppyy_type_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfBases() != 0)
         return cr->GetListOfBases()->GetSize();
     return 0;
 }
 
 char* cppyy_base_name(cppyy_type_t handle, int base_index) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     TBaseClass* b = (TBaseClass*)cr->GetListOfBases()->At(base_index);
     return type_cppstring_to_cstring(b->GetName());
 }
 
 int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
-    TClassRef derived_type = type_from_handle(derived_handle);
-    TClassRef base_type = type_from_handle(base_handle);
+    TClassRef& derived_type = type_from_handle(derived_handle);
+    TClassRef& base_type = type_from_handle(base_handle);
     return derived_type->GetBaseClass(base_type) != 0;
 }
 
 size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
                        cppyy_object_t address, int /* direction */) {
     // WARNING: CINT can not handle actual dynamic casts!
-    TClassRef derived_type = type_from_handle(derived_handle);
-    TClassRef base_type = type_from_handle(base_handle);
+    TClassRef& derived_type = type_from_handle(derived_handle);
+    TClassRef& base_type = type_from_handle(base_handle);
 
     long offset = 0;
 
@@ -586,7 +606,7 @@ size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
 
 /* method/function reflection information --------------------------------- */
 int cppyy_num_methods(cppyy_scope_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfMethods())
         return cr->GetListOfMethods()->GetSize();
     else if (strcmp(cr.GetClassName(), "") == 0) {
@@ -608,7 +628,7 @@ int cppyy_num_methods(cppyy_scope_t handle) {
 }
 
 cppyy_index_t cppyy_method_index_at(cppyy_scope_t handle, int imeth) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass())
         return (cppyy_index_t)imeth;
     return (cppyy_index_t)&g_globalfuncs[imeth];
@@ -616,7 +636,7 @@ cppyy_index_t cppyy_method_index_at(cppyy_scope_t handle, int imeth) {
 
 cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* name) {
     std::vector<cppyy_index_t> result;
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         gInterpreter->UpdateListOfMethods(cr.GetClass());
         int imeth = 0;
@@ -655,11 +675,17 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* 
 
 char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t idx) {
     TFunction* f = type_get_method(handle, idx);
-    return cppstring_to_cstring(f->GetName());
+    std::string name = f->GetName();
+    TClassRef& cr = type_from_handle(handle);
+    if (cr.GetClass() && cppyy_is_constructor(handle, idx))
+        return cppstring_to_cstring(name);
+    if (cppyy_method_is_template(handle, idx))
+       return cppstring_to_cstring(name.substr(0, name.find('<')));
+    return cppstring_to_cstring(name);
 }
 
 char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t idx) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cppyy_is_constructor(handle, idx))
         return cppstring_to_cstring("constructor");
     TFunction* f = type_get_method(handle, idx);
@@ -688,7 +714,7 @@ char* cppyy_method_arg_default(cppyy_scope_t /*handle*/, cppyy_index_t /*idx*/, 
 }
 
 char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t idx) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     TFunction* f = type_get_method(handle, idx);
     std::ostringstream sig;
     if (cr.GetClass() && cr->GetClassInfo()
@@ -706,8 +732,31 @@ char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t idx) {
 }
 
 
+int cppyy_method_is_template(cppyy_scope_t handle, cppyy_index_t idx) {
+    TClassRef& cr = type_from_handle(handle);
+    TFunction* f = type_get_method(handle, idx);
+    std::string name = f->GetName();
+    return (name[name.size()-1] == '>') && (name.find('<') != std::string::npos);
+}
+
+int cppyy_method_num_template_args(cppyy_scope_t /*handle*/, cppyy_index_t /*idx*/) {
+// TODO: somehow count from the actual arguments
+    return 1;
+}
+
+char* cppyy_method_template_arg_name(
+        cppyy_scope_t handle, cppyy_index_t idx, cppyy_index_t /*iarg*/) {
+// TODO: return only the name for the requested arg
+    TClassRef& cr = type_from_handle(handle);
+    TFunction* f = type_get_method(handle, idx);
+    std::string name = f->GetName();
+    std::string::size_type pos = name.find('<');
+    return cppstring_to_cstring(resolve_typedef(name.substr(pos+1, name.size()-pos-2)));
+}
+
+
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     TFunction* f = type_get_method(handle, idx);
     if (cr && cr.GetClass() && !cr->IsLoaded()) {
         G__ClassInfo* gcl = (G__ClassInfo*)cr->GetClassInfo();
@@ -731,8 +780,8 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
 }
 
 cppyy_index_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
-    TClassRef lccr = type_from_handle(lc);
-    TClassRef rccr = type_from_handle(rc);
+    TClassRef& lccr = type_from_handle(lc);
+    TClassRef& rccr = type_from_handle(rc);
 
     if (!lccr.GetClass() || !rccr.GetClass() || scope != GLOBAL_HANDLE)
         return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid as a method handle
@@ -762,13 +811,13 @@ cppyy_index_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, c
 
 /* method properties -----------------------------------------------------  */
 int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t idx) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     TMethod* m = (TMethod*)cr->GetListOfMethods()->At(idx);
     return strcmp(m->GetName(), ((G__ClassInfo*)cr->GetClassInfo())->Name()) == 0;
 }
 
 int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t idx) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     TMethod* m = (TMethod*)cr->GetListOfMethods()->At(idx);
     return m->Property() & G__BIT_ISSTATIC;
 }
@@ -776,7 +825,7 @@ int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t idx) {
 
 /* data member reflection information ------------------------------------- */
 int cppyy_num_datamembers(cppyy_scope_t handle) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfDataMembers())
         return cr->GetListOfDataMembers()->GetSize();
     else if (strcmp(cr.GetClassName(), "") == 0) {
@@ -798,7 +847,7 @@ int cppyy_num_datamembers(cppyy_scope_t handle) {
 }
 
 char* cppyy_datamember_name(cppyy_scope_t handle, int datamember_index) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return cppstring_to_cstring(m->GetName());
@@ -808,7 +857,7 @@ char* cppyy_datamember_name(cppyy_scope_t handle, int datamember_index) {
 }
 
 char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass())  {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         std::string fullType = m->GetFullTypeName();
@@ -826,7 +875,7 @@ char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
 }
 
 size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return (size_t)m->GetOffsetCint();
@@ -836,7 +885,7 @@ size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
 }
 
 int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         // called from updates; add a hard reset as the code itself caches in
         // Class (TODO: by-pass ROOT/meta)
@@ -871,7 +920,7 @@ int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
 
 /* data member properties ------------------------------------------------  */
 int cppyy_is_publicdata(cppyy_scope_t handle, int datamember_index) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return m->Property() & G__BIT_ISPUBLIC;
@@ -880,7 +929,7 @@ int cppyy_is_publicdata(cppyy_scope_t handle, int datamember_index) {
 }
 
 int cppyy_is_staticdata(cppyy_scope_t handle, int datamember_index) {
-    TClassRef cr = type_from_handle(handle);
+    TClassRef& cr = type_from_handle(handle);
     if (cr.GetClass()) {
         TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return m->Property() & G__BIT_ISSTATIC;
@@ -933,4 +982,8 @@ cppyy_object_t cppyy_ttree_Branch(void* vtree, const char* branchname, const cha
     TBranch* b = ((TTree*)vtree)->Bronch(branchname, classname, (void*)&addobj, bufsize, splitlevel);
     if (b) b->SetObject(addobj);
     return (cppyy_object_t)b;
+}
+
+long long cppyy_ttree_GetEntry(void* vtree, long long entry) {
+    return (long long)((TTree*)vtree)->GetEntry((Long64_t)entry);
 }

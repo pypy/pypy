@@ -279,7 +279,7 @@ class AppTestSTLSTRING:
         assert s == c.get_string1()
 
 
-class AppTestSTLSTRING:
+class AppTestSTLLIST:
     spaceconfig = dict(usemodules=['cppyy'])
 
     def setup_class(cls):
@@ -334,3 +334,148 @@ class AppTestSTLSTRING:
         for arg in a:
            pass
 
+
+class AppTestSTLMAP:
+    spaceconfig = dict(usemodules=['cppyy', 'itertools'])
+
+    def setup_class(cls):
+        cls.w_N = cls.space.wrap(13)
+        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_stlstring = cls.space.appexec([], """():
+            import cppyy, math, sys
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+
+    def test01_builtin_map_type(self):
+        """Test access to a map<int,int>"""
+
+        import cppyy
+        std = cppyy.gbl.std
+
+        a = std.map(int, int)()
+        for i in range(self.N):
+            a[i] = i
+            assert a[i] == i
+
+        assert len(a) == self.N
+
+        for key, value in a:
+            assert key == value
+        assert key   == self.N-1
+        assert value == self.N-1
+
+        # add a variation, just in case
+        m = std.map(int, int)()
+        for i in range(self.N):
+            m[i] = i*i
+            assert m[i] == i*i
+
+        for key, value in m:
+            assert key*key == value
+        assert key   == self.N-1
+        assert value == (self.N-1)*(self.N-1)
+
+    def test02_keyed_maptype(self):
+        """Test access to a map<std::string,int>"""
+
+        import cppyy
+        std = cppyy.gbl.std
+
+        a = std.map(std.string, int)()
+        for i in range(self.N):
+            a[str(i)] = i
+            assert a[str(i)] == i
+
+        assert len(a) == self.N
+
+    def test03_empty_maptype(self):
+        """Test behavior of empty map<int,int>"""
+
+        import cppyy
+        std = cppyy.gbl.std
+
+        m = std.map(int, int)()
+        for key, value in m:
+           pass
+
+    def test04_unsignedvalue_typemap_types(self):
+        """Test assignability of maps with unsigned value types"""
+
+        import cppyy, math, sys
+        std = cppyy.gbl.std
+
+        mui = std.map(str, 'unsigned int')()
+        mui['one'] = 1
+        assert mui['one'] == 1
+        raises(ValueError, mui.__setitem__, 'minus one', -1)
+
+        # UInt_t is always 32b, sys.maxint follows system int
+        maxint32 = int(math.pow(2,31)-1)
+        mui['maxint'] = maxint32 + 3
+        assert mui['maxint'] == maxint32 + 3
+
+        mul = std.map(str, 'unsigned long')()
+        mul['two'] = 2
+        assert mul['two'] == 2
+        mul['maxint'] = sys.maxint + 3
+        assert mul['maxint'] == sys.maxint + 3
+
+        raises(ValueError, mul.__setitem__, 'minus two', -2)
+
+    def test05_STL_like_class_indexing_overloads(self):
+        """Test overloading of operator[] in STL like class"""
+
+        import cppyy
+        stl_like_class = cppyy.gbl.stl_like_class
+
+        a = stl_like_class(int)()
+        assert a["some string" ] == 'string'
+        assert a[3.1415] == 'double'
+
+    def test06_STL_like_class_iterators(self):
+        """Test the iterator protocol mapping for an STL like class"""
+
+        import cppyy
+        stl_like_class = cppyy.gbl.stl_like_class
+
+        a = stl_like_class(int)()
+        for i in a:
+            pass
+
+        assert i == 3
+
+
+class AppTestSTLITERATOR:
+    spaceconfig = dict(usemodules=['cppyy', 'itertools'])
+
+    def setup_class(cls):
+        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_stlstring = cls.space.appexec([], """():
+            import cppyy, sys
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+
+    def test01_builtin_vector_iterators(self):
+        """Test iterator comparison with operator== reflected"""
+
+        import cppyy
+        from cppyy.gbl import std
+
+        v = std.vector(int)()
+        v.resize(1)
+
+        b1, e1 = v.begin(), v.end()
+        b2, e2 = v.begin(), v.end()
+
+        assert b1 == b2
+        assert not b1 != b2
+
+        assert e1 == e2
+        assert not e1 != e2
+
+        assert not b1 == e1
+        assert b1 != e1
+
+        b1.__preinc__()
+        assert not b1 == b2
+        assert b1 == e2
+        assert b1 != b2
+        assert b1 == e2
