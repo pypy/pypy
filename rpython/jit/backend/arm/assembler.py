@@ -122,8 +122,8 @@ class AssemblerARM(ResOpAssembler):
         if exctploc is not None:
             # store pos_exception in exctploc
             assert exctploc.is_reg()
-            mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
-            self.load_reg(mc, exctploc, r.ip)
+            mc.gen_load_int(tmpreg.value, self.cpu.pos_exception())
+            self.load_reg(mc, exctploc, tmpreg)
 
         # reset exception
         mc.gen_load_int(tmpreg.value, 0)
