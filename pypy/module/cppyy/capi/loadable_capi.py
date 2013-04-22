@@ -332,7 +332,6 @@ def c_call_o(space, cppmethod, cppobject, nargs, cargs, cppclass):
     args = [_Arg(l=cppmethod), _Arg(l=cppobject), _Arg(l=nargs), _Arg(vp=cargs), _Arg(l=cppclass.handle)]
     return _cdata_to_cobject(space, call_capi(space, 'call_o', args))
 
-@jit.elidable_promote()
 def c_get_methptr_getter(space, cppscope, index):
     args = [_Arg(l=cppscope.handle), _Arg(l=index)]
     return rffi.cast(C_METHPTRGETTER_PTR,
@@ -343,10 +342,10 @@ def c_allocate_function_args(space, size):
     return _cdata_to_ptr(space, call_capi(space, 'allocate_function_args', [_Arg(l=size)]))
 def c_deallocate_function_args(space, cargs):
     call_capi(space, 'deallocate_function_args', [_Arg(vp=cargs)])
-@jit.elidable_promote()
+@jit.elidable
 def c_function_arg_sizeof(space):
     return _cdata_to_size_t(space, call_capi(space, 'function_arg_sizeof', []))
-@jit.elidable_promote()
+@jit.elidable
 def c_function_arg_typeoffset(space):
     return _cdata_to_size_t(space, call_capi(space, 'function_arg_typeoffset', []))
 
@@ -368,22 +367,20 @@ def c_num_bases(space, cppclass):
 def c_base_name(space, cppclass, base_index):
     args = [_Arg(l=cppclass.handle), _Arg(l=base_index)]
     return charp2str_free(space, call_capi(space, 'base_name', args))
-@jit.elidable_promote()
+@jit.elidable_promote('2')
 def c_is_subtype(space, derived, base):
     if derived == base:
         return bool(1)
     return space.bool_w(call_capi(space, 'is_subtype', [_Arg(l=derived.handle), _Arg(l=base.handle)]))
 
-@jit.elidable_promote()
+@jit.elidable_promote('1,2,4')
 def _c_base_offset(space, derived_h, base_h, address, direction):
     args = [_Arg(l=derived_h), _Arg(l=base_h), _Arg(l=address), _Arg(l=direction)]
     return _cdata_to_size_t(space, call_capi(space, 'base_offset', args))
-@jit.elidable_promote()
 def c_base_offset(space, derived, base, address, direction):
     if derived == base:
         return rffi.cast(rffi.SIZE_T, 0)
     return _c_base_offset(space, derived.handle, base.handle, address, direction)
-@jit.elidable_promote()
 def c_base_offset1(space, derived_h, base, address, direction):
     return _c_base_offset(space, derived_h, base.handle, address, direction)
 
