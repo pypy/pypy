@@ -115,7 +115,15 @@ class StmGCSharedArea(object):
         self.objects_to_trace = self.AddressStack()
         #
         # The stacks...
-        self.collect_stack_roots_from_every_thread()
+        self.collect_roots_from_stacks()
+        #
+        # The raw structures...
+        self.collect_from_raw_structures()
+        #
+        # The tldicts...
+        self.collect_roots_from_tldicts()
+        #
+        self.visit_all_objects()
         #
         self.num_major_collects += 1
         debug_print("| used after collection:    ",
@@ -125,16 +133,62 @@ class StmGCSharedArea(object):
         debug_print("`----------------------------------------------")
         debug_stop("gc-collect")
 
-    def collect_stack_roots_from_every_thread(self):
-        self.gc.root_walker.walk_all_stack_roots(self._collect_stack_root,
-                                                 None)
+    def collect_roots_from_stacks(self):
+        self.gc.root_walker.walk_all_stack_roots(StmGCSharedArea._collect_stack_root,
+                                                 self)
 
-    def _collect_stack_root(self, ignored, root):
-        self.visit(root.address[0])
+    def collect_from_raw_structures(self):
+        self.gc.root_walker.walk_current_nongc_roots(
+            StmGCSharedArea._collect_stack_root, self)
+
+    def _collect_stack_root(self, root):
+        self.objects_to_trace.append(root.address[0])
+
+    def collect_roots_from_tldicts(self):
+        CALLBACK = self.gc.stm_operations.CALLBACK_ENUM
+        llop.nop(lltype.Void, llhelper(CALLBACK,
+                                       StmGCSharedArea._stm_enum_external_callback))
+        # The previous line causes the _stm_enum_external_callback() function to be
+        # generated in the C source with a specific signature, where it
+        # can be called by the C code.
+        stmtls = self.gc.linked_list_stmtls
+        while stmtls is not None:
+            self.visit_all_objects()   # empty the list first
+            # for every stmtls:
+            self.gc.stm_operations.tldict_enum_external(stmtls.thread_descriptor)
+            stmtls = stmtls.linked_list_next
+
+    @staticmethod
+    def _stm_enum_external_callback(globalobj, localobj):
+        localhdr = self.gc.header(localobj)
+        ll_assert(localhdr.tid & GCFLAG_VISITED != 0,
+                  "[shared] in a root: missing GCFLAG_VISITED")
+        localhdr.tid &= ~GCFLAG_VISITED
+        self.objects_to_trace.append(localobj)
+        self.objects_to_trace.append(globalobj)
+
+    def visit_all_objects(self):
+        pending = self.objects_to_trace
+        while pending.non_empty():
+            obj = pending.pop()
+            self.visit(obj)
 
     def visit(self, obj):
+        # 'obj' is a live object.  Check GCFLAG_VISITED to know if we
+        # have already seen it before.
         hdr = self.gc.header(obj)
-        XXX
+        if hdr.tid & GCFLAG_VISITED:
+            return
+        #
+        # It's the first time.  We set the flag.
+        hdr.tid |= GCFLAG_VISITED
+        #
+        # Trace the content of the object and put all objects it references
+        # into the 'objects_to_trace' list.
+        self.gc.trace(obj, self._collect_ref_rec, None)
+
+    def _collect_ref_rec(self, root, ignored):
+        self.objects_to_trace.append(root.address[0])
 
 
 # ------------------------------------------------------------

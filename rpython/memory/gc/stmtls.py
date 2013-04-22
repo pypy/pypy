@@ -103,7 +103,7 @@ class StmGCTLS(object):
             n = 10000 + len(StmGCTLS.nontranslated_dict)
             tlsaddr = rffi.cast(llmemory.Address, n)
             StmGCTLS.nontranslated_dict[n] = self
-        self.stm_operations.set_tls(tlsaddr)
+        self.thread_descriptor = self.stm_operations.set_tls(tlsaddr)
 
     def _unregister_with_C_code(self):
         ll_assert(self.gc.get_tls() is self,

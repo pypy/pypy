@@ -1,9 +1,10 @@
 
 static __thread void *rpython_tls_object;
 
-void stm_set_tls(void *newtls)
+void *stm_set_tls(void *newtls)
 {
   rpython_tls_object = newtls;
+  return (void *)thread_descriptor;
 }
 
 void *stm_get_tls(void)
@@ -47,6 +48,20 @@ void stm_tldict_enum(void)
       assert(L->h_revision == (revision_t)R);
       if ((L->h_tid & GCFLAG_NOT_WRITTEN) == 0)
         pypy_g__stm_enum_callback(tls, L);
+    } G2L_LOOP_END;
+}
+
+void stm_tldict_enum_external(void *l_thread_descriptor)
+{
+  struct tx_descriptor *d = (struct tx_descriptor *)l_thread_descriptor;
+  wlog_t *item;
+
+  G2L_LOOP_FORWARD(d->global_to_local, item)
+    {
+      gcptr R = item->addr;
+      gcptr L = item->val;
+      assert(L->h_revision == (revision_t)R);
+      pypy_g__stm_enum_external_callback(R, L);
     } G2L_LOOP_END;
 }
 

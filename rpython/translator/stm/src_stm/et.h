@@ -105,12 +105,13 @@ void stm_ThreadLocalRef_LLSet(void **P, void *X);
 
 extern void *pypy_g__stm_duplicate(void *);
 extern void pypy_g__stm_enum_callback(void *, void *);
-void stm_set_tls(void *newtls);
+void *stm_set_tls(void *newtls);
 void *stm_get_tls(void);
 void stm_del_tls(void);
 gcptr stm_tldict_lookup(gcptr);     /* for tests only */
 void stm_tldict_add(gcptr, gcptr);  /* for tests only */
 void stm_tldict_enum(void);
+void stm_tldict_enum_external(void *l_thread_descriptor);
 long stm_in_transaction(void);
 long stm_is_inevitable(void);
 void stm_add_atomic(long delta);

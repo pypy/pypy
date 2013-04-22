@@ -55,13 +55,15 @@ class StmOperations(object):
                                      lltype.Void)
 
     # for the GC: store and read a thread-local-storage field
-    set_tls = smexternal('stm_set_tls', [llmemory.Address], lltype.Void)
+    set_tls = smexternal('stm_set_tls', [llmemory.Address], llmemory.Address)
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)
     del_tls = smexternal('stm_del_tls', [], lltype.Void)
 
     # calls FindRootsForLocalCollect() and invokes for each such root
     # the callback set in CALLBACK_ENUM.
     tldict_enum = smexternal('stm_tldict_enum', [], lltype.Void)
+    tldict_enum_external = smexternal('stm_tldict_enum_external',
+                                      [llmemory.Address], lltype.Void)
 
     # sets the transaction length, after which should_break_transaction()
     # returns True
