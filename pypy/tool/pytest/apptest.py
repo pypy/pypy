@@ -117,7 +117,12 @@ if 1:
         elif isinstance(value, (str, unicode, int, long, float, list, tuple,
                                 dict)) or value is None:
             defs.append("self.%s = %s\n" % (symbol, py3k_repr(value)))
-    source = py.code.Source(target_)[1:]
+
+    source = list(py.code.Source(target_))
+    while source[0].startswith(('@py.test.mark.', '@pytest.mark.')):
+        source.pop(0)
+    source = source[1:]
+
     pyfile = udir.join('src.py')
     if isinstance(target_, str):
         # Special case of a docstring; the function name is the first word.
@@ -128,7 +133,7 @@ if 1:
         f.write(helpers)
         f.write('\n'.join(defs))
         f.write('def %s():\n' % target_name)
-        f.write(str(source))
+        f.write('\n'.join(source))
         f.write("\n%s()\n" % target_name)
     res, stdout, stderr = runsubprocess.run_subprocess(
         python_, [str(pyfile)])
