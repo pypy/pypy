@@ -109,9 +109,9 @@ class AssemblerARM(ResOpAssembler):
         assert excvalloc is not r.ip
         assert exctploc is not r.ip
         tmpreg = r.lr
-        mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
         if excvalloc is not None: # store
             assert excvalloc.is_reg()
+            mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
             self.load_reg(mc, excvalloc, r.ip)
         if on_frame:
             # store exc_value in JITFRAME
@@ -119,11 +119,13 @@ class AssemblerARM(ResOpAssembler):
             assert check_imm_arg(ofs)
             self.load_reg(mc, r.ip, r.ip, helper=tmpreg)
             self.store_reg(mc, r.ip, r.fp, ofs, helper=tmpreg)
+            mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
         if exctploc is not None:
             # store pos_exception in exctploc
             assert exctploc.is_reg()
             mc.gen_load_int(tmpreg.value, self.cpu.pos_exception())
             self.load_reg(mc, exctploc, tmpreg)
+            mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
 
         # reset exception
         mc.gen_load_int(tmpreg.value, 0)
