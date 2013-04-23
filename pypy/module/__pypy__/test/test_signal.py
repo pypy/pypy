@@ -25,7 +25,7 @@ class AppTestThreadSignal(GenericTestThread):
             __pypy__.thread._signals_enter()
 
     def test_enable_signals(self):
-        import __pypy__, thread, signal, time
+        import __pypy__, thread, signal, time, sys
 
         def subthread():
             try:
@@ -42,13 +42,18 @@ class AppTestThreadSignal(GenericTestThread):
         # This is normally called by app_main.py
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
+        if sys.platform.startswith('win'):
+            # Windows seems to hang on _setmode when the first print comes from
+            # a thread, so make sure we've initialized io
+            sys.stdout
+
         for i in range(10):
             __pypy__.thread._signals_exit()
             try:
                 done = []
                 interrupted = []
                 thread.start_new_thread(subthread, ())
-                for i in range(10):
+                for j in range(10):
                     if len(done): break
                     print '.'
                     time.sleep(0.1)
@@ -100,7 +105,7 @@ class AppTestThreadSignalLock:
             py.test.skip("this is only a test for -A runs on top of pypy")
 
     def test_enable_signals(self):
-        import __pypy__, thread, signal, time
+        import __pypy__, thread, time
 
         interrupted = []
         lock = thread.allocate_lock()

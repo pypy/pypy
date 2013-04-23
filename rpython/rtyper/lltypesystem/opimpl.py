@@ -597,6 +597,9 @@ def op_jit_force_quasi_immutable(*args):
 def op_jit_record_known_class(x, y):
     pass
 
+def op_jit_ffi_save_result(*args):
+    pass
+
 def op_get_group_member(TYPE, grpptr, memberoffset):
     from rpython.rtyper.lltypesystem import llgroup
     assert isinstance(memberoffset, llgroup.GroupMemberOffset)
@@ -653,6 +656,13 @@ def op_shrink_array(array, smallersize):
 def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
+
+def op_debug_fatalerror(ll_msg):
+    from rpython.rtyper.lltypesystem import lltype, rstr
+    from rpython.rtyper.llinterp import LLFatalError
+    assert lltype.typeOf(ll_msg) == lltype.Ptr(rstr.STR)
+    msg = ''.join(ll_msg.chars)
+    raise LLFatalError(msg)
 
 # ____________________________________________________________
 

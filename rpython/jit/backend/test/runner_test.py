@@ -1057,6 +1057,28 @@ class BaseBackendTest(Runner):
         r = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 4, vsdescr)
         assert r == 4
 
+    def test_array_of_structs_all_sizes(self):
+        # x86 has special support that can be used for sizes
+        #   1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 16, 18, 20, 24, 32, 36, 40, 64, 72
+        for length in range(1, 75):
+            ITEM = lltype.FixedSizeArray(lltype.Char, length)
+            a_box, A = self.alloc_array_of(ITEM, 5)
+            a = a_box.getref(lltype.Ptr(A))
+            middle = length // 2
+            a[3][middle] = chr(65 + length)
+            fdescr = self.cpu.interiorfielddescrof(A, 'item%d' % middle)
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC,
+                                       [a_box, BoxInt(3)],
+                                       'int', descr=fdescr)
+            r = r.getint()
+            assert r == 65 + length
+            self.execute_operation(rop.SETINTERIORFIELD_GC,
+                                   [a_box, BoxInt(2), BoxInt(r + 1)],
+                                   'void', descr=fdescr)
+            r1 = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 2,
+                                                  fdescr)
+            assert r1 == r + 1
+
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")
         r = self.execute_operation(rop.STRLEN, [s_box], 'int')
@@ -2455,12 +2477,12 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(raw, flavor='raw')
 
     def test_call_to_winapi_function(self):
-        from rpython.rlib.clibffi import _WIN32, FUNCFLAG_STDCALL
+        from rpython.rlib.clibffi import _WIN32
         if not _WIN32:
             py.test.skip("Windows test only")
-        from rpython.rlib.libffi import CDLL, types, ArgChain
+        from rpython.rlib.libffi import WinDLL, types, ArgChain
         from rpython.rlib.rwin32 import DWORD
-        libc = CDLL('KERNEL32')
+        libc = WinDLL('KERNEL32')
         c_GetCurrentDir = libc.getpointer('GetCurrentDirectoryA',
                                           [types.ulong, types.pointer],
                                           types.ulong)
@@ -2830,6 +2852,56 @@ class LLtypeBackendTest(BaseBackendTest):
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert self.cpu.get_int_value(deadframe, 0) == 97
         assert not called
+
+    def test_assembler_call_propagate_exc(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph can't fake exceptions well enough, give up")
+
+        excdescr = BasicFailDescr(666)
+        self.cpu.propagate_exception_descr = excdescr
+        self.cpu.setup_once()    # xxx redo it, because we added
+                                 # propagate_exception
+
+        def assembler_helper(deadframe, virtualizable):
+            assert self.cpu.get_latest_descr(deadframe) is excdescr
+            # let's assume we handled that
+            return 3
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
+                                              llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        ops = '''
+        [i0]
+        p0 = newunicode(i0)
+        finish(p0)'''
+        loop = parse(ops)
+        looptoken = JitCellToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        ARGS = [lltype.Signed] * 10
+        RES = lltype.Signed
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
+        ops = '''
+        [i0]
+        i11 = call_assembler(i0, descr=looptoken)
+        guard_not_forced()[]
+        finish(i11)
+        '''
+        loop = parse(ops, namespace=locals())
+        othertoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        deadframe = self.cpu.execute_token(othertoken, sys.maxint - 1)
+        assert self.cpu.get_int_value(deadframe, 0) == 3
 
     def test_assembler_call_float(self):
         if not self.cpu.supports_floats:
@@ -3341,7 +3413,7 @@ class LLtypeBackendTest(BaseBackendTest):
         excdescr = BasicFailDescr(666)
         self.cpu.propagate_exception_descr = excdescr
         self.cpu.setup_once()    # xxx redo it, because we added
-                                 # propagate_exception_v
+                                 # propagate_exception
         i0 = BoxInt()
         p0 = BoxPtr()
         operations = [
@@ -3427,10 +3499,10 @@ class LLtypeBackendTest(BaseBackendTest):
         ops = """
         [i0]
         i1 = int_force_ge_zero(i0)    # but forced to be in a register
-        finish(i1, descr=1)
+        finish(i1, descr=descr)
         """
+        descr = BasicFinalDescr()
         loop = parse(ops, self.cpu, namespace=locals())
-        descr = loop.operations[-1].getdescr()
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         for inp, outp in [(2,2), (-3, 0)]:
@@ -3443,21 +3515,20 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("pointless test on non-asm")
         from rpython.jit.backend.tool.viewcode import machine_code_dump
         import ctypes
+        targettoken = TargetToken()
         ops = """
         [i2]
         i0 = same_as(i2)    # but forced to be in a register
-        label(i0, descr=1)
+        label(i0, descr=targettoken)
         i1 = int_add(i0, i0)
-        guard_true(i1, descr=faildesr) [i1]
-        jump(i1, descr=1)
+        guard_true(i1, descr=faildescr) [i1]
+        jump(i1, descr=targettoken)
         """
         faildescr = BasicFailDescr(2)
         loop = parse(ops, self.cpu, namespace=locals())
-        faildescr = loop.operations[-2].getdescr()
-        jumpdescr = loop.operations[-1].getdescr()
         bridge_ops = """
         [i0]
-        jump(i0, descr=jumpdescr)
+        jump(i0, descr=targettoken)
         """
         bridge = parse(bridge_ops, self.cpu, namespace=locals())
         looptoken = JitCellToken()
@@ -3475,6 +3546,8 @@ class LLtypeBackendTest(BaseBackendTest):
         def checkops(mc, ops):
             assert len(mc) == len(ops)
             for i in range(len(mc)):
+                if ops[i] == '*':
+                    continue # ingore ops marked as '*', i.e. inline constants
                 assert mc[i].split("\t")[2].startswith(ops[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
@@ -3893,3 +3966,20 @@ class LLtypeBackendTest(BaseBackendTest):
         s.x = 13
         frame = self.cpu.execute_token(looptoken, lltype.cast_opaque_ptr(llmemory.GCREF, s))
         assert self.cpu.get_int_value(frame, 0) == 18
+
+    def test_setarrayitem_raw_short(self):
+        # setarrayitem_raw(140737353744432, 0, 30583, descr=<ArrayS 2>)
+        A = rffi.CArray(rffi.SHORT)
+        arraydescr = self.cpu.arraydescrof(A)
+        a = lltype.malloc(A, 2, flavor='raw')
+        a[0] = rffi.cast(rffi.SHORT, 666)
+        a[1] = rffi.cast(rffi.SHORT, 777)
+        addr = llmemory.cast_ptr_to_adr(a)
+        a_int = heaptracker.adr2int(addr)
+        print 'a_int:', a_int
+        self.execute_operation(rop.SETARRAYITEM_RAW,
+                               [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],
+                               'void', descr=arraydescr)
+        assert rffi.cast(lltype.Signed, a[0]) == -7654
+        assert rffi.cast(lltype.Signed, a[1]) == 777
+        lltype.free(a, flavor='raw')

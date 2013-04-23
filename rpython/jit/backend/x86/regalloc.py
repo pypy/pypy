@@ -838,7 +838,7 @@ class RegAlloc(BaseRegalloc):
         # looking at the result
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         #
-        # We need edx as a temporary, but otherwise don't save any more
+        # We need edi as a temporary, but otherwise don't save any more
         # register.  See comments in _build_malloc_slowpath().
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
@@ -851,22 +851,23 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             size, gcmap)
 
-    def consider_call_malloc_nursery_varsize_small(self, op):
+    def consider_call_malloc_nursery_varsize_frame(self, op):
         size_box = op.getarg(0)
         assert isinstance(size_box, BoxInt) # we cannot have a const here!
-        # looking at the result
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with eax or edi)
+        sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.possibly_free_var(size_box)
+        # the result will be in eax
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        #
-        # We need edx as a temporary, but otherwise don't save any more
-        # register.  See comments in _build_malloc_slowpath().
+        # we need edi as a temporary
         tmp_box = TempBox()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
-        sizeloc = self.rm.make_sure_var_in_reg(size_box, [op.result, tmp_box])
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        self.assembler.malloc_cond_varsize_small(
+        self.assembler.malloc_cond_varsize_frame(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
             sizeloc, gcmap)
@@ -882,6 +883,35 @@ class RegAlloc(BaseRegalloc):
         op = ResOperation(rop.CALL, [ConstInt(fval), op.getarg(0)], None,
                           descr=calldescr)
         self.consider_call(op)
+
+    def consider_call_malloc_nursery_varsize(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        arraydescr = op.getdescr()
+        length_box = op.getarg(2)
+        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        # the result will be in eax
+        self.rm.force_allocate_reg(op.result, selected_reg=eax)
+        # we need edi as a temporary
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
+        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.possibly_free_var(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  It's
+        # fine to load it from the stack too, as long as it's != eax, edi.
+        lengthloc = self.rm.loc(length_box)
+        self.rm.possibly_free_var(length_box)
+        #
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
@@ -1362,16 +1392,6 @@ def get_ebp_ofs(base_ofs, position):
     # Returns (ebp+20), (ebp+24), (ebp+28)...
     # i.e. the n'th word beyond the fixed frame size.
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
-
-def _valid_addressing_size(size):
-    return size == 1 or size == 2 or size == 4 or size == 8
-
-def _get_scale(size):
-    assert _valid_addressing_size(size)
-    if size < 4:
-        return size - 1         # 1, 2 => 0, 1
-    else:
-        return (size >> 2) + 1  # 4, 8 => 2, 3
 
 def not_implemented(msg):
     os.write(2, '[x86/regalloc] %s\n' % msg)

@@ -193,7 +193,6 @@ class AbstractMethDescr(AbstractDescr):
     def get_jitcode_for_class(self, oocls):
         return self.jitcodes[oocls]
 
-
 class Const(AbstractValue):
     __slots__ = ()
 
@@ -777,8 +776,8 @@ class TreeLoop(object):
 
     def show(self, errmsg=None):
         "NOT_RPYTHON"
-        from rpython.jit.metainterp.graphpage import display_loops
-        display_loops([self], errmsg)
+        from rpython.jit.metainterp.graphpage import display_procedures
+        display_procedures([self], errmsg)
 
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"

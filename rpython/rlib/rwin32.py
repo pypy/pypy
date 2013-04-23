@@ -5,6 +5,7 @@ Common types, functions from core win32 libraries, such as kernel32
 import os
 import errno
 
+from rpython.rtyper.module.ll_os_environ import make_env_impls
 from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -390,3 +391,5 @@ if WIN32:
                 raise lastWindowsError('os_kill failed to terminate process')
         finally:
             CloseHandle(handle)
+
+    _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)

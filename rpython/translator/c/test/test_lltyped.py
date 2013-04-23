@@ -919,3 +919,25 @@ class TestLowLevelType(object):
             return x
         fn = self.getcompiled(llf, [int])
         assert fn(5) == 42
+
+    def test_raw_array_field_prebuilt(self):
+        from rpython.rtyper.lltypesystem import rffi
+        S = Struct('S', ('array', rffi.CArray(Signed)))
+        s0 = malloc(S, 0, flavor='raw', immortal=True)
+        s1 = malloc(S, 1, flavor='raw', immortal=True)
+        s1.array[0] = 521
+        s2 = malloc(S, 2, flavor='raw', immortal=True)
+        s2.array[0] = 12
+        s2.array[1] = 34
+        def llf(i):
+            if   i == 0: s = s0
+            elif i == 1: s = s1
+            else:        s = s2
+            x = 10
+            if i > 0:
+                x += s.array[i-1]
+            return x
+        fn = self.getcompiled(llf, [int])
+        assert fn(0) == 10
+        assert fn(1) == 10 + 521
+        assert fn(2) == 10 + 34

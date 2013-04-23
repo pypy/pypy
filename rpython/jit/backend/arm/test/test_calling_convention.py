@@ -72,7 +72,7 @@ class TestARMCallingConvention(CallingConvTests):
         callargs = []
         def func(f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9):
             callargs.append(zip(range(12),
-			[f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9]))
+                        [f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9]))
             return f0 + f1 + f2 + f3 + f4 + f5 + f6 + float(i0 + i1) + f7 + f8 + f9
         F = lltype.Float
         I = lltype.Signed
@@ -103,7 +103,7 @@ class TestARMCallingConvention(CallingConvTests):
         callargs = []
         def func(f0, f1, f2, f3, f4, f5, f6, f7, f8, f9):
             callargs.append(zip(range(10),
-			[f0, f1, f2, f3, f4, f5, f6, f7, f8, f9]))
+                        [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9]))
             return f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9
         F = lltype.Float
         FUNC = self.FuncType([F] * 10, F)
@@ -125,7 +125,7 @@ class TestARMCallingConvention(CallingConvTests):
         callargs = []
         def func(f0, f1, f2, f3, f4, f5, f6, f7, f8, f9):
             callargs.append(zip(range(10),
-			[f0, f1, f2, f3, f4, f5, f6, f7, f8, f9]))
+                        [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9]))
             return f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9
 
         I = lltype.Signed

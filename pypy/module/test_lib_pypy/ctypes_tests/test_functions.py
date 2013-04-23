@@ -510,6 +510,7 @@ class TestFunctions(BaseCTypesTestChecker):
         assert seen == ["yadda"]
 
     def test_warnings(self):
+        py.test.skip("warnings are disabled")
         import warnings
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:

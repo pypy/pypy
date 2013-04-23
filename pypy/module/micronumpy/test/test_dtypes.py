@@ -32,7 +32,8 @@ class AppTestDtypes(BaseAppTestDtypes):
 
         assert dtype(None) is dtype(float)
 
-        raises(TypeError, dtype, 1042)
+        exc = raises(TypeError, dtype, (1, 2))
+        assert 'data type not understood' in str(exc.value)
         raises(KeyError, 'dtype(int)["asdasd"]')
 
     def test_dtype_eq(self):

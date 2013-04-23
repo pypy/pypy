@@ -6,7 +6,9 @@ from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
 from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
-    descrlist_dict, sort_descrs)
+                                                     descrlist_dict, sort_descrs)
+
+from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -236,8 +238,36 @@ class VStructValue(AbstractVirtualStructValue):
     def _get_descr(self):
         return self.structdescr
 
+class AbstractVArrayValue(AbstractVirtualValue):
+    """
+    Base class for VArrayValue (for normal GC arrays) and VRawBufferValue (for
+    malloc()ed memory)
+    """
 
-class VArrayValue(AbstractVirtualValue):
+    def getlength(self):
+        return len(self._items)
+
+    def get_item_value(self, i):
+        raise NotImplementedError
+
+    def set_item_value(self, i, newval):
+        raise NotImplementedError
+
+    def get_args_for_fail(self, modifier):
+        if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            # checks for recursion: it is False unless
+            # we have already seen the very same keybox
+            itemboxes = []
+            for i in range(self.getlength()):
+                itemvalue = self.get_item_value(i)
+                itemboxes.append(itemvalue.get_key_box())
+            modifier.register_virtual_fields(self.keybox, itemboxes)
+            for i in range(self.getlength()):
+                itemvalue = self.get_item_value(i)
+                itemvalue.get_args_for_fail(modifier)
+
+
+class VArrayValue(AbstractVArrayValue):
 
     def __init__(self, arraydescr, constvalue, size, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -248,6 +278,12 @@ class VArrayValue(AbstractVirtualValue):
     def getlength(self):
         return len(self._items)
 
+    def get_item_value(self, i):
+        return self._items[i]
+
+    def set_item_value(self, i, newval):
+        self._items[i] = newval
+
     def getitem(self, index):
         res = self._items[index]
         return res
@@ -257,11 +293,16 @@ class VArrayValue(AbstractVirtualValue):
         self._items[index] = itemvalue
 
     def force_at_end_of_preamble(self, already_forced, optforce):
+        # note that this method is on VArrayValue instead of
+        # AbstractVArrayValue because we do not want to support virtualstate
+        # for rawbuffers for now
         if self in already_forced:
             return self
         already_forced[self] = self
-        for index in range(len(self._items)):
-            self._items[index] = self._items[index].force_at_end_of_preamble(already_forced, optforce)
+        for index in range(self.getlength()):
+            itemval = self.get_item_value(index)
+            itemval = itemval.force_at_end_of_preamble(already_forced, optforce)
+            self.set_item_value(index, itemval)
         return self
 
     def _really_force(self, optforce):
@@ -281,28 +322,15 @@ class VArrayValue(AbstractVirtualValue):
                                   descr=self.arraydescr)
                 optforce.emit_operation(op)
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            itemboxes = []
-            for itemvalue in self._items:
-                itemboxes.append(itemvalue.get_key_box())
-            modifier.register_virtual_fields(self.keybox, itemboxes)
-            for itemvalue in self._items:
-                itemvalue.get_args_for_fail(modifier)
-
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
+
 
 class VArrayStructValue(AbstractVirtualValue):
     def __init__(self, arraydescr, size, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.arraydescr = arraydescr
         self._items = [{} for _ in xrange(size)]
-
-    def getlength(self):
-        return len(self._items)
 
     def getinteriorfield(self, index, ofs, default):
         return self._items[index].get(ofs, default)
@@ -363,6 +391,90 @@ class VArrayStructValue(AbstractVirtualValue):
         return modifier.make_varraystruct(self.arraydescr, self._get_list_of_descrs())
 
 
+class VRawBufferValue(AbstractVArrayValue):
+
+    def __init__(self, cpu, logops, size, keybox, source_op):
+        AbstractVirtualValue.__init__(self, keybox, source_op)
+        # note that size is unused, because we assume that the buffer is big
+        # enough to write/read everything we need. If it's not, it's undefined
+        # behavior anyway, although in theory we could probably detect such
+        # cases here
+        self.size = size
+        self.buffer = RawBuffer(cpu, logops)
+
+    def getlength(self):
+        return len(self.buffer.values)
+
+    def get_item_value(self, i):
+        return self.buffer.values[i]
+
+    def set_item_value(self, i, newval):
+        self.buffer.values[i] = newval
+
+    def getitem_raw(self, offset, length, descr):
+        return self.buffer.read_value(offset, length, descr)
+
+    def setitem_raw(self, offset, length, descr, value):
+        self.buffer.write_value(offset, length, descr, value)
+
+    def _really_force(self, optforce):
+        op = self.source_op
+        assert op is not None
+        if not we_are_translated():
+            op.name = 'FORCE ' + self.source_op.name
+        optforce.emit_operation(self.source_op)
+        self.box = box = self.source_op.result
+        for i in range(len(self.buffer.offsets)):
+            # get a pointer to self.box+offset
+            offset = self.buffer.offsets[i]
+            if offset == 0:
+                arraybox = self.box
+            else:
+                arraybox = BoxInt()
+                op = ResOperation(rop.INT_ADD,
+                                  [self.box, ConstInt(offset)], arraybox)
+                optforce.emit_operation(op)
+            #
+            # write the value
+            descr = self.buffer.descrs[i]
+            itemvalue = self.buffer.values[i]
+            itembox = itemvalue.force_box(optforce)
+            op = ResOperation(rop.SETARRAYITEM_RAW,
+                              [arraybox, ConstInt(0), itembox], None,
+                              descr=descr)
+            optforce.emit_operation(op)
+
+    def _make_virtual(self, modifier):
+        # I *think* we need to make a copy of offsets and descrs because we
+        # want a snapshot of the virtual state right now: if we grow more
+        # elements later, we don't want them to go in this virtual state
+        return modifier.make_vrawbuffer(self.size,
+                                        self.buffer.offsets[:],
+                                        self.buffer.descrs[:])
+
+
+class VRawSliceValue(AbstractVirtualValue):
+
+    def __init__(self, rawbuffer_value, offset, keybox, source_op):
+        AbstractVirtualValue.__init__(self, keybox, source_op)
+        self.rawbuffer_value = rawbuffer_value
+        self.offset = offset
+
+    def _really_force(self, optforce):
+        op = self.source_op
+        assert op is not None
+        if not we_are_translated():
+            op.name = 'FORCE ' + self.source_op.name
+        self.box = self.source_op.result
+        self.rawbuffer_value.force_box(optforce)
+        optforce.emit_operation(op)
+
+    def setitem_raw(self, offset, length, descr, value):
+        self.rawbuffer_value.setitem_raw(self.offset+offset, length, descr, value)
+
+    def getitem_raw(self, offset, length, descr):
+        return self.rawbuffer_value.getitem_raw(self.offset+offset, length, descr)
+
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
@@ -385,6 +497,17 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_vstruct(self, structdescr, box, source_op=None):
         vvalue = VStructValue(self.optimizer.cpu, structdescr, box, source_op)
+        self.make_equal_to(box, vvalue)
+        return vvalue
+
+    def make_virtual_raw_memory(self, size, box, source_op):
+        logops = self.optimizer.loop.logops
+        vvalue = VRawBufferValue(self.optimizer.cpu, logops, size, box, source_op)
+        self.make_equal_to(box, vvalue)
+        return vvalue
+
+    def make_virtual_raw_slice(self, rawbuffer_value, offset, box, source_op):
+        vvalue = VRawSliceValue(rawbuffer_value, offset, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -530,6 +653,43 @@ class OptVirtualize(optimizer.Optimization):
             self.getvalue(op.result).ensure_nonnull()
             self.emit_operation(op)
 
+    def optimize_CALL(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo.oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR:
+            self.do_RAW_MALLOC_VARSIZE_CHAR(op)
+        elif effectinfo.oopspecindex == EffectInfo.OS_RAW_FREE:
+            self.do_RAW_FREE(op)
+        else:
+            self.emit_operation(op)
+
+    def do_RAW_MALLOC_VARSIZE_CHAR(self, op):
+        sizebox = op.getarg(1)
+        if not isinstance(sizebox, ConstInt):
+            self.emit_operation(op)
+            return
+        size = sizebox.value
+        self.make_virtual_raw_memory(size, op.result, op)
+
+    def do_RAW_FREE(self, op):
+        value = self.getvalue(op.getarg(1))
+        if value.is_virtual():
+            return
+        self.emit_operation(op)
+
+    def optimize_INT_ADD(self, op):
+        value = self.getvalue(op.getarg(0))
+        offsetbox = self.get_constant_box(op.getarg(1))
+        if value.is_virtual() and offsetbox is not None:
+            offset = offsetbox.getint()
+            if isinstance(value, VRawBufferValue):
+                self.make_virtual_raw_slice(value, offset, op.result, op)
+                return
+            elif isinstance(value, VRawSliceValue):
+                offset = offset + value.offset
+                self.make_virtual_raw_slice(value.rawbuffer_value, offset, op.result, op)
+                return
+        self.emit_operation(op)
+
     def optimize_ARRAYLEN_GC(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
@@ -560,6 +720,48 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def _unpack_arrayitem_raw_op(self, op, indexbox):
+        index = indexbox.getint()
+        cpu = self.optimizer.cpu
+        descr = op.getdescr()
+        basesize, itemsize, _ = cpu.unpack_arraydescr_size(descr)
+        offset = basesize + (itemsize*index)
+        return offset, itemsize, descr
+
+    def optimize_GETARRAYITEM_RAW(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            indexbox = self.get_constant_box(op.getarg(1))
+            if indexbox is not None:
+                offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
+                try:
+                    itemvalue = value.getitem_raw(offset, itemsize, descr)
+                    self.make_equal_to(op.result, itemvalue)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def optimize_SETARRAYITEM_RAW(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            indexbox = self.get_constant_box(op.getarg(1))
+            if indexbox is not None:
+                offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
+                itemvalue = self.getvalue(op.getarg(2))
+                try:
+                    value.setitem_raw(offset, itemsize, descr, itemvalue)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)

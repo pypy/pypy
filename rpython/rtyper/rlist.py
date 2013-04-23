@@ -950,6 +950,7 @@ def ll_listsetslice(l1, start, stop, l2):
     count = l2.ll_length()
     ll_assert(start >= 0, "l[start:x] = l with unexpectedly negative start")
     ll_assert(start <= l1.ll_length(), "l[start:x] = l with start > len(l)")
+    ll_assert(stop <= l1.ll_length(), "stop cannot be past the end of l1")
     ll_assert(count == stop - start,
                  "setslice cannot resize lists in RPython")
     # XXX ...but it would be easy enough to support if really needed
