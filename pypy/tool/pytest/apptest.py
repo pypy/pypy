@@ -128,7 +128,7 @@ if 1:
 
     check_usemodules = ''
     if usemodules:
-        usemodules = [RENAMED_USEMODULES.get(name, name)
+        usemodules = [str(RENAMED_USEMODULES.get(name, name))
                       for name in usemodules]
         check_usemodules = """\
     if not set(%r).issubset(sys.builtin_module_names):
