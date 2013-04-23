@@ -871,7 +871,7 @@ class Popen(object):
             elif stderr == PIPE:
                 errread, errwrite = _subprocess.CreatePipe(None, 0)
             elif stderr == STDOUT:
-                errwrite = c2pwrite
+                errwrite = c2pwrite.handle # pass id to not close it
             elif isinstance(stderr, int):
                 errwrite = msvcrt.get_osfhandle(stderr)
             else:
