@@ -29,5 +29,5 @@ def test_getcpuclass():
 
 
 def test_detect_main_model_and_size_from_platform():
-    info = detect_main_model_and_size_from_platform()
+    info = autodetect_main_model_and_size()
     assert detect_main_model_and_size_from_platform() == info

@@ -25,7 +25,7 @@ def detect_main_model_and_size_from_platform():
         for macro in v:
             if not getdefined(macro, ''):
                 continue
-            return k
+            return '_'.join(k)
     raise ProcessorAutodetectError, "Cannot detect processor using compiler macros"
 
 
