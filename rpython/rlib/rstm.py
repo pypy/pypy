@@ -169,7 +169,7 @@ class AbortInfoPush(ExtRegistryEntry):
 # ____________________________________________________________
 
 class ThreadLocalReference(object):
-    _COUNT = 0
+    _COUNT = 1
 
     def __init__(self, Cls):
         "NOT_RPYTHON: must be prebuilt"

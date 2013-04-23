@@ -2,11 +2,6 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.unsimplify import varoftype
 from rpython.flowspace.model import SpaceOperation, Constant
 
-#
-# Note: all this slightly messy code is to have 'stm_threadlocalref_flush'
-# which zeroes *all* thread-locals variables accessed with
-# stm_threadlocalref_{get,set}.
-#
 
 def transform_tlref(graphs):
     ids = set()
@@ -41,20 +36,23 @@ def transform_tlref(graphs):
             for i in range(len(block.operations)-1, -1, -1):
                 op = block.operations[i]
                 if op.opname == 'stm_threadlocalref_set':
+                    id = op.args[0].value
+                    c_num = Constant(ids.index(id), lltype.Signed)
                     v_addr = varoftype(lltype.Ptr(ARRAY))
-                    ops = getaddr(op.args[0], v_addr)
+                    ops = getaddr(c_num, v_addr)
                     ops.append(SpaceOperation('stm_threadlocalref_llset',
                                               [v_addr, op.args[1]],
                                               op.result))
                     block.operations[i:i+1] = ops
                 elif op.opname == 'stm_threadlocalref_get':
+                    id = op.args[0].value
+                    c_num = Constant(ids.index(id), lltype.Signed)
                     v_array = varoftype(lltype.Ptr(ARRAY))
                     ops = [
                         SpaceOperation('getfield', [c_threadlocalref,
                                                     c_fieldname],
                                        v_array),
-                        SpaceOperation('getarrayitem', [v_array,
-                                                        op.args[0]],
+                        SpaceOperation('getarrayitem', [v_array, c_num],
                                        op.result)]
                     block.operations[i:i+1] = ops
                 elif op.opname == 'stm_threadlocalref_lladdr':
