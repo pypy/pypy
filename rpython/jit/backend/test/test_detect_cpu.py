@@ -26,3 +26,8 @@ def test_getcpuclass():
     else:
         from rpython.jit.backend.model import AbstractCPU
         assert issubclass(cpu, AbstractCPU)
+
+
+def test_detect_main_model_and_size_from_platform():
+    info = detect_main_model_and_size_from_platform()
+    assert detect_main_model_and_size_from_platform() == info
