@@ -303,6 +303,17 @@ class UnaryOperation(AbstractOperation):
     def produce_into(self, builder, r):
         self.put(builder, [r.choice(builder.intvars)])
 
+class UnaryTagOperation(UnaryOperation):
+    untag_mask = 1
+    tag_mask = sys.maxint
+    def produce_into(self, builder, r):
+        v = r.choice(builder.intvars)
+        if (v.value & self.tag_mask) != v.value:
+            v = builder.do(rop.INT_AND, [v, ConstInt(self.tag_mask)])
+        if (v.value | self.untag_mask) != v.value:
+            v = builder.do(rop.INT_OR, [v, ConstInt(self.untag_mask)])
+        self.put(builder, [v])
+
 class BooleanUnaryOperation(UnaryOperation):
     def produce_into(self, builder, r):
         v = builder.get_bool_var(r)
@@ -502,10 +513,12 @@ OPERATIONS.append(GuardValueOperation(rop.GUARD_VALUE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
-            rop.INT_TAG,
-            rop.INT_UNTAG,
             ]:
     OPERATIONS.append(UnaryOperation(_op))
+
+for _op in [rop.INT_TAG,
+            rop.INT_UNTAG]:
+    OPERATIONS.append(UnaryTagOperation(_op))
 
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(UnaryOperation(rop.INT_IS_ZERO, boolres=True))
