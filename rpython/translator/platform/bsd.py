@@ -1,6 +1,6 @@
 
 import os
-from pypy.translator.platform import posix
+from rpython.translator.platform import posix
 
 class BSD(posix.BasePosix):
     DEFAULT_CC = 'clang'
