@@ -1,7 +1,7 @@
 import sys
 import os
 
-from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -13,8 +13,9 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
-from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
-    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
+from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls)
+from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
                                        PASS_ON_MY_FRAME)
@@ -60,6 +61,7 @@ class Assembler386(BaseAssembler):
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
         self.malloc_slowpath = 0
+        self.malloc_slowpath_varsize = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.setup_failure_recovery()
         self.datablockwrapper = None
@@ -158,27 +160,65 @@ class Assembler386(BaseAssembler):
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
 
-    def _build_malloc_slowpath(self):
-        """ While arriving on slowpath, we have a gcpattern on stack,
-        nursery_head in eax and the size in edi - eax
+    def _build_malloc_slowpath(self, kind):
+        """ While arriving on slowpath, we have a gcpattern on stack 0.
+        The arguments are passed in eax and edi, as follows:
+
+        kind == 'fixed': nursery_head in eax and the size in edi - eax.
+
+        kind == 'str/unicode': length of the string to allocate in edi.
+
+        kind == 'var': length to allocate in edi, tid in eax,
+                       and itemsize in the stack 1 (position esp+WORD).
+
+        This function must preserve all registers apart from eax and edi.
         """
+        assert kind in ['fixed', 'str', 'unicode', 'var']
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [eax, edi], self.cpu.supports_floats)
-        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         # store the gc pattern
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.MOV_rs(ecx.value, WORD)
         mc.MOV_br(ofs, ecx.value)
-        addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-        mc.SUB_rr(edi.value, eax.value)       # compute the size we want
-        # the arg is already in edi
-        mc.SUB_ri(esp.value, 16 - WORD)
-        if IS_X86_32:
-            mc.MOV_sr(0, edi.value)
-            if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-                mc.MOV_sr(WORD, ebp.value)
-        elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-            # for tests only
-            mc.MOV_rr(esi.value, ebp.value)
+        #
+        if kind == 'fixed':
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        elif kind == 'str':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_str')
+        elif kind == 'unicode':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
+        else:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
+        mc.SUB_ri(esp.value, 16 - WORD)  # restore 16-byte alignment
+        # magically, the above is enough on X86_32 to reserve 3 stack places
+        if kind == 'fixed':
+            mc.SUB_rr(edi.value, eax.value) # compute the size we want
+            # the arg is already in edi
+            if IS_X86_32:
+                mc.MOV_sr(0, edi.value)
+                if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                    mc.MOV_sr(WORD, ebp.value)
+            elif hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                # for tests only
+                mc.MOV_rr(esi.value, ebp.value)
+        elif kind == 'str' or kind == 'unicode':
+            if IS_X86_32:
+                # stack layout: [---][---][---][ret].. with 3 free stack places
+                mc.MOV_sr(0, edi.value)     # store the length
+            else:
+                pass                        # length already in edi
+        else:
+            if IS_X86_32:
+                # stack layout: [---][---][---][ret][gcmap][itemsize]...
+                mc.MOV_sr(WORD * 2, edi.value)  # store the length
+                mc.MOV_sr(WORD * 1, eax.value)  # store the tid
+                mc.MOV_rs(edi.value, WORD * 5)  # load the itemsize
+                mc.MOV_sr(WORD * 0, edi.value)  # store the itemsize
+            else:
+                # stack layout: [---][ret][gcmap][itemsize]...
+                mc.MOV_rr(edx.value, edi.value) # length
+                mc.MOV_rr(esi.value, eax.value) # tid
+                mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
         self.set_extra_stack_depth(mc, 16)
         mc.CALL(imm(addr))
         mc.ADD_ri(esp.value, 16 - WORD)
@@ -205,7 +245,7 @@ class Assembler386(BaseAssembler):
         mc.JMP(imm(self.propagate_exception_path))
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.malloc_slowpath = rawstart
+        return rawstart
 
     def _build_propagate_exception_path(self):
         if not self.cpu.propagate_exception_descr:
@@ -1496,7 +1536,7 @@ class Assembler386(BaseAssembler):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
-        scale = _get_scale(size_loc.value)
+        scale = get_scale(size_loc.value)
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
@@ -1510,22 +1550,50 @@ class Assembler386(BaseAssembler):
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
+    def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
+        """Produce one operation to do roughly
+               targetreg = sourcereg * itemsize
+           except that the targetreg may still need shifting by 0,1,2,3.
+        """
+        if (itemsize & 7) == 0:
+            shift = 3
+        elif (itemsize & 3) == 0:
+            shift = 2
+        elif (itemsize & 1) == 0:
+            shift = 1
+        else:
+            shift = 0
+        itemsize >>= shift
+        #
+        if valid_addressing_size(itemsize - 1):
+            mc.LEA_ra(targetreg, (sourcereg, sourcereg,
+                                  get_scale(itemsize - 1), 0))
+        elif valid_addressing_size(itemsize):
+            mc.LEA_ra(targetreg, (rx86.NO_BASE_REGISTER, sourcereg,
+                                  get_scale(itemsize), 0))
+        else:
+            mc.IMUL_rri(targetreg, sourcereg, itemsize)
+        #
+        return shift
+
     def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
                                 base_loc, ofs_loc):
         assert isinstance(itemsize_loc, ImmedLoc)
+        itemsize = itemsize_loc.value
         if isinstance(index_loc, ImmedLoc):
-            temp_loc = imm(index_loc.value * itemsize_loc.value)
-        elif _valid_addressing_size(itemsize_loc.value):
-            return AddressLoc(base_loc, index_loc, _get_scale(itemsize_loc.value), ofs_loc.value)
+            temp_loc = imm(index_loc.value * itemsize)
+            shift = 0
+        elif valid_addressing_size(itemsize):
+            temp_loc = index_loc
+            shift = get_scale(itemsize)
         else:
-            # XXX should not use IMUL in more cases, it can use a clever LEA
-            assert isinstance(temp_loc, RegLoc)
             assert isinstance(index_loc, RegLoc)
+            assert isinstance(temp_loc, RegLoc)
             assert not temp_loc.is_xmm
-            self.mc.IMUL_rri(temp_loc.value, index_loc.value,
-                             itemsize_loc.value)
+            shift = self._imul_const_scaled(self.mc, temp_loc.value,
+                                            index_loc.value, itemsize)
         assert isinstance(ofs_loc, ImmedLoc)
-        return AddressLoc(base_loc, temp_loc, 0, ofs_loc.value)
+        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
     def genop_getinteriorfield_gc(self, op, arglocs, resloc):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
@@ -1555,7 +1623,7 @@ class Assembler386(BaseAssembler):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
         assert isinstance(baseofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
-        scale = _get_scale(size_loc.value)
+        scale = get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
@@ -2353,11 +2421,16 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
 
-    def malloc_cond_varsize_small(self, nursery_free_adr, nursery_top_adr,
+    def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
-        self.mc.MOV(edi, heap(nursery_free_adr))
-        self.mc.MOV(eax, edi)
-        self.mc.ADD(edi, sizeloc)
+        if sizeloc is eax:
+            self.mc.MOV(edi, sizeloc)
+            sizeloc = edi
+        self.mc.MOV(eax, heap(nursery_free_adr))
+        if sizeloc is edi:
+            self.mc.ADD_rr(edi.value, eax.value)
+        else:
+            self.mc.LEA_ra(edi.value, (eax.value, sizeloc.value, 0, 0))
         self.mc.CMP(edi, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2368,6 +2441,81 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
         self.mc.MOV(heap(nursery_free_adr), edi)
+
+    def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
+                            lengthloc, itemsize, maxlength, gcmap,
+                            arraydescr):
+        from rpython.jit.backend.llsupport.descr import ArrayDescr
+        assert isinstance(arraydescr, ArrayDescr)
+
+        # lengthloc is the length of the array, which we must not modify!
+        assert lengthloc is not eax and lengthloc is not edi
+        if isinstance(lengthloc, RegLoc):
+            varsizeloc = lengthloc
+        else:
+            self.mc.MOV(edi, lengthloc)
+            varsizeloc = edi
+
+        self.mc.CMP(varsizeloc, imm(maxlength))
+        self.mc.J_il8(rx86.Conditions['A'], 0) # patched later
+        jmp_adr0 = self.mc.get_relative_pos()
+
+        self.mc.MOV(eax, heap(nursery_free_adr))
+        if valid_addressing_size(itemsize):
+            shift = get_scale(itemsize)
+        else:
+            shift = self._imul_const_scaled(self.mc, edi.value,
+                                            varsizeloc.value, itemsize)
+            varsizeloc = edi
+        # now varsizeloc is a register != eax.  The size of
+        # the variable part of the array is (varsizeloc << shift)
+        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
+        constsize = arraydescr.basesize + self.gc_size_of_header
+        force_realignment = (itemsize % WORD) != 0
+        if force_realignment:
+            constsize += WORD - 1
+        self.mc.LEA_ra(edi.value, (eax.value, varsizeloc.value, shift,
+                                   constsize))
+        if force_realignment:
+            self.mc.AND_ri(edi.value, ~(WORD - 1))
+        # now edi contains the total size in bytes, rounded up to a multiple
+        # of WORD, plus nursery_free_adr
+        self.mc.CMP(edi, heap(nursery_top_adr))
+        self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
+        jmp_adr1 = self.mc.get_relative_pos()
+        #
+        offset = self.mc.get_relative_pos() - jmp_adr0
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_adr0-1, chr(offset))
+        # save the gcmap
+        self.push_gcmap(self.mc, gcmap, mov=True)   # mov into RawEspLoc(0)
+        if kind == rewrite.FLAG_ARRAY:
+            self.mc.MOV_si(WORD, itemsize)
+            self.mc.MOV(edi, lengthloc)
+            self.mc.MOV_ri(eax.value, arraydescr.tid)
+            addr = self.malloc_slowpath_varsize
+        else:
+            if kind == rewrite.FLAG_STR:
+                addr = self.malloc_slowpath_str
+            else:
+                assert kind == rewrite.FLAG_UNICODE
+                addr = self.malloc_slowpath_unicode
+            self.mc.MOV(edi, lengthloc)
+        self.mc.CALL(imm(addr))
+        self.mc.JMP_l8(0)      # jump to done, patched later
+        jmp_location = self.mc.get_relative_pos()
+        #
+        offset = self.mc.get_relative_pos() - jmp_adr1
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_adr1-1, chr(offset))
+        # write down the tid, but not if it's the result of the CALL
+        self.mc.MOV(mem(eax, 0), imm(arraydescr.tid))
+        # while we're at it, this line is not needed if we've done the CALL
+        self.mc.MOV(heap(nursery_free_adr), edi)
+        #
+        offset = self.mc.get_relative_pos() - jmp_location
+        assert 0 < offset <= 127
+        self.mc.overwrite(jmp_location - 1, chr(offset))
 
     def force_token(self, reg):
         # XXX kill me

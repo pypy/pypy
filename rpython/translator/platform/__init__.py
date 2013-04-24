@@ -347,3 +347,6 @@ def set_platform(new_platform, cc):
         global host
         host = platform
 
+
+def is_host_build():
+    return host == platform
