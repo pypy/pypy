@@ -3,7 +3,11 @@ overloadsDict.so stltypesDict.so operatorsDict.so fragileDict.so crossingDict.so
 std_streamsDict.so iotypesDict.so
 all : $(dicts)
 
-ROOTSYS := ${ROOTSYS}
+ifneq (${REFLEXHOME},)
+  ROOTSYS := ${REFLEXHOME}
+else
+  ROOTSYS := ${ROOTSYS}
+endif
 
 ifeq ($(ROOTSYS),)
   genreflex=genreflex
