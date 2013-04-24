@@ -195,6 +195,7 @@ class OptIntBounds(Optimization):
                 maxbounds = IntBound((-sys.maxint-1) >> 1, sys.maxint >> 1)
                 v1.intbound.intersect(maxbounds)
                 self.pure(rop.INT_UNTAG, [result], args[0])
+                self.pure(rop.INT_TAG, args[:], result)
         self.emit_operation(op)
 
     def optimize_GUARD_OVERFLOW(self, op):

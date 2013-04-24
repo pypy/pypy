@@ -5540,6 +5540,28 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_int_tag_ovf_not_repeated(self):
+        ops = """
+        [i0]
+        i1 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i2 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i5 = int_add(i2, 1)
+        escape(i5)
+        jump(i5)
+        """
+        expected = """
+        [i0]
+        i1 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i5 = int_add(i1, 1)
+        escape(i5)
+        jump(i5)
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_mul_ovf(self):
         ops = """
         [i0, i1]
