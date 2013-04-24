@@ -246,3 +246,12 @@ class AppTestFfi:
             raises(NotImplementedError, DeleteKeyEx, self.root_key,
                    self.test_key_name)
 
+    def test_named_arguments(self):
+        from winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, OpenKeyEx
+        with CreateKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                         reserved=0, access=KEY_ALL_ACCESS) as ckey:
+            assert ckey.handle != 0
+        with OpenKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                       reserved=0, access=KEY_ALL_ACCESS) as okey:
+            assert okey.handle != 0
+        DeleteKey(self.root_key, self.test_key_name)

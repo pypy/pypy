@@ -471,8 +471,8 @@ If the function fails, an exception is raised."""
             raiseWindowsError(space, ret, 'CreateKey')
         return space.wrap(W_HKEY(rethkey[0]))
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
-def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
+@unwrap_spec(sub_key=str, reserved=int, access=rffi.r_uint)
+def CreateKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
 key is an already open key, or one of the predefined HKEY_* constants
@@ -484,10 +484,10 @@ If the key already exists, this function opens the existing key
 
 The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
-    hkey = hkey_w(w_hkey, space)
+    hkey = hkey_w(w_key, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegCreateKeyEx(hkey, subkey, res, None, 0,
-                                     sam, None, rethkey,
+        ret = rwinreg.RegCreateKeyEx(hkey, sub_key, reserved, None, 0,
+                                     access, None, rethkey,
                                      lltype.nullptr(rwin32.LPDWORD.TO))
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKeyEx')
@@ -521,8 +521,8 @@ value is a string that identifies the value to remove."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
 
-@unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
-def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
+@unwrap_spec(sub_key=str, reserved=int, access=rffi.r_uint)
+def OpenKey(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_READ):
     """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
 
 key is an already open key, or any one of the predefined HKEY_* constants.
@@ -533,9 +533,9 @@ sam is an integer that specifies an access mask that describes the desired
 
 The result is a new handle to the specified key
 If the function fails, an EnvironmentError exception is raised."""
-    hkey = hkey_w(w_hkey, space)
+    hkey = hkey_w(w_key, space)
     with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegOpenKeyEx(hkey, subkey, res, sam, rethkey)
+        ret = rwinreg.RegOpenKeyEx(hkey, sub_key, reserved, access, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegOpenKeyEx')
         return space.wrap(W_HKEY(rethkey[0]))
