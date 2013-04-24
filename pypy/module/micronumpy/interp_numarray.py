@@ -775,6 +775,26 @@ class __extend__(W_NDimArray):
             return space.int(self.descr_getitem(space, space.wrap(0)))
         raise OperationError(space.w_TypeError, space.wrap("only length-1 arrays can be converted to Python scalars"))
 
+    def descr_reduce(self, space):
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rlib.rstring import StringBuilder
+
+        reconstruct = space.getbuiltinmodule("_numpypy").get("multiarray").get("_reconstruct")
+
+        parameters = space.newtuple([space.gettypefor(W_NDimArray), space.newtuple([space.wrap(0)]), space.wrap("b")])
+
+        builder = StringBuilder()
+        builder.append_charpsize(self.implementation.get_storage(), self.implementation.get_storage_size())
+
+        state = space.newtuple([
+                space.wrap(1),      # version
+                self.descr_get_shape(space),
+                self.get_dtype(),
+                space.wrap(False),  # is_fortran
+                space.wrap(builder.build()),
+            ])
+
+        return space.newtuple([reconstruct, parameters, state])
 
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
@@ -807,6 +827,7 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype):
 
 W_NDimArray.typedef = TypeDef(
     "ndarray",
+    __module__ = "numpypy",
     __new__ = interp2app(descr_new_array),
 
     __len__ = interp2app(W_NDimArray.descr_len),
@@ -924,6 +945,7 @@ W_NDimArray.typedef = TypeDef(
     __pypy_data__ = GetSetProperty(W_NDimArray.fget___pypy_data__,
                                    W_NDimArray.fset___pypy_data__,
                                    W_NDimArray.fdel___pypy_data__),
+    __reduce__ = interp2app(W_NDimArray.descr_reduce)
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
@@ -999,6 +1021,9 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     one = dtype.box(1)
     arr.fill(one)
     return space.wrap(arr)
+
+def _reconstruct(space, w_subtype, w_shape, w_dtype):
+    return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
 W_FlatIterator.typedef = TypeDef(
     'flatiter',

@@ -214,6 +214,7 @@ class TestNumArrayDirect(object):
         assert get(1, 1) == 3
 
 class AppTestNumArray(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
@@ -1738,6 +1739,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert raises(TypeError, "int(array([1, 2]))")
         assert int(array([1.5])) == 1
 
+    def test__reduce__(self):
+        from numpypy import array, dtype
+        from cPickle import loads, dumps
+
+        a = array([1, 2], dtype="int64")
+        data = a.__reduce__()
+
+        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
+
+        pickled_data = dumps(a)
+        assert loads(pickled_data) == a
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

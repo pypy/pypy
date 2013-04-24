@@ -55,6 +55,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
 
+    def get_storage_size(self):
+        return self.size
+
     def reshape(self, space, orig_array, new_shape):
         # Since we got to here, prod(new_shape) == self.size
         new_strides = None
@@ -82,7 +85,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return SliceArray(self.start, strides, backstrides,
                           self.get_shape(), self, orig_array)
 
-    def set_real(self, space, orig_array, w_value):    
+    def set_real(self, space, orig_array, w_value):
         tmp = self.get_real(orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
@@ -102,7 +105,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         impl.fill(self.dtype.box(0))
         return impl
 
-    def set_imag(self, space, orig_array, w_value):    
+    def set_imag(self, space, orig_array, w_value):
         tmp = self.get_imag(orig_array)
         tmp.setslice(space, convert_to_array(space, w_value))
 
