@@ -281,7 +281,7 @@ class TestRx86_32(object):
             return result
         else:
             # special cases
-            if methname in ('ADD_ri', 'AND_ri', 'CMP_ri', 'OR_ri',
+            if methname in ('ADD_ri', 'ADC_ri', 'AND_ri', 'CMP_ri', 'OR_ri',
                             'SUB_ri', 'XOR_ri', 'SBB_ri'):
                 if args[0] == rx86.R.eax:
                     return []  # ADD EAX, constant: there is a special encoding
