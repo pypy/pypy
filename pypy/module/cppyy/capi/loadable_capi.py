@@ -11,7 +11,7 @@ from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_METHPTRGETTER_PTR
 
 
-reflection_library = 'rflxlib.so'
+reflection_library = 'libcppyy_backend.so'
 
 def identify():
     return 'loadable_capi'
@@ -231,7 +231,7 @@ def verify_backend(space):
     except Exception:
         if objectmodel.we_are_translated():
             raise OperationError(space.w_ImportError,
-                                 space.wrap("missing reflection library rflxlib.so"))
+                                 space.wrap("missing reflection library %s" % reflection_library))
         return False
     return True
 

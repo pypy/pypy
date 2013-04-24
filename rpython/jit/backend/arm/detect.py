@@ -2,6 +2,7 @@ import os
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
+from rpython.rlib.clibffi import FFI_DEFAULT_ABI, FFI_SYSV, FFI_VFP
 from rpython.translator.platform import CompilationError
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 

@@ -13,8 +13,9 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
-from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
-    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
+from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls)
+from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
                                        PASS_ON_MY_FRAME)
@@ -1523,7 +1524,7 @@ class Assembler386(BaseAssembler):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
-        scale = _get_scale(size_loc.value)
+        scale = get_scale(size_loc.value)
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
@@ -1552,12 +1553,12 @@ class Assembler386(BaseAssembler):
             shift = 0
         itemsize >>= shift
         #
-        if _valid_addressing_size(itemsize - 1):
+        if valid_addressing_size(itemsize - 1):
             mc.LEA_ra(targetreg, (sourcereg, sourcereg,
-                                  _get_scale(itemsize - 1), 0))
-        elif _valid_addressing_size(itemsize):
+                                  get_scale(itemsize - 1), 0))
+        elif valid_addressing_size(itemsize):
             mc.LEA_ra(targetreg, (rx86.NO_BASE_REGISTER, sourcereg,
-                                  _get_scale(itemsize), 0))
+                                  get_scale(itemsize), 0))
         else:
             mc.IMUL_rri(targetreg, sourcereg, itemsize)
         #
@@ -1570,9 +1571,9 @@ class Assembler386(BaseAssembler):
         if isinstance(index_loc, ImmedLoc):
             temp_loc = imm(index_loc.value * itemsize)
             shift = 0
-        elif _valid_addressing_size(itemsize):
+        elif valid_addressing_size(itemsize):
             temp_loc = index_loc
-            shift = _get_scale(itemsize)
+            shift = get_scale(itemsize)
         else:
             assert isinstance(index_loc, RegLoc)
             assert isinstance(temp_loc, RegLoc)
@@ -1610,7 +1611,7 @@ class Assembler386(BaseAssembler):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
         assert isinstance(baseofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
-        scale = _get_scale(size_loc.value)
+        scale = get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
@@ -2443,8 +2444,8 @@ class Assembler386(BaseAssembler):
         jmp_adr0 = self.mc.get_relative_pos()
 
         self.mc.MOV(eax, heap(nursery_free_adr))
-        if _valid_addressing_size(itemsize):
-            shift = _get_scale(itemsize)
+        if valid_addressing_size(itemsize):
+            shift = get_scale(itemsize)
         else:
             shift = self._imul_const_scaled(self.mc, edi.value,
                                             varsizeloc.value, itemsize)

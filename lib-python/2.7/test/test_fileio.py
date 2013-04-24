@@ -318,7 +318,6 @@ class OtherFileTests(unittest.TestCase):
         self.assertRaises(ValueError, _FileIO, -10)
         self.assertRaises(OSError, _FileIO, make_bad_fd())
         if sys.platform == 'win32':
-            raise unittest.SkipTest('Set _invalid_parameter_handler for low level io')
             import msvcrt
             self.assertRaises(IOError, msvcrt.get_osfhandle, make_bad_fd())
 
