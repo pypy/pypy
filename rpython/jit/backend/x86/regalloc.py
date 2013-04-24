@@ -498,7 +498,7 @@ class RegAlloc(BaseRegalloc):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
         self.rm.possibly_free_vars_for_op(op)
         res = self.rm.force_allocate_reg(op.result)
-        self.Perform(op, [loc], res)
+        self.perform(op, [loc], res)
 
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op.result, op.getarg(0))
