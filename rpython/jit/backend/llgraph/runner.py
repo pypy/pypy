@@ -802,7 +802,19 @@ class LLFrame(object):
         else:
             ovf = False
         self.overflow_flag = ovf
-        return z        
+        return z
+
+    def execute_int_tag_ovf(self, _, x):
+        try:
+            z = ovfcheck(x << 1)
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+            z += 1
+        self.overflow_flag = ovf
+        return z
 
     def execute_guard_no_overflow(self, descr):
         if self.overflow_flag:
