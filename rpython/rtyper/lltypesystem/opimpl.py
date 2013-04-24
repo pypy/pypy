@@ -185,6 +185,15 @@ def op_bool_not(b):
     assert type(b) is bool
     return not b
 
+def op_int_untag(a):
+    assert is_valid_int(a)
+    assert ((a & 1) == 1, "op_int_untag: not an odd int")
+    return a >> 1
+
+def op_int_tag(a):
+    assert is_valid_int(a)
+    return intmask(a << 1) + 1
+
 def op_int_add(x, y):
     if not isinstance(x, (int, long, llmemory.AddressOffset)):
         from rpython.rtyper.lltypesystem import llgroup
