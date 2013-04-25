@@ -502,6 +502,7 @@ class AppTestPosix:
             # just see if it does anything
             path = sysdrv + 'hubber'
             assert os.sep in posix._getfullpathname(path)
+            assert type(posix._getfullpathname(b'C:')) is bytes
 
     def test_utime(self):
         os = self.posix

@@ -393,7 +393,7 @@ def _getfullpathname(space, w_path):
         else:
             path = space.str0_w(w_path)
             fullpath = rposix._getfullpathname(path)
-            w_fullpath = space.wrap(fullpath)
+            w_fullpath = space.wrapbytes(fullpath)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
