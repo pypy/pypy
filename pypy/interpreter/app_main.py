@@ -476,7 +476,7 @@ def run_command_line(interactive,
     import os
 
     readenv = not ignore_environment
-    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
 
     mainmodule = type(sys)('__main__')
