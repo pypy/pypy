@@ -240,9 +240,7 @@ def initstdio(encoding=None, unbuffered=False):
         encerr = e
 
     try:
-        if not encoding:
-            encoding = sys.getfilesystemencoding()
-        if ':' in encoding:
+        if encoding and ':' in encoding:
             encoding, errors = encoding.split(':', 1)
         else:
             errors = None
