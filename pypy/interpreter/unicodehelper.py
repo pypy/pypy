@@ -42,7 +42,8 @@ def fsdecode(space, w_string):
     if _WIN32:
         bytes = space.bytes_w(w_string)
         uni = str_decode_mbcs(bytes, len(bytes), 'strict',
-                              errorhandler=decode_error_handler(space))[0]
+                              errorhandler=decode_error_handler(space),
+                              force_ignore=False)[0]
     elif _MACOSX:
         bytes = space.bytes_w(w_string)
         uni = runicode.str_decode_utf_8(
@@ -69,7 +70,8 @@ def fsencode(space, w_uni):
     if _WIN32:
         uni = space.unicode_w(w_uni)
         bytes = unicode_encode_mbcs(uni, len(uni), 'strict',
-                                    errorhandler=encode_error_handler(space))
+                                    errorhandler=encode_error_handler(space),
+                                    force_replace=False)
     elif _MACOSX:
         uni = space.unicode_w(w_uni)
         bytes = runicode.unicode_encode_utf_8(
