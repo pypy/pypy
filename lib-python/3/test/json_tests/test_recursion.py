@@ -1,3 +1,6 @@
+import sys
+import unittest
+from test import support
 from test.json_tests import PyTest, CTest
 
 
@@ -75,6 +78,9 @@ class TestRecursion:
         with self.assertRaises(RuntimeError):
             self.loads('[' * 100000 + '1' + ']' * 100000)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True) and
+                     sys.platform == 'win32',
+                     "XXX: https://bugs.pypy.org/issue1461")
     def test_highly_nested_objects_encoding(self):
         # See #12051
         l, d = [], {}
