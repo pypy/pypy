@@ -668,5 +668,7 @@ class AppTestPartialEvaluation:
             return
         assert 'test'.encode('mbcs') == b'test'
         assert 'caf\xe9'.encode('mbcs') == b'caf\xe9'
-        assert '\u040a'.encode('mbcs') == b'?' # some cyrillic letter
+        raises(UnicodeEncodeError, '\u040a'.encode, 'mbcs')
+        raises(UnicodeEncodeError,
+               "-\u5171\u0141\u2661\u0363\uDC80".encode, 'mbcs')
         assert b'cafx\e9'.decode('mbcs') == 'cafx\e9'
