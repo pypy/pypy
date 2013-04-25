@@ -35,8 +35,8 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "_ffi",
-     "_continuation", "_csv", "_cffi_backend", # "micronumpy",
-     "_posixsubprocess",
+     "_continuation", "_csv", "_cffi_backend",
+     "_posixsubprocess",  # "cppyy", "micronumpy",
      ]
 ))
 
@@ -67,6 +67,8 @@ if sys.platform == "win32":
     del working_modules["_minimal_curses"]
     del working_modules["_posixsubprocess"]
 
+#    del working_modules["cppyy"]  # not tested on win32
+
     # The _locale module is needed by site.py on Windows
     default_modules["_locale"] = None
 
@@ -78,7 +80,7 @@ if sys.platform == "sunos5":
     del working_modules["_minimal_curses"]
     del working_modules["termios"]
     del working_modules["_multiprocessing"]   # depends on rctime
-
+#    del working_modules["cppyy"]  # depends on ctypes
 
 
 module_dependencies = {

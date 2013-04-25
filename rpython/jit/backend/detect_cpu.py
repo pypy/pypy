@@ -15,7 +15,6 @@ def detect_main_model_and_size_from_platform():
     mapping = {
             ('x86', '64'): [
                 '__amd64__', '__amd64', '__x86_64__', '__x86_64',  # AMD64
-                '__ia64__', '_IA64', '__IA64__'                    # Intel Itanium (IA-64)
                 ],
             ('arm', '32'): ['__arm__', '__thumb__'],
             ('x86', '32'): ['i386', '__i386', '__i386__', '__i686__',],
