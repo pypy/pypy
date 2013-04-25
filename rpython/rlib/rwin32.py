@@ -91,6 +91,8 @@ class CConfig:
                        PROCESS_VM_OPERATION PROCESS_VM_READ
                        PROCESS_VM_WRITE
                        CTRL_C_EVENT CTRL_BREAK_EVENT
+                       MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
+                       WC_NO_BEST_FIT_CHARS
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
