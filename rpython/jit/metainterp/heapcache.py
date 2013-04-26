@@ -125,7 +125,7 @@ class HeapCache(object):
                     for descr, cache in self.heap_array_cache.iteritems():
                         for idx, cache in cache.iteritems():
                             for frombox in cache.keys():
-                                if frombox not in self.new_boxes:
+                                if not self.new_boxes.get(frombox, False):
                                     del cache[frombox]
                     return
             else:

@@ -41,8 +41,8 @@ random_gcref = lltype.cast_opaque_ptr(llmemory.GCREF,
 
 class Runner(object):
 
-    add_loop_instruction = ['overload for a specific cpu']
-    bridge_loop_instruction = ['overload for a specific cpu']
+    add_loop_instructions = ['overload for a specific cpu']
+    bridge_loop_instructions = ['overload for a specific cpu']
 
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
