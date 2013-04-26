@@ -2,12 +2,39 @@
 Processor auto-detection
 """
 import sys, os
+from rpython.rtyper.tool.rffi_platform import getdefined
+from rpython.translator.platform import is_host_build
 
 
 class ProcessorAutodetectError(Exception):
     pass
 
+
+def detect_main_model_and_size_from_platform():
+    # based on http://sourceforge.net/p/predef/wiki/Architectures/
+    mapping = {
+            ('x86', '64'): [
+                '__amd64__', '__amd64', '__x86_64__', '__x86_64',  # AMD64
+                ],
+            ('arm', '32'): ['__arm__', '__thumb__'],
+            ('x86', '32'): ['i386', '__i386', '__i386__', '__i686__',],
+            ('ppc', '64'): ['__powerpc64__'],
+    }
+    for k, v in mapping.iteritems():
+        for macro in v:
+            if not getdefined(macro, ''):
+                continue
+            return '_'.join(k)
+    raise ProcessorAutodetectError, "Cannot detect processor using compiler macros"
+
+
+def detect_main_model_from_platform():
+    return detect_main_model_and_size_from_platform()[0]
+
+
 def autodetect_main_model():
+    if not is_host_build():
+        return detect_main_model_from_platform()
     mach = None
     try:
         import platform
@@ -40,6 +67,8 @@ def autodetect_main_model():
         return mach
 
 def autodetect_main_model_and_size():
+    if not is_host_build():
+        return detect_main_model_and_size_from_platform()
     model = autodetect_main_model()
     if sys.maxint == 2**31-1:
         model += '_32'

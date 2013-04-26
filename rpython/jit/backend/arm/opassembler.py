@@ -18,7 +18,7 @@ from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
-from rpython.jit.backend.arm.regalloc import TempInt, TempPtr
+from rpython.jit.backend.arm.regalloc import TempBox
 from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
@@ -1003,57 +1003,33 @@ class ResOpAssembler(BaseAssembler):
     def _emit_copystrcontent(self, op, regalloc, fcond, is_unicode):
         # compute the source address
         args = op.getarglist()
-        base_loc = regalloc.make_sure_var_in_reg(args[0], args)
-        ofs_loc = regalloc.make_sure_var_in_reg(args[2], args)
+        base_loc = regalloc.rm.make_sure_var_in_reg(args[0], args)
+        ofs_loc = regalloc.rm.make_sure_var_in_reg(args[2], args)
         assert args[0] is not args[1]    # forbidden case of aliasing
-        regalloc.possibly_free_var(args[0])
-        regalloc.free_temp_vars()
-        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
-            regalloc.possibly_free_var(args[2])  # it if ==args[3] or args[4]
-            regalloc.free_temp_vars()
-        srcaddr_box = TempPtr()
+        srcaddr_box = TempBox()
         forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box,
-                                                        selected_reg=r.r1)
+        srcaddr_loc = regalloc.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
                                         is_unicode=is_unicode)
-
         # compute the destination address
-        forbidden_vars = [args[4], args[3], srcaddr_box]
-        dstaddr_box = TempPtr()
-        dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box,
-                                                        selected_reg=r.r0)
-        forbidden_vars.append(dstaddr_box)
-        base_loc = regalloc.make_sure_var_in_reg(args[1], forbidden_vars)
-        ofs_loc = regalloc.make_sure_var_in_reg(args[3], forbidden_vars)
-        assert base_loc.is_reg()
-        assert ofs_loc.is_reg()
-        regalloc.possibly_free_var(args[1])
-        if args[3] is not args[4]:     # more of the MESS described above
-            regalloc.possibly_free_var(args[3])
-        regalloc.free_temp_vars()
+        base_loc = regalloc.rm.make_sure_var_in_reg(args[1], forbidden_vars)
+        ofs_loc = regalloc.rm.make_sure_var_in_reg(args[3], forbidden_vars)
+        forbidden_vars = [args[4], srcaddr_box]
+        dstaddr_box = TempBox()
+        dstaddr_loc = regalloc.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
                                         is_unicode=is_unicode)
-
         # compute the length in bytes
-        forbidden_vars = [srcaddr_box, dstaddr_box]
-        # XXX basically duplicates regalloc.ensure_value_is_boxed, but we
-        # need the box here
-        if isinstance(args[4], Box):
-            length_box = args[4]
-            length_loc = regalloc.make_sure_var_in_reg(args[4],
-                                                        forbidden_vars)
-        else:
-            length_box = TempInt()
-            length_loc = regalloc.force_allocate_reg(length_box,
-                                        forbidden_vars, selected_reg=r.r2)
-            immloc = regalloc.convert_to_imm(args[4])
-            self.load(length_loc, immloc)
+        length_box = args[4]
+        length_loc = regalloc.loc(length_box)
         if is_unicode:
-            bytes_box = TempPtr()
-            bytes_loc = regalloc.force_allocate_reg(bytes_box,
-                                        forbidden_vars, selected_reg=r.r2)
+            forbidden_vars = [srcaddr_box, dstaddr_box]
+            bytes_box = TempBox()
+            bytes_loc = regalloc.rm.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
+            if not length_loc.is_reg():
+                self.regalloc_mov(length_loc, bytes_loc)
+                length_loc = bytes_loc
             assert length_loc.is_reg()
             self.mc.MOV_ri(r.ip.value, 1 << scale)
             self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
@@ -1062,12 +1038,11 @@ class ResOpAssembler(BaseAssembler):
         # call memcpy()
         regalloc.before_call()
         self._emit_call(imm(self.memcpy_addr),
-                            [dstaddr_loc, srcaddr_loc, length_loc],
-                            can_collect=False)
-
-        regalloc.possibly_free_var(length_box)
-        regalloc.possibly_free_var(dstaddr_box)
-        regalloc.possibly_free_var(srcaddr_box)
+                                  [dstaddr_loc, srcaddr_loc, length_loc],
+                                  can_collect=False)
+        regalloc.rm.possibly_free_var(length_box)
+        regalloc.rm.possibly_free_var(dstaddr_box)
+        regalloc.rm.possibly_free_var(srcaddr_box)
 
     def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
         if is_unicode:
@@ -1079,21 +1054,21 @@ class ResOpAssembler(BaseAssembler):
                                               self.cpu.translate_support_code)
             assert itemsize == 1
             scale = 0
-        self._gen_address(ofsloc, ofs_items, scale, resloc, baseloc)
+        self._gen_address(resloc, baseloc, ofsloc, scale, ofs_items)
 
-    def _gen_address(self, sizereg, baseofs, scale, result, baseloc=None):
-        assert sizereg.is_reg()
+   # result = base_loc  + (scaled_loc << scale) + static_offset
+    def _gen_address(self, result, base_loc, scaled_loc, scale=0, static_offset=0):
+        assert scaled_loc.is_reg()
+        assert base_loc.is_reg()
+        assert check_imm_arg(scale)
+        assert check_imm_arg(static_offset)
         if scale > 0:
+            self.mc.LSL_ri(r.ip.value, scaled_loc.value, scale)
             scaled_loc = r.ip
-            self.mc.LSL_ri(r.ip.value, sizereg.value, scale)
         else:
-            scaled_loc = sizereg
-        if baseloc is not None:
-            assert baseloc.is_reg()
-            self.mc.ADD_rr(result.value, baseloc.value, scaled_loc.value)
-            self.mc.ADD_ri(result.value, result.value, baseofs)
-        else:
-            self.mc.ADD_ri(result.value, scaled_loc.value, baseofs)
+            scaled_loc = scaled_loc
+        self.mc.ADD_rr(result.value, base_loc.value, scaled_loc.value)
+        self.mc.ADD_ri(result.value, result.value, static_offset)
 
     def _get_unicode_item_scale(self):
         _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,

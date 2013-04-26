@@ -3,7 +3,7 @@ import py, os
 from rpython.rlib import libffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-__all__ = ['identify', 'eci', 'c_load_dictionary']
+__all__ = ['identify', 'std_string_name', 'eci', 'c_load_dictionary']
 
 pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
@@ -34,6 +34,8 @@ ts_reflect = False
 ts_call    = 'auto'
 ts_memory  = 'auto'
 ts_helper  = 'auto'
+
+std_string_name = 'std::basic_string<char>'
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("reflexcwrapper.cxx")],

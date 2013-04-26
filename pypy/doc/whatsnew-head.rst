@@ -57,10 +57,12 @@ Improve documents and straighten out links
 Inline the fast path of newarray in the assembler.
 Disabled on ARM until we fix issues.
 
+.. branch: reflex-support
+Allow dynamic loading of a (Reflex) backend that implements the C-API needed
+to provide reflection information
 
 .. branches we don't care about
 .. branch: autoreds
-.. branch: reflex-support
 .. branch: kill-faking
 .. branch: improved_ebnfparse_error
 .. branch: task-decorator

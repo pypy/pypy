@@ -94,7 +94,7 @@ class AssemblerARM(ResOpAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         # make sure ofs fits into a register
         assert check_imm_arg(ofs)
-        mc.gen_load_int(r.r1.value, propagate_exception_descr)
+        mc.gen_load_int(r.r0.value, propagate_exception_descr)
         self.store_reg(mc, r.r0, r.fp, ofs)
         mc.MOV_rr(r.r0.value, r.fp.value)
         self.gen_func_epilog(mc)
@@ -117,12 +117,18 @@ class AssemblerARM(ResOpAssembler):
             # store exc_value in JITFRAME
             ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             assert check_imm_arg(ofs)
-            self.store_reg(mc, r.ip, r.fp, ofs)
+            #
+            self.load_reg(mc, r.ip, r.ip, helper=tmpreg)
+            #
+            self.store_reg(mc, r.ip, r.fp, ofs, helper=tmpreg)
         if exctploc is not None:
             # store pos_exception in exctploc
             assert exctploc.is_reg()
             mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
-            self.load_reg(mc, exctploc, r.ip)
+            self.load_reg(mc, exctploc, r.ip, helper=tmpreg)
+
+        if on_frame or exctploc is not None:
+            mc.gen_load_int(r.ip.value, self.cpu.pos_exc_value())
 
         # reset exception
         mc.gen_load_int(tmpreg.value, 0)
