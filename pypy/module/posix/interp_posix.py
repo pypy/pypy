@@ -1205,9 +1205,9 @@ def device_encoding(space, fd):
         return space.w_None
     if _WIN32:
         if fd == 0:
-            return 'cp%d' % rwin32.GetConsoleCP()
+            return space.wrap('cp%d' % rwin32.GetConsoleCP())
         if fd in (1, 2):
-            return 'cp%d' % rwin32.GetConsoleOutputCP()
+            return space.wrap('cp%d' % rwin32.GetConsoleOutputCP())
     from rpython.rlib import rlocale
     if rlocale.HAVE_LANGINFO:
         codeset = rlocale.nl_langinfo(rlocale.CODESET)
