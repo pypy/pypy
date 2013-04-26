@@ -4,6 +4,9 @@
 class AppTestExc(object):
     spaceconfig = dict(usemodules=('exceptions',))
 
+    def setup_class(cls):
+        cls.w_file = cls.space.wrap(__file__)
+
     def test_baseexc(self):
         assert str(BaseException()) == ''
         assert repr(BaseException()) == 'BaseException()'
@@ -250,3 +253,15 @@ class AppTestExc(object):
     def test_set_traceback(self):
         e = Exception()
         raises(TypeError, "e.__traceback__ = 42")
+
+    def test_errno_ENOTDIR(self):
+        # CPython issue #12802: "not a directory" errors are ENOTDIR
+        # even on Windows
+        import os
+        import errno
+        try:
+            os.listdir(self.file)
+        except OSError as e:
+            assert e.errno == errno.ENOTDIR
+        else:
+            assert False, "Expected OSError"
