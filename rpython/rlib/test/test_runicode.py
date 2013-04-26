@@ -738,9 +738,9 @@ class TestEncoding(UnicodeTests):
             py.test.skip("requires cp932 locale")
 
         s = '\xff\xf4\x8f\xbf\xbf'
-        encoder = self.getdecoder('mbcs')
-        assert encoder(s, len(s), 'strict') == (u'\U0010ffff', 5)
-        py.test.raises(UnicodeEncodeError, encoder, s, len(s), 'strict',
+        decoder = self.getdecoder('mbcs')
+        assert decoder(s, len(s), 'strict') == (u'\U0010ffff', 5)
+        py.test.raises(UnicodeEncodeError, decoder, s, len(s), 'strict',
                        force_ignore=False)
 
     def test_mbcs_encode_force_replace(self):
