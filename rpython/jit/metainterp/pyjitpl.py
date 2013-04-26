@@ -1209,7 +1209,7 @@ class MIFrame(object):
                                                    CIF_DESCRIPTION_P)
 
         kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
-        
+
         if kind != 'v':
             ofs = cif_description.exchange_result
             assert ofs % itemsize == 0     # alignment check (result)
@@ -1694,6 +1694,11 @@ class MetaInterp(object):
     def finishframe(self, resultbox):
         # handle a non-exceptional return from the current frame
         self.last_exc_value_box = None
+        if len(self.framestack) == 1:
+            # we should call store_token_in_vable here and not in
+            # compile_done_with_this_frame, so we have the frame to implement
+            # guard not forced
+            self.store_token_in_vable()
         self.popframe()
         if self.framestack:
             if resultbox is not None:
@@ -2229,7 +2234,6 @@ class MetaInterp(object):
 
     def compile_done_with_this_frame(self, exitbox):
         # temporarily put a JUMP to a pseudo-loop
-        self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
         if result_type == history.VOID:
@@ -2264,6 +2268,8 @@ class MetaInterp(object):
         # in case the force_token has not been recorded, record it here
         # to make sure we know the virtualizable can be broken. However, the
         # contents of the virtualizable should be generally correct
+        assert len(self.framestack) == 1
+        self.framestack[0].generate_guard(rop.GUARD_NOT_FORCED, None)
         self.history.record(rop.FORCE_TOKEN, [], force_token_box)
         self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
                             None, descr=vinfo.vable_token_descr)
