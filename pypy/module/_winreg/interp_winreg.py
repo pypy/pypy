@@ -714,8 +714,8 @@ def QueryReflectionKey(space, w_key):
     raise OperationError(space.w_NotImplementedError, space.wrap(
         "not implemented on this platform"))
 
-@unwrap_spec(subkey=str)
-def DeleteKeyEx(space, w_key, subkey):
+@unwrap_spec(sub_key=str, reserved=int, access=rffi.r_uint)
+def DeleteKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WOW64_64KEY):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
     key is an already open key, or any one of the predefined HKEY_* constants.
