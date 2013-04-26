@@ -88,6 +88,7 @@ corresponding Unix manual entries for more information on calls."""
     'kill'      : 'interp_posix.kill',
     'abort'     : 'interp_posix.abort',
     'urandom'   : 'interp_posix.urandom',
+    'device_encoding' : 'interp_posix.device_encoding',
     }
 
     if hasattr(os, 'chown'):

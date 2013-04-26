@@ -1193,3 +1193,24 @@ def urandom(space, n):
         return space.wrapbytes(rurandom.urandom(context, n))
     except OSError, e:
         raise wrap_oserror(space, e)
+
+@unwrap_spec(fd=int)
+def device_encoding(space, fd):
+    """device_encoding(fd) -> str
+
+    Return a string describing the encoding of the device if the output
+    is a terminal; else return None.
+    """
+    if not (rposix.is_valid_fd(fd) and os.isatty(fd)):
+        return space.w_None
+    if _WIN32:
+        if fd == 0:
+            return 'cp%d' % rwin32.GetConsoleCP()
+        if fd in (1, 2):
+            return 'cp%d' % rwin32.GetConsoleOutputCP()
+    from rpython.rlib import rlocale
+    if rlocale.HAVE_LANGINFO:
+        codeset = rlocale.nl_langinfo(rlocale.CODESET)
+        if codeset:
+            return space.wrap(codeset)
+    return space.w_None

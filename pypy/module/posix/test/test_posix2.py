@@ -931,6 +931,12 @@ class AppTestPosix:
             assert False, "urandom() always returns the same string"
             # Or very unlucky
 
+    def test_device_encoding(self):
+        import sys
+        encoding = self.posix.device_encoding(sys.stdout.fileno())
+        # just ensure it returns something reasonable
+        assert encoding is None or type(encoding) is str
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
