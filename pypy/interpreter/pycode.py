@@ -12,7 +12,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR)
+    CO_GENERATOR, CO_KILL_DOCSTRING)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash
@@ -217,6 +217,13 @@ class PyCode(eval.Code):
             if space.isinstance_w(w_first, space.w_basestring):
                 return w_first
         return space.w_None
+
+    def remove_docstrings(self, space):
+        if self.co_flags & CO_KILL_DOCSTRING:
+            self.co_consts_w[0] = space.w_None
+        for co_w in self.co_consts_w:
+            if isinstance(co_w, PyCode):
+                co_w.remove_docstrings(space)
 
     def _to_code(self):
         """For debugging only."""

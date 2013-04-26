@@ -812,6 +812,37 @@ class TestCompiler:
         """
         self.simple_test(source, 'ok', 1)
 
+    def test_remove_docstring(self):
+        source = '"module_docstring"\n' + """if 1:
+        def f1():
+            'docstring'
+        def f2():
+            'docstring'
+            return 'docstring'
+        class C1():
+            'docstring'
+        class C2():
+            __doc__ = 'docstring'
+        class C3():
+            field = 'not docstring'
+        class C4():
+            'docstring'
+            field = 'docstring'
+        """
+        code_w = compile_with_astcompiler(source, 'exec', self.space)
+        code_w.remove_docstrings(self.space)
+        dict_w = self.space.newdict();
+        code_w.exec_code(self.space, dict_w, dict_w)
+
+        yield self.check, dict_w, "f1.__doc__", None
+        yield self.check, dict_w, "f2.__doc__", 'docstring'
+        yield self.check, dict_w, "C1.__doc__", None
+        yield self.check, dict_w, "C2.__doc__", 'docstring'
+        yield self.check, dict_w, "C3.field", 'not docstring'
+        yield self.check, dict_w, "C4.field", 'docstring'
+        yield self.check, dict_w, "C4.__doc__", 'docstring'
+        yield self.check, dict_w, "C4.__doc__", 'docstring'
+        yield self.check, dict_w, "__doc__", None
 
 class AppTestCompiler:
 

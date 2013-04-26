@@ -245,6 +245,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         if w_len is None:
             w_len = space.len(self.w_consts)
             space.setitem(self.w_consts, w_key, w_len)
+        if space.int_w(w_len) == 0:
+            self.scope.doc_removable = False
         return space.int_w(w_len)
 
     def _make_key(self, obj):

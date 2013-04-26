@@ -18,6 +18,9 @@ OPTIONS
 -O
     Dummy optimization flag for compatibility with C Python.
 
+-OO
+    Remove docstrings when importing modules (like CPython -OO).
+
 -c *cmd*
     Program passed in as CMD (terminates option list).
 

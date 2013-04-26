@@ -913,6 +913,13 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
             if not space.is_true(space.sys.get('dont_write_bytecode')):
                 write_compiled_module(space, code_w, cpathname, mode, mtime)
 
+    try:
+        optimize = space.sys.get_flag('optimize')
+    except:
+        optimize = 0
+    if optimize >= 2:
+        code_w.remove_docstrings(space)
+
     update_code_filenames(space, code_w, pathname)
     exec_code_module(space, w_mod, code_w)
 
@@ -1007,6 +1014,13 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
                               "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
+    try:
+        optimize = space.sys.get_flag('optimize')
+    except:
+        optimize = 0
+    if optimize >= 2:
+        code_w.remove_docstrings(space)
+
     exec_code_module(space, w_mod, code_w)
 
     return w_mod

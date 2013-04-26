@@ -255,6 +255,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 start = 1
                 doc_expr.walkabout(self)
                 self.name_op("__doc__", ast.Store)
+                self.scope.doc_removable = True
             for i in range(start, len(body)):
                 body[i].walkabout(self)
             return True
@@ -1189,7 +1190,10 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
         tree.walkabout(self)
 
     def _get_code_flags(self):
-        return 0
+        flags = 0
+        if self.scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
+        return flags
 
 
 class AbstractFunctionCodeGenerator(PythonCodeGenerator):
@@ -1216,6 +1220,8 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_VARARGS
         if scope.has_keywords_arg:
             flags |= consts.CO_VARKEYWORDS
+        if scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
         if not self.cell_vars and not self.free_vars:
             flags |= consts.CO_NOFREE
         return PythonCodeGenerator._get_code_flags(self) | flags
@@ -1232,6 +1238,7 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
             doc_expr = None
         if doc_expr is not None:
             self.add_const(doc_expr.s)
+            self.scope.doc_removable = True
             start = 1
         else:
             self.add_const(self.space.w_None)
@@ -1294,3 +1301,9 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self._handle_body(cls.body)
         self.emit_op(ops.LOAD_LOCALS)
         self.emit_op(ops.RETURN_VALUE)
+
+    def _get_code_flags(self):
+        flags = 0
+        if self.scope.doc_removable:
+            flags |= consts.CO_KILL_DOCSTRING
+        return PythonCodeGenerator._get_code_flags(self) | flags
