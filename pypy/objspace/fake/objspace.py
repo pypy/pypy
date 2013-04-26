@@ -108,6 +108,12 @@ class FakeObjSpace(ObjSpace):
         self._seen_extras = []
         ObjSpace.__init__(self, config=config)
 
+        # Be sure to annotate W_SliceObject constructor.
+        # In Python2, this is triggered by W_InstanceObject.__getslice__.
+        def build_slice():
+            self.newslice(self.w_None, self.w_None, self.w_None)
+        self._seen_extras.append(build_slice)
+
     def float_w(self, w_obj):
         is_root(w_obj)
         return NonConstant(42.5)
