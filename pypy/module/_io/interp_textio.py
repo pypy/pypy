@@ -268,9 +268,23 @@ W_TextIOBase.typedef = TypeDef(
 )
 
 
-def _determine_encoding(space, encoding):
+def _determine_encoding(space, encoding, w_buffer):
     if encoding is not None:
         return space.wrap(encoding)
+
+    # Try os.device_encoding(fileno)
+    try:
+        w_fileno = space.call_method(w_buffer, 'fileno')
+    except OperationError as e:
+        from pypy.module._io.interp_io import Cache
+        if not (e.match(space, space.w_AttributeError) or
+                e.match(space, space.fromcache(Cache).w_unsupportedoperation)):
+            raise
+    else:
+        w_os = space.call_method(space.builtin, '__import__', space.wrap('os'))
+        w_encoding = space.call_method(w_os, 'device_encoding', w_fileno)
+        if space.isinstance_w(w_encoding, space.w_unicode):
+            return w_encoding
 
     try:
         w_locale = space.call_method(space.builtin, '__import__',
@@ -357,7 +371,7 @@ class W_TextIOWrapper(W_TextIOBase):
                    write_through=0):
         self.state = STATE_ZERO
         self.w_buffer = w_buffer
-        self.w_encoding = _determine_encoding(space, encoding)
+        self.w_encoding = _determine_encoding(space, encoding, w_buffer)
 
         if space.is_none(w_errors):
             w_errors = space.wrap("strict")

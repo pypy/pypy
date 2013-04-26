@@ -431,3 +431,14 @@ class AppTestIncrementalNewlineDecoder:
         _check(dec)
         dec = _io.IncrementalNewlineDecoder(None, translate=True)
         _check(dec)
+
+    def test_device_encoding(self):
+        import os
+        import sys
+        encoding = os.device_encoding(sys.stderr.fileno())
+        if not encoding:
+            skip("Requires a result from "
+                 "os.device_encoding(sys.stderr.fileno())")
+        import _io
+        f = _io.TextIOWrapper(sys.stderr.buffer)
+        assert f.encoding == encoding
