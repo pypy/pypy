@@ -503,6 +503,7 @@ class AbstractFuncPtr(object):
 
     def __init__(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         self.name = name
+        print 'AbstractFuncPtr of',name,'flags',flags,'FUNCFLAG_CDECL',FUNCFLAG_CDECL
         self.argtypes = argtypes
         self.restype = restype
         self.flags = flags

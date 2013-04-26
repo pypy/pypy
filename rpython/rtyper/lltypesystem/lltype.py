@@ -540,7 +540,7 @@ class FixedSizeArray(Struct):
 class FuncType(ContainerType):
     _gckind = 'raw'
     __name__ = 'func'
-    def __init__(self, args, result):
+    def __init__(self, args, result, call_conv=0):
         for arg in args:
             assert isinstance(arg, LowLevelType)
             # There are external C functions eating raw structures, not
@@ -550,6 +550,7 @@ class FuncType(ContainerType):
         if isinstance(result, ContainerType):
             raise TypeError, "function result can only be primitive or pointer"
         self.RESULT = result
+        self.CALL_CONV = call_conv
 
     def __str__(self):
         args = ', '.join(map(str, self.ARGS))

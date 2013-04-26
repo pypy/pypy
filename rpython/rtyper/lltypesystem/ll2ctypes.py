@@ -362,12 +362,16 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = None
             else:
                 restype = get_ctypes_type(T.TO.RESULT)
+            if T.TO.CALL_CONV == ctypes._FUNCFLAG_STDCALL:
+                rettype = ctypes.WINFUNCTYPE
+            else:    
+                rettype = ctypes.CFUNCTYPE
             try:
                 kwds = {'use_errno': True}
-                return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
+                return rettype(restype, *argtypes, **kwds)
             except TypeError:
                 # unexpected 'use_errno' argument, old ctypes version
-                return ctypes.CFUNCTYPE(restype, *argtypes)
+                return rettype(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
         else:
