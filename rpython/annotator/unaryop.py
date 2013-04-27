@@ -541,10 +541,13 @@ class __extend__(SomeUnicodeString):
 
 
 class __extend__(SomeString):
-    def method_isdigit(chr):
+    def method_isdigit(str):
         return s_Bool
 
-    def method_isalpha(chr):
+    def method_isalpha(str):
+        return s_Bool
+
+    def method_isalnum(str):
         return s_Bool
 
     def method_upper(str):
