@@ -163,6 +163,15 @@ class Platform(object):
                 break
         return response_file
 
+    def _make_o_file(self, cfile, ext):
+        """Create a .o filename under the udir for a .c file"""
+        oname = cfile.new(ext=ext)
+        if oname.relto(udir):
+            return oname
+        ofile = udir.join(oname.relto(py.path.local()))
+        ofile.dirpath().ensure(dir=True)
+        return ofile
+
     def preprocess_include_dirs(self, include_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
             dirs = list(self._preprocess_include_dirs(include_dirs))

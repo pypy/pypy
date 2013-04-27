@@ -197,7 +197,7 @@ class MsvcPlatform(Platform):
         return ["@%s" % (response_file,)]
 
     def _compile_c_file(self, cc, cfile, compile_args):
-        oname = cfile.new(ext='obj')
+        oname = self._make_o_file(cfile, ext='obj')
         # notabene: (tismer)
         # This function may be called for .c but also .asm files.
         # The c compiler accepts any order of arguments, while

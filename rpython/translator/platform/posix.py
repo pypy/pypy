@@ -31,7 +31,7 @@ class BasePosix(Platform):
         return list(link_files)
 
     def _compile_c_file(self, cc, cfile, compile_args):
-        oname = cfile.new(ext='o')
+        oname = self._make_o_file(cfile, ext='o')
         args = ['-c'] + compile_args + [str(cfile), '-o', str(oname)]
         self._execute_c_compiler(cc, args, oname,
                                  cwd=str(cfile.dirpath()))
