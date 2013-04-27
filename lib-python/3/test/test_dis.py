@@ -218,7 +218,7 @@ Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
 Stack size:        4
-Flags:             OPTIMIZED, NEWLOCALS, NOFREE, 0x80000
+Flags:             OPTIMIZED, NEWLOCALS, NOFREE
 Constants:
    0: %r
    1: '__func__'
@@ -285,7 +285,7 @@ Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
 Stack size:        8
-Flags:             OPTIMIZED, NEWLOCALS, NESTED, 0x80000
+Flags:             OPTIMIZED, NEWLOCALS, NESTED
 Constants:
    0: None
 Names:
@@ -307,7 +307,7 @@ Argument count:    0
 Kw-only arguments: 0
 Number of locals:  0
 Stack size:        2
-Flags:             NOFREE, 0x80000
+Flags:             NOFREE
 Constants:
    0: 1
 Names:
@@ -320,7 +320,7 @@ Argument count:    0
 Kw-only arguments: 0
 Number of locals:  0
 Stack size:        2
-Flags:             NOFREE, 0x80000
+Flags:             NOFREE
 Constants:
    0: 1
    1: None
@@ -334,7 +334,7 @@ Argument count:    0
 Kw-only arguments: 0
 Number of locals:  0
 Stack size:        2
-Flags:             NOFREE, 0x80000
+Flags:             NOFREE
 Constants:
    0: 0
    1: 1
