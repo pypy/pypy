@@ -131,8 +131,22 @@ if 1:
         usemodules = [str(RENAMED_USEMODULES.get(name, name))
                       for name in usemodules]
         check_usemodules = """\
-    if not set(%r).issubset(sys.builtin_module_names):
-        sys.exit(81)""" % usemodules
+    missing = set(%r).difference(sys.builtin_module_names)
+    if missing:
+        if not hasattr(sys, 'pypy_version_info'):
+            # They may be extension modules on CPython
+            name = None
+            for name in missing.copy():
+                try:
+                    __import__(name)
+                except ImportError:
+                    pass
+                else:
+                    missing.remove(name)
+            del name
+        if missing:
+            sys.exit(81)
+    del missing""" % usemodules
 
     source = list(py.code.Source(target_))
     while source[0].startswith(('@py.test.mark.', '@pytest.mark.')):
