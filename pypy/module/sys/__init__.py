@@ -112,17 +112,21 @@ class Module(MixedModule):
                 space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
 
         if not space.config.translating:
-            # Install standard streams for tests that don't call app_main
+            # Install standard streams for tests that don't call app_main.
+            # Always use line buffering, even for tests that capture
+            # standard descriptors.
             space.appexec([], """():
                 import sys, io
                 sys.stdin = sys.__stdin__ = io.open(0, "r", encoding="ascii",
                                                     closefd=False)
                 sys.stdin.buffer.raw.name = "<stdin>"
                 sys.stdout = sys.__stdout__ = io.open(1, "w", encoding="ascii",
+                                                      buffering=1,
                                                       closefd=False)
                 sys.stdout.buffer.raw.name = "<stdout>"
                 sys.stderr = sys.__stderr__ = io.open(2, "w", encoding="ascii",
                                                       errors="backslashreplace",
+                                                      buffering=1,
                                                       closefd=False)
                 sys.stderr.buffer.raw.name = "<stderr>"
                """)
