@@ -4,6 +4,7 @@ import py, os, sys
 
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
+from rpython.tool.version import rpythonroot
 
 log = py.log.Producer("platform")
 
@@ -164,11 +165,11 @@ class Platform(object):
         return response_file
 
     def _make_o_file(self, cfile, ext):
-        """Create a .o filename under the udir for a .c file"""
-        oname = cfile.new(ext=ext)
-        if oname.relto(udir):
-            return oname
-        ofile = udir.join(oname.relto(py.path.local()))
+        """Create an object file name under the udir for a .c file"""
+        ofile = cfile.new(ext=ext)
+        if ofile.relto(udir):
+            return ofile
+        ofile = udir.join(ofile.relto(rpythonroot))
         ofile.dirpath().ensure(dir=True)
         return ofile
 
