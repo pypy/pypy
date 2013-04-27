@@ -333,3 +333,11 @@ class TestFunction(object):
         assert lib.DD == 6
         assert lib.EE == -5
         assert lib.FF == -4
+
+    def test_missing_function(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            int nonexistent();
+        """)
+        m = ffi.dlopen("m")
+        assert not hasattr(m, 'nonexistent')
