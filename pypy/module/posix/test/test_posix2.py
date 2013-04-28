@@ -302,8 +302,14 @@ class AppTestPosix:
         assert expected in result
 
     def test_undecodable_filename(self):
+        import sys
         posix = self.posix
-        assert posix.access('caf\xe9', posix.R_OK) is False
+        try:
+            'caf\xe9'.encode(sys.getfilesystemencoding(), 'surrogateescape')
+        except UnicodeEncodeError:
+            pass # probably ascii
+        else:
+            assert posix.access('caf\xe9', posix.R_OK) is False
         assert posix.access(b'caf\xe9', posix.R_OK) is False
         assert posix.access('caf\udcc0', posix.R_OK) is False
         assert posix.access(b'caf\xc3', posix.R_OK) is False
@@ -959,8 +965,18 @@ class AppTestEnvironment(object):
 
     @py.test.mark.dont_track_allocations('putenv intentionally keeps strings alive')
     def test_environ_nonascii(self):
-        os = self.os
+        import sys
         name, value = 'PYPY_TEST_日本', 'foobar日本'
+        if not sys.platform == 'win32':
+            fsencoding = sys.getfilesystemencoding()
+            for s in name, value:
+                try:
+                    s.encode(fsencoding, 'surrogateescape')
+                except UnicodeEncodeError:
+                    skip("Requires %s.encode(sys.getfilesystemencoding(), "
+                         "'surogateescape') to succeed (or win32)" % ascii(s))
+
+        os = self.os
         os.environ[name] = value
         assert os.environ[name] == value
         assert os.getenv(name) == value
