@@ -427,6 +427,7 @@ class ExplicitVirtualizableTests:
             while m > 0:
                 g(xy2, n)
                 m -= 1
+            promote_virtualizable(xy2, 'inst_l2')
             return xy2.parent.inst_l2[0]
         assert f(18) == 10360
         res = self.meta_interp(f, [18])
