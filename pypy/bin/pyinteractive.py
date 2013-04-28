@@ -90,18 +90,18 @@ def main_(argv=None):
 
     space = option.make_objspace(config)
 
-    if interactiveconfig.optimize:
-        flags_w = space.sys.get('flags').getitems_copy()
-        #change optimize flag's value
-        import pdb; pdb.set_trace()
-        flags_w[6] = space.wrap(2)
-        w_flags = type(space.sys.get('flags'))(flags_w)
-        w_flags.user_setup(space, space.sys.get('flags').w__class__)
-        space.sys.w_dict.setitem(space.wrap('flags'), w_flags)
-
     space._starttime = starttime
     space.setitem(space.sys.w_dict, space.wrap('executable'),
                   space.wrap(argv[0]))
+
+    if interactiveconfig.optimize:
+        flags_w = space.sys.get('flags').getitems_copy()
+        #change the optimize flag's value
+        flags_w[6] = space.wrap(2)
+        space.appexec([space.wrap(flags_w)], """(flags):
+            import sys
+            sys.flags = type(sys.flags)(flags)
+        """)
 
     # call pypy_find_stdlib: the side-effect is that it sets sys.prefix and
     # sys.exec_prefix
