@@ -136,3 +136,43 @@ class AppTestOPERATORS:
         o = gbl.operator_float(); o.m_float = 3.14
         assert round(o.m_float - 3.14, 5) == 0.
         assert round(float(o) - 3.14, 5)  == 0.
+
+    def test07_virtual_operator_eq(self):
+        """Test use of virtual bool operator=="""
+
+        import cppyy
+
+        b1  = cppyy.gbl.v_opeq_base(1)
+        b1a = cppyy.gbl.v_opeq_base(1)
+        b2  = cppyy.gbl.v_opeq_base(2)
+        b2a = cppyy.gbl.v_opeq_base(2)
+
+        assert b1 == b1
+        assert b1 == b1a
+        assert not b1 == b2
+        assert not b1 == b2a
+        assert b2 == b2
+        assert b2 == b2a
+
+        d1  = cppyy.gbl.v_opeq_derived(1)
+        d1a = cppyy.gbl.v_opeq_derived(1)
+        d2  = cppyy.gbl.v_opeq_derived(2)
+        d2a = cppyy.gbl.v_opeq_derived(2)
+
+        # derived operator== returns opposite
+        assert not d1 == d1
+        assert not d1 == d1a
+        assert d1 == d2
+        assert d1 == d2a
+        assert not d2 == d2
+        assert not d2 == d2a
+
+        # the following is a wee bit interesting due to python resolution
+        # rules on the one hand, and C++ inheritance on the other: python
+        # will never select the derived comparison b/c the call will fail
+        # to pass a base through a const derived&
+        assert b1 == d1
+        assert d1 == b1
+        assert not b1 == d2
+        assert not d2 == b1
+        

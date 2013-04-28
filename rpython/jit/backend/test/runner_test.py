@@ -41,8 +41,8 @@ random_gcref = lltype.cast_opaque_ptr(llmemory.GCREF,
 
 class Runner(object):
 
-    add_loop_instruction = ['overload for a specific cpu']
-    bridge_loop_instruction = ['overload for a specific cpu']
+    add_loop_instructions = ['overload for a specific cpu']
+    bridge_loop_instructions = ['overload for a specific cpu']
 
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
@@ -348,7 +348,7 @@ class BaseBackendTest(Runner):
         i0 = BoxInt()
         class UntouchableFailDescr(AbstractFailDescr):
             final_descr = True
-            
+
             def __setattr__(self, name, value):
                 if (name == 'index' or name == '_carry_around_for_tests'
                         or name == '_TYPE' or name == '_cpu'):
@@ -1056,6 +1056,28 @@ class BaseBackendTest(Runner):
                                'void', descr=vsdescr)
         r = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 4, vsdescr)
         assert r == 4
+
+    def test_array_of_structs_all_sizes(self):
+        # x86 has special support that can be used for sizes
+        #   1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 16, 18, 20, 24, 32, 36, 40, 64, 72
+        for length in range(1, 75):
+            ITEM = lltype.FixedSizeArray(lltype.Char, length)
+            a_box, A = self.alloc_array_of(ITEM, 5)
+            a = a_box.getref(lltype.Ptr(A))
+            middle = length // 2
+            a[3][middle] = chr(65 + length)
+            fdescr = self.cpu.interiorfielddescrof(A, 'item%d' % middle)
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC,
+                                       [a_box, BoxInt(3)],
+                                       'int', descr=fdescr)
+            r = r.getint()
+            assert r == 65 + length
+            self.execute_operation(rop.SETINTERIORFIELD_GC,
+                                   [a_box, BoxInt(2), BoxInt(r + 1)],
+                                   'void', descr=fdescr)
+            r1 = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 2,
+                                                  fdescr)
+            assert r1 == r + 1
 
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")
@@ -2455,12 +2477,12 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(raw, flavor='raw')
 
     def test_call_to_winapi_function(self):
-        from rpython.rlib.clibffi import _WIN32, FUNCFLAG_STDCALL
+        from rpython.rlib.clibffi import _WIN32
         if not _WIN32:
             py.test.skip("Windows test only")
-        from rpython.rlib.libffi import CDLL, types, ArgChain
+        from rpython.rlib.libffi import WinDLL, types, ArgChain
         from rpython.rlib.rwin32 import DWORD
-        libc = CDLL('KERNEL32')
+        libc = WinDLL('KERNEL32')
         c_GetCurrentDir = libc.getpointer('GetCurrentDirectoryA',
                                           [types.ulong, types.pointer],
                                           types.ulong)
@@ -2830,6 +2852,56 @@ class LLtypeBackendTest(BaseBackendTest):
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert self.cpu.get_int_value(deadframe, 0) == 97
         assert not called
+
+    def test_assembler_call_propagate_exc(self):
+        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("llgraph can't fake exceptions well enough, give up")
+
+        excdescr = BasicFailDescr(666)
+        self.cpu.propagate_exception_descr = excdescr
+        self.cpu.setup_once()    # xxx redo it, because we added
+                                 # propagate_exception
+
+        def assembler_helper(deadframe, virtualizable):
+            assert self.cpu.get_latest_descr(deadframe) is excdescr
+            # let's assume we handled that
+            return 3
+
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
+                                              llmemory.GCREF],
+                                             lltype.Signed))
+        class FakeJitDriverSD:
+            index_of_virtualizable = -1
+            _assembler_helper_ptr = llhelper(FUNCPTR, assembler_helper)
+            assembler_helper_adr = llmemory.cast_ptr_to_adr(
+                _assembler_helper_ptr)
+
+        ops = '''
+        [i0]
+        p0 = newunicode(i0)
+        finish(p0)'''
+        loop = parse(ops)
+        looptoken = JitCellToken()
+        looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        ARGS = [lltype.Signed] * 10
+        RES = lltype.Signed
+        FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
+        ops = '''
+        [i0]
+        i11 = call_assembler(i0, descr=looptoken)
+        guard_not_forced()[]
+        finish(i11)
+        '''
+        loop = parse(ops, namespace=locals())
+        othertoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
+        deadframe = self.cpu.execute_token(othertoken, sys.maxint - 1)
+        assert self.cpu.get_int_value(deadframe, 0) == 3
 
     def test_assembler_call_float(self):
         if not self.cpu.supports_floats:
@@ -3341,7 +3413,7 @@ class LLtypeBackendTest(BaseBackendTest):
         excdescr = BasicFailDescr(666)
         self.cpu.propagate_exception_descr = excdescr
         self.cpu.setup_once()    # xxx redo it, because we added
-                                 # propagate_exception_v
+                                 # propagate_exception
         i0 = BoxInt()
         p0 = BoxPtr()
         operations = [
@@ -3375,7 +3447,7 @@ class LLtypeBackendTest(BaseBackendTest):
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
         testcases = [(4.0, 2.0), (6.25, 2.5)]
         for arg, expected in testcases:
-            res = self.execute_operation(rop.CALL, 
+            res = self.execute_operation(rop.CALL,
                         [funcbox, boxfloat(arg)],
                          'float', descr=calldescr)
             assert res.getfloat() == expected
@@ -3427,10 +3499,10 @@ class LLtypeBackendTest(BaseBackendTest):
         ops = """
         [i0]
         i1 = int_force_ge_zero(i0)    # but forced to be in a register
-        finish(i1, descr=1)
+        finish(i1, descr=descr)
         """
+        descr = BasicFinalDescr()
         loop = parse(ops, self.cpu, namespace=locals())
-        descr = loop.operations[-1].getdescr()
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         for inp, outp in [(2,2), (-3, 0)]:
@@ -3443,21 +3515,20 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("pointless test on non-asm")
         from rpython.jit.backend.tool.viewcode import machine_code_dump
         import ctypes
+        targettoken = TargetToken()
         ops = """
         [i2]
         i0 = same_as(i2)    # but forced to be in a register
-        label(i0, descr=1)
+        label(i0, descr=targettoken)
         i1 = int_add(i0, i0)
-        guard_true(i1, descr=faildesr) [i1]
-        jump(i1, descr=1)
+        guard_true(i1, descr=faildescr) [i1]
+        jump(i1, descr=targettoken)
         """
         faildescr = BasicFailDescr(2)
         loop = parse(ops, self.cpu, namespace=locals())
-        faildescr = loop.operations[-2].getdescr()
-        jumpdescr = loop.operations[-1].getdescr()
         bridge_ops = """
         [i0]
-        jump(i0, descr=jumpdescr)
+        jump(i0, descr=targettoken)
         """
         bridge = parse(bridge_ops, self.cpu, namespace=locals())
         looptoken = JitCellToken()
@@ -3731,7 +3802,7 @@ class LLtypeBackendTest(BaseBackendTest):
         # memory
         assert values[0] == 0
 
-    def test_compile_bridge_while_running(self):        
+    def test_compile_bridge_while_running(self):
         def func():
             bridge = parse("""
             [i1, i2, px]
@@ -3778,9 +3849,9 @@ class LLtypeBackendTest(BaseBackendTest):
         func2_ptr = llhelper(FPTR2, func2)
         calldescr2 = cpu.calldescrof(FUNC2, FUNC2.ARGS, FUNC2.RESULT,
                                     EffectInfo.MOST_GENERAL)
-        
+
         faildescr = BasicFailDescr(0)
-        
+
         looptoken = JitCellToken()
         loop = parse("""
         [i0, i1, i2]
@@ -3796,7 +3867,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-            
+
         frame = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, frame)
         assert len(frame.jf_frame) == frame.jf_frame_info.jfi_frame_depth
         ref = self.cpu.get_ref_value(frame, 9)
@@ -3858,9 +3929,26 @@ class LLtypeBackendTest(BaseBackendTest):
                         'calldescr': calldescr,
                         'faildescr': faildescr,
                         'finaldescr2': BasicFinalDescr(1)})
-        
+
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         frame = self.cpu.execute_token(looptoken, 1, 2, 3)
         descr = self.cpu.get_latest_descr(frame)
         assert descr.identifier == 42
         assert not self.cpu.grab_exc_value(frame)
+
+    def test_setarrayitem_raw_short(self):
+        # setarrayitem_raw(140737353744432, 0, 30583, descr=<ArrayS 2>)
+        A = rffi.CArray(rffi.SHORT)
+        arraydescr = self.cpu.arraydescrof(A)
+        a = lltype.malloc(A, 2, flavor='raw')
+        a[0] = rffi.cast(rffi.SHORT, 666)
+        a[1] = rffi.cast(rffi.SHORT, 777)
+        addr = llmemory.cast_ptr_to_adr(a)
+        a_int = heaptracker.adr2int(addr)
+        print 'a_int:', a_int
+        self.execute_operation(rop.SETARRAYITEM_RAW,
+                               [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],
+                               'void', descr=arraydescr)
+        assert rffi.cast(lltype.Signed, a[0]) == -7654
+        assert rffi.cast(lltype.Signed, a[1]) == 777
+        lltype.free(a, flavor='raw')

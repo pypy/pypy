@@ -770,6 +770,3 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def test_compile_framework_call_assembler(self):
         self.run('compile_framework_call_assembler')
-
-class TestShadowStack(CompileFrameworkTests):
-    gcrootfinder = "shadowstack"

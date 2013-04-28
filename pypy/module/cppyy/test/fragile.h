@@ -23,6 +23,7 @@ public:
 class D {
 public:
     virtual int check() { return (int)'D'; }
+    virtual int check(int, int) { return (int)'D'; }
     void overload() {}
     void overload(no_such_class*) {}
     void overload(char, int i = 0) {}  // Reflex requires a named arg
@@ -86,5 +87,29 @@ namespace nested1 {
         } // namespace nested3
     } // namespace nested2
 } // namespace nested1
+
+class K {
+public:
+    virtual ~K();
+    K* GimeK(bool derived);
+    K* GimeL();
+};
+
+class L : public K {
+public:
+    virtual ~L();
+    no_such_class* m_no_such;
+};
+
+class M {
+public:
+    enum E1 { kOnce=42 };
+    enum E2 { kTwice=12 };
+};
+
+class N : public M {
+public:
+    enum E2 { kTwice=12 };
+};
 
 } // namespace fragile

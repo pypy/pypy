@@ -170,15 +170,19 @@ void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 }
 
 char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-    std::string result("");
+    std::string* cppresult = (std::string*)malloc(sizeof(std::string));
     std::vector<void*> arguments = build_args(nargs, args);
     Reflex::StubFunction stub = (Reflex::StubFunction)method;
-    stub(&result, (void*)self, arguments, NULL /* stub context */);
-    return cppstring_to_cstring(result);
+    stub(cppresult, (void*)self, arguments, NULL /* stub context */);
+    char* cstr = cppstring_to_cstring(*cppresult);
+    delete cppresult;         // the stub will have performed a placement-new
+    return cstr;
 }
 
-void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
+    cppyy_object_t self = cppyy_allocate(handle);
     cppyy_call_v(method, self, nargs, args);
+    return self;
 }
 
 cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args,
@@ -382,7 +386,11 @@ char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t method_index) {
     std::string name;
     if (m.IsConstructor())
         name = s.Name(Reflex::FINAL);   // to get proper name for templates
-    else
+    else if (m.IsTemplateInstance()) {
+        name = m.Name();
+        std::string::size_type pos = name.find('<');
+        name = name.substr(0, pos);     // strip template argument portion for overload
+    } else
         name = m.Name();
     return cppstring_to_cstring(name);
 }
@@ -442,10 +450,33 @@ char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t method_index) {
     return cppstring_to_cstring(sig.str());
 }
 
+
+int cppyy_method_is_template(cppyy_scope_t handle, cppyy_index_t method_index) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    return m.IsTemplateInstance();
+}
+
+int cppyy_method_num_template_args(cppyy_scope_t handle, cppyy_index_t method_index) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    assert(m.IsTemplateInstance());
+    return m.TemplateArgumentSize();
+}
+
+char* cppyy_method_template_arg_name(
+        cppyy_scope_t handle, cppyy_index_t method_index, cppyy_index_t iarg) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    assert(m.IsTemplateInstance());
+    return cppstring_to_cstring(
+       m.TemplateArgumentAt(iarg).Name(Reflex::SCOPED|Reflex::QUALIFIED));
+}
+
+
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
-    assert(m.IsFunctionMember());
     return (cppyy_method_t)m.Stubfunction();
 }
 
@@ -591,7 +622,7 @@ cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
 }
 
 void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str) {
-   *((std::string*)ptr) = str;
+    *((std::string*)ptr) = str;
 }
 
 void cppyy_free_stdstring(cppyy_object_t ptr) {

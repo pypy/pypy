@@ -149,6 +149,10 @@ def get_L2cache_linux2(filename="/proc/cpuinfo"):
     else:
         data = ''.join(data)
         linepos = 0
+        # Currently on ARM-linux we won't find any information about caches in
+        # cpuinfo
+        if _detect_arm_cpu(data):
+            return -1
         while True:
             start = _findend(data, '\ncache size', linepos)
             if start < 0:
@@ -200,6 +204,11 @@ def _skipspace(data, pos):
     while data[pos] in (' ', '\t'):
         pos += 1
     return pos
+
+def _detect_arm_cpu(data):
+    # check for the presence of a 'Processor' entry
+    p = _findend(data, 'Processor', 0)
+    return p >= 0 and _findend(data, 'ARMv', p) > 0
 
 # ---------- Darwin ----------
 
@@ -270,7 +279,7 @@ NURSERY_SIZE_UNKNOWN_CACHE = 1024*1024
 def best_nursery_size_for_L2cache(L2cache):
     # Heuristically, the best nursery size to choose is about half
     # of the L2 cache.
-    if L2cache > 1024 * 1024: # we don't want to have nursery estimated
+    if L2cache > 2 * 1024 * 1024: # we don't want to have nursery estimated
         # on L2 when L3 is present
         return L2cache // 2
     else:

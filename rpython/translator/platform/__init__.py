@@ -4,6 +4,7 @@ import py, os, sys
 
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
+from rpython.tool.version import rpythonroot
 
 log = py.log.Producer("platform")
 
@@ -162,6 +163,15 @@ class Platform(object):
             if not response_file.check():
                 break
         return response_file
+
+    def _make_o_file(self, cfile, ext):
+        """Create an object file name under the udir for a .c file"""
+        ofile = cfile.new(ext=ext)
+        if ofile.relto(udir):
+            return ofile
+        ofile = udir.join(ofile.relto(rpythonroot))
+        ofile.dirpath().ensure(dir=True)
+        return ofile
 
     def preprocess_include_dirs(self, include_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
@@ -347,3 +357,6 @@ def set_platform(new_platform, cc):
         global host
         host = platform
 
+
+def is_host_build():
+    return host == platform

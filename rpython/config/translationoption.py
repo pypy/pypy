@@ -115,7 +115,7 @@ translation_optiondescription = OptionDescription(
                          ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
-                 ["auto", "x86", "x86-without-sse2", 'armv7', 'armv7hf', 'armv6hf'],
+                 ["auto", "x86", "x86-without-sse2", 'arm'],
                  default="auto", cmdline="--jit-backend"),
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
