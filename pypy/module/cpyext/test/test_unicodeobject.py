@@ -297,7 +297,7 @@ class TestUnicode(BaseApiTest):
         assert s == "12&#4660;"
 
     def test_encode_fsdefault(self, space, api):
-        w_u = space.wrap(u'späm')
+        w_u = space.wrap(u'sp\udcc3\udca4m')
         w_s = api.PyUnicode_EncodeFSDefault(w_u)
         with rffi.scoped_str2charp(space.str_w(w_s)) as encoded:
             w_decoded = api.PyUnicode_DecodeFSDefaultAndSize(encoded, space.len_w(w_s))
