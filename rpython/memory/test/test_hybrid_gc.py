@@ -3,10 +3,10 @@ import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
-from rpython.memory.test.test_generational_gc import TestGenerationalGC
+from rpython.memory.test import test_generational_gc
 
 
-class TestHybridGC(TestGenerationalGC):
+class TestHybridGC(test_generational_gc.TestGenerationalGC):
     from rpython.memory.gc.hybrid import HybridGC as GCClass
     GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_BIG_ARRAY = False

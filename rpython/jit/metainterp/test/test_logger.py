@@ -93,7 +93,7 @@ class TestLogger(object):
         [p0]
         setfield_gc(p0, 3, descr=somedescr)
         '''
-        Descr()
+        somedescr = Descr()
         self.reparse(inp, namespace=locals())
 
     def test_guard(self):

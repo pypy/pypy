@@ -8,7 +8,7 @@ from pypy.module.test_lib_pypy.cffi_tests.support import *
 if sys.platform == 'win32':
     pass      # no obvious -Werror equivalent on MSVC
 elif (sys.platform == 'darwin' and
-      map(int, os.uname()[2].split('.')) >= [11, 0, 0]):
+      [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
     pass      # recent MacOSX come with clang by default, and passing some
               # flags from the interpreter (-mno-fused-madd) generates a
               # warning --- which is interpreted as an error with -Werror

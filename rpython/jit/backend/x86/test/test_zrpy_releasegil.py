@@ -1,1 +1,9 @@
-from rpython.jit.backend.llsupport.test.zrpy_releasegil_test import TestShadowStack, TestAsmGcc
+from rpython.jit.backend.llsupport.test.zrpy_releasegil_test import ReleaseGILTests
+
+
+class TestShadowStack(ReleaseGILTests):
+    gcrootfinder = "shadowstack"
+
+
+class TestAsmGcc(ReleaseGILTests):
+    gcrootfinder = "asmgcc"
