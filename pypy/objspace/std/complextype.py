@@ -71,10 +71,7 @@ def _split_complex(s):
                 imagpart = '-1.0'
             else:
                 imagpart = s[realstart:newstop]
-            if imagpart[0] == '-':
-                return '-0.0', imagpart
-            else:
-                return '0.0', imagpart
+            return '0.0', imagpart
         else:
             return s[realstart:realstop], '0.0'
 

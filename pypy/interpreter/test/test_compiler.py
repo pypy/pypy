@@ -741,9 +741,9 @@ class AppTestCompiler:
         import math
         code = compile("x = -0.0; y = 0.0", "<test>", "exec")
         consts = code.co_consts
-        x, y, z = consts
-        assert isinstance(x, float) and isinstance(y, float)
-        assert math.copysign(1, x) != math.copysign(1, y)
+        x, y = consts
+        assert isinstance(x, float)
+        assert math.copysign(1, x) == 1
         ns = {}
         exec("z1, z2 = 0j, -0j", ns)
         assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)

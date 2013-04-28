@@ -902,19 +902,6 @@ class ASTBuilder(object):
         return result
 
     def handle_factor(self, factor_node):
-        # Fold '-' on constant numbers.
-        if factor_node.children[0].type == tokens.MINUS and \
-                len(factor_node.children) == 2:
-            factor = factor_node.children[1]
-            if factor.type == syms.factor and len(factor.children) == 1:
-                power = factor.children[0]
-                if power.type == syms.power and len(power.children) == 1:
-                    atom = power.children[0]
-                    if atom.type == syms.atom and \
-                            atom.children[0].type == tokens.NUMBER:
-                        num = atom.children[0]
-                        num.value = "-" + num.value
-                        return self.handle_atom(atom)
         expr = self.handle_expr(factor_node.children[1])
         op_type = factor_node.children[0].type
         if op_type == tokens.PLUS:
