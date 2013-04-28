@@ -850,10 +850,10 @@ class TestCompiler:
         assert False
         """
         w_saved_flags = space.sys.get('flags')
-        flags_w = space.sys.get('flags').getitems_copy()
-        flags_w[6] = space.wrap(1)
-        space.appexec([space.wrap(flags_w)], """(flags):
+        space.appexec([], """():
             import sys
+            flags = list(sys.flags)
+            flags[6] = 2
             sys.flags = type(sys.flags)(flags)
         """)
 

@@ -95,11 +95,11 @@ def main_(argv=None):
                   space.wrap(argv[0]))
 
     if interactiveconfig.optimize:
-        flags_w = space.sys.get('flags').getitems_copy()
         #change the optimize flag's value
-        flags_w[6] = space.wrap(2)
-        space.appexec([space.wrap(flags_w)], """(flags):
+        space.appexec([], """():
             import sys
+            flags = list(sys.flags)
+            flags[6] = 2
             sys.flags = type(sys.flags)(flags)
         """)
 
