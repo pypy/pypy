@@ -462,11 +462,15 @@ class FlowObjSpace(object):
                 raise FlowingError(self.frame, self.wrap(message))
         return self.wrap(value)
 
+def make_impure_op(name, arity):
+    def generic_operator(self, *args_w):
+        assert len(args_w) == arity, name + " got the wrong number of arguments"
+        w_result = self.frame.do_operation_with_implicit_exceptions(name, *args_w)
+        return w_result
+    return generic_operator
+
 def make_op(name, arity):
     """Add function operation to the flow space."""
-    if getattr(FlowObjSpace, name, None) is not None:
-        return
-
     op = None
     skip = False
     arithmetic = False
@@ -474,11 +478,9 @@ def make_op(name, arity):
     if (name.startswith('del') or
         name.startswith('set') or
         name.startswith('inplace_')):
-        # skip potential mutators
-        skip = True
+        return make_impure_op(name, arity)
     elif name in ('id', 'hash', 'iter', 'userdel'):
-        # skip potential runtime context dependecies
-        skip = True
+        return make_impure_op(name, arity)
     elif name in ('repr', 'str'):
         rep = getattr(__builtin__, name)
         def op(obj):
@@ -490,54 +492,50 @@ def make_op(name, arity):
         op = operation.FunctionByName[name]
         arithmetic = (name + '_ovf') in operation.FunctionByName
 
-    if not op and not skip:
-        raise ValueError("XXX missing operator: %s" % (name,))
-
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name + " got the wrong number of arguments"
-        if op:
-            args = []
-            for w_arg in args_w:
-                try:
-                    arg = self.unwrap_for_computation(w_arg)
-                except UnwrapException:
-                    break
-                else:
-                    args.append(arg)
+        args = []
+        for w_arg in args_w:
+            try:
+                arg = self.unwrap_for_computation(w_arg)
+            except UnwrapException:
+                break
             else:
-                # All arguments are constants: call the operator now
-                try:
-                    result = op(*args)
-                except Exception, e:
-                    etype = e.__class__
-                    msg = "%s%r always raises %s: %s" % (
-                        name, tuple(args), etype, e)
-                    raise FlowingError(self.frame, msg)
+                args.append(arg)
+        else:
+            # All arguments are constants: call the operator now
+            try:
+                result = op(*args)
+            except Exception, e:
+                etype = e.__class__
+                msg = "%s%r always raises %s: %s" % (
+                    name, tuple(args), etype, e)
+                raise FlowingError(self.frame, msg)
+            else:
+                # don't try to constant-fold operations giving a 'long'
+                # result.  The result is probably meant to be sent to
+                # an intmask(), but the 'long' constant confuses the
+                # annotator a lot.
+                if arithmetic and type(result) is long:
+                    pass
+                # don't constant-fold getslice on lists, either
+                elif name == 'getslice' and type(result) is list:
+                    pass
+                # otherwise, fine
                 else:
-                    # don't try to constant-fold operations giving a 'long'
-                    # result.  The result is probably meant to be sent to
-                    # an intmask(), but the 'long' constant confuses the
-                    # annotator a lot.
-                    if arithmetic and type(result) is long:
+                    try:
+                        return self.wrap(result)
+                    except WrapException:
+                        # type cannot sanely appear in flow graph,
+                        # store operation with variable result instead
                         pass
-                    # don't constant-fold getslice on lists, either
-                    elif name == 'getslice' and type(result) is list:
-                        pass
-                    # otherwise, fine
-                    else:
-                        try:
-                            return self.wrap(result)
-                        except WrapException:
-                            # type cannot sanely appear in flow graph,
-                            # store operation with variable result instead
-                            pass
         w_result = self.frame.do_operation_with_implicit_exceptions(name, *args_w)
         return w_result
-
-    setattr(FlowObjSpace, name, generic_operator)
+    return generic_operator
 
 for (name, symbol, arity, specialnames) in operation.MethodTable:
-    make_op(name, arity)
+    if getattr(FlowObjSpace, name, None) is None:
+        setattr(FlowObjSpace, name, make_op(name, arity))
 
 
 def build_flow(func, space=FlowObjSpace()):
