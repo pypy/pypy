@@ -258,6 +258,9 @@ class LLGraphCPU(model.AbstractCPU):
     def get_latest_descr(self, deadframe):
         return deadframe._latest_descr
 
+    def get_force_descr(self, deadframe):
+        xxx
+
     def grab_exc_value(self, deadframe):
         if deadframe._last_exception is not None:
             result = deadframe._last_exception.args[1]
@@ -271,15 +274,6 @@ class LLGraphCPU(model.AbstractCPU):
         assert isinstance(frame, LLFrame)
         assert frame.forced_deadframe is None
         values = []
-        if frame.force_guard_op is None:
-            if frame.current_op.opnum == rop.FINISH:
-                values = [frame.env[arg] for arg in
-                          frame.current_op.getarglist()]
-            else:
-                xxx
-            frame.forced_deadframe = LLDeadFrame(
-                _getdescr(frame.current_op), values)
-            return frame.forced_deadframe
         for box in frame.force_guard_op.getfailargs():
             if box is not None:
                 if box is not frame.current_op.result:
@@ -602,11 +596,12 @@ class LLDeadFrame(object):
     _TYPE = llmemory.GCREF
 
     def __init__(self, latest_descr, values,
-                 last_exception=None, saved_data=None):
+                 last_exception=None, saved_data=None, force_descr=None):
         self._latest_descr = latest_descr
         self._values = values
         self._last_exception = last_exception
         self._saved_data = saved_data
+        self.force_descr = force_descr
 
 
 class LLFrame(object):
@@ -712,15 +707,24 @@ class LLFrame(object):
             values = [value for value in values if value is not None]
             raise Jump(target, values)
         else:
+            if self.force_guard_op is not None:
+                force_descr = self.force_guard_op.getdescr()
+            else:
+                force_descr = None
             raise ExecutionFinished(LLDeadFrame(descr, values,
                                                 self.last_exception,
-                                                saved_data))
+                                                saved_data, force_descr))
 
     def execute_force_spill(self, _, arg):
         pass
 
     def execute_finish(self, descr, *args):
-        raise ExecutionFinished(LLDeadFrame(descr, args))
+        if self.force_guard_op is not None:
+            force_descr = self.force_guard_op.getdescr()
+        else:
+            force_descr = None
+        raise ExecutionFinished(LLDeadFrame(descr, args,
+                                   force_descr=force_descr))
 
     def execute_label(self, descr, *args):
         argboxes = self.current_op.getarglist()
@@ -782,6 +786,7 @@ class LLFrame(object):
         if self.forced_deadframe is not None:
             saved_data = self.forced_deadframe._saved_data
             self.fail_guard(descr, saved_data)
+        self.force_guard_op = self.current_op
 
     def execute_guard_not_invalidated(self, descr):
         if self.lltrace.invalid:

@@ -50,20 +50,24 @@ def _ensure_parent_resumedata(framestack, n):
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
                        storage):
-    n = len(framestack)-1
-    top = framestack[n]
-    _ensure_parent_resumedata(framestack, n)
-    frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
-                                top.jitcode, top.pc)
-    storage.rd_frame_info_list = frame_info_list
-    snapshot = Snapshot(top.parent_resumedata_snapshot,
-                        top.get_list_of_active_boxes(False))
+    n = len(framestack) - 1
     if virtualizable_boxes is not None:
         boxes = virtualref_boxes + virtualizable_boxes
     else:
         boxes = virtualref_boxes[:]
-    snapshot = Snapshot(snapshot, boxes)
-    storage.rd_snapshot = snapshot
+    if n >= 0:
+        top = framestack[n]
+        _ensure_parent_resumedata(framestack, n)
+        frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
+                                    top.jitcode, top.pc)
+        storage.rd_frame_info_list = frame_info_list
+        snapshot = Snapshot(top.parent_resumedata_snapshot,
+                            top.get_list_of_active_boxes(False))
+        snapshot = Snapshot(snapshot, boxes)
+        storage.rd_snapshot = snapshot
+    else:
+        storage.rd_frame_info_list = None
+        storage.rd_snapshot = Snapshot(None, boxes)
 
 #
 # The following is equivalent to the RPython-level declaration:
@@ -461,7 +465,7 @@ class AbstractVirtualInfo(object):
 
     def debug_prints(self):
         raise NotImplementedError
-        
+
 
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
@@ -547,7 +551,7 @@ class VArrayInfo(AbstractVirtualInfo):
 
 class VRawBufferStateInfo(AbstractVirtualInfo):
     kind = INT
-    
+
     def __init__(self, size, offsets, descrs):
         self.size = size
         self.offsets = offsets

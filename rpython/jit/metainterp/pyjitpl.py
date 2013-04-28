@@ -314,7 +314,7 @@ class MIFrame(object):
             opnum = rop.GUARD_TRUE
         else:
             opnum = rop.GUARD_FALSE
-        self.generate_guard(opnum, box)
+        self.metainterp.generate_guard(opnum, box)
         if not switchcase:
             self.pc = target
 
@@ -342,10 +342,12 @@ class MIFrame(object):
         value = box.nonnull()
         if value:
             if not self.metainterp.heapcache.is_class_known(box):
-                self.generate_guard(rop.GUARD_NONNULL, box, resumepc=orgpc)
+                self.metainterp.generate_guard(rop.GUARD_NONNULL, box,
+                                               resumepc=orgpc)
         else:
             if not isinstance(box, Const):
-                self.generate_guard(rop.GUARD_ISNULL, box, resumepc=orgpc)
+                self.metainterp.generate_guard(rop.GUARD_ISNULL, box,
+                                               resumepc=orgpc)
                 promoted_box = box.constbox()
                 self.metainterp.replace_box(box, promoted_box)
         return value
@@ -680,7 +682,8 @@ class MIFrame(object):
         descr = QuasiImmutDescr(cpu, box, fielddescr, mutatefielddescr)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
-        self.generate_guard(rop.GUARD_NOT_INVALIDATED, resumepc=orgpc)
+        self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
+                                       resumepc=orgpc)
 
     @arguments("box", "descr", "orgpc")
     def opimpl_jit_force_quasi_immutable(self, box, mutatefielddescr, orgpc):
@@ -699,7 +702,8 @@ class MIFrame(object):
             do_force_quasi_immutable(self.metainterp.cpu, box.getref_base(),
                                      mutatefielddescr)
             raise SwitchToBlackhole(Counters.ABORT_FORCE_QUASIIMMUT)
-        self.generate_guard(rop.GUARD_ISNULL, mutatebox, resumepc=orgpc)
+        self.metainterp.generate_guard(rop.GUARD_ISNULL, mutatebox,
+                                       resumepc=orgpc)
 
     def _nonstandard_virtualizable(self, pc, box, fielddescr):
         # returns True if 'box' is actually not the "standard" virtualizable
@@ -950,8 +954,9 @@ class MIFrame(object):
             promoted_box = resbox.constbox()
             # This is GUARD_VALUE because GUARD_TRUE assumes the existance
             # of a label when computing resumepc
-            self.generate_guard(rop.GUARD_VALUE, resbox, [promoted_box],
-                                resumepc=orgpc)
+            self.metainterp.generate_guard(rop.GUARD_VALUE, resbox,
+                                           [promoted_box],
+                                           resumepc=orgpc)
             self.metainterp.replace_box(box, constbox)
             return constbox
 
@@ -963,7 +968,8 @@ class MIFrame(object):
     def opimpl_guard_class(self, box, orgpc):
         clsbox = self.cls_of_box(box)
         if not self.metainterp.heapcache.is_class_known(box):
-            self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
+            self.metainterp.generate_guard(rop.GUARD_CLASS, box, [clsbox],
+                                           resumepc=orgpc)
             self.metainterp.heapcache.class_now_known(box)
         return clsbox
 
@@ -981,7 +987,7 @@ class MIFrame(object):
     def opimpl_jit_merge_point(self, jdindex, greenboxes,
                                jcposition, redboxes, orgpc):
         resumedescr = compile.ResumeAtPositionDescr()
-        self.capture_resumedata(resumedescr, orgpc)
+        self.metainterp.capture_resumedata(resumedescr, orgpc)
 
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
@@ -1062,8 +1068,8 @@ class MIFrame(object):
     def opimpl_raise(self, exc_value_box, orgpc):
         # xxx hack
         clsbox = self.cls_of_box(exc_value_box)
-        self.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
-                            resumepc=orgpc)
+        self.metainterp.generate_guard(rop.GUARD_CLASS, exc_value_box, [clsbox],
+                                       resumepc=orgpc)
         self.metainterp.class_of_last_exc_is_const = True
         self.metainterp.last_exc_value_box = exc_value_box
         self.metainterp.popframe()
@@ -1261,43 +1267,6 @@ class MIFrame(object):
         except ChangeFrame:
             pass
 
-    def generate_guard(self, opnum, box=None, extraargs=[], resumepc=-1):
-        if isinstance(box, Const):    # no need for a guard
-            return
-        metainterp = self.metainterp
-        if box is not None:
-            moreargs = [box] + extraargs
-        else:
-            moreargs = list(extraargs)
-        metainterp_sd = metainterp.staticdata
-        if opnum == rop.GUARD_NOT_FORCED:
-            resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
-                                                   metainterp.jitdriver_sd)
-        elif opnum == rop.GUARD_NOT_INVALIDATED:
-            resumedescr = compile.ResumeGuardNotInvalidated()
-        else:
-            resumedescr = compile.ResumeGuardDescr()
-        guard_op = metainterp.history.record(opnum, moreargs, None,
-                                             descr=resumedescr)
-        self.capture_resumedata(resumedescr, resumepc)
-        self.metainterp.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
-        # count
-        metainterp.attach_debug_info(guard_op)
-        return guard_op
-
-    def capture_resumedata(self, resumedescr, resumepc=-1):
-        metainterp = self.metainterp
-        virtualizable_boxes = None
-        if (metainterp.jitdriver_sd.virtualizable_info is not None or
-            metainterp.jitdriver_sd.greenfield_info is not None):
-            virtualizable_boxes = metainterp.virtualizable_boxes
-        saved_pc = self.pc
-        if resumepc >= 0:
-            self.pc = resumepc
-        resume.capture_resumedata(metainterp.framestack, virtualizable_boxes,
-                                  metainterp.virtualref_boxes, resumedescr)
-        self.pc = saved_pc
-
     def implement_guard_value(self, box, orgpc):
         """Promote the given Box into a Const.  Note: be careful, it's a
         bit unclear what occurs if a single opcode needs to generate
@@ -1306,8 +1275,8 @@ class MIFrame(object):
             return box     # no promotion needed, already a Const
         else:
             promoted_box = box.constbox()
-            self.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
-                                resumepc=orgpc)
+            self.metainterp.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
+                                           resumepc=orgpc)
             self.metainterp.replace_box(box, promoted_box)
             return promoted_box
 
@@ -1397,7 +1366,7 @@ class MIFrame(object):
             if resbox is not None:
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call()
-            self.generate_guard(rop.GUARD_NOT_FORCED, None)
+            self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
             if vablebox is not None:
                 self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
             self.metainterp.handle_possible_exception()
@@ -1694,11 +1663,6 @@ class MetaInterp(object):
     def finishframe(self, resultbox):
         # handle a non-exceptional return from the current frame
         self.last_exc_value_box = None
-        if len(self.framestack) == 1:
-            # we should call store_token_in_vable here and not in
-            # compile_done_with_this_frame, so we have the frame to implement
-            # guard not forced
-            self.store_token_in_vable()
         self.popframe()
         if self.framestack:
             if resultbox is not None:
@@ -1764,6 +1728,44 @@ class MetaInterp(object):
                     print " ",
                 print jitcode.name
             raise AssertionError
+
+    def generate_guard(self, opnum, box=None, extraargs=[], resumepc=-1):
+        if isinstance(box, Const):    # no need for a guard
+            return
+        if box is not None:
+            moreargs = [box] + extraargs
+        else:
+            moreargs = list(extraargs)
+        metainterp_sd = self.staticdata
+        if opnum == rop.GUARD_NOT_FORCED:
+            resumedescr = compile.ResumeGuardForcedDescr(metainterp_sd,
+                                                         self.jitdriver_sd)
+        elif opnum == rop.GUARD_NOT_INVALIDATED:
+            resumedescr = compile.ResumeGuardNotInvalidated()
+        else:
+            resumedescr = compile.ResumeGuardDescr()
+        guard_op = self.history.record(opnum, moreargs, None,
+                                             descr=resumedescr)
+        self.capture_resumedata(resumedescr, resumepc)
+        self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
+        # count
+        self.attach_debug_info(guard_op)
+        return guard_op
+
+    def capture_resumedata(self, resumedescr, resumepc=-1):
+        virtualizable_boxes = None
+        if (self.jitdriver_sd.virtualizable_info is not None or
+            self.jitdriver_sd.greenfield_info is not None):
+            virtualizable_boxes = self.virtualizable_boxes
+        if self.framestack:
+            frame = self.framestack[-1]
+            saved_pc = frame.pc
+            if resumepc >= 0:
+                frame.pc = resumepc
+        resume.capture_resumedata(self.framestack, virtualizable_boxes,
+                                  self.virtualref_boxes, resumedescr)
+        if self.framestack:
+            self.framestack[-1].pc = saved_pc
 
     def create_empty_history(self):
         self.history = history.History()
@@ -2234,6 +2236,7 @@ class MetaInterp(object):
 
     def compile_done_with_this_frame(self, exitbox):
         # temporarily put a JUMP to a pseudo-loop
+        self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
         if result_type == history.VOID:
@@ -2268,8 +2271,7 @@ class MetaInterp(object):
         # in case the force_token has not been recorded, record it here
         # to make sure we know the virtualizable can be broken. However, the
         # contents of the virtualizable should be generally correct
-        assert len(self.framestack) == 1
-        self.framestack[0].generate_guard(rop.GUARD_NOT_FORCED, None)
+        self.generate_guard(rop.GUARD_NOT_FORCED, None)
         self.history.record(rop.FORCE_TOKEN, [], force_token_box)
         self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
                             None, descr=vinfo.vable_token_descr)
@@ -2414,27 +2416,25 @@ class MetaInterp(object):
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
 
     def handle_possible_exception(self):
-        frame = self.framestack[-1]
         if self.last_exc_value_box is not None:
             exception_box = self.cpu.ts.cls_of_box(self.last_exc_value_box)
-            op = frame.generate_guard(rop.GUARD_EXCEPTION,
-                                      None, [exception_box])
+            op = self.generate_guard(rop.GUARD_EXCEPTION,
+                                     None, [exception_box])
             assert op is not None
             op.result = self.last_exc_value_box
             self.class_of_last_exc_is_const = True
             self.finishframe_exception()
         else:
-            frame.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
+            self.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
 
     def handle_possible_overflow_error(self):
-        frame = self.framestack[-1]
         if self.last_exc_value_box is not None:
-            frame.generate_guard(rop.GUARD_OVERFLOW, None)
+            self.generate_guard(rop.GUARD_OVERFLOW, None)
             assert isinstance(self.last_exc_value_box, Const)
             assert self.class_of_last_exc_is_const
             self.finishframe_exception()
         else:
-            frame.generate_guard(rop.GUARD_NO_OVERFLOW, None)
+            self.generate_guard(rop.GUARD_NO_OVERFLOW, None)
 
     def assert_no_exception(self):
         assert self.last_exc_value_box is None
