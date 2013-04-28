@@ -125,7 +125,7 @@ class TestLongObject(BaseApiTest):
 
     def test_as_ulongmask(self, space, api):
         assert api.PyLong_AsUnsignedLongMask(
-            space.wrap(sys.maxsize * 2 + 1)) == 18446744073709551615
+            space.wrap(sys.maxsize * 2 + 1)) == sys.maxsize * 2 + 1
         assert api.PyLong_AsUnsignedLongMask(
             space.wrap(sys.maxsize * 2 + 2)) == 0
 
