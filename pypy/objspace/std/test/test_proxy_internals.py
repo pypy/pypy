@@ -148,11 +148,3 @@ class AppTestProxyTracebackController(AppProxy):
             pass
         lst = tproxy(A, f)
         assert get_tproxy_controller(lst) is f
-
-    def test_proxy_file(self):
-        from __pypy__ import tproxy
-
-        def f(name, *args, **kwds):
-            pass
-
-        t = tproxy(file, f)
