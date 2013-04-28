@@ -844,6 +844,23 @@ class TestCompiler:
         yield self.check, dict_w, "C4.__doc__", 'docstring'
         yield self.check, dict_w, "__doc__", None
 
+    def test_assert_skipping(self):
+        space = self.space
+        source = """if 1:
+        assert False
+        """
+        w_saved_flags = space.sys.get('flags')
+        flags_w = space.sys.get('flags').getitems_copy()
+        flags_w[6] = space.wrap(1)
+        w_flags = type(space.sys.get('flags'))(flags_w)
+        w_flags.user_setup(space, w_saved_flags.w__class__)
+        space.sys.w_dict.setitem(space.wrap('flags'), w_flags)
+        try:
+            self.run(source)
+        finally:
+            space.sys.w_dict.setitem(space.wrap('flags'), w_saved_flags)
+
+
 class AppTestCompiler:
 
     def test_docstring_not_loaded(self):

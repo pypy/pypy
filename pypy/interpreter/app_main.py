@@ -4,8 +4,8 @@
 """
 options:
   -i             inspect interactively after running script
-  -O             dummy optimization flag for compatibility with C Python
-  -OO            remove docstrings when importing modules (like CPython -OO)
+  -O             skip assert statements
+  -OO            remove docstrings when importing modules in addition to -O
   -c cmd         program passed in as CMD (terminates option list)
   -S             do not 'import site' on initialization
   -u             unbuffered binary stdout and stderr

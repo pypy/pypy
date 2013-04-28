@@ -373,6 +373,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Assert(self, asrt):
         self.update_position(asrt.lineno)
         end = self.new_block()
+        self.emit_jump(ops.JUMP_IF_NOT_DEBUG, end, True)
         asrt.test.accept_jump_if(self, True, end)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:

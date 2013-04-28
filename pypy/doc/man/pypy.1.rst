@@ -16,10 +16,10 @@ OPTIONS
     Inspect interactively after running script.
 
 -O
-    Dummy optimization flag for compatibility with C Python.
+    Skip assert statements.
 
 -OO
-    Remove docstrings when importing modules (like CPython -OO).
+    Remove docstrings when importing modules in addition to -O.
 
 -c *cmd*
     Program passed in as CMD (terminates option list).

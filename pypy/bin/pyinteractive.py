@@ -27,7 +27,7 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of pyinterac
     BoolOption("completer", "use readline commandline completer",
                default=False, cmdline="-C"),
     BoolOption("optimize",
-               "remove docstrings when importing modules (like CPython -OO)",
+               "skip assert statements and remove docstrings when importing modules",
                default=False, cmdline="-O"),
     BoolOption("no_site_import", "do not 'import site' on initialization",
                default=False, cmdline="-S"),
@@ -91,12 +91,13 @@ def main_(argv=None):
     space = option.make_objspace(config)
 
     if interactiveconfig.optimize:
-        flags = space.sys.get('flags').getitems_copy()
+        flags_w = space.sys.get('flags').getitems_copy()
         #change optimize flag's value
-        flags[6] = space.wrap(2)
-        flags = type(space.sys.get('flags'))(flags)
-        flags.user_setup(space, space.sys.get('flags').w__class__)
-        space.sys.w_dict.setitem(space.wrap('flags'), flags)
+        import pdb; pdb.set_trace()
+        flags_w[6] = space.wrap(2)
+        w_flags = type(space.sys.get('flags'))(flags_w)
+        w_flags.user_setup(space, space.sys.get('flags').w__class__)
+        space.sys.w_dict.setitem(space.wrap('flags'), w_flags)
 
     space._starttime = starttime
     space.setitem(space.sys.w_dict, space.wrap('executable'),

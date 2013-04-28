@@ -876,6 +876,15 @@ class __extend__(pyframe.PyFrame):
         self.popvalue()
         return next_instr
 
+    def JUMP_IF_NOT_DEBUG(self, target, next_instr):
+        try:
+            optimize = self.space.sys.get_flag('optimize')
+        except:
+            optimize = 0
+        if optimize >= 1:
+            return target
+        return next_instr
+
     def GET_ITER(self, oparg, next_instr):
         w_iterable = self.popvalue()
         w_iterator = self.space.iter(w_iterable)
