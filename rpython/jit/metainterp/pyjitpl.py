@@ -2461,12 +2461,13 @@ class MetaInterp(object):
         if vinfo is not None:
             self.virtualizable_boxes = virtualizable_boxes
             # just jumped away from assembler (case 4 in the comment in
-            # virtualizable.py) into tracing (case 2); check that vable_token
-            # is and stays NULL.  Note the call to reset_vable_token() in
-            # warmstate.py.
+            # virtualizable.py) into tracing (case 2); if we get the
+            # virtualizable from somewhere strange it might not be forced,
+            # do it
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            assert not vinfo.is_token_nonnull_gcref(virtualizable)
+            if vinfo.is_token_nonnull_gcref(virtualizable):
+                vinfo.clear_vable_token(virtualizable)
             # fill the virtualizable with the local boxes
             self.synchronize_virtualizable()
         #
