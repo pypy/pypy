@@ -13,7 +13,6 @@ tddium:
      - exclude: rpython/jit/backend/cli/**  # bitrotted AFAICT
      - exclude: rpython/jit/backend/llvm/** # bitrotted AFAICT
      # and things requiring a fix in Tddium, omitted to avoid confusion:
-     - exclude: pypy/tool/pytest/**  # we're running upstream pytest
      - exclude: rpython/rlib/unicodedata/test/test_ucd.py # need wide build
      - exclude: rpython/rlib/test/test_runicode.py # need wide build
      - exclude: rpython/rlib/test/test_rsocket.py # not clear why fails
