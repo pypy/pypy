@@ -89,7 +89,7 @@ class AppTestProxyObj(AppProxyBasic):
         obj = self.proxy(self.A, c.perform)
         obj.__dict__ = {'x':3}
         assert obj.x == 3
-        assert obj.__dict__.keys() == ['x']
+        assert obj.__dict__.keys() == set(['x'])
     
     def test_repr(self):
         a = self.A()
