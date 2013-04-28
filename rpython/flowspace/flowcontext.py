@@ -488,39 +488,42 @@ class FlowSpaceFrame(object):
         self.pendingblocks = collections.deque([graph.startblock])
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
-            try:
-                self.recorder = self.recording(block)
-                while True:
-                    self.last_instr = self.handle_bytecode(self.last_instr)
-                    self.recorder.final_state = self.getstate()
+            self.record_block(block)
 
-            except ImplicitOperationError, e:
-                if isinstance(e.w_type, Constant):
-                    exc_cls = e.w_type.value
-                else:
-                    exc_cls = Exception
-                msg = "implicit %s shouldn't occur" % exc_cls.__name__
-                w_type = Constant(AssertionError)
-                w_value = Constant(AssertionError(msg))
-                link = Link([w_type, w_value], graph.exceptblock)
-                self.recorder.crnt_block.closeblock(link)
+    def record_block(self, block):
+        try:
+            self.recorder = self.recording(block)
+            while True:
+                self.last_instr = self.handle_bytecode(self.last_instr)
+                self.recorder.final_state = self.getstate()
 
-            except FSException, e:
-                if e.w_type == self.space.w_ImportError:
-                    msg = 'import statement always raises %s' % e
-                    raise ImportError(msg)
-                link = Link([e.w_type, e.w_value], graph.exceptblock)
-                self.recorder.crnt_block.closeblock(link)
+        except ImplicitOperationError, e:
+            if isinstance(e.w_type, Constant):
+                exc_cls = e.w_type.value
+            else:
+                exc_cls = Exception
+            msg = "implicit %s shouldn't occur" % exc_cls.__name__
+            w_type = Constant(AssertionError)
+            w_value = Constant(AssertionError(msg))
+            link = Link([w_type, w_value], self.graph.exceptblock)
+            self.recorder.crnt_block.closeblock(link)
 
-            except StopFlowing:
-                pass
+        except FSException, e:
+            if e.w_type == self.space.w_ImportError:
+                msg = 'import statement always raises %s' % e
+                raise ImportError(msg)
+            link = Link([e.w_type, e.w_value], self.graph.exceptblock)
+            self.recorder.crnt_block.closeblock(link)
 
-            except Return as exc:
-                w_result = exc.value
-                link = Link([w_result], graph.returnblock)
-                self.recorder.crnt_block.closeblock(link)
+        except StopFlowing:
+            pass
 
-        del self.recorder
+        except Return as exc:
+            w_result = exc.value
+            link = Link([w_result], self.graph.returnblock)
+            self.recorder.crnt_block.closeblock(link)
+
+        self.recorder = None
 
     def mergeblock(self, currentblock, currentstate):
         next_instr = currentstate.next_instr
