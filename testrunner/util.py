@@ -97,7 +97,6 @@ def should_report_failure(logdata):
     return True
 
 
-
 def busywait(p, timeout):
     t0 = time.time()
     delay = 0.5
@@ -112,27 +111,29 @@ def busywait(p, timeout):
         delay = min(delay * 1.15, 7.2)
 
 
+def _format_failure(exitcode, test):
+    if exitcode > 0:
+        msg = "Exit code %d." % exitcode
+    elif exitcode == TIMEDOUT:
+        msg = "TIMEOUT"
+    elif exitcode == RUNFAILED:
+        msg = "Failed to run interp"
+    elif exitcode == EXECUTEFAILED:
+        msg = "Failed with exception in execute-test"
+    else:
+        msg = "Killed by %s." % getsignalname(-exitcode)
+    return "! %s\n %s\n" % (test, msg)
+
 
 def interpret_exitcode(exitcode, test, logdata=""):
     extralog = ""
     if exitcode:
         failure = True
         if exitcode != 1 or should_report_failure(logdata):
-            if exitcode > 0:
-                msg = "Exit code %d." % exitcode
-            elif exitcode == TIMEDOUT:
-                msg = "TIMEOUT"
-            elif exitcode == RUNFAILED:
-                msg = "Failed to run interp"
-            elif exitcode == EXECUTEFAILED:
-                msg = "Failed with exception in execute-test"
-            else:
-                msg = "Killed by %s." % getsignalname(-exitcode)
-            extralog = "! %s\n %s\n" % (test, msg)
+            extralog = _format_failure(exitcode, test)
     else:
         failure = False
     return failure, extralog
-
 
 
 def run(args, cwd, out, timeout=None):
