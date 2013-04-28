@@ -1354,12 +1354,12 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertRaises(TypeError, "hello".encode, 42, 42, 42)
 
         # Error handling (lone surrogate in PyUnicode_TransformDecimalToASCII())
-        self.assertRaises(UnicodeError, int, "\ud800")
-        self.assertRaises(UnicodeError, int, "\udf00")
-        self.assertRaises(UnicodeError, float, "\ud800")
-        self.assertRaises(UnicodeError, float, "\udf00")
-        self.assertRaises(UnicodeError, complex, "\ud800")
-        self.assertRaises(UnicodeError, complex, "\udf00")
+        self.assertRaises((UnicodeError, ValueError), int, "\ud800")
+        self.assertRaises((UnicodeError, ValueError), int, "\udf00")
+        self.assertRaises((UnicodeError, ValueError), float, "\ud800")
+        self.assertRaises((UnicodeError, ValueError), float, "\udf00")
+        self.assertRaises((UnicodeError, ValueError), complex, "\ud800")
+        self.assertRaises((UnicodeError, ValueError), complex, "\udf00")
 
     def test_codecs(self):
         # Encoding
