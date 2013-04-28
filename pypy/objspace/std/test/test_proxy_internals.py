@@ -136,7 +136,7 @@ class AppTestProxyTracebackController(AppProxy):
         except:
             e = sys.exc_info()
 
-        assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])
+        assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])[1:]
 
     def test_proxy_get(self):
         from __pypy__ import tproxy, get_tproxy_controller
