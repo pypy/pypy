@@ -631,6 +631,19 @@ class AppTestBufferedRandom:
                 f.flush()
                 assert raw.getvalue() == b'1b\n2def\n3\n'
 
+    def test_readline(self):
+        import _io as io
+        with io.BytesIO(b"abc\ndef\nxyzzy\nfoo\x00bar\nanother line") as raw:
+            with io.BufferedRandom(raw, buffer_size=10) as f:
+                assert f.readline() == b"abc\n"
+                assert f.readline(10) == b"def\n"
+                assert f.readline(2) == b"xy"
+                assert f.readline(4) == b"zzy\n"
+                assert f.readline() == b"foo\x00bar\n"
+                assert f.readline(None) == b"another line"
+                raises(TypeError, f.readline, 5.3)
+
+
 class TestNonReentrantLock:
     spaceconfig = dict(usemodules=['thread'])
 

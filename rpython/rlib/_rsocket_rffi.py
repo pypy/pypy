@@ -3,7 +3,6 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem.rffi import CCHARP
-from rpython.rlib.rposix import get_errno as geterrno
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as target_platform
 
@@ -82,11 +81,14 @@ if _WIN32:
             '#define RCVALL_ON              1',
             '#define RCVALL_SOCKETLEVELONLY 2',
             '''\
+            #ifndef __MINGW32__
             struct tcp_keepalive {
                 u_long  onoff;
                 u_long  keepalivetime;
                 u_long  keepaliveinterval;
-            };'''
+            };
+            #endif
+            '''
             ])
     HEADER = '\n'.join(header_lines)
     COND_HEADER = ''
@@ -262,7 +264,7 @@ CConfig.sockaddr = platform.Struct('struct sockaddr',
 CConfig.in_addr = platform.Struct('struct in_addr',
                                          [('s_addr', rffi.UINT)])
 CConfig.in6_addr = platform.Struct('struct in6_addr',
-                                          [])
+                                          [('s6_addr', rffi.CFixedArray(rffi.CHAR, 16))])
 CConfig.sockaddr_in = platform.Struct('struct sockaddr_in',
                                         [('sin_family', rffi.INT),
                                          ('sin_port',   rffi.USHORT),
@@ -344,7 +346,7 @@ if _WIN32:
          ])
 
     CConfig.WSAPROTOCOL_INFO = platform.Struct(
-        'WSAPROTOCOL_INFO',
+        'WSAPROTOCOL_INFOA',
         [])  # Struct is just passed between functions
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
@@ -610,11 +612,11 @@ elif WIN32:
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
     FROM_PROTOCOL_INFO = cConfig.FROM_PROTOCOL_INFO
-    WSADuplicateSocket = external('WSADuplicateSocket', 
+    WSADuplicateSocket = external('WSADuplicateSocketA', 
                                   [socketfd_type, rwin32.DWORD,
                                    lltype.Ptr(WSAPROTOCOL_INFO)],
                                   rffi.INT)
-    WSASocket = external('WSASocket', 
+    WSASocket = external('WSASocketA', 
                          [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(WSAPROTOCOL_INFO),
                           rwin32.DWORD, rwin32.DWORD],
@@ -635,6 +637,8 @@ if WIN32:
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
 else:
+    from rpython.rlib.rposix import get_errno as geterrno
+
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))

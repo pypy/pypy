@@ -4,6 +4,7 @@
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
 import py
+
 from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 from rpython.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
@@ -180,9 +181,9 @@ class Link(object):
 class Block(object):
     __slots__ = """inputargs operations exitswitch
                 exits blockcolor""".split()
-    
+
     def __init__(self, inputargs):
-        self.inputargs = list(inputargs)  # mixed list of variable/const XXX 
+        self.inputargs = list(inputargs)  # mixed list of variable/const XXX
         self.operations = []              # list of SpaceOperation(s)
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
@@ -205,7 +206,7 @@ class Block(object):
             else:
                 txt = "codeless block"
         return txt
-    
+
     def __repr__(self):
         txt = "%s with %d exits" % (str(self), len(self.exits))
         if self.exitswitch:
@@ -241,7 +242,7 @@ class Block(object):
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
         self.recloseblock(*exits)
-        
+
     def recloseblock(self, *exits):
         for exit in exits:
             exit.prevblock = self
@@ -274,7 +275,7 @@ class Variable(object):
     def renamed(self):
         return self._name is not self.dummyname
     renamed = property(renamed)
-    
+
     def __init__(self, name=None):
         self._name = self.dummyname
         self._nr = -1
@@ -341,7 +342,7 @@ class SpaceOperation(object):
         self.offset = offset      # offset in code string
 
     def __eq__(self, other):
-        return (self.__class__ is other.__class__ and 
+        return (self.__class__ is other.__class__ and
                 self.opname == other.opname and
                 self.args == other.args and
                 self.result == other.result)

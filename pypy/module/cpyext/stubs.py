@@ -1395,13 +1395,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.SIZE_T], PyObject)
-def PyLong_FromSize_t(space, v):
-    """Return a new PyLongObject object from a C size_t, or
-    NULL on failure.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.INT_real], PyObject)
 def PyLong_FromUnicode(space, u, length, base):
     """Convert a sequence of Unicode digits to a Python long integer value.  The first

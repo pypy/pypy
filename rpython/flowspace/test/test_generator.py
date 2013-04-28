@@ -1,5 +1,5 @@
 from rpython.conftest import option
-from rpython.flowspace.objspace import FlowObjSpace
+from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.model import Variable
 from rpython.flowspace.generator import (make_generatoriterator_class,
         replace_graph_with_bootstrap, get_variable_names, attach_next_method)
@@ -67,7 +67,7 @@ class TestGenerator:
             yield n
             yield n
         #
-        graph = FlowObjSpace().build_flow(func)
+        graph = build_flow(func)
         if option.view:
             graph.show()
         block = graph.startblock
@@ -93,8 +93,7 @@ class TestGenerator:
             yield n + 1
             z -= 10
         #
-        space = FlowObjSpace()
-        graph = space.build_flow(f)
+        graph = build_flow(f)
         GeneratorIterator = make_generatoriterator_class(graph)
         replace_graph_with_bootstrap(GeneratorIterator, graph)
         func1 = attach_next_method(GeneratorIterator, graph)
@@ -104,12 +103,12 @@ class TestGenerator:
         assert func1._generator_next_method_of_ is GeneratorIterator
         assert hasattr(GeneratorIterator, 'next')
         #
-        graph_next = space.build_flow(GeneratorIterator.next.im_func)
+        graph_next = build_flow(GeneratorIterator.next.im_func)
         join_blocks(graph_next)
         if option.view:
             graph_next.show()
         #
-        graph1 = space.build_flow(func1)
+        graph1 = build_flow(func1)
         if option.view:
             graph1.show()
 
@@ -119,7 +118,7 @@ class TestGenerator:
             yield n + 1
             z -= 10
         #
-        graph = FlowObjSpace().build_flow(f)
+        graph = build_flow(f)
         if option.view:
             graph.show()
         block = graph.startblock

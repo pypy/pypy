@@ -1185,6 +1185,30 @@ class MIFrame(object):
     def opimpl_ll_read_timestamp(self):
         return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
 
+    @arguments("box", "box", "box")
+    def opimpl_libffi_save_result_int(self, box_cif_description, box_exchange_buffer,
+                                      box_result):
+        from rpython.rtyper.lltypesystem import llmemory
+        from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
+        from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
+
+        cif_description = box_cif_description.getint()
+        cif_description = llmemory.cast_int_to_adr(cif_description)
+        cif_description = llmemory.cast_adr_to_ptr(cif_description,
+                                                   CIF_DESCRIPTION_P)
+
+        kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
+        
+        if kind != 'v':
+            ofs = cif_description.exchange_result
+            assert ofs % itemsize == 0     # alignment check (result)
+            self.metainterp.history.record(rop.SETARRAYITEM_RAW,
+                                           [box_exchange_buffer,
+                                            ConstInt(ofs // itemsize), box_result],
+                                           None, descr)
+
+    opimpl_libffi_save_result_float = opimpl_libffi_save_result_int
+
     # ------------------------------
 
     def setup_call(self, argboxes):
@@ -1296,7 +1320,7 @@ class MIFrame(object):
             self.make_result_of_lastop(resbox)
             # ^^^ this is done before handle_possible_exception() because we
             # need the box to show up in get_list_of_active_boxes()
-        if pure and self.metainterp.last_exc_value_box is None:
+        if pure and self.metainterp.last_exc_value_box is None and resbox:
             resbox = self.metainterp.record_result_of_call_pure(resbox)
             exc = exc and not isinstance(resbox, Const)
         if exc:
@@ -1420,6 +1444,11 @@ class MetaInterpStaticData(object):
         self._addr2name_values = []
 
         self.__dict__.update(compile.make_done_loop_tokens())
+        for val in ['int', 'float', 'ref', 'void']:
+            fullname = 'done_with_this_frame_descr_' + val
+            setattr(self.cpu, fullname, getattr(self, fullname))
+        d = self.exit_frame_with_exception_descr_ref
+        self.cpu.exit_frame_with_exception_descr_ref = d
 
     def _freeze_(self):
         return True
@@ -1470,12 +1499,9 @@ class MetaInterpStaticData(object):
                     history.VOID: 'void'}[jd.result_type]
             tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
             jd.portal_finishtoken = tokens[0].finishdescr
-            num = self.cpu.get_fail_descr_number(tokens[0].finishdescr)
-            setattr(self.cpu, 'done_with_this_frame_%s_v' % name, num)
             jd.propagate_exc_descr = exc_descr
         #
-        num = self.cpu.get_fail_descr_number(exc_descr)
-        self.cpu.propagate_exception_v = num
+        self.cpu.propagate_exception_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
 
@@ -2289,7 +2315,7 @@ class MetaInterp(object):
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             vinfo.tracing_before_residual_call(virtualizable)
             #
-            force_token_box = history.BoxInt()
+            force_token_box = history.BoxPtr()
             self.history.record(rop.FORCE_TOKEN, [], force_token_box)
             self.history.record(rop.SETFIELD_GC, [virtualizable_box,
                                                   force_token_box],
@@ -2382,7 +2408,7 @@ class MetaInterp(object):
             self.virtualizable_boxes = virtualizable_boxes
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
-            # is and stays 0.  Note the call to reset_vable_token() in
+            # is and stays NULL.  Note the call to reset_vable_token() in
             # warmstate.py.
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
@@ -2569,6 +2595,7 @@ class MetaInterp(object):
         box_exchange_buffer = op.getarg(3)
         self.history.operations.pop()
         arg_boxes = []
+
         for i in range(cif_description.nargs):
             kind, descr, itemsize = get_arg_descr(self.cpu,
                                                   cif_description.atypes[i])
@@ -2587,27 +2614,15 @@ class MetaInterp(object):
                                 box_arg, descr)
             arg_boxes.append(box_arg)
         #
-        kind, descr, itemsize = get_arg_descr(self.cpu, cif_description.rtype)
-        if kind == 'i':
-            box_result = history.BoxInt()
-        elif kind == 'f':
-            box_result = history.BoxFloat()
-        else:
-            assert kind == 'v'
-            box_result = None
+        box_result = op.result
         self.history.record(rop.CALL_RELEASE_GIL,
                             [op.getarg(2)] + arg_boxes,
                             box_result, calldescr)
         #
         self.history.operations.extend(extra_guards)
         #
-        if box_result is not None:
-            ofs = cif_description.exchange_result
-            assert ofs % itemsize == 0     # alignment check (result)
-            self.history.record(rop.SETARRAYITEM_RAW,
-                                [box_exchange_buffer,
-                                 ConstInt(ofs // itemsize), box_result],
-                                None, descr)
+        # note that the result is written back to the exchange_buffer by the
+        # special op libffi_save_result_{int,float}
 
     def direct_call_release_gil(self):
         op = self.history.operations.pop()

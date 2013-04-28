@@ -2,15 +2,11 @@
 Enums.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt
-from rpython.rtyper.lltypesystem import rffi
-from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib.objectmodel import specialize
 
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUnsigned
 from pypy.module._cffi_backend import misc
+from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
+    W_CTypePrimitiveUnsigned)
 
 
 class _Mixin_Enum(object):

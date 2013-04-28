@@ -1,7 +1,7 @@
 import operator
-from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import model, newformat
+from pypy.objspace.std.floattype import float_typedef, W_AbstractFloatObject
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
@@ -19,41 +19,33 @@ from rpython.tool.sourcetools import func_with_new_name
 import math
 from pypy.objspace.std.intobject import W_IntObject
 
-class W_AbstractFloatObject(W_Object):
-    __slots__ = ()
-
-    def is_w(self, space, w_other):
-        from rpython.rlib.longlong2float import float2longlong
-        if not isinstance(w_other, W_AbstractFloatObject):
-            return False
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return self is w_other
-        one = float2longlong(space.float_w(self))
-        two = float2longlong(space.float_w(w_other))
-        return one == two
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        from rpython.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_FLOAT as tag
-        val = float2longlong(space.float_w(self))
-        b = rbigint.fromrarith_int(val)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(b)
-
 
 class W_FloatObject(W_AbstractFloatObject):
     """This is a implementation of the app-level 'float' type.
     The constructor takes an RPython float as an argument."""
-    from pypy.objspace.std.floattype import float_typedef as typedef
     _immutable_fields_ = ['floatval']
+
+    typedef = float_typedef
 
     def __init__(w_self, floatval):
         w_self.floatval = floatval
 
     def unwrap(w_self, space):
         return w_self.floatval
+
+    def float_w(self, space):
+        return self.floatval
+
+    def int(self, space):
+        if (type(self) is not W_FloatObject and
+            space.is_overloaded(self, space.w_float, '__int__')):
+            return W_Object.int(self, space)
+        try:
+            value = ovfcheck_float_to_int(self.floatval)
+        except OverflowError:
+            return space.long(self)
+        else:
+            return space.newint(value)
 
     def __repr__(self):
         return "<W_FloatObject(%f)>" % self.floatval
@@ -86,14 +78,6 @@ def float__Float(space, w_float1):
     a = w_float1.floatval
     return W_FloatObject(a)
 
-def int__Float(space, w_value):
-    try:
-        value = ovfcheck_float_to_int(w_value.floatval)
-    except OverflowError:
-        return space.long(w_value)
-    else:
-        return space.newint(value)
-
 def long__Float(space, w_floatobj):
     try:
         return W_LongObject.fromfloat(space, w_floatobj.floatval)
@@ -113,9 +97,6 @@ def trunc__Float(space, w_floatobj):
         return long__Float(space, w_floatobj)
     else:
         return space.newint(value)
-
-def float_w__Float(space, w_float):
-    return w_float.floatval
 
 def _char_from_hex(number):
     return "0123456789abcdef"[number]

@@ -5,9 +5,8 @@ rebuild.rebuild_one('resource.ctc.py')
 
 import os
 
-from lib_pypy._pypy_wait import wait3, wait4
-
 if hasattr(os, 'wait3'):
+    from lib_pypy._pypy_wait import wait3
     def test_os_wait3():
         exit_status = 0x33
 
@@ -26,6 +25,7 @@ if hasattr(os, 'wait3'):
             assert isinstance(rusage.ru_maxrss, int)
 
 if hasattr(os, 'wait4'):
+    from lib_pypy._pypy_wait import wait4
     def test_os_wait4():
         exit_status = 0x33
 

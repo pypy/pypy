@@ -9,18 +9,23 @@ pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
 incpath = pkgpath.join("include")
 
+import commands
+(config_stat, incdir) = commands.getstatusoutput("root-config --incdir")
+
 if os.environ.get("ROOTSYS"):
-    import commands
-    (stat, incdir) = commands.getstatusoutput("root-config --incdir")
-    if stat != 0:        # presumably Reflex-only
+    if config_stat != 0:     # presumably Reflex-only
         rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
         rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib64"), os.path.join(os.environ["ROOTSYS"], "lib")]
     else:
         rootincpath = [incdir]
         rootlibpath = commands.getoutput("root-config --libdir").split()
 else:
-    rootincpath = []
-    rootlibpath = []
+    if config_stat == 0:
+        rootincpath = [incdir]
+        rootlibpath = commands.getoutput("root-config --libdir").split()
+    else:
+        rootincpath = []
+        rootlibpath = []
 
 def identify():
     return 'Reflex'

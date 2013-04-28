@@ -201,7 +201,10 @@ class RunParam(object):
             p = self.root
 
         reldir = self.reltoroot(p)
-        entries = [p1 for p1 in p.listdir() if p1.check(dotfile=0)]
+        if p.check():
+            entries = [p1 for p1 in p.listdir() if p1.check(dotfile=0)]
+        else:
+            entries = []
         entries.sort()
 
         if p != self.root:

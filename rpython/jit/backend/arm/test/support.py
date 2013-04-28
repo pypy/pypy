@@ -39,6 +39,11 @@ def requires_arm_as():
     i = commands.getoutput("%s -version </dev/null -o /dev/null 2>&1" % AS)
     check_skip(i)
 
+def get_as_version():
+    import commands
+    i = commands.getoutput("%s -v </dev/null -o /dev/null 2>&1" % AS)
+    return tuple([int(j) for j in i.split()[-1].split('.')])
+
 def check_skip(inp, search='arm', msg='only for arm'):
     skip = True
     try:

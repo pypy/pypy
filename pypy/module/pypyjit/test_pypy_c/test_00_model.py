@@ -75,6 +75,7 @@ class BaseTestPyPyC(object):
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(rawtraces)
         log.result = eval(stdout)
+        log.logfile = str(logfile)
         #
         summaries  = logparser.extract_category(rawlog, 'jit-summary')
         if len(summaries) > 0:
@@ -496,7 +497,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             i10 = getfield_raw(..., descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
         #
         assert loop.match("""
@@ -504,7 +505,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
         #
         py.test.raises(InvalidMatch, loop.match, """
@@ -512,7 +513,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
             --TICK--
-            jump(p0, p1, p2, p3, i8, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_match_by_id(self):

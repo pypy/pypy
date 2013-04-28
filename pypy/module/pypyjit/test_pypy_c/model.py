@@ -117,7 +117,7 @@ class TraceWithIds(Function):
         #
         # 2. compute the ids of all the inlined functions
         for chunk in self.chunks:
-            if isinstance(chunk, TraceWithIds):
+            if isinstance(chunk, TraceWithIds) and chunk.code:
                 chunk.compute_ids(ids)
 
     def get_set_of_opcodes(self):

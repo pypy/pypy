@@ -8,7 +8,6 @@ import _rawffi
 import _ffi
 import sys
 import traceback
-import warnings
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -160,11 +159,11 @@ class CFuncPtr(_CData):
                 callable(restype)):
             raise TypeError("restype must be a type, a callable, or None")
         self._restype_ = restype
-        
+
     def _delrestype(self):
         self._ptr = None
         del self._restype_
-        
+
     restype = property(_getrestype, _setrestype, _delrestype)
 
     def _geterrcheck(self):
@@ -224,7 +223,7 @@ class CFuncPtr(_CData):
             self._check_argtypes_for_fastpath()
             return
 
-        
+
         # A callback into python
         if callable(argument) and not argsl:
             self.callable = argument
@@ -277,7 +276,7 @@ class CFuncPtr(_CData):
                         for argtype, arg in zip(argtypes, args)]
             return to_call(*args)
         return f
-    
+
     def __call__(self, *args, **kwargs):
         argtypes = self._argtypes_
         if self.callable is not None:
@@ -315,8 +314,12 @@ class CFuncPtr(_CData):
             return
 
         if argtypes is None:
-            warnings.warn('C function without declared arguments called',
-                          RuntimeWarning, stacklevel=2)
+            # XXX this warning was originally meaning "it's going to be
+            # really slow".  Now we don't worry that much about slowness
+            # of ctypes, and it's strange to get warnings for perfectly-
+            # legal code.
+            #warnings.warn('C function without declared arguments called',
+            #              RuntimeWarning, stacklevel=2)
             argtypes = []
 
         if self._com_index:
@@ -342,6 +345,7 @@ class CFuncPtr(_CData):
         if not outargs:
             return result
 
+        from ctypes import c_void_p
         simple_cdata = type(c_void_p()).__bases__[0]
         outargs = [x.value if type(x).__bases__[0] is simple_cdata else x
                    for x in outargs]
@@ -577,7 +581,7 @@ class CFuncPtr(_CData):
     @staticmethod
     def _is_primitive(argtype):
         return argtype.__bases__[0] is _SimpleCData
-    
+
     def _wrap_result(self, restype, result):
         """
         Convert from low-level repr of the result to the high-level python

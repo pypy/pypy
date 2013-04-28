@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
@@ -59,7 +59,8 @@ def cfunction_dealloc(space, py_obj):
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
 
-class W_PyCFunctionObject(Wrappable):
+
+class W_PyCFunctionObject(W_Root):
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
         self.name = rffi.charp2str(self.ml.c_ml_name)
@@ -144,7 +145,7 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
         return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space)))
 
 
-class W_PyCWrapperObject(Wrappable):
+class W_PyCWrapperObject(W_Root):
     def __init__(self, space, pto, method_name, wrapper_func, wrapper_func_kwds,
             doc, func):
         self.space = space

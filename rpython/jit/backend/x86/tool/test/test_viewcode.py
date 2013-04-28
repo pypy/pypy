@@ -1,6 +1,6 @@
 from cStringIO import StringIO
-from rpython.jit.backend.x86.tool.viewcode import format_code_dump_with_labels
-from rpython.jit.backend.x86.tool.viewcode import find_objdump
+from rpython.jit.backend.tool.viewcode import format_code_dump_with_labels
+from rpython.jit.backend.tool.viewcode import find_objdump
 import os
 import py
 import tempfile

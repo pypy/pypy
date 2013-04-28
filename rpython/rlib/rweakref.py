@@ -68,7 +68,6 @@ class RWeakKeyDictionary(object):
 
 from rpython.rtyper import extregistry
 from rpython.annotator import model as annmodel
-from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.tool.pairtype import pairtype
 
 class Entry(extregistry.ExtRegistryEntry):
@@ -95,7 +94,7 @@ class SomeWeakValueDict(annmodel.SomeObject):
     def rtyper_makerepr(self, rtyper):
         from rpython.rlib import _rweakvaldict
         return _rweakvaldict.WeakValueDictRepr(rtyper,
-                                               rtyper.makerepr(self.s_key))
+                                               rtyper.getrepr(self.s_key))
 
     def rtyper_makekey_ex(self, rtyper):
         return self.__class__,
