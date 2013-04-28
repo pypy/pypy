@@ -42,16 +42,16 @@ class W_CData(W_Root):
 
     def repr(self):
         extra2 = self._repr_extra()
-        extra1 = ''
+        extra1 = u''
         if not isinstance(self, W_CDataNewOwning):
             # it's slightly confusing to get "<cdata 'struct foo' 0x...>"
             # because the struct foo is not owned.  Trying to make it
             # clearer, write in this case "<cdata 'struct foo &' 0x...>".
             from pypy.module._cffi_backend import ctypestruct
             if isinstance(self.ctype, ctypestruct.W_CTypeStructOrUnion):
-                extra1 = ' &'
-        return self.space.wrap("<cdata '%s%s' %s>" % (
-            self.ctype.name, extra1, extra2))
+                extra1 = u' &'
+        return self.space.wrap(u"<cdata '%s%s' %s>" % (
+            self.ctype.name.decode('utf-8'), extra1, extra2.decode('utf-8')))
 
     def bool(self):
         return self.space.wrap(bool(self._cdata))
