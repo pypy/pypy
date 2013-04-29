@@ -2104,6 +2104,9 @@ def test_buffer():
     py.test.raises(ValueError, 'buf[:] = b"this is much too long!"')
     buf[4:2] = b""   # no effect, but should work
     assert buf[:] == b"hi there\x00"
+    buf[:2] = b"HI"
+    assert buf[:] == b"HI there\x00"
+    buf[:2] = b"hi"
     expected = list(map(bitem2bchr, b"hi there\x00"))
     x = 0
     for i in range(-12, 12):
