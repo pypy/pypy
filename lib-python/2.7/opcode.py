@@ -193,6 +193,6 @@ def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
 def_op('BUILD_LIST_FROM_ARG', 203)
-jabs_op('JUMP_IF_NOT_DEBUG', 204)     # Target address
+jrel_op('JUMP_IF_NOT_DEBUG', 204)     # Target address
 
 del def_op, name_op, jrel_op, jabs_op

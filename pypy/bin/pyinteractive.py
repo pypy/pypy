@@ -95,12 +95,14 @@ def main_(argv=None):
                   space.wrap(argv[0]))
 
     if interactiveconfig.optimize:
-        #change the optimize flag's value
+        #change the optimize flag's value and set __debug__ to False
         space.appexec([], """():
             import sys
             flags = list(sys.flags)
             flags[6] = 2
             sys.flags = type(sys.flags)(flags)
+            import __builtin__
+            setattr(__builtin__, '__debug__', False)
         """)
 
     # call pypy_find_stdlib: the side-effect is that it sets sys.prefix and

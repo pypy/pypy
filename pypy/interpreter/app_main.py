@@ -450,6 +450,10 @@ def parse_command_line(argv):
         sys.py3kwarning = bool(sys.flags.py3k_warning)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
+        if sys.flags.optimize >= 1:
+            import __builtin__
+            setattr(__builtin__, '__debug__', False)
+
         if sys.py3kwarning:
             print >> sys.stderr, (
                 "Warning: pypy does not implement py3k warnings")
