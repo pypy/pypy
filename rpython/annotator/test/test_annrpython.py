@@ -3837,6 +3837,16 @@ class TestAnnotateTestCase:
         s = a.build_types(fn, [int])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_reversed(self):
+        def fn(n):
+            for elem in reversed([1, 2, 3, 4, 5]):
+                return elem
+            return n
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
     def test_no_attr_on_common_exception_classes(self):
         for cls in [ValueError, Exception]:
             def fn():

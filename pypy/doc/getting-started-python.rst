@@ -46,7 +46,7 @@ the version you have is not 4.2 or you will run into `this bug`_.
 2. Install build-time dependencies.  On a Debian box these are::
 
      [user@debian-box ~]$ sudo apt-get install \
-     gcc make python-dev libffi-dev lib-sqlite3-dev pkg-config \
+     gcc make python-dev libffi-dev libsqlite3-dev pkg-config \
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 

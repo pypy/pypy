@@ -616,7 +616,10 @@ class __extend__(SomeIterator):
         if itr.variant == ("enumerate",):
             s_item = itr.s_container.getanyitem()
             return SomeTuple((SomeInteger(nonneg=True), s_item))
-        return itr.s_container.getanyitem(*itr.variant)
+        variant = itr.variant
+        if variant == ("reversed",):
+            variant = ()
+        return itr.s_container.getanyitem(*variant)
     next.can_only_throw = _can_only_throw
     method_next = next
 
