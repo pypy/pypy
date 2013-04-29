@@ -57,6 +57,7 @@ class Module(MixedModule):
         'newlist_hint'              : 'interp_magic.newlist_hint',
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
+        'set_debug'                 : 'interp_magic.set_debug',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

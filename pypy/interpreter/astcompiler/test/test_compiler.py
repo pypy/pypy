@@ -846,21 +846,17 @@ class TestCompiler:
 
     def test_assert_skipping(self):
         space = self.space
+        mod = space.getbuiltinmodule('__pypy__')
+        w_set_debug = space.getattr(mod, space.wrap('set_debug'))
+        space.call_function(w_set_debug, space.w_False)
+
         source = """if 1:
         assert False
         """
-        w_saved_flags = space.sys.get('flags')
-        space.appexec([], """():
-            import sys
-            flags = list(sys.flags)
-            flags[6] = 2
-            sys.flags = type(sys.flags)(flags)
-        """)
-
         try:
             self.run(source)
         finally:
-            space.sys.w_dict.setitem(space.wrap('flags'), w_saved_flags)
+            space.call_function(w_set_debug, space.w_True)
 
 
 class AppTestCompiler:

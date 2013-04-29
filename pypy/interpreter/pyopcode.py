@@ -877,11 +877,7 @@ class __extend__(pyframe.PyFrame):
         return next_instr
 
     def JUMP_IF_NOT_DEBUG(self, target, next_instr):
-        try:
-            optimize = self.space.sys.get_flag('optimize')
-        except:
-            optimize = 0
-        if optimize >= 1:
+        if not self.space.sys.debug:
             return target
         return next_instr
 

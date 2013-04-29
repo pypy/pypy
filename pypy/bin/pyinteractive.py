@@ -101,8 +101,8 @@ def main_(argv=None):
             flags = list(sys.flags)
             flags[6] = 2
             sys.flags = type(sys.flags)(flags)
-            import __builtin__
-            setattr(__builtin__, '__debug__', False)
+            import __pypy__
+            __pypy__.set_debug(False)
         """)
 
     # call pypy_find_stdlib: the side-effect is that it sets sys.prefix and

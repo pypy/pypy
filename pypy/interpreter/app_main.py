@@ -451,8 +451,8 @@ def parse_command_line(argv):
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
         if sys.flags.optimize >= 1:
-            import __builtin__
-            setattr(__builtin__, '__debug__', False)
+            import __pypy__
+            __pypy__.set_debug(False)
 
         if sys.py3kwarning:
             print >> sys.stderr, (
