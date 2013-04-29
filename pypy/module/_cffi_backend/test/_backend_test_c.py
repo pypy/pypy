@@ -2136,6 +2136,7 @@ def test_errno():
 def test_errno_callback():
     if globals().get('PY_DOT_PY') == '2.5':
         py.test.skip("cannot run this test on py.py with Python 2.5")
+    set_errno(95)
     def cb():
         e = get_errno()
         set_errno(e - 6)

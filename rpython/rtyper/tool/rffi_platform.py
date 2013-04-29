@@ -721,6 +721,8 @@ def run_example_code(filepath, eci, ignore_errors=False):
     eci = eci.convert_sources_to_files()
     files = [filepath]
     output = build_executable_cache(files, eci, ignore_errors=ignore_errors)
+    if not output.startswith('-+- '):
+        raise Exception("run_example_code failed!\nlocals = %r" % (locals(),))
     section = None
     for line in output.splitlines():
         line = line.strip()
