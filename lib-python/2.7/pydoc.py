@@ -1953,7 +1953,11 @@ class ModuleScanner:
                 if key is None:
                     callback(None, modname, '')
                 else:
-                    desc = split(__import__(modname).__doc__ or '', '\n')[0]
+                    try:
+                        module_doc = __import__(modname).__doc__
+                    except ImportError:
+                        module_doc = None
+                    desc = split(module_doc or '', '\n')[0]
                     if find(lower(modname + ' - ' + desc), key) >= 0:
                         callback(None, modname, desc)
 
