@@ -17,10 +17,10 @@ def make_checker():
 def test_wrap_interp2app():
     see, check = make_checker()
     space = FakeObjSpace()
-    assert len(space._seen_extras) == 0
+    assert len(space._seen_extras) == 1
     assert len(check) == 0
     space.wrap(interp2app(lambda space: see()))
-    assert len(space._seen_extras) == 1
+    assert len(space._seen_extras) == 2
     assert len(check) == 0
     space.translates()
     assert len(check) == 1
