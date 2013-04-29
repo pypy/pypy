@@ -222,7 +222,7 @@ class PyCode(eval.Code):
         if self.co_flags & CO_KILL_DOCSTRING:
             self.co_consts_w[0] = space.w_None
         for w_co in self.co_consts_w:
-            if isinstance(co_w, PyCode):
+            if isinstance(w_co, PyCode):
                 w_co.remove_docstrings(space)
 
     def _to_code(self):
