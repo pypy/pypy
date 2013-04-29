@@ -221,9 +221,9 @@ class PyCode(eval.Code):
     def remove_docstrings(self, space):
         if self.co_flags & CO_KILL_DOCSTRING:
             self.co_consts_w[0] = space.w_None
-        for co_w in self.co_consts_w:
+        for w_co in self.co_consts_w:
             if isinstance(co_w, PyCode):
-                co_w.remove_docstrings(space)
+                w_co.remove_docstrings(space)
 
     def _to_code(self):
         """For debugging only."""

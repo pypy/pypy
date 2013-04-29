@@ -104,7 +104,6 @@ def newlist_hint(space, sizehint):
 
 @unwrap_spec(debug=bool)
 def set_debug(space, debug):
-    print debug
     space.sys.debug = debug
     space.setitem(space.builtin.w_dict,
                   space.wrap('__debug__'),

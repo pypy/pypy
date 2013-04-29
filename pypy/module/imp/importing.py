@@ -915,7 +915,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
 
     try:
         optimize = space.sys.get_flag('optimize')
-    except:
+    except Exception:
         optimize = 0
     if optimize >= 2:
         code_w.remove_docstrings(space)
@@ -1016,7 +1016,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     code_w = read_compiled_module(space, cpathname, source)
     try:
         optimize = space.sys.get_flag('optimize')
-    except:
+    except Exception:
         optimize = 0
     if optimize >= 2:
         code_w.remove_docstrings(space)
