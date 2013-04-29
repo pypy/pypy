@@ -2,7 +2,7 @@
 
 import os
 
-from pypy.translator.platform.bsd import BSD
+from rpython.translator.platform.bsd import BSD
 
 class OpenBSD(BSD):
     name = "openbsd"
