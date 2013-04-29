@@ -3,7 +3,7 @@ from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.jit import unroll_safe, dont_look_inside, promote
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import fatalerror
-from rpython.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.jit.metainterp.warmspot import get_stats
