@@ -1269,6 +1269,3 @@ class RecursiveTests:
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
-
-class TestOOtype(RecursiveTests, OOJitMixin):
-    pass
