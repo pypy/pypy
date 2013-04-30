@@ -84,12 +84,14 @@ class AppTestFFI(BaseAppTestFFI):
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         assert pow(2, 3) == 8
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_getaddr(self):
         from _ffi import CDLL, types
         libm = CDLL(self.libm_name)
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         assert pow.getaddr() == self.pow_addr
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_getaddressindll(self):
         import sys
         from _ffi import CDLL

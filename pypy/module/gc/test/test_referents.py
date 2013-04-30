@@ -119,4 +119,5 @@ class AppTestReferents(object):
             if x is l7t:
                 break   # found
         else:
-            assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"
+            if i7 is self.ALL_ROOTS[3][0]: # not the case under runappdirect
+                assert 0, "the tuple (7,) is not found as gc.get_referrers(7)"
