@@ -61,6 +61,12 @@ def getdefinedinteger(macro, c_header_source):
         DEFINED = DefinedConstantInteger(macro)
     return configure(CConfig)['DEFINED']
 
+def getdefinedstring(macro, c_header_source):
+    class CConfig:
+        _compilation_info_ = eci_from_header(c_header_source)
+        DEFINED = DefinedConstantString(macro)
+    return configure(CConfig)['DEFINED']
+
 def getintegerfunctionresult(function, args=None, c_header_source='', includes=[]):
     class CConfig:
         _compilation_info_ = eci_from_header(c_header_source)
