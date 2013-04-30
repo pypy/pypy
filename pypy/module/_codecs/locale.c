@@ -4,6 +4,7 @@
 /*
 #include "Python.h"
 */
+#include <ctype.h>
 #include <locale.h>
 #include <stdlib.h>
 #include <stdio.h>
