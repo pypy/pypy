@@ -26,10 +26,8 @@ class TestW_FloatObject:
         assert v.floatval == x ** y
         f1 = fobj.W_FloatObject(-1.23)
         f2 = fobj.W_FloatObject(-4.56)
-        self.space.raises_w(self.space.w_ValueError,
-                            fobj.pow__Float_Float_ANY,
-                            self.space, f1, f2,
-                            self.space.w_None)
+        v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
+        assert self.space.isinstance_w(v, self.space.w_complex)
         x = -10
         y = 2.0
         f1 = fobj.W_FloatObject(x)
@@ -218,7 +216,7 @@ class AppTestAppFloatTest:
         assert espeq(pw(4.0, 0.5), 2.0)
         assert pw(4.0, 0) == 1.0
         assert pw(-4.0, 0) == 1.0
-        raises(ValueError, pw, -1.0, 0.5)
+        assert type(pw(-1.0, 0.5)) == complex
         assert pw(-1.0, 2.0) == 1.0
         assert pw(-1.0, 3.0) == -1.0
         assert pw(-1.0, 1e200) == 1.0
