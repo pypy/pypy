@@ -392,7 +392,7 @@ class W_TypeObject(W_Object):
         cached_version_tag = cache.versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = cache.names[method_hash]
-            if cached_name is name:
+            if cached_name == name:
                 tup = cache.lookup_where[method_hash]
                 if space.config.objspace.std.withmethodcachecounter:
                     cache.hits[name] = cache.hits.get(name, 0) + 1
