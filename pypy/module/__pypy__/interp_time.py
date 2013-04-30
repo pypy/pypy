@@ -61,7 +61,7 @@ if HAS_CLOCK_GETTIME:
             ret = c_clock_gettime(clk_id, tp)
             if ret != 0:
                 raise exception_from_errno(space, space.w_IOError)
-            return space.wrap(tp.c_tv_sec + tp.c_tv_nsec * 1e-9)
+            return space.wrap(int(tp.c_tv_sec) + 1e-9 * int(tp.c_tv_nsec))
 
     @unwrap_spec(clk_id="c_int")
     def clock_getres(space, clk_id):
@@ -69,4 +69,4 @@ if HAS_CLOCK_GETTIME:
             ret = c_clock_getres(clk_id, tp)
             if ret != 0:
                 raise exception_from_errno(space, space.w_IOError)
-            return space.wrap(tp.c_tv_sec + tp.c_tv_nsec * 1e-9)
+            return space.wrap(int(tp.c_tv_sec) + 1e-9 * int(tp.c_tv_nsec))

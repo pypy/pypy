@@ -37,7 +37,7 @@ def merge_chain(chain, checkvar, varmap, graph):
     default.args = [get_new_arg(arg) for arg in default.args]
     for block, case in chain:
         if case.value in values:
-            log.WARNING("unreachable code with value %s in graph %s" % (
+            log.WARNING("unreachable code with value %r in graph %s" % (
                         case.value, graph))
             continue
         values[case.value] = True

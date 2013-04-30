@@ -335,7 +335,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractARMBuilder):
 
     # XXX remove and setup aligning in llsupport
     def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
-        size = self.get_relative_pos()
+        size = self.get_relative_pos() + WORD
         malloced = asmmemmgr.malloc(size, size + 7)
         allblocks.append(malloced)
         rawstart = malloced[0]

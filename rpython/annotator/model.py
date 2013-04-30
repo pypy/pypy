@@ -527,6 +527,7 @@ s_Bool = SomeBool()
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
 s_Str0 = SomeString(no_nul=True)
+s_Unicode0 = SomeUnicodeString(no_nul=True)
 
 
 # ____________________________________________________________

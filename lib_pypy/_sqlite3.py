@@ -256,7 +256,13 @@ def _has_load_extension():
     typedef ... sqlite3;
     int sqlite3_enable_load_extension(sqlite3 *db, int onoff);
     """)
-    unverified_lib = unverified_ffi.dlopen('sqlite3')
+    libname = 'sqlite3'
+    if sys.platform == 'win32':
+        import os
+        _libname = os.path.join(os.path.dirname(sys.executable), libname)
+        if os.path.exists(_libname + '.dll'):
+            libname = _libname
+    unverified_lib = unverified_ffi.dlopen(libname)
     return hasattr(unverified_lib, 'sqlite3_enable_load_extension')
 
 if _has_load_extension():
@@ -759,9 +765,9 @@ class Connection(object):
         if isinstance(name, unicode):
             name = name.encode('utf-8')
         ret = _lib.sqlite3_create_collation(self._db, name,
-                                              _lib.SQLITE_UTF8,
-                                              _ffi.NULL,
-                                              collation_callback)
+                                            _lib.SQLITE_UTF8,
+                                            _ffi.NULL,
+                                            collation_callback)
         if ret != _lib.SQLITE_OK:
             raise self._get_exception(ret)
 
@@ -780,9 +786,7 @@ class Connection(object):
                     return _lib.SQLITE_DENY
             self.__func_cache[callback] = authorizer
 
-        ret = _lib.sqlite3_set_authorizer(self._db,
-                                          authorizer,
-                                          _ffi.NULL)
+        ret = _lib.sqlite3_set_authorizer(self._db, authorizer, _ffi.NULL)
         if ret != _lib.SQLITE_OK:
             raise self._get_exception(ret)
 
@@ -798,15 +802,13 @@ class Connection(object):
                 @_ffi.callback("int(void*)")
                 def progress_handler(userdata):
                     try:
-                        ret = callable()
-                        return bool(ret)
+                        return bool(callable())
                     except Exception:
                         # abort query if error occurred
                         return 1
                 self.__func_cache[callable] = progress_handler
-        _lib.sqlite3_progress_handler(self._db, nsteps,
-                                            progress_handler,
-                                            _ffi.NULL)
+        _lib.sqlite3_progress_handler(self._db, nsteps, progress_handler,
+                                      _ffi.NULL)
 
     if sys.version_info[0] >= 3:
         def __get_in_transaction(self):
@@ -888,8 +890,8 @@ class Cursor(object):
     def __check_reset(self):
         if self._reset:
             raise InterfaceError(
-                    "Cursor needed to be reset because of commit/rollback "
-                    "and can no longer be fetched from.")
+                "Cursor needed to be reset because of commit/rollback "
+                "and can no longer be fetched from.")
 
     def __build_row_cast_map(self):
         if not self.__connection._detect_types:
@@ -996,17 +998,18 @@ class Cursor(object):
 
                 # Actually execute the SQL statement
                 ret = _lib.sqlite3_step(self.__statement._statement)
-                if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
-                    self.__statement._reset()
-                    raise self.__connection._get_exception(ret)
 
                 if ret == _lib.SQLITE_ROW:
                     if multiple:
                         raise ProgrammingError("executemany() can only execute DML statements.")
                     self.__build_row_cast_map()
                     self.__next_row = self.__fetch_one_row()
-                elif ret == _lib.SQLITE_DONE and not multiple:
+                elif ret == _lib.SQLITE_DONE:
+                    if not multiple:
+                        self.__statement._reset()
+                else:
                     self.__statement._reset()
+                    raise self.__connection._get_exception(ret)
 
                 if self.__statement._type in ("UPDATE", "DELETE", "INSERT", "REPLACE"):
                     if self.__rowcount == -1:
@@ -1087,7 +1090,6 @@ class Cursor(object):
         try:
             next_row = self.__next_row
         except AttributeError:
-            self.__statement._reset()
             raise StopIteration
         del self.__next_row
 
@@ -1095,11 +1097,12 @@ class Cursor(object):
             next_row = self.row_factory(self, next_row)
 
         ret = _lib.sqlite3_step(self.__statement._statement)
-        if ret not in (_lib.SQLITE_DONE, _lib.SQLITE_ROW):
-            self.__statement._reset()
-            raise self.__connection._get_exception(ret)
-        elif ret == _lib.SQLITE_ROW:
+        if ret == _lib.SQLITE_ROW:
             self.__next_row = self.__fetch_one_row()
+        else:
+            self.__statement._reset()
+            if ret != _lib.SQLITE_DONE:
+                raise self.__connection._get_exception(ret)
         return next_row
 
     if sys.version_info[0] < 3:

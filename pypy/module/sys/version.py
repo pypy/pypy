@@ -15,13 +15,9 @@ PYPY_VERSION               = (2, 0, 0, "beta", 2)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
-elif platform.cc is not None and platform.cc.startswith('gcc'):
-    out = platform.execute(platform.cc, '--version').out
-    match = re.search(' (\d+\.\d+(\.\d+)*)', out)
-    if match:
-        COMPILER_INFO = "GCC " + match.group(1)
-    else:
-        COMPILER_INFO = "GCC"
+elif platform.cc is not None and platform.cc.startswith(('gcc', 'clang')):
+    from rpython.rtyper.tool import rffi_platform
+    COMPILER_INFO = 'GCC ' + rffi_platform.getdefinedstring('__VERSION__', '')
 else:
     COMPILER_INFO = ""
 

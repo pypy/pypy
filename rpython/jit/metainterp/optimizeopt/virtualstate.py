@@ -158,9 +158,15 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
 
+
 class VArrayStateInfo(AbstractVirtualStateInfo):
+
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
+
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStateInfo) and
+            self.arraydescr is other.arraydescr)
 
     def generalization_of(self, other, renum, bad):
         assert self.position != -1
@@ -187,10 +193,6 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 return False
         return True
 
-    def _generalization_of(self, other):
-        return (isinstance(other, VArrayStateInfo) and
-            self.arraydescr is other.arraydescr)
-
     def enum_forced_boxes(self, boxes, value, optimizer):
         if not isinstance(value, virtualize.VArrayValue):
             raise BadVirtualState
@@ -198,7 +200,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
             try:
-                v = value._items[i]
+                v = value.get_item_value(i)
             except IndexError:
                 raise BadVirtualState
             s = self.fieldstate[i]
@@ -211,6 +213,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
+
+
 
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr, fielddescrs):
@@ -285,6 +289,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
+
 
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
@@ -578,6 +583,9 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
 
     def make_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
+
+    def make_vrawbuffer(self, size, offsets, descrs):
+        raise NotImplementedError
 
 class BoxNotProducable(Exception):
     pass

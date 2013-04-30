@@ -1,11 +1,13 @@
 try:
     import _curses
-except ImportError:
+except Exception:   # probably ImportError or cffi's VerificationError
     try:
-        import _minimal_curses as _curses   # when running on top of pypy-c
+        # when running on top of pypy before it had _curses, settle for minimal
+        # we prefer _curses so any constants added make it into _minimal_curses
+        import _minimal_curses as _curses
     except ImportError:
         import py
-        py.test.skip("no _curses or _minimal_curses module") #no _curses at all
+        py.test.skip("no _curses or _minimal_curses module")  # no _curses at all
 
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._minimal_curses import fficurses  # for side effects
@@ -27,6 +29,7 @@ class Module(MixedModule):
     }
 
 for i in dir(_curses):
+    i = str(i)     # workaround for pypy 2.0-beta2
     val = getattr(_curses, i)
     if i.isupper() and type(val) is int:
         Module.interpleveldefs[i] = "space.wrap(%s)" % val

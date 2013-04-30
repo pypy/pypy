@@ -44,7 +44,7 @@ def run_simple_interactive_console(mainmodule):
     import code
     if mainmodule is None:
         import __main__ as mainmodule
-    console = code.InteractiveConsole(mainmodule.__dict__)
+    console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
     # some parts of code.py are copied here because it seems to be impossible
     # to start an interactive console without printing at least one line
     # of banner
