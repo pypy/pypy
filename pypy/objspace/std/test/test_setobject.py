@@ -969,13 +969,13 @@ class AppTestAppSetTest:
 
     def test_unicodestrategy(self):
         s = 'àèìòù'
-        myset = {s}
+        myset = set([s])
         s2 = myset.pop()
         assert s2 == s
 
     def test_preserve_identity_of_strings(self):
         s = 'hello'
-        myset = {s}
+        myset = set([s])
         s2 = myset.pop()
         assert s2 == s
         assert s2 is s
