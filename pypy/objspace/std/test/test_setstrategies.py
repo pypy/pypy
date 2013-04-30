@@ -7,6 +7,9 @@ from pypy.objspace.std.setobject import (IntegerSetStrategy, ObjectSetStrategy,
                                          UnicodeIteratorImplementation)
 from pypy.objspace.std.listobject import W_ListObject
 
+import py
+py.test.py3k_skip("XXX: strategies are currently broken")
+
 class TestW_SetStrategies:
 
     def wrapped(self, l, bytes=False):

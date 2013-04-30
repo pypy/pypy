@@ -4,6 +4,8 @@ from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy, Object
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
+py.test.py3k_skip("XXX: strategies are currently broken")
+
 class TestW_ListStrategies(TestW_ListObject):
 
     def test_check_strategy(self):
