@@ -25,7 +25,7 @@ Misc variables:
 
 __version__ = "$Revision$"       # Code version
 
-from types import FunctionType, BuiltinFunctionType
+from types import FunctionType, BuiltinFunctionType, ModuleType
 from copyreg import dispatch_table
 from copyreg import _extension_registry, _inverted_registry, _extension_cache
 import marshal
@@ -615,7 +615,27 @@ class _Pickler:
                 write(APPEND)
             # else tmp is empty, and we're done
 
+    def _pickle_maybe_moduledict(self, obj):
+        # save module dictionary as "getattr(module, '__dict__')"
+        try:
+            name = obj['__name__']
+            if type(name) is not str:
+                return None
+            themodule = sys.modules[name]
+            if type(themodule) is not ModuleType:
+                return None
+            if themodule.__dict__ is not obj:
+                return None
+        except (AttributeError, KeyError, TypeError):
+            return None
+
+        return getattr, (themodule, '__dict__')
+
     def save_dict(self, obj):
+        modict_saver = self._pickle_maybe_moduledict(obj)
+        if modict_saver is not None:
+            return self.save_reduce(*modict_saver)
+
         write = self.write
 
         if self.bin:
@@ -665,6 +685,35 @@ class _Pickler:
                 save(v)
                 write(SETITEM)
             # else tmp is empty, and we're done
+
+    def save_function(self, obj):
+        lasterr = None
+        try:
+            return self.save_global(obj)
+        except PicklingError as e:
+            lasterr = e
+        try:
+            # Check copy_reg.dispatch_table
+            reduce = dispatch_table.get(type(obj))
+            if reduce:
+                rv = reduce(obj)
+            else:
+                # Check for a __reduce_ex__ method, fall back to
+                # __reduce__
+                reduce = getattr(obj, "__reduce_ex__", None)
+                if reduce:
+                    rv = reduce(self.proto)
+                else:
+                    reduce = getattr(obj, "__reduce__", None)
+                    if reduce:
+                        rv = reduce()
+                    else:
+                        raise last_exc
+            return self.save_reduce(obj=obj, *rv)
+        finally:
+            if lasterr is not None:
+                del lasterr
+    dispatch[FunctionType] = save_function
 
     def save_global(self, obj, name=None, pack=struct.pack):
         write = self.write
@@ -722,7 +771,6 @@ class _Pickler:
 
         self.memoize(obj)
 
-    dispatch[FunctionType] = save_global
     dispatch[BuiltinFunctionType] = save_global
     dispatch[type] = save_global
 

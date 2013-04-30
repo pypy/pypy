@@ -6,9 +6,6 @@ class AppTestCopy:
                        continuation=True,
                        CALL_METHOD=True)
 
-    def setup_class(cls):
-        py.test.py3k_skip("_continuation not supported yet")
-
     def test_basic_setup(self):
         from _continuation import continulet
         lst = [4]
@@ -113,7 +110,6 @@ class AppTestPickle:
     }
 
     def setup_class(cls):
-        py.test.py3k_skip("_continuation not supported yet")
         cls.space.appexec([], """():
             global continulet, A, __name__
 
