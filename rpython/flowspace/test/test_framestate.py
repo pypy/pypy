@@ -25,55 +25,55 @@ class TestFrameState:
 
     def test_eq_framestate(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
-        fs2 = frame.getstate()
+        fs1 = frame.getstate(0)
+        fs2 = frame.getstate(0)
         assert fs1 == fs2
 
     def test_neq_hacked_framestate(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Variable()
-        fs2 = frame.getstate()
+        fs2 = frame.getstate(0)
         assert fs1 != fs2
 
     def test_union_on_equal_framestates(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
-        fs2 = frame.getstate()
+        fs1 = frame.getstate(0)
+        fs2 = frame.getstate(0)
         assert fs1.union(fs2) == fs1
 
     def test_union_on_hacked_framestates(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Variable()
-        fs2 = frame.getstate()
+        fs2 = frame.getstate(0)
         assert fs1.union(fs2) == fs2  # fs2 is more general
         assert fs2.union(fs1) == fs2  # fs2 is more general
 
     def test_restore_frame(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Variable()
         frame.setstate(fs1)
-        assert fs1 == frame.getstate()
+        assert fs1 == frame.getstate(0)
 
     def test_copy(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         fs2 = fs1.copy()
         assert fs1 == fs2
 
     def test_getvariables(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         vars = fs1.getvariables()
         assert len(vars) == 1
 
     def test_getoutputargs(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Variable()
-        fs2 = frame.getstate()
+        fs2 = frame.getstate(0)
         outputargs = fs1.getoutputargs(fs2)
         # 'x' -> 'x' is a Variable
         # locals_w[n-1] -> locals_w[n-1] is Constant(None)
@@ -81,9 +81,9 @@ class TestFrameState:
 
     def test_union_different_constants(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Constant(42)
-        fs2 = frame.getstate()
+        fs2 = frame.getstate(0)
         fs3 = fs1.union(fs2)
         frame.setstate(fs3)
         assert isinstance(frame.locals_stack_w[frame.pycode.co_nlocals-1],
@@ -91,7 +91,7 @@ class TestFrameState:
 
     def test_union_spectag(self):
         frame = self.getframe(self.func_simple)
-        fs1 = frame.getstate()
+        fs1 = frame.getstate(0)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Constant(SpecTag())
-        fs2 = frame.getstate()
+        fs2 = frame.getstate(0)
         assert fs1.union(fs2) is None   # UnionError

@@ -410,7 +410,7 @@ class FlowSpaceFrame(object):
         self.locals_stack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
 
-    def getstate(self):
+    def getstate(self, next_pos):
         # getfastscope() can return real None, for undefined locals
         data = self.save_locals_stack()
         if self.last_exception is None:
@@ -420,7 +420,7 @@ class FlowSpaceFrame(object):
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
         recursively_flatten(data)
-        return FrameState(data, self.blockstack[:], self.last_instr)
+        return FrameState(data, self.blockstack[:], next_pos)
 
     def setstate(self, state):
         """ Reset the frame to the given state. """
@@ -432,7 +432,6 @@ class FlowSpaceFrame(object):
             self.last_exception = None
         else:
             self.last_exception = FSException(data[-2], data[-1])
-        self.last_instr = state.next_instr
         self.blockstack = state.blocklist[:]
 
     def guessbool(self, w_condition, **kwds):
@@ -478,11 +477,12 @@ class FlowSpaceFrame(object):
 
     def record_block(self, block):
         self.setstate(block.framestate)
+        next_pos = block.framestate.next_instr
         self.recorder = block.make_recorder()
         try:
             while True:
-                self.last_instr = self.handle_bytecode(self.last_instr)
-                self.recorder.final_state = self.getstate()
+                next_pos = self.handle_bytecode(next_pos)
+                self.recorder.final_state = self.getstate(next_pos)
 
         except ImplicitOperationError, e:
             if isinstance(e.w_type, Constant):
@@ -563,6 +563,7 @@ class FlowSpaceFrame(object):
                     break
 
     def handle_bytecode(self, next_instr):
+        self.last_instr = next_instr
         next_instr, methodname, oparg = self.pycode.read(next_instr)
         try:
             res = getattr(self, methodname)(oparg)
