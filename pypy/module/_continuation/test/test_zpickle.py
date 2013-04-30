@@ -188,7 +188,7 @@ class AppTestPickle:
 
     def test_pickle_continulet_real(self):
         import types, sys
-        mod = types.ModuleType('test_copy_continulet_real')
+        mod = types.ModuleType('test_pickle_continulet_real')
         sys.modules['test_pickle_continulet_real'] = mod
         mod.version = self.version
         exec('''if 1:
@@ -222,7 +222,7 @@ class AppTestPickle:
 
     def test_pickle_continulet_real_subclass(self):
         import types, sys
-        mod = types.ModuleType('test_copy_continulet_real_subclass')
+        mod = types.ModuleType('test_pickle_continulet_real_subclass')
         sys.modules['test_pickle_continulet_real_subclass'] = mod
         mod.version = self.version
         exec('''if 1:
