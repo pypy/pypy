@@ -18,8 +18,12 @@ else:
 class ARM(Linux):
     name = "arm"
 
-    available_includedirs = (SB2 + '/usr/include', '/tmp')
+    available_librarydirs = [SB2 + '/usr/lib/arm-linux-gnueabi/',
+                             SB2 + '/usr/lib/arm-linux-gnueabihf/']
+    available_includedirs = [SB2 + '/usr/include/arm-linux-gnueabi/',
+                             SB2 + '/usr/include/arm-linux-gnueabihf/']
     copied_cache = {}
+
 
     def _invent_new_name(self, basepath, base):
         pth = basepath.join(base)
@@ -47,12 +51,13 @@ class ARM(Linux):
         return ExecutionResult(returncode, stdout, stderr)
 
     def include_dirs_for_libffi(self):
-        return [SB2 + '/usr/include/arm-linux-gnueabi/',
-		SB2 + '/usr/include/arm-linux-gnueabihf/']
+        return self.available_includedirs
 
     def library_dirs_for_libffi(self):
-        return [SB2 + '/usr/lib/arm-linux-gnueabi/',
-		SB2 + '/usr/lib/arm-linux-gnueabihf/']
+        return self.available_librarydirs
+
+    def _preprocess_library_dirs(self, library_dirs):
+        return list(library_dirs) + self.available_librarydirs
 
     def execute_makefile(self, path_to_makefile, extra_opts=[]):
         if isinstance(path_to_makefile, GnuMakefile):
