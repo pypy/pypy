@@ -3,6 +3,7 @@
 #
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
+import types
 import py
 
 from rpython.tool.uid import uid, Hashable
@@ -261,6 +262,7 @@ class Variable(object):
     dummyname = 'v'
     namesdict = {dummyname : (dummyname, 0)}
 
+    @property
     def name(self):
         _name = self._name
         _nr = self._nr
@@ -270,11 +272,10 @@ class Variable(object):
             _nr = self._nr = nd[_name][1]
             nd[_name] = (_name, _nr + 1)
         return "%s%d" % (_name, _nr)
-    name = property(name)
 
+    @property
     def renamed(self):
         return self._name is not self.dummyname
-    renamed = property(renamed)
 
     def __init__(self, name=None):
         self._name = self.dummyname
@@ -314,6 +315,9 @@ class Variable(object):
         self._name = intern(name)
         self._nr = nr
 
+    def foldable(self):
+        return False
+
 
 class Constant(Hashable):
     __slots__ = ["concretetype"]
@@ -322,6 +326,25 @@ class Constant(Hashable):
         Hashable.__init__(self, value)
         if concretetype is not None:
             self.concretetype = concretetype
+
+    def foldable(self):
+        to_check = self.value
+        if hasattr(to_check, 'im_self'):
+            to_check = to_check.im_self
+        if isinstance(to_check, (type, types.ClassType, types.ModuleType)):
+            # classes/types/modules are assumed immutable
+            return True
+        if (hasattr(to_check, '__class__') and
+                to_check.__class__.__module__ == '__builtin__'):
+            # builtin object
+            return True
+        # User-created instance
+        if hasattr(to_check, '_freeze_'):
+            assert to_check._freeze_() is True
+            return True
+        else:
+            # cannot count on it not mutating at runtime!
+            return False
 
 
 class UnwrapException(Exception):

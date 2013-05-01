@@ -176,22 +176,6 @@ class FlowObjSpace(object):
         else:
             raise TypeError("not wrapped: " + repr(w_obj))
 
-    def unwrap_for_computation(self, w_obj):
-        obj = self.unwrap(w_obj)
-        to_check = obj
-        if hasattr(to_check, 'im_self'):
-            to_check = to_check.im_self
-        if (not isinstance(to_check, (type, types.ClassType, types.ModuleType)) and
-            # classes/types/modules are assumed immutable
-            hasattr(to_check, '__class__') and to_check.__class__.__module__ != '__builtin__'):
-            frozen = hasattr(to_check, '_freeze_')
-            if frozen:
-                assert to_check._freeze_() is True
-            else:
-                # cannot count on it not mutating at runtime!
-                raise UnwrapException
-        return obj
-
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.is_true(self.issubtype(w_cls1, w_cls2))
 
@@ -291,12 +275,8 @@ class FlowObjSpace(object):
         return self.wrap(not self.is_true(w_obj))
 
     def is_true(self, w_obj):
-        try:
-            obj = self.unwrap_for_computation(w_obj)
-        except UnwrapException:
-            pass
-        else:
-            return bool(obj)
+        if w_obj.foldable():
+            return bool(w_obj.value)
         w_truthvalue = self.frame.do_operation('is_true', w_obj)
         return self.frame.guessbool(w_truthvalue)
 
@@ -343,12 +323,8 @@ class FlowObjSpace(object):
             if w_name not in const_w:
                 return self.frame.do_operation_with_implicit_exceptions('getattr',
                                                                 w_obj, w_name)
-        try:
-            obj = self.unwrap_for_computation(w_obj)
-            name = self.unwrap_for_computation(w_name)
-        except UnwrapException:
-            pass
-        else:
+        if w_obj.foldable() and w_name.foldable():
+            obj, name = w_obj.value, w_name.value
             try:
                 result = getattr(obj, name)
             except Exception, e:
@@ -495,14 +471,8 @@ def make_op(name, arity):
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name + " got the wrong number of arguments"
         args = []
-        for w_arg in args_w:
-            try:
-                arg = self.unwrap_for_computation(w_arg)
-            except UnwrapException:
-                break
-            else:
-                args.append(arg)
-        else:
+        if all(w_arg.foldable() for w_arg in args_w):
+            args = [w_arg.value for w_arg in args_w]
             # All arguments are constants: call the operator now
             try:
                 result = op(*args)
