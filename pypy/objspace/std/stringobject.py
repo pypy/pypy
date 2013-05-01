@@ -1,25 +1,24 @@
-from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter import gateway
-from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rlib.objectmodel import we_are_translated, compute_hash, specialize
-from rpython.rlib.objectmodel import compute_unique_id
-from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype, newformat
-from pypy.objspace.std.listobject import W_ListObject
-from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.tupleobject import W_TupleObject
-from rpython.rlib.rstring import StringBuilder, split
+"""The builtin str implementation"""
+
 from pypy.interpreter.buffer import StringBuffer
-from rpython.rlib import jit
-
-from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
-     stringendswith, stringstartswith, joined2
-
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.objspace.std import newformat, slicetype
 from pypy.objspace.std.formatting import mod_format
+from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.model import W_Object, registerimplementation
+from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.stringtype import (
+    joined2, sliced, stringendswith, stringstartswith, wrapchar, wrapstr)
+from pypy.objspace.std.tupleobject import W_TupleObject
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import (
+    compute_hash, compute_unique_id, specialize)
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rstring import StringBuilder, split
+
 
 class W_AbstractStringObject(W_Object):
     __slots__ = ()
