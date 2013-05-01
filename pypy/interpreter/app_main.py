@@ -358,7 +358,6 @@ cmdline_options = {
     's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
     'u': (simple_option, 'unbuffered'),
-    'b': (simple_option, 'bytes_warning'),
     'v': (simple_option, 'verbose'),
     'q': (simple_option, 'quiet'),
     # more complex options
