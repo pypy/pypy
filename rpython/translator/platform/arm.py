@@ -18,8 +18,11 @@ else:
 class ARM(Linux):
     name = "arm"
 
-    available_librarydirs = [SB2 + '/usr/lib/arm-linux-gnueabi/',
+    available_librarydirs = [SB2 + '/lib/arm-linux-gnueabi/',
+                             SB2 + '/lib/arm-linux-gnueabihf/',
+                             SB2 + '/usr/lib/arm-linux-gnueabi/',
                              SB2 + '/usr/lib/arm-linux-gnueabihf/']
+
     available_includedirs = [SB2 + '/usr/include/arm-linux-gnueabi/',
                              SB2 + '/usr/include/arm-linux-gnueabihf/']
     copied_cache = {}
