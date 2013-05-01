@@ -2,9 +2,10 @@
 # App-level version of py.py.
 # See test/test_app_main.
 
-# Missing vs CPython: -B, -d, -OO, -t, -v, -x, -3
+# Missing vs CPython: -b, -d, -OO, -v, -x, -3
 """\
 Options and arguments (and corresponding environment variables):
+-B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
 -E     : ignore PYTHON* environment variables (such as PYTHONPATH)
 -h     : print this help message and exit (also --help)
@@ -12,14 +13,15 @@ Options and arguments (and corresponding environment variables):
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -m mod : run library module as a script (terminates option list)
 -O     : dummy optimization flag for compatibility with CPython
+-q     : don't print version and copyright messages on interactive startup
 -R     : ignored (see http://bugs.python.org/issue14621)
--Q arg : division options: -Qold (default), -Qwarn, -Qwarnall, -Qnew
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
 -u     : unbuffered binary stdout and stderr; also PYTHONUNBUFFERED=x
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
+-X opt : set implementation-specific option
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
