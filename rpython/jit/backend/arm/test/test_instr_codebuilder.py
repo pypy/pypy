@@ -139,6 +139,14 @@ class TestInstrCodeBuilder(ASMTest):
     def test_push_raises_sp(self):
         assert py.test.raises(AssertionError, 'self.cb.PUSH([r.sp.value])')
 
+    def test_stm(self):
+        self.cb.STM(r.fp.value, [reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('STM fp, {r0, r1, r2, r3}')
+
+    def test_ldm(self):
+        self.cb.LDM(r.fp.value, [reg.value for reg in r.caller_resp], cond=conditions.AL)
+        self.assert_equal('LDM fp, {r0, r1, r2, r3}')
+
     def test_pop(self):
         self.cb.POP([reg.value for reg in r.caller_resp], cond=conditions.AL)
         self.assert_equal('POP {r0, r1, r2, r3}')

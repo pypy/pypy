@@ -360,11 +360,9 @@ class AssemblerARM(ResOpAssembler):
             regs = CoreRegisterManager.save_around_call_regs
         else:
             regs = CoreRegisterManager.all_regs
-        # XXX use STMDB ops here
-        for i, gpr in enumerate(regs):
-            if gpr in ignored_regs:
-                continue
-            self.store_reg(mc, gpr, r.fp, base_ofs + i * WORD)
+        mc.ADD_ri(r.ip.value, r.fp.value, base_ofs)
+        mc.STM(r.ip.value, [reg.value for reg in regs
+                                    if reg not in ignored_regs])
         if withfloats:
             if callee_only:
                 regs = VFPRegisterManager.save_around_call_regs
@@ -385,12 +383,9 @@ class AssemblerARM(ResOpAssembler):
             regs = CoreRegisterManager.save_around_call_regs
         else:
             regs = CoreRegisterManager.all_regs
-        # XXX use LDMDB ops here
-        for i, gpr in enumerate(regs):
-            if gpr in ignored_regs:
-                continue
-            ofs = i * WORD + base_ofs
-            self.load_reg(mc, gpr, r.fp, ofs)
+        mc.ADD_ri(r.ip.value, r.fp.value, base_ofs)
+        mc.LDM(r.ip.value, [reg.value for reg in regs
+                                    if reg not in ignored_regs])
         if withfloats:
             # Pop all XMM regs
             if callee_only:
