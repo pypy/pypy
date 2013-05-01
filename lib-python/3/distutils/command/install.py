@@ -489,7 +489,8 @@ class install(Command):
     def select_scheme(self, name):
         """Sets the install directories by applying the install schemes."""
         # it's the caller's problem if they supply a bad name!
-        if hasattr(sys, 'pypy_version_info'):
+        if (hasattr(sys, 'pypy_version_info') and
+            not name.endswith(('_user', '_home'))):
             name = 'pypy'
         scheme = INSTALL_SCHEMES[name]
         for key in SCHEME_KEYS:

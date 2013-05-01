@@ -9,6 +9,7 @@ from distutils.errors import DistutilsPlatformError
 
 
 PREFIX = os.path.normpath(sys.prefix)
+EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
 project_base = os.path.dirname(os.path.abspath(sys.executable))
 python_build = False
 
@@ -93,6 +94,9 @@ def get_config_vars(*args):
             func()
         else:
             _config_vars = {}
+
+        _config_vars['prefix'] = PREFIX
+        _config_vars['exec_prefix'] = EXEC_PREFIX
 
     if args:
         vals = []
