@@ -264,7 +264,8 @@ class TestInteraction:
         # test that -h prints the usage, including the name of the executable
         # which should be /full/path/to/app_main.py in this case
         child = self.spawn(['-h'])
-        child.expect(r'usage: .*app_main.py \[options\]')
+        child.expect(r'usage: .*app_main.py \[option\]')
+        child.expect('PyPy options and arguments:')
 
     def test_run_script(self):
         child = self.spawn([demo_script])
