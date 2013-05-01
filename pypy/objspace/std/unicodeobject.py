@@ -454,10 +454,21 @@ def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
             space, len(self), w_start, w_end, upper_bound)
     return (self, start, end)
 
+def unicode_endswith__Unicode_ANY_ANY_ANY(space, w_self, w_substr, w_start, w_end):
+    typename = space.type(w_substr).getname(space)
+    msg = "endswith first arg must be str or a tuple of str, not %s" % typename
+    raise OperationError(space.w_TypeError, space.wrap(msg))
+
 def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self,
                                                    w_start, w_end, True)
     return space.newbool(stringendswith(self, w_substr._value, start, end))
+
+def unicode_startswith__Unicode_ANY_ANY_ANY(space, w_self, w_substr, w_start, w_end):
+    typename = space.type(w_substr).getname(space)
+    msg = ("startswith first arg must be str or a tuple of str, not %s" %
+           typename)
+    raise OperationError(space.w_TypeError, space.wrap(msg))
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
     self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)

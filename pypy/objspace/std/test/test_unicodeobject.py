@@ -355,6 +355,14 @@ class AppTestUnicodeString:
         assert 'ab'.startswith('b', 1) is True
         assert 'abc'.startswith('bc', 1, 2) is False
         assert 'abc'.startswith('c', -1, 4) is True
+        try:
+            'hello'.startswith(['o'])
+        except TypeError as e:
+            msg = str(e)
+            assert 'str' in msg
+            assert 'tuple' in msg
+        else:
+            assert False, 'Expected TypeError'
 
     def test_startswith_tuples(self):
         assert 'hello'.startswith(('he', 'ha'))
@@ -393,6 +401,14 @@ class AppTestUnicodeString:
         assert 'abc'.endswith('bc', 1) is True
         assert 'abc'.endswith('bc', 2) is False
         assert 'abc'.endswith('b', -3, -1) is True
+        try:
+            'hello'.endswith(['o'])
+        except TypeError as e:
+            msg = str(e)
+            assert 'str' in msg
+            assert 'tuple' in msg
+        else:
+            assert False, 'Expected TypeError'
 
     def test_endswith_tuple(self):
         assert not 'hello'.endswith(('he', 'ha'))
