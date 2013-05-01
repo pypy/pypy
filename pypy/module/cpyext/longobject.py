@@ -66,7 +66,7 @@ def PyLong_AsUnsignedLongMask(space, w_long):
     for overflow.
     """
     num = space.bigint_w(w_long)
-    return num.ulonglongmask()
+    return num.uintmask()
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyLong_AsLong(space, w_long):
