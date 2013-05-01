@@ -2,9 +2,10 @@
 # App-level version of py.py.
 # See test/test_app_main.
 
-# Missing vs CPython: -B, -d, -OO, -t, -v, -x, -3
+# Missing vs CPython: -d, -OO, -t, -v, -x, -3
 """\
 Options and arguments (and corresponding environment variables):
+-B     : don't write .py[co] files on import; also PYTHONDONTWRITEBYTECODE=x
 -c cmd : program passed in as string (terminates option list)
 -E     : ignore PYTHON* environment variables (such as PYTHONPATH)
 -h     : print this help message and exit (also --help)
