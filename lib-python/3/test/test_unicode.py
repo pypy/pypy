@@ -1609,14 +1609,16 @@ class UnicodeTest(string_tests.CommonTest,
         self.assertEqual("{}".format(s), '__str__ overridden')
 
     # Test PyUnicode_FromFormat()
+    @unittest.skipIf(support.check_impl_detail(pypy=True),
+                     "https://bugs.pypy.org/issue1233")
     def test_from_format(self):
         support.import_module('ctypes')
         from ctypes import pythonapi, py_object, c_int
-        if sys.maxunicode == 65535:
-            name = "PyUnicodeUCS2_FromFormat"
-        else:
-            name = "PyUnicodeUCS4_FromFormat"
-        _PyUnicode_FromFormat = getattr(pythonapi, name)
+        #if sys.maxunicode == 65535:
+        #    name = "PyUnicodeUCS2_FromFormat"
+        #else:
+        #    name = "PyUnicodeUCS4_FromFormat"
+        _PyUnicode_FromFormat = getattr(pythonapi, 'PyUnicode_FromFormat')
         _PyUnicode_FromFormat.restype = py_object
 
         def PyUnicode_FromFormat(format, *args):
