@@ -147,6 +147,14 @@ class TestInstrCodeBuilder(ASMTest):
         self.cb.LDM(r.fp.value, [reg.value for reg in r.caller_resp], cond=conditions.AL)
         self.assert_equal('LDM fp, {r0, r1, r2, r3}')
 
+    def test_vstm(self):
+        self.cb.VSTM(r.fp.value, [reg.value for reg in r.caller_vfp_resp], cond=conditions.AL)
+        self.assert_equal('VSTM fp, {d0, d1, d2, d3, d4, d5, d6, d7}')
+
+    def test_vldm(self):
+        self.cb.VLDM(r.fp.value, [reg.value for reg in r.caller_vfp_resp], cond=conditions.AL)
+        self.assert_equal('VLDM fp, {d0, d1, d2, d3, d4, d5, d6, d7}')
+
     def test_pop(self):
         self.cb.POP([reg.value for reg in r.caller_resp], cond=conditions.AL)
         self.assert_equal('POP {r0, r1, r2, r3}')

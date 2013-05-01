@@ -368,12 +368,10 @@ class AssemblerARM(ResOpAssembler):
                 regs = VFPRegisterManager.save_around_call_regs
             else:
                 regs = VFPRegisterManager.all_regs
-            for i, vfpr in enumerate(regs):
-                if vfpr in ignored_regs:
-                    continue
-                ofs = len(CoreRegisterManager.all_regs) * WORD
-                ofs += i * DOUBLE_WORD + base_ofs
-                self.store_reg(mc, vfpr, r.fp, ofs)
+            ofs = len(CoreRegisterManager.all_regs) * WORD
+            mc.ADD_ri(r.ip.value, r.ip.value, ofs)
+            mc.VSTM(r.ip.value, [vfpr.value for vfpr in regs
+                                    if vfpr not in ignored_regs])
 
     def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
                                  callee_only=False):
@@ -392,12 +390,10 @@ class AssemblerARM(ResOpAssembler):
                 regs = VFPRegisterManager.save_around_call_regs
             else:
                 regs = VFPRegisterManager.all_regs
-            for i, vfpr in enumerate(regs):
-                if vfpr in ignored_regs:
-                    continue
-                ofs = len(CoreRegisterManager.all_regs) * WORD
-                ofs += i * DOUBLE_WORD + base_ofs
-                self.load_reg(mc, vfpr, r.fp, ofs)
+            ofs = len(CoreRegisterManager.all_regs) * WORD
+            mc.ADD_ri(r.ip.value, r.ip.value, ofs)
+            mc.VLDM(r.ip.value, [vfpr.value for vfpr in regs
+                                    if vfpr not in ignored_regs])
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
