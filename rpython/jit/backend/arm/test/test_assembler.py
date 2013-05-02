@@ -11,6 +11,10 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.model import CompiledLoopToken
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.debug import ll_assert
 
 CPU = getcpuclass()
 
@@ -247,7 +251,33 @@ class TestRunningAssembler(object):
         self.a.mc.ADD_ri(r.sp.value, r.sp.value, 8)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == x
+    
+    def test_stm(self):
+        container = lltype.malloc(lltype.Array(lltype.Signed, hints={'nolength': True}), 10, flavor='raw')
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, container))
+        for x in range(10):
+            self.a.mc.gen_load_int(x, x)
+        self.a.mc.STM(r.ip.value, [x for x in range(10)])
+        self.a.gen_func_epilog()
+        run_asm(self.a)
+        for x in range(10):
+            assert container[x] == x
+        lltype.free(container, flavor='raw')
 
+    def test_ldm(self):
+        container = lltype.malloc(lltype.Array(lltype.Signed, hints={'nolength': True}), 10, flavor='raw')
+        for x in range(10):
+            container[x] = x
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, container))
+        self.a.mc.LDM(r.ip.value, [x for x in range(10)])
+        for x in range(1, 10):
+            self.a.mc.ADD_ri(0, 0, x)
+        self.a.gen_func_epilog()
+        res = run_asm(self.a) 
+        assert res == sum(range(10))
+        lltype.free(container, flavor='raw')
 
 def callme(inp):
     i = inp + 10
