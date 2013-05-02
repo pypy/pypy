@@ -78,9 +78,10 @@ if 1:
     class ExceptionWrapper:
         pass
     def raises(exc, func, *args, **kwargs):
+        import os
         try:
             if isinstance(func, str):
-                if func.startswith(" ") or func.startswith("\n"):
+                if func.startswith((' ', os.linesep)):
                     # it's probably an indented block, so we prefix if True:
                     # to avoid SyntaxError
                     func = "if True:\n" + func
