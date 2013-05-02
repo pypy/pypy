@@ -55,24 +55,43 @@ class BytecodeCorruption(Exception):
     pass
 
 class SpamBlock(Block):
-    # make slots optional, for debugging
-    if hasattr(Block, '__slots__'):
-        __slots__ = "dead framestate".split()
-
     def __init__(self, framestate):
         Block.__init__(self, framestate.getvariables())
         self.framestate = framestate
         self.dead = False
 
-class EggBlock(Block):
-    # make slots optional, for debugging
-    if hasattr(Block, '__slots__'):
-        __slots__ = "prevblock booloutcome last_exception".split()
+    def make_recorder(self):
+        return BlockRecorder(self)
 
+class EggBlock(Block):
     def __init__(self, inputargs, prevblock, booloutcome):
         Block.__init__(self, inputargs)
         self.prevblock = prevblock
         self.booloutcome = booloutcome
+
+    @property
+    def ancestor(self):
+        parent = self.prevblock
+        while isinstance(parent, EggBlock):
+            parent = parent.prevblock
+        return parent
+
+    @property
+    def dead(self):
+        return self.ancestor.dead
+
+    @property
+    def framestate(self):
+        return self.ancestor.framestate
+
+    def make_recorder(self):
+        recorder = BlockRecorder(self)
+        curr = self
+        while isinstance(curr, EggBlock):
+            prev = curr.prevblock
+            recorder = Replayer(prev, curr.booloutcome, recorder)
+            curr = prev
+        return recorder
 
     def extravars(self, last_exception=None, last_exc_value=None):
         self.last_exception = last_exception
@@ -430,24 +449,6 @@ class FlowSpaceFrame(object):
         self.last_instr = state.next_instr
         self.blockstack = state.blocklist[:]
 
-    def recording(self, block):
-        """ Setup recording of the block and return the recorder. """
-        parentblocks = []
-        parent = block
-        while isinstance(parent, EggBlock):
-            parent = parent.prevblock
-            parentblocks.append(parent)
-        # parentblocks = [Egg, Egg, ..., Egg, Spam] not including block
-        if parent.dead:
-            raise StopFlowing
-        self.setstate(parent.framestate)
-        recorder = BlockRecorder(block)
-        prevblock = block
-        for parent in parentblocks:
-            recorder = Replayer(parent, prevblock.booloutcome, recorder)
-            prevblock = parent
-        return recorder
-
     def record(self, spaceop):
         """Record an operation into the active block"""
         recorder = self.recorder
@@ -488,11 +489,13 @@ class FlowSpaceFrame(object):
         self.pendingblocks = collections.deque([graph.startblock])
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
-            self.record_block(block)
+            if not block.dead:
+                self.record_block(block)
 
     def record_block(self, block):
+        self.setstate(block.framestate)
+        self.recorder = block.make_recorder()
         try:
-            self.recorder = self.recording(block)
             while True:
                 self.last_instr = self.handle_bytecode(self.last_instr)
                 self.recorder.final_state = self.getstate()
