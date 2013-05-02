@@ -135,6 +135,11 @@ class FlowObjSpace(object):
             raise WrapException
         return Constant(obj)
 
+    def exc_wrap(self, exc):
+        w_value = self.wrap(exc)
+        w_type = self.wrap(type(exc))
+        return FSException(w_type, w_value)
+
     def int_w(self, w_obj):
         if isinstance(w_obj, Constant):
             val = w_obj.value
@@ -238,7 +243,7 @@ class FlowObjSpace(object):
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             if not self.is_w(w_arg2, self.w_None):
-                raise FSException(self.w_TypeError, self.wrap(
+                raise self.exc_wrap(TypeError(
                     "instance exception may not have a separate value"))
             w_value = w_arg1
         w_type = self.type(w_value)
@@ -292,7 +297,7 @@ class FlowObjSpace(object):
                 try:
                     v, next_unroller = it.step()
                 except IndexError:
-                    raise FSException(self.w_StopIteration, self.w_None)
+                    raise self.exc_wrap(StopIteration())
                 else:
                     frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
@@ -341,8 +346,8 @@ class FlowObjSpace(object):
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
             mod = __import__(name, glob, loc, frm, level)
-        except ImportError, e:
-            raise FSException(self.w_ImportError, self.wrap(str(e)))
+        except ImportError as e:
+            raise self.exc_wrap(e)
         return self.wrap(mod)
 
     def import_from(self, w_module, w_name):
@@ -357,8 +362,8 @@ class FlowObjSpace(object):
         try:
             return self.wrap(getattr(w_module.value, w_name.value))
         except AttributeError:
-            raise FSException(self.w_ImportError,
-                self.wrap("cannot import name '%s'" % w_name.value))
+            raise self.exc_wrap(ImportError(
+                "cannot import name '%s'" % w_name.value))
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
