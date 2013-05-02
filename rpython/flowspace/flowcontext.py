@@ -521,12 +521,6 @@ class FlowContext(object):
     def getlocalvarname(self, index):
         return self.pycode.co_varnames[index]
 
-    def getname_u(self, index):
-        return self.pycode.names[index]
-
-    def getname_w(self, index):
-        return Constant(self.pycode.names[index])
-
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
         w_func = const(func)
@@ -666,8 +660,7 @@ class FlowContext(object):
             raise Raise(const(e))
         return const(mod)
 
-    def IMPORT_NAME(self, nameindex):
-        modulename = self.getname_u(nameindex)
+    def IMPORT_NAME(self, modulename):
         glob = self.w_globals.value
         fromlist = self.popvalue().value
         level = self.popvalue().value
@@ -683,8 +676,8 @@ class FlowContext(object):
             exc = ImportError("cannot import name '%s'" % w_name.value)
             raise Raise(const(exc))
 
-    def IMPORT_FROM(self, nameindex):
-        w_name = self.getname_w(nameindex)
+    def IMPORT_FROM(self, name):
+        w_name = Constant(name)
         w_module = self.peekvalue()
         self.pushvalue(self.import_from(w_module, w_name))
 
@@ -862,15 +855,15 @@ class FlowContext(object):
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
 
-    def LOAD_GLOBAL(self, nameindex):
-        w_result = self.find_global(self.w_globals, self.getname_u(nameindex))
+    def LOAD_GLOBAL(self, name):
+        w_result = self.find_global(self.w_globals, name)
         self.pushvalue(w_result)
     LOAD_NAME = LOAD_GLOBAL
 
-    def LOAD_ATTR(self, nameindex):
+    def LOAD_ATTR(self, name):
         "obj.attributename"
         w_obj = self.popvalue()
-        w_attributename = self.getname_w(nameindex)
+        w_attributename = Constant(name)
         w_value = op.getattr(w_obj, w_attributename).eval(self)
         self.pushvalue(w_value)
     LOOKUP_METHOD = LOAD_ATTR
@@ -891,8 +884,7 @@ class FlowContext(object):
         if isinstance(w_newvalue, Variable):
             w_newvalue.rename(self.getlocalvarname(varindex))
 
-    def STORE_GLOBAL(self, nameindex):
-        varname = self.getname_u(nameindex)
+    def STORE_GLOBAL(self, varname):
         raise FlowingError(
             "Attempting to modify global variable  %r." % (varname))
 
@@ -1006,9 +998,9 @@ class FlowContext(object):
         fn = self.newfunction(w_codeobj, defaults)
         self.pushvalue(fn)
 
-    def STORE_ATTR(self, nameindex):
+    def STORE_ATTR(self, name):
         "obj.attributename = newvalue"
-        w_attributename = self.getname_w(nameindex)
+        w_attributename = Constant(name)
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
         op.setattr(w_obj, w_attributename, w_newvalue).eval(self)

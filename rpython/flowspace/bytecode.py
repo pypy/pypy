@@ -108,6 +108,8 @@ class HostCode(object):
 
         if opnum in opcode.hasjrel:
             oparg += next_offset
+        elif opnum in opcode.hasname:
+            oparg = self.names[oparg]
         try:
             op = BCInstruction.num2op[opnum].decode(oparg, offset, self)
         except KeyError:
