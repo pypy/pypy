@@ -14,7 +14,10 @@ from rpython.translator.backendopt.all import backend_optimizations
 
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
-                  supports_longlong=False, translationoptions={}, **kwds):
+                  supports_floats=True,
+                  supports_longlong=False,
+                  supports_singlefloats=False,
+                  translationoptions={}, **kwds):
     from rpython.jit.codewriter import support
 
     class FakeJitCell(object):
@@ -68,8 +71,9 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     cw.debug = True
     testself.cw = cw
     policy = JitPolicy()
-    policy.set_supports_floats(True)
+    policy.set_supports_floats(supports_floats)
     policy.set_supports_longlong(supports_longlong)
+    policy.set_supports_singlefloats(supports_singlefloats)
     graphs = cw.find_all_graphs(policy)
     if kwds.get("backendopt"):
         backend_optimizations(rtyper.annotator.translator, graphs=graphs)

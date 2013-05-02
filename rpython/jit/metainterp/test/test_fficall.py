@@ -5,7 +5,7 @@ import ctypes, math
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.jit.codewriter.longlong import is_longlong
+from rpython.jit.codewriter.longlong import is_longlong, is_64_bit
 from rpython.rlib import jit
 from rpython.rlib import jit_libffi
 from rpython.rlib.jit_libffi import (types, CIF_DESCRIPTION, FFI_TYPE_PP,
@@ -45,7 +45,12 @@ class FakeFFI(object):
 
 class FfiCallTests(object):
 
-    def _run(self, atypes, rtype, avalues, rvalue, expected_call_release_gil=1):
+    def _run(self, atypes, rtype, avalues, rvalue,
+             expected_call_release_gil=1,
+             supports_floats=True,
+             supports_longlong=True,
+             supports_singlefloats=True):
+
         cif_description = get_description(atypes, rtype)
 
         def verify(*args):
@@ -100,17 +105,30 @@ class FfiCallTests(object):
                 data = rffi.ptradd(exbuf, ofs)
                 res = rffi.cast(lltype.Ptr(TYPE), data)[0]
             lltype.free(exbuf, flavor='raw')
+            if lltype.typeOf(res) is lltype.SingleFloat:
+                res = float(res)
             return res
+
+        def matching_result(res, rvalue):
+            if rvalue is None:
+                return res == 654321
+            if isinstance(rvalue, r_singlefloat):
+                rvalue = float(rvalue)
+            return res == rvalue
 
         with FakeFFI(fake_call_impl_any):
             res = f()
-            assert res == rvalue or (res, rvalue) == (654321, None)
-            res = self.interp_operations(f, [])
+            assert matching_result(res, rvalue)
+            res = self.interp_operations(f, [],
+                            supports_floats = supports_floats,
+                          supports_longlong = supports_longlong,
+                      supports_singlefloats = supports_singlefloats)
             if is_longlong(FUNC.RESULT):
-                # longlongs are passed around as floats inside the JIT, we
-                # need to convert it back before checking the value
+                # longlongs are returned as floats, but that's just
+                # an inconvenience of interp_operations().  Normally both
+                # longlong and floats are passed around as longlongs.
                 res = float2longlong(res)
-            assert res == rvalue or (res, rvalue) == (654321, None)
+            assert matching_result(res, rvalue)
             self.check_operations_history(call_may_force=0,
                                           call_release_gil=expected_call_release_gil)
 
@@ -123,22 +141,24 @@ class FfiCallTests(object):
                       [-123456*j for j in range(i)],
                       -42434445)
 
-    def test_simple_call_float(self):
-        self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2)
+    def test_simple_call_float(self, **kwds):
+        self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2, **kwds)
 
-    def test_simple_call_longlong(self):
+    def test_simple_call_longlong(self, **kwds):
         maxint32 = 2147483647
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2
-        self._run([types.slonglong] * 2, types.slonglong, [a, b], a)
+        self._run([types.slonglong] * 2, types.slonglong, [a, b], a, **kwds)
 
     def test_simple_call_singlefloat_args(self):
-        self._run([types.float] * 2, types.double, [r_singlefloat(10.5),
-                                                    r_singlefloat(31.5)], -4.5)
+        self._run([types.float] * 2, types.double,
+                  [r_singlefloat(10.5), r_singlefloat(31.5)],
+                  -4.5)
 
-    def test_simple_call_singlefloat(self):
-        self._run([types.float] * 2, types.float, [r_singlefloat(10.5),
-                                                   r_singlefloat(31.5)], -4.5)
+    def test_simple_call_singlefloat(self, **kwds):
+        self._run([types.float] * 2, types.float,
+                  [r_singlefloat(10.5), r_singlefloat(31.5)],
+                  r_singlefloat(-4.5), **kwds)
 
     def test_simple_call_longdouble(self):
         # longdouble is not supported, so we expect NOT to generate a call_release_gil
@@ -279,23 +299,19 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
 
         lltype.free(atypes, flavor='raw')
 
-    def _patch_cpuclass(self, **change):
-        def make_cpu(*args, **kwds):
-            cpu = CPUClass(*args, **kwds)
-            for key, value in change.items():
-                setattr(cpu, key, value)
-            return cpu
-        CPUClass = self.CPUClass
-        self.CPUClass = make_cpu
-
     def test_simple_call_float_unsupported(self):
-        self._patch_cpuclass(supports_floats=False)
-        self.test_simple_call_float()
+        self.test_simple_call_float(supports_floats=False,
+                                    expected_call_release_gil=0)
 
     def test_simple_call_longlong_unsupported(self):
-        self._patch_cpuclass(supports_longlong=False)
-        self.test_simple_call_longlong()
+        self.test_simple_call_longlong(supports_longlong=False,
+                                       expected_call_release_gil=is_64_bit)
 
     def test_simple_call_singlefloat_unsupported(self):
-        self._patch_cpuclass(supports_singlefloats=False)
-        self.test_simple_call_singlefloat()
+        self.test_simple_call_singlefloat(supports_singlefloats=False,
+                                          expected_call_release_gil=0)
+
+    def test_simple_call_float_even_if_other_unsupported(self):
+        self.test_simple_call_float(supports_longlong=False,
+                                    supports_singlefloats=False)
+        # this is the default:      expected_call_release_gil=1
