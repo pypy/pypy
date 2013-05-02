@@ -57,6 +57,23 @@ class HostCode(object):
         self.co_lnotab = lnotab
         self.signature = cpython_code_signature(self)
 
+    def disassemble(self):
+        contents = []
+        offsets = []
+        jumps = {}
+        pos = 0
+        i = 0
+        while pos < len(self.co_code):
+            offsets.append(pos)
+            next_pos, op = self.decode(pos)
+            contents.append(op)
+            if op.has_jump():
+                jumps[pos] = op.arg
+            pos = next_pos
+            i += 1
+        return contents, offsets, jumps
+
+
     @classmethod
     def _from_code(cls, code):
         """Initialize the code object from a real (CPython) one.
@@ -152,6 +169,9 @@ class BCInstruction(object):
 
     def eval(self, ctx):
         pass
+
+    def has_jump(self):
+        return self.num in opcode.hasjrel or self.num in opcode.hasjabs
 
     def __repr__(self):
         return "%s(%s)" % (self.name, self.arg)
