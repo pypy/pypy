@@ -70,6 +70,12 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     cw.debug = True
     testself.cw = cw
+    if supports_floats and not cpu.supports_floats:
+        py.test.skip("this test requires supports_floats=True")
+    if supports_longlong and not cpu.supports_longlong:
+        py.test.skip("this test requires supports_longlong=True")
+    if supports_singlefloats and not cpu.supports_singlefloats:
+        py.test.skip("this test requires supports_singlefloats=True")
     policy = JitPolicy()
     policy.set_supports_floats(supports_floats)
     policy.set_supports_longlong(supports_longlong)
