@@ -216,36 +216,32 @@ class FlowObjSpace(object):
                 return True
         return False
 
-    def exc_from_raise(self, w_type, w_value):
+    def exc_from_raise(self, w_arg1, w_arg2):
         """
         Create a wrapped exception from the arguments of a raise statement.
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
-        if self.isinstance_w(w_type, self.w_type):
+        if self.isinstance_w(w_arg1, self.w_type):
             # this is for all cases of the form (Class, something)
-            if self.is_w(w_value, self.w_None):
+            if self.is_w(w_arg2, self.w_None):
                 # raise Type: we assume we have to instantiate Type
-                w_value = self.call_function(w_type)
-                w_type = self.type(w_value)
+                w_value = self.call_function(w_arg1)
             else:
-                w_valuetype = self.type(w_value)
-                if self.exception_issubclass_w(w_valuetype, w_type):
+                w_valuetype = self.type(w_arg2)
+                if self.exception_issubclass_w(w_valuetype, w_arg1):
                     # raise Type, Instance: let etype be the exact type of value
-                    w_type = w_valuetype
+                    w_value = w_arg2
                 else:
                     # raise Type, X: assume X is the constructor argument
-                    w_value = self.call_function(w_type, w_value)
-                    w_type = self.type(w_value)
+                    w_value = self.call_function(w_arg1, w_arg2)
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
-            w_inst = w_type
-            w_instclass = self.type(w_inst)
-            if not self.is_w(w_value, self.w_None):
+            if not self.is_w(w_arg2, self.w_None):
                 raise FSException(self.w_TypeError, self.wrap(
                     "instance exception may not have a separate value"))
-            w_value = w_inst
-            w_type = w_instclass
+            w_value = w_arg1
+        w_type = self.type(w_value)
         return FSException(w_type, w_value)
 
     def unpackiterable(self, w_iterable):
