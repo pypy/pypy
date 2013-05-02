@@ -7,7 +7,7 @@ class BaseImportTest:
         testfn = u'test_tmp'
         testfn_unencodable = None
 
-        if sys.platform == 'nt':
+        if sys.platform == 'win32':
             testfn_unencodable = testfn + u"-\u5171\u0141\u2661\u0363\uDC80"
         elif sys.platform != 'darwin':
             try:

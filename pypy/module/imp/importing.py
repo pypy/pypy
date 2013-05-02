@@ -15,8 +15,10 @@ from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.signature import signature
-from rpython.rlib import types
+from rpython.rlib import rposix, types
 from pypy.module.sys.version import PYPY_VERSION
+
+_WIN32 = sys.platform == 'win32'
 
 SEARCH_ERROR = 0
 PY_SOURCE = 1
@@ -415,20 +417,30 @@ def find_in_path_hooks(space, w_modulename, w_pathitem):
         if space.is_true(w_loader):
             return w_loader
 
+class _WIN32Path(object):
+    def __init__(self, path):
+        self.path = path
+
+    def as_unicode(self):
+        return self.path
 
 class W_NullImporter(W_Root):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path='fsencode')
-    def descr_init(self, space, path):
+    def descr_init(self, space, w_path):
+        self._descr_init(space, w_path, _WIN32)
+
+    @specialize.arg(3)
+    def _descr_init(self, space, w_path, win32):
+        path = space.unicode0_w(w_path) if win32 else space.fsencode_w(w_path)
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(
                 "empty pathname"))
 
         # Directory should not exist
         try:
-            st = os.stat(path)
+            st = rposix.stat(_WIN32Path(path) if win32 else path)
         except OSError:
             pass
         else:
