@@ -1,4 +1,5 @@
 from __future__ import with_statement
+import py
 import sys
 from pypy.module.thread.test.support import GenericTestThread
 from rpython.translator.c.test.test_genc import compile
@@ -149,6 +150,7 @@ class AppTestRLock(GenericTestThread):
 
 
 class AppTestLockSignals(GenericTestThread):
+    pytestmark = py.test.mark.skipif("sys.platform != 'posix'")
 
     def setup_class(cls):
         cls.w_using_pthread_cond = cls.space.wrap(sys.platform == 'freebsd6')
