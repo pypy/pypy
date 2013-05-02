@@ -449,21 +449,17 @@ class FlowSpaceFrame(object):
         self.last_instr = state.next_instr
         self.blockstack = state.blocklist[:]
 
-    def record(self, spaceop):
-        """Record an operation into the active block"""
-        recorder = self.recorder
-        if getattr(recorder, 'final_state', None) is not None:
-            self.mergeblock(recorder.crnt_block, recorder.final_state)
-            raise StopFlowing
-        recorder.append(spaceop)
-
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
     def do_operation(self, name, *args_w):
+        recorder = self.recorder
+        if getattr(recorder, 'final_state', None) is not None:
+            self.mergeblock(recorder.crnt_block, recorder.final_state)
+            raise StopFlowing
         spaceop = SpaceOperation(name, args_w, Variable())
         spaceop.offset = self.last_instr
-        self.record(spaceop)
+        recorder.append(spaceop)
         return spaceop.result
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):
