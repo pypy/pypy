@@ -318,6 +318,26 @@ class TestRunningAssembler(object):
         assert longlong.getrealfloat(container[0]) == sum([float("%d.%d" % (d,d)) for d in range(n)])
         lltype.free(container, flavor='raw')
 
+    def test_vstm_vldm_combined(self):
+        n = 14
+        source_container = lltype.malloc(lltype.Array(longlong.FLOATSTORAGE,
+            hints={'nolength': True}), n, flavor='raw')
+        target_container = lltype.malloc(lltype.Array(longlong.FLOATSTORAGE,
+            hints={'nolength': True}), n, flavor='raw')
+        for x in range(n):
+            source_container[x] = longlong.getfloatstorage(float("%d.%d" % (x,x)))
+        self.a.gen_func_prolog()
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, source_container))
+        self.a.mc.VLDM(r.ip.value, [x for x in range(n)])
+        self.a.mc.gen_load_int(r.ip.value, rffi.cast(lltype.Signed, target_container))
+        self.a.mc.VSTM(r.ip.value, [x for x in range(n)])
+        self.a.gen_func_epilog()
+        run_asm(self.a)
+        for d in range(n):
+            res = longlong.getrealfloat(target_container[0]) == float("%d.%d" % (d,d))
+        lltype.free(source_container, flavor='raw')
+        lltype.free(target_container, flavor='raw')
+
 def callme(inp):
     i = inp + 10
     return i
