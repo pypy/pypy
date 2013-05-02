@@ -109,7 +109,7 @@ class HostCode(object):
         if opnum in opcode.hasjrel:
             oparg += next_offset
         try:
-            op = BCInstruction.num2op[opnum](oparg, offset)
+            op = BCInstruction.num2op[opnum].decode(oparg, offset, self)
         except KeyError:
             op = BCInstruction(opnum, oparg, offset)
         return next_offset, op
@@ -132,6 +132,10 @@ class BCInstruction(object):
         self.num = opcode
         self.arg = arg
         self.offset = offset
+
+    @classmethod
+    def decode(cls, arg, offset, code):
+        return cls(arg, offset)
 
     def eval(self, ctx):
         return getattr(ctx, self.name)(self.arg)
