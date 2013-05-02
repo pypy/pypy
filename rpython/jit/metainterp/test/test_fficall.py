@@ -11,7 +11,7 @@ from rpython.rlib import jit_libffi
 from rpython.rlib.jit_libffi import (types, CIF_DESCRIPTION, FFI_TYPE_PP,
                                      jit_ffi_call, jit_ffi_save_result)
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import intmask, r_longlong
+from rpython.rlib.rarithmetic import intmask, r_longlong, r_singlefloat
 from rpython.rlib.longlong2float import float2longlong
 
 def get_description(atypes, rtype):
@@ -67,7 +67,11 @@ class FfiCallTests(object):
             for avalue in unroll_avalues:
                 TYPE = rffi.CArray(lltype.typeOf(avalue))
                 data = rffi.ptradd(exchange_buffer, ofs)
-                assert rffi.cast(lltype.Ptr(TYPE), data)[0] == avalue
+                got = rffi.cast(lltype.Ptr(TYPE), data)[0]
+                if lltype.typeOf(avalue) is lltype.SingleFloat:
+                    got = float(got)
+                    avalue = float(avalue)
+                assert got == avalue
                 ofs += 16
             if rvalue is not None:
                 write_rvalue = rvalue
@@ -127,6 +131,14 @@ class FfiCallTests(object):
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2
         self._run([types.slonglong] * 2, types.slonglong, [a, b], a)
+
+    def test_simple_call_singlefloat_args(self):
+        self._run([types.float] * 2, types.double, [r_singlefloat(10.5),
+                                                    r_singlefloat(31.5)], -4.5)
+
+    def test_simple_call_singlefloat(self):
+        self._run([types.float] * 2, types.float, [r_singlefloat(10.5),
+                                                   r_singlefloat(31.5)], -4.5)
 
     def test_simple_call_longdouble(self):
         # longdouble is not supported, so we expect NOT to generate a call_release_gil
@@ -266,3 +278,24 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
         assert res == math.sin(1.23)
 
         lltype.free(atypes, flavor='raw')
+
+    def _patch_cpuclass(self, **change):
+        def make_cpu(*args, **kwds):
+            cpu = CPUClass(*args, **kwds)
+            for key, value in change.items():
+                setattr(cpu, key, value)
+            return cpu
+        CPUClass = self.CPUClass
+        self.CPUClass = make_cpu
+
+    def test_simple_call_float_unsupported(self):
+        self._patch_cpuclass(supports_floats=False)
+        self.test_simple_call_float()
+
+    def test_simple_call_longlong_unsupported(self):
+        self._patch_cpuclass(supports_longlong=False)
+        self.test_simple_call_longlong()
+
+    def test_simple_call_singlefloat_unsupported(self):
+        self._patch_cpuclass(supports_singlefloats=False)
+        self.test_simple_call_singlefloat()
