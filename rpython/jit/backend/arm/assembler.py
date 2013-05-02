@@ -360,18 +360,22 @@ class AssemblerARM(ResOpAssembler):
             regs = CoreRegisterManager.save_around_call_regs
         else:
             regs = CoreRegisterManager.all_regs
-        mc.ADD_ri(r.ip.value, r.fp.value, base_ofs)
-        mc.STM(r.ip.value, [reg.value for reg in regs
-                                    if reg not in ignored_regs])
+        # XXX use STMDB ops here
+        for i, gpr in enumerate(regs):
+            if gpr in ignored_regs:
+                continue
+            self.store_reg(mc, gpr, r.fp, base_ofs + i * WORD)
         if withfloats:
             if callee_only:
                 regs = VFPRegisterManager.save_around_call_regs
             else:
                 regs = VFPRegisterManager.all_regs
-            ofs = len(CoreRegisterManager.all_regs) * WORD
-            mc.ADD_ri(r.ip.value, r.ip.value, ofs)
-            mc.VSTM(r.ip.value, [vfpr.value for vfpr in regs
-                                    if vfpr not in ignored_regs])
+            for i, vfpr in enumerate(regs):
+                if vfpr in ignored_regs:
+                    continue
+                ofs = len(CoreRegisterManager.all_regs) * WORD
+                ofs += i * DOUBLE_WORD + base_ofs
+                self.store_reg(mc, vfpr, r.fp, ofs)
 
     def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
                                  callee_only=False):
@@ -381,19 +385,24 @@ class AssemblerARM(ResOpAssembler):
             regs = CoreRegisterManager.save_around_call_regs
         else:
             regs = CoreRegisterManager.all_regs
-        mc.ADD_ri(r.ip.value, r.fp.value, base_ofs)
-        mc.LDM(r.ip.value, [reg.value for reg in regs
-                                    if reg not in ignored_regs])
+        # XXX use LDMDB ops here
+        for i, gpr in enumerate(regs):
+            if gpr in ignored_regs:
+                continue
+            ofs = i * WORD + base_ofs
+            self.load_reg(mc, gpr, r.fp, ofs)
         if withfloats:
             # Pop all XMM regs
             if callee_only:
                 regs = VFPRegisterManager.save_around_call_regs
             else:
                 regs = VFPRegisterManager.all_regs
-            ofs = len(CoreRegisterManager.all_regs) * WORD
-            mc.ADD_ri(r.ip.value, r.ip.value, ofs)
-            mc.VLDM(r.ip.value, [vfpr.value for vfpr in regs
-                                    if vfpr not in ignored_regs])
+            for i, vfpr in enumerate(regs):
+                if vfpr in ignored_regs:
+                    continue
+                ofs = len(CoreRegisterManager.all_regs) * WORD
+                ofs += i * DOUBLE_WORD + base_ofs
+                self.load_reg(mc, vfpr, r.fp, ofs)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
