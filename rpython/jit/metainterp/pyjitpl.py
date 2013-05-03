@@ -1190,8 +1190,8 @@ class MIFrame(object):
         return self.metainterp.execute_and_record(rop.READ_TIMESTAMP, None)
 
     @arguments("box", "box", "box")
-    def opimpl_libffi_save_result_int(self, box_cif_description, box_exchange_buffer,
-                                      box_result):
+    def _opimpl_libffi_save_result(self, box_cif_description,
+                                   box_exchange_buffer, box_result):
         from rpython.rtyper.lltypesystem import llmemory
         from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
         from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
@@ -1208,10 +1208,14 @@ class MIFrame(object):
             assert ofs % itemsize == 0     # alignment check (result)
             self.metainterp.history.record(rop.SETARRAYITEM_RAW,
                                            [box_exchange_buffer,
-                                            ConstInt(ofs // itemsize), box_result],
+                                            ConstInt(ofs // itemsize),
+                                            box_result],
                                            None, descr)
 
-    opimpl_libffi_save_result_float = opimpl_libffi_save_result_int
+    opimpl_libffi_save_result_int         = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_float       = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_longlong    = _opimpl_libffi_save_result
+    opimpl_libffi_save_result_singlefloat = _opimpl_libffi_save_result
 
     # ------------------------------
 

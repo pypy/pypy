@@ -31,12 +31,8 @@ PY_FROZEN = 7
 # PY_CODERESOURCE = 8
 IMP_HOOK = 9
 
-if sys.platform == 'win32':
-    SO = ".pyd"
-else:
-    SO = ".so"
+SO = '.pyd' if _WIN32 else '.so'
 DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-CHECK_FOR_PYW = sys.platform == 'win32'
 
 PYC_TAG = 'pypy-%d%d' % PYPY_VERSION[:2]
 
@@ -70,7 +66,7 @@ def find_modtype(space, filepart):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
-    if CHECK_FOR_PYW:
+    if _WIN32:
         pyfile = filepart + ".pyw"
         if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
