@@ -717,6 +717,9 @@ with somtehing as stuff:
 
 class AppTestCompiler:
 
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
     def test_bom_with_future(self):
         s = b'\xef\xbb\xbffrom __future__ import division\nx = 1/2'
         ns = {}
@@ -738,12 +741,15 @@ class AppTestCompiler:
         assert type(ns['d'][0][0]) is complex
 
     def test_zeros_not_mixed(self):
-        import math
+        import math, sys
         code = compile("x = -0.0; y = 0.0", "<test>", "exec")
         consts = code.co_consts
-        x, y = consts
-        assert isinstance(x, float)
-        assert math.copysign(1, x) == 1
+        if not self.runappdirect or sys.version_info[:2] != (3, 2):
+            # Only CPython 3.2 does not store -0.0.
+            # PyPy implements 3.3 here.
+            x, y, z = consts
+            assert isinstance(x, float) and isinstance(y, float)
+            assert math.copysign(1, x) != math.copysign(1, y)
         ns = {}
         exec("z1, z2 = 0j, -0j", ns)
         assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
