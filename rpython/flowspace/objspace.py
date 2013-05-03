@@ -477,9 +477,9 @@ def make_op(name, arity):
         return w_result
     return generic_operator
 
-for (name, symbol, arity, specialnames) in operation.MethodTable:
-    if getattr(FlowObjSpace, name, None) is None:
-        setattr(FlowObjSpace, name, make_op(name, arity))
+for oper in operation.op.__dict__.values():
+    if getattr(FlowObjSpace, oper.name, None) is None:
+        setattr(FlowObjSpace, oper.name, make_op(oper.name, oper.arity))
 
 
 def build_flow(func, space=FlowObjSpace()):

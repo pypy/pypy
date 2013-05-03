@@ -9,87 +9,95 @@ import operator
 from rpython.tool.sourcetools import compile2
 from rpython.rlib.rarithmetic import ovfcheck
 
-# this is a copy that should be shared with standard objspace
+class _OpHolder(object): pass
+op = _OpHolder()
 
-MethodTable = [
-# method name # symbol # number of arguments # special method name(s)
-    ('is_',             'is',        2, []),
-    ('id',              'id',        1, []),
-    ('type',            'type',      1, []),
-    ('isinstance',      'isinstance', 2, ['__instancecheck__']),
-    ('issubtype',       'issubtype', 2, ['__subclasscheck__']),  # not for old-style classes
-    ('repr',            'repr',      1, ['__repr__']),
-    ('str',             'str',       1, ['__str__']),
-    ('format',          'format',    2, ['__format__']),
-    ('len',             'len',       1, ['__len__']),
-    ('hash',            'hash',      1, ['__hash__']),
-    ('getattr',         'getattr',   2, ['__getattribute__']),
-    ('setattr',         'setattr',   3, ['__setattr__']),
-    ('delattr',         'delattr',   2, ['__delattr__']),
-    ('getitem',         'getitem',   2, ['__getitem__']),
-    ('setitem',         'setitem',   3, ['__setitem__']),
-    ('delitem',         'delitem',   2, ['__delitem__']),
-    ('getslice',        'getslice',  3, ['__getslice__']),
-    ('setslice',        'setslice',  4, ['__setslice__']),
-    ('delslice',        'delslice',  3, ['__delslice__']),
-    ('trunc',           'trunc',     1, ['__trunc__']),
-    ('pos',             'pos',       1, ['__pos__']),
-    ('neg',             'neg',       1, ['__neg__']),
-    ('nonzero',         'truth',     1, ['__nonzero__']),
-    ('abs' ,            'abs',       1, ['__abs__']),
-    ('hex',             'hex',       1, ['__hex__']),
-    ('oct',             'oct',       1, ['__oct__']),
-    ('ord',             'ord',       1, []),
-    ('invert',          '~',         1, ['__invert__']),
-    ('add',             '+',         2, ['__add__', '__radd__']),
-    ('sub',             '-',         2, ['__sub__', '__rsub__']),
-    ('mul',             '*',         2, ['__mul__', '__rmul__']),
-    ('truediv',         '/',         2, ['__truediv__', '__rtruediv__']),
-    ('floordiv',        '//',        2, ['__floordiv__', '__rfloordiv__']),
-    ('div',             'div',       2, ['__div__', '__rdiv__']),
-    ('mod',             '%',         2, ['__mod__', '__rmod__']),
-    ('divmod',          'divmod',    2, ['__divmod__', '__rdivmod__']),
-    ('pow',             '**',        3, ['__pow__', '__rpow__']),
-    ('lshift',          '<<',        2, ['__lshift__', '__rlshift__']),
-    ('rshift',          '>>',        2, ['__rshift__', '__rrshift__']),
-    ('and_',            '&',         2, ['__and__', '__rand__']),
-    ('or_',             '|',         2, ['__or__', '__ror__']),
-    ('xor',             '^',         2, ['__xor__', '__rxor__']),
-    ('int',             'int',       1, ['__int__']),
-    ('index',           'index',     1, ['__index__']),
-    ('float',           'float',     1, ['__float__']),
-    ('long',            'long',      1, ['__long__']),
-    ('inplace_add',     '+=',        2, ['__iadd__']),
-    ('inplace_sub',     '-=',        2, ['__isub__']),
-    ('inplace_mul',     '*=',        2, ['__imul__']),
-    ('inplace_truediv', '/=',        2, ['__itruediv__']),
-    ('inplace_floordiv','//=',       2, ['__ifloordiv__']),
-    ('inplace_div',     'div=',      2, ['__idiv__']),
-    ('inplace_mod',     '%=',        2, ['__imod__']),
-    ('inplace_pow',     '**=',       2, ['__ipow__']),
-    ('inplace_lshift',  '<<=',       2, ['__ilshift__']),
-    ('inplace_rshift',  '>>=',       2, ['__irshift__']),
-    ('inplace_and',     '&=',        2, ['__iand__']),
-    ('inplace_or',      '|=',        2, ['__ior__']),
-    ('inplace_xor',     '^=',        2, ['__ixor__']),
-    ('lt',              '<',         2, ['__lt__', '__gt__']),
-    ('le',              '<=',        2, ['__le__', '__ge__']),
-    ('eq',              '==',        2, ['__eq__', '__eq__']),
-    ('ne',              '!=',        2, ['__ne__', '__ne__']),
-    ('gt',              '>',         2, ['__gt__', '__lt__']),
-    ('ge',              '>=',        2, ['__ge__', '__le__']),
-    ('cmp',             'cmp',       2, ['__cmp__']),   # rich cmps preferred
-    ('coerce',          'coerce',    2, ['__coerce__', '__coerce__']),
-    ('contains',        'contains',  2, ['__contains__']),
-    ('iter',            'iter',      1, ['__iter__']),
-    ('next',            'next',      1, ['next']),
-#    ('call',            'call',      3, ['__call__']),
-    ('get',             'get',       3, ['__get__']),
-    ('set',             'set',       3, ['__set__']),
-    ('delete',          'delete',    2, ['__delete__']),
-    ('userdel',         'del',       1, ['__del__']),
-    ('buffer',          'buffer',    1, ['__buffer__']),   # see buffer.py
-    ]
+class SpaceOperator(object):
+    def __init__(self, name, arity, symbol):
+        self.name = name
+        self.arity = arity
+        self.symbol = symbol
+
+def add_operator(name, arity, symbol):
+    operator = SpaceOperator(name, arity, symbol)
+    setattr(op, name, operator)
+
+add_operator('is_', 2, 'is')
+add_operator('id', 1, 'id')
+add_operator('type', 1, 'type')
+add_operator('isinstance', 2, 'isinstance')
+add_operator('issubtype', 2, 'issubtype')  # not for old-style classes
+add_operator('repr', 1, 'repr')
+add_operator('str', 1, 'str')
+add_operator('format', 2, 'format')
+add_operator('len', 1, 'len')
+add_operator('hash', 1, 'hash')
+add_operator('getattr', 2, 'getattr')
+add_operator('setattr', 3, 'setattr')
+add_operator('delattr', 2, 'delattr')
+add_operator('getitem', 2, 'getitem')
+add_operator('setitem', 3, 'setitem')
+add_operator('delitem', 2, 'delitem')
+add_operator('getslice', 3, 'getslice')
+add_operator('setslice', 4, 'setslice')
+add_operator('delslice', 3, 'delslice')
+add_operator('trunc', 1, 'trunc')
+add_operator('pos', 1, 'pos')
+add_operator('neg', 1, 'neg')
+add_operator('nonzero', 1, 'truth')
+add_operator('abs' , 1, 'abs')
+add_operator('hex', 1, 'hex')
+add_operator('oct', 1, 'oct')
+add_operator('ord', 1, 'ord')
+add_operator('invert', 1, '~')
+add_operator('add', 2, '+')
+add_operator('sub', 2, '-')
+add_operator('mul', 2, '*')
+add_operator('truediv', 2, '/')
+add_operator('floordiv', 2, '//')
+add_operator('div', 2, 'div')
+add_operator('mod', 2, '%')
+add_operator('divmod', 2, 'divmod')
+add_operator('pow', 3, '**')
+add_operator('lshift', 2, '<<')
+add_operator('rshift', 2, '>>')
+add_operator('and_', 2, '&')
+add_operator('or_', 2, '|')
+add_operator('xor', 2, '^')
+add_operator('int', 1, 'int')
+add_operator('index', 1, 'index')
+add_operator('float', 1, 'float')
+add_operator('long', 1, 'long')
+add_operator('inplace_add', 2, '+=')
+add_operator('inplace_sub', 2, '-=')
+add_operator('inplace_mul', 2, '*=')
+add_operator('inplace_truediv', 2, '/=')
+add_operator('inplace_floordiv', 2, '//=')
+add_operator('inplace_div', 2, 'div=')
+add_operator('inplace_mod', 2, '%=')
+add_operator('inplace_pow', 2, '**=')
+add_operator('inplace_lshift', 2, '<<=')
+add_operator('inplace_rshift', 2, '>>=')
+add_operator('inplace_and', 2, '&=')
+add_operator('inplace_or', 2, '|=')
+add_operator('inplace_xor', 2, '^=')
+add_operator('lt', 2, '<')
+add_operator('le', 2, '<=')
+add_operator('eq', 2, '==')
+add_operator('ne', 2, '!=')
+add_operator('gt', 2, '>')
+add_operator('ge', 2, '>=')
+add_operator('cmp', 2, 'cmp')   # rich cmps preferred
+add_operator('coerce', 2, 'coerce')
+add_operator('contains', 2, 'contains')
+add_operator('iter', 1, 'iter')
+add_operator('next', 1, 'next')
+#add_operator('call', 3, 'call')
+add_operator('get', 3, 'get')
+add_operator('set', 3, 'set')
+add_operator('delete', 2, 'delete')
+add_operator('userdel', 1, 'del')
+add_operator('buffer', 1, 'buffer')   # see buffer.py
 
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
@@ -304,8 +312,7 @@ if hasattr(__builtin__, 'next'):
 
 def setup():
     # insert all operators
-    for line in MethodTable:
-        name = line[0]
+    for name in vars(op):
         if hasattr(operator, name):
             Table.append((name, getattr(operator, name)))
     # build the dictionaries
@@ -315,9 +322,8 @@ def setup():
         if func not in OperationName:
             OperationName[func] = name
     # check that the result is complete
-    for line in MethodTable:
-        name = line[0]
-        Arity[name] = line[2]
+    for name, oper in vars(op).iteritems():
+        Arity[name] = oper.arity
         assert name in FunctionByName
 setup()
 del Table, setup # INTERNAL ONLY, use the dicts declared at the top of the file
