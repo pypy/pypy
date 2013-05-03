@@ -100,7 +100,7 @@ def bytes_realize(space, py_obj):
     """
     py_str = rffi.cast(PyBytesObject, py_obj)
     s = rffi.charpsize2str(py_str.c_buffer, py_str.c_size)
-    w_obj = space.wrap(s)
+    w_obj = space.wrapbytes(s)
     track_reference(space, py_obj, w_obj)
     return w_obj
 
