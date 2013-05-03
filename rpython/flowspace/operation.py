@@ -321,10 +321,6 @@ def setup():
             FunctionByName[name] = func
         if func not in OperationName:
             OperationName[func] = name
-    # check that the result is complete
-    for name, oper in vars(op).iteritems():
-        Arity[name] = oper.arity
-        assert name in FunctionByName
 setup()
 del Table, setup # INTERNAL ONLY, use the dicts declared at the top of the file
 

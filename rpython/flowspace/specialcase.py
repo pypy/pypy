@@ -1,5 +1,5 @@
 from rpython.flowspace.model import Constant
-from rpython.flowspace.operation import OperationName, Arity
+from rpython.flowspace.operation import OperationName, op
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -10,14 +10,15 @@ def sc_import(space, fn, args_w):
 
 def sc_operator(space, fn, args_w):
     opname = OperationName[fn]
-    if len(args_w) != Arity[opname]:
+    oper = getattr(op, opname)
+    if len(args_w) != oper.arity:
         if opname == 'pow' and len(args_w) == 2:
             args_w = args_w + [Constant(None)]
         elif opname == 'getattr' and len(args_w) == 3:
             return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
         else:
             raise Exception("should call %r with exactly %d arguments" % (
-                fn, Arity[opname]))
+                fn, oper.arity))
     # completely replace the call with the underlying
     # operation and its limited implicit exceptions semantic
     return getattr(space, opname)(*args_w)
