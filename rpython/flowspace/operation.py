@@ -12,100 +12,28 @@ from rpython.rlib.rarithmetic import ovfcheck
 class _OpHolder(object): pass
 op = _OpHolder()
 
+func2op = {}
+FunctionByName = {}   # dict {"operation_name": <built-in function>}
+
 class SpaceOperator(object):
-    def __init__(self, name, arity, symbol):
+    def __init__(self, name, arity, symbol, pyfunc):
         self.name = name
         self.arity = arity
         self.symbol = symbol
+        self.pyfunc = pyfunc
 
-def add_operator(name, arity, symbol):
-    operator = SpaceOperator(name, arity, symbol)
-    setattr(op, name, operator)
-
-add_operator('is_', 2, 'is')
-add_operator('id', 1, 'id')
-add_operator('type', 1, 'type')
-add_operator('isinstance', 2, 'isinstance')
-add_operator('issubtype', 2, 'issubtype')  # not for old-style classes
-add_operator('repr', 1, 'repr')
-add_operator('str', 1, 'str')
-add_operator('format', 2, 'format')
-add_operator('len', 1, 'len')
-add_operator('hash', 1, 'hash')
-add_operator('getattr', 2, 'getattr')
-add_operator('setattr', 3, 'setattr')
-add_operator('delattr', 2, 'delattr')
-add_operator('getitem', 2, 'getitem')
-add_operator('setitem', 3, 'setitem')
-add_operator('delitem', 2, 'delitem')
-add_operator('getslice', 3, 'getslice')
-add_operator('setslice', 4, 'setslice')
-add_operator('delslice', 3, 'delslice')
-add_operator('trunc', 1, 'trunc')
-add_operator('pos', 1, 'pos')
-add_operator('neg', 1, 'neg')
-add_operator('nonzero', 1, 'truth')
-add_operator('abs' , 1, 'abs')
-add_operator('hex', 1, 'hex')
-add_operator('oct', 1, 'oct')
-add_operator('ord', 1, 'ord')
-add_operator('invert', 1, '~')
-add_operator('add', 2, '+')
-add_operator('sub', 2, '-')
-add_operator('mul', 2, '*')
-add_operator('truediv', 2, '/')
-add_operator('floordiv', 2, '//')
-add_operator('div', 2, 'div')
-add_operator('mod', 2, '%')
-add_operator('divmod', 2, 'divmod')
-add_operator('pow', 3, '**')
-add_operator('lshift', 2, '<<')
-add_operator('rshift', 2, '>>')
-add_operator('and_', 2, '&')
-add_operator('or_', 2, '|')
-add_operator('xor', 2, '^')
-add_operator('int', 1, 'int')
-add_operator('index', 1, 'index')
-add_operator('float', 1, 'float')
-add_operator('long', 1, 'long')
-add_operator('inplace_add', 2, '+=')
-add_operator('inplace_sub', 2, '-=')
-add_operator('inplace_mul', 2, '*=')
-add_operator('inplace_truediv', 2, '/=')
-add_operator('inplace_floordiv', 2, '//=')
-add_operator('inplace_div', 2, 'div=')
-add_operator('inplace_mod', 2, '%=')
-add_operator('inplace_pow', 2, '**=')
-add_operator('inplace_lshift', 2, '<<=')
-add_operator('inplace_rshift', 2, '>>=')
-add_operator('inplace_and', 2, '&=')
-add_operator('inplace_or', 2, '|=')
-add_operator('inplace_xor', 2, '^=')
-add_operator('lt', 2, '<')
-add_operator('le', 2, '<=')
-add_operator('eq', 2, '==')
-add_operator('ne', 2, '!=')
-add_operator('gt', 2, '>')
-add_operator('ge', 2, '>=')
-add_operator('cmp', 2, 'cmp')   # rich cmps preferred
-add_operator('coerce', 2, 'coerce')
-add_operator('contains', 2, 'contains')
-add_operator('iter', 1, 'iter')
-add_operator('next', 1, 'next')
-#add_operator('call', 3, 'call')
-add_operator('get', 3, 'get')
-add_operator('set', 3, 'set')
-add_operator('delete', 2, 'delete')
-add_operator('userdel', 1, 'del')
-add_operator('buffer', 1, 'buffer')   # see buffer.py
-
-# Add _ovf ops
-for oper in [op.neg, op.abs, op.add, op.sub, op.mul, op.floordiv, op.div,
-        op.mod, op.lshift]:
-    add_operator(oper.name + '_ovf', oper.arity, oper.symbol)
-
-
-FunctionByName = {}   # dict {"operation_name": <built-in function>}
+def add_operator(name, arity, symbol, pyfunc=None):
+    operator_func = getattr(operator, name, None)
+    oper = SpaceOperator(name, arity, symbol, pyfunc)
+    setattr(op, name, oper)
+    if pyfunc is not None:
+        FunctionByName[name] = pyfunc
+        func2op[pyfunc] = oper
+    if operator_func:
+        func2op[operator_func] = oper
+        if pyfunc is None:
+            oper.pyfunc = operator_func
+            FunctionByName[name] = operator_func
 
 # ____________________________________________________________
 
@@ -237,94 +165,91 @@ def do_delslice(a, b, c):
 def unsupported(*args):
     raise ValueError("this is not supported")
 
-# ____________________________________________________________
 
-# The following table can list several times the same operation name,
-# if multiple built-in functions correspond to it.  The first one should
-# be picked, though, as the best built-in for the given operation name.
-# Lines ('name', operator.name) are added automatically.
+add_operator('is_', 2, 'is')
+add_operator('id', 1, 'id', pyfunc=id)
+add_operator('type', 1, 'type', pyfunc=new_style_type)
+add_operator('isinstance', 2, 'isinstance', pyfunc=isinstance)
+add_operator('issubtype', 2, 'issubtype', pyfunc=issubclass)  # not for old-style classes
+add_operator('repr', 1, 'repr', pyfunc=repr)
+add_operator('str', 1, 'str', pyfunc=str)
+add_operator('format', 2, 'format', pyfunc=unsupported)
+add_operator('len', 1, 'len', pyfunc=len)
+add_operator('hash', 1, 'hash', pyfunc=hash)
+add_operator('getattr', 2, 'getattr', pyfunc=getattr)
+add_operator('setattr', 3, 'setattr', pyfunc=setattr)
+add_operator('delattr', 2, 'delattr', pyfunc=delattr)
+add_operator('getitem', 2, 'getitem')
+add_operator('setitem', 3, 'setitem')
+add_operator('delitem', 2, 'delitem')
+add_operator('getslice', 3, 'getslice', pyfunc=do_getslice)
+add_operator('setslice', 4, 'setslice', pyfunc=do_setslice)
+add_operator('delslice', 3, 'delslice', pyfunc=do_delslice)
+add_operator('trunc', 1, 'trunc', pyfunc=unsupported)
+add_operator('pos', 1, 'pos')
+add_operator('neg', 1, 'neg')
+add_operator('nonzero', 1, 'truth', pyfunc=bool)
+add_operator('abs' , 1, 'abs', pyfunc=abs)
+add_operator('hex', 1, 'hex', pyfunc=hex)
+add_operator('oct', 1, 'oct', pyfunc=oct)
+add_operator('ord', 1, 'ord', pyfunc=ord)
+add_operator('invert', 1, '~')
+add_operator('add', 2, '+')
+add_operator('sub', 2, '-')
+add_operator('mul', 2, '*')
+add_operator('truediv', 2, '/')
+add_operator('floordiv', 2, '//')
+add_operator('div', 2, 'div')
+add_operator('mod', 2, '%')
+add_operator('divmod', 2, 'divmod', pyfunc=divmod)
+add_operator('pow', 3, '**', pyfunc=pow)
+add_operator('lshift', 2, '<<')
+add_operator('rshift', 2, '>>')
+add_operator('and_', 2, '&')
+add_operator('or_', 2, '|')
+add_operator('xor', 2, '^')
+add_operator('int', 1, 'int', pyfunc=do_int)
+add_operator('index', 1, 'index', pyfunc=do_index)
+add_operator('float', 1, 'float', pyfunc=do_float)
+add_operator('long', 1, 'long', pyfunc=do_long)
+add_operator('inplace_add', 2, '+=', pyfunc=inplace_add)
+add_operator('inplace_sub', 2, '-=', pyfunc=inplace_sub)
+add_operator('inplace_mul', 2, '*=', pyfunc=inplace_mul)
+add_operator('inplace_truediv', 2, '/=', pyfunc=inplace_truediv)
+add_operator('inplace_floordiv', 2, '//=', pyfunc=inplace_floordiv)
+add_operator('inplace_div', 2, 'div=', pyfunc=inplace_div)
+add_operator('inplace_mod', 2, '%=', pyfunc=inplace_mod)
+add_operator('inplace_pow', 2, '**=', pyfunc=inplace_pow)
+add_operator('inplace_lshift', 2, '<<=', pyfunc=inplace_lshift)
+add_operator('inplace_rshift', 2, '>>=', pyfunc=inplace_rshift)
+add_operator('inplace_and', 2, '&=', pyfunc=inplace_and)
+add_operator('inplace_or', 2, '|=', pyfunc=inplace_or)
+add_operator('inplace_xor', 2, '^=', pyfunc=inplace_xor)
+add_operator('lt', 2, '<')
+add_operator('le', 2, '<=')
+add_operator('eq', 2, '==')
+add_operator('ne', 2, '!=')
+add_operator('gt', 2, '>')
+add_operator('ge', 2, '>=')
+add_operator('cmp', 2, 'cmp', pyfunc=cmp)   # rich cmps preferred
+add_operator('coerce', 2, 'coerce', pyfunc=coerce)
+add_operator('contains', 2, 'contains')
+add_operator('iter', 1, 'iter', pyfunc=iter)
+add_operator('next', 1, 'next', pyfunc=next)
+#add_operator('call', 3, 'call')
+add_operator('get', 3, 'get', pyfunc=get)
+add_operator('set', 3, 'set', pyfunc=set)
+add_operator('delete', 2, 'delete', pyfunc=delete)
+add_operator('userdel', 1, 'del', pyfunc=userdel)
+add_operator('buffer', 1, 'buffer', pyfunc=buffer)   # see buffer.py
 
-# INTERNAL ONLY, use the dicts declared at the top of the file.
-Table = [
-    ('id',              id),
-    ('type',            new_style_type),
-    ('isinstance',      isinstance),
-    ('issubtype',       issubclass),
-    ('repr',            repr),
-    ('str',             str),
-    ('format',          unsupported),
-    ('len',             len),
-    ('hash',            hash),
-    ('getattr',         getattr),
-    ('setattr',         setattr),
-    ('delattr',         delattr),
-    ('nonzero',         bool),
-    ('is_true',         bool),
-    ('trunc',           unsupported),
-    ('abs' ,            abs),
-    ('hex',             hex),
-    ('oct',             oct),
-    ('ord',             ord),
-    ('divmod',          divmod),
-    ('pow',             pow),
-    ('int',             do_int),
-    ('index',           do_index),
-    ('float',           do_float),
-    ('long',            do_long),
-    ('inplace_add',     inplace_add),
-    ('inplace_sub',     inplace_sub),
-    ('inplace_mul',     inplace_mul),
-    ('inplace_truediv', inplace_truediv),
-    ('inplace_floordiv',inplace_floordiv),
-    ('inplace_div',     inplace_div),
-    ('inplace_mod',     inplace_mod),
-    ('inplace_pow',     inplace_pow),
-    ('inplace_lshift',  inplace_lshift),
-    ('inplace_rshift',  inplace_rshift),
-    ('inplace_and',     inplace_and),
-    ('inplace_or',      inplace_or),
-    ('inplace_xor',     inplace_xor),
-    ('cmp',             cmp),
-    ('coerce',          coerce),
-    ('iter',            iter),
-    ('next',            next),
-    ('get',             get),
-    ('set',             set),
-    ('delete',          delete),
-    ('userdel',         userdel),
-    ('buffer',          buffer),
-    ('getslice',        do_getslice),
-    ('setslice',        do_setslice),
-    ('delslice',        do_delslice),
-    # --- operations added by graph transformations ---
-    ('neg_ovf',         neg_ovf),
-    ('abs_ovf',         abs_ovf),
-    ('add_ovf',         add_ovf),
-    ('sub_ovf',         sub_ovf),
-    ('mul_ovf',         mul_ovf),
-    ('floordiv_ovf',    floordiv_ovf),
-    ('div_ovf',         div_ovf),
-    ('mod_ovf',         mod_ovf),
-    ('lshift_ovf',      lshift_ovf),
-]
+# --- operations added by graph transformations ---
+for oper in [op.neg, op.abs, op.add, op.sub, op.mul, op.floordiv, op.div,
+        op.mod, op.lshift]:
+    ovf_func = lambda *args: ovfcheck(oper.pyfunc(*args))
+    add_operator(oper.name + '_ovf', oper.arity, oper.symbol, pyfunc=ovf_func)
 
-# build the dictionaries
-func2op = {}
-for name, func in Table:
-    if name not in FunctionByName:
-        FunctionByName[name] = func
-    if func not in func2op:
-        func2op[func] = getattr(op, name)
-del Table  # INTERNAL ONLY, use the dicts declared at the top of the file
-
-# insert all operators
-for name in vars(op):
-    if hasattr(operator, name):
-        func = getattr(operator, name)
-        if name not in FunctionByName:
-            FunctionByName[name] = func
-        if func not in func2op:
-            func2op[func] = getattr(op, name)
+FunctionByName['is_true'] = bool
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
