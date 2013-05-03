@@ -3,18 +3,18 @@ PyPy 2.0 - Einstein Sandwich
 ============================
 
 We're pleased to announce PyPy 2.0. This is a stable release that brings
-swath of bugfixes, small performance improvements and compatibility fixes.
+a swath of bugfixes, small performance improvements and compatibility fixes.
 
 You can download the PyPy 2.0 release here:
 
     http://pypy.org/download.html
 
-Two biggest changes since PyPy 1.9 are:
+The two biggest changes since PyPy 1.9 are:
 
 * stackless is now supported including greenlets, which means eventlet
   and gevent should work (but read below about gevent)
 
-* PyPy now contains a release 0.6 of `cffi`_ as a builtin module, which
+* PyPy now contains release 0.6 of `cffi`_ as a builtin module, which
   is preferred way of calling C from Python that works well on PyPy
 
 .. _`cffi`: http://cffi.readthedocs.org
@@ -37,17 +37,22 @@ Highlights
 ==========
 
 * Stackless including greenlets should work. For gevent, you need to check
-  out `pypycore`_ and use `pypy-hacks`_ branch of gevent.
+  out `pypycore`_ and use the `pypy-hacks`_ branch of gevent.
 
-* cffi is not a module included with PyPy. It's a preferred way of calling
-  C from Python that works on PyPy.
+* cffi is now a module included with PyPy.  (`cffi`_ also exists for
+  CPython; the two versions should be fully compatible.)  It is the
+  preferred way of calling C from Python that works on PyPy.
 
-* Callbacks from C are now JITted, which means XML parsing is much faster
+* Callbacks from C are now JITted, which means XML parsing is much faster.
 
 * A lot of speed improvements in various language corners, most of them small,
-  but speeding up a particular corner a lot
+  but speeding up some particular corners a lot.
 
-* A lot of stability issues fixed
+* The JIT was refactored to emit machine code which manipulates a "frame"
+  that lives on the heap rather than on the stack.  This is what makes
+  Stackless work, and it could bring another future speed-up (not done yet).
+
+* A lot of stability issues fixed.
 
 .. _`pypycore`: https://github.com/gevent-on-pypy/pypycore/
 .. _`pypy-hacks`: https://github.com/schmir/gevent/tree/pypy-hacks
