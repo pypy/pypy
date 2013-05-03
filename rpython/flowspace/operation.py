@@ -245,7 +245,6 @@ def unsupported(*args):
 Table = [
     ('id',              id),
     ('type',            new_style_type),
-    ('type',            type),
     ('isinstance',      isinstance),
     ('issubtype',       issubclass),
     ('repr',            repr),
@@ -257,9 +256,7 @@ Table = [
     ('setattr',         setattr),
     ('delattr',         delattr),
     ('nonzero',         bool),
-    ('nonzero',         operator.truth),
     ('is_true',         bool),
-    ('is_true',         operator.truth),
     ('trunc',           unsupported),
     ('abs' ,            abs),
     ('hex',             hex),
@@ -307,22 +304,31 @@ Table = [
     ('mod_ovf',         mod_ovf),
     ('lshift_ovf',      lshift_ovf),
 ]
-if hasattr(__builtin__, 'next'):
-    Table.append(('next', __builtin__.next))
 
-def setup():
-    # insert all operators
-    for name in vars(op):
-        if hasattr(operator, name):
-            Table.append((name, getattr(operator, name)))
-    # build the dictionaries
-    for name, func in Table:
+# build the dictionaries
+for name, func in Table:
+    if name not in FunctionByName:
+        FunctionByName[name] = func
+    if func not in OperationName:
+        OperationName[func] = name
+del Table  # INTERNAL ONLY, use the dicts declared at the top of the file
+
+# insert all operators
+for name in vars(op):
+    if hasattr(operator, name):
+        func = getattr(operator, name)
         if name not in FunctionByName:
             FunctionByName[name] = func
         if func not in OperationName:
             OperationName[func] = name
-setup()
-del Table, setup # INTERNAL ONLY, use the dicts declared at the top of the file
+
+# Other functions that get directly translated to SpaceOperators
+func2op = {type: op.type, operator.truth: op.nonzero}
+if hasattr(__builtin__, 'next'):
+    func2op[__builtin__.next] = op.next
+for func, oper in func2op.iteritems():
+    OperationName[func] = oper.name
+
 
 op_appendices = {
     OverflowError: 'ovf',
