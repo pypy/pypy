@@ -1,2 +1,41 @@
+TODO for the python3 test suite:
 
-* ARM
+* test_decimal:
+   In py3k, hash(-1) is now -2 (probably as an optimisation, because
+   PyObject_Hash() return -1 on exception).
+   It's important to be compatible, since other classes like Decimal
+   and Fractions have to return the same hashes for equivalent values.
+   IOW: int.__hash__ is part of the Python language specification.
+
+* test_fractions
+* test_numeric_tower
+   float.__hash__ has changed as well.
+
+* test_float
+   nan = float('nan');  assert nan in [nan]
+   This has always been true in CPython, it is now guaranteed that the
+   containers use the "is" operator as an optimization.
+   Difficult in pypy because optimized containers are arrays of
+   unwrapped doubles. A possible solution is to special-case nan in
+   FloatListStrategy.unwrap().
+
+* test_memoryview
+   Needs bytes/str changes. Probably easy.
+
+* test_peepholer
+   'a in [1,2,3]' is rewritten as 'a in (1, 2, 3)'
+   and the tuple is a prebuilt constant.
+   Likewise, a set becomes a frozenset.
+
+* test_pep263
+   Tracebacks should be able to print unicode source code.
+
+* test_sqlite
+   (Probably easy) Ports of CPython changeset fc6f90545cb4 and PyPy
+   48d194e3ac07.
+
+* test_sys
+* test_threading:
+   Missing sys.getswitchinterval().
+   We would be interesting to implement the new thread switching
+   logic, it's a lot of work though.
