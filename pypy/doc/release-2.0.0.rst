@@ -1,0 +1,56 @@
+============================
+PyPy 2.0 - Einstein Sandwich
+============================
+
+We're pleased to announce PyPy 2.0. This is a stable release that brings
+swath of bugfixes, small performance improvements and compatibility fixes.
+
+You can download the PyPy 2.0 release here:
+
+    http://pypy.org/download.html
+
+Two biggest changes since PyPy 1.9 are:
+
+* stackless is now supported including greenlets, which means eventlet
+  and gevent should work (but read below about gevent)
+
+* PyPy now contains a release 0.6 of `cffi`_ as a builtin module, which
+  is preferred way of calling C from Python that works well on PyPy
+
+.. _`cffi`: http://cffi.readthedocs.org
+
+What is PyPy?
+=============
+
+PyPy is a very compliant Python interpreter, almost a drop-in replacement for
+CPython 2.7. It's fast (`pypy 2.0 and cpython 2.7.3`_ performance comparison)
+due to its integrated tracing JIT compiler.
+
+This release supports x86 machines running Linux 32/64, Mac OS X 64 or
+Windows 32.  Windows 64 work is still stalling, we would welcome a volunteer
+to handle that. ARM support is on the way and we're expecting to release
+an alpha ARM version shortly.
+
+.. _`pypy 2.0 and cpython 2.7.3`: http://speed.pypy.org
+
+Highlights
+==========
+
+* Stackless including greenlets should work. For gevent, you need to check
+  out `pypycore`_ and use `pypy-hacks`_ branch of gevent.
+
+* cffi is not a module included with PyPy. It's a preferred way of calling
+  C from Python that works on PyPy.
+
+* Callbacks from C are now JITted, which means XML parsing is much faster
+
+* A lot of speed improvements in various language corners, most of them small,
+  but speeding up a particular corner a lot
+
+* A lot of stability issues fixed
+
+.. _`pypycore`: https://github.com/gevent-on-pypy/pypycore/
+.. _`pypy-hacks`: https://github.com/schmir/gevent/tree/pypy-hacks
+
+Cheers,
+fijal, arigo and the PyPy team
