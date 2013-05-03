@@ -99,10 +99,13 @@ add_operator('delete', 2, 'delete')
 add_operator('userdel', 1, 'del')
 add_operator('buffer', 1, 'buffer')   # see buffer.py
 
+# Add _ovf ops
+for oper in [op.neg, op.abs, op.add, op.sub, op.mul, op.floordiv, op.div,
+        op.mod, op.lshift]:
+    add_operator(oper.name + '_ovf', oper.arity, oper.symbol)
+
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
-OperationName  = {}   # dict {<built-in function>: "operation_name"}
-Arity          = {}   # dict {"operation name": number of arguments}
 
 # ____________________________________________________________
 
@@ -306,11 +309,12 @@ Table = [
 ]
 
 # build the dictionaries
+func2op = {}
 for name, func in Table:
     if name not in FunctionByName:
         FunctionByName[name] = func
-    if func not in OperationName:
-        OperationName[func] = name
+    if func not in func2op:
+        func2op[func] = getattr(op, name)
 del Table  # INTERNAL ONLY, use the dicts declared at the top of the file
 
 # insert all operators
@@ -319,15 +323,14 @@ for name in vars(op):
         func = getattr(operator, name)
         if name not in FunctionByName:
             FunctionByName[name] = func
-        if func not in OperationName:
-            OperationName[func] = name
+        if func not in func2op:
+            func2op[func] = getattr(op, name)
 
 # Other functions that get directly translated to SpaceOperators
-func2op = {type: op.type, operator.truth: op.nonzero}
+func2op[type] = op.type
+func2op[operator.truth] = op.nonzero
 if hasattr(__builtin__, 'next'):
     func2op[__builtin__.next] = op.next
-for func, oper in func2op.iteritems():
-    OperationName[func] = oper.name
 
 
 op_appendices = {

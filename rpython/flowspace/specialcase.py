@@ -1,5 +1,5 @@
 from rpython.flowspace.model import Constant
-from rpython.flowspace.operation import OperationName, op
+from rpython.flowspace.operation import func2op, op
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -9,19 +9,18 @@ def sc_import(space, fn, args_w):
     return space.import_name(*args)
 
 def sc_operator(space, fn, args_w):
-    opname = OperationName[fn]
-    oper = getattr(op, opname)
+    oper = func2op[fn]
     if len(args_w) != oper.arity:
-        if opname == 'pow' and len(args_w) == 2:
+        if oper is op.pow and len(args_w) == 2:
             args_w = args_w + [Constant(None)]
-        elif opname == 'getattr' and len(args_w) == 3:
+        elif oper is op.getattr and len(args_w) == 3:
             return space.frame.do_operation('simple_call', Constant(getattr), *args_w)
         else:
             raise Exception("should call %r with exactly %d arguments" % (
                 fn, oper.arity))
     # completely replace the call with the underlying
     # operation and its limited implicit exceptions semantic
-    return getattr(space, opname)(*args_w)
+    return getattr(space, oper.name)(*args_w)
 
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs
@@ -72,5 +71,5 @@ def sc_locals(space, locals, args):
 SPECIAL_CASES = {__import__: sc_import, r_uint: sc_r_uint,
         we_are_translated: sc_we_are_translated,
         locals: sc_locals}
-for fn in OperationName:
+for fn in func2op:
     SPECIAL_CASES[fn] = sc_operator
