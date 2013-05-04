@@ -6,10 +6,12 @@ TODO for the python3 test suite:
    It's important to be compatible, since other classes like Decimal
    and Fractions have to return the same hashes for equivalent values.
    IOW: int.__hash__ is part of the Python language specification.
+   The py3k-newhash branch has an updated float hash, int's hash is
+   still pending
 
 * test_fractions
 * test_numeric_tower
-   float.__hash__ has changed as well.
+   float.__hash__ has changed as well (fixed on py3k-newhash)
 
 * test_float
    nan = float('nan');  assert nan in [nan]
@@ -20,7 +22,8 @@ TODO for the python3 test suite:
    FloatListStrategy.unwrap().
 
 * test_memoryview
-   Needs bytes/str changes. Probably easy.
+   Needs bytes/str changes. Probably easy. Work for this has begun on
+   py3k-memoryview (by mjacob)
 
 * test_peepholer
    'a in [1,2,3]' is rewritten as 'a in (1, 2, 3)'
@@ -28,7 +31,9 @@ TODO for the python3 test suite:
    Likewise, a set becomes a frozenset.
 
 * test_pep263
-   Tracebacks should be able to print unicode source code.
+   Tracebacks should be able to print unicode source code. This is
+   really due to the tokenizer not being fully unicode aware. The
+   parser can somewhat hack around this but maybe not completely
 
 * test_sqlite
    (Probably easy) Ports of CPython changeset fc6f90545cb4 and PyPy
@@ -36,6 +41,53 @@ TODO for the python3 test suite:
 
 * test_sys
 * test_threading:
-   Missing sys.getswitchinterval().
+   Missing sys.getswitchinterval(). https://bugs.pypy.org/issue1470
    We would be interesting to implement the new thread switching
    logic, it's a lot of work though.
+
+
+own-tests:
+
+* module/test_lib_pypy
+  These crash the buildbots (via SyntaxErrors): some were really made
+  to run under Python 2.x
+
+* interpreter.test.test_zzpickle_and_slow test_pickle_frame_with_exc
+  Due to W_OperationError not being pickleable. Probably be best for
+  the ExceptionHandlerBlock to push *sys.exc_info() instead of it,
+  like CPython does
+
+* module.bz2.test.test_bz2_file test_open_non_existent
+  Some really obscure GC stuff
+
+* module.cpyext.test.test_structseq test_StructSeq
+  structseq now subclasses tuple on py3, which breaks how
+  BaseCpyTypeDescr.realize allocates it
+
+* module.marshal.test.test_marshal
+  Handling of exceptions w/ bad data? Or is the test wrong?
+
+* objspace.std.test.test_floatobject test_from_string
+  The unicode-based number parsing routines don't raise UnicodeErrors,
+  but more importantly they raise unprintable exceptions
+
+
+antocuni's older TODO:
+
+run coverage against the parser/astbuilder/astcompiler: it's probably full of
+dead code because the grammar changed
+
+re-enable IntDictStrategy
+
+re-enable StdObjSpace.listview_str
+
+re-enable the kwargs dict strategy in dictmultiobject.py
+re-enable view_as_kwargs
+
+unskip numpypy tests in module/test_lib_pypy/numpypy/
+
+optimize W_UnicodeObject, right now it stores both an unicode and an utf8
+version of the same string
+
+re-enable BUILD_LIST_FROM_ARG: see the comment in astcompiler/codegen.py in
+ast.ListComp.build_container
