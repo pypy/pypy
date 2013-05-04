@@ -575,6 +575,7 @@ class AppTestSocket:
 
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         r = repr(s)
+        gc.collect()
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
             s = None
