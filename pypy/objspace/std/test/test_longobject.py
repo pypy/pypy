@@ -340,7 +340,7 @@ class AppTestLong:
         try:
             int('hello àèìò')
         except ValueError as e:
-            assert 'hello àèìò' in e.message
+            assert 'hello àèìò' in str(e)
         else:
             assert False, 'did not raise'
 

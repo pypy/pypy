@@ -455,7 +455,7 @@ class AppTestAppFloatTest:
         try:
             float('abcdef')
         except ValueError as e:
-            assert 'abcdef' in e.message
+            assert 'abcdef' in str(e)
         else:
             assert False, 'did not raise'
 
