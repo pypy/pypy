@@ -956,7 +956,19 @@ class Cursor(object):
                     text = _lib.sqlite3_column_text(self.__statement._statement, i)
                     text_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
                     val = _ffi.buffer(text, text_len)[:]
-                    val = self.__connection.text_factory(val)
+                    try:
+                        val = self.__connection.text_factory(val)
+                    except Exception:
+                        column_name = _lib.sqlite3_column_name(
+                            self.__statement._statement, i)
+                        if column_name:
+                            column_name = _ffi.string(column_name).decode('utf-8')
+                        else:
+                            column_name = "<unknown column name>"
+                        val = val.decode('ascii', 'replace')
+                        raise OperationalError(
+                            "Could not decode to UTF-8 column '%s' with text '%s'" % (
+                                column_name, val))
                 elif typ == _lib.SQLITE_BLOB:
                     blob = _lib.sqlite3_column_blob(self.__statement._statement, i)
                     blob_len = _lib.sqlite3_column_bytes(self.__statement._statement, i)
