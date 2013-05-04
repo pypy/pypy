@@ -446,7 +446,7 @@ try:
     TYPES += ['__int128_t']
 except CompilationError:
     pass
-    
+
 _TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
@@ -693,10 +693,10 @@ def make_string_mappings(strtype):
         builder_class = UnicodeBuilder
 
     # str -> char*
-    def str2charp(s):
+    def str2charp(s, track_allocation=True):
         """ str -> char*
         """
-        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw')
+        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=track_allocation)
         i = len(s)
         array[i] = lastchar
         i -= 1
@@ -706,8 +706,8 @@ def make_string_mappings(strtype):
         return array
     str2charp._annenforceargs_ = [strtype]
 
-    def free_charp(cp):
-        lltype.free(cp, flavor='raw')
+    def free_charp(cp, track_allocation=True):
+        lltype.free(cp, flavor='raw', track_allocation=track_allocation)
 
     # char* -> str
     # doesn't free char*
