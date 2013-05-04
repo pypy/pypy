@@ -18,11 +18,11 @@ class W_NDimArray(Wrappable):
     def __init__(self, implementation):
         assert isinstance(implementation, BaseArrayImplementation)
         self.implementation = implementation
-    
+
     @staticmethod
     def from_shape(shape, dtype, order='C'):
         from pypy.module.micronumpy.arrayimpl import concrete, scalar
-        
+
         if not shape:
             impl = scalar.Scalar(dtype)
         else:
@@ -32,12 +32,17 @@ class W_NDimArray(Wrappable):
         return W_NDimArray(impl)
 
     @staticmethod
-    def from_shape_and_storage(shape, storage, dtype, order='C'):
+    def from_shape_and_storage(shape, storage, dtype, order='C', owning=False):
         from pypy.module.micronumpy.arrayimpl import concrete
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
-        impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
-                                               backstrides, storage)
+        if owning:
+            # Will free storage when GCd
+            impl = concrete.ConcreteArray(shape, dtype, order, strides,
+                                                backstrides, storage=storage)
+        else:
+            impl = concrete.ConcreteArrayNotOwning(shape, dtype, order, strides,
+                                                backstrides, storage)
         return W_NDimArray(impl)
 
 
@@ -60,7 +65,7 @@ class W_NDimArray(Wrappable):
 def convert_to_array(space, w_obj):
     from pypy.module.micronumpy.interp_numarray import array
     from pypy.module.micronumpy import interp_ufuncs
-    
+
     if isinstance(w_obj, W_NDimArray):
         return w_obj
     elif issequence_w(space, w_obj):

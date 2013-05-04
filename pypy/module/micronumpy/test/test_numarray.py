@@ -1749,7 +1749,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
 
         pickled_data = dumps(a)
-        assert loads(pickled_data) == a
+        assert (loads(pickled_data) == a).all()
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

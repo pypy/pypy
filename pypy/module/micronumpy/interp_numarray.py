@@ -796,6 +796,17 @@ class __extend__(W_NDimArray):
 
         return space.newtuple([reconstruct, parameters, state])
 
+    def descr_setstate(self, space, w_state):
+        from rpython.rtyper.lltypesystem import rffi
+
+        shape = space.getitem(w_state, space.wrap(1))
+        dtype = space.getitem(w_state, space.wrap(2))
+        isfortran = space.getitem(w_state, space.wrap(3))
+        storage = space.getitem(w_state, space.wrap(4))
+
+        self.implementation = W_NDimArray.from_shape_and_storage([space.int_w(i) for i in space.listview(shape)], rffi.str2charp(space.str_w(storage), track_allocation=False), dtype, owning=True).implementation
+
+
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
@@ -945,7 +956,8 @@ W_NDimArray.typedef = TypeDef(
     __pypy_data__ = GetSetProperty(W_NDimArray.fget___pypy_data__,
                                    W_NDimArray.fset___pypy_data__,
                                    W_NDimArray.fdel___pypy_data__),
-    __reduce__ = interp2app(W_NDimArray.descr_reduce)
+    __reduce__ = interp2app(W_NDimArray.descr_reduce),
+    __setstate__ = interp2app(W_NDimArray.descr_setstate),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)

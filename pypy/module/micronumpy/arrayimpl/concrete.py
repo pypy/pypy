@@ -325,13 +325,14 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         return None
 
 class ConcreteArray(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides):
-        # we allocate the actual storage later because we need to compute
-        # self.size first
+    def __init__(self, shape, dtype, order, strides, backstrides, storage=None):
         null_storage = lltype.nullptr(RAW_STORAGE)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         null_storage)
-        self.storage = dtype.itemtype.malloc(self.size)
+        if storage is None:
+            self.storage = dtype.itemtype.malloc(self.size)
+        else:
+            self.storage = storage
 
     def __del__(self):
         free_raw_storage(self.storage, track_allocation=False)
