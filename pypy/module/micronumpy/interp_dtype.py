@@ -244,7 +244,10 @@ class W_Dtype(Wrappable):
 
         fieldnames = space.getitem(w_data, space.wrap(2))
         self.set_names(space, fieldnames)
-        self.set_fields(space, space.getitem(w_data, space.wrap(3)))
+
+        fields = space.getitem(w_data, space.wrap(3))
+        if fields != space.w_None:
+            self.set_fields(space, fields)
 
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
