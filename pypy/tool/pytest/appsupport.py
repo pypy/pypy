@@ -184,7 +184,8 @@ def build_pytest_assertion(space):
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
     w_init = space.wrap(gateway.interp2app_temp(my_init))
-    w_dict = space.newdict()
+    w_dict = space.getattr(w_BuiltinAssertionError, space.wrap('__dict__'))
+    w_dict = space.call_method(w_dict, 'copy')
     space.setitem(w_dict, space.wrap('__init__'), w_init)
     return space.call_function(w_metaclass,
                                space.wrap('AssertionError'),
