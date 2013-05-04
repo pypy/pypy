@@ -579,7 +579,7 @@ class AppTestSocket:
             warnings.simplefilter('always')
             s = None
             gc.collect()
-        assert len(w) == 1
+        assert len(w) == 1, [str(warning) for warning in w]
         assert r in str(w[0])
 
 
