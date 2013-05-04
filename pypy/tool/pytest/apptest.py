@@ -20,7 +20,7 @@ from inspect import getmro
 
 RENAMED_USEMODULES = dict(
     _winreg='winreg',
-    exceptions='__exceptions__',
+    exceptions='builtins',
     rctime='time',
     struct='_struct',
     thread='_thread',
