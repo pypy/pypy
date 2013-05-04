@@ -708,4 +708,4 @@ class AppTestErrno:
         assert isinstance(exc.value, IOError)
         # error is EINVAL, or WSAEINVAL on Windows
         assert exc.value.errno == getattr(errno, 'WSAEINVAL', errno.EINVAL)
-        assert isinstance(exc.value.message, str)
+        assert isinstance(exc.value.strerror, str)

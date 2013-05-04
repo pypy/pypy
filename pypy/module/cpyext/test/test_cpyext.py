@@ -610,7 +610,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         if type(exc.value) is not Exception:
             raise exc.value
 
-        assert exc.value.message == "moo!"
+        assert str(exc.value) == "moo!"
 
     def test_refcount(self):
         import sys
@@ -674,7 +674,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         if type(exc.value) is not Exception:
             raise exc.value
 
-        assert exc.value.message == "moo!"
+        assert str(exc.value) == "moo!"
 
 
     def test_internal_exceptions(self):

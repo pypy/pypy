@@ -883,7 +883,7 @@ class AppTestFfi:
         try:
             f()
         except ValueError as e:
-            assert "Procedure called with not enough arguments" in e.message
+            assert "Procedure called with not enough arguments" in str(e)
         else:
             assert 0, "Did not raise"
 
@@ -894,7 +894,7 @@ class AppTestFfi:
         try:
             f(arg)
         except ValueError as e:
-            assert "Procedure called with too many arguments" in e.message
+            assert "Procedure called with too many arguments" in str(e)
         else:
             assert 0, "Did not raise"
         arg.free()

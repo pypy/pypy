@@ -574,7 +574,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             pow(2, 3)
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 
@@ -595,7 +595,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             wrong_sleep(10)
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 
@@ -611,7 +611,7 @@ class AppTestFFI(BaseAppTestFFI):
         try:
             wrong_pow(2, 3) == 8
         except ValueError as e:
-            assert e.message.startswith('Procedure called with')
+            assert str(e).startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
 

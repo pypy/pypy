@@ -41,7 +41,7 @@ def test_connection_check_init():
 
     con = Connection(":memory:")
     e = pytest.raises(_sqlite3.ProgrammingError, "con.cursor()")
-    assert '__init__' in e.value.message
+    assert '__init__' in str(e.value)
 
 def test_cursor_check_init(con):
     class Cursor(_sqlite3.Cursor):
@@ -50,7 +50,7 @@ def test_cursor_check_init(con):
 
     cur = Cursor(con)
     e = pytest.raises(_sqlite3.ProgrammingError, "cur.execute('select 1')")
-    assert '__init__' in e.value.message
+    assert '__init__' in str(e.value)
 
 def test_connection_after_close(con):
     pytest.raises(TypeError, "con()")

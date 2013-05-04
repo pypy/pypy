@@ -71,7 +71,7 @@ class AppTestUnicodeData:
                 try:
                     unicodedata.name(char)
                 except ValueError as e:
-                    assert e.message == 'no such name'
+                    assert str(e) == 'no such name'
                 raises(KeyError, unicodedata.lookup, charname)
 
     def test_bug_1704793(self): # from CPython
