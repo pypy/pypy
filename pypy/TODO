@@ -35,10 +35,6 @@ TODO for the python3 test suite:
    really due to the tokenizer not being fully unicode aware. The
    parser can somewhat hack around this but maybe not completely
 
-* test_sqlite
-   (Probably easy) Ports of CPython changeset fc6f90545cb4 and PyPy
-   48d194e3ac07.
-
 * test_sys
 * test_threading:
    Missing sys.getswitchinterval(). https://bugs.pypy.org/issue1470
