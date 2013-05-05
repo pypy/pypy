@@ -181,7 +181,9 @@ def pytest_runtest_teardown(__multicall__, item):
     user_del_action = None
     if isinstance(item, py.test.collect.Function):
         appclass = item.getparent(PyPyClassCollector)
-        if appclass is not None and not appclass.obj.runappdirect:
+        if (appclass is not None and
+            not getattr(appclass.obj, 'runappdirect', False) and
+            hasattr(appclass.obj, 'space')):
             user_del_action = appclass.obj.space.user_del_action
 
     if user_del_action:
