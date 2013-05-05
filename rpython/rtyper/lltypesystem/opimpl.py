@@ -1,4 +1,4 @@
-from rpython.flowspace.operation import FunctionByName
+from rpython.flowspace.operation import op
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -13,7 +13,6 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
                         'lt': True, 'le': True,
                         'eq': True, 'ne': True,
                         'is_true': True}
-ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 
 # global synonyms for some types
 from rpython.rlib.rarithmetic import intmask
@@ -46,11 +45,13 @@ def no_op(x):
 def get_primitive_op_src(fullopname):
     assert '_' in fullopname, "%s: not a primitive op" % (fullopname,)
     typname, opname = fullopname.split('_', 1)
-    if opname not in FunctionByName and (opname + '_') in FunctionByName:
-        func = FunctionByName[opname + '_']   # or_, and_
+    if hasattr(op, opname):
+        oper = getattr(op, opname)
+    elif hasattr(op, opname + '_'):
+        oper = getattr(op, opname + '_')   # or_, and_
     else:
-        assert opname in FunctionByName, "%s: not a primitive op" % (fullopname,)
-        func = FunctionByName[opname]
+        raise ValueError("%s: not a primitive op" % (fullopname,))
+    func = oper.pyfunc
 
     if typname == 'char':
         # char_lt, char_eq, ...
@@ -72,7 +73,7 @@ def get_primitive_op_src(fullopname):
             fullopname,)
         argtype = argtype_by_name[typname]
 
-        if opname in ops_unary:
+        if oper.arity == 1:
             def op_function(x):
                 if not isinstance(x, argtype):
                     raise TypeError("%r arg must be %s, got %r instead" % (

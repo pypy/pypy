@@ -412,44 +412,46 @@ class FlowObjSpace(object):
                 raise FlowingError(self.frame, self.wrap(message))
         return self.wrap(value)
 
-def make_impure_op(name, arity):
+def make_impure_op(oper):
     def generic_operator(self, *args_w):
-        assert len(args_w) == arity, name + " got the wrong number of arguments"
-        w_result = self.frame.do_operation_with_implicit_exceptions(name, *args_w)
+        if len(args_w) != oper.arity:
+            raise TypeError(oper.name + " got the wrong number of arguments")
+        w_result = self.frame.do_operation_with_implicit_exceptions(oper.name, *args_w)
         return w_result
     return generic_operator
 
-def make_op(name, arity):
+def make_op(oper):
     """Add function operation to the flow space."""
     op = None
     skip = False
     arithmetic = False
+    name = oper.name
 
     if (name.startswith('del') or
         name.startswith('set') or
         name.startswith('inplace_')):
-        return make_impure_op(name, arity)
+        return make_impure_op(oper)
     elif name in ('id', 'hash', 'iter', 'userdel'):
-        return make_impure_op(name, arity)
+        return make_impure_op(oper)
     elif name in ('repr', 'str'):
         rep = getattr(__builtin__, name)
-        def op(obj):
+        def func(obj):
             s = rep(obj)
             if "at 0x" in s:
                 print >>sys.stderr, "Warning: captured address may be awkward"
             return s
     else:
-        op = operation.FunctionByName[name]
-        arithmetic = (name + '_ovf') in operation.FunctionByName
+        func = oper.pyfunc
+        arithmetic = hasattr(operation.op, name + '_ovf')
 
     def generic_operator(self, *args_w):
-        assert len(args_w) == arity, name + " got the wrong number of arguments"
+        assert len(args_w) == oper.arity, name + " got the wrong number of arguments"
         args = []
         if all(w_arg.foldable() for w_arg in args_w):
             args = [w_arg.value for w_arg in args_w]
             # All arguments are constants: call the operator now
             try:
-                result = op(*args)
+                result = func(*args)
             except Exception, e:
                 etype = e.__class__
                 msg = "%s%r always raises %s: %s" % (
@@ -479,7 +481,7 @@ def make_op(name, arity):
 
 for oper in operation.op.__dict__.values():
     if getattr(FlowObjSpace, oper.name, None) is None:
-        setattr(FlowObjSpace, oper.name, make_op(oper.name, oper.arity))
+        setattr(FlowObjSpace, oper.name, make_op(oper))
 
 
 def build_flow(func, space=FlowObjSpace()):

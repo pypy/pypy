@@ -13,7 +13,6 @@ class _OpHolder(object): pass
 op = _OpHolder()
 
 func2op = {}
-FunctionByName = {}   # dict {"operation_name": <built-in function>}
 
 class SpaceOperator(object):
     def __init__(self, name, arity, symbol, pyfunc):
@@ -27,13 +26,11 @@ def add_operator(name, arity, symbol, pyfunc=None):
     oper = SpaceOperator(name, arity, symbol, pyfunc)
     setattr(op, name, oper)
     if pyfunc is not None:
-        FunctionByName[name] = pyfunc
         func2op[pyfunc] = oper
     if operator_func:
         func2op[operator_func] = oper
         if pyfunc is None:
             oper.pyfunc = operator_func
-            FunctionByName[name] = operator_func
 
 # ____________________________________________________________
 
@@ -189,6 +186,7 @@ add_operator('trunc', 1, 'trunc', pyfunc=unsupported)
 add_operator('pos', 1, 'pos')
 add_operator('neg', 1, 'neg')
 add_operator('nonzero', 1, 'truth', pyfunc=bool)
+op.is_true = op.nonzero
 add_operator('abs' , 1, 'abs', pyfunc=abs)
 add_operator('hex', 1, 'hex', pyfunc=hex)
 add_operator('oct', 1, 'oct', pyfunc=oct)
@@ -248,8 +246,6 @@ for oper in [op.neg, op.abs, op.add, op.sub, op.mul, op.floordiv, op.div,
         op.mod, op.lshift]:
     ovf_func = lambda *args: ovfcheck(oper.pyfunc(*args))
     add_operator(oper.name + '_ovf', oper.arity, oper.symbol, pyfunc=ovf_func)
-
-FunctionByName['is_true'] = bool
 
 # Other functions that get directly translated to SpaceOperators
 func2op[type] = op.type
