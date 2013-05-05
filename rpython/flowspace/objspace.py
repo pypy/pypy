@@ -167,21 +167,6 @@ class FlowObjSpace(object):
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.is_true(self.issubtype(w_cls1, w_cls2))
 
-    def _exception_match(self, w_exc_type, w_check_class):
-        """Helper for exception_match
-
-        Handles the base case where w_check_class is a constant exception
-        type.
-        """
-        if self.is_w(w_exc_type, w_check_class):
-            return True   # fast path (also here to handle string exceptions)
-        try:
-            return self.exception_issubclass_w(w_exc_type, w_check_class)
-        except FSException, e:
-            if e.match(self, self.w_TypeError):   # string exceptions maybe
-                return False
-            raise
-
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         try:
@@ -193,11 +178,11 @@ class FlowObjSpace(object):
                 "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
-            return self._exception_match(w_exc_type, w_check_class)
+            return self.exception_issubclass_w(w_exc_type, w_check_class)
         # special case for StackOverflow (see rlib/rstackovf.py)
         if check_class == rstackovf.StackOverflow:
             w_real_class = self.wrap(rstackovf._StackOverflow)
-            return self._exception_match(w_exc_type, w_real_class)
+            return self.exception_issubclass_w(w_exc_type, w_real_class)
         # checking a tuple of classes
         for w_klass in self.unpackiterable(w_check_class):
             if self.exception_match(w_exc_type, w_klass):
