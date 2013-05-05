@@ -89,9 +89,6 @@ class FlowObjSpace(object):
     def build_flow(self, func):
         return build_flow(func, self)
 
-    def is_w(self, w_one, w_two):
-        return self.frame.guessbool(self.is_(w_one, w_two))
-
     is_ = None     # real version added by add_operations()
     id  = None     # real version added by add_operations()
 
@@ -132,11 +129,9 @@ class FlowObjSpace(object):
         w_type = const(type(exc))
         return FSException(w_type, w_value)
 
-    def exception_issubclass_w(self, w_cls1, w_cls2):
-        return self.frame.guessbool(self.issubtype(w_cls1, w_cls2))
-
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
+        frame = self.frame
         if not isinstance(w_check_class, Constant):
             raise FlowingError("Non-constant except guard.")
         check_class = w_check_class.value
@@ -145,11 +140,11 @@ class FlowObjSpace(object):
                 "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
-            return self.exception_issubclass_w(w_exc_type, w_check_class)
+            return frame.guessbool(self.issubtype(w_exc_type, w_check_class))
         # special case for StackOverflow (see rlib/rstackovf.py)
         if check_class == rstackovf.StackOverflow:
             w_real_class = const(rstackovf._StackOverflow)
-            return self.exception_issubclass_w(w_exc_type, w_real_class)
+            return frame.guessbool(self.issubtype(w_exc_type, w_real_class))
         # checking a tuple of classes
         for w_klass in self.unpackiterable(w_check_class):
             if self.exception_match(w_exc_type, w_klass):
@@ -162,14 +157,15 @@ class FlowObjSpace(object):
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
-        if self.isinstance_w(w_arg1, self.w_type):
+        frame = self.frame
+        if frame.guessbool(self.isinstance(w_arg1, self.w_type)):
             # this is for all cases of the form (Class, something)
-            if self.is_w(w_arg2, self.w_None):
+            if frame.guessbool(self.is_(w_arg2, self.w_None)):
                 # raise Type: we assume we have to instantiate Type
                 w_value = self.call_function(w_arg1)
             else:
                 w_valuetype = self.type(w_arg2)
-                if self.exception_issubclass_w(w_valuetype, w_arg1):
+                if frame.guessbool(self.issubtype(w_valuetype, w_arg1)):
                     # raise Type, Instance: let etype be the exact type of value
                     w_value = w_arg2
                 else:
@@ -177,7 +173,7 @@ class FlowObjSpace(object):
                     w_value = self.call_function(w_arg1, w_arg2)
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
-            if not self.is_w(w_arg2, self.w_None):
+            if not frame.guessbool(self.is_(w_arg2, self.w_None)):
                 raise self.exc_wrap(TypeError(
                     "instance exception may not have a separate value"))
             w_value = w_arg1
@@ -262,9 +258,6 @@ class FlowObjSpace(object):
             except WrapException:
                 pass
         return self.frame.do_op(op.getattr(w_obj, w_name))
-
-    def isinstance_w(self, w_obj, w_type):
-        return self.frame.guessbool(self.isinstance(w_obj, w_type))
 
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
