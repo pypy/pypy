@@ -92,8 +92,11 @@ class BZ2File(io.BufferedIOBase):
             if self._mode == _MODE_CLOSED:
                 return
             try:
-                if self._mode == _MODE_WRITE:
+                if self._mode in (_MODE_READ, _MODE_READ_EOF):
+                    self._decompressor = None
+                elif self._mode == _MODE_WRITE:
                     self._fp.write(self._compressor.flush())
+                    self._compressor = None
             finally:
                 try:
                     if self._closefp:
@@ -102,7 +105,7 @@ class BZ2File(io.BufferedIOBase):
                     self._fp = None
                     self._closefp = False
                     self._mode = _MODE_CLOSED
-                    self._buffer = self._decompressor = self._compressor = None
+                    self._buffer = None
 
     @property
     def closed(self):
