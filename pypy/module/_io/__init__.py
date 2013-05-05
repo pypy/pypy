@@ -38,5 +38,5 @@ class Module(MixedModule):
 
     def shutdown(self, space):
         # at shutdown, flush all open streams.  Ignore I/O errors.
-        from pypy.module._io.interp_iobase import get_autoflushher
-        get_autoflushher(space).flush_all(space)
+        from pypy.module._io.interp_iobase import get_autoflusher
+        get_autoflusher(space).flush_all(space)
