@@ -115,6 +115,13 @@ def getcpuclass(backend_name="auto"):
     mod = __import__(modname, {}, {}, clsname)
     return getattr(mod, clsname)
 
+
+def getcpufeatures(backend_name="auto"):
+    """NOT_RPYTHON"""
+    cpucls = getcpuclass(backend_name)
+    return [attr[len('supports_'):] for attr in dir(cpucls)
+                                if attr.startswith('supports_')]
+
 if __name__ == '__main__':
     print autodetect()
     print getcpuclassname()
