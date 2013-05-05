@@ -148,28 +148,11 @@ class FlowObjSpace(object):
             return val
         return self.unwrap(w_obj)
 
-    def uint_w(self, w_obj):
-        if isinstance(w_obj, Constant):
-            val = w_obj.value
-            if type(val) is not rarithmetic.r_uint:
-                raise TypeError("expected unsigned: " + repr(w_obj))
-            return val
-        return self.unwrap(w_obj)
-
-
     def str_w(self, w_obj):
         if isinstance(w_obj, Constant):
             val = w_obj.value
             if type(val) is not str:
                 raise TypeError("expected string: " + repr(w_obj))
-            return val
-        return self.unwrap(w_obj)
-
-    def float_w(self, w_obj):
-        if isinstance(w_obj, Constant):
-            val = w_obj.value
-            if type(val) is not float:
-                raise TypeError("expected float: " + repr(w_obj))
             return val
         return self.unwrap(w_obj)
 
@@ -305,8 +288,6 @@ class FlowObjSpace(object):
         frame.handle_implicit_exceptions([StopIteration, RuntimeError])
         return w_item
 
-    def setitem_str(self, w_obj, key, w_value):
-        return self.setitem(w_obj, self.wrap(key), w_value)
 
     def getattr(self, w_obj, w_name):
         # handling special things like sys
