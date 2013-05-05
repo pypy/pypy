@@ -129,7 +129,7 @@ class Recorder(object):
     def append(self, operation):
         raise NotImplementedError
 
-    def guessbool(self, frame, w_condition, **kwds):
+    def guessbool(self, frame, w_condition):
         raise AssertionError("cannot guessbool(%s)" % (w_condition,))
 
 
@@ -211,7 +211,7 @@ class Replayer(Recorder):
                       [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
 
-    def guessbool(self, frame, w_condition, **kwds):
+    def guessbool(self, frame, w_condition):
         assert self.index == len(self.listtoreplay)
         frame.recorder = self.nextreplayer
         return self.booloutcome
@@ -432,8 +432,10 @@ class FlowSpaceFrame(object):
             self.last_exception = FSException(data[-2], data[-1])
         self.blockstack = state.blocklist[:]
 
-    def guessbool(self, w_condition, **kwds):
-        return self.recorder.guessbool(self, w_condition, **kwds)
+    def guessbool(self, w_condition):
+        if isinstance(w_condition, Constant):
+            return w_condition.value
+        return self.recorder.guessbool(self, w_condition)
 
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
@@ -738,34 +740,34 @@ class FlowSpaceFrame(object):
     def JUMP_IF_FALSE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if not self.space.is_true(w_cond):
+        if not self.guessbool(self.space.is_true(w_cond)):
             return target
 
     def JUMP_IF_TRUE(self, target):
         # Python <= 2.6 only
         w_cond = self.peekvalue()
-        if self.space.is_true(w_cond):
+        if self.guessbool(self.space.is_true(w_cond)):
             return target
 
     def POP_JUMP_IF_FALSE(self, target):
         w_value = self.popvalue()
-        if not self.space.is_true(w_value):
+        if not self.guessbool(self.space.is_true(w_value)):
             return target
 
     def POP_JUMP_IF_TRUE(self, target):
         w_value = self.popvalue()
-        if self.space.is_true(w_value):
+        if self.guessbool(self.space.is_true(w_value)):
             return target
 
     def JUMP_IF_FALSE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if not self.space.is_true(w_value):
+        if not self.guessbool(self.space.is_true(w_value)):
             return target
         self.popvalue()
 
     def JUMP_IF_TRUE_OR_POP(self, target):
         w_value = self.peekvalue()
-        if self.space.is_true(w_value):
+        if self.guessbool(self.space.is_true(w_value)):
             return target
         self.popvalue()
 

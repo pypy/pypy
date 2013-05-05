@@ -90,7 +90,7 @@ class FlowObjSpace(object):
         return build_flow(func, self)
 
     def is_w(self, w_one, w_two):
-        return self.is_true(self.is_(w_one, w_two))
+        return self.frame.guessbool(self.is_true(self.is_(w_one, w_two)))
 
     is_ = None     # real version added by add_operations()
     id  = None     # real version added by add_operations()
@@ -133,7 +133,7 @@ class FlowObjSpace(object):
         return FSException(w_type, w_value)
 
     def exception_issubclass_w(self, w_cls1, w_cls2):
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
+        return self.frame.guessbool(self.is_true(self.issubtype(w_cls1, w_cls2)))
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
@@ -200,7 +200,7 @@ class FlowObjSpace(object):
         else:
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, const(expected_length))
-            if not self.is_true(w_correct):
+            if not self.frame.guessbool(self.is_true(w_correct)):
                 e = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise e
             return [self.frame.do_operation('getitem', w_iterable, const(i))
@@ -208,13 +208,13 @@ class FlowObjSpace(object):
 
     # ____________________________________________________________
     def not_(self, w_obj):
-        return const(not self.is_true(w_obj))
+        return const(not self.frame.guessbool(self.is_true(w_obj)))
 
     def is_true(self, w_obj):
         if w_obj.foldable():
-            return bool(w_obj.value)
+            return const(bool(w_obj.value))
         w_truthvalue = self.frame.do_operation('bool', w_obj)
-        return self.frame.guessbool(w_truthvalue)
+        return w_truthvalue
 
     def iter(self, w_iterable):
         if isinstance(w_iterable, Constant):
@@ -264,7 +264,7 @@ class FlowObjSpace(object):
         return self.frame.do_op(op.getattr(w_obj, w_name))
 
     def isinstance_w(self, w_obj, w_type):
-        return self.is_true(self.isinstance(w_obj, w_type))
+        return self.frame.guessbool(self.is_true(self.isinstance(w_obj, w_type)))
 
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
