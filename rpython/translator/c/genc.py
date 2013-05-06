@@ -462,6 +462,7 @@ class CStandaloneBuilder(CBuilder):
             else:
                 mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
                 mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
+                mk.rule('%.s', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         [
                              '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '

@@ -375,6 +375,8 @@ def test_dup():
     s2 = s.dup()
     assert s.fd != s2.fd
     assert s.getsockname().eq(s2.getsockname())
+    s.close()
+    s2.close()
 
 def test_c_dup():
     # rsocket.dup() duplicates fd, it also works on Windows
@@ -384,6 +386,8 @@ def test_c_dup():
     s2 = RSocket(fd=dup(s.fd))
     assert s.fd != s2.fd
     assert s.getsockname().eq(s2.getsockname())
+    s.close()
+    s2.close()
 
 def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'

@@ -2,12 +2,39 @@
 Processor auto-detection
 """
 import sys, os
+from rpython.rtyper.tool.rffi_platform import getdefined
+from rpython.translator.platform import is_host_build
 
 
 class ProcessorAutodetectError(Exception):
     pass
 
+
+def detect_main_model_and_size_from_platform():
+    # based on http://sourceforge.net/p/predef/wiki/Architectures/
+    mapping = {
+            ('x86', '64'): [
+                '__amd64__', '__amd64', '__x86_64__', '__x86_64',  # AMD64
+                ],
+            ('arm', '32'): ['__arm__', '__thumb__'],
+            ('x86', '32'): ['i386', '__i386', '__i386__', '__i686__',],
+            ('ppc', '64'): ['__powerpc64__'],
+    }
+    for k, v in mapping.iteritems():
+        for macro in v:
+            if not getdefined(macro, ''):
+                continue
+            return '_'.join(k)
+    raise ProcessorAutodetectError, "Cannot detect processor using compiler macros"
+
+
+def detect_main_model_from_platform():
+    return detect_main_model_and_size_from_platform()[0]
+
+
 def autodetect_main_model():
+    if not is_host_build():
+        return detect_main_model_from_platform()
     mach = None
     try:
         import platform
@@ -33,13 +60,15 @@ def autodetect_main_model():
                 'x86_64': 'x86',
                 'amd64': 'x86',    # freebsd
                 'AMD64': 'x86',    # win64
-                'armv7l': 'armv7',
-                'armv6l': 'armv6',
+                'armv7l': 'arm',
+                'armv6l': 'arm',
                 }[mach]
     except KeyError:
         return mach
 
 def autodetect_main_model_and_size():
+    if not is_host_build():
+        return detect_main_model_and_size_from_platform()
     model = autodetect_main_model()
     if sys.maxint == 2**31-1:
         model += '_32'
@@ -61,15 +90,13 @@ def autodetect():
                 model = 'x86-without-sse2'
     if model.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_hardfloat, detect_float
-        if detect_hardfloat():
-            model += 'hf'
         assert detect_float(), 'the JIT-compiler requires a vfp unit'
     return model
 
 def getcpuclassname(backend_name="auto"):
     if backend_name == "auto":
         backend_name = autodetect()
-    if backend_name == 'x86':
+    if backend_name == 'x86' or backend_name == 'x86_32':
         return "rpython.jit.backend.x86.runner", "CPU"
     elif backend_name == 'x86-without-sse2':
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
@@ -77,12 +104,8 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
     elif backend_name == 'cli':
         return "rpython.jit.backend.cli.runner", "CliCPU"
-    elif backend_name == 'armv6hf':
-        return "rpython.jit.backend.arm.runner", "CPU_ARMv6HF"
-    elif backend_name == 'armv7':
+    elif backend_name.startswith('arm'):
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
-    elif backend_name == 'armv7hf':
-        return "rpython.jit.backend.arm.runner", "CPU_ARMHF"
     else:
         raise ProcessorAutodetectError, (
             "we have no JIT backend for this cpu: '%s'" % backend_name)
@@ -91,6 +114,14 @@ def getcpuclass(backend_name="auto"):
     modname, clsname = getcpuclassname(backend_name)
     mod = __import__(modname, {}, {}, clsname)
     return getattr(mod, clsname)
+
+
+def getcpufeatures(backend_name="auto"):
+    """NOT_RPYTHON"""
+    cpucls = getcpuclass(backend_name)
+    return [attr[len('supports_'):] for attr in dir(cpucls)
+                            if attr.startswith('supports_')
+                                and getattr(cpucls, attr)]
 
 if __name__ == '__main__':
     print autodetect()

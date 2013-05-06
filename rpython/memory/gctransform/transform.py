@@ -281,11 +281,11 @@ class BaseGCTransformer(object):
     def finish_helpers(self, backendopt=True):
         if self.translator is not None:
             self.mixlevelannotator.finish_annotate()
-        self.finished_helpers = True
         if self.translator is not None:
             self.mixlevelannotator.finish_rtype()
             if backendopt:
                 self.mixlevelannotator.backend_optimize()
+        self.finished_helpers = True
         # Make sure that the database also sees all finalizers now.
         # It is likely that the finalizers need special support there
         newgcdependencies = self.ll_finalizers_ptrs

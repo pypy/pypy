@@ -62,7 +62,7 @@ class AppTestOVERLOADS:
         assert c.__dispatch__('get_int', 'b_overload*')(b_overload()) == 13
 
         assert c_overload().__dispatch__('get_int', 'a_overload*')(a_overload())  == 42
-#        assert c_overload.__dispatch__('get_int', 'b_overload*')(c, b_overload()) == 13
+        # TODO: #assert c_overload.__dispatch__('get_int', 'b_overload*')(c, b_overload()) == 13
 
         d = d_overload()
         assert d.__dispatch__('get_int', 'a_overload*')(a_overload()) == 42
@@ -105,11 +105,9 @@ class AppTestOVERLOADS:
     def test05_array_overloads(self):
         """Test functions overloaded on different arrays"""
 
-        # TODO: buffer to pointer interface
-        return
-
         import cppyy
         c_overload = cppyy.gbl.c_overload
+        d_overload = cppyy.gbl.d_overload
 
         from array import array
 
@@ -127,8 +125,8 @@ class AppTestOVERLOADS:
         import cppyy
         more_overloads = cppyy.gbl.more_overloads
 
-#        assert more_overloads().call(1)   == "int"
-#        assert more_overloads().call(1.)  == "double"
+        assert more_overloads().call(1)   == "int"
+        assert more_overloads().call(1.)  == "double"
         assert more_overloads().call1(1)  == "int"
         assert more_overloads().call1(1.) == "double"
 
@@ -143,4 +141,4 @@ class AppTestOVERLOADS:
 
         for l in ['f', 'd', 'i', 'h', 'l']:
             a = array.array(l, numbers)
-            assert(round(cmean(len(a), a) - mean, 8), 0)
+            assert round(cmean(len(a), a) - mean, 8) == 0

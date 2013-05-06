@@ -2,94 +2,128 @@
 cppyy: C++ bindings for PyPy
 ============================
 
-The cppyy module provides C++ bindings for PyPy by using the reflection
-information extracted from C++ header files by means of the
-`Reflex package`_.
-For this to work, you have to both install Reflex and build PyPy from source,
-as the cppyy module is not enabled by default.
-Note that the development version of cppyy lives in the reflex-support
-branch.
-As indicated by this being a branch, support for Reflex is still
-experimental.
-However, it is functional enough to put it in the hands of those who want
-to give it a try.
-In the medium term, cppyy will move away from Reflex and instead use
-`cling`_ as its backend, which is based on `llvm`_.
-Although that will change the logistics on the generation of reflection
-information, it will not change the python-side interface.
+The cppyy module creates, at run-time, Python-side classes and functions for
+C++, by querying a C++ reflection system.
+The default system used is `Reflex`_, which extracts the needed information
+from C++ header files.
+Another current backend is based on `CINT`_, and yet another, more important
+one for the medium- to long-term will be based on `cling`_.
+The latter sits on top of `llvm`_'s `clang`_, and will therefore allow the use
+of C++11.
+The work on the cling backend has so far been done only for CPython, but
+bringing it to PyPy is a lot less work than developing it in the first place.
 
-.. _`Reflex package`: http://root.cern.ch/drupal/content/reflex
+.. _`Reflex`: http://root.cern.ch/drupal/content/reflex
+.. _`CINT`: http://root.cern.ch/drupal/content/cint
 .. _`cling`: http://root.cern.ch/drupal/content/cling
 .. _`llvm`: http://llvm.org/
+.. _`clang`: http://clang.llvm.org/
+
+This document describes the version of cppyy that lives in the main branch of
+PyPy.
+The development of cppyy happens in the "reflex-support" branch.
 
 
 Motivation
 ==========
 
-The cppyy module offers two unique features, which result in great
-performance as well as better functionality and cross-language integration
-than would otherwise be possible.
-First, cppyy is written in RPython and therefore open to optimizations by the
-JIT up until the actual point of call into C++.
-This means that there are no conversions necessary between a garbage collected
-and a reference counted environment, as is needed for the use of existing
-extension modules written or generated for CPython.
-It also means that if variables are already unboxed by the JIT, they can be
-passed through directly to C++.
-Second, Reflex (and cling far more so) adds dynamic features to C++, thus
-greatly reducing impedance mismatches between the two languages.
-In fact, Reflex is dynamic enough that you could write the runtime bindings
+To provide bindings to another language in CPython, you program to a
+generic C-API that exposes many of the interpreter features.
+With PyPy, however, there is no such generic C-API, because several of the
+interpreter features (e.g. the memory model) are pluggable and therefore
+subject to change.
+Furthermore, a generic API does not allow any assumptions about the calls
+into another language, forcing the JIT to behave conservatively around these
+calls and with the objects that cross language boundaries.
+In contrast, cppyy does not expose an API, but expects one to be implemented
+by a backend.
+It makes strong assumptions about the semantics of the API that it uses and
+that in turn allows the JIT to make equally strong assumptions.
+This is possible, because the expected API is only for providing C++ language
+bindings, and does not provide generic programmability.
+
+The cppyy module further offers two features, which result in improved
+performance as well as better functionality and cross-language integration.
+First, cppyy itself is written in RPython and therefore open to optimizations
+by the JIT up until the actual point of call into C++.
+This means for example, that if variables are already unboxed by the JIT, they
+can be passed through directly to C++.
+Second, a backend such as Reflex (and cling far more so) adds dynamic features
+to C++, thus greatly reducing impedance mismatches between the two languages.
+For example, Reflex is dynamic enough to allow writing runtime bindings
 generation in python (as opposed to RPython) and this is used to create very
 natural "pythonizations" of the bound code.
+As another example, cling allows automatic instantiations of templates.
+
+See this description of the `cppyy architecture`_ for further details.
+
+.. _`cppyy architecture`: http://morepypy.blogspot.com/2012/06/architecture-of-cppyy.html
 
 
 Installation
 ============
 
-For now, the easiest way of getting the latest version of Reflex, is by
-installing the ROOT package.
-Besides getting the latest version of Reflex, another advantage is that with
-the full ROOT package, you can also use your Reflex-bound code on `CPython`_.
-`Download`_ a binary or install from `source`_.
-Some Linux and Mac systems may have ROOT provided in the list of scientific
-software of their packager.
-If, however, you prefer a standalone version of Reflex, the best is to get
-this `recent snapshot`_, and install like so::
+There are two ways of using cppyy, and the choice depends on how pypy-c was
+built: the backend can be builtin, or dynamically loadable.
+The former has the disadvantage of requiring pypy-c to be linked with external
+C++ libraries (e.g. libReflex.so), but has the advantage of being faster in
+some cases.
+That advantage will disappear over time, however, with improvements in the
+JIT.
+Therefore, this document assumes that the dynamically loadable backend is
+chosen (it is, by default).
+See the `backend documentation`_.
 
-    $ tar jxf reflex-2012-05-02.tar.bz2
-    $ cd reflex-2012-05-02
-    $ build/autogen
+.. _`backend documentation`: cppyy_backend.html
+
+A standalone version of Reflex that also provides the dynamically loadable
+backend is available for `download`_.
+That version, as well as any other distribution of Reflex (e.g. the one that
+comes with `ROOT`_, which may be part of your Linux distribution as part of
+the selection of scientific software) will also work for a build with the
+builtin backend.
+
+.. _`download`: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
+.. _`ROOT`: http://root.cern.ch/
+
+Besides Reflex, you probably need a version of `gccxml`_ installed, which is
+most easily provided by the packager of your system.
+If you read up on gccxml, you will probably notice that it is no longer being
+developed and hence will not provide C++11 support.
+That's why the medium term plan is to move to cling.
+Note that gccxml is only needed to generate reflection libraries.
+It is not needed to use them.
+
+.. _`gccxml`: http://www.gccxml.org
+
+To install the standalone version of Reflex, after download::
+
+    $ tar jxf reflex-2013-04-23.tar.bz2
+    $ cd reflex-2013-04-23
+    $ ./build/autogen
     $ ./configure <usual set of options such as --prefix>
     $ make && make install
 
-Also, make sure you have a version of `gccxml`_ installed, which is most
-easily provided by the packager of your system.
-If you read up on gccxml, you'll probably notice that it is no longer being
-developed and hence will not provide C++11 support.
-That's why the medium term plan is to move to `cling`_.
+The usual rules apply: <prefix>/bin needs to be added to the ``PATH`` and
+<prefix>/lib to the ``LD_LIBRARY_PATH`` environment variable.
+For convenience, this document will assume that there is a ``REFLEXHOME``
+variable that points to <prefix>.
+If you downloaded or built the whole of ROOT, ``REFLEXHOME`` should be equal
+to ``ROOTSYS``.
 
-.. _`Download`: http://root.cern.ch/drupal/content/downloading-root
-.. _`source`: http://root.cern.ch/drupal/content/installing-root-source
-.. _`recent snapshot`: http://cern.ch/wlav/reflex-2012-05-02.tar.bz2
-.. _`gccxml`: http://www.gccxml.org
+The following is optional, and is only to show how pypy-c can be build
+`from source`_, for example to get at the main development branch of cppyy.
+The `backend documentation`_ has more details on the backend-specific
+prerequisites.
 
-Next, get the `PyPy sources`_, optionally select the reflex-support branch,
-and build it.
-For the build to succeed, the ``$ROOTSYS`` environment variable must point to
-the location of your ROOT (or standalone Reflex) installation, or the
-``root-config`` utility must be accessible through ``PATH`` (e.g. by adding
-``$ROOTSYS/bin`` to ``PATH``).
-In case of the former, include files are expected under ``$ROOTSYS/include``
-and libraries under ``$ROOTSYS/lib``.
 Then run the translation to build ``pypy-c``::
 
     $ hg clone https://bitbucket.org/pypy/pypy
     $ cd pypy
     $ hg up reflex-support         # optional
-    $ cd pypy/goal
     
     # This example shows python, but using pypy-c is faster and uses less memory
-    $ python ../../rpython/bin/rpython.py -O jit --gcrootfinder=shadowstack targetpypystandalone.py --withmod-cppyy
+    $ python rpython/translator/goal/translate.py --opt=jit pypy/goal/targetpypystandalone --withmod-cppyy
 
 This will build a ``pypy-c`` that includes the cppyy module, and through that,
 Reflex support.
@@ -98,12 +132,12 @@ you can use that for the translation rather than ``python``.
 If not, you may want `to obtain a binary distribution`_ to speed up the
 translation step.
 
-.. _`PyPy sources`: https://bitbucket.org/pypy/pypy/overview
+.. _`from source`: https://bitbucket.org/pypy/pypy/overview
 .. _`to obtain a binary distribution`: http://doc.pypy.org/en/latest/getting-started.html#download-a-pre-built-pypy
 
 
-Basic example
-=============
+Basic bindings example
+======================
 
 Now test with a trivial example whether all packages are properly installed
 and functional.
@@ -127,7 +161,7 @@ Then, generate the bindings using ``genreflex`` (part of ROOT), and compile the
 code::
 
     $ genreflex MyClass.h
-    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyClass_rflx.cpp -o libMyClassDict.so -L$ROOTSYS/lib -lReflex
+    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyClass_rflx.cpp -o libMyClassDict.so -L$REFLEXHOME/lib -lReflex
 
 Now you're ready to use the bindings.
 Since the bindings are designed to look pythonistic, it should be
@@ -176,7 +210,7 @@ library.
 For example::
 
     $ genreflex MyClass.h --rootmap=libMyClassDict.rootmap --rootmap-lib=libMyClassDict.so
-    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyClass_rflx.cpp -o libMyClassDict.so -L$ROOTSYS/lib -lReflex
+    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyClass_rflx.cpp -o libMyClassDict.so -L$REFLEXHOME/lib -lReflex
 
 where the first option (``--rootmap``) specifies the output file name, and the
 second option (``--rootmap-lib``) the name of the reflection library where
@@ -277,7 +311,7 @@ For our purposes, the following rather straightforward selection will do
 Now the reflection info can be generated and compiled::
 
     $ genreflex MyAdvanced.h --selection=MyAdvanced.xml
-    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyAdvanced_rflx.cpp -o libAdvExDict.so -L$ROOTSYS/lib -lReflex
+    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyAdvanced_rflx.cpp -o libAdvExDict.so -L$REFLEXHOME/lib -lReflex
 
 and subsequently be used from PyPy::
 
@@ -336,7 +370,7 @@ For the C++ side of the examples, refer to this `example code`_, which was
 bound using::
 
     $ genreflex example.h --deep --rootmap=libexampleDict.rootmap --rootmap-lib=libexampleDict.so
-    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include example_rflx.cpp -o libexampleDict.so -L$ROOTSYS/lib -lReflex
+    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include example_rflx.cpp -o libexampleDict.so -L$REFLEXHOME/lib -lReflex
 
 .. _`example code`: cppyy_example.html
 
@@ -595,6 +629,16 @@ bound using::
   All template classes must already exist in the loaded reflection info, they
   do not work (yet) with the class loader.
 
+  For compatibility with other bindings generators, use of square brackets
+  instead of parenthesis to instantiate templates is supported as well.
+
+* **templated functions**: Automatically participate in overloading and are
+  used in the same way as other global functions.
+
+* **templated methods**: For now, require an explicit selection of the
+  template parameters.
+  This will be changed to allow them to participate in overloads as expected.
+
 * **typedefs**: Are simple python references to the actual classes to which
   they refer.
 
@@ -692,7 +736,7 @@ well as the global overloads for comparisons for the iterators::
 Run the normal ``genreflex`` and compilation steps::
 
     $ genreflex MyTemplate.h --selection=MyTemplate.xml
-    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyTemplate_rflx.cpp -o libTemplateDict.so -L$ROOTSYS/lib -lReflex
+    $ g++ -fPIC -rdynamic -O2 -shared -I$REFLEXHOME/include MyTemplate_rflx.cpp -o libTemplateDict.so -L$REFLEXHOME/lib -lReflex
 
 Note: this is a dirty corner that clearly could do with some automation,
 even if the macro already helps.
@@ -727,18 +771,18 @@ instantiation are themselves templates.
 The fast lane
 =============
 
-The following is an experimental feature of cppyy, and that makes it doubly
-experimental, so caveat emptor.
+The following is an experimental feature of cppyy.
+It mostly works, but there are some known issues (e.g. with return-by-value).
+Soon it should be the default mode, however.
+
 With a slight modification of Reflex, it can provide function pointers for
 C++ methods, and hence allow PyPy to call those pointers directly, rather than
 calling C++ through a Reflex stub.
-This results in a rather significant speed-up.
-Mind you, the normal stub path is not exactly slow, so for now only use this
-out of curiosity or if you really need it.
 
-To install this patch of Reflex, locate the file genreflex-methptrgetter.patch
-in pypy/module/cppyy and apply it to the genreflex python scripts found in
-``$ROOTSYS/lib``::
+The standalone version of Reflex `provided`_ has been patched, but if you get
+Reflex from another source (most likely with a ROOT distribution), locate the
+file `genreflex-methptrgetter.patch`_ in pypy/module/cppyy and apply it to
+the genreflex python scripts found in ``$ROOTSYS/lib``::
 
     $ cd $ROOTSYS/lib
     $ patch -p2 < genreflex-methptrgetter.patch
@@ -749,8 +793,10 @@ Use this option when running ``genreflex``, and add the
 ``-Wno-pmf-conversions`` option to ``g++`` when compiling.
 The rest works the same way: the fast path will be used transparently (which
 also means that you can't actually find out whether it is in use, other than
-by running a micro-benchmark).
+by running a micro-benchmark or a JIT test).
 
+.. _`provided`: http://cern.ch/wlav/reflex-2013-04-23.tar.bz2
+.. _`genreflex-methptrgetter.patch`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/cppyy/genreflex-methptrgetter.patch
 
 CPython
 =======

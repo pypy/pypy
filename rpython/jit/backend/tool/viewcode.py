@@ -53,8 +53,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'x86_32': 'i386',
         'x86_64': 'x86-64',
         'i386': 'i386',
-        'armv6_32': 'arm',
-        'armv7_32': 'arm',
+        'arm_32': 'arm',
     }
     cmd = find_objdump()
     objdump = ('%(command)s -M %(backend)s -b binary -m %(machine)s '

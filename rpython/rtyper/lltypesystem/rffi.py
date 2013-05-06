@@ -934,8 +934,8 @@ def sizeof(tp):
     if tp is lltype.SingleFloat:
         return 4
     if tp is lltype.LongFloat:
-        import ctypes    # :-/
-        return ctypes.sizeof(ctypes.c_longdouble)
+        # :-/
+        return sizeof_c_type("long double")
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8
@@ -1059,6 +1059,7 @@ class scoped_str2charp:
             self.buf = str2charp(value)
         else:
             self.buf = lltype.nullptr(CCHARP.TO)
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1072,6 +1073,8 @@ class scoped_unicode2wcharp:
             self.buf = unicode2wcharp(value)
         else:
             self.buf = lltype.nullptr(CWCHARP.TO)
+    __init__._annenforceargs_ = [None,
+                                 annmodel.SomeUnicodeString(can_be_None=True)]
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):

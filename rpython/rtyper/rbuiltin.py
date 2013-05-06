@@ -261,6 +261,12 @@ def rtype_builtin_max(hop):
     hop.exception_cannot_occur()
     return hop.gendirectcall(ll_max, v1, v2)
 
+
+def rtype_builtin_reversed(hop):
+    hop.exception_cannot_occur()
+    return hop.r_result.newiter(hop)
+
+
 def ll_max(i1, i2):
     if i1 > i2:
         return i1
