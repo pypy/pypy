@@ -84,6 +84,7 @@ module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.rctime', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
+    'cppyy': [('objspace.usemodules.cpyext', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
