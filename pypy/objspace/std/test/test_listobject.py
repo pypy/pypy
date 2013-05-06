@@ -948,6 +948,9 @@ class AppTestW_ListObject(object):
     def test_setitem_slice_performance(self):
         # because of a complexity bug, this used to take forever on a
         # translated pypy.  On CPython2.6 -A, it takes around 5 seconds.
+        import platform
+        if platform.machine().startswith('arm'):
+            skip("consumes too much memory for most ARM machines")
         if self.runappdirect:
             count = 16*1024*1024
         else:
