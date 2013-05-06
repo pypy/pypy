@@ -114,7 +114,7 @@ Translation
 -----------
 
 Having performed all the preliminary steps we should now be able to cross
-translate a program for ARM.  You can use this_ minimal
+translate a program for ARM.  You can use this minimal
 target to test your setup before applying it to a larger project.
 
 Before starting the translator we need to set two environment variables, so the
