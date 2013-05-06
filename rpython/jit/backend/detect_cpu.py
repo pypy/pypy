@@ -120,7 +120,8 @@ def getcpufeatures(backend_name="auto"):
     """NOT_RPYTHON"""
     cpucls = getcpuclass(backend_name)
     return [attr[len('supports_'):] for attr in dir(cpucls)
-                                if attr.startswith('supports_')]
+                            if attr.startswith('supports_')
+                                and getattr(cpucls, attr)]
 
 if __name__ == '__main__':
     print autodetect()
