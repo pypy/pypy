@@ -1,15 +1,15 @@
-==================================================
-Goals and Architecture Overview 
-==================================================
+===============================
+Goals and Architecture Overview
+===============================
 
 .. contents::
 
 
 This document gives an overview of the goals and architecture of PyPy.
-See `getting started`_ for a practical introduction and starting points. 
+See `getting started`_ for a practical introduction and starting points.
 
-Mission statement 
-====================
+Mission statement
+=================
 
 We aim to provide:
 
@@ -18,8 +18,8 @@ We aim to provide:
    separation between language specification and implementation
    aspects.  We call this the `RPython toolchain`_.
 
- * a compliant, flexible and fast implementation of the Python_ Language 
-   which uses the above toolchain to enable new advanced high-level features 
+ * a compliant, flexible and fast implementation of the Python_ Language
+   which uses the above toolchain to enable new advanced high-level features
    without having to encode the low-level details.  We call this PyPy.
 
 By separating concerns in this way, our implementation
@@ -27,24 +27,24 @@ of Python - and other dynamic languages - is able to automatically
 generate a Just-in-Time compiler for any dynamic language.  It also
 allows a mix-and-match approach to implementation decisions, including
 many that have historically been outside of a user's control, such as
-target platform, memory and 
-threading models, garbage collection strategies, and optimizations applied, 
+target platform, memory and
+threading models, garbage collection strategies, and optimizations applied,
 including whether or not to have a JIT in the first place.
 
 High Level Goals
-=============================
+================
 
 RPython - the Translation Toolchain
------------------------------------------------
+-----------------------------------
 
 Traditionally, language interpreters are written in a target platform language
-such as C/Posix, Java or C#.  Each implementation provides 
-a fundamental mapping between application source code and the target 
-environment.  One of 
+such as C/Posix, Java or C#.  Each implementation provides
+a fundamental mapping between application source code and the target
+environment.  One of
 the goals of the "all-encompassing" environments, such as the .NET framework
 and to some extent the Java virtual machine, is to provide standardized
 and higher level functionalities in order to support language implementers
-for writing language implementations. 
+for writing language implementations.
 
 PyPy is experimenting with a more ambitious approach.  We are using a
 subset of the high-level language Python, called RPython_, in which we
@@ -62,7 +62,7 @@ variables independently such that:
 
 * ``l``: the language that we analyze can be evolved or entirely replaced;
 
-* ``o``: we can tweak and optimize the translation process to produce 
+* ``o``: we can tweak and optimize the translation process to produce
   platform specific code based on different models and trade-offs;
 
 * ``p``: we can write new translator back-ends to target different
@@ -71,8 +71,8 @@ variables independently such that:
 By contrast, a standardized target environment - say .NET -
 enforces ``p=1`` as far as it's concerned.  This helps making ``o`` a
 bit smaller by providing a higher-level base to build upon.  Still,
-we believe that enforcing the use of one common environment 
-is not necessary.  PyPy's goal is to give weight to this claim - at least 
+we believe that enforcing the use of one common environment
+is not necessary.  PyPy's goal is to give weight to this claim - at least
 as far as language implementation is concerned - showing an approach
 to the ``l * o * p`` problem that does not rely on standardization.
 
@@ -84,7 +84,7 @@ very challenging because of the involved complexity.
 
 
 PyPy - the Python Interpreter
---------------------------------------------
+-----------------------------
 
 Our main motivation for developing the translation framework is to
 provide a full featured, customizable, fast_ and `very compliant`_ Python
@@ -106,19 +106,19 @@ whereas in PyPy it is an issue localized in the translation framework,
 and fully orthogonal to the interpreter source code.
 
 
-PyPy Architecture 
-===========================
+PyPy Architecture
+=================
 
 As you would expect from a project implemented using ideas from the world
 of `Extreme Programming`_, the architecture of PyPy has evolved over time
-and continues to evolve.  Nevertheless, the high level architecture is 
+and continues to evolve.  Nevertheless, the high level architecture is
 stable. As described above, there are two rather independent basic
 subsystems: the `PyPy Python Interpreter`_ and the `RPython Translation Toolchain`_.
 
 .. _`translation framework`:
 
 RPython Translation Toolchain
--------------------------
+-----------------------------
 
 The job of the RPython toolchain is to translate RPython_ programs
 into an efficient version of that program for one of the various target
@@ -171,20 +171,20 @@ implementations`_.
 .. _`document about the RPython toolchain`: translation.html
 .. _`garbage collector`: garbage_collection.html
 .. _`RPython toolchain`: translation.html
-.. _`standard interpreter`: 
-.. _`python interpreter`: 
+.. _`standard interpreter`:
+.. _`python interpreter`:
 
 PyPy Python Interpreter
--------------------------------------
+-----------------------
 
 PyPy's *Python Interpreter* is written in RPython and implements the
 full Python language.  This interpreter very closely emulates the
 behavior of CPython.  It contains the following key components:
 
-- a bytecode compiler responsible for producing Python code objects 
+- a bytecode compiler responsible for producing Python code objects
   from the source code of a user application;
 
-- a `bytecode evaluator`_ responsible for interpreting 
+- a `bytecode evaluator`_ responsible for interpreting
   Python code objects;
 
 - a `standard object space`_, responsible for creating and manipulating
@@ -201,8 +201,8 @@ lists, as well as the operations between them, like addition or
 truth-value-testing.
 
 This division between bytecode evaluator and object space is very
-important, as it gives a lot of flexibility.  One can plug in 
-different `object spaces`_ to get different or enriched behaviours 
+important, as it gives a lot of flexibility.  One can plug in
+different `object spaces`_ to get different or enriched behaviours
 of the Python objects.  Additionally, a special more abstract object
 space, the `flow object space`_, allows us to reuse the bytecode
 evaluator for our translation framework.
