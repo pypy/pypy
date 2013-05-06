@@ -3,6 +3,8 @@ Release Announcements
 
 .. toctree::
 
+   2.0.0
+   2.0.0-beta2
    2.0.0-beta1
    1.9.0
    1.8.0
