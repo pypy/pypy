@@ -16,7 +16,7 @@ Extension modules
 
 List of extension modules that we support:
 
-* Supported as built-in modules (in `pypy/module/`_):
+* Supported as built-in modules (in :source:`pypy/module/`):
 
     __builtin__
     `__pypy__`_
@@ -77,7 +77,7 @@ List of extension modules that we support:
     zlib
 
   When translated to Java or .NET, the list is smaller; see
-  `pypy/config/pypyoption.py`_ for details.
+  :source:`pypy/config/pypyoption.py` for details.
 
   When translated on Windows, a few Unix-only modules are skipped,
   and the following module is built instead:
@@ -85,14 +85,14 @@ List of extension modules that we support:
     _winreg
 
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
-  see the `lib_pypy/`_ directory.  Examples of modules that we
+  see the :source:`lib_pypy/` directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
   Note that some modules are both in there and in the list above;
   by default, the built-in module is used (but can be disabled
   at translation time).
 
 The extension modules (i.e. modules written in C, in the standard CPython)
-that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
+that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
 (You may have a chance to use them anyway with `cpyext`_.)
 
 .. the nonstandard modules are listed below...
@@ -316,6 +316,3 @@ Miscellaneous
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
-
-
-.. include:: _ref.txt

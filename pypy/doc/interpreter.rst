@@ -14,7 +14,7 @@ Bytecode Interpreter and related Virtual Machine functionalities.
 
 PyPy's bytecode interpreter has a structure reminiscent of CPython's
 Virtual Machine: It processes code objects parsed and compiled from
-Python source code.  It is implemented in the `pypy/interpreter/`_ directory.
+Python source code.  It is implemented in the :source:`pypy/interpreter/` directory.
 People familiar with the CPython implementation will easily recognize
 similar concepts there.  The major differences are the overall usage of
 the `object space`_ indirection to perform operations on objects, and
@@ -28,7 +28,7 @@ implemented as a chain of flexible passes (tokenizer, lexer, parser,
 abstract syntax tree builder and bytecode generator).  The latter passes
 are based on the ``compiler`` package from the standard library of
 CPython, with various improvements and bug fixes. The bytecode compiler
-(living under `pypy/interpreter/astcompiler/`_) is now integrated and is
+(living under :source:`pypy/interpreter/astcompiler/`) is now integrated and is
 translated with the rest of PyPy.
 
 Code objects contain
@@ -38,7 +38,7 @@ instantiating and initializing a `Frame class`_ and then
 calling its ``frame.eval()`` method.  This main entry point
 initialize appropriate namespaces and then interprets each
 bytecode instruction.  Python's standard library contains
-the `lib-python/2.7/dis.py`_ module which allows to inspection
+the :source:`lib-python/2.7/dis.py` module which allows to inspection
 of the virtual machine's bytecode instructions::
 
     >>> import dis
@@ -149,12 +149,12 @@ Moreover the Frame class itself has a number of methods which implement
 the actual bytecodes found in a code object.  The methods of the ``PyFrame``
 class are added in various files:
 
-- the class ``PyFrame`` is defined in `pypy/interpreter/pyframe.py`_.
+- the class ``PyFrame`` is defined in :source:`pypy/interpreter/pyframe.py`.
 
-- the file `pypy/interpreter/pyopcode.py`_ add support for all Python opcode.
+- the file :source:`pypy/interpreter/pyopcode.py` add support for all Python opcode.
 
 - nested scope support is added to the ``PyFrame`` class in
-  `pypy/interpreter/nestedscope.py`_.
+  :source:`pypy/interpreter/nestedscope.py`.
 
 .. _Code:
 
@@ -195,7 +195,7 @@ in order to implement Generators and Nested Scopes.
 Function and Method classes
 ----------------------------
 
-The PyPy ``Function`` class (in `pypy/interpreter/function.py`_)
+The PyPy ``Function`` class (in :source:`pypy/interpreter/function.py`)
 represents a Python function.  A ``Function`` carries the following
 main attributes:
 
@@ -218,7 +218,7 @@ the function given an `Arguments`_ class instance.
 Arguments Class
 --------------------
 
-The Argument class (in `pypy/interpreter/argument.py`_) is
+The Argument class (in :source:`pypy/interpreter/argument.py`) is
 responsible for parsing arguments passed to functions.
 Python has rather complex argument-passing concepts:
 
@@ -257,10 +257,10 @@ attributes:
 
 Apart from the basic Module used for importing
 application-level files there is a more refined
-``MixedModule`` class (see `pypy/interpreter/mixedmodule.py`_)
+``MixedModule`` class (see :source:`pypy/interpreter/mixedmodule.py`)
 which allows to define name-value bindings both at application
 level and at interpreter level.  See the ``__builtin__``
-module's `pypy/module/__builtin__/__init__.py`_ file for an
+module's :source:`pypy/module/__builtin__/__init__.py` file for an
 example and the higher level `chapter on Modules in the coding
 guide`_.
 
@@ -275,7 +275,7 @@ Gateway classes
 A unique PyPy property is the ability to easily cross the barrier
 between interpreted and machine-level code (often referred to as
 the difference between `interpreter-level and application-level`_).
-Be aware that the according code (in `pypy/interpreter/gateway.py`_)
+Be aware that the according code (in :source:`pypy/interpreter/gateway.py`)
 for crossing the barrier in both directions is somewhat
 involved, mostly due to the fact that the type-inferring
 annotator needs to keep track of the types of objects flowing
@@ -361,7 +361,7 @@ finding algorithm of the Python language in PyPy::
 
 The ``find_metaclass`` interpreter-level hook is invoked
 with five arguments from the ``BUILD_CLASS`` opcode implementation
-in `pypy/interpreter/pyopcode.py`_::
+in :source:`pypy/interpreter/pyopcode.py`::
 
     def BUILD_CLASS(f):
         w_methodsdict = f.valuestack.pop()
@@ -398,8 +398,6 @@ accesses to an interpreter-level object:  an object space asks
 a wrapped object for its type via a ``getclass`` method and then
 calls the type's ``lookup(name)`` function in order to receive a descriptor
 function.  Most of PyPy's internal object descriptors are defined at the
-end of `pypy/interpreter/typedef.py`_.  You can use these definitions
+end of :source:`pypy/interpreter/typedef.py`.  You can use these definitions
 as a reference for the exact attributes of interpreter classes visible
 at application level.
-
-.. include:: _ref.txt

@@ -167,5 +167,3 @@ links to more information.
 .. _Python: http://www.python.org
 .. _`RPython Typer`: rtyper.html
 .. _`subsystem implementing the Python language`: architecture.html#standard-interpreter
-
-.. include:: _ref.txt

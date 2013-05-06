@@ -1,6 +1,6 @@
-=============================
-PyPy's ctypes implementation 
-=============================
+============================
+PyPy's ctypes implementation
+============================
 
 Summary
 ========
@@ -33,12 +33,12 @@ Python based on a lower-level layer extension module ``_rawffi``.
 Low-level part: ``_rawffi``
 ============================
 
-This PyPy extension module (``pypy/module/_rawffi``) exposes a simple interface
+This PyPy extension module (:source:`pypy/module/_rawffi`) exposes a simple interface
 to create C objects (arrays and structures) and calling functions
 in dynamic libraries through libffi. Freeing objects in most cases and making
 sure that objects referring to each other are kept alive is responsibility of the higher levels.
 
-This module uses bindings to libffi which are defined in ``rpython/rlib/libffi.py``.
+This module uses bindings to libffi which are defined in :source:`rpython/rlib/libffi.py`.
 
 We tried to keep this module as small as possible. It is conceivable
 that other implementations (e.g. Jython) could use our ctypes
@@ -101,7 +101,7 @@ pyglet
 We tried pyglet checking it out from its repository at revision 1984.
 
 From pyglet, the following examples are known to work:
-  
+
   - opengl.py
   - multiple_windows.py
   - events.py
@@ -157,7 +157,4 @@ installation
 usage
 -----
 
-`ctypes_configure/doc/sample.py`_ explains in details how to use it.
-
-
-.. include:: _ref.txt
+:source:`ctypes_configure/doc/sample.py` explains in details how to use it.

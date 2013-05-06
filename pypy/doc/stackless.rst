@@ -29,7 +29,7 @@ memory (4KB) per live continulet, and half a megabyte of virtual memory
 on 32-bit or a complete megabyte on 64-bit.  Moreover, the feature is
 only available (so far) on x86 and x86-64 CPUs; for other CPUs you need
 to add a short page of custom assembler to
-`rpython/translator/c/src/stacklet/`_.
+:source:`rpython/translator/c/src/stacklet/`.
 
 
 Theory
@@ -185,7 +185,7 @@ The ``generator`` decorator can also be applied to methods::
 Greenlets
 +++++++++
 
-Greenlets are implemented on top of continulets in `lib_pypy/greenlet.py`_.
+Greenlets are implemented on top of continulets in :source:`lib_pypy/greenlet.py`.
 See the official `documentation of the greenlets`_.
 
 Note that unlike the CPython greenlets, this version does not suffer
@@ -271,7 +271,7 @@ Stacklets
 Continulets are internally implemented using stacklets, which is the
 generic RPython-level building block for "one-shot continuations".  For
 more information about them please see the documentation in the C source
-at `rpython/translator/c/src/stacklet/stacklet.h`_.
+at :source:`rpython/translator/c/src/stacklet/stacklet.h`.
 
 The module ``rpython.rlib.rstacklet`` is a thin wrapper around the above
 functions.  The key point is that new() and switch() always return a
@@ -411,5 +411,3 @@ to be manipulated from outside.
 
 .. _`Stackless Python`: http://www.stackless.com
 .. _`documentation of the greenlets`: http://packages.python.org/greenlet/
-
-.. include:: _ref.txt

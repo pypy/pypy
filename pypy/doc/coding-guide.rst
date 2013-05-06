@@ -159,7 +159,7 @@ An example can be found in the current implementation which is quite
 elegant: For the definition of all the opcodes of the Python
 interpreter, the module ``dis`` is imported and used to initialize our
 bytecode interpreter.  (See ``__initclass__`` in
-`pypy/interpreter/pyopcode.py`_).  This
+:source:`pypy/interpreter/pyopcode.py`).  This
 saves us from adding extra modules to PyPy. The import code is run at
 startup time, and we are allowed to use the CPython builtin import
 function.
@@ -304,11 +304,11 @@ sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 
 If we don't just modify an original CPython module but need to rewrite
-it from scratch we put it into `lib_pypy/`_ as a pure application level
+it from scratch we put it into :source:`lib_pypy/` as a pure application level
 module.
 
 When we need access to interpreter-level objects we put the module into
-`pypy/module`_.  Such modules use a `mixed module mechanism`_
+:source:`pypy/module`.  Such modules use a `mixed module mechanism`_
 which makes it convenient to use both interpreter- and application-level parts
 for the implementation.  Note that there is no extra facility for
 pure-interpreter level modules, you just write a mixed module and leave the
@@ -381,7 +381,7 @@ Implementing a mixed interpreter/application level Module
 If a module needs to access PyPy's interpreter level
 then it is implemented as a mixed module.
 
-Mixed modules are directories in `pypy/module`_ with an  `__init__.py`
+Mixed modules are directories in :source:`pypy/module` with an  `__init__.py`
 file containing specifications where each name in a module comes from.
 Only specified names will be exported to a Mixed Module's applevel
 namespace.
@@ -399,7 +399,7 @@ application level definitions
 
 Application level specifications are found in the `appleveldefs`
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``.
-For example, in `pypy/module/__builtin__/__init__.py`_ you find the following
+For example, in :source:`pypy/module/__builtin__/__init__.py` you find the following
 entry specifying where ``__builtin__.locals`` comes from::
 
      ...
@@ -415,7 +415,7 @@ interpreter level definitions
 
 Interpreter level specifications are found in the ``interpleveldefs``
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``.
-For example, in `pypy/module/__builtin__/__init__.py`_ the following
+For example, in :source:`pypy/module/__builtin__/__init__.py` the following
 entry specifies where ``__builtin__.len`` comes from::
 
      ...
@@ -453,11 +453,11 @@ translate.py.
 Testing modules in ``lib_pypy/``
 --------------------------------
 
-You can go to the `lib_pypy/pypy_test/`_ directory and invoke the testing tool
+You can go to the :source:`lib_pypy/pypy_test/` directory and invoke the testing tool
 ("py.test" or "python ../../pypy/test_all.py") to run tests against the
-lib_pypy hierarchy.  Note, that tests in `lib_pypy/pypy_test/`_ are allowed
+lib_pypy hierarchy.  Note, that tests in :source:`lib_pypy/pypy_test/` are allowed
 and encouraged to let their tests run at interpreter level although
-`lib_pypy/`_ modules eventually live at PyPy's application level.
+:source:`lib_pypy/` modules eventually live at PyPy's application level.
 This allows us to quickly test our python-coded reimplementations
 against CPython.
 
@@ -472,7 +472,7 @@ Testing modules in ``lib-python``
 -----------------------------------
 
 In order to let CPython's regression tests run against PyPy
-you can switch to the `lib-python/`_ directory and run
+you can switch to the :source:`lib-python/` directory and run
 the testing tool in order to start compliance tests.
 (XXX check windows compatibility for producing test reports).
 
@@ -710,6 +710,3 @@ the documentation issue::
     make linkcheck
 
 which will check that remote URLs are reachable.
-
-
-.. include:: _ref.txt

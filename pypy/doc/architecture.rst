@@ -258,6 +258,3 @@ index`_.  Of particular interest after reading this document might be:
 .. _`generate Just-In-Time Compilers`: jit/index.html
 .. _`JIT Generation in PyPy`: jit/index.html
 .. _`implement your own interpreter`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
-
-.. include:: _ref.txt
-

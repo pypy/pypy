@@ -115,5 +115,3 @@ on the `development mailing list`_.
 .. _`RPython toolchain`: translation.html
 .. _`potential project ideas`: project-ideas.html
 .. _`more stuff`: project-documentation.html
-
-.. include:: _ref.txt

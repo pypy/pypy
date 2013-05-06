@@ -161,5 +161,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`search`
 * :ref:`glossary`
-
-.. include:: _ref.txt

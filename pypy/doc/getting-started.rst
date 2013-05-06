@@ -177,6 +177,3 @@ more detailed information on specific features of the tracker.
 
 .. _`Using the development tracker`: coding-guide.html#using-development-tracker
 .. _bug reports: https://bugs.pypy.org/
-
-
-.. include:: _ref.txt

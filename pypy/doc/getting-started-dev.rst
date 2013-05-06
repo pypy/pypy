@@ -14,24 +14,24 @@ You should start looking at the part that attracts you most (all paths are
 relative to the PyPy top level directory).  You may look at our `directory reference`_
 or start off at one of the following points:
 
-*  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
-   in `pypy/interpreter/pyopcode.py`_, frame and code objects in `pypy/interpreter/eval.py`_ and `pypy/interpreter/pyframe.py`_,
-   function objects and argument passing in `pypy/interpreter/function.py`_ and `pypy/interpreter/argument.py`_,
-   the object space interface definition in `pypy/interpreter/baseobjspace.py`_, modules in
-   `pypy/interpreter/module.py`_ and `pypy/interpreter/mixedmodule.py`_.  Core types supporting the bytecode
-   interpreter are defined in `pypy/interpreter/typedef.py`_.
+*  :source:`pypy/interpreter` contains the bytecode interpreter: bytecode dispatcher
+   in :source:`pypy/interpreter/pyopcode.py`, frame and code objects in :source:`pypy/interpreter/eval.py` and :source:`pypy/interpreter/pyframe.py`,
+   function objects and argument passing in :source:`pypy/interpreter/function.py` and :source:`pypy/interpreter/argument.py`,
+   the object space interface definition in :source:`pypy/interpreter/baseobjspace.py`, modules in
+   :source:`pypy/interpreter/module.py` and :source:`pypy/interpreter/mixedmodule.py`.  Core types supporting the bytecode
+   interpreter are defined in :source:`pypy/interpreter/typedef.py`.
 
-*  `pypy/interpreter/pyparser`_ contains a recursive descent parser,
+*  :source:`pypy/interpreter/pyparser` contains a recursive descent parser,
    and grammar files that allow it to parse the syntax of various Python
    versions. Once the grammar has been processed, the parser can be
    translated by the above machinery into efficient code.
 
-*  `pypy/interpreter/astcompiler`_ contains the compiler.  This
+*  :source:`pypy/interpreter/astcompiler` contains the compiler.  This
    contains a modified version of the compiler package from CPython
    that fixes some bugs and is translatable.
 
-*  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
-   is `pypy/objspace/std/objspace.py`_.  For each type, the files ``xxxtype.py`` and
+*  :source:`pypy/objspace/std` contains the `Standard object space`_.  The main file
+   is :source:`pypy/objspace/std/objspace.py`.  For each type, the files ``xxxtype.py`` and
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
@@ -227,5 +227,3 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 .. _unit tests:             coding-guide.html#test-design
 
 .. _`directory reference`: index.html#pypy-directory-reference
-
-.. include:: _ref.txt
