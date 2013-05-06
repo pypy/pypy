@@ -173,6 +173,9 @@ enables the code generator to emit efficient machine level replacements
 for pure integer objects, for instance.
 
 
+.. _`wrapping rules`:
+.. _`wrapped`:
+
 Wrapping rules
 ==============
 
