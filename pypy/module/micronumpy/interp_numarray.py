@@ -778,8 +778,13 @@ class __extend__(W_NDimArray):
     def descr_reduce(self, space):
         from rpython.rtyper.lltypesystem import rffi
         from rpython.rlib.rstring import StringBuilder
+        from pypy.interpreter.mixedmodule import MixedModule
 
-        reconstruct = space.getbuiltinmodule("_numpypy").get("multiarray").get("_reconstruct")
+        numpypy = space.getbuiltinmodule("_numpypy")
+        assert isinstance(numpypy, MixedModule)
+        multiarray = numpypy.get("multiarray")
+        assert isinstance(multiarray, MixedModule)
+        reconstruct = multiarray.get("_reconstruct")
 
         parameters = space.newtuple([space.gettypefor(W_NDimArray), space.newtuple([space.wrap(0)]), space.wrap("b")])
 
@@ -801,6 +806,7 @@ class __extend__(W_NDimArray):
 
         shape = space.getitem(w_state, space.wrap(1))
         dtype = space.getitem(w_state, space.wrap(2))
+        assert isinstance(dtype, interp_dtype.W_Dtype)
         isfortran = space.getitem(w_state, space.wrap(3))
         storage = space.getitem(w_state, space.wrap(4))
 
@@ -1035,6 +1041,7 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     return space.wrap(arr)
 
 def _reconstruct(space, w_subtype, w_shape, w_dtype):
+    assert isinstance(w_dtype, interp_dtype.W_Dtype)
     return descr_new_array(space, w_subtype, w_shape, w_dtype)
 
 W_FlatIterator.typedef = TypeDef(

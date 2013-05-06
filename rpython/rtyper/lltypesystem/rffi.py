@@ -696,7 +696,10 @@ def make_string_mappings(strtype):
     def str2charp(s, track_allocation=True):
         """ str -> char*
         """
-        array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=track_allocation)
+        if track_allocation:
+            array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=True)
+        else:
+            array = lltype.malloc(TYPEP.TO, len(s) + 1, flavor='raw', track_allocation=False)
         i = len(s)
         array[i] = lastchar
         i -= 1
@@ -704,10 +707,13 @@ def make_string_mappings(strtype):
             array[i] = s[i]
             i -= 1
         return array
-    str2charp._annenforceargs_ = [strtype]
+    str2charp._annenforceargs_ = [strtype, bool]
 
     def free_charp(cp, track_allocation=True):
-        lltype.free(cp, flavor='raw', track_allocation=track_allocation)
+        if track_allocation:
+            lltype.free(cp, flavor='raw', track_allocation=True)
+        else:
+            lltype.free(cp, flavor='raw', track_allocation=False)
 
     # char* -> str
     # doesn't free char*

@@ -132,14 +132,16 @@ class W_Dtype(Wrappable):
 
     def set_fields(self, space, w_fields):
         if w_fields == space.w_None:
-            self.fields = {}
+            self.fields = None
         else:
             iter = space.iter(w_fields)
             while True:
                 try:
                     key = space.next(iter)
                     value = space.getitem(w_fields, key)
-                    self.fields[space.str_w(space.next(iter))] = space.int_w(space.getitem(value, 1)), space.getitem(value, 0)
+                    dtype = space.getitem(value, space.wrap(0))
+                    assert isinstance(dtype, W_Dtype)
+                    self.fields[space.str_w(space.next(iter))] = space.int_w(space.getitem(value, space.wrap(1))), dtype
                 except OperationError, e:
                     if not e.match(space, space.w_StopIteration):
                         raise
@@ -223,7 +225,9 @@ class W_Dtype(Wrappable):
             #TODO: Change this when alignment is implemented :
             size = 0
             for key in self.fields:
-                size += self.fields[key].get_size()
+                dtype = self.fields[key][1]
+                assert isinstance(dtype, W_Dtype)
+                size += dtype.get_size()
             w_size = space.wrap(size)
             alignment = space.wrap(1)
         else:
@@ -240,14 +244,13 @@ class W_Dtype(Wrappable):
         if space.int_w(space.getitem(w_data, space.wrap(0))) != 3:
             raise OperationError(space.w_NotImplementedError, space.wrap("Pickling protocol version not supported"))
 
-        self.native = space.getitem(w_data, space.wrap(1)) == byteorder_prefix
+        self.native = space.str_w(space.getitem(w_data, space.wrap(1))) == byteorder_prefix
 
         fieldnames = space.getitem(w_data, space.wrap(2))
         self.set_names(space, fieldnames)
 
         fields = space.getitem(w_data, space.wrap(3))
-        if fields != space.w_None:
-            self.set_fields(space, fields)
+        self.set_fields(space, fields)
 
 class W_ComplexDtype(W_Dtype):
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
