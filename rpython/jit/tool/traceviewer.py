@@ -56,6 +56,18 @@ class Page(GraphPage):
 
 BOX_COLOR = (128, 0, 96)
 
+GUARDNO_RE = "((0x)?[\da-f]+)"
+def guard_number(guardno_match):
+    if (len(guardno_match) == 1 # ("12354",)
+        or guardno_match[1] != "0x" # ("12345", None)
+    ):
+        return int(guardno_match[0])
+    else: # ("0x12ef", "0x")
+        return int(guardno_match[0], 16)
+
+def guard_number_string(guardno_match):
+    return guardno_match[0] # its always the first group
+
 class BasicBlock(object):
     counter = 0
     startlineno = 0
@@ -85,13 +97,15 @@ class BasicBlock(object):
 
     def set_content(self, content):
         self._content = content
-        groups = re.findall('Guard(\d+)', content)
+        groups = re.findall('Guard' + GUARDNO_RE, content)
         if not groups:
             self.first_guard = -1
             self.last_guard = -1
         else:
-            self.first_guard = int(groups[0])
-            self.last_guard = int(groups[-1])
+            # guards can be out of order nowadays
+            groups = sorted(groups)
+            self.first_guard = guard_number(groups[0])
+            self.last_guard = guard_number(groups[-1])
 
     content = property(get_content, set_content)
 
@@ -197,11 +211,11 @@ def splitloops(loops):
             _loop.loop_no = no
             allloops.append(_loop)
         else:
-            m = re.search("bridge out of Guard (\d+)", firstline)
+            m = re.search("bridge out of Guard " + GUARDNO_RE, firstline)
             assert m
-            guard_s = 'Guard' + m.group(1)
+            guard_s = 'Guard' + guard_number_string(m.groups())
             split_one_loop(real_loops, guard_s, loop, counter,
-                           int(m.group(1)), allloops)
+                           guard_number(m.groups()), allloops)
         counter += loop.count("\n") + 2
     return real_loops, allloops
 
@@ -211,7 +225,7 @@ def postprocess_loop(loop, loops, memo, counts):
     memo.add(loop)
     if loop is None:
         return
-    m = re.search("debug_merge_point\('(<code object (.*?)> (.*?))'", loop.content)
+    m = re.search("debug_merge_point\((?:\d+,\ )*'(<code object (.*?)> (.*?))'", loop.content)
     if m is None:
         name = '?'
         loop.key = '?'
@@ -236,7 +250,7 @@ def postprocess_loop(loop, loops, memo, counts):
     content = loop.content
     loop.content = "Logfile at %d\n" % loop.startlineno + content
     loop.postprocess(loops, memo, counts)
-    
+
 def postprocess(loops, allloops, counts):
     for loop in allloops:
         if isinstance(loop, Block):
